@@ -28,8 +28,8 @@ import (
 	"testing"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/gogo/protobuf/types"
 	openshiftv1 "github.com/openshift/api/apps/v1"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	sutil "istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -61,7 +62,7 @@ const yamlSeparator = "\n---"
 var minimalSidecarTemplate = &Config{
 	Policy:           InjectionPolicyEnabled,
 	DefaultTemplates: []string{SidecarTemplateName},
-	Templates: map[string]string{SidecarTemplateName: `
+	RawTemplates: map[string]string{SidecarTemplateName: `
 spec:
   initContainers:
   - name: istio-init
@@ -583,10 +584,31 @@ func objectToPod(t testing.TB, obj runtime.Object) *corev1.Pod {
 	return nil
 }
 
+func readInjectionSettings(t testing.TB, fname string) (*Config, ValuesConfig, *meshconfig.MeshConfig) {
+	values := file.AsStringOrFail(t, filepath.Join("testdata", "inputs", fname+".values.gen.yaml"))
+	template := file.AsBytesOrFail(t, filepath.Join("testdata", "inputs", fname+".template.gen.yaml"))
+	meshc := file.AsStringOrFail(t, filepath.Join("testdata", "inputs", fname+".mesh.gen.yaml"))
+
+	vc, err := NewValuesConfig(values)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := UnmarshalConfig(template)
+	if err != nil {
+		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
+	}
+	meshConfig, err := mesh.ApplyMeshConfig(meshc, mesh.DefaultMeshConfig())
+	if err != nil {
+		t.Fatalf("failed to unmarshal meshconfig: %v", err)
+	}
+
+	return &cfg, vc, meshConfig
+}
+
 // loadInjectionSettings will render the charts using the operator, with given yaml overrides.
 // This allows us to fully simulate what will actually happen at run time.
-func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (template *Config, values string, meshConfig *meshconfig.MeshConfig) {
-	t.Helper()
+func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFilePath string) {
 	// add --set installPackagePath=<path to charts snapshot>
 	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir(), "profile=empty", "components.pilot.enabled=true")
 	var inFilenames []string
@@ -595,20 +617,22 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 	}
 
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
-	manifests, _, err := manifest.GenManifests(inFilenames, setFlags, false, nil, l)
+	manifests, _, err := manifest.GenManifests(inFilenames, setFlags, false, nil, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
 	for _, mlist := range manifests[name.PilotComponentName] {
 		for _, object := range strings.Split(mlist, yamlSeparator) {
-
+			if len(object) == 0 {
+				continue
+			}
 			r := bytes.NewReader([]byte(object))
 			decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
 
 			out := &unstructured.Unstructured{}
 			err := decoder.Decode(out)
 			if err != nil {
-				t.Fatalf("error decoding object: %v", err)
+				t.Fatalf("error decoding object %q: %v", object, err)
 			}
 			if out.GetName() == "istio-sidecar-injector" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
 				data, ok := out.Object["data"].(map[string]interface{})
@@ -619,16 +643,15 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				values, ok = data["values"].(string)
+				vs, ok := data["values"].(string)
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				template, err := UnmarshalConfig([]byte(config))
-				if err != nil {
-					t.Fatalf("failed to unmarshal injectionConfig: %v", err)
+				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".values.gen.yaml"), []byte(vs), 0o644); err != nil {
+					t.Fatal(err)
 				}
-				if meshConfig != nil {
-					return &template, values, meshConfig
+				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".template.gen.yaml"), []byte(config), 0o644); err != nil {
+					t.Fatal(err)
 				}
 			} else if out.GetName() == "istio" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
 				data, ok := out.Object["data"].(map[string]interface{})
@@ -639,18 +662,12 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 				if !ok {
 					t.Fatalf("failed to get meshconfig %v", data)
 				}
-				meshConfig, err = mesh.ApplyMeshConfig(meshdata, mesh.DefaultMeshConfig())
-				if err != nil {
-					t.Fatalf("failed to unmarshal meshconfig: %v", err)
-				}
-				if template != nil {
-					return template, values, meshConfig
+				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".mesh.gen.yaml"), []byte(meshdata), 0o644); err != nil {
+					t.Fatal(err)
 				}
 			}
 		}
 	}
-	t.Fatal("could not find injection template")
-	return nil, "", nil
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
@@ -775,11 +792,11 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, ignoreIstioMetaJSONAn
 		removeContainerEnvEntry(want, "ISTIO_METAJSON_ANNOTATIONS")
 	}
 
-	gotString, err := yaml.Marshal(got)
+	gotString, err := json.Marshal(got)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantString, err := yaml.Marshal(want)
+	wantString, err := json.Marshal(want)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -855,7 +872,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	if err != nil {
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
-	_, values, _ := loadInjectionSettings(t, nil, "")
+	_, values, _ := readInjectionSettings(t, "default")
 	var (
 		configFile = filepath.Join(dir, "config-file.yaml")
 		valuesFile = filepath.Join(dir, "values-file.yaml")
@@ -866,7 +883,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
-	if err := os.WriteFile(valuesFile, []byte(values), 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(valuesFile, []byte(values.raw), 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
 
@@ -875,15 +892,15 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	store := model.NewFakeStore()
 	for i := 0; i < pcResources; i++ {
 		store.Create(newProxyConfig(fmt.Sprintf("pc-%d", i), "istio-system", &v1beta12.ProxyConfig{
-			Concurrency: &types.Int32Value{Value: int32(i % 5)},
+			Concurrency: &wrapperspb.Int32Value{Value: int32(i % 5)},
 			EnvironmentVariables: map[string]string{
 				fmt.Sprintf("VAR_%d", i): fmt.Sprint(i),
 			},
 		}))
 	}
-	pcs, _ := model.GetProxyConfigs(store, &m)
+	pcs, _ := model.GetProxyConfigs(store, m)
 	env := model.Environment{
-		Watcher: mesh.NewFixedWatcher(&m),
+		Watcher: mesh.NewFixedWatcher(m),
 		PushContext: &model.PushContext{
 			ProxyConfigs: pcs,
 		},
@@ -1097,7 +1114,7 @@ func testSideCarInjectorMetrics(t *testing.T) {
 }
 
 func benchmarkInjectServe(pcs int, b *testing.B) {
-	sidecarTemplate, _, _ := loadInjectionSettings(b, nil, "")
+	sidecarTemplate, _, _ := readInjectionSettings(b, "default")
 	wh := createWebhook(b, sidecarTemplate, pcs)
 
 	stop := make(chan struct{})
@@ -1142,25 +1159,25 @@ func TestEnablePrometheusAggregation(t *testing.T) {
 		},
 		{
 			"mesh on",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: true}},
 			nil,
 			true,
 		},
 		{
 			"mesh off",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: false}},
 			nil,
 			false,
 		},
 		{
 			"annotation on",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: false}},
 			map[string]string{annotation.PrometheusMergeMetrics.Name: "true"},
 			true,
 		},
 		{
 			"annotation off",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: true}},
 			map[string]string{annotation.PrometheusMergeMetrics.Name: "false"},
 			false,
 		},

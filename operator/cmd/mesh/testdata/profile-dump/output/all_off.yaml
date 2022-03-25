@@ -28,6 +28,7 @@ spec:
     base:
       enableCRDTemplates: false
       validationURL: ""
+    defaultRevision: ""
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
@@ -41,7 +42,6 @@ spec:
           name: egressgateway-ca-certs
           secretName: istio-egressgateway-ca-certs
         type: ClusterIP
-        zvpn: {}
       istio-ingressgateway:
         autoscaleEnabled: true
         env: {}
@@ -54,7 +54,6 @@ spec:
           name: ingressgateway-ca-certs
           secretName: istio-ingressgateway-ca-certs
         type: LoadBalancer
-        zvpn: {}
     global:
       configValidation: true
       defaultNodeSelector: {}
@@ -142,6 +141,7 @@ spec:
       image: pilot
       keepaliveMaxServerConnectionAge: 30m
       nodeSelector: {}
+      podLabels: {}
       replicaCount: 1
       traceSampling: 1
     telemetry:

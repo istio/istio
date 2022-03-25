@@ -21,18 +21,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/config"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 )
-
-var imgSettings = &image.Settings{
-	Hub:             "testing.hub",
-	Tag:             "latest",
-	PullPolicy:      "Always",
-	ImagePullSecret: "testdata/secret.yaml",
-}
 
 func TestDeploymentYAML(t *testing.T) {
 	testCase := []struct {
@@ -52,7 +43,7 @@ func TestDeploymentYAML(t *testing.T) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 						ServicePort:  8090,
 					},
 				},
@@ -67,7 +58,7 @@ func TestDeploymentYAML(t *testing.T) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 						ServicePort:  8090,
 					},
 				},
@@ -91,7 +82,7 @@ func TestDeploymentYAML(t *testing.T) {
 					Name:         "http-8080",
 					Protocol:     protocol.HTTP,
 					ServicePort:  8080,
-					InstancePort: 8080,
+					WorkloadPort: 8080,
 				}},
 				Subsets: []echo.SubsetConfig{
 					{
@@ -118,19 +109,19 @@ func TestDeploymentYAML(t *testing.T) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 						ServicePort:  8090,
 					},
 					{
 						Name:         "tcp",
 						Protocol:     protocol.TCP,
-						InstancePort: 9000,
+						WorkloadPort: 9000,
 						ServicePort:  9000,
 					},
 					{
 						Name:         "grpc",
 						Protocol:     protocol.GRPC,
-						InstancePort: 9090,
+						WorkloadPort: 9090,
 						ServicePort:  9090,
 					},
 				},
@@ -146,7 +137,7 @@ func TestDeploymentYAML(t *testing.T) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 						ServicePort:  8090,
 					},
 				},
@@ -167,7 +158,7 @@ func TestDeploymentYAML(t *testing.T) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 						ServicePort:  8090,
 					},
 				},
@@ -189,7 +180,7 @@ func TestDeploymentYAML(t *testing.T) {
 				t.Fatal(err)
 			}
 			tc.config.Cluster = clusters[0]
-			if err := common.FillInDefaults(nil, &tc.config); err != nil {
+			if err := tc.config.FillDefaults(nil); err != nil {
 				t.Errorf("failed filling in defaults: %v", err)
 			}
 			if !config.Parsed() {
@@ -198,12 +189,18 @@ func TestDeploymentYAML(t *testing.T) {
 			settings := &resource.Settings{
 				Revisions:     tc.revVerMap,
 				Compatibility: tc.compatibility,
+				Image: resource.ImageSettings{
+					Hub:        "testing.hub",
+					Tag:        "latest",
+					PullPolicy: "Always",
+					PullSecret: "testdata/secret.yaml",
+				},
 			}
 			serviceYAML, err := GenerateService(tc.config)
 			if err != nil {
 				t.Errorf("failed to generate service %v", err)
 			}
-			deploymentYAML, err := GenerateDeployment(tc.config, imgSettings, settings)
+			deploymentYAML, err := GenerateDeployment(tc.config, settings)
 			if err != nil {
 				t.Errorf("failed to generate deployment %v", err)
 			}

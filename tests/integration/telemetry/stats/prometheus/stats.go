@@ -24,13 +24,15 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -85,7 +87,7 @@ func GetClientInstances() echo.Instances {
 	return client
 }
 
-func GetServerInstances() echo.Instances {
+func GetTarget() echo.Target {
 	return server
 }
 
@@ -94,9 +96,9 @@ func GetServerInstances() echo.Instances {
 func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
-			ctx.ConfigIstio().ApplyYAMLOrFail(ctx, ist.Settings().SystemNamespace, PeerAuthenticationConfig)
+			t.ConfigIstio().YAML(ist.Settings().SystemNamespace, PeerAuthenticationConfig).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
 				cltInstance := cltInstance
@@ -107,7 +109,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 						}
 						c := cltInstance.Config().Cluster
 						sourceCluster := "Kubernetes"
-						if len(ctx.AllClusters()) > 1 {
+						if len(t.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
 						sourceQuery, destinationQuery, appQuery := buildQuery(sourceCluster)
@@ -148,16 +150,20 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
-				st := server.GetOrFail(ctx, echo.InCluster(prom.Config().Cluster))
-				prom.CallWithRetryOrFail(t, echo.CallOptions{
-					Address:            st.WorkloadsOrFail(t)[0].Address(),
-					Scheme:             scheme.HTTPS,
-					Port:               &echo.Port{ServicePort: 15014},
-					Path:               "/metrics",
-					CertFile:           "/etc/certs/custom/cert-chain.pem",
-					KeyFile:            "/etc/certs/custom/key.pem",
-					CaCertFile:         "/etc/certs/custom/root-cert.pem",
-					InsecureSkipVerify: true,
+				st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, server)
+				prom.CallOrFail(t, echo.CallOptions{
+					Address: st.WorkloadsOrFail(t)[0].Address(),
+					Scheme:  scheme.HTTPS,
+					Port:    echo.Port{ServicePort: 15014},
+					HTTP: echo.HTTP{
+						Path: "/metrics",
+					},
+					TLS: echo.TLS{
+						CertFile:           "/etc/certs/custom/cert-chain.pem",
+						KeyFile:            "/etc/certs/custom/key.pem",
+						CaCertFile:         "/etc/certs/custom/root-cert.pem",
+						InsecureSkipVerify: true,
+					},
 				})
 			}
 		})
@@ -168,7 +174,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
 				cltInstance := cltInstance
@@ -179,7 +185,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 						}
 						c := cltInstance.Config().Cluster
 						sourceCluster := "Kubernetes"
-						if len(ctx.AllClusters()) > 1 {
+						if len(t.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
 						destinationQuery := buildTCPQuery(sourceCluster)
@@ -216,7 +222,7 @@ func TestSetup(ctx resource.Context) (err error) {
 proxyMetadata:
   OUTPUT_CERTS: /etc/certs/custom`
 
-	echos, err := echoboot.NewBuilder(ctx).
+	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
 		With(nil, echo.Config{
 			Service:   "client",
@@ -232,13 +238,13 @@ proxyMetadata:
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:     "tcp",
 					Protocol: protocol.TCP,
 					// We use a port > 1024 to not require root
-					InstancePort: 9000,
+					WorkloadPort: 9000,
 					ServicePort:  9000,
 				},
 			},
@@ -259,13 +265,13 @@ proxyMetadata:
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:     "tcp",
 					Protocol: protocol.TCP,
 					// We use a port > 1024 to not require root
-					InstancePort: 9000,
+					WorkloadPort: 9000,
 					ServicePort:  9000,
 				},
 			},
@@ -304,10 +310,10 @@ proxyMetadata:
 	for _, c := range ctx.Clusters() {
 		ingr = append(ingr, ist.IngressFor(c))
 	}
-	client = echos.Match(echo.Service("client"))
-	server = echos.Match(echo.Service("server"))
-	nonInjectedServer = echos.Match(echo.Service("server-no-sidecar"))
-	mockProm = echos.Match(echo.Service("mock-prom"))
+	client = match.ServiceName(model.NamespacedName{Name: "client", Namespace: appNsInst.Name()}).GetMatches(echos)
+	server = match.ServiceName(model.NamespacedName{Name: "server", Namespace: appNsInst.Name()}).GetMatches(echos)
+	nonInjectedServer = match.ServiceName(model.NamespacedName{Name: "server-no-sidecar", Namespace: appNsInst.Name()}).GetMatches(echos)
+	mockProm = match.ServiceName(model.NamespacedName{Name: "mock-prom", Namespace: appNsInst.Name()}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
@@ -318,18 +324,28 @@ proxyMetadata:
 // SendTraffic makes a client call to the "server" service on the http port.
 func SendTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:   server[0],
-		PortName: "http",
-		Count:    util.RequestCountMultipler * len(server),
-		Check:    check.OK(),
+		To: server,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Count: util.RequestCountMultipler * server.MustWorkloads().Len(),
+		Check: check.OK(),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	})
 	if err != nil {
 		return err
 	}
 	_, err = cltInstance.Call(echo.CallOptions{
-		Target:   nonInjectedServer[0],
-		PortName: "http",
-		Count:    util.RequestCountMultipler * len(nonInjectedServer),
+		To: nonInjectedServer,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Count: util.RequestCountMultipler * nonInjectedServer.MustWorkloads().Len(),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	})
 	if err != nil {
 		return err
@@ -340,9 +356,14 @@ func SendTraffic(cltInstance echo.Instance) error {
 // SendTCPTraffic makes a client call to the "server" service on the tcp port.
 func SendTCPTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:   server[0],
-		PortName: "tcp",
-		Count:    util.RequestCountMultipler * len(server),
+		To: server,
+		Port: echo.Port{
+			Name: "tcp",
+		},
+		Count: util.RequestCountMultipler * server.MustWorkloads().Len(),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	})
 	if err != nil {
 		return err

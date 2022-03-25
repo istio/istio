@@ -29,9 +29,10 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -68,7 +69,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			configs := make(map[string]string)
 			t.ConditionalCleanup(func() {
 				for _, config := range configs {
-					t.ConfigIstio().DeleteYAML("istio-system", config)
+					_ = t.ConfigIstio().YAML("istio-system", config).Delete()
 				}
 			})
 
@@ -94,7 +95,7 @@ func TestMultiVersionRevision(t *testing.T) {
 
 			// create an echo instance in each revisioned namespace, all these echo
 			// instances will be injected with proxies from their respective versions
-			builder := echoboot.NewBuilder(t)
+			builder := deployment.New(t)
 
 			for _, ns := range revisionedNamespaces {
 				builder = builder.WithConfig(echo.Config{
@@ -104,24 +105,24 @@ func TestMultiVersionRevision(t *testing.T) {
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8000,
+							WorkloadPort: 8000,
 						},
 						{
 							Name:         "tcp",
 							Protocol:     protocol.TCP,
-							InstancePort: 9000,
+							WorkloadPort: 9000,
 						},
 						{
 							Name:         "grpc",
 							Protocol:     protocol.GRPC,
-							InstancePort: 9090,
+							WorkloadPort: 9090,
 						},
 					},
 				})
 			}
 			instances := builder.BuildOrFail(t)
 			// add an existing pod from apps to the rotation to avoid an extra deployment
-			instances = append(instances, apps.PodA[0])
+			instances = append(instances, apps.A[0])
 
 			testAllEchoCalls(t, instances)
 		})
@@ -131,18 +132,23 @@ func TestMultiVersionRevision(t *testing.T) {
 // communication between every pair of namespaces
 func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 	trafficTypes := []string{"http", "tcp", "grpc"}
-	for _, source := range echoInstances {
-		for _, dest := range echoInstances {
-			if source == dest {
+	for _, from := range echoInstances {
+		for _, to := range echoInstances {
+			if from == to {
 				continue
 			}
 			for _, trafficType := range trafficTypes {
-				t.NewSubTest(fmt.Sprintf("%s-%s->%s", trafficType, source.Config().Service, dest.Config().Service)).
+				t.NewSubTest(fmt.Sprintf("%s-%s->%s", trafficType, from.Config().Service, to.Config().Service)).
 					Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
-							resp, err := source.Call(echo.CallOptions{
-								Target:   dest,
-								PortName: trafficType,
+							resp, err := from.Call(echo.CallOptions{
+								To: to,
+								Port: echo.Port{
+									Name: trafficType,
+								},
+								Retry: echo.Retry{
+									NoRetry: true,
+								},
 							})
 							return check.And(
 								check.NoError(),
@@ -163,7 +169,7 @@ func installRevisionOrFail(t framework.TestContext, version string, configs map[
 		t.Fatalf("could not read installation config: %v", err)
 	}
 	configs[version] = config
-	if err := t.ConfigIstio().ApplyYAMLNoCleanup(i.Settings().SystemNamespace, config); err != nil {
+	if err := t.ConfigIstio().YAML(i.Settings().SystemNamespace, config).Apply(resource.NoCleanup); err != nil {
 		t.Fatal(err)
 	}
 }

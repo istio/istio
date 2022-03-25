@@ -17,6 +17,8 @@ package sets
 import (
 	"fmt"
 	"testing"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestNewSet(t *testing.T) {
@@ -147,5 +149,33 @@ func TestEquals(t *testing.T) {
 				t.Errorf("Unexpected Equal. got %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestMerge(t *testing.T) {
+	cases := []struct {
+		s1, s2   Set
+		expected []string
+	}{
+		{
+			s1:       NewSet("a1", "a2"),
+			s2:       NewSet("a1", "a2"),
+			expected: []string{"a1", "a2"},
+		},
+		{
+			s1:       NewSet("a1", "a2", "a3"),
+			s2:       NewSet("a1", "a2"),
+			expected: []string{"a1", "a2", "a3"},
+		},
+		{
+			s1:       NewSet("a1", "a2"),
+			s2:       NewSet("a3", "a4"),
+			expected: []string{"a1", "a2", "a3", "a4"},
+		},
+	}
+
+	for _, tc := range cases {
+		got := tc.s1.Merge(tc.s2)
+		assert.Equal(t, tc.expected, got.SortedList())
 	}
 }

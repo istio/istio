@@ -122,5 +122,5 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 	}
 
 	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
-	RunExternalRequest(cases, prom, RegistryOnly, t)
+	RunExternalRequest(t, cases, prom, RegistryOnly)
 }

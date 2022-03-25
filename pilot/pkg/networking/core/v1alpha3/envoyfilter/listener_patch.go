@@ -512,6 +512,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 			if removedFilters.Contains(filter.Name) {
 				continue
 			}
+			tempArray = append(tempArray, filter)
 		}
 		httpconn.HttpFilters = tempArray
 	}

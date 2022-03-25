@@ -110,18 +110,18 @@ func newVirtualServiceIndex() virtualServiceIndex {
 // destinationRuleIndex is the index of destination rules by various fields.
 type destinationRuleIndex struct {
 	//  namespaceLocal contains all public/private dest rules pertaining to a service defined in a given namespace.
-	namespaceLocal map[string]*processedDestRules
+	namespaceLocal map[string]*consolidatedDestRules
 	//  exportedByNamespace contains all dest rules pertaining to a service exported by a namespace.
-	exportedByNamespace map[string]*processedDestRules
-	rootNamespaceLocal  *processedDestRules
+	exportedByNamespace map[string]*consolidatedDestRules
+	rootNamespaceLocal  *consolidatedDestRules
 	// mesh/namespace dest rules to be inherited
 	inheritedByNamespace map[string]*config.Config
 }
 
 func newDestinationRuleIndex() destinationRuleIndex {
 	return destinationRuleIndex{
-		namespaceLocal:       map[string]*processedDestRules{},
-		exportedByNamespace:  map[string]*processedDestRules{},
+		namespaceLocal:       map[string]*consolidatedDestRules{},
+		exportedByNamespace:  map[string]*consolidatedDestRules{},
 		inheritedByNamespace: map[string]*config.Config{},
 	}
 }
@@ -248,11 +248,7 @@ type PushContext struct {
 	initializeMutex sync.Mutex
 }
 
-type processedDestRules struct {
-	// List of dest rule hosts. We match with the most specific host first
-	hosts []host.Name
-	// Map of dest rule hosts.
-	hostsMap map[host.Name]struct{}
+type consolidatedDestRules struct {
 	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
 	exportTo map[host.Name]map[visibility.Instance]bool
 	// Map of dest rule host and the merged destination rules for that host
@@ -413,7 +409,9 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	pr.Full = pr.Full || other.Full
 
 	// The other push context is presumed to be later and more up to date
-	pr.Push = other.Push
+	if other.Push != nil {
+		pr.Push = other.Push
+	}
 
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) == 0 || len(other.ConfigsUpdated) == 0 {
@@ -726,8 +724,6 @@ func virtualServiceDestinationHosts(v *networking.VirtualService) []string {
 // GatewayServices returns the set of services which are referred from the proxy gateways.
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := proxy.SidecarScope.services
-	// host set.
-	hostsFromGateways := map[string]struct{}{}
 
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
@@ -735,6 +731,8 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 		return nil
 	}
 
+	// host set.
+	hostsFromGateways := sets.NewSet()
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		for _, vsConfig := range ps.VirtualServicesForGateway(proxy.ConfigNamespace, gw) {
 			vs, ok := vsConfig.Spec.(*networking.VirtualService)
@@ -744,10 +742,13 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 			}
 
 			for _, host := range virtualServiceDestinationHosts(vs) {
-				hostsFromGateways[host] = struct{}{}
+				hostsFromGateways.Insert(host)
 			}
 		}
 	}
+
+	hostsFromMeshConfig := getHostsFromMeshConfig(ps)
+	hostsFromGateways.Merge(hostsFromMeshConfig)
 
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
@@ -764,6 +765,38 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	log.Debugf("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
 
 	return gwSvcs
+}
+
+// add services from MeshConfig.ExtensionProviders
+// TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
+func getHostsFromMeshConfig(ps *PushContext) sets.Set {
+	hostsFromMeshConfig := sets.NewSet()
+
+	for _, prov := range ps.Mesh.ExtensionProviders {
+		switch p := prov.Provider.(type) {
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
+			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzHttp.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
+			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzGrpc.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
+			hostsFromMeshConfig.Insert(p.Zipkin.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
+			hostsFromMeshConfig.Insert(p.Lightstep.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
+			hostsFromMeshConfig.Insert(p.Datadog.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+			hostsFromMeshConfig.Insert(p.Opencensus.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
+			hostsFromMeshConfig.Insert(p.Skywalking.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
+			hostsFromMeshConfig.Insert(p.EnvoyHttpAls.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
+			hostsFromMeshConfig.Insert(p.EnvoyTcpAls.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
+			hostsFromMeshConfig.Insert(p.EnvoyOtelAls.Service)
+		}
+	}
+	return hostsFromMeshConfig
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
@@ -839,6 +872,7 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[proxyNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[proxyNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
+
 	return res
 }
 
@@ -956,8 +990,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxyNameSpace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
-				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].hostsMap,
-				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].hosts,
+				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRule,
 			); ok {
 				return ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRule[hostname]
 			}
@@ -967,8 +1000,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		// need to worry about overriding other DRs with *.local type rules here. If we ignore this, then exportTo=. in
 		// root namespace would always be ignored
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.destinationRuleIndex.rootNamespaceLocal.hostsMap,
-			ps.destinationRuleIndex.rootNamespaceLocal.hosts,
+			ps.destinationRuleIndex.rootNamespaceLocal.destRule,
 		); ok {
 			return ps.destinationRuleIndex.rootNamespaceLocal.destRule[hostname]
 		}
@@ -1021,8 +1053,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) *config.Config {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
 		if specificHostname, ok := MostSpecificHostMatch(hostname,
-			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].hostsMap,
-			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].hosts,
+			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRule,
 		); ok {
 			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
@@ -1605,9 +1636,8 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	return nil
 }
 
-func newProcessedDestRules() *processedDestRules {
-	return &processedDestRules{
-		hosts:    make([]host.Name, 0),
+func newProcessedDestRules() *consolidatedDestRules {
+	return &consolidatedDestRules{
 		exportTo: map[host.Name]map[visibility.Instance]bool{},
 		destRule: map[host.Name]*config.Config{},
 	}
@@ -1621,8 +1651,8 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
 	sortConfigByCreationTime(configs)
-	namespaceLocalDestRules := make(map[string]*processedDestRules)
-	exportedDestRulesByNamespace := make(map[string]*processedDestRules)
+	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
+	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newProcessedDestRules()
 	inheritedConfigs := make(map[string]*config.Config)
 
@@ -1697,16 +1727,6 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 		// can't precalculate exportedDestRulesByNamespace since we don't know all the client namespaces in advance
 		// inheritance is performed in getExportedDestinationRuleFromNamespace
 	}
-
-	// presort it so that we don't sort it for each DestinationRule call.
-	// sort.Sort for Hostnames will automatically sort from the most specific to least specific
-	for ns := range namespaceLocalDestRules {
-		sort.Sort(host.Names(namespaceLocalDestRules[ns].hosts))
-	}
-	for ns := range exportedDestRulesByNamespace {
-		sort.Sort(host.Names(exportedDestRulesByNamespace[ns].hosts))
-	}
-	sort.Sort(host.Names(rootNamespaceLocalDestRules.hosts))
 
 	ps.destinationRuleIndex.namespaceLocal = namespaceLocalDestRules
 	ps.destinationRuleIndex.exportedByNamespace = exportedDestRulesByNamespace

@@ -5,6 +5,7 @@ metadata:
   name: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 spec:
   replicas: 1
+  revisionHistoryLimit: {{ .Values.deploymentHistory }}
   selector:
     matchLabels:
       name: istio-operator

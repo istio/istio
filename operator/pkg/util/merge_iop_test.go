@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestOverlayIOP(t *testing.T) {
@@ -41,17 +42,15 @@ func TestOverlayIOP(t *testing.T) {
 
 func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 	// Transform default mesh config into map[string]interface{} for inclusion in IstioOperator.
-	my, err := yaml.Marshal(mesh.DefaultMeshConfig())
+	m := mesh.DefaultMeshConfig()
+	my, err := protomarshal.ToJSONMap(m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	mm := make(map[string]interface{})
-	if err := yaml.Unmarshal(my, &mm); err != nil {
-		t.Fatal(err)
-	}
+
 	iop := &v1alpha1.IstioOperator{
 		Spec: &v1alpha12.IstioOperatorSpec{
-			MeshConfig: mm,
+			MeshConfig: MustStruct(my),
 		},
 	}
 

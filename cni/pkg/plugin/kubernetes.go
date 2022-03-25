@@ -88,11 +88,10 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 			for _, e := range container.Env {
 				pi.ProxyEnvironments[e.Name] = e.Value
 				if e.Name == options.ProxyConfigEnv {
-					proxyConfig := mesh.DefaultProxyConfig()
 					mc := &meshconfig.MeshConfig{
-						DefaultConfig: &proxyConfig,
+						DefaultConfig: mesh.DefaultProxyConfig(),
 					}
-					mc, err := mesh.ApplyProxyConfig(e.Value, *mc)
+					mc, err := mesh.ApplyProxyConfig(e.Value, mc)
 					if err != nil {
 						log.Warnf("Failed to apply proxy config for %v/%v: %+v", pod.Namespace, pod.Name, err)
 					} else {

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issues:
+- https://github.com/istio/istio/issues/36415
+
+releaseNotes:
+- |
+  **Added** support REPLACE for virtual host in envoy filter

@@ -28,16 +28,6 @@ import (
 	"istio.io/istio/pkg/util/istiomultierror"
 )
 
-// FilterError applies the given filter function to any errors returned by the Checker.
-func FilterError(filter func(error) error, c Checker) Checker {
-	return func(rs echo.Responses, err error) error {
-		if err := c(rs, err); err != nil {
-			return filter(err)
-		}
-		return nil
-	}
-}
-
 // Each applies the given per-response function across all responses.
 func Each(c func(r echo.Response) error) Checker {
 	return func(rs echo.Responses, _ error) error {
@@ -54,16 +44,41 @@ func Each(c func(r echo.Response) error) Checker {
 	}
 }
 
-// And is an aggregate Checker that requires all Checkers succeed.
+// And is an aggregate Checker that requires all Checkers succeed. Any nil Checkers are ignored.
 func And(checkers ...Checker) Checker {
-	return func(r echo.Responses, err error) error {
-		for _, c := range checkers {
-			if err := c(r, err); err != nil {
+	return func(rs echo.Responses, err error) error {
+		for _, c := range filterNil(checkers) {
+			if err := c(rs, err); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
+}
+
+// Or is an aggregate Checker that requires at least one Checker succeeds.
+func Or(checkers ...Checker) Checker {
+	return func(rs echo.Responses, err error) error {
+		out := istiomultierror.New()
+		for _, c := range checkers {
+			err := c(rs, err)
+			if err == nil {
+				return nil
+			}
+			out = multierror.Append(out, err)
+		}
+		return out.ErrorOrNil()
+	}
+}
+
+func filterNil(checkers []Checker) []Checker {
+	var out []Checker
+	for _, c := range checkers {
+		if c != nil {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // None provides a Checker that returns the original raw call error, unaltered.
@@ -106,13 +121,20 @@ func ErrorContains(expected string) Checker {
 	}
 }
 
+// OK is a shorthand for NoErrorAndStatus(200).
 func OK() Checker {
-	return StatusCode(http.StatusOK)
+	return NoErrorAndStatus(http.StatusOK)
 }
 
-// StatusCode checks that the response status code matches the expected value. If the expected value is zero,
+// NoErrorAndStatus is checks that no error occurred and htat the returned status code matches the expected
+// value.
+func NoErrorAndStatus(expected int) Checker {
+	return And(NoError(), Status(expected))
+}
+
+// Status checks that the response status code matches the expected value. If the expected value is zero,
 // checks that the response code is unset.
-func StatusCode(expected int) Checker {
+func Status(expected int) Checker {
 	expectedStr := ""
 	if expected > 0 {
 		expectedStr = strconv.Itoa(expected)
@@ -260,15 +282,6 @@ func URL(expected string) Checker {
 	})
 }
 
-func IP(expected string) Checker {
-	return Each(func(r echo.Response) error {
-		if r.IP != expected {
-			return fmt.Errorf("expected IP %s, received %s", expected, r.IP)
-		}
-		return nil
-	})
-}
-
 // ReachedClusters returns an error if there wasn't at least one response from each of the given clusters.
 // This can be used in combination with echo.Responses.Clusters(), for example:
 //     echoA[0].CallOrFail(t, ...).CheckReachedClusters(echoB.Clusters())
@@ -291,36 +304,10 @@ func ReachedClusters(clusters cluster.Clusters) Checker {
 	}
 }
 
-// EqualClusterTraffic checks that traffic was equally distributed across the given clusters, allowing some percent error.
-// For example, with 100 requests and 20 percent error, each cluster must given received 20±4 responses. Only the passed
-// in clusters will be validated.
-func EqualClusterTraffic(clusters cluster.Clusters, precisionPct int) Checker {
-	return func(r echo.Responses, err error) error {
-		clusterHits := clusterDistribution(r)
-		expected := len(r) / len(clusters)
-		precision := int(float32(expected) * (float32(precisionPct) / 100))
-		for _, hits := range clusterHits {
-			if !almostEquals(hits, expected, precision) {
-				return fmt.Errorf("requests were not equally distributed across clusters: %v", clusterHits)
-			}
-		}
-		return nil
-	}
-}
-
 func clusterDistribution(r echo.Responses) map[string]int {
 	hits := map[string]int{}
 	for _, rr := range r {
 		hits[rr.Cluster]++
 	}
 	return hits
-}
-
-func almostEquals(a, b, precision int) bool {
-	upper := a + precision
-	lower := a - precision
-	if b < lower || b > upper {
-		return false
-	}
-	return true
 }

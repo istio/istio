@@ -343,7 +343,6 @@ spec:
 	proxy := s.SetupProxy(&model.Proxy{
 		ConfigNamespace: "app",
 	})
-	proxy.SetSidecarScope(s.PushContext())
 
 	listeners := s.Listeners(proxy)
 	assertListEqual(t, xdstest.ExtractListenerNames(listeners), []string{
@@ -540,7 +539,7 @@ spec:
 						}},
 					}
 					fakeOpts := tt.fakeOpts
-					fakeOpts.MeshConfig = &meshConfig
+					fakeOpts.MeshConfig = meshConfig
 					s := NewFakeDiscoveryServer(t, fakeOpts)
 					for clusterID := range want {
 						p := s.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}})

@@ -170,11 +170,11 @@ function setup_kind_cluster() {
     # Kubernetes 1.15+
     CONFIG=${DEFAULT_CLUSTER_YAML}
     # Configure the cluster IP Family only for default configs
-    if [ "${IP_FAMILY}" = "ipv6" ]; then
-      grep 'ipFamily: ipv6' "${CONFIG}" || \
+    if [ "${IP_FAMILY}" != "ipv4" ]; then
+      grep "ipFamily: ${IP_FAMILY}" "${CONFIG}" || \
       cat <<EOF >> "${CONFIG}"
 networking:
-  ipFamily: ipv6
+  ipFamily: ${IP_FAMILY}
 EOF
     fi
   fi
@@ -188,12 +188,12 @@ EOF
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
   if [[ -n ${METRICS_SERVER_CONFIG_DIR} ]]; then
-    kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
+    retry kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
   fi
 
   # Install Metallb if not set to install explicitly
   if [[ -z "${NOMETALBINSTALL}" ]]; then
-    install_metallb ""
+    retry install_metallb ""
   fi
 
   # IPv6 clusters need some CoreDNS changes in order to work in CI:
@@ -202,7 +202,7 @@ EOF
   # https://github.com/coredns/coredns/issues/2494#issuecomment-457215452
   # CoreDNS should handle those domains and answer with NXDOMAIN instead of SERVFAIL
   # otherwise pods stops trying to resolve the domain.
-  if [ "${IP_FAMILY}" = "ipv6" ]; then
+  if [ "${IP_FAMILY}" = "ipv6" ] || [ "${IP_FAMILY}" = "dual" ]; then
       # Get the current config
       original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
       echo "Original CoreDNS config:"
@@ -288,7 +288,7 @@ EOF
     done
 
     # Enable core dumps
-    docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
+    retry docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
   }
 
   # Now deploy the specified number of KinD clusters and
@@ -308,7 +308,7 @@ EOF
   for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
     KUBECONFIG_FILE="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
     if [[ ${NUM_CLUSTERS} -gt 1 ]]; then
-      install_metallb "${KUBECONFIG_FILE}"
+      retry install_metallb "${KUBECONFIG_FILE}"
     fi
     KUBECONFIGS+=("${KUBECONFIG_FILE}")
   done

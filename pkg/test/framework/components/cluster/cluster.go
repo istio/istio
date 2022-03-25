@@ -23,9 +23,13 @@ import (
 // Clusters is an ordered list of Cluster instances.
 type Clusters []Cluster
 
+func (c Clusters) Len() int {
+	return len(c)
+}
+
 // IsMulticluster is a utility method that indicates whether there are multiple Clusters available.
 func (c Clusters) IsMulticluster() bool {
-	return len(c) > 1
+	return c.Len() > 1
 }
 
 // Default returns the first cluster in the list.

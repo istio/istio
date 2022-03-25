@@ -29,7 +29,6 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/gogo/protobuf/types"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -51,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
 
@@ -357,7 +355,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		} else {
 			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
 		}
-		dnsRate := gogo.DurationToProtoDuration(cb.req.Push.Mesh.DnsRefreshRate)
+		dnsRate := cb.req.Push.Mesh.DnsRefreshRate
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
 		fallthrough
@@ -683,7 +681,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
+		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
 	return c
@@ -695,7 +693,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
+		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		TypedExtensionProtocolOptions: map[string]*any.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
@@ -881,11 +879,7 @@ func (cb *ClusterBuilder) buildIstioMutualTLS(serviceAccounts []string, sni stri
 }
 
 func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
-	defaultConnectTimeout := &types.Duration{
-		Seconds: cb.req.Push.Mesh.ConnectTimeout.Seconds,
-		Nanos:   cb.req.Push.Mesh.ConnectTimeout.Nanos,
-	}
-	cluster.ConnectTimeout = gogo.DurationToProtoDuration(defaultConnectTimeout)
+	cluster.ConnectTimeout = cb.req.Push.Mesh.ConnectTimeout
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -895,7 +889,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	}
 
 	threshold := getDefaultCircuitBreakerThresholds()
-	var idleTimeout *types.Duration
+	var idleTimeout *durationpb.Duration
 	var maxRequestsPerConnection uint32
 
 	if settings.Http != nil {
@@ -920,7 +914,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	cb.applyDefaultConnectionPool(mc.cluster)
 	if settings.Tcp != nil {
 		if settings.Tcp != nil && settings.Tcp.ConnectTimeout != nil {
-			mc.cluster.ConnectTimeout = gogo.DurationToProtoDuration(settings.Tcp.ConnectTimeout)
+			mc.cluster.ConnectTimeout = settings.Tcp.ConnectTimeout
 		}
 
 		if settings.Tcp != nil && settings.Tcp.MaxConnections > 0 {
@@ -942,16 +936,11 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 			commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
 		}
 		if idleTimeout != nil {
-			idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
+			idleTimeoutDuration := idleTimeout
 			commonOptions.CommonHttpProtocolOptions.IdleTimeout = idleTimeoutDuration
 		}
 		if maxRequestsPerConnection > 0 {
-			if util.IsIstioVersionGE112(model.ParseIstioVersion(cb.proxyVersion)) {
-				commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: maxRequestsPerConnection}
-			} else {
-				// nolint: staticcheck
-				mc.cluster.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
-			}
+			commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: maxRequestsPerConnection}
 		}
 	}
 
@@ -996,7 +985,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 					Match:           istioMtlsTransportSocketMatch,
 					TransportSocket: transportSocket,
 				},
-				defaultTransportSocketMatch,
+				defaultTransportSocketMatch(),
 			}
 		}
 	}
@@ -1020,7 +1009,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		tlsContext = nil
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
+			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
 
@@ -1057,7 +1046,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		}
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
+			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
@@ -1065,10 +1054,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
-			tlsContext = &auth.UpstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{},
-				Sni:              tls.Sni,
-			}
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls)
@@ -1097,7 +1082,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 	case networking.ClientTLSSettings_MUTUAL:
 		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
+			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
@@ -1290,6 +1275,28 @@ func maybeApplyEdsConfig(c *cluster.Cluster) {
 			},
 			InitialFetchTimeout: durationpb.New(0),
 			ResourceApiVersion:  core.ApiVersion_V3,
+		},
+	}
+}
+
+func defaultUpstreamCommonTLSContext() *auth.CommonTlsContext {
+	return &auth.CommonTlsContext{
+		TlsParams: &auth.TlsParameters{
+			// if not specified, envoy use TLSv1_2 as default for client.
+			TlsMaximumProtocolVersion: auth.TlsParameters_TLSv1_3,
+			TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
+		},
+	}
+}
+
+// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
+// or those whose label value does not match "istio"
+func defaultTransportSocketMatch() *cluster.Cluster_TransportSocketMatch {
+	return &cluster.Cluster_TransportSocketMatch{
+		Name:  "tlsMode-disabled",
+		Match: &structpb.Struct{},
+		TransportSocket: &core.TransportSocket{
+			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
 }

@@ -29,11 +29,11 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 	any "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"istio.io/api/label"
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -539,11 +539,11 @@ func constructResourceWithOptions(name string, host string, address, version str
 		Hosts:     []string{host},
 		Addresses: []string{address},
 	}
-	seAny, _ := types.MarshalAny(service)
+	seAny, _ := any.New(service)
 	resource := &mcp.Resource{
 		Metadata: &mcp.Metadata{
 			Name:       "default/" + name,
-			CreateTime: types.TimestampNow(),
+			CreateTime: timestamppb.Now(),
 			Version:    version,
 		},
 		Body: seAny,
@@ -553,7 +553,7 @@ func constructResourceWithOptions(name string, host string, address, version str
 		o(resource)
 	}
 
-	resAny, _ := types.MarshalAny(resource)
+	resAny, _ := any.New(resource)
 	return &any.Any{
 		TypeUrl: resAny.TypeUrl,
 		Value:   resAny.Value,

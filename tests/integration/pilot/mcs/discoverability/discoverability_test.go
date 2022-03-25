@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pilot/pkg/model"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/kube/mcs"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -46,6 +47,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -75,6 +77,9 @@ var (
 	retryDelay   = retry.Delay(500 * time.Millisecond)
 
 	hostTypes = []hostType{hostTypeClusterSetLocal, hostTypeClusterLocal}
+
+	serviceA = match.ServiceName(model.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
+	serviceB = match.ServiceName(model.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 )
 
 func TestMain(m *testing.M) {
@@ -98,18 +103,18 @@ func TestClusterLocal(t *testing.T) {
 
 			for _, ht := range hostTypes {
 				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
-					runForAllClusterCombinations(t, func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
+					runForAllClusterCombinations(t, func(t framework.TestContext, from echo.Instance, to echo.Target) {
 						var checker check.Checker
 						if ht == hostTypeClusterLocal {
 							// For calls to cluster.local, ensure that all requests stay in the same cluster
-							expectedClusters := cluster.Clusters{src.Config().Cluster}
+							expectedClusters := cluster.Clusters{from.Config().Cluster}
 							checker = checkClustersReached(expectedClusters)
 						} else {
 							// For calls to clusterset.local, we should fail DNS lookup. The clusterset.local host
 							// is only available for a service when it is exported in at least one cluster.
 							checker = checkDNSLookupFailed()
 						}
-						callAndValidate(t, ht, src, dst, checker)
+						callAndValidate(t, ht, from, to, checker)
 					})
 				})
 			}
@@ -125,16 +130,16 @@ func TestMeshWide(t *testing.T) {
 
 			for _, ht := range hostTypes {
 				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
-					runForAllClusterCombinations(t, func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
+					runForAllClusterCombinations(t, func(t framework.TestContext, from echo.Instance, to echo.Target) {
 						var expectedClusters cluster.Clusters
 						if ht == hostTypeClusterLocal {
 							// Ensure that all requests to cluster.local stay in the same cluster
-							expectedClusters = cluster.Clusters{src.Config().Cluster}
+							expectedClusters = cluster.Clusters{from.Config().Cluster}
 						} else {
 							// Ensure that requests to clusterset.local reach all destination clusters.
-							expectedClusters = dst.Clusters()
+							expectedClusters = to.Clusters()
 						}
-						callAndValidate(t, ht, src, dst, checkClustersReached(expectedClusters))
+						callAndValidate(t, ht, from, to, checkClustersReached(expectedClusters))
 					})
 				})
 			}
@@ -147,7 +152,7 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/34051")
 			// Get all the clusters where service B resides.
-			bClusters := echos.Match(echo.Service(common.ServiceB)).Clusters()
+			bClusters := serviceB.GetMatches(echos.Instances).Clusters()
 
 			// Test exporting service B exclusively in each cluster.
 			for _, exportCluster := range bClusters {
@@ -159,11 +164,11 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 
 						for _, ht := range hostTypes {
 							t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
-								runForAllClusterCombinations(t, func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
+								runForAllClusterCombinations(t, func(t framework.TestContext, from echo.Instance, to echo.Target) {
 									var expectedClusters cluster.Clusters
 									if ht == hostTypeClusterLocal {
 										// Ensure that all requests to cluster.local stay in the same cluster
-										expectedClusters = cluster.Clusters{src.Config().Cluster}
+										expectedClusters = cluster.Clusters{from.Config().Cluster}
 									} else {
 										// Since we're exporting only the endpoints in the exportCluster, depending
 										// on where we call service B from, we'll reach a different set of endpoints.
@@ -171,11 +176,11 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 										// (i.e. we'll only reach endpoints in exportCluster). From all other clusters,
 										// we should reach endpoints in that cluster AND exportCluster.
 										expectedClusters = cluster.Clusters{exportCluster}
-										if src.Config().Cluster.Name() != exportCluster.Name() {
-											expectedClusters = append(expectedClusters, src.Config().Cluster)
+										if from.Config().Cluster.Name() != exportCluster.Name() {
+											expectedClusters = append(expectedClusters, from.Config().Cluster)
 										}
 									}
-									callAndValidate(t, ht, src, dst, checkClustersReached(expectedClusters))
+									callAndValidate(t, ht, from, to, checkClustersReached(expectedClusters))
 								})
 							})
 						}
@@ -201,12 +206,12 @@ values:
 
 func runForAllClusterCombinations(
 	t framework.TestContext,
-	fn func(t framework.TestContext, src echo.Instance, dst echo.Instances)) {
+	fn func(t framework.TestContext, from echo.Instance, to echo.Target)) {
 	t.Helper()
 	echotest.New(t, echos.Instances).
 		WithDefaultFilters().
-		From(echotest.FilterMatch(echo.Service(common.ServiceA))).
-		To(echotest.FilterMatch(echo.Service(common.ServiceB))).
+		FromMatch(serviceA).
+		ToMatch(serviceB).
 		Run(fn)
 }
 
@@ -240,33 +245,36 @@ func checkDNSLookupFailed() check.Checker {
 		})
 }
 
-func callAndValidate(t framework.TestContext, ht hostType, src echo.Instance, dst echo.Instances, checker check.Checker) {
+func callAndValidate(t framework.TestContext, ht hostType, from echo.Instance, to echo.Target, checker check.Checker) {
 	t.Helper()
-
-	dest := dst[0]
 
 	var address string
 	if ht == hostTypeClusterSetLocal {
 		// Call the service using the MCS ClusterSet host.
-		address = dest.Config().ClusterSetLocalFQDN()
+		address = to.Config().ClusterSetLocalFQDN()
 	} else {
-		address = dest.Config().ClusterLocalFQDN()
+		address = to.Config().ClusterLocalFQDN()
 	}
 
-	_, err := src.CallWithRetry(echo.CallOptions{
-		Address:  address,
-		Target:   dest,
-		Count:    requestCountMultiplier * len(dst),
-		PortName: "http",
-		Check:    checker,
-	}, retryDelay, retryTimeout)
+	_, err := from.Call(echo.CallOptions{
+		Address: address,
+		To:      to,
+		Count:   requestCountMultiplier * to.WorkloadsOrFail(t).Len(),
+		Port: echo.Port{
+			Name: "http",
+		},
+		Check: checker,
+		Retry: echo.Retry{
+			Options: []retry.Option{retryDelay, retryTimeout},
+		},
+	})
 	if err != nil {
 		t.Fatalf("failed calling host %s: %v\nCluster Details:\n%s", address, err,
-			getClusterDetailsYAML(t, address, src, dest))
+			getClusterDetailsYAML(t, address, from, to))
 	}
 }
 
-func getClusterDetailsYAML(t framework.TestContext, address string, src, dest echo.Instance) string {
+func getClusterDetailsYAML(t framework.TestContext, address string, from echo.Instance, to echo.Target) string {
 	// Add details about the configuration to the error message.
 	type IPs struct {
 		Cluster   string   `json:"cluster"`
@@ -287,12 +295,12 @@ func getClusterDetailsYAML(t framework.TestContext, address string, src, dest ec
 		IPs      []IPs      `json:"ips"`
 	}
 	details := Details{
-		From: src.Config().Cluster.Name(),
+		From: from.Config().Cluster.Name(),
 		To:   address,
 	}
 
-	destName := dest.Config().Service
-	destNS := dest.Config().Namespace.Name()
+	destName := to.Config().Service
+	destNS := to.Config().Namespace.Name()
 	istioNS := istio.GetOrFail(t, t).Settings().SystemNamespace
 
 	for _, c := range t.Clusters() {
@@ -323,10 +331,10 @@ func getClusterDetailsYAML(t framework.TestContext, address string, src, dest ec
 	}
 
 	// Populate the source Envoy's outbound clusters to the dest service.
-	srcWorkload := src.WorkloadsOrFail(t)[0]
+	srcWorkload := from.WorkloadsOrFail(t)[0]
 	envoyClusters, err := srcWorkload.Sidecar().Clusters()
 	if err == nil {
-		for _, hostName := range []string{dest.Config().ClusterLocalFQDN(), dest.Config().ClusterSetLocalFQDN()} {
+		for _, hostName := range []string{to.Config().ClusterLocalFQDN(), to.Config().ClusterSetLocalFQDN()} {
 			clusterName := fmt.Sprintf("outbound|80||%s", hostName)
 
 			for _, status := range envoyClusters.GetClusterStatuses() {
@@ -384,7 +392,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	}
 
 	// Now wait for ServiceImport to be created
-	importClusters := echos.Match(echo.Service(common.ServiceA)).Clusters()
+	importClusters := serviceA.GetMatches(echos.Instances).Clusters()
 	if common.IsMCSControllerEnabled(t) {
 		scopes.Framework.Infof("Waiting for the MCS Controller to create ServiceImport in each cluster")
 		for _, c := range importClusters {

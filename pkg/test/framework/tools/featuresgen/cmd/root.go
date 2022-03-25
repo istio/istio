@@ -137,6 +137,7 @@ func readVal(v interface{}, path []string) []string {
 }
 
 func removeDashAndTitle(s string) string {
+	// nolint: staticcheck
 	return strings.Title(s[1:])
 }
 
@@ -147,6 +148,7 @@ func createConstantString(path []string) string {
 	for i := 0; i < len(path); i++ {
 		namePart := alphanumericRegex.ReplaceAllString(path[i], "")
 		namePart = replaceDashRegex.ReplaceAllStringFunc(namePart, removeDashAndTitle)
+		// nolint: staticcheck
 		namePart = strings.Title(namePart)
 		name += namePart
 		name += "_"

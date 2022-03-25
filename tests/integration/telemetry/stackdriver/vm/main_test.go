@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/gcemetadata"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -72,7 +72,7 @@ var (
 	wantTrace      *cloudtrace.Trace
 )
 
-var clientBuilder, serverBuilder echo.Builder
+var clientBuilder, serverBuilder deployment.Builder
 
 var (
 	proxyConfigAnnotation = echo.Annotation{
@@ -121,7 +121,9 @@ func TestMain(m *testing.M) {
 		// https://github.com/istio/istio/issues/35923. Since IPv6 has no external connectivity, we are "not on GCP"
 		// in the sense that we cannot access the metadata server
 		Label(label.IPv4).
-		RequireSingleCluster().
+		SkipIf("test requires VMs", func(ctx resource.Context) bool {
+			return ctx.Settings().Skip(echo.VM)
+		}).
 		RequireMultiPrimary().
 		Setup(func(ctx resource.Context) error {
 			var err error
@@ -169,19 +171,10 @@ func testSetup(ctx resource.Context) error {
 	}
 	sdtest.SDInst = sdInst
 
-	templateBytes, err := os.ReadFile(stackdriverBootstrapOverride)
-	if err != nil {
-		return err
-	}
-	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
+	if err = ctx.ConfigKube().EvalFile(ns.Name(), map[string]interface{}{
 		"StackdriverAddress": sdInst.Address(),
 		"EchoNamespace":      ns.Name(),
-	})
-	if err != nil {
-		return err
-	}
-
-	if err = ctx.ConfigKube().ApplyYAML(ns.Name(), sdBootstrap); err != nil {
+	}, stackdriverBootstrapOverride).Apply(); err != nil {
 		return err
 	}
 
@@ -223,13 +216,13 @@ func testSetup(ctx resource.Context) error {
 			Name:     "http",
 			Protocol: protocol.HTTP,
 			// Due to a bug in WorkloadEntry, service port must equal target port for now
-			InstancePort: 8090,
+			WorkloadPort: 8090,
 			ServicePort:  8090,
 		},
 	}
 
 	// builder to build the instances iteratively
-	clientBuilder = echoboot.NewBuilder(ctx).
+	clientBuilder = deployment.New(ctx).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: ns,
@@ -241,7 +234,7 @@ func testSetup(ctx resource.Context) error {
 			},
 		})
 
-	serverBuilder = echoboot.NewBuilder(ctx).
+	serverBuilder = deployment.New(ctx).
 		With(&server, echo.Config{
 			Service:       "server",
 			Namespace:     ns,

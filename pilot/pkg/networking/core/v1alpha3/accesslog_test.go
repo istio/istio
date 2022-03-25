@@ -27,7 +27,6 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -228,6 +227,24 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
+	defaultJSONFormat := &model.LoggingConfig{
+		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: devStdout,
+						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
+								Labels: &structpb.Struct{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	customLabelsFormat := &model.LoggingConfig{
 		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
@@ -237,31 +254,31 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 						Path: devStdout,
 						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
 							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
-								Labels: &types.Struct{
-									Fields: map[string]*types.Value{
-										"start_time":                     {Kind: &types.Value_StringValue{StringValue: "%START_TIME%"}},
-										"route_name":                     {Kind: &types.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
-										"method":                         {Kind: &types.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
-										"path":                           {Kind: &types.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-										"protocol":                       {Kind: &types.Value_StringValue{StringValue: "%PROTOCOL%"}},
-										"response_code":                  {Kind: &types.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-										"response_flags":                 {Kind: &types.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-										"response_code_details":          {Kind: &types.Value_StringValue{StringValue: "%RESPONSE_CODE_DETAILS%"}},
-										"connection_termination_details": {Kind: &types.Value_StringValue{StringValue: "%CONNECTION_TERMINATION_DETAILS%"}},
-										"bytes_received":                 {Kind: &types.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-										"bytes_sent":                     {Kind: &types.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-										"duration":                       {Kind: &types.Value_StringValue{StringValue: "%DURATION%"}},
-										"upstream_service_time":          {Kind: &types.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-										"x_forwarded_for":                {Kind: &types.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-										"user_agent":                     {Kind: &types.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-										"request_id":                     {Kind: &types.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-										"authority":                      {Kind: &types.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-										"upstream_host":                  {Kind: &types.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-										"upstream_cluster":               {Kind: &types.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-										"upstream_local_address":         {Kind: &types.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-										"downstream_local_address":       {Kind: &types.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-										"downstream_remote_address":      {Kind: &types.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-										"requested_server_name":          {Kind: &types.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
+								Labels: &structpb.Struct{
+									Fields: map[string]*structpb.Value{
+										"start_time":                     {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
+										"route_name":                     {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
+										"method":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
+										"path":                           {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
+										"protocol":                       {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
+										"response_code":                  {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
+										"response_flags":                 {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
+										"response_code_details":          {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE_DETAILS%"}},
+										"connection_termination_details": {Kind: &structpb.Value_StringValue{StringValue: "%CONNECTION_TERMINATION_DETAILS%"}},
+										"bytes_received":                 {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
+										"bytes_sent":                     {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
+										"duration":                       {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
+										"upstream_service_time":          {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
+										"x_forwarded_for":                {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
+										"user_agent":                     {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
+										"request_id":                     {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
+										"authority":                      {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
+										"upstream_host":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
+										"upstream_cluster":               {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
+										"upstream_local_address":         {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
+										"downstream_local_address":       {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
+										"downstream_remote_address":      {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
+										"requested_server_name":          {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
 									},
 								},
 							},
@@ -345,9 +362,9 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
-	labels := &types.Struct{
-		Fields: map[string]*types.Value{
-			"protocol": {Kind: &types.Value_StringValue{StringValue: "%PROTOCOL%"}},
+	labels := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"protocol": {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
 		},
 	}
 
@@ -429,6 +446,17 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 							InlineString: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n",
 						},
 					},
+				},
+			},
+		},
+	}
+
+	defaultJSONLabelsOut := &fileaccesslog.FileAccessLog{
+		Path: devStdout,
+		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: EnvoyJSONLogFormatIstio,
 				},
 			},
 		},
@@ -640,6 +668,20 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			},
 		},
 		{
+			name: "default-labels",
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			spec:        defaultJSONFormat,
+			forListener: false,
+			expected: []*accesslog.AccessLog{
+				{
+					Name:       wellknown.FileAccessLog,
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(defaultJSONLabelsOut)},
+				},
+			},
+		},
+		{
 			name: "custom-labels",
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
@@ -828,7 +870,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 		logName     string
 		clusterName string
 		body        string
-		labels      *types.Struct
+		labels      *structpb.Struct
 		expected    *otelaccesslog.OpenTelemetryAccessLogConfig
 	}{
 		{
@@ -861,9 +903,9 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 			logName:     otelEnvoyAccessLogFriendlyName,
 			clusterName: fakeCluster,
 			body:        EnvoyTextLogFormat,
-			labels: &types.Struct{
-				Fields: map[string]*types.Value{
-					"protocol": {Kind: &types.Value_StringValue{StringValue: "%PROTOCOL%"}},
+			labels: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"protocol": {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
 				},
 			},
 			expected: &otelaccesslog.OpenTelemetryAccessLogConfig{

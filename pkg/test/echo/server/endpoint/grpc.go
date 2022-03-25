@@ -120,7 +120,7 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	healthServer := health.NewServer()
 	grpcHealth.RegisterHealthServer(s.server, healthServer)
 
-	proto.RegisterEchoTestServiceServer(s.server, &grpcHandler{
+	proto.RegisterEchoTestServiceServer(s.server, &EchoGrpcHandler{
 		Config: s.Config,
 	})
 	reflection.Register(s.server)
@@ -228,12 +228,12 @@ func (s *grpcInstance) Close() error {
 	return nil
 }
 
-type grpcHandler struct {
+type EchoGrpcHandler struct {
 	proto.UnimplementedEchoTestServiceServer
 	Config
 }
 
-func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
+func (h *EchoGrpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
 	defer common.Metrics.GrpcRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
 	body := bytes.Buffer{}
 	md, ok := metadata.FromIncomingContext(ctx)
@@ -288,19 +288,18 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 	return &proto.EchoResponse{Message: body.String()}, nil
 }
 
-func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
+func (h *EchoGrpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
 	id := uuid.New()
 	l := epLog.WithLabels("url", req.Url, "id", id)
 	l.Infof("ForwardEcho request")
 	t0 := time.Now()
 	instance, err := forwarder.New(forwarder.Config{
 		Request: req,
-		Dialer:  h.Dialer,
 	})
 	if err != nil {
 		return nil, err
 	}
-	defer instance.Close()
+	defer func() { _ = instance.Close() }()
 
 	ret, err := instance.Run(ctx)
 	if err == nil {

@@ -54,7 +54,7 @@ meshConfig:
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver.api").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range stackdrivertest.Clt {
 				cltInstance := cltInstance
@@ -105,7 +105,7 @@ func TestMain(m *testing.M) {
 			if err != nil {
 				return err
 			}
-			return ctx.ConfigIstio().ApplyYAML(i.Settings().SystemNamespace, `
+			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, `
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
@@ -118,7 +118,7 @@ spec:
   metrics:
   - providers:
     - name: stackdriver
-`)
+`).Apply()
 		}).
 		Setup(stackdrivertest.TestSetup).
 		Run()

@@ -31,7 +31,6 @@ import (
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/pilot/common"
 )
@@ -112,10 +111,10 @@ func TestLocality(t *testing.T) {
 		Features("traffic.locality").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			destA := apps.PodB[0]
-			destB := apps.PodC[0]
+			destA := apps.B[0]
+			destB := apps.C[0]
 			destC := apps.Naked[0]
-			if !t.Settings().Skip(echotypes.VM) {
+			if !t.Settings().Skip(echo.VM) {
 				// TODO do we even need this to be a VM
 				destC = apps.VM[0]
 			}
@@ -211,8 +210,8 @@ func TestLocality(t *testing.T) {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
 					tt.input.Host = hostname
-					t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), runTemplate(t, localityTemplate, tt.input))
-					sendTrafficOrFail(t, apps.PodA[0], hostname, tt.expected)
+					t.ConfigIstio().YAML(apps.Namespace.Name(), runTemplate(t, localityTemplate, tt.input)).ApplyOrFail(t)
+					sendTrafficOrFail(t, apps.A[0], hostname, tt.expected)
 				})
 			}
 		})
@@ -253,12 +252,16 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 	}
 	// This is a hack to remain infrastructure agnostic when running these tests
 	// We actually call the host set above not the endpoint we pass
-	_ = from.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:   from,
-		PortName: "http",
-		Headers:  headers,
-		Count:    sendCount,
-		Check:    checker,
+	_ = from.CallOrFail(t, echo.CallOptions{
+		To: from,
+		Port: echo.Port{
+			Name: "http",
+		},
+		HTTP: echo.HTTP{
+			Headers: headers,
+		},
+		Count: sendCount,
+		Check: checker,
 	})
 }
 

@@ -69,6 +69,48 @@ type Args struct {
 	IstioVersion  string
 	Tags          []string
 	Hubs          []string
+
+	// Plan describes the build plan, read from file
+	Plan BuildPlan
+}
+
+type ImagePlan struct {
+	// Name of the image. For example, "pilot"
+	Name string `json:"name"`
+	// Dockerfile path to build from
+	Dockerfile string `json:"dockerfile"`
+	// Files list files that are copied as-is into the image
+	Files []string `json:"files"`
+	// Targets list make targets that are ran and then copied into the image
+	Targets []string `json:"targets"`
+}
+
+func (p ImagePlan) Dependencies() []string {
+	v := []string{p.Dockerfile}
+	v = append(v, p.Files...)
+	v = append(v, p.Targets...)
+	return v
+}
+
+type BuildPlan struct {
+	Images []ImagePlan `json:"images"`
+}
+
+func (p BuildPlan) Targets() []string {
+	tgts := sets.NewSet()
+	for _, img := range p.Images {
+		tgts.Insert(img.Targets...)
+	}
+	return tgts.SortedList()
+}
+
+func (p BuildPlan) Find(n string) ImagePlan {
+	for _, i := range p.Images {
+		if i.Name == n {
+			return i
+		}
+	}
+	panic("couldn't find target " + n)
 }
 
 // Define variants, which control the base image of an image.
@@ -87,6 +129,7 @@ const (
 
 func DefaultArgs() Args {
 	// By default, we build all targets
+	// TODO find from plan
 	targets := []string{
 		"pilot",
 		"proxyv2",

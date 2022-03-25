@@ -21,6 +21,14 @@ import (
 	"strings"
 )
 
+// HeaderType is a helper enum for retrieving Headers from a Response.
+type HeaderType string
+
+const (
+	RequestHeader  HeaderType = "request"
+	ResponseHeader HeaderType = "response"
+)
+
 // Response represents a response to a single echo request.
 type Response struct {
 	// RequestURL is the requested URL. This differs from URL, which is the just the path.
@@ -63,6 +71,18 @@ type Response struct {
 // Count occurrences of the given text within the body of this response.
 func (r Response) Count(text string) int {
 	return strings.Count(r.RawContent, text)
+}
+
+// GetHeaders returns the appropriate headers for the given type.
+func (r Response) GetHeaders(hType HeaderType) http.Header {
+	switch hType {
+	case RequestHeader:
+		return r.RequestHeaders
+	case ResponseHeader:
+		return r.ResponseHeaders
+	default:
+		panic("invalid HeaderType enum: " + hType)
+	}
 }
 
 // Body returns the lines of the response body, in order

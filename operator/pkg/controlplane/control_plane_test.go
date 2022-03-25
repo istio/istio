@@ -115,7 +115,7 @@ func TestNewIstioOperator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			gotOperator, err := NewIstioControlPlane(tt.inInstallSpec, tt.inTranslator)
+			gotOperator, err := NewIstioControlPlane(tt.inInstallSpec, tt.inTranslator, nil)
 			if ((err != nil && tt.wantErr == nil) || (err == nil && tt.wantErr != nil)) || !gotOperator.componentsEqual(tt.wantIstioOperator.components) {
 				t.Errorf("%s: wanted components & err %+v %v, got components & err %+v %v",
 					tt.desc, tt.wantIstioOperator.components, tt.wantErr, gotOperator.components, err)

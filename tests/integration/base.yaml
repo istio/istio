@@ -5,6 +5,8 @@ metadata:
   name: install
 spec:
   meshConfig:
+    # Disable retries. This avoids confusing logs and errors, and allows finer grain control for tests
+    defaultHttpRetryPolicy: {}
     accessLogFile: "/dev/stdout"
     defaultConfig:
       proxyMetadata:

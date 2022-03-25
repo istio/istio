@@ -31,12 +31,6 @@ func FuzzGrpcGenGenerate(data []byte) int {
 		return 0
 	}
 
-	push := &model.PushContext{}
-	err = f.GenerateStruct(push)
-	if err != nil {
-		return 0
-	}
-
 	w := &model.WatchedResource{}
 	err = f.GenerateStruct(w)
 	if err != nil {
@@ -50,7 +44,7 @@ func FuzzGrpcGenGenerate(data []byte) int {
 	}
 
 	generator := &grpcgen.GrpcConfigGenerator{}
-	_, _, _ = generator.Generate(proxy, push, w, updates)
+	_, _, _ = generator.Generate(proxy, w, updates)
 
 	return 1
 }

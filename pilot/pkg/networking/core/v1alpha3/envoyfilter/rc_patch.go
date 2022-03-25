@@ -70,10 +70,10 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap) {
 	removedVirtualHosts := sets.NewSet()
-	// first do removes/merges
-	for _, vhost := range routeConfiguration.VirtualHosts {
-		if patchVirtualHost(patchContext, patches, routeConfiguration, vhost, portMap) {
-			removedVirtualHosts.Insert(vhost.Name)
+	// first do removes/merges/replaces
+	for i := range routeConfiguration.VirtualHosts {
+		if patchVirtualHost(patchContext, patches, routeConfiguration, routeConfiguration.VirtualHosts, i, portMap) {
+			removedVirtualHosts.Insert(routeConfiguration.VirtualHosts[i].Name)
 		}
 	}
 
@@ -106,22 +106,25 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 // The return value indicates whether the virtual host has been removed for REMOVE operations.
 func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap) bool {
+	routeConfiguration *route.RouteConfiguration, virtualHosts []*route.VirtualHost,
+	idx int, portMap model.GatewayPortMap) bool {
 	for _, rp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
 		applied := false
 		if commonConditionMatch(patchContext, rp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) &&
-			virtualHostMatch(virtualHost, rp) {
+			virtualHostMatch(virtualHosts[idx], rp) {
 			applied = true
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				return true
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				proto.Merge(virtualHost, rp.Value)
+				proto.Merge(virtualHosts[idx], rp.Value)
+			} else if rp.Operation == networking.EnvoyFilter_Patch_REPLACE {
+				virtualHosts[idx] = proto.Clone(rp.Value).(*route.VirtualHost)
 			}
 		}
 		IncrementEnvoyFilterMetric(rp.Key(), VirtualHost, applied)
 	}
-	patchHTTPRoutes(patchContext, patches, routeConfiguration, virtualHost, portMap)
+	patchHTTPRoutes(patchContext, patches, routeConfiguration, virtualHosts[idx], portMap)
 	return false
 }
 

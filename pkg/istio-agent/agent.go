@@ -29,7 +29,6 @@ import (
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 
@@ -202,8 +201,7 @@ type AgentOptions struct {
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
 // associated clients to sign certificates (when not using files), and the local XDS proxy (including
 // health checking for VMs and DNS proxying).
-func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options,
-	eopts envoy.ProxyConfig) *Agent {
+func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options, eopts envoy.ProxyConfig) *Agent {
 	return &Agent{
 		proxyConfig:   proxyConfig,
 		cfg:           agentOpts,
@@ -242,17 +240,19 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	}
 
 	return bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
-		ID:                  a.cfg.ServiceNode,
-		Envs:                os.Environ(),
-		Platform:            a.cfg.Platform,
-		InstanceIPs:         a.cfg.ProxyIPAddresses,
-		StsPort:             a.secOpts.STSPort,
-		ProxyConfig:         a.proxyConfig,
-		PilotSubjectAltName: pilotSAN,
-		OutlierLogPath:      a.envoyOpts.OutlierLogPath,
-		ProvCert:            provCert,
-		EnvoyPrometheusPort: a.cfg.EnvoyPrometheusPort,
-		EnvoyStatusPort:     a.cfg.EnvoyStatusPort,
+		ID:                          a.cfg.ServiceNode,
+		Envs:                        os.Environ(),
+		Platform:                    a.cfg.Platform,
+		InstanceIPs:                 a.cfg.ProxyIPAddresses,
+		StsPort:                     a.secOpts.STSPort,
+		ProxyConfig:                 a.proxyConfig,
+		PilotSubjectAltName:         pilotSAN,
+		OutlierLogPath:              a.envoyOpts.OutlierLogPath,
+		ProvCert:                    provCert,
+		EnvoyPrometheusPort:         a.cfg.EnvoyPrometheusPort,
+		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
+		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
+		XDSRootCert:                 a.cfg.XDSRootCerts,
 	})
 }
 
@@ -297,7 +297,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 
 	envoyProxy := envoy.NewProxy(a.envoyOpts)
 
-	drainDuration, _ := types.DurationFromProto(a.proxyConfig.TerminationDrainDuration)
+	drainDuration := a.proxyConfig.TerminationDrainDuration.AsDuration()
 	localHostAddr := localHostIPv4
 	if a.cfg.IsIPv6 {
 		localHostAddr = localHostIPv6
@@ -332,7 +332,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
 				select {
 				case <-ctx.Done():
-					break
+					break retries
 				case <-time.After(delay):
 				}
 				if backoff < max/2 {

@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
@@ -81,7 +81,7 @@ func TestRevisionCommand(t *testing.T) {
 
 			revisions := []string{"stable", "canary"}
 			revResourceMap := map[string]*revisionResource{}
-			builder := echoboot.NewBuilder(t)
+			builder := deployment.New(t)
 			for _, rev := range revisions {
 				effectiveRev := rev
 				if rev == "default" {

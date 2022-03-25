@@ -18,10 +18,6 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-
-	"github.com/gogo/protobuf/proto"
-
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 func TestToYAML(t *testing.T) {
@@ -63,34 +59,6 @@ foo: yaml
 		t.Run(tt.desc, func(t *testing.T) {
 			if got := ToYAML(tt.inVals); got != tt.expectedOut {
 				t.Errorf("%s: expected out %v got %s", tt.desc, tt.expectedOut, got)
-			}
-		})
-	}
-}
-
-func TestToYAMLWithJSONPB(t *testing.T) {
-	tests := []struct {
-		desc        string
-		in          proto.Message
-		expectedOut string
-	}{
-		{
-			desc: "valid-istio-op-with-missing-fields",
-			in: &v1alpha1.IstioOperator{
-				ApiVersion: "v1",
-				Kind:       "operator",
-			},
-			expectedOut: `apiVersion: v1
-kind: operator
-metadata:
-  creationTimestamp: null
-`,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			if got := ToYAMLWithJSONPB(tt.in); got != tt.expectedOut {
-				t.Errorf("%s: expected %v got %v", tt.desc, tt.expectedOut, got)
 			}
 		})
 	}
@@ -145,15 +113,6 @@ func TestOverlayTrees(t *testing.T) {
 			},
 			expectedOverlay: map[string]interface{}{},
 			expectedErr:     nil,
-		},
-		{
-			desc: "expected-err",
-			inBase: map[string]interface{}{
-				"foo": nil,
-			},
-			inOverlays:      nil,
-			expectedOverlay: nil,
-			expectedErr:     errors.New("json merge error (Invalid JSON Patch) for base object"),
 		},
 	}
 	for _, tt := range tests {

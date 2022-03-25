@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -70,7 +70,7 @@ type Config struct {
 	*model.Node
 }
 
-// newTemplateParams creates a new template configuration for the given configuration.
+// toTemplateParams creates a new template configuration for the given configuration.
 func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts := make([]option.Instance, 0)
 
@@ -360,7 +360,8 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 		option.Cluster(getServiceCluster(metadata)),
 		option.PilotGRPCAddress(config.DiscoveryAddress),
 		option.DiscoveryAddress(config.DiscoveryAddress),
-		option.StatsdAddress(config.StatsdUdpAddress))
+		option.StatsdAddress(config.StatsdUdpAddress),
+		option.XDSRootCert(metadata.XDSRootCert))
 
 	// Add tracing options.
 	if config.Tracing != nil {
@@ -411,7 +412,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 		opts = append(opts, option.EnvoyMetricsServiceAddress(config.EnvoyMetricsService.Address),
 			option.EnvoyMetricsServiceTLS(config.EnvoyMetricsService.TlsSettings, metadata),
 			option.EnvoyMetricsServiceTCPKeepalive(config.EnvoyMetricsService.TcpKeepalive))
-	} else if config.EnvoyMetricsServiceAddress != "" {
+	} else if config.EnvoyMetricsServiceAddress != "" { // nolint: staticcheck
 		opts = append(opts, option.EnvoyMetricsServiceAddress(config.EnvoyMetricsService.Address))
 	}
 
@@ -425,7 +426,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 	return opts, nil
 }
 
-func getInt64ValueOrDefault(src *types.Int64Value, defaultVal int64) int64 {
+func getInt64ValueOrDefault(src *wrapperspb.Int64Value, defaultVal int64) int64 {
 	val := defaultVal
 	if src != nil {
 		val = src.Value
@@ -498,18 +499,20 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 
 // MetadataOptions for constructing node metadata.
 type MetadataOptions struct {
-	Envs                []string
-	Platform            platform.Environment
-	InstanceIPs         []string
-	StsPort             int
-	ID                  string
-	ProxyConfig         *meshAPI.ProxyConfig
-	PilotSubjectAltName []string
-	OutlierLogPath      string
-	ProvCert            string
-	annotationFilePath  string
-	EnvoyStatusPort     int
-	EnvoyPrometheusPort int
+	Envs                        []string
+	Platform                    platform.Environment
+	InstanceIPs                 []string
+	StsPort                     int
+	ID                          string
+	ProxyConfig                 *meshAPI.ProxyConfig
+	PilotSubjectAltName         []string
+	XDSRootCert                 string
+	OutlierLogPath              string
+	ProvCert                    string
+	annotationFilePath          string
+	EnvoyStatusPort             int
+	EnvoyPrometheusPort         int
+	ExitOnZeroActiveConnections bool
 }
 
 // GetNodeMetaData function uses an environment variable contract
@@ -550,6 +553,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}
 	meta.EnvoyStatusPort = options.EnvoyStatusPort
 	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
+	meta.ExitOnZeroActiveConnections = model.StringBool(options.ExitOnZeroActiveConnections)
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
@@ -602,6 +606,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}
 
 	meta.PilotSubjectAltName = options.PilotSubjectAltName
+	meta.XDSRootCert = options.XDSRootCert
 	meta.OutlierLogPath = options.OutlierLogPath
 	meta.ProvCert = options.ProvCert
 

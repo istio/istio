@@ -27,11 +27,10 @@ import (
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 )
@@ -91,10 +90,10 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 func doIstioMutualTest(
 	ctx framework.TestContext, ns namespace.Instance, configPath string, expectedCode int) {
 	var client echo.Instance
-	echoboot.NewBuilder(ctx).
+	deployment.New(ctx).
 		With(&client, util.EchoConfig("client", ns, false, nil)).
 		BuildOrFail(ctx)
-	ctx.ConfigIstio().ApplyYAMLOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
+	ctx.ConfigIstio().File(ns.Name(), configPath).ApplyOrFail(ctx)
 
 	// give the configuration a moment to kick in
 	time.Sleep(time.Second * 20)
@@ -109,7 +108,7 @@ func doIstioMutualTest(
 
 		if err := check.And(
 			check.NoError(),
-			check.StatusCode(expectedCode)).Check(responses, err); err != nil {
+			check.Status(expectedCode)).Check(responses, err); err != nil {
 			ctx.Fatal(err)
 		}
 	}
@@ -134,7 +133,7 @@ func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
 	}
 
 	for _, c := range configFiles {
-		if err := ctx.ConfigIstio().ApplyYAML(ns.Name(), file.AsStringOrFail(ctx, c)); err != nil {
+		if err := ctx.ConfigIstio().File(ns.Name(), c).Apply(); err != nil {
 			ctx.Fatalf("failed to apply configuration file %s; err: %v", c, err)
 		}
 	}

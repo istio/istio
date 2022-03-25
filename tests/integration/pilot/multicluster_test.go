@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -55,8 +54,8 @@ func TestClusterLocal(t *testing.T) {
 		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
 			// TODO use echotest to dynamically pick 2 simple pods from apps.All
-			sources := apps.PodA
-			destination := apps.PodB
+			sources := apps.A
+			to := apps.B
 
 			tests := []struct {
 				name  string
@@ -65,13 +64,13 @@ func TestClusterLocal(t *testing.T) {
 				{
 					"MeshConfig.serviceSettings",
 					func(t framework.TestContext) {
-						istio.PatchMeshConfig(t, i.Settings().SystemNamespace, destination.Clusters(), fmt.Sprintf(`
+						istio.PatchMeshConfig(t, i.Settings().SystemNamespace, to.Clusters(), fmt.Sprintf(`
 serviceSettings: 
 - settings:
     clusterLocal: true
   hosts:
   - "%s"
-`, apps.PodB[0].Config().ClusterLocalFQDN()))
+`, apps.B.Config().ClusterLocalFQDN()))
 					},
 				},
 				{
@@ -109,8 +108,8 @@ spec:
         host: {{$.host}}
         subset: {{ .Config.Cluster.Name }}
 {{- end }}
-`, map[string]interface{}{"src": sources, "dst": destination, "host": destination[0].Config().ClusterLocalFQDN()})
-						t.ConfigIstio().ApplyYAMLOrFail(t, sources[0].Config().Namespace.Name(), cfg)
+`, map[string]interface{}{"src": sources, "dst": to, "host": to.Config().ClusterLocalFQDN()})
+						t.ConfigIstio().YAML(sources.Config().Namespace.Name(), cfg).ApplyOrFail(t)
 					},
 				},
 			}
@@ -122,16 +121,20 @@ spec:
 					for _, source := range sources {
 						source := source
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
-							source.CallWithRetryOrFail(t, echo.CallOptions{
-								Target:   destination[0],
-								Count:    multiclusterRequestCountMultiplier * len(destination),
-								PortName: "http",
-								Scheme:   scheme.HTTP,
+							source.CallOrFail(t, echo.CallOptions{
+								To:    to,
+								Count: multiclusterRequestCountMultiplier * to.WorkloadsOrFail(t).Clusters().Len(),
+								Port: echo.Port{
+									Name: "http",
+								},
 								Check: check.And(
 									check.OK(),
 									check.ReachedClusters(cluster.Clusters{source.Config().Cluster}),
 								),
-							}, multiclusterRetryDelay, multiclusterRetryTimeout)
+								Retry: echo.Retry{
+									Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
+								},
+							})
 						})
 					}
 				})
@@ -142,16 +145,20 @@ spec:
 				for _, source := range sources {
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
-						source.CallWithRetryOrFail(t, echo.CallOptions{
-							Target:   destination[0],
-							Count:    multiclusterRequestCountMultiplier * len(destination),
-							PortName: "http",
-							Scheme:   scheme.HTTP,
+						source.CallOrFail(t, echo.CallOptions{
+							To:    to,
+							Count: multiclusterRequestCountMultiplier * to.WorkloadsOrFail(t).Clusters().Len(),
+							Port: echo.Port{
+								Name: "http",
+							},
 							Check: check.And(
 								check.OK(),
-								check.ReachedClusters(destination.Clusters()),
+								check.ReachedClusters(to.Clusters()),
 							),
-						}, multiclusterRetryDelay, multiclusterRetryTimeout)
+							Retry: echo.Retry{
+								Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
+							},
+						})
 					})
 				}
 			})
@@ -200,8 +207,41 @@ func TestBadRemoteSecret(t *testing.T) {
 					return err
 				}, retry.Timeout(15*time.Second))
 
-				t.ConfigKube().ApplyYAMLOrFail(t, ns, secret)
+				t.ConfigKube().YAML(ns, secret).ApplyOrFail(t)
 			}
+			// Test exec auth
+			// CreateRemoteSecret can never generate this, so create it manually
+			t.ConfigIstio().YAML(ns, `apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    networking.istio.io/cluster: bad
+  creationTimestamp: null
+  labels:
+    istio/multiCluster: "true"
+  name: istio-remote-secret-bad
+stringData:
+  bad: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        server: https://127.0.0.1
+      name: bad
+    contexts:
+    - context:
+        cluster: bad
+        user: bad
+      name: bad
+    current-context: bad
+    users:
+    - name: bad
+      user:
+        exec:
+          command: /bin/sh
+          args: ["-c", "hello world!"]
+---
+`).ApplyOrFail(t)
 
 			// create a new istiod pod using the template from the deployment, but not managed by the deployment
 			t.Logf("creating pod %s/%s", ns, pod)

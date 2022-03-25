@@ -17,7 +17,7 @@ package option
 import (
 	"strings"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
@@ -47,7 +47,7 @@ func PilotSubjectAltName(value []string) Instance {
 	return newOption("pilot_SAN", value).withConvert(sanConverter(value))
 }
 
-func ConnectTimeout(value *types.Duration) Instance {
+func ConnectTimeout(value *durationpb.Duration) Instance {
 	return newDurationOption("connect_timeout", value)
 }
 
@@ -90,6 +90,10 @@ func RuntimeFlags(flags map[string]string) Instance {
 
 func DiscoveryAddress(value string) Instance {
 	return newOption("discovery_address", value)
+}
+
+func XDSRootCert(value string) Instance {
+	return newOption("xds_root_cert", value)
 }
 
 func Localhost(value LocalhostValue) Instance {

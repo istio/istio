@@ -27,14 +27,12 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	gogojsonpb "github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/cluster"
@@ -104,7 +102,7 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	proxyConfig := mesh.DefaultProxyConfig()
 	if e.Mesh().DefaultConfig != nil {
-		proxyConfig = *e.Mesh().DefaultConfig
+		proxyConfig = e.Mesh().DefaultConfig
 	}
 	hostname, port, err := net.SplitHostPort(proxyConfig.DiscoveryAddress)
 	if err != nil {
@@ -212,14 +210,14 @@ var DefaultXdsLogDetails = XdsLogDetails{}
 // or no response is preferred.
 type XdsResourceGenerator interface {
 	// Generate generates the Sotw resources for Xds.
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
+	Generate(proxy *Proxy, w *WatchedResource, req *PushRequest) (Resources, XdsLogDetails, error)
 }
 
 // XdsDeltaResourceGenerator generates Sotw and delta resources.
 type XdsDeltaResourceGenerator interface {
 	XdsResourceGenerator
 	// GenerateDeltas returns the changed and removed resources, along with whether or not delta was actually used.
-	GenerateDeltas(proxy *Proxy, push *PushContext, updates *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
+	GenerateDeltas(proxy *Proxy, req *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -303,9 +301,17 @@ type Proxy struct {
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
 
-	CatchAllVirtualHost *route.VirtualHost
-
 	AutoregisteredWorkloadEntryName string
+
+	// LastPushContext stores the most recent push context for this proxy. This will be monotonically
+	// increasing in version. Requests should send config based on this context; not the global latest.
+	// Historically, the latest was used which can cause problems when computing whether a push is
+	// required, as the computed sidecar scope version would not monotonically increase.
+	LastPushContext *PushContext
+	// LastPushTime records the time of the last push. This is used in conjunction with
+	// LastPushContext; the XDS cache depends on knowing the time of the PushContext to determine if a
+	// key is stale or not.
+	LastPushTime time.Time
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -336,6 +342,10 @@ type WatchedResource struct {
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
+
+	// LastResources tracks the contents of the last push.
+	// This field is extremely expensive to maintain and is typically disabled
+	LastResources Resources
 }
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
@@ -429,10 +439,10 @@ func (s *StringBool) UnmarshalJSON(data []byte) error {
 // To allow marshaling, we need to define a custom type that calls out to the gogo marshaller
 type NodeMetaProxyConfig meshconfig.ProxyConfig
 
-func (s NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
+func (s *NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
-	pc := meshconfig.ProxyConfig(s)
-	if err := (&gogojsonpb.Marshaler{}).Marshal(&buf, &pc); err != nil {
+	pc := (*meshconfig.ProxyConfig)(s)
+	if err := (&jsonpb.Marshaler{}).Marshal(&buf, pc); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -440,7 +450,7 @@ func (s NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
 
 func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	pc := (*meshconfig.ProxyConfig)(s)
-	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
+	return jsonpb.Unmarshal(bytes.NewReader(data), pc)
 }
 
 // Node is a typed version of Envoy node with metadata.
@@ -475,6 +485,9 @@ type BootstrapNodeMetadata struct {
 
 	// PilotSAN is the list of subject alternate names for the xDS server.
 	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
+
+	// XDSRootCert defines the root cert to use for XDS connections
+	XDSRootCert string `json:"-"`
 
 	// OutlierLogPath is the cluster manager outlier event log path.
 	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
@@ -794,25 +807,6 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		node.SidecarScope = ps.getSidecarScope(node, nil)
 	}
 	node.PrevSidecarScope = sidecarScope
-	// Build CatchAllVirtualHost and cache it. This depends on sidecar scope config.
-	node.BuildCatchAllVirtualHost()
-}
-
-// Exposed only for tests. If used in regular code, should be called after SetSidecarScope.
-func (node *Proxy) BuildCatchAllVirtualHost() {
-	// Build CatchAllVirtualHost and cache it. This depends on sidecar scope config.
-	allowAny := false
-	egressDestination := ""
-	if node.SidecarScope.OutboundTrafficPolicy != nil {
-		if node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY {
-			allowAny = true
-		}
-		destination := node.SidecarScope.OutboundTrafficPolicy.EgressProxy
-		if destination != nil {
-			egressDestination = BuildSubsetKey(TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), int(destination.GetPort().Number))
-		}
-	}
-	node.CatchAllVirtualHost = istionetworking.BuildCatchAllVirtualHost(allowAny, egressDestination)
 }
 
 // SetGatewaysForProxy merges the Gateway objects associated with this

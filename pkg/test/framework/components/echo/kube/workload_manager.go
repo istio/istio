@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -62,11 +61,12 @@ func newWorkloadManager(ctx resource.Context, cfg echo.Config, handler workloadH
 		grpcInstancePort = grpcMagicPort
 	}
 	if grpcInstancePort == 0 {
-		grpcPort := common.GetPortForProtocol(&cfg, protocol.GRPC)
-		if grpcPort.TLS {
-			tls = cfg.TLSSettings
+		if grpcPort, found := cfg.Ports.ForProtocol(protocol.GRPC); found {
+			if grpcPort.TLS {
+				tls = cfg.TLSSettings
+			}
+			grpcInstancePort = grpcPort.WorkloadPort
 		}
-		grpcInstancePort = grpcPort.InstancePort
 	}
 	if grpcInstancePort == 0 {
 		return nil, errors.New("unable fo find GRPC command port")
@@ -90,7 +90,7 @@ func newWorkloadManager(ctx resource.Context, cfg echo.Config, handler workloadH
 }
 
 // WaitForReadyWorkloads waits until all known workloads are ready.
-func (m *workloadManager) WaitForReadyWorkloads() (out []echo.Workload, err error) {
+func (m *workloadManager) WaitForReadyWorkloads() (out echo.Workloads, err error) {
 	err = retry.UntilSuccess(func() error {
 		m.mutex.Lock()
 		out, err = m.readyWorkloads()
@@ -105,8 +105,8 @@ func (m *workloadManager) WaitForReadyWorkloads() (out []echo.Workload, err erro
 	return
 }
 
-func (m *workloadManager) readyWorkloads() ([]echo.Workload, error) {
-	out := make([]echo.Workload, 0, len(m.workloads))
+func (m *workloadManager) readyWorkloads() (echo.Workloads, error) {
+	out := make(echo.Workloads, 0, len(m.workloads))
 	var connErrs error
 	for _, w := range m.workloads {
 		if w.IsReady() {
@@ -126,7 +126,7 @@ func (m *workloadManager) readyWorkloads() ([]echo.Workload, error) {
 }
 
 // ReadyWorkloads returns all ready workloads in ascending order by pod name.
-func (m *workloadManager) ReadyWorkloads() ([]echo.Workload, error) {
+func (m *workloadManager) ReadyWorkloads() (echo.Workloads, error) {
 	m.mutex.Lock()
 	out, err := m.readyWorkloads()
 	m.mutex.Unlock()

@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -61,6 +60,15 @@ const (
 	// IntegrationTestExternalIstiodConfigDefaultsIOP is the path of the default IstioOperator spec to use
 	// on external istiod config clusters for integration tests
 	IntegrationTestExternalIstiodConfigDefaultsIOP = "tests/integration/iop-externalistiod-config-integration-test-defaults.yaml"
+
+	// hubValuesKey values key for the Docker image hub.
+	hubValuesKey = "global.hub"
+
+	// tagValuesKey values key for the Docker image tag.
+	tagValuesKey = "global.tag"
+
+	// imagePullPolicyValuesKey values key for the Docker image pull policy.
+	imagePullPolicyValuesKey = "global.imagePullPolicy"
 )
 
 var (
@@ -147,28 +155,18 @@ type Config struct {
 	EnableCNI bool
 }
 
-func (c *Config) OverridesYAML() string {
-	s, err := image.SettingsFromCommandLine()
-	if err != nil {
-		return ""
-	}
-
+func (c *Config) OverridesYAML(s *resource.Settings) string {
 	return fmt.Sprintf(`
 global:
   hub: %s
   tag: %s
-`, s.Hub, s.Tag)
+`, s.Image.Hub, s.Image.Tag)
 }
 
-func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {
+func (c *Config) IstioOperatorConfigYAML(s *resource.Settings, iopYaml string) string {
 	data := ""
 	if iopYaml != "" {
 		data = Indent(iopYaml, "  ")
-	}
-
-	s, err := image.SettingsFromCommandLine()
-	if err != nil {
-		return ""
 	}
 
 	return fmt.Sprintf(`
@@ -178,7 +176,7 @@ spec:
   hub: %s
   tag: %s
 %s
-`, s.Hub, s.Tag, data)
+`, s.Image.Hub, s.Image.Tag, data)
 }
 
 // Indent indents a block of text with an indent string
@@ -211,12 +209,8 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 		scopes.Framework.Warnf("Default IOPFile missing: %v", err)
 	}
 
-	deps, err := image.SettingsFromCommandLine()
-	if err != nil {
-		return Config{}, err
-	}
-
-	if s.Values, err = newHelmValues(ctx, deps); err != nil {
+	var err error
+	if s.Values, err = newHelmValues(ctx); err != nil {
 		return Config{}, err
 	}
 
@@ -243,7 +237,7 @@ func checkFileExists(path string) error {
 	return nil
 }
 
-func newHelmValues(ctx resource.Context, s *image.Settings) (map[string]string, error) {
+func newHelmValues(ctx resource.Context) (map[string]string, error) {
 	userValues, err := parseConfigOptions(helmValues)
 	if err != nil {
 		return nil, err
@@ -253,9 +247,10 @@ func newHelmValues(ctx resource.Context, s *image.Settings) (map[string]string, 
 	values := make(map[string]string)
 
 	// Common values
-	values[image.HubValuesKey] = s.Hub
-	values[image.TagValuesKey] = s.Tag
-	values[image.ImagePullPolicyValuesKey] = s.PullPolicy
+	s := ctx.Settings()
+	values[hubValuesKey] = s.Image.Hub
+	values[tagValuesKey] = s.Image.Tag
+	values[imagePullPolicyValuesKey] = s.Image.PullPolicy
 
 	// Copy the user values.
 	for k, v := range userValues {
@@ -263,8 +258,8 @@ func newHelmValues(ctx resource.Context, s *image.Settings) (map[string]string, 
 	}
 
 	// Always pull Docker images if using the "latest".
-	if values[image.TagValuesKey] == image.LatestTag {
-		values[image.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
+	if values[tagValuesKey] == "latest" {
+		values[imagePullPolicyValuesKey] = string(kubeCore.PullAlways)
 	}
 
 	// We need more information on Envoy logs to detect usage of any deprecated feature

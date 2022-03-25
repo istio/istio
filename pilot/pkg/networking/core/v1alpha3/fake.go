@@ -74,6 +74,9 @@ type TestOptions struct {
 	// Additional ConfigStoreCache to use
 	ConfigStoreCaches []model.ConfigStoreCache
 
+	// CreateConfigStore defines a function that, given a ConfigStoreCache, returns another ConfigStoreCache to use
+	CreateConfigStore func(c model.ConfigStoreCache) model.ConfigStoreCache
+
 	// ConfigGen plugins to use. If not set, all default plugins will be used
 	Plugins []plugin.Plugin
 
@@ -108,17 +111,19 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	})
 
 	configs := getConfigs(t, opts)
-	configStore := memory.MakeSkipValidation(collections.Pilot)
+	configStore := memory.MakeSkipValidation(collections.PilotGatewayAPI)
 
 	cc := memory.NewSyncController(configStore)
 	controllers := []model.ConfigStoreCache{cc}
+	if opts.CreateConfigStore != nil {
+		controllers = append(controllers, opts.CreateConfigStore(cc))
+	}
 	controllers = append(controllers, opts.ConfigStoreCaches...)
 	configController, _ := configaggregate.MakeWriteableCache(controllers, cc)
 
 	m := opts.MeshConfig
 	if m == nil {
-		def := mesh.DefaultMeshConfig()
-		m = &def
+		m = mesh.DefaultMeshConfig()
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
@@ -243,7 +248,6 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	return p
 }
 
-// TODO do we need lock around push context?
 func (f *ConfigGenTest) Listeners(p *model.Proxy) []*listener.Listener {
 	return f.ConfigGen.BuildListeners(p, f.PushContext())
 }
@@ -264,7 +268,8 @@ func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
 func (f *ConfigGenTest) DeltaClusters(
 	p *model.Proxy,
 	configUpdated map[model.ConfigKey]struct{},
-	watched *model.WatchedResource) ([]*cluster.Cluster, []string, bool) {
+	watched *model.WatchedResource,
+) ([]*cluster.Cluster, []string, bool) {
 	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,
 		&model.PushRequest{
 			Push: f.PushContext(), ConfigsUpdated: configUpdated,
@@ -280,8 +285,8 @@ func (f *ConfigGenTest) DeltaClusters(
 	return res, removed, delta
 }
 
-func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
-	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, xdstest.ExtractRoutesFromListeners(f.Listeners(p)))
+func (f *ConfigGenTest) RoutesFromListeners(p *model.Proxy, l []*listener.Listener) []*route.RouteConfiguration {
+	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, xdstest.ExtractRoutesFromListeners(l))
 	out := make([]*route.RouteConfiguration, 0, len(resources))
 	for _, resource := range resources {
 		routeConfig := &route.RouteConfiguration{}
@@ -289,6 +294,10 @@ func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
 		out = append(out, routeConfig)
 	}
 	return out
+}
+
+func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
+	return f.RoutesFromListeners(p, f.Listeners(p))
 }
 
 func (f *ConfigGenTest) PushContext() *model.PushContext {
@@ -329,7 +338,7 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 		t0 := time.Now()
 		configs, _, err := crd.ParseInputs(configStr)
 		if err != nil {
-			t.Fatalf("failed to read config: %v", err)
+			t.Fatalf("failed to read config: %v: %v", err, configStr)
 		}
 		// setup default namespace if not defined
 		for _, c := range configs {
@@ -338,7 +347,9 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 			}
 			// Set creation timestamp to same time for all of them for consistency.
 			// If explicit setting is needed it can be set in the yaml
-			c.CreationTimestamp = t0
+			if c.CreationTimestamp.IsZero() {
+				c.CreationTimestamp = t0
+			}
 			cfgs = append(cfgs, c)
 		}
 	}

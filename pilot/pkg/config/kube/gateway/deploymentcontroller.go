@@ -148,11 +148,14 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 
 	gw, err := d.gatewayLister.Gateways(req.Namespace).Get(req.Name)
 	if err != nil || gw == nil {
-		log.Errorf("unable to fetch Gateway: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
-		return controllers.IgnoreNotFound(err)
+		if err := controllers.IgnoreNotFound(err); err != nil {
+			log.Errorf("unable to fetch Gateway: %v", err)
+			return err
+		}
+		return nil
 	}
 
 	gc, _ := d.gatewayClassLister.Get(string(gw.Spec.GatewayClassName))

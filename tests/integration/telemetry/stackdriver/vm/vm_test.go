@@ -41,17 +41,26 @@ func TestVMTelemetry(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("observability.telemetry.stackdriver").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.
-			ctx.ConfigIstio().ApplyYAMLOrFail(ctx, ns.Name(), enforceMTLS)
+			t.ConfigIstio().YAML(ns.Name(), enforceMTLS).ApplyOrFail(t)
 
 			clientBuilder.BuildOrFail(t)
 			serverBuilder.BuildOrFail(t)
 
 			retry.UntilSuccessOrFail(t, func() error {
 				// send single request from client -> server
-				if _, err := client.Call(echo.CallOptions{Target: server, PortName: "http", Count: 1}); err != nil {
+				if _, err := client.Call(echo.CallOptions{
+					To: server,
+					Port: echo.Port{
+						Name: "http",
+					},
+					Count: 1,
+					Retry: echo.Retry{
+						NoRetry: true,
+					},
+				}); err != nil {
 					return err
 				}
 

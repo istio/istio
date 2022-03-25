@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/util/sets"
 	testenv "istio.io/istio/pkg/test/env"
@@ -58,7 +60,12 @@ func main() {
 	}
 }
 
-var privilegedHubs = sets.NewSet("docker.io/istio", "istio", "gcr.io/istio-release")
+var privilegedHubs = sets.NewSet(
+	"docker.io/istio",
+	"istio",
+	"gcr.io/istio-release",
+	"gcr.io/istio-testing",
+)
 
 var rootCmd = &cobra.Command{
 	SilenceUsage: true,
@@ -82,15 +89,18 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("pushing to official registry only supported in CI")
 		}
 
+		args, err := ReadPlan(args)
+		if err != nil {
+			return err
+		}
 		tarFiles, err := ConstructBakeFile(args)
 		if err != nil {
 			return err
 		}
-		targets := []string{}
-		for _, t := range args.Targets {
-			targets = append(targets, fmt.Sprintf("build.docker.%s", t))
+		if err := RunMake(args, args.Plan.Targets()...); err != nil {
+			return err
 		}
-		if err := RunMake(args, targets...); err != nil {
+		if err := CopyInputs(args); err != nil {
 			return err
 		}
 		if err := RunBake(args); err != nil {
@@ -102,6 +112,58 @@ var rootCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func CopyInputs(a Args) error {
+	for _, target := range a.Targets {
+		bp := a.Plan.Find(target)
+		args := bp.Dependencies()
+		args = append(args, filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target)))
+		if err := RunCommand(a, "tools/docker-copy.sh", args...); err != nil {
+			return fmt.Errorf("copy: %v", err)
+		}
+	}
+	return nil
+}
+
+func ReadPlan(a Args) (Args, error) {
+	by, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
+	if err != nil {
+		return a, err
+	}
+	plan := BuildPlan{}
+	input := os.Expand(string(by), func(s string) string {
+		data := map[string]string{
+			"SIDECAR": "envoy",
+		}
+		if r, f := data[s]; f {
+			return r
+		}
+
+		// Fallback to env
+		return os.Getenv(s)
+	})
+	if err := yaml.Unmarshal([]byte(input), &plan); err != nil {
+		return a, err
+	}
+	tgt := sets.NewSet(a.Targets...)
+	known := sets.NewSet()
+	for _, img := range plan.Images {
+		known.Insert(img.Name)
+	}
+	if unknown := tgt.Difference(known).SortedList(); len(unknown) > 0 {
+		return a, fmt.Errorf("unknown targets: %v", unknown)
+	}
+	// Filter down to requested targets
+	desiredImages := []ImagePlan{}
+	for _, i := range plan.Images {
+		if tgt.Contains(i.Name) {
+			desiredImages = append(desiredImages, i)
+		}
+	}
+	plan.Images = desiredImages
+	a.Plan = plan
+	return a, nil
 }
 
 func RunBake(args Args) error {
@@ -234,6 +296,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	allDestinations := sets.NewSet()
 	for _, variant := range a.Variants {
 		for _, target := range a.Targets {
+			bp := a.Plan.Find(target)
 			if variant == DefaultVariant && hasDoubleDefault {
 				// This will be process by the PrimaryVariant, skip it here
 				continue
@@ -251,7 +314,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
 			t := Target{
 				Context:    sp(p),
-				Dockerfile: sp(fmt.Sprintf("Dockerfile.%s", target)),
+				Dockerfile: sp(filepath.Base(bp.Dockerfile)),
 				Args: map[string]string{
 					// Base version defines the tag of the base image to use. Typically, set in the Makefile and not overridden.
 					"BASE_VERSION": args.BaseVersion,
@@ -330,6 +393,9 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	if args.NoClobber {
 		e := errgroup.Group{}
 		for _, i := range allDestinations.SortedList() {
+			if strings.HasSuffix(i, ":latest") { // Allow clobbering of latest - don't verify existence
+				continue
+			}
 			i := i
 			e.Go(func() error {
 				return assertImageNonExisting(i)
@@ -402,16 +468,29 @@ func StandardEnv(args Args) []string {
 	env = append(env,
 		// Build should already run in container, having multiple layers of docker causes issues
 		"BUILD_WITH_CONTAINER=0",
-		// Overwrite rules for buildx
-		"DOCKER_RULE=./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@",
-		"RENAME_TEMPLATE=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)",
 	)
 	return env
 }
 
 // RunMake runs a make command for the repo, with standard environment variables set
 func RunMake(args Args, c ...string) error {
-	cmd := VerboseCommand("make", c...)
+	shortArgs := []string{}
+	// Shorten output to avoid a ton of long redundant paths
+	for _, cs := range c {
+		shortArgs = append(shortArgs, filepath.Base(cs))
+	}
+	log.Infof("Running make: %v", strings.Join(shortArgs, " "))
+	cmd := exec.Command("make", c...)
+	cmd.Env = StandardEnv(args)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Dir = testenv.IstioSrc
+	return cmd.Run()
+}
+
+// RunCommand runs a command for the repo, with standard environment variables set
+func RunCommand(args Args, c string, cargs ...string) error {
+	cmd := VerboseCommand(c, cargs...)
 	cmd.Env = StandardEnv(args)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout

@@ -14,60 +14,44 @@ With following configuration, otel-collector will create a grpc receiver on port
 
 ```yaml
 receivers:
-      otlp:
-        protocols:
-          grpc:
-          http:
-    processors:
-      batch:
-    exporters:
-      logging:
-        loglevel: debug
-    service:
-      pipelines:
-        logs:
-          receivers: [otlp]
-          processors: [batch]
-          exporters: [logging]
+  otlp:
+    protocols:
+      grpc:
+      http:
+processors:
+  batch:
+exporters:
+  logging:
+    loglevel: debug
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging]
 ```
 
-## Modiy istio configmap
+## Update istio configmap
 
-Run the following script to edit the istio MeshConfig, update the YAML files in one step.
+Run the following script to update the `istio` with demo profile:
+
+```bash
+istioctl install --set profile=demo -y
+```
+
+Next, add a Telemetry resource that tells Istio to send access logs to the OpenTelemetry collector.
 
 ```bash
 cat <<EOF | kubectl apply -n istio-system -f -
-apiVersion: v1
-kind: ConfigMap
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
 metadata:
-  name: istio
+  name: mesh-default
   namespace: istio-system
-data:
-  mesh: |-
-    accessLogFile: /dev/stdout
-    defaultConfig:
-      discoveryAddress: istiod.istio-system.svc:15012
-      proxyMetadata: {}
-      tracing:
-        zipkin:
-          address: zipkin.istio-system:9411
-    enablePrometheusMerge: true
-    extensionProviders:
-    - name: otel
-      envoyOtelAls:
-        service: otel-collector.istio-system.svc.cluster.local
-        port: 4317
-        logFormat:
-          labels:
-            "protocol": "%PROTOCOL%"
-            "attempt": "%REQ(X-ENVOY-ATTEMPT-COUNT)%"
-    defaultProviders:
-      accessLogging:
-      - envoy
-      - otel
-    rootNamespace: istio-system
-    trustDomain: cluster.local
-  meshNetworks: 'networks: {}'
+spec:
+  accessLogging:
+    - providers:
+      - name: otel
 EOF
 ```
 
@@ -91,4 +75,5 @@ kubectl logs $(kubectl get po -n istio-system | grep otel | awk '{print $1}') -n
 
 ```bash
 kubectl delete -f otel.yaml
+kubectl delete telemetry mesh-default -nistio-system
 ```

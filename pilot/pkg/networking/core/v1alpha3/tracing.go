@@ -39,6 +39,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 )
 
@@ -210,7 +211,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 									CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService_{
 										StsService: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService{
 											TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
-											SubjectTokenPath:        "/var/run/secrets/tokens/istio-token",
+											SubjectTokenPath:        constants.TrustworthyJWTPath,
 											SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
 											Scope:                   "https://www.googleapis.com/auth/cloud-platform",
 										},
@@ -482,6 +483,10 @@ func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
 func buildCustomTagsFromProvider(providerTags map[string]*telemetrypb.Tracing_CustomTag) []*tracing.CustomTag {
 	var tags []*tracing.CustomTag
 	for tagName, tagInfo := range providerTags {
+		if tagInfo == nil {
+			log.Warnf("while building custom tags from provider, encountered nil custom tag: %s, skipping", tagName)
+			continue
+		}
 		switch tag := tagInfo.Type.(type) {
 		case *telemetrypb.Tracing_CustomTag_Environment:
 			env := &tracing.CustomTag{
@@ -524,6 +529,10 @@ func buildCustomTagsFromProxyConfig(customTags map[string]*meshconfig.Tracing_Cu
 	var tags []*tracing.CustomTag
 
 	for tagName, tagInfo := range customTags {
+		if tagInfo == nil {
+			log.Warnf("while building custom tags from proxyConfig, encountered nil custom tag: %s, skipping", tagName)
+			continue
+		}
 		switch tag := tagInfo.Type.(type) {
 		case *meshconfig.Tracing_CustomTag_Environment:
 			env := &tracing.CustomTag{

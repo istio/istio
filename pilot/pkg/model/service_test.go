@@ -15,10 +15,17 @@
 package model
 
 import (
+	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	fuzz "github.com/google/gofuzz"
+
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 func TestGetByPort(t *testing.T) {
@@ -275,5 +282,31 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 func BenchmarkBuildSubsetKey(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		_ = BuildSubsetKey(TrafficDirectionInbound, "v1", "someHost", 80)
+	}
+}
+
+func BenchmarkServiceDeepCopy(b *testing.B) {
+	svc1 := buildHTTPService("test.com", visibility.Public, "10.10.0.1", "default", 80, 8080, 9090, 9999)
+	svc1.ServiceAccounts = []string{"sa1"}
+	svc1.ClusterVIPs = AddressMap{
+		Addresses: map[cluster.ID][]string{
+			"cluster1": {"10.10.0.1"},
+			"cluster2": {"10.10.0.2"},
+		},
+	}
+	for n := 0; n < b.N; n++ {
+		_ = svc1.DeepCopy()
+	}
+}
+
+func TestFuzzServiceDeepCopy(t *testing.T) {
+	fuzzer := fuzz.New()
+	originalSvc := &Service{}
+	fuzzer.Fuzz(originalSvc)
+	copied := originalSvc.DeepCopy()
+	if !reflect.DeepEqual(originalSvc, copied) {
+		cmp.AllowUnexported()
+		diff := cmp.Diff(originalSvc, copied, cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex"))
+		t.Errorf("unexpected diff %v", diff)
 	}
 }
