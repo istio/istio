@@ -32,7 +32,6 @@ import (
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -161,7 +160,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	}
 
 	Clt = servicePrefix("clt").GetMatches(echos)
-	Srv = match.ServiceName(model.NamespacedName{Name: "srv", Namespace: EchoNsInst.Name()}).GetMatches(echos)
+	Srv = match.ServiceName(echo.NamespacedName{Name: "srv", Namespace: EchoNsInst}).GetMatches(echos)
 	return nil
 }
 

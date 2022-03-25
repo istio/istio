@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
@@ -107,7 +106,7 @@ func TestMultiRevision(t *testing.T) {
 
 			echotest.New(t, echos).
 				ConditionallyTo(echotest.ReachableDestinations).
-				ToMatch(match.ServiceName(model.NamespacedName{Name: "server", Namespace: canary.Name()})).
+				ToMatch(match.ServiceName(echo.NamespacedName{Name: "server", Namespace: canary})).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := from.Call(echo.CallOptions{

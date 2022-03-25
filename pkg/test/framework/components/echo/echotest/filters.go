@@ -107,7 +107,7 @@ func oneRegularPodPerNamespace(exclude echo.Instances) Filter {
 		// Apply the filters.
 		regularPods := match.And(
 			match.RegularPod,
-			match.Not(match.AnyServiceName(exclude...))).GetMatches(instances)
+			match.Not(match.AnyServiceName(exclude.NamespacedNames()))).GetMatches(instances)
 
 		if len(regularPods) == 0 {
 			return regularPods
