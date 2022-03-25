@@ -25,7 +25,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/spf13/viper"
 
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
 )
@@ -55,7 +55,7 @@ var exittypeToString = map[XTablesExittype]string{
 }
 
 // XTablesCmds is the set of all the xtables-related commands currently supported.
-var XTablesCmds = sets.NewSet(
+var XTablesCmds = sets.NewWith(
 	constants.IPTABLES,
 	constants.IP6TABLES,
 	constants.IPTABLESRESTORE,

@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/pkg/log"
 )
@@ -46,7 +47,7 @@ var (
 	logFetchLimitCh = make(chan struct{}, maxLogFetchConcurrency)
 
 	// runningTasks tracks the in-flight fetch operations for user feedback.
-	runningTasks   = make(map[string]struct{})
+	runningTasks   = sets.New()
 	runningTasksMu sync.RWMutex
 
 	// runningTasksTicker is the report interval for running tasks.
@@ -209,7 +210,7 @@ func Run(subcmds []string, opts *Options) (string, error) {
 func printRunningTasks() {
 	runningTasksMu.RLock()
 	defer runningTasksMu.RUnlock()
-	if len(runningTasks) == 0 {
+	if runningTasks.IsEmpty() {
 		return
 	}
 	common.LogAndPrintf("The following fetches are still running: \n")
@@ -223,12 +224,12 @@ func addRunningTask(task string) {
 	runningTasksMu.Lock()
 	defer runningTasksMu.Unlock()
 	log.Infof("STARTING %s", task)
-	runningTasks[task] = struct{}{}
+	runningTasks.Insert(task)
 }
 
 func removeRunningTask(task string) {
 	runningTasksMu.Lock()
 	defer runningTasksMu.Unlock()
 	log.Infof("COMPLETED %s", task)
-	delete(runningTasks, task)
+	runningTasks.Delete(task)
 }
