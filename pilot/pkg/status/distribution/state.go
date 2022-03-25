@@ -16,6 +16,7 @@ package distribution
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -73,6 +74,9 @@ func NewController(restConfig *rest.Config, namespace string, cs model.ConfigSto
 		clock:           clock.RealClock{},
 		configStore:     cs,
 		workers: m.CreateIstioStatusController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
+			if status == nil {
+				return nil
+			}
 			distributionState := context.(Progress)
 			if needsReconcile, desiredStatus := ReconcileStatuses(status, distributionState); needsReconcile {
 				return desiredStatus
@@ -145,6 +149,10 @@ func (c *Controller) writeAllStatus() (staleReporters []string) {
 	defer c.mu.RUnlock()
 	c.mu.RLock()
 	for config, fractions := range c.CurrentState {
+		if !strings.HasSuffix(config.Group, "istio.io") {
+			// don't try to write status for non-istio types
+			continue
+		}
 		var distributionState Progress
 		for reporter, w := range fractions {
 			// check for stale data here
