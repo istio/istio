@@ -25,10 +25,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func makeSecret(name string, data map[string]string) *corev1.Secret {
@@ -226,7 +226,7 @@ func errString(e error) string {
 }
 
 func allowIdentities(c kube.Client, identities ...string) {
-	allowed := sets.NewSet(identities...)
+	allowed := sets.NewWith(identities...)
 	c.Kube().(*fake.Clientset).Fake.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		a := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
 		if allowed.Contains(a.Spec.User) {

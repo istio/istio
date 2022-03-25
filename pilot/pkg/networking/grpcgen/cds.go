@@ -26,8 +26,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	corexds "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // BuildClusters handles a gRPC CDS request, used with the 'ApiListener' style of requests.
@@ -66,7 +66,7 @@ func newClusterFilter(names []string) map[string]sets.Set {
 		dir, _, hn, p := model.ParseSubsetKey(name)
 		defaultKey := model.BuildSubsetKey(dir, "", hn, p)
 		if _, ok := filter[defaultKey]; !ok {
-			filter[defaultKey] = sets.NewSet()
+			filter[defaultKey] = sets.New()
 		}
 		filter[defaultKey].Insert(name)
 	}

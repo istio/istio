@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestConvertResources(t *testing.T) {
@@ -358,7 +358,7 @@ func splitOutput(configs []config.Config) OutputResources {
 
 func splitInput(configs []config.Config) *KubernetesResources {
 	out := &KubernetesResources{}
-	namespaces := sets.NewSet()
+	namespaces := sets.New()
 	for _, c := range configs {
 		namespaces.Insert(c.Namespace)
 		switch c.GroupVersionKind {

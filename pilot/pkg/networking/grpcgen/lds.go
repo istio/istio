@@ -35,10 +35,10 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var supportedFilters = []*hcm.HttpFilter{
@@ -335,7 +335,7 @@ func (ln *listenerName) includesPort(port string) bool {
 func (f listenerNames) includes(s string) (listenerName, bool) {
 	if len(f) == 0 {
 		// filter is empty, include everything
-		return listenerName{RequestedNames: sets.NewSet(s)}, true
+		return listenerName{RequestedNames: sets.NewWith(s)}, true
 	}
 	n, ok := f[s]
 	return n, ok
@@ -356,7 +356,7 @@ func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
 	for _, name := range names {
 		// inbound, create a simple entry and move on
 		if strings.HasPrefix(name, grpcxds.ServerListenerNamePrefix) {
-			filter[name] = listenerName{RequestedNames: sets.NewSet(name)}
+			filter[name] = listenerName{RequestedNames: sets.NewWith(name)}
 			continue
 		}
 
@@ -376,7 +376,7 @@ func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
 		for _, name := range allNames {
 			ln, ok := filter[name]
 			if !ok {
-				ln = listenerName{RequestedNames: sets.NewSet()}
+				ln = listenerName{RequestedNames: sets.New()}
 			}
 			ln.RequestedNames.Insert(requestedName)
 

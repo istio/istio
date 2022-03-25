@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // IstioControlPlane is an installation of an Istio control plane.
@@ -40,7 +40,7 @@ func NewIstioControlPlane(installSpec *v1alpha1.IstioOperatorSpec, translator *t
 	opts := &component.Options{
 		InstallSpec: installSpec,
 		Translator:  translator,
-		Filter:      sets.NewSet(filter...),
+		Filter:      sets.NewWith(filter...),
 	}
 	for _, c := range name.AllCoreComponentNames {
 		o := *opts

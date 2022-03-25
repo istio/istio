@@ -24,9 +24,9 @@ import (
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -157,7 +157,7 @@ func (s Settings) Skip(class string) bool {
 }
 
 func (s *Settings) SkipWorkloadClassesAsSet() sets.Set {
-	return sets.NewSet(s.SkipWorkloadClasses...)
+	return sets.NewWith(s.SkipWorkloadClasses...)
 }
 
 // RunDir is the name of the dir to output, for this particular run.

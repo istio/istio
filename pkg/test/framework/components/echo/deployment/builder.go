@@ -25,7 +25,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Builder for a group of collaborating Echo Instances. Once built, all Instances in the
@@ -212,7 +212,7 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 
 	out := map[string]sets.Set{}
 	for _, c := range b.ctx.Clusters().Kube() {
-		out[c.Name()] = sets.NewSet()
+		out[c.Name()] = sets.New()
 		// TODO find a place to read revision(s) and avoid listing
 		cms, err := c.CoreV1().ConfigMaps(ns).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -220,7 +220,7 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 		}
 
 		// take the intersection of the templates available from each revision in this cluster
-		intersection := sets.NewSet()
+		intersection := sets.New()
 		for _, item := range cms.Items {
 			if !strings.HasPrefix(item.Name, "istio-sidecar-injector") {
 				continue
@@ -230,13 +230,13 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 				return nil, fmt.Errorf("failed parsing injection cm in %s: %v", c.Name(), err)
 			}
 			if data.RawTemplates != nil {
-				t := sets.NewSet()
+				t := sets.New()
 				for name := range data.RawTemplates {
 					t.Insert(name)
 				}
 				// either intersection has not been set or we intersect these templates
 				// with the current set.
-				if intersection.Empty() {
+				if intersection.IsEmpty() {
 					intersection = t
 				} else {
 					intersection = intersection.Intersection(t)
@@ -388,9 +388,9 @@ func (b builder) BuildOrFail(t test.Failer) echo.Instances {
 
 // validateTemplates returns true if the templates specified by inject.istio.io/templates on the config exist on c
 func (b builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
-	expected := sets.NewSet()
+	expected := sets.New()
 	for _, subset := range config.Subsets {
-		expected.Insert(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
+		expected.InsertAll(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
 	}
 	if b.templates == nil || b.templates[c.Name()] == nil {
 		return len(expected) == 0

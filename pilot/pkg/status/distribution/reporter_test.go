@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/ledger"
 )
 
@@ -38,13 +39,13 @@ func TestStatusMaps(t *testing.T) {
 	RegisterTestingT(t)
 	x := struct{}{}
 	Expect(r.status).To(Equal(map[string]string{"conA~": "a", "conB~": "a", "conC~": "c", "conD~": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conA~": x, "conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
+	Expect(r.reverseStatus).To(Equal(map[string]sets.Set{"a": {"conA~": x, "conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
 	r.processEvent("conA", typ, "d")
 	Expect(r.status).To(Equal(map[string]string{"conA~": "d", "conB~": "a", "conC~": "c", "conD~": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x, "conA~": x}}))
+	Expect(r.reverseStatus).To(Equal(map[string]sets.Set{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x, "conA~": x}}))
 	r.RegisterDisconnect("conA", []xds.EventType{typ})
 	Expect(r.status).To(Equal(map[string]string{"conB~": "a", "conC~": "c", "conD~": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
+	Expect(r.reverseStatus).To(Equal(map[string]sets.Set{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
 }
 
 func initReporterWithoutStarting() (out Reporter) {
@@ -54,7 +55,7 @@ func initReporterWithoutStarting() (out Reporter) {
 	out.clock = clock.RealClock{} // TODO
 	out.UpdateInterval = 300 * time.Millisecond
 	out.cm = nil // TODO
-	out.reverseStatus = make(map[string]map[string]struct{})
+	out.reverseStatus = make(map[string]sets.Set)
 	out.status = make(map[string]string)
 	return
 }

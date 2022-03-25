@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Statically link protobuf descriptors from UDPA
@@ -91,11 +92,11 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind)
 
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[string]struct{} {
-	ret := make(map[string]struct{})
+	ret := sets.New()
 
 	for conf := range configs {
 		if conf.Kind == kind {
-			ret[conf.Name] = struct{}{}
+			ret.Insert(conf.Name)
 		}
 	}
 

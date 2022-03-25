@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 

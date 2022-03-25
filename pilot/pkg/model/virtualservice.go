@@ -21,12 +21,12 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
@@ -34,7 +34,7 @@ import (
 func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
 
-	vsset := sets.NewSet()
+	vsset := sets.New()
 	addVirtualService := func(vs config.Config, hosts host.Names) {
 		vsname := vs.Name + "/" + vs.Namespace
 		rule := vs.Spec.(*networking.VirtualService)
@@ -467,7 +467,7 @@ func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
 		if len(root.Gateways) < len(leaf.Gateways) {
 			return true
 		}
-		rootGateway := sets.NewSet(root.Gateways...)
+		rootGateway := sets.NewWith(root.Gateways...)
 		for _, gw := range leaf.Gateways {
 			if !rootGateway.Contains(gw) {
 				return true

@@ -31,12 +31,12 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -407,7 +407,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		for _, svc := range virtualHostWrapper.Services {
 			name := util.DomainName(string(svc.Hostname), virtualHostWrapper.Port)
-			knownFQDN.Insert(name, string(svc.Hostname))
+			knownFQDN.InsertAll(name, string(svc.Hostname))
 		}
 	}
 
