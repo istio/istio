@@ -167,5 +167,5 @@ func (i Instances) Restart() error {
 		app := app
 		g.Go(app.Restart)
 	}
-	return g.Wait()
+	return g.Wait().ErrorOrNil()
 }
