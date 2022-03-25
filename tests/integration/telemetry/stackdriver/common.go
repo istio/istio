@@ -32,7 +32,6 @@ import (
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/integration/telemetry"
 )
 
@@ -349,7 +349,7 @@ func logDiff(t test.Failer, tp string, query map[string]string, entries []map[st
 		return
 	}
 	allMismatches := []map[string]string{}
-	seen := sets.NewSet()
+	seen := sets.New()
 	for _, s := range entries {
 		b, _ := json.Marshal(s)
 		ss := string(b)

@@ -37,15 +37,15 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
+var deltaConfigTypes = sets.NewWith(gvk.ServiceEntry.Kind)
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -101,7 +101,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
 		_, _, svcHost, port := model.ParseSubsetKey(cluster)
 		if serviceClusters[string(svcHost)] == nil {
-			serviceClusters[string(svcHost)] = sets.NewSet()
+			serviceClusters[string(svcHost)] = sets.New()
 		}
 		serviceClusters[string(svcHost)].Insert(cluster)
 		if servicePorts[string(svcHost)] == nil {
