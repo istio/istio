@@ -22,11 +22,15 @@ import (
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+<<<<<<< HEAD
+=======
+	"google.golang.org/protobuf/types/known/durationpb"
+	"k8s.io/apimachinery/pkg/util/uuid"
+>>>>>>> fix rebase conflicts
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/xds"
@@ -52,7 +56,7 @@ var (
 	fakePrivateKeyProviderConf = &meshconfig.PrivateKeyProvider{
 		Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
 			Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
-				PollDelay: &types.Duration{
+				PollDelay: &durationpb.Duration{
 					Seconds: 0,
 					Nanos:   10000,
 				},
@@ -136,20 +140,13 @@ func setupSDS(t *testing.T) *TestServer {
 		ResourceName: ca2.RootCertReqResourceName,
 	})
 
-<<<<<<< HEAD
 	opts := &ca2.Options{}
-	server := NewServer(opts, st, nil)
-=======
-	opts := &ca2.Options{
-		WorkloadUDSPath: fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
-	}
 
 	if usefakePrivateKeyProviderConf {
 		server = NewServer(opts, st, fakePrivateKeyProviderConf)
 	} else {
 		server = NewServer(opts, st, nil)
 	}
->>>>>>> add tests
 	t.Cleanup(func() {
 		server.Stop()
 	})

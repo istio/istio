@@ -840,7 +840,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
 						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
 							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
-								PollDelay: &types.Duration{
+								PollDelay: &durationpb.Duration{
 									Seconds: 0,
 									Nanos:   0,
 								},
@@ -858,7 +858,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
 						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
 							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
-								PollDelay: &types.Duration{
+								PollDelay: &durationpb.Duration{
 									Seconds: 0,
 									Nanos:   10000,
 								},
