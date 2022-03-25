@@ -112,6 +112,7 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 
 var crdWatches = map[config.GroupVersionKind]*waiter{
 	gvk.KubernetesGateway: newWaiter(),
+	gvk.GatewayClass:      newWaiter(),
 }
 
 type waiter struct {
