@@ -15,6 +15,9 @@ spec:
     - operation:
         paths: ["/prefix*"]
         notPaths: ["/prefix/allowlist"]
+  - to:
+    - operation:
+        notMethods : ["GET"]
 ---
 
 # The following policy denies access from other namespaces.

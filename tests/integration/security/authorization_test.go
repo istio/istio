@@ -156,6 +156,8 @@ func TestAuthorization_JWT(t *testing.T) {
 						cases := []rbacUtil.TestCase{
 							newTestCase(dst, "[NoJWT]", "", "/token1", false),
 							newTestCase(dst, "[NoJWT]", "", "/token2", false),
+							newTestCase(dst, "[Token3]", jwt.TokenIssuer1, "/token3", false),
+							newTestCase(dst, "[Token3]", jwt.TokenIssuer2, "/token3", true),
 							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/token1", true),
 							newTestCase(dst, "[Token1]", jwt.TokenIssuer1, "/token2", false),
 							newTestCase(dst, "[Token2]", jwt.TokenIssuer2, "/token1", false),
@@ -405,6 +407,72 @@ func TestAuthorization_Deny(t *testing.T) {
 		})
 }
 
+// TestAuthorization_NegativeSource tests the source option with negative matches
+func TestAuthorization_NegativeSource(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authorization.source.test").
+		Run(func(t framework.TestContext) {
+			ns := apps.Namespace1
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			d := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
+			args := map[string]string{
+				"Namespace": ns.Name(),
+				"b":         b[0].Config().Service,
+				"c":         c[0].Config().Service,
+				"d":         d[0].Config().Service,
+			}
+			applyPolicy := func(filename string) {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				t.ConfigIstio().ApplyYAMLOrFail(t, "", policy...)
+			}
+			applyPolicy("testdata/authz/v1beta1-source.yaml.tmpl")
+			callCount := 1
+			if t.Clusters().IsMulticluster() {
+				// so we can validate all clusters are hit
+				callCount = util.CallsPerCluster * len(t.Clusters())
+			}
+			for _, srcCluster := range t.Clusters() {
+				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
+					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+					bInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
+					util.CheckExistence(t, a, bInNS2)
+					newTestCase := func(from echo.Instance, target echo.Instances, expectAllowed bool, method string, address string, port string) rbacUtil.TestCase {
+						return rbacUtil.TestCase{
+							Request: connection.Checker{
+								From: from,
+								Options: echo.CallOptions{
+									Target:   target[0],
+									PortName: port,
+									Scheme:   scheme.HTTP,
+									Count:    callCount,
+									Method:   method,
+								},
+								DestClusters: target.Clusters(),
+							},
+							ExpectAllowed: expectAllowed,
+							Headers: map[string]string{
+								"Host": address,
+							},
+						}
+					}
+					cases := []rbacUtil.TestCase{
+						// request to workload b will be deined only for method "GET"
+						newTestCase(a[0], b, false, "GET", "", "http"),
+						newTestCase(a[0], b, true, "PUT", "", "http"),
+						// request to c workload will be deined only for host "deny.com"
+						newTestCase(a[0], c, true, "GET", "allow.com", "http"),
+						newTestCase(a[0], c, false, "GET", "deny.com", "http"),
+						// request to d workload will be deined only for port 8091
+						newTestCase(a[0], d, false, "GET", "", "http-8091"),
+						newTestCase(a[0], d, true, "GET", "", "http-8092"),
+					}
+					rbacUtil.RunRBACTest(t, cases)
+				})
+			}
+		})
+}
+
 // TestAuthorization_NegativeMatch tests the authorization policy with negative match.
 func TestAuthorization_NegativeMatch(t *testing.T) {
 	framework.NewTest(t).
@@ -439,7 +507,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					bInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
 					util.CheckExistence(t, a, bInNS2)
-					newTestCase := func(from echo.Instance, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
+					newTestCase := func(from echo.Instance, target echo.Instances, path string, expectAllowed bool, method string) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
 							Request: connection.Checker{
 								From: from,
@@ -449,6 +517,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 									Scheme:   scheme.HTTP,
 									Path:     path,
 									Count:    callCount,
+									Method:   method,
 								},
 								DestClusters: target.Clusters(),
 							},
@@ -465,26 +534,28 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						// - path with prefix `/prefix` should be denied explicitly.
 						// - path `/prefix/allowlist` should be excluded from the deny.
 						// - path `/allow` should be allowed implicitly.
-						newTestCase(a[0], b, "/prefix", false),
-						newTestCase(a[0], b, "/prefix/other", false),
-						newTestCase(a[0], b, "/prefix/allowlist", true),
-						newTestCase(a[0], b, "/allow", true),
-						newTestCase(bInNS2[0], b, "/prefix", false),
-						newTestCase(bInNS2[0], b, "/prefix/other", false),
-						newTestCase(bInNS2[0], b, "/prefix/allowlist", true),
-						newTestCase(bInNS2[0], b, "/allow", true),
+						newTestCase(a[0], b, "/prefix", false, "GET"),
+						newTestCase(a[0], b, "/prefix", false, "GET"),
+						newTestCase(a[0], b, "/prefix/other", false, "GET"),
+						newTestCase(a[0], b, "/prefix/allowlist", true, "GET"),
+						newTestCase(a[0], b, "/prefix/allowlist", false, "PUT"),
+						newTestCase(a[0], b, "/allow", true, "GET"),
+						newTestCase(bInNS2[0], b, "/prefix", false, "GET"),
+						newTestCase(bInNS2[0], b, "/prefix/other", false, "GET"),
+						newTestCase(bInNS2[0], b, "/prefix/allowlist", true, "GET"),
+						newTestCase(bInNS2[0], b, "/allow", true, "GET"),
 
 						// Test the policy that denies other namespace on c.
 						// a should be allowed because it's from the same namespace.
 						// bInNs2 should be denied because it's from a different namespace.
-						newTestCase(a[0], c, "/", true),
-						newTestCase(bInNS2[0], c, "/", false),
+						newTestCase(a[0], c, "/", true, "GET"),
+						newTestCase(bInNS2[0], c, "/", false, "GET"),
 
 						// Test the policy that denies plain-text traffic on d.
 						// a should be allowed because it's using mTLS.
 						// bInNs2 should be denied because it's using plain-text.
-						newTestCase(a[0], d, "/", true),
-						newTestCase(bInNS2[0], d, "/", false),
+						newTestCase(a[0], d, "/", true, "GET"),
+						newTestCase(bInNS2[0], d, "/", false, "GET"),
 
 						// Test the policy with overlapped `paths` and `not_paths` on vm.
 						// a and bInNs2 should have the same results:
@@ -492,14 +563,14 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						// - path `/prefix/allowlist` should be excluded from the deny.
 						// - path `/allow` should be allowed implicitly.
 						// TODO(JimmyCYJ): support multiple VMs and test negative match on multiple VMs.
-						newTestCase(a[0], vm, "/prefix", false),
-						newTestCase(a[0], vm, "/prefix/other", false),
-						newTestCase(a[0], vm, "/prefix/allowlist", true),
-						newTestCase(a[0], vm, "/allow", true),
-						newTestCase(bInNS2[0], vm, "/prefix", false),
-						newTestCase(bInNS2[0], vm, "/prefix/other", false),
-						newTestCase(bInNS2[0], vm, "/prefix/allowlist", true),
-						newTestCase(bInNS2[0], vm, "/allow", true),
+						newTestCase(a[0], vm, "/prefix", false, "GET"),
+						newTestCase(a[0], vm, "/prefix/other", false, "GET"),
+						newTestCase(a[0], vm, "/prefix/allowlist", true, "GET"),
+						newTestCase(a[0], vm, "/allow", true, "GET"),
+						newTestCase(bInNS2[0], vm, "/prefix", false, "GET"),
+						newTestCase(bInNS2[0], vm, "/prefix/other", false, "GET"),
+						newTestCase(bInNS2[0], vm, "/prefix/allowlist", true, "GET"),
+						newTestCase(bInNS2[0], vm, "/allow", true, "GET"),
 					}
 
 					rbacUtil.RunRBACTest(t, cases)
@@ -527,7 +598,6 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 						"RootNamespace": rootns.Name(),
 						"dst":           dst[0].Config().Service,
 					}
-
 					applyPolicy := func(filename string) {
 						policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 						t.ConfigIstio().ApplyYAMLOrFail(t, "", policy...)
@@ -679,6 +749,20 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 							IP:       "10.4.5.6",
 							WantCode: 200,
 						},
+						{
+							Name:     "allow 172.19.19.19",
+							Host:     "ipblocks.company.com",
+							Path:     "/",
+							IP:       "172.19.19.19",
+							WantCode: 200,
+						},
+						{
+							Name:     "deny 172.19.19.20",
+							Host:     "notipblocks.company.com",
+							Path:     "/",
+							IP:       "172.19.19.20",
+							WantCode: 403,
+						},
 					}
 
 					for _, tc := range cases {
@@ -705,6 +789,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 			// Gateways on VMs are not supported yet. This test verifies that security
 			// policies at gateways are useful for managing accessibility to external
 			// services running on a VM.
@@ -714,6 +799,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						"Namespace":     ns.Name(),
 						"RootNamespace": rootns.Name(),
 						"a":             a[0].Config().Service,
+						"b":             b[0].Config().Service,
 					}
 					policies := tmpl.EvaluateAllOrFail(t, args,
 						file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
@@ -905,7 +991,8 @@ func TestAuthorization_TCP(t *testing.T) {
 						newTestCase(a, b, "http-8091", false, scheme.HTTP),
 						newTestCase(a, b, "http-8092", true, scheme.HTTP),
 						newTestCase(a, b, "tcp-8093", true, scheme.TCP),
-
+						newTestCase(b, a, "http-8091", false, scheme.HTTP),
+						newTestCase(b, a, "http-8092", true, scheme.HTTP),
 						// The policy on workload c denies request to port 8091:
 						// - request to port http-8091 should be denied because the port is matched.
 						// - request to http port 8092 should be allowed because the port is not matched.
