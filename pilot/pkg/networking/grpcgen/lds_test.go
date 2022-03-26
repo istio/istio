@@ -38,20 +38,20 @@ func TestListenerNameFilter(t *testing.T) {
 			in: []string{"foo.com:80", "foo.com:443", "wildcard.com"},
 			want: listenerNames{
 				"foo.com": {
-					RequestedNames: sets.NewWith("foo.com"),
-					Ports:          sets.NewWith("80", "443"),
+					RequestedNames: sets.New("foo.com"),
+					Ports:          sets.New("80", "443"),
 				},
-				"wildcard.com": {RequestedNames: sets.NewWith("wildcard.com")},
+				"wildcard.com": {RequestedNames: sets.New("wildcard.com")},
 			},
 		},
 		"plain-host clears port-map": {
 			in:   []string{"foo.com:80", "foo.com"},
-			want: listenerNames{"foo.com": {RequestedNames: sets.NewWith("foo.com")}},
+			want: listenerNames{"foo.com": {RequestedNames: sets.New("foo.com")}},
 		},
 		"port-map stays clear": {
 			in: []string{"foo.com:80", "foo.com", "foo.com:443"},
 			want: listenerNames{"foo.com": {
-				RequestedNames: sets.NewWith("foo.com"),
+				RequestedNames: sets.New("foo.com"),
 			}},
 		},
 		"special listeners preserved exactly": {
@@ -63,17 +63,17 @@ func TestListenerNameFilter(t *testing.T) {
 			},
 			want: listenerNames{
 				"foo.com": {
-					RequestedNames: sets.NewWith("foo.com"),
-					Ports:          sets.NewWith("80"),
+					RequestedNames: sets.New("foo.com"),
+					Ports:          sets.New("80"),
 				},
 				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234"): {
-					RequestedNames: sets.NewWith(fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234")),
+					RequestedNames: sets.New(fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234")),
 				},
 				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo"): {
-					RequestedNames: sets.NewWith(fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo")),
+					RequestedNames: sets.New(fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo")),
 				},
 				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076"): {
-					RequestedNames: sets.NewWith(fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076")),
+					RequestedNames: sets.New(fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076")),
 				},
 			},
 			wantInbound: []string{
@@ -94,26 +94,26 @@ func TestListenerNameFilter(t *testing.T) {
 				"foo.ns.svc.cluster.local:83",
 			},
 			want: listenerNames{
-				"bar":        {RequestedNames: sets.NewWith("bar")},
-				"bar.ns":     {RequestedNames: sets.NewWith("bar.ns")},
-				"bar.ns.svc": {RequestedNames: sets.NewWith("bar.ns.svc")},
-				"bar.ns.svc.cluster.local": {RequestedNames: sets.NewWith(
+				"bar":        {RequestedNames: sets.New("bar")},
+				"bar.ns":     {RequestedNames: sets.New("bar.ns")},
+				"bar.ns.svc": {RequestedNames: sets.New("bar.ns.svc")},
+				"bar.ns.svc.cluster.local": {RequestedNames: sets.New(
 					"bar",
 					"bar.ns",
 					"bar.ns.svc",
 					"bar.ns.svc.cluster.local",
 				)},
-				"foo":        {RequestedNames: sets.NewWith("foo"), Ports: sets.NewWith("80")},
-				"foo.ns":     {RequestedNames: sets.NewWith("foo.ns"), Ports: sets.NewWith("81")},
-				"foo.ns.svc": {RequestedNames: sets.NewWith("foo.ns.svc"), Ports: sets.NewWith("82")},
+				"foo":        {RequestedNames: sets.New("foo"), Ports: sets.New("80")},
+				"foo.ns":     {RequestedNames: sets.New("foo.ns"), Ports: sets.New("81")},
+				"foo.ns.svc": {RequestedNames: sets.New("foo.ns.svc"), Ports: sets.New("82")},
 				"foo.ns.svc.cluster.local": {
-					RequestedNames: sets.NewWith(
+					RequestedNames: sets.New(
 						"foo",
 						"foo.ns",
 						"foo.ns.svc",
 						"foo.ns.svc.cluster.local",
 					),
-					Ports: sets.NewWith("80", "81", "82", "83"),
+					Ports: sets.New("80", "81", "82", "83"),
 				},
 			},
 		},
