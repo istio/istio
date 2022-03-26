@@ -469,10 +469,8 @@ func TestAuthorization_NegativeOperation(t *testing.T) {
 									Name: port,
 								},
 								HTTP: echo.HTTP{
-									Method: method,
-									Headers: map[string][]string{
-										"Host": {address},
-									},
+									Method:  method,
+									Headers: headers.New().WithHost(address).Build(),
 								},
 								Count:  callCount,
 								Scheme: s,
