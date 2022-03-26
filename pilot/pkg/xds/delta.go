@@ -28,8 +28,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -399,9 +399,9 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 }
 
 func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) []string {
-	res := sets.NewSet(existing...)
-	res.Insert(request.ResourceNamesSubscribe...)
-	res.Delete(request.ResourceNamesUnsubscribe...)
+	res := sets.NewWith(existing...)
+	res.InsertAll(request.ResourceNamesSubscribe...)
+	res.DeleteAll(request.ResourceNamesUnsubscribe...)
 	return res.SortedList()
 }
 

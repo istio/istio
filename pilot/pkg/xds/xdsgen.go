@@ -25,8 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	istioversion "istio.io/pkg/version"
 )
@@ -216,8 +216,8 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		resp.RemovedResources = deletedRes
 	} else if req.Full {
 		// similar to sotw
-		subscribed := sets.NewSet(w.ResourceNames...)
-		subscribed.Delete(currentResources...)
+		subscribed := sets.NewWith(w.ResourceNames...)
+		subscribed.DeleteAll(currentResources...)
 		resp.RemovedResources = subscribed.SortedList()
 	}
 	if len(resp.RemovedResources) > 0 {

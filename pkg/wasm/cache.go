@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -96,7 +96,7 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, in
 		purgeInterval:      purgeInterval,
 		wasmModuleExpiry:   moduleExpiry,
 		stopChan:           make(chan struct{}),
-		insecureRegistries: sets.NewSet(insecureRegistries...),
+		insecureRegistries: sets.NewWith(insecureRegistries...),
 	}
 	go func() {
 		cache.purge()

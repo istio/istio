@@ -22,11 +22,11 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/util/sets"
 )
 
-var knownOptimizationGaps = sets.NewSet(
+var knownOptimizationGaps = sets.NewWith(
 	"BlackHoleCluster",
 	"InboundPassthroughClusterIpv4",
 	"InboundPassthroughClusterIpv6",
@@ -64,12 +64,12 @@ func (s *DiscoveryServer) compareDiff(
 		curByName[v.Name] = v
 	}
 
-	watched := sets.NewSet(w.ResourceNames...)
+	watched := sets.NewWith(w.ResourceNames...)
 
 	details := fmt.Sprintf("last:%v sotw:%v delta:%v-%v", len(current), len(full), len(resp), len(deleted))
-	wantDeleted := sets.NewSet()
-	wantChanged := sets.NewSet()
-	wantUnchanged := sets.NewSet()
+	wantDeleted := sets.New()
+	wantChanged := sets.New()
+	wantUnchanged := sets.New()
 	for _, c := range current {
 		n := newByName[c.Name]
 		if n == nil {
@@ -93,11 +93,11 @@ func (s *DiscoveryServer) compareDiff(
 		}
 	}
 
-	gotDeleted := sets.NewSet()
+	gotDeleted := sets.New()
 	if usedDelta {
-		gotDeleted.Insert(deleted...)
+		gotDeleted.InsertAll(deleted...)
 	}
-	gotChanged := sets.NewSet()
+	gotChanged := sets.New()
 	for _, v := range resp {
 		gotChanged.Insert(v.Name)
 	}
@@ -141,7 +141,7 @@ func (s *DiscoveryServer) compareDiff(
 }
 
 func applyDelta(message model.Resources, resp *discovery.DeltaDiscoveryResponse) model.Resources {
-	deleted := sets.NewSet(resp.RemovedResources...)
+	deleted := sets.NewWith(resp.RemovedResources...)
 	byName := map[string]*discovery.Resource{}
 	for _, v := range resp.Resources {
 		byName[v.Name] = v

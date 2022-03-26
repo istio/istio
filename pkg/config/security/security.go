@@ -24,8 +24,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // JwksInfo provides values resulting from parsing a jwks URI.
@@ -186,7 +186,7 @@ func validateMapKey(key string) error {
 
 // ValidCipherSuites contains a list of all ciphers supported in Gateway.server.tls.cipherSuites
 // Extracted from: `bssl ciphers -openssl-name ALL | rg -v PSK`
-var ValidCipherSuites = sets.NewSet(
+var ValidCipherSuites = sets.NewWith(
 	"ECDHE-ECDSA-AES128-GCM-SHA256",
 	"ECDHE-RSA-AES128-GCM-SHA256",
 	"ECDHE-ECDSA-AES256-GCM-SHA384",

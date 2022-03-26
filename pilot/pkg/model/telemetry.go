@@ -34,10 +34,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -373,7 +373,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
-	allKeys := sets.NewSet(tml.UnsortedList()...)
+	allKeys := sets.NewWith(tml.UnsortedList()...)
 	for k := range tmm {
 		allKeys.Insert(k)
 	}
@@ -414,7 +414,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 // This currently is just the names of providers as there is no access logging configuration, but
 // in the future it will likely be extended
 func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set, *tpb.AccessLogging_Filter) {
-	providers := sets.NewSet()
+	providers := sets.New()
 
 	if len(logs) == 0 {
 		for _, dp := range mesh.GetDefaultProviders().GetAccessLogging() {
@@ -435,7 +435,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 			loggingFilter = m.Filter
 		}
 	}
-	inScopeProviders := sets.NewSet(providerNames...)
+	inScopeProviders := sets.NewWith(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, m := range logs {
@@ -517,10 +517,10 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 		}
 	}
 	// Record the names of all providers we should configure. Anything else we will ignore
-	inScopeProviders := sets.NewSet(providerNames...)
+	inScopeProviders := sets.NewWith(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetMetrics()
-	disabledAllMetricsProviders := sets.NewSet()
+	disabledAllMetricsProviders := sets.New()
 	for _, m := range metrics {
 		providerNames := getProviderNames(m.Providers)
 		// If providers is not set, use parent's
