@@ -459,7 +459,8 @@ func TestAuthorization_NegativeOperation(t *testing.T) {
 					continue
 				}
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
-					newTestCase := func(from echo.Instance, to echo.Target, expectAllowed bool, method string, address string, port string, s scheme.Instance) func(t framework.TestContext) {
+					newTestCase := func(from echo.Instance, to echo.Target, expectAllowed bool, method string,
+						address string, port string, s scheme.Instance) func(t framework.TestContext) {
 						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
