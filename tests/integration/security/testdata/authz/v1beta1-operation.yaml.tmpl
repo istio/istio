@@ -1,0 +1,49 @@
+---
+# The following policy will allow every request other then GET request
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .b }}-allow
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .b }}"
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        notMethods : ["GET"]
+---
+# The following policy won't allow request from hosts "deny.com"
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .c }}-allow
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .c }}"
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        notHosts: ["deny.com"]
+---
+# The following policy won't allow request from port 8091
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .d }}-allow
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .d }}"
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        notPorts: ["8091"]
+---

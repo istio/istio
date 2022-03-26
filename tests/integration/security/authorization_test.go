@@ -168,6 +168,8 @@ func TestAuthorization_JWT(t *testing.T) {
 						cases := []func(testContext framework.TestContext){
 							newTestCase(a[0], dst, "[NoJWT]", "", "/token1", false),
 							newTestCase(a[0], dst, "[NoJWT]", "", "/token2", false),
+							newTestCase(a[0], dst, "[Token3]", jwt.TokenIssuer1, "/token3", false),
+							newTestCase(a[0], dst, "[Token3]", jwt.TokenIssuer2, "/token3", true),
 							newTestCase(a[0], dst, "[Token1]", jwt.TokenIssuer1, "/token1", true),
 							newTestCase(a[0], dst, "[Token1]", jwt.TokenIssuer1, "/token2", false),
 							newTestCase(a[0], dst, "[Token2]", jwt.TokenIssuer2, "/token1", false),
@@ -425,6 +427,82 @@ func TestAuthorization_Deny(t *testing.T) {
 						newTestCase(a[0], vm, "/other?param=value", false),
 						newTestCase(a[0], vm, "/allow", true),
 						newTestCase(a[0], vm, "/allow?param=value", true),
+					}
+
+					for _, c := range cases {
+						c(t)
+					}
+				})
+			}
+		})
+}
+
+// TestAuthorization_NegativeOperation tests the authorization policy with negative match.
+func TestAuthorization_NegativeOperation(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authorization.negative-match").
+		Run(func(t framework.TestContext) {
+			ns := apps.Namespace1
+			b := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B)
+			c := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.C)
+			d := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.D)
+			t.ConfigIstio().EvalFile("", map[string]string{
+				"Namespace": ns.Name(),
+				"b":         b[0].Config().Service,
+				"c":         c[0].Config().Service,
+				"d":         d[0].Config().Service,
+			}, "testdata/authz/v1beta1-operation.yaml.tmpl").ApplyOrFail(t)
+
+			for _, srcCluster := range t.Clusters() {
+				a := match.And(match.Cluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
+				if len(a) == 0 {
+					continue
+				}
+				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
+					newTestCase := func(from echo.Instance, to echo.Target, expectAllowed bool, method string, address string, port string, s scheme.Instance) func(t framework.TestContext) {
+						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
+						return func(t framework.TestContext) {
+							opts := echo.CallOptions{
+								To: to,
+								Port: echo.Port{
+									Name: port,
+								},
+								HTTP: echo.HTTP{
+									Method: method,
+									Headers: map[string][]string{
+										"Host": {address},
+									},
+								},
+								Count:  callCount,
+								Scheme: s,
+							}
+							if expectAllowed {
+								opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+							} else {
+								opts.Check = scheck.RBACFailure(&opts)
+							}
+
+							name := newRbacTestName("", expectAllowed, from, &opts)
+							t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
+								name.SkipIfNecessary(t)
+								from.CallOrFail(t, opts)
+							})
+						}
+					}
+
+					// a, b, c and d are in the same namespace and another b(bInNs2) is in a different namespace.
+					// a connects to b, c and d in ns1 with mTLS.
+					// bInNs2 connects to b and c with mTLS, to d with plain-text.
+					cases := []func(testContext framework.TestContext){
+						// request to workload b will be deined only for method "GET"
+						newTestCase(a[0], b, false, "GET", "", "http", scheme.HTTP),
+						newTestCase(a[0], b, true, "PUT", "", "http", scheme.HTTP),
+						// request to c workload will be deined only for host "deny.com"
+						newTestCase(a[0], c, true, "GET", "allow.com", "http", scheme.HTTP),
+						newTestCase(a[0], c, false, "GET", "deny.com", "http", scheme.HTTP),
+						// request to d workload will be deined only for port 8091
+						newTestCase(a[0], d, false, "GET", "", "http-8091", scheme.HTTP),
+						newTestCase(a[0], d, true, "GET", "", "http-8092", scheme.HTTP),
 					}
 
 					for _, c := range cases {
@@ -708,6 +786,20 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 							Path:     "/",
 							IP:       "10.4.5.6",
 							WantCode: http.StatusOK,
+						},
+						{
+							Name:     "allow 172.19.19.19",
+							Host:     "ipblocks.company.com",
+							Path:     "/",
+							IP:       "172.19.19.19",
+							WantCode: 200,
+						},
+						{
+							Name:     "deny 172.19.19.20",
+							Host:     "notipblocks.company.com",
+							Path:     "/",
+							IP:       "172.19.19.20",
+							WantCode: 403,
 						},
 					}
 
