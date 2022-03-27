@@ -1506,6 +1506,16 @@ func ValidateLightstepCollector(ls *meshconfig.Tracing_Lightstep) error {
 	return errs
 }
 
+// validateCustomTags validates that tracing CustomTags map does not contain any nil items
+func validateCustomTags(tags map[string]*meshconfig.Tracing_CustomTag) error {
+	for tagName, tagVal := range tags {
+		if tagVal == nil {
+			return fmt.Errorf("encountered nil value for custom tag: %s", tagName)
+		}
+	}
+	return nil
+}
+
 // ValidateZipkinCollector validates the configuration for sending envoy spans to Zipkin
 func ValidateZipkinCollector(z *meshconfig.Tracing_Zipkin) error {
 	return ValidateProxyAddress(strings.Replace(z.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
@@ -1678,6 +1688,12 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 	if tracer := config.GetTracing().GetTlsSettings(); tracer != nil {
 		if err := validateTLS(tracer); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid tracing TLS config:"))
+		}
+	}
+
+	if tracerCustomTags := config.GetTracing().GetCustomTags(); tracerCustomTags != nil {
+		if err := validateCustomTags(tracerCustomTags); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid tracing custom tags:"))
 		}
 	}
 
@@ -3516,6 +3532,10 @@ func validateTelemetryTracing(tracing []*telemetry.Tracing) (v Validation) {
 		for name, tag := range l.CustomTags {
 			if name == "" {
 				v = appendErrorf(v, "tag name may not be empty")
+			}
+			if tag == nil {
+				v = appendErrorf(v, "tag '%s' may not have a nil value", name)
+				continue
 			}
 			switch t := tag.Type.(type) {
 			case *telemetry.Tracing_CustomTag_Literal:
