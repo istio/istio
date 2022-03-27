@@ -736,8 +736,8 @@ func environment(t test.Failer, c ...config.Config) *FakeDiscoveryServer {
 //  - 1 endpoints in network4
 //
 // All endpoints are part of service example.ns.svc.cluster.local on port 80 (http).
-func testShards() *EndpointShards {
-	shards := &EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{
+func testShards() *model.EndpointShards {
+	shards := &model.EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{
 		// network1 has one endpoint in each cluster
 		"cluster1a": {
 			{Network: "network1", Address: "10.0.0.1"},
