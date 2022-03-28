@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 			return deployment.SetupSingleNamespace(t, &apps)
 		}).
 		Setup(func(t resource.Context) error {
-			gatewayConformanceInputs.Client = t.Clusters().Primaries()[0]
+			gatewayConformanceInputs.Client = t.Clusters().Default()
 			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
 			return nil
 		}).
