@@ -497,7 +497,7 @@ func TestAuthorization_NegativeOperation(t *testing.T) {
 						newTestCase(a[0], b, false, "GET", "", "http", scheme.HTTP),
 						newTestCase(a[0], b, true, "PUT", "", "http", scheme.HTTP),
 						// request to c workload will be deined only for host "deny.com"
-						newTestCase(a[0], c, true, "GET", "allow.com", "http", scheme.HTTP),
+						newTestCase(a[0], c, true, "GET", "", "http", scheme.HTTP),
 						newTestCase(a[0], c, false, "GET", "deny.com", "http", scheme.HTTP),
 						// request to d workload will be deined only for port 8091
 						newTestCase(a[0], d, false, "GET", "", "http-8091", scheme.HTTP),
