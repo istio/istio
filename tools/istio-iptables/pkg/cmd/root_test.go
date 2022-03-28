@@ -17,14 +17,15 @@ package cmd
 import (
 	"net"
 	"testing"
-	"unsafe"
 )
 
 var tesrLocalIPAddrs = func(ips []net.IP) ([]net.Addr, error) {
 	var IPAddrs []net.Addr
 	for i := 0; i < len(ips); i++ {
-		ipNetAddr := (*net.Addr)(unsafe.Pointer(&net.IPNet{IP: ips[i]}))
-		IPAddrs = append(IPAddrs, *ipNetAddr)
+		var ipAddr net.Addr
+		ipNetAddr := &net.IPNet{IP: ips[i]}
+		ipAddr = ipNetAddr
+		IPAddrs = append(IPAddrs, ipAddr)
 	}
 	return IPAddrs, nil
 }
