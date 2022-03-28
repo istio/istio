@@ -74,9 +74,9 @@ type Connection struct {
 	// Time of connection, for debugging
 	connectedAt time.Time
 
-	// identifier is the connection identifier, used as a key in the connection table.
+	// conID is the connection conID, used as a key in the connection table.
 	// Currently based on the node name and a counter.
-	identifier string
+	conID string
 
 	// proxy is the client to which this connection is established.
 	proxy *model.Proxy
@@ -147,11 +147,11 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 		req, err := con.stream.Recv()
 		if err != nil {
 			if istiogrpc.IsExpectedGRPCError(err) {
-				log.Infof("ADS: %q %s terminated", con.peerAddr, con.identifier)
+				log.Infof("ADS: %q %s terminated", con.peerAddr, con.conID)
 				return
 			}
 			con.errorChan <- err
-			log.Errorf("ADS: %q %s terminated with error: %v", con.peerAddr, con.identifier, err)
+			log.Errorf("ADS: %q %s terminated with error: %v", con.peerAddr, con.conID, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
@@ -159,7 +159,7 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 		if firstRequest {
 			// probe happens before envoy sends first xDS request
 			if req.TypeUrl == v3.HealthInfoType {
-				log.Warnf("ADS: %q %s send health check probe before normal xDS request", con.peerAddr, con.identifier)
+				log.Warnf("ADS: %q %s send health check probe before normal xDS request", con.peerAddr, con.conID)
 				continue
 			}
 			firstRequest = false
@@ -172,13 +172,13 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 				return
 			}
 			defer s.closeConnection(con)
-			log.Infof("ADS: new connection for node:%s", con.identifier)
+			log.Infof("ADS: new connection for node:%s", con.conID)
 		}
 
 		select {
 		case con.reqChan <- req:
 		case <-con.stream.Context().Done():
-			log.Infof("ADS: %q %s terminated with stream closed", con.peerAddr, con.identifier)
+			log.Infof("ADS: %q %s terminated with stream closed", con.peerAddr, con.conID)
 			return
 		}
 	}
@@ -189,7 +189,7 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	if req.TypeUrl == v3.HealthInfoType {
-		s.handleHealthRequest(con.proxy, req)
+		s.handleWorkloadHealthcheck(con.proxy, req)
 		return nil
 	}
 
@@ -200,7 +200,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.identifier, req.TypeUrl, req.ResponseNonce)
+		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
 	}
 	shouldRespond := s.shouldRespond(con, req)
 	if !shouldRespond {
@@ -332,7 +332,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
 		errCode := codes.Code(request.ErrorDetail.Code)
-		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.identifier, errCode.String(), request.ErrorDetail.GetMessage())
+		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.conID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
 		if s.StatusGen != nil {
 			s.StatusGen.OnNack(con.proxy, request)
@@ -346,7 +346,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	}
 
 	if shouldUnsubscribe(request) {
-		log.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.identifier, request.VersionInfo, request.ResponseNonce)
+		log.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		delete(con.proxy.WatchedResources, request.TypeUrl)
 		con.proxy.Unlock()
@@ -364,7 +364,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
 	if request.ResponseNonce == "" || previousInfo == nil {
-		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.identifier, request.VersionInfo, request.ResponseNonce)
+		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
 		con.proxy.Unlock()
@@ -375,7 +375,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
 	if request.ResponseNonce != previousInfo.NonceSent {
 		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
-			con.identifier, request.ResponseNonce, previousInfo.NonceSent)
+			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
@@ -395,11 +395,11 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if listEqualUnordered(previousResources, request.ResourceNames) {
-		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.identifier, request.VersionInfo, request.ResponseNonce)
+		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false
 	}
 	log.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
-		previousResources, request.ResourceNames, con.identifier, request.VersionInfo, request.ResponseNonce)
+		previousResources, request.ResourceNames, con.conID, request.VersionInfo, request.ResponseNonce)
 
 	return true
 }
@@ -468,7 +468,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	// way only new push contexts will be registered for this proxy.
 	proxy.LastPushContext = s.globalPushContext()
 	// First request so initialize connection id and start tracking it.
-	con.identifier = connectionID(proxy.ID)
+	con.conID = connectionID(proxy.ID)
 	con.node = node
 	con.proxy = proxy
 
@@ -482,7 +482,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	// a better choice, it introduces a race condition; If we complete initialization of a new push
 	// context between initializeProxy and addCon, we would not get any pushes triggered for the new
 	// push context, leading the proxy to have a stale state until the next full push.
-	s.addCon(con.identifier, con)
+	s.addCon(con.conID, con)
 	// Register that initialization is complete. This triggers to calls that it is safe to access the
 	// proxy
 	defer close(con.initialized)
@@ -500,15 +500,15 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 }
 
 func (s *DiscoveryServer) closeConnection(con *Connection) {
-	if con.identifier == "" {
+	if con.conID == "" {
 		return
 	}
-	s.removeCon(con.identifier)
+	s.removeCon(con.conID)
 	if s.StatusGen != nil {
 		s.StatusGen.OnDisconnect(con)
 	}
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterDisconnect(con.identifier, AllEventTypesList)
+		s.StatusReporter.RegisterDisconnect(con.conID, AllEventTypesList)
 	}
 	s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.connectedAt)
 }
@@ -642,8 +642,8 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	}
 }
 
-// handleHealthRequest processes HealthInformation type Url.
-func (s *DiscoveryServer) handleHealthRequest(proxy *model.Proxy, req *discovery.DiscoveryRequest) {
+// handleWorkloadHealthcheck processes HealthInformation type Url.
+func (s *DiscoveryServer) handleWorkloadHealthcheck(proxy *model.Proxy, req *discovery.DiscoveryRequest) {
 	if features.WorkloadEntryHealthChecks {
 		event := workloadentry.HealthEvent{}
 		event.Healthy = req.ErrorDetail == nil
@@ -675,10 +675,10 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
-		log.Debugf("Skipping push to %v, no updates required", con.identifier)
+		log.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version.
-			reportAllEvents(s.StatusReporter, con.identifier, pushRequest.Push.LedgerVersion, nil)
+			reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, nil)
 		}
 		return nil
 	}
@@ -693,7 +693,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.identifier, pushRequest.Push.LedgerVersion, ignoreEvents)
+		reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, ignoreEvents)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -853,7 +853,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			conn.proxy.Unlock()
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
-		log.Infof("Timeout writing %s", conn.identifier)
+		log.Infof("Timeout writing %s", conn.conID)
 		xdsResponseWriteTimeouts.Increment()
 	}
 	return err

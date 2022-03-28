@@ -549,7 +549,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 					return
 				case <-closed: // grpc stream was closed
 					doneFunc()
-					log.Infof("Client closed connection %v", client.identifier)
+					log.Infof("Client closed connection %v", client.conID)
 				}
 			}()
 		}
@@ -666,7 +666,7 @@ func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery
 		go func() {
 			err := con.stream.Send(res)
 			if err != nil {
-				log.Errorf("Failed to send internal event %s: %v", con.identifier, err)
+				log.Errorf("Failed to send internal event %s: %v", con.conID, err)
 			}
 		}()
 	}
