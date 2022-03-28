@@ -219,24 +219,19 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 	waitForConfirmation(args.skipConfirmation || rootArgs.dryRun, l)
 
-	_, iop, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, restConfig, l)
-	if err != nil {
-		return fmt.Errorf("generate config: %v", err)
-	}
-
 	extendedClient, err := kube.NewExtendedClient(kube.BuildClientCmd(args.kubeConfigPath, args.context), opts.Revision)
 	if err != nil {
 		return fmt.Errorf("create Kubernetes client: %v", err)
 	}
 	// Detect whether previous installation exists prior to performing the installation.
 	exists := revtag.PreviousInstallExists(context.Background(), extendedClient)
-	pilotEnabled := iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
-	rev := iop.Spec.Revision
+	pilotEnabled := targetIOP.Spec.Components.Pilot != nil && targetIOP.Spec.Components.Pilot.Enabled.Value
+	rev := targetIOP.Spec.Revision
 	if rev == "" && pilotEnabled {
 		_ = revtag.DeleteTagWebhooks(context.Background(), extendedClient, revtag.DefaultRevisionName)
 	}
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	iop, err = InstallManifests(targetIOP, args.force, rootArgs.dryRun, restConfig, client, args.readinessTimeout, l)
+	iop, err := InstallManifests(targetIOP, args.force, rootArgs.dryRun, restConfig, client, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}
