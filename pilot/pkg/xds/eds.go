@@ -582,7 +582,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	if !req.Full || (features.PartialFullPushes && onlyEndpointsChanged(req)) {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
-	resources := make(model.Resources, 0)
+	var resources model.Resources
 	empty := 0
 	cached := 0
 	regenerated := 0
