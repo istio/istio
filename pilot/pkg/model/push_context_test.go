@@ -54,7 +54,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 	// trivially different push contexts just for testing
 	push1 := &PushContext{ProxyStatus: make(map[string]map[string]ProxyPushStatus)}
 
-	var t0 time.Time
+	t0 := time.Now()
 	t1 := t0.Add(time.Minute)
 
 	cases := []struct {
@@ -113,6 +113,18 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Kind: config.GroupVersionKind{Kind: "cfg2"},
 			}: {}}},
 			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil},
+		},
+		{
+			"time merge: left is zero",
+			&PushRequest{Full: true, ConfigsUpdated: nil},
+			&PushRequest{Full: true, ConfigsUpdated: nil, Start: t1},
+			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil, Start: t1},
+		},
+		{
+			"time merge: right is zero",
+			&PushRequest{Full: true, ConfigsUpdated: nil, Start: t1},
+			&PushRequest{Full: true, ConfigsUpdated: nil},
+			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil, Start: t1},
 		},
 	}
 

@@ -413,6 +413,12 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 		pr.Push = other.Push
 	}
 
+	if pr.Start.IsZero() {
+		pr.Start = other.Start
+	} else if !other.Start.IsZero() && pr.Start.After(other.Start) {
+		pr.Start = other.Start
+	}
+
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) == 0 || len(other.ConfigsUpdated) == 0 {
 		pr.ConfigsUpdated = nil
@@ -442,6 +448,13 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 		reason = append(reason, pr.Reason...)
 		reason = append(reason, other.Reason...)
 	}
+
+	if pr.Start.IsZero() {
+		pr.Start = other.Start
+	} else if !other.Start.IsZero() && pr.Start.After(other.Start) {
+		pr.Start = other.Start
+	}
+
 	merged := &PushRequest{
 		// Keep the first (older) start time
 		Start: pr.Start,
