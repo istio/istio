@@ -448,16 +448,16 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 		reason = append(reason, pr.Reason...)
 		reason = append(reason, other.Reason...)
 	}
-
+	startTime := pr.Start
 	if pr.Start.IsZero() {
-		pr.Start = other.Start
+		startTime = other.Start
 	} else if !other.Start.IsZero() && pr.Start.After(other.Start) {
-		pr.Start = other.Start
+		startTime = other.Start
 	}
 
 	merged := &PushRequest{
 		// Keep the first (older) start time
-		Start: pr.Start,
+		Start: startTime,
 
 		// If either is full we need a full push
 		Full: pr.Full || other.Full,
