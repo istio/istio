@@ -216,9 +216,9 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	}
 	// It will not overflow until year 2262
 	token := CacheToken(pushReq.Start.UnixNano())
+	k := entry.Key()
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	k := entry.Key()
 	cur, f := l.store.Get(k)
 	if f {
 		// This is the stale resource
@@ -253,9 +253,9 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	if !entry.Cacheable() {
 		return nil, false
 	}
+	k := entry.Key()
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	k := entry.Key()
 	val, ok := l.store.Get(k)
 	if !ok {
 		miss()
