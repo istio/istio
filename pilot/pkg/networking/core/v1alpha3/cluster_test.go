@@ -2533,7 +2533,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|8080||test.com"},
 			usedDelta:            true,
-			removedClusters:      []string{},
+			removedClusters:      nil,
 			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||testnew.com"},
 		},
 		{
