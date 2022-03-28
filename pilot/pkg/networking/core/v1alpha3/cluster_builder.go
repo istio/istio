@@ -246,7 +246,6 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		port:             port,
 		clusterMode:      clusterMode,
 		direction:        model.TrafficDirectionOutbound,
-		cache:            cb.cache,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -382,7 +381,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		istioMtlsSni:     "",
 		clusterMode:      DefaultClusterMode,
 		direction:        direction,
-		cache:            cb.cache,
 		serviceInstances: cb.serviceInstances,
 	}
 	// decides whether the cluster corresponds to a service external to mesh or not.
@@ -422,6 +420,9 @@ type clusterCache struct {
 	envoyFilterKeys []string
 	peerAuthVersion string   // identifies the versions of all peer authentications
 	serviceAccounts []string // contains all the service accounts associated with the service
+
+	// Generated Key so that we do not recompute this on every cache get.
+	key string
 }
 
 func (t *clusterCache) Key() string {
