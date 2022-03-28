@@ -28,10 +28,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const secretNamespace string = "istio-system"
@@ -226,7 +226,7 @@ func TestSanitizeKubeConfig(t *testing.T) {
 		},
 		{
 			name:      "exec allowlist",
-			allowlist: sets.NewSet("exec"),
+			allowlist: sets.NewWith("exec"),
 			config: api.Config{
 				AuthInfos: map[string]*api.AuthInfo{
 					"default": {

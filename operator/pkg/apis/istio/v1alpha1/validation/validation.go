@@ -222,9 +222,9 @@ func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperat
 	if !values.GetGateways().GetIstioEgressgateway().GetRunAsRoot().GetValue() {
 		errs = util.AppendErrs(errs, validateGateways(spec.GetComponents().GetEgressGateways(), "istio-egressgateway"))
 	}
-	for _, port := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
+	for _, raw := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
+		p := raw.AsMap()
 		var tp int
-		p := valuesv1alpha1.AsMap(port)
 		if p["targetPort"] != nil {
 			t, ok := p["targetPort"].(float64)
 			if !ok {

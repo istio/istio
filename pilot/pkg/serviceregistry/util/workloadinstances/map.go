@@ -15,7 +15,7 @@
 package workloadinstances
 
 import (
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // MultiValueMap represents a map where each key might be associated with
@@ -28,7 +28,7 @@ func (m MultiValueMap) Insert(key, value string) MultiValueMap {
 		values.Insert(value)
 		return m
 	}
-	m[key] = sets.NewSet(value)
+	m[key] = sets.NewWith(value)
 	return m
 }
 
@@ -36,7 +36,7 @@ func (m MultiValueMap) Insert(key, value string) MultiValueMap {
 func (m MultiValueMap) Delete(key, value string) MultiValueMap {
 	if values, exists := m[key]; exists {
 		values.Delete(value)
-		if values.Empty() {
+		if values.IsEmpty() {
 			delete(m, key)
 		}
 	}

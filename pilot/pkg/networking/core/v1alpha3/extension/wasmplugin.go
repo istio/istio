@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 
 	// include for registering wasm logging scope
 	_ "istio.io/istio/pkg/wasm"
@@ -150,7 +150,7 @@ func InsertedExtensionConfigurations(
 	if len(wasmPlugins) == 0 {
 		return result
 	}
-	hasName := sets.NewSet(names...)
+	hasName := sets.NewWith(names...)
 	for _, list := range wasmPlugins {
 		for _, p := range list {
 			if !hasName.Contains(p.ResourceName) {

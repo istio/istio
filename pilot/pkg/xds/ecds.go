@@ -24,9 +24,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // EcdsGenerator generates ECDS configuration.
@@ -154,7 +154,7 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceName
 	// * Secret are referenced by a WasmPlugin which applies to this proxy.
 	// TODO: we get the WasmPlugins here to get the secrets reference in order to decide whether ECDS push is needed,
 	//       and we will get it again at extension config build. Avoid getting it twice if this becomes a problem.
-	watched := sets.NewSet(resourceNames...)
+	watched := sets.NewWith(resourceNames...)
 	wasmPlugins := push.WasmPlugins(proxy)
 	referencedSecrets := sets.Set{}
 	for _, wps := range wasmPlugins {

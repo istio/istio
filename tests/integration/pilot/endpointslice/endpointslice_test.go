@@ -23,6 +23,7 @@ import (
 
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/pilot/common"
@@ -34,7 +35,7 @@ var (
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
 	// its doing something unique to that specific test.
-	apps = &common.EchoDeployments{}
+	apps = deployment.SingleNamespaceView{}
 )
 
 func TestMain(m *testing.M) {
@@ -53,7 +54,7 @@ values:
 				kubelib.IsLessThanVersion(t.Clusters().Kube().Default(), 21))
 		})).
 		Setup(func(t resource.Context) error {
-			return common.SetupApps(t, i, apps)
+			return deployment.SetupSingleNamespace(t, &apps)
 		}).
 		Run()
 }
@@ -63,6 +64,6 @@ func TestTraffic(t *testing.T) {
 		NewTest(t).
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		Run(func(t framework.TestContext) {
-			common.RunAllTrafficTests(t, i, apps)
+			common.RunAllTrafficTests(t, i, &apps)
 		})
 }

@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio"
@@ -313,7 +314,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 
 	scope.Info("Updating IstioOperator")
-	val := iopv1alpha1.AsMap(iopMerged.Spec.Values)
+	val := iopMerged.Spec.Values.AsMap()
 	if _, ok := val["global"]; !ok {
 		val["global"] = make(map[string]interface{})
 	}
@@ -387,11 +388,12 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 		}
 	}
 
-	overlayYAML, err := util.MarshalWithJSONPB(iop)
+	overlayYAMLB, err := yaml.Marshal(iop)
 	if err != nil {
 		metrics.CountCRMergeFail(metrics.IOPFormatError)
 		return nil, err
 	}
+	overlayYAML := string(overlayYAMLB)
 	t := translate.NewReverseTranslator()
 	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
 	if err != nil {

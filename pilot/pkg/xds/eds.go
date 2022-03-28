@@ -27,12 +27,12 @@ import (
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // PushType is an enumeration that decides what type push we should do when we get EDS update.
@@ -172,10 +172,14 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		// Please note that address is not a unique key. So this may not accurately
 		// identify based on health status and push too many times - which is ok since its an optimization.
 		emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
+		nmap := make(map[string]*model.IstioEndpoint, len(newIstioEndpoints))
 		// Add new endpoints only if they are ever ready once to shards
 		// so that full push does not send them from shards.
 		for _, oie := range oldIstioEndpoints {
 			emap[oie.Address] = oie
+		}
+		for _, nie := range istioEndpoints {
+			nmap[nie.Address] = nie
 		}
 		needPush := false
 		for _, nie := range istioEndpoints {
@@ -191,6 +195,13 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 				// that are not ready to start with.
 				needPush = true
 				newIstioEndpoints = append(newIstioEndpoints, nie)
+			}
+		}
+		// Next, check for endpoints that were in old but no longer exist. If there are any, there is a
+		// removal so we need to push an update.
+		for _, oie := range oldIstioEndpoints {
+			if _, f := nmap[oie.Address]; !f {
+				needPush = true
 			}
 		}
 
@@ -632,18 +643,19 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 		}
 
 		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
+		// if a service is not found, it means the cluster is removed
+		if builder.service == nil {
+			removed = append(removed, clusterName)
+			continue
+		}
 		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
-			// if a service is not found, it means the cluster is removed
-			if builder.service == nil {
-				removed = append(removed, clusterName)
-				continue
-			}
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
+				removed = append(removed, clusterName)
 				continue
 			}
 			regenerated++

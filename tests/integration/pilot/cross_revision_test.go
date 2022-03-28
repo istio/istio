@@ -82,7 +82,7 @@ spec:
 			}
 			instances := builder.BuildOrFail(t)
 			// Add our existing revision to the instances list
-			instances = append(instances, apps.PodA...)
+			instances = append(instances, apps.A...)
 			testAllEchoCalls(t, instances)
 		})
 }

@@ -46,10 +46,10 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -275,7 +275,7 @@ type ValuesConfig struct {
 func NewValuesConfig(v string) (ValuesConfig, error) {
 	c := ValuesConfig{raw: v}
 	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(v, valuesStruct); err != nil {
+	if err := protomarshal.ApplyYAML(v, valuesStruct); err != nil {
 		return c, fmt.Errorf("could not parse configuration values: %v", err)
 	}
 	c.asStruct = valuesStruct
@@ -573,7 +573,7 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	mc := req.meshConfig
 	// Get copy of pod proxyconfig, to determine container ordering
 	if pca, f := req.pod.ObjectMeta.GetAnnotations()[annotation.ProxyConfig.Name]; f {
-		mc, merr = mesh.ApplyProxyConfig(pca, *req.meshConfig)
+		mc, merr = mesh.ApplyProxyConfig(pca, req.meshConfig)
 		if merr != nil {
 			return merr
 		}
@@ -675,7 +675,7 @@ func getPrometheusScrape(pod *corev1.Pod) bool {
 	return true
 }
 
-var prometheusAnnotations = sets.NewSet(
+var prometheusAnnotations = sets.NewWith(
 	prometheusPathAnnotation,
 	prometheusPortAnnotation,
 	prometheusScrapeAnnotation,
@@ -879,7 +879,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 				Labels:      pod.Labels,
 				Annotations: pod.Annotations,
 			}, wh.meshConfig); generatedProxyConfig != nil {
-			proxyConfig = *generatedProxyConfig
+			proxyConfig = generatedProxyConfig
 		}
 	}
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
@@ -891,7 +891,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		defaultTemplate:     wh.Config.DefaultTemplates,
 		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
-		proxyConfig:         &proxyConfig,
+		proxyConfig:         proxyConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,

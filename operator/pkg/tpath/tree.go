@@ -30,7 +30,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kylelemons/godebug/pretty"
 	"gopkg.in/yaml.v2"
 	yaml2 "sigs.k8s.io/yaml"
 
@@ -54,11 +53,11 @@ type PathContext struct {
 func (nc *PathContext) String() string {
 	ret := "\n--------------- NodeContext ------------------\n"
 	if nc.Parent != nil {
-		ret += fmt.Sprintf("Parent.Node=\n%s\n", pretty.Sprint(nc.Parent.Node))
+		ret += fmt.Sprintf("Parent.Node=\n%s\n", nc.Parent.Node)
 		ret += fmt.Sprintf("KeyToChild=%v\n", nc.Parent.KeyToChild)
 	}
 
-	ret += fmt.Sprintf("Node=\n%s\n", pretty.Sprint(nc.Node))
+	ret += fmt.Sprintf("Node=\n%s\n", nc.Node)
 	ret += "----------------------------------------------\n"
 
 	return ret
@@ -145,7 +144,7 @@ func Delete(root map[string]interface{}, path util.Path) (bool, error) {
 // getPathContext is the internal implementation of GetPathContext.
 // If createMissing is true, it creates any missing map (but NOT list) path entries in root.
 func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissing bool) (*PathContext, bool, error) {
-	scope.Debugf("getPathContext remainPath=%s, Node=%s", remainPath, pretty.Sprint(nc.Node))
+	scope.Debugf("getPathContext remainPath=%s, Node=%v", remainPath, nc.Node)
 	if len(remainPath) == 0 {
 		return nc, true, nil
 	}

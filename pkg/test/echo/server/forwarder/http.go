@@ -17,24 +17,49 @@ package forwarder
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
+	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/http3"
 	"golang.org/x/net/http2"
 
 	"istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 )
 
 var _ protocol = &httpProtocol{}
 
 type httpProtocol struct {
-	client *http.Client
-	do     common.HTTPDoFunc
+	*Config
+}
+
+func newHTTPProtocol(r *Config) (*httpProtocol, error) {
+	// Per-protocol setup.
+	switch {
+	case r.Request.Http3:
+		if r.scheme == scheme.HTTP {
+			return nil, fmt.Errorf("http3 requires HTTPS")
+		}
+	case r.Request.Http2:
+		if r.Request.Alpn == nil {
+			r.tlsConfig.NextProtos = []string{"h2"}
+		}
+	default:
+		if r.Request.Alpn == nil {
+			r.tlsConfig.NextProtos = []string{"http/1.1"}
+		}
+	}
+
+	return &httpProtocol{
+		Config: r,
+	}, nil
 }
 
 func splitPath(raw string) (url, path string) {
@@ -51,25 +76,88 @@ func splitPath(raw string) (url, path string) {
 	return raw[:schemeEnd+pathBegin], raw[schemeEnd+pathBegin:]
 }
 
-func (c *httpProtocol) setHost(r *http.Request, host string) {
+func (c *httpProtocol) newClient() (*http.Client, error) {
+	client := &http.Client{
+		CheckRedirect: c.checkRedirect,
+		Timeout:       c.timeout,
+	}
+
+	switch {
+	case c.Request.Http3:
+		client.Transport = &http3.RoundTripper{
+			TLSClientConfig: c.tlsConfig,
+			QuicConfig:      &quic.Config{},
+		}
+	case c.Request.Http2:
+		if c.scheme == scheme.HTTPS {
+			client.Transport = &http2.Transport{
+				TLSClientConfig: c.tlsConfig,
+				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+					return tls.DialWithDialer(newDialer(), network, addr, cfg)
+				},
+			}
+		} else {
+			client.Transport = &http2.Transport{
+				// Golang doesn't have first class support for h2c, so we provide some workarounds
+				// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
+				// So http2.Transport doesn't complain the URL scheme isn't 'https'
+				AllowHTTP: true,
+				// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
+				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+					return newDialer().Dial(network, addr)
+				},
+			}
+		}
+	default:
+		dialContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return newDialer().Dial(network, addr)
+		}
+		if len(c.UDS) > 0 {
+			dialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return newDialer().Dial("unix", c.UDS)
+			}
+		}
+		transport := &http.Transport{
+			// No connection pooling.
+			DisableKeepAlives: true,
+			TLSClientConfig:   c.tlsConfig,
+			DialContext:       dialContext,
+			Proxy:             http.ProxyFromEnvironment,
+		}
+		client.Transport = transport
+
+		// Set the proxy in the transport, if specified.
+		if len(c.Proxy) > 0 {
+			proxyURL, err := url.Parse(c.Proxy)
+			if err != nil {
+				return nil, err
+			}
+			transport.Proxy = http.ProxyURL(proxyURL)
+		}
+	}
+
+	return client, nil
+}
+
+func (c *httpProtocol) setHost(client *http.Client, r *http.Request, host string) {
 	r.Host = host
 
 	if r.URL.Scheme == "https" {
 		// Set SNI value to be same as the request Host
 		// For use with SNI routing tests
-		httpTransport, ok := c.client.Transport.(*http.Transport)
+		httpTransport, ok := client.Transport.(*http.Transport)
 		if ok && httpTransport.TLSClientConfig.ServerName == "" {
 			httpTransport.TLSClientConfig.ServerName = host
 			return
 		}
 
-		http2Transport, ok := c.client.Transport.(*http2.Transport)
+		http2Transport, ok := client.Transport.(*http2.Transport)
 		if ok && http2Transport.TLSClientConfig.ServerName == "" {
 			http2Transport.TLSClientConfig.ServerName = host
 			return
 		}
 
-		http3Transport, ok := c.client.Transport.(*http3.RoundTripper)
+		http3Transport, ok := client.Transport.(*http3.RoundTripper)
 		if ok && http3Transport.TLSClientConfig.ServerName == "" {
 			http3Transport.TLSClientConfig.ServerName = host
 			return
@@ -110,16 +198,22 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 		}
 	})
 
-	c.setHost(httpReq, host)
+	// Create a new HTTP client.
+	client, err := c.newClient()
+	if err != nil {
+		return outBuffer.String(), err
+	}
 
-	httpResp, err := c.do(c.client, httpReq)
+	c.setHost(client, httpReq, host)
+
+	httpResp, err := client.Do(httpReq)
 	if err != nil {
 		return outBuffer.String(), err
 	}
 
 	outBuffer.WriteString(fmt.Sprintf("[%d] %s=%d\n", req.RequestID, echo.StatusCodeField, httpResp.StatusCode))
 
-	keys := []string{}
+	var keys []string
 	for k := range httpResp.Header {
 		keys = append(keys, k)
 	}
@@ -152,6 +246,5 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 }
 
 func (c *httpProtocol) Close() error {
-	c.client.CloseIdleConnections()
 	return nil
 }

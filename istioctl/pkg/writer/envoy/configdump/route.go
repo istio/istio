@@ -28,8 +28,8 @@ import (
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	pilot_util "istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // RouteFilter is used to pass filter information into route based config writer print functions
@@ -111,8 +111,8 @@ func describeRouteDomains(domains []string) string {
 }
 
 func unexpandDomains(domains []string) []string {
-	unique := sets.NewSet(domains...)
-	shouldDelete := sets.NewSet()
+	unique := sets.NewWith(domains...)
+	shouldDelete := sets.New()
 	for _, h := range domains {
 		stripFull := strings.TrimSuffix(h, ".svc.cluster.local")
 		if _, f := unique[stripFull]; f && stripFull != h {

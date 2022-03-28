@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Builder for a group of collaborating Echo Instances. Once built, all Instances in the
@@ -150,7 +151,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 	for idx, c := range targetClusters {
 		ec, ok := c.(echo.Cluster)
 		if !ok {
-			b.errs = multierror.Append(b.errs, fmt.Errorf("attembed to deploy to %s but it does not implement echo.Cluster", c.Name()))
+			b.errs = multierror.Append(b.errs, fmt.Errorf("attempted to deploy to %s but it does not implement echo.Cluster", c.Name()))
 			continue
 		}
 		perClusterConfig, ok := ec.CanDeploy(cfg)
@@ -211,7 +212,7 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 
 	out := map[string]sets.Set{}
 	for _, c := range b.ctx.Clusters().Kube() {
-		out[c.Name()] = sets.NewSet()
+		out[c.Name()] = sets.New()
 		// TODO find a place to read revision(s) and avoid listing
 		cms, err := c.CoreV1().ConfigMaps(ns).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -219,7 +220,7 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 		}
 
 		// take the intersection of the templates available from each revision in this cluster
-		intersection := sets.NewSet()
+		intersection := sets.New()
 		for _, item := range cms.Items {
 			if !strings.HasPrefix(item.Name, "istio-sidecar-injector") {
 				continue
@@ -229,13 +230,13 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 				return nil, fmt.Errorf("failed parsing injection cm in %s: %v", c.Name(), err)
 			}
 			if data.RawTemplates != nil {
-				t := sets.NewSet()
+				t := sets.New()
 				for name := range data.RawTemplates {
 					t.Insert(name)
 				}
 				// either intersection has not been set or we intersect these templates
 				// with the current set.
-				if intersection.Empty() {
+				if intersection.IsEmpty() {
 					intersection = t
 				} else {
 					intersection = intersection.Intersection(t)
@@ -252,11 +253,14 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 
 // build inner allows assigning to b (assignment to receiver would be ineffective)
 func build(b builder) (out echo.Instances, err error) {
+	start := time.Now()
 	scopes.Framework.Info("=== BEGIN: Deploy echo instances ===")
 	defer func() {
 		if err != nil {
 			scopes.Framework.Error("=== FAILED: Deploy echo instances ===")
 			scopes.Framework.Error(err)
+		} else {
+			scopes.Framework.Infof("=== SUCCEEDED: Deploy echo instances in %v ===", time.Since(start))
 		}
 	}()
 
@@ -279,8 +283,6 @@ func build(b builder) (out echo.Instances, err error) {
 	if out, err = b.deployInstances(); err != nil {
 		return
 	}
-
-	scopes.Framework.Info("=== DONE: Deploy echo instances ===")
 	return
 }
 
@@ -299,8 +301,8 @@ func (b builder) getOrCreateNamespace(prefix string) (builder, namespace.Instanc
 
 // deployServices deploys the kubernetes Service to all clusters. Multicluster meshes should have "sameness"
 // per cluster. This avoids concurrent writes later.
-func (b builder) deployServices() error {
-	services := map[string]string{}
+func (b builder) deployServices() (err error) {
+	services := make(map[string]string)
 	for _, cfgs := range b.configs {
 		for _, cfg := range cfgs {
 			svc, err := kube.GenerateService(cfg)
@@ -317,26 +319,25 @@ func (b builder) deployServices() error {
 		}
 	}
 
-	errG := multierror.Group{}
+	// Deploy the services to all clusters.
+	cfg := b.ctx.ConfigKube().New()
 	for svcNs, svcYaml := range services {
-		svcYaml := svcYaml
 		ns := strings.Split(svcNs, ".")[1]
-		errG.Go(func() error {
-			return b.ctx.ConfigKube().YAML(ns, svcYaml).Apply(resource.NoCleanup)
-		})
+		cfg.YAML(ns, svcYaml)
 	}
-	return errG.Wait().ErrorOrNil()
+
+	return cfg.Apply(resource.NoCleanup)
 }
 
-func (b builder) deployInstances() (echo.Instances, error) {
+func (b builder) deployInstances() (instances echo.Instances, err error) {
 	m := sync.Mutex{}
 	out := echo.Instances{}
-	errGroup := multierror.Group{}
+	g := multierror.Group{}
 	// run the builder func for each kind of config in parallel
 	for kind, configs := range b.configs {
 		kind := kind
 		configs := configs
-		errGroup.Go(func() error {
+		g.Go(func() error {
 			buildFunc, err := echo.GetBuilder(kind)
 			if err != nil {
 				return err
@@ -358,7 +359,7 @@ func (b builder) deployInstances() (echo.Instances, error) {
 			return nil
 		})
 	}
-	if err := errGroup.Wait().ErrorOrNil(); err != nil {
+	if err := g.Wait().ErrorOrNil(); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -387,9 +388,9 @@ func (b builder) BuildOrFail(t test.Failer) echo.Instances {
 
 // validateTemplates returns true if the templates specified by inject.istio.io/templates on the config exist on c
 func (b builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
-	expected := sets.NewSet()
+	expected := sets.New()
 	for _, subset := range config.Subsets {
-		expected.Insert(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
+		expected.InsertAll(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
 	}
 	if b.templates == nil || b.templates[c.Name()] == nil {
 		return len(expected) == 0

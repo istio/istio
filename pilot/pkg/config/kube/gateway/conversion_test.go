@@ -19,6 +19,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -32,13 +33,14 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestConvertResources(t *testing.T) {
@@ -62,6 +64,7 @@ func TestConvertResources(t *testing.T) {
 		{"eastwest"},
 		{"alias"},
 		{"mcs"},
+		{"route-precedence"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -123,9 +126,15 @@ func TestConvertResources(t *testing.T) {
 				}
 			}
 			golden := splitOutput(readConfig(t, goldenFile, validator))
-			if diff := cmp.Diff(golden, output); diff != "" {
-				t.Fatalf("Diff:\n%s", diff)
-			}
+
+			// sort virtual services to make the order deterministic
+			sort.Slice(golden.VirtualService, func(i, j int) bool {
+				return golden.VirtualService[i].Namespace+"/"+golden.VirtualService[i].Name < golden.VirtualService[j].Namespace+"/"+golden.VirtualService[j].Name
+			})
+			sort.Slice(output.VirtualService, func(i, j int) bool {
+				return output.VirtualService[i].Namespace+"/"+output.VirtualService[i].Name < output.VirtualService[j].Namespace+"/"+output.VirtualService[j].Name
+			})
+			assert.Equal(t, golden, output)
 
 			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.TLSRoute, kr.TCPRoute)
 			goldenStatusFile := fmt.Sprintf("testdata/%s.status.yaml.golden", tt.name)
@@ -349,7 +358,7 @@ func splitOutput(configs []config.Config) OutputResources {
 
 func splitInput(configs []config.Config) *KubernetesResources {
 	out := &KubernetesResources{}
-	namespaces := sets.NewSet()
+	namespaces := sets.New()
 	for _, c := range configs {
 		namespaces.Insert(c.Namespace)
 		switch c.GroupVersionKind {

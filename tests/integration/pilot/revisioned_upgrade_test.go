@@ -101,9 +101,9 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 
 	// Create a traffic generator between A and B.
 	g := traffic.NewGenerator(t, traffic.Config{
-		Source: apps.PodA[0],
+		Source: apps.A[0],
 		Options: echo.CallOptions{
-			To: apps.PodB,
+			To: apps.B,
 			Port: echo.Port{
 				Name: "http",
 			},

@@ -54,8 +54,8 @@ func TestClusterLocal(t *testing.T) {
 		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
 			// TODO use echotest to dynamically pick 2 simple pods from apps.All
-			sources := apps.PodA
-			to := apps.PodB
+			sources := apps.A
+			to := apps.B
 
 			tests := []struct {
 				name  string
@@ -70,7 +70,7 @@ serviceSettings:
     clusterLocal: true
   hosts:
   - "%s"
-`, apps.PodB[0].Config().ClusterLocalFQDN()))
+`, apps.B.Config().ClusterLocalFQDN()))
 					},
 				},
 				{

@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -175,9 +176,10 @@ func convertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 		labels[k] = v
 	}
 	// shallow copy
-	copied := *wle
+	copied := &networking.WorkloadEntry{}
+	protomarshal.ShallowCopy(copied, wle)
 	copied.Labels = labels
-	return &copied
+	return copied
 }
 
 // workloadEntryHandler defines the handler for workload entries
@@ -537,9 +539,9 @@ func (s *ServiceEntryStore) HasSynced() bool {
 // Services list declarations of all services in the system
 func (s *ServiceEntryStore) Services() []*model.Service {
 	s.mutex.Lock()
-	allServices, allocateNeeded := s.services.getAllServices()
+	allServices := s.services.getAllServices()
 	out := make([]*model.Service, 0, len(allServices))
-	if allocateNeeded {
+	if s.services.allocateNeeded {
 		autoAllocateIPs(allServices)
 		s.services.allocateNeeded = false
 	}

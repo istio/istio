@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/config"
@@ -51,7 +50,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/util/gogo"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -204,7 +203,7 @@ func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings 
 // Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
 func filteredSidecarCipherSuites(suites []string) []string {
 	ret := make([]string, 0, len(suites))
-	validCiphers := sets.NewSet()
+	validCiphers := sets.New()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
 			if !validCiphers.Contains(s) {
@@ -1610,7 +1609,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		}
 
 		if opts.proxy.Type != model.Router {
-			res.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
+			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
 			if res.ListenerFiltersTimeout != nil {
 				res.ContinueOnListenerFiltersTimeout = true
 			}

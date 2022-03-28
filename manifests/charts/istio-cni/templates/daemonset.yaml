@@ -26,11 +26,6 @@ spec:
         k8s-app: istio-cni-node
         sidecar.istio.io/inject: "false"
       annotations:
-        # This, along with the CriticalAddonsOnly toleration below,
-        # marks the pod as a critical add-on, ensuring it gets
-        # priority scheduling and that its resources are reserved
-        # if it ever gets evicted.
-        scheduler.alpha.kubernetes.io/critical-pod: ''
         sidecar.istio.io/inject: "false"
         # Add Prometheus Scrape annotations
         prometheus.io/scrape: 'true'

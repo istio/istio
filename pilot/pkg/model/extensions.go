@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -43,7 +43,7 @@ const (
 )
 
 type WasmPluginWrapper struct {
-	extensions.WasmPlugin
+	*extensions.WasmPlugin
 
 	Name         string
 	Namespace    string
@@ -64,7 +64,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 
 	cfg := &anypb.Any{}
 	if wasmPlugin.PluginConfig != nil && len(wasmPlugin.PluginConfig.Fields) > 0 {
-		cfgJSON, err := gogoprotomarshal.ToJSON(wasmPlugin.PluginConfig)
+		cfgJSON, err := protomarshal.ToJSON(wasmPlugin.PluginConfig)
 		if err != nil {
 			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
 			return nil
@@ -102,7 +102,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 		Name:                plugin.Name,
 		Namespace:           plugin.Namespace,
 		ResourceName:        plugin.Namespace + "." + plugin.Name,
-		WasmPlugin:          *wasmPlugin,
+		WasmPlugin:          wasmPlugin,
 		WasmExtensionConfig: wasmExtensionConfig,
 	}
 }

@@ -31,11 +31,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -73,7 +73,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 			return false
 		}
 
-		names := sets.NewSet(resources...)
+		names := sets.NewWith(resources...)
 		found := false
 		for name := range model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret) {
 			if names.Contains(name.Name) {
@@ -171,7 +171,7 @@ func (s *sdsservice) Generate(proxy *model.Proxy, w *model.WatchedResource, upda
 		return resp, pushLog(w.ResourceNames), err
 	}
 	names := []string{}
-	watched := sets.NewSet(w.ResourceNames...)
+	watched := sets.NewWith(w.ResourceNames...)
 	for i := range updates.ConfigsUpdated {
 		if i.Kind == gvk.Secret && watched.Contains(i.Name) {
 			names = append(names, i.Name)

@@ -28,7 +28,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	gogojsonpb "github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -102,7 +102,7 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	proxyConfig := mesh.DefaultProxyConfig()
 	if e.Mesh().DefaultConfig != nil {
-		proxyConfig = *e.Mesh().DefaultConfig
+		proxyConfig = e.Mesh().DefaultConfig
 	}
 	hostname, port, err := net.SplitHostPort(proxyConfig.DiscoveryAddress)
 	if err != nil {
@@ -342,6 +342,10 @@ type WatchedResource struct {
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
+
+	// LastResources tracks the contents of the last push.
+	// This field is extremely expensive to maintain and is typically disabled
+	LastResources Resources
 }
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
@@ -435,10 +439,10 @@ func (s *StringBool) UnmarshalJSON(data []byte) error {
 // To allow marshaling, we need to define a custom type that calls out to the gogo marshaller
 type NodeMetaProxyConfig meshconfig.ProxyConfig
 
-func (s NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
+func (s *NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
-	pc := meshconfig.ProxyConfig(s)
-	if err := (&gogojsonpb.Marshaler{}).Marshal(&buf, &pc); err != nil {
+	pc := (*meshconfig.ProxyConfig)(s)
+	if err := (&jsonpb.Marshaler{}).Marshal(&buf, pc); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -446,7 +450,7 @@ func (s NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
 
 func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	pc := (*meshconfig.ProxyConfig)(s)
-	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
+	return jsonpb.Unmarshal(bytes.NewReader(data), pc)
 }
 
 // Node is a typed version of Envoy node with metadata.

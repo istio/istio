@@ -80,7 +80,7 @@ func TestVmOSPost(t *testing.T) {
 			for i, image := range images {
 				i, image := i, image
 				t.NewSubTest(image).RunParallel(func(t framework.TestContext) {
-					for _, tt := range common.VMTestCases(echo.Instances{instances[i]}, apps) {
+					for _, tt := range common.VMTestCases(echo.Instances{instances[i]}, &apps) {
 						tt.Run(t, apps.Namespace.Name())
 					}
 				})
@@ -99,7 +99,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				t.Skip()
 			}
 			scaleDeploymentOrFail(t, "istiod", i.Settings().SystemNamespace, 2)
-			client := match.Cluster(t.Clusters().Default()).FirstOrFail(t, apps.PodA)
+			client := match.Cluster(t.Clusters().Default()).FirstOrFail(t, apps.A)
 			// TODO test multi-network (must be shared control plane but on different networks)
 			var autoVM echo.Instance
 			_ = deployment.New(t).
@@ -200,7 +200,7 @@ func scaleDeploymentOrFail(t framework.TestContext, name, namespace string, scal
 	}
 }
 
-func getWorkloadEntriesOrFail(t framework.TestContext, vm echo.Instance) []v1alpha3.WorkloadEntry {
+func getWorkloadEntriesOrFail(t framework.TestContext, vm echo.Instance) []*v1alpha3.WorkloadEntry {
 	res, err := t.Clusters().Default().Istio().NetworkingV1alpha3().
 		WorkloadEntries(vm.Config().Namespace.Name()).
 		List(context.TODO(), metav1.ListOptions{LabelSelector: "app=" + vm.Config().Service})

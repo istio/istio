@@ -41,6 +41,7 @@ import (
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
@@ -187,12 +188,12 @@ spec:
 `).Apply()
 				return err
 			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
-			for _, ingr := range apps.Ingresses {
+			for _, ingr := range istio.IngressesOrFail(t, t) {
 				t.NewSubTest(ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
 					t.NewSubTest("http").Run(func(t framework.TestContext) {
 						paths := []string{"/get", "/get/", "/get/prefix"}
 						for _, path := range paths {
-							_ = apps.Ingress.CallOrFail(t, echo.CallOptions{
+							_ = ingr.CallOrFail(t, echo.CallOptions{
 								Port: echo.Port{
 									Protocol: protocol.HTTP,
 								},
@@ -204,7 +205,7 @@ spec:
 						}
 					})
 					t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-						_ = apps.Ingress.CallOrFail(t, echo.CallOptions{
+						_ = ingr.CallOrFail(t, echo.CallOptions{
 							Port: echo.Port{
 								Protocol:    protocol.HTTP,
 								ServicePort: 31400,
@@ -216,8 +217,8 @@ spec:
 						})
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
-						_ = apps.PodA[0].CallOrFail(t, echo.CallOptions{
-							To: apps.PodB,
+						_ = apps.A[0].CallOrFail(t, echo.CallOptions{
+							To: apps.B,
 							Port: echo.Port{
 								Name: "http",
 							},
@@ -268,7 +269,7 @@ spec:
     - name: b
       port: 80
 `).ApplyOrFail(t)
-				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:   echo.Port{ServicePort: 80},
 					Scheme: scheme.HTTP,
 					HTTP: echo.HTTP{
@@ -382,7 +383,7 @@ spec:
 `
 			}
 
-			successChecker := check.And(check.OK(), check.ReachedClusters(apps.PodB.Clusters()))
+			successChecker := check.And(check.OK(), check.ReachedClusters(apps.B.Clusters()))
 			failureChecker := check.Status(http.StatusNotFound)
 			count := 2 * t.Clusters().Len()
 
@@ -557,7 +558,7 @@ spec:
 				},
 			}
 
-			for _, ingr := range apps.Ingresses {
+			for _, ingr := range istio.IngressesOrFail(t, t) {
 				ingr := ingr
 				t.NewSubTestf("from %s", ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
 					for _, c := range cases {
@@ -578,6 +579,7 @@ spec:
 				})
 			}
 
+			defaultIngress := istio.DefaultIngressOrFail(t, t)
 			t.NewSubTest("status").Run(func(t framework.TestContext) {
 				if !t.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 					t.Skip("ingress status not supported without load balancer")
@@ -588,7 +590,7 @@ spec:
 					t.Fatal(err)
 				}
 
-				host, _ := apps.Ingress.HTTPAddress()
+				host, _ := defaultIngress.HTTPAddress()
 				hostIsIP := net.ParseIP(host).String() != "<nil>"
 				retry.UntilSuccessOrFail(t, func() error {
 					if apiVersion == "v1beta1" {
@@ -700,7 +702,7 @@ spec:
 				t.ConfigIstio().YAML(apps.Namespace.Name(), updatedIngress).ApplyOrFail(t)
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					c.call.Retry.Options = []retry.Option{retry.Timeout(time.Minute)}
-					apps.Ingress.CallOrFail(t, c.call)
+					defaultIngress.CallOrFail(t, c.call)
 				})
 			}
 		})
@@ -720,7 +722,7 @@ func TestCustomGateway(t *testing.T) {
 			templateParams := map[string]string{
 				"imagePullSecret": t.Settings().Image.PullSecretNameOrFail(t),
 				"injectLabel":     injectLabel,
-				"host":            apps.PodA[0].Config().ClusterLocalFQDN(),
+				"host":            apps.A.Config().ClusterLocalFQDN(),
 				"imagePullPolicy": t.Settings().Image.PullPolicy,
 			}
 
@@ -801,7 +803,7 @@ spec:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
 					return err
 				}, retry.Timeout(time.Minute*2))
-				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
@@ -873,8 +875,8 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.PodA[0].Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
-				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+`, apps.A.Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
+				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
@@ -940,8 +942,8 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.PodA[0].Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
-				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+`, apps.A.Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
+				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("helm-simple.%s.svc.cluster.local", gatewayNs.Name()),

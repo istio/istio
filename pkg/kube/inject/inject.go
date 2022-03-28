@@ -306,7 +306,7 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 
 	tag := ""
 	if global.GetTag() != nil { // Tag is an interface but we need the string form.
-		tag = fmt.Sprintf("%v", opconfig.AsInterface(global.GetTag()))
+		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
 	}
 
 	imageType := ""
@@ -740,7 +740,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	// the ProxyConfig CRs here.
 	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		var merr error
-		meshconfig, merr = mesh.ApplyProxyConfig(pca, *meshconfig)
+		meshconfig, merr = mesh.ApplyProxyConfig(pca, meshconfig)
 		if merr != nil {
 			return nil, merr
 		}

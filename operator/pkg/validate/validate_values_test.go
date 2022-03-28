@@ -22,7 +22,6 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -159,7 +158,7 @@ cni:
 			if err != nil {
 				t.Fatalf("yaml.Unmarshal(%s): got error %s", tt.desc, err)
 			}
-			errs := CheckValues(v1alpha1.MustNewStruct(root))
+			errs := CheckValues(util.MustStruct(root))
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.yamlStr, gotErr, wantErr)
 			}
@@ -225,7 +224,7 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 		if err := yaml.Unmarshal([]byte(valuesYAML), &valuesTree); err != nil {
 			t.Fatal(err.Error())
 		}
-		if err := CheckValues(v1alpha1.MustNewStruct(valuesTree)); err != nil {
+		if err := CheckValues(util.MustStruct(valuesTree)); err != nil {
 			t.Fatalf("file %s failed validation with: %s", f, err)
 		}
 	}

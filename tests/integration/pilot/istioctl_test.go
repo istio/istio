@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	commonDeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -41,7 +42,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/istio/tests/integration/pilot/common"
 )
 
 var (
@@ -156,7 +156,7 @@ func TestDescribe(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				args := []string{
 					"--namespace=dummy",
-					"x", "describe", "svc", fmt.Sprintf("%s.%s", common.PodASvc, apps.Namespace.Name()),
+					"x", "describe", "svc", fmt.Sprintf("%s.%s", commonDeployment.ASvc, apps.Namespace.Name()),
 				}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
@@ -169,7 +169,7 @@ func TestDescribe(t *testing.T) {
 			}, retry.Timeout(time.Second*20))
 
 			retry.UntilSuccessOrFail(t, func() error {
-				podID, err := getPodID(apps.PodA[0])
+				podID, err := getPodID(apps.A[0])
 				if err != nil {
 					return fmt.Errorf("could not get Pod ID: %v", err)
 				}
@@ -263,7 +263,7 @@ func TestProxyConfig(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			podID, err := getPodID(apps.PodA[0])
+			podID, err := getPodID(apps.A[0])
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -353,7 +353,7 @@ func TestProxyStatus(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			podID, err := getPodID(apps.PodA[0])
+			podID, err := getPodID(apps.A[0])
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -416,7 +416,7 @@ func TestXdsProxyStatus(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			podID, err := getPodID(apps.PodA[0])
+			podID, err := getPodID(apps.A[0])
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -481,7 +481,7 @@ func TestAuthZCheck(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
-			appPod, err := getPodID(apps.PodA[0])
+			appPod, err := getPodID(apps.A[0])
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}

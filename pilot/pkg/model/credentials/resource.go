@@ -30,6 +30,9 @@ const (
 	// take the form kubernetes-gateway://namespace/name. They are pulled from the config cluster.
 	KubernetesGatewaySecretType    = "kubernetes-gateway"
 	kubernetesGatewaySecretTypeURI = KubernetesGatewaySecretType + "://"
+	// BuiltinGatewaySecretType is the name of a SDS secret that uses the workloads own mTLS certificate
+	BuiltinGatewaySecretType    = "builtin"
+	BuiltinGatewaySecretTypeURI = BuiltinGatewaySecretType + "://"
 )
 
 // SecretResource defines a reference to a secret
@@ -56,11 +59,17 @@ func (sr SecretResource) KubernetesResourceName() string {
 }
 
 func ToKubernetesGatewayResource(namespace, name string) string {
+	if strings.HasPrefix(name, BuiltinGatewaySecretTypeURI) {
+		return BuiltinGatewaySecretTypeURI
+	}
 	return fmt.Sprintf("%s://%s/%s", KubernetesGatewaySecretType, namespace, name)
 }
 
 // ToResourceName turns a `credentialName` into a resource name used for SDS
 func ToResourceName(name string) string {
+	if strings.HasPrefix(name, BuiltinGatewaySecretTypeURI) {
+		return "default"
+	}
 	// If they explicitly defined the type, keep it
 	if strings.HasPrefix(name, KubernetesSecretTypeURI) || strings.HasPrefix(name, kubernetesGatewaySecretTypeURI) {
 		return name

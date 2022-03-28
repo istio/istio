@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -412,7 +413,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 		opts = append(opts, option.EnvoyMetricsServiceAddress(config.EnvoyMetricsService.Address),
 			option.EnvoyMetricsServiceTLS(config.EnvoyMetricsService.TlsSettings, metadata),
 			option.EnvoyMetricsServiceTCPKeepalive(config.EnvoyMetricsService.TcpKeepalive))
-	} else if config.EnvoyMetricsServiceAddress != "" {
+	} else if config.EnvoyMetricsServiceAddress != "" { // nolint: staticcheck
 		opts = append(opts, option.EnvoyMetricsServiceAddress(config.EnvoyMetricsService.Address))
 	}
 
@@ -426,7 +427,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 	return opts, nil
 }
 
-func getInt64ValueOrDefault(src *types.Int64Value, defaultVal int64) int64 {
+func getInt64ValueOrDefault(src *wrapperspb.Int64Value, defaultVal int64) int64 {
 	val := defaultVal
 	if src != nil {
 		val = src.Value
@@ -728,11 +729,11 @@ func ParseDownwardAPI(i string) (map[string]string, error) {
 }
 
 func removeDuplicates(values []string) []string {
-	set := make(map[string]struct{})
+	set := sets.New()
 	newValues := make([]string, 0, len(values))
 	for _, v := range values {
-		if _, ok := set[v]; !ok {
-			set[v] = struct{}{}
+		if !set.Contains(v) {
+			set.Insert(v)
 			newValues = append(newValues, v)
 		}
 	}

@@ -23,10 +23,10 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/pilot/common"
 )
 
 var (
@@ -35,7 +35,7 @@ var (
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
 	// its doing something unique to that specific test.
-	apps = &common.EchoDeployments{}
+	apps = deployment.SingleNamespaceView{}
 )
 
 func supportsCRDv1(t resource.Context) bool {
@@ -55,7 +55,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Setup(istio.Setup(&i, nil)).
 		Setup(func(t resource.Context) error {
-			return common.SetupApps(t, i, apps)
+			return deployment.SetupSingleNamespace(t, &apps)
 		}).
 		Run()
 }

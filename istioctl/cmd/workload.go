@@ -49,7 +49,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/url"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/shellescape"
 	"istio.io/pkg/log"
 )
@@ -452,7 +452,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 			ProxyMetadata: map[string]string{},
 		},
 	}
-	if err := gogoprotomarshal.ApplyYAML(istio.Data[configMapKey], meshConfig); err != nil {
+	if err := protomarshal.ApplyYAML(istio.Data[configMapKey], meshConfig); err != nil {
 		return nil, err
 	}
 	if isRevisioned(revision) && meshConfig.DefaultConfig.DiscoveryAddress == "" {
@@ -465,7 +465,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	// support proxy.istio.io/config on the WorkloadGroup, in the WorkloadGroup spec
 	for _, annotations := range []map[string]string{wg.Annotations, wg.Spec.Metadata.Annotations} {
 		if pcYaml, ok := annotations[annotation.ProxyConfig.Name]; ok {
-			if err := gogoprotomarshal.ApplyYAML(pcYaml, meshConfig.DefaultConfig); err != nil {
+			if err := protomarshal.ApplyYAML(pcYaml, meshConfig.DefaultConfig); err != nil {
 				return nil, err
 			}
 			for k, v := range meshConfig.DefaultConfig.ProxyMetadata {
@@ -522,7 +522,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md["ISTIO_META_AUTO_REGISTER_GROUP"] = wg.Name
 	}
 
-	proxyConfig, err := gogoprotomarshal.ToJSONMap(meshConfig.DefaultConfig)
+	proxyConfig, err := protomarshal.ToJSONMap(meshConfig.DefaultConfig)
 	if err != nil {
 		return nil, err
 	}

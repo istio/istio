@@ -44,7 +44,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
 
@@ -181,6 +180,10 @@ func separateVSHostsAndServices(virtualService config.Config,
 
 	// Now process wild card hosts as they need to follow the slow path of looping through all Services in the registry.
 	for _, hostname := range wchosts {
+		if model.UseGatewaySemantics(virtualService) {
+			hosts = append(hosts, string(hostname))
+			continue
+		}
 		// Say host is *.global
 		foundSvcMatch := false
 		// Say we have Services *.foo.global, *.bar.global
@@ -195,6 +198,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 			hosts = append(hosts, string(hostname))
 		}
 	}
+
 	return hosts, servicesInVirtualService
 }
 
@@ -475,7 +479,7 @@ func applyHTTPRouteDestination(
 	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
 	action.Timeout = features.DefaultRequestTimeout
 	if in.Timeout != nil {
-		action.Timeout = gogo.DurationToProtoDuration(in.Timeout)
+		action.Timeout = in.Timeout
 	}
 	if node.IsProxylessGrpc() {
 		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
@@ -656,6 +660,7 @@ func mirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 		}
 		// If zero percent is provided explicitly, we should not mirror.
 		return nil
+	// nolint: staticcheck
 	case in.MirrorPercent != nil:
 		if in.MirrorPercent.GetValue() > 0 {
 			return &core.RuntimeFractionalPercent{
@@ -942,6 +947,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 		return out
 	}
 
+	// nolint: staticcheck
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
@@ -1003,6 +1009,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 	// CORS filter is enabled by default
 	out := route.CorsPolicy{}
+	// nolint: staticcheck
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins)
 	} else if in.AllowOrigin != nil {
@@ -1018,7 +1025,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 		},
 	}
 
-	out.AllowCredentials = gogo.BoolToProtoBool(in.AllowCredentials)
+	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")
 	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
@@ -1122,12 +1129,12 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 		if in.Delay.Percentage != nil {
 			out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 		} else {
-			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
+			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent) // nolint: staticcheck
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
 			out.Delay.FaultDelaySecifier = &xdsfault.FaultDelay_FixedDelay{
-				FixedDelay: gogo.DurationToProtoDuration(d.FixedDelay),
+				FixedDelay: d.FixedDelay,
 			}
 		default:
 			log.Warnf("Exponential faults are not yet supported")
@@ -1188,7 +1195,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		cookie := consistentHash.GetHttpCookie()
 		var ttl *durationpb.Duration
 		if cookie.GetTtl() != nil {
-			ttl = gogo.DurationToProtoDuration(cookie.GetTtl())
+			ttl = cookie.GetTtl()
 		}
 		return &route.RouteAction_HashPolicy{
 			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{

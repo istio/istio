@@ -17,8 +17,6 @@ package util
 import (
 	"fmt"
 	"reflect"
-
-	"github.com/kr/pretty"
 )
 
 // kindOf returns the reflection Kind that represents the dynamic type of value.
@@ -210,7 +208,7 @@ func IsEmptyString(value interface{}) bool {
 
 // DeleteFromSlicePtr deletes an entry at index from the parent, which must be a slice ptr.
 func DeleteFromSlicePtr(parentSlice interface{}, index int) error {
-	scope.Debugf("DeleteFromSlicePtr index=%d, slice=\n%s", index, pretty.Sprint(parentSlice))
+	scope.Debugf("DeleteFromSlicePtr index=%d, slice=\n%v", index, parentSlice)
 	pv := reflect.ValueOf(parentSlice)
 
 	if !IsSliceInterfacePtr(parentSlice) {
@@ -229,7 +227,7 @@ func DeleteFromSlicePtr(parentSlice interface{}, index int) error {
 
 // UpdateSlicePtr updates an entry at index in the parent, which must be a slice ptr, with the given value.
 func UpdateSlicePtr(parentSlice interface{}, index int, value interface{}) error {
-	scope.Debugf("UpdateSlicePtr parent=\n%s\n, index=%d, value=\n%v", pretty.Sprint(parentSlice), index, value)
+	scope.Debugf("UpdateSlicePtr parent=\n%v\n, index=%d, value=\n%v", parentSlice, index, value)
 	pv := reflect.ValueOf(parentSlice)
 	v := reflect.ValueOf(value)
 
@@ -249,7 +247,7 @@ func UpdateSlicePtr(parentSlice interface{}, index int, value interface{}) error
 
 // InsertIntoMap inserts value with key into parent which must be a map, map ptr, or interface to map.
 func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) error {
-	scope.Debugf("InsertIntoMap key=%v, value=%s, map=\n%s", key, pretty.Sprint(value), pretty.Sprint(parentMap))
+	scope.Debugf("InsertIntoMap key=%v, value=%v, map=\n%v", key, value, parentMap)
 	v := reflect.ValueOf(parentMap)
 	kv := reflect.ValueOf(key)
 	vv := reflect.ValueOf(value)
@@ -273,7 +271,7 @@ func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) er
 
 // DeleteFromMap deletes an entry with the given key parent, which must be a map.
 func DeleteFromMap(parentMap interface{}, key interface{}) error {
-	scope.Debugf("DeleteFromMap key=%s, parent:\n%s\n", key, pretty.Sprint(parentMap))
+	scope.Debugf("DeleteFromMap key=%s, parent:\n%v\n", key, parentMap)
 	pv := reflect.ValueOf(parentMap)
 
 	if !IsMap(parentMap) {

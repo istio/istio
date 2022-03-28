@@ -20,6 +20,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -156,6 +157,10 @@ func (s *tcpInstance) writeResponse(conn net.Conn) {
 		echo.ServicePortField:    strconv.Itoa(s.Port.Port),
 		echo.IPField:             ip,
 		echo.ProtocolField:       "TCP",
+	}
+
+	if hostname, err := os.Hostname(); err == nil {
+		respFields[echo.HostnameField] = hostname
 	}
 	for field, val := range respFields {
 		val := fmt.Sprintf("%s=%s\n", string(field), val)
