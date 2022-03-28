@@ -80,6 +80,12 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
+	if name == credentials.BuiltinGatewaySecretTypeURI {
+		return ConstructSdsSecretConfig(SDSDefaultResourceName)
+	}
+	if name == credentials.BuiltinGatewaySecretTypeURI+SdsCaSuffix {
+		return ConstructSdsSecretConfig(SDSRootResourceName)
+	}
 
 	return &tls.SdsSecretConfig{
 		Name:      credentials.ToResourceName(name),
