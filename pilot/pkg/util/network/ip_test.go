@@ -212,3 +212,28 @@ func TestIsIPv6Proxy(t *testing.T) {
 		}
 	}
 }
+
+func TestIsIPv6Address(t *testing.T) {
+	tests := []struct {
+		name     string
+		addr     net.IP
+		expected bool
+	}{
+		{
+			name:     "ipv4",
+			addr:     net.IPv4(1, 2, 3, 4),
+			expected: false,
+		},
+		{
+			name:     "ipv6",
+			addr:     net.ParseIP("2001:db8::68"),
+			expected: true,
+		},
+	}
+	for _, tt := range tests {
+		result := IsIPv6Address(tt.addr)
+		if result != tt.expected {
+			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
+		}
+	}
+}

@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/tools/istio-iptables/pkg/capture"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -105,6 +106,11 @@ var configureRoutesCommand = &cobra.Command{
 	},
 }
 
+// mock net.InterfaceAddrs to make its unit test become available
+var (
+	LocalIPAddrs = net.InterfaceAddrs
+)
+
 func constructConfig() *config.Config {
 	cfg := &config.Config{
 		DryRun:                  viper.GetBool(constants.DryRun),
@@ -157,15 +163,13 @@ func constructConfig() *config.Config {
 		cfg.ProxyGID = cfg.ProxyUID
 	}
 
-	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
+	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4, IPv6 or both
 	podIPs, err := getLocalIP()
 	if err != nil {
 		panic(err)
 	}
 	for _, podIP := range podIPs {
-		// need to check that a proxy can have an IPv6 address but configuration is not configured K8s for dual-stack support.
-		// In this case an ipv6 link local address will appear, but not one that is routable to with K8s
-		if podIP.To4() == nil && podIP.To16() != nil && !podIP.IsLinkLocalUnicast() {
+		if network.IsIPv6Address(podIP) {
 			cfg.EnableInboundIPv6 = true
 			break
 		}
@@ -185,9 +189,9 @@ func constructConfig() *config.Config {
 	return cfg
 }
 
-// getLocalIP returns the local IP address
+// getLocalIP returns the local IP addresses
 func getLocalIP() ([]net.IP, error) {
-	addrs, err := net.InterfaceAddrs()
+	addrs, err := LocalIPAddrs()
 	if err != nil {
 		return nil, err
 	}
