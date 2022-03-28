@@ -71,13 +71,6 @@ func TestIncrementalPush(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	t.Run("Incremental Push", func(t *testing.T) {
-		ads.WaitClear()
-		s.Discovery.Push(&model.PushRequest{Full: false})
-		if err := ads.WaitSingle(time.Second*5, v3.EndpointType, v3.ClusterType); err != nil {
-			t.Fatal(err)
-		}
-	})
 	t.Run("Incremental Push with updated services", func(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{

@@ -50,7 +50,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	req *model.PushRequest,
 	routeNames []string,
 ) ([]*discovery.Resource, model.XdsLogDetails) {
-	routeConfigurations := make([]*discovery.Resource, 0)
+	var routeConfigurations model.Resources
 
 	efw := req.Push.EnvoyFilters(node)
 	hit, miss := 0, 0

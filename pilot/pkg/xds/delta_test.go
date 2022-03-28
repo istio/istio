@@ -54,8 +54,11 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 	sendEDSReqAndVerify([]string{"outbound|80||local.default.svc.cluster.local"}, nil, []string{"outbound|80||local.default.svc.cluster.local"})
 	// Only send the one that is requested
 	sendEDSReqAndVerify([]string{"outbound|81||local.default.svc.cluster.local"}, nil, []string{"outbound|81||local.default.svc.cluster.local"})
-	// TODO: should we just respond with nothing here? Probably...
-	sendEDSReqAndVerify(nil, []string{"outbound|81||local.default.svc.cluster.local"}, []string{"outbound|80||local.default.svc.cluster.local"})
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResponseNonce:            nonce,
+		ResourceNamesUnsubscribe: []string{"outbound|81||local.default.svc.cluster.local"},
+	})
+	ads.ExpectNoResponse()
 }
 
 func TestDeltaEDS(t *testing.T) {
