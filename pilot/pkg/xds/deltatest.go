@@ -43,7 +43,7 @@ func (s *DiscoveryServer) compareDiff(
 	resp model.Resources,
 	deleted model.DeletedResources,
 	usedDelta bool,
-	generateOnly []string,
+	delta model.ResourceDelta,
 ) {
 	current := con.Watched(w.TypeUrl).LastResources
 	if current == nil {
@@ -109,7 +109,7 @@ func (s *DiscoveryServer) compareDiff(
 
 	// Optimization Potential
 	extraChanges := gotChanged.Difference(wantChanged).Difference(knownOptimizationGaps).SortedList()
-	if generateOnly != nil {
+	if len(delta.Subscribed) > 0 {
 		// Delta is configured to build only the request resources. Make sense we didn't build anything extra
 		if !wantChanged.SupersetOf(gotChanged) {
 			log.Errorf("%s: TEST for node:%s unexpected resources: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, wantChanged.Difference(gotChanged))

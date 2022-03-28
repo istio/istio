@@ -144,7 +144,7 @@ func TestSDS(t *testing.T) {
 		s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			ResourceNames: []string{testResourceName, rootResourceName},
 			ResponseNonce: resp.Nonce,
-		}), expectCert, expectRoot)
+		}), expectRoot)
 		c.ExpectNoResponse(t)
 	})
 	t.Run("multiplexed root first", func(t *testing.T) {
