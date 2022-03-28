@@ -420,9 +420,6 @@ type clusterCache struct {
 	envoyFilterKeys []string
 	peerAuthVersion string   // identifies the versions of all peer authentications
 	serviceAccounts []string // contains all the service accounts associated with the service
-
-	// Generated Key so that we do not recompute this on every cache get.
-	key string
 }
 
 func (t *clusterCache) Key() string {
