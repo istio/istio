@@ -6917,6 +6917,22 @@ func Test_validateExportTo(t *testing.T) {
 			isDestinationRuleWithSelector: true,
 			wantErr:                       false,
 		},
+		{
+			name:                          "destination rule with workloadselector cannot have another ns in exportTo (.)",
+			namespace:                     "ns5",
+			exportTo:                      []string{"somens"},
+			isServiceEntry:                false,
+			isDestinationRuleWithSelector: true,
+			wantErr:                       true,
+		},
+		{
+			name:                          "destination rule with workloadselector cannot have another ns in addition to own ns in exportTo (.)",
+			namespace:                     "ns5",
+			exportTo:                      []string{".", "somens"},
+			isServiceEntry:                false,
+			isDestinationRuleWithSelector: true,
+			wantErr:                       true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
