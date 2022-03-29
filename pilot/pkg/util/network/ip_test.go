@@ -229,6 +229,11 @@ func TestIsIPv6Address(t *testing.T) {
 			addr:     net.ParseIP("2001:db8::68"),
 			expected: true,
 		},
+		{
+			name:     "ipv6 linklocalunicast",
+			addr:     net.ParseIP("fe80::9656:d028:8652:66b6"),
+			expected: false,
+		},
 	}
 	for _, tt := range tests {
 		result := IsIPv6Address(tt.addr)
