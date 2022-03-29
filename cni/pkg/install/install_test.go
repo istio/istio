@@ -35,6 +35,7 @@ func TestCheckInstall(t *testing.T) {
 		cniConfigFilename string
 		cniConfName       string
 		chainedCNIPlugin  bool
+		skipInstall       bool
 		existingConfFiles map[string]string // {srcFilename: targetFilename, ...}
 	}{
 		{
@@ -62,6 +63,12 @@ func TestCheckInstall(t *testing.T) {
 		{
 			name:              "CNI config file removed",
 			expectedFailure:   true,
+			cniConfigFilename: "file-removed.conflist",
+		},
+		{
+			name:              "CNI config file non-existent but install skipped",
+			expectedFailure:   false,
+			skipInstall:       true,
 			cniConfigFilename: "file-removed.conflist",
 		},
 		{
@@ -106,6 +113,7 @@ func TestCheckInstall(t *testing.T) {
 				MountedCNINetDir: tempDir,
 				CNIConfName:      c.cniConfName,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
+				CNIEnableInstall: !c.skipInstall,
 			}
 			err := checkInstall(cfg, filepath.Join(tempDir, c.cniConfigFilename))
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
@@ -148,6 +156,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			cfg := &config.InstallConfig{
 				MountedCNINetDir: tempDir,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
+				CNIEnableInstall: true,
 			}
 			cniConfigFilepath := filepath.Join(tempDir, c.cniConfigFilename)
 			isReady := &atomic.Value{}
