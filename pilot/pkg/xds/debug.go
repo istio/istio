@@ -600,7 +600,10 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, r, nil)
+		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, r, &model.PushRequest{
+			Full: true,
+			Push: con.proxy.LastPushContext,
+		})
 		if len(resource) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(fmt.Sprintf("ExtensionConfigurationType not found, proxyID: %s\n", proxyID)))
@@ -869,7 +872,9 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.Generators[v3.NameTableType] != nil {
-		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, nil)
+		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, &model.PushRequest{
+			Push: con.proxy.LastPushContext,
+		})
 		if len(nds) == 0 {
 			return
 		}
