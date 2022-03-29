@@ -36,7 +36,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -68,13 +68,6 @@ func TestIncrementalPush(t *testing.T) {
 	t.Run("Full Push", func(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{Full: true})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Incremental Push", func(t *testing.T) {
-		ads.WaitClear()
-		s.Discovery.Push(&model.PushRequest{Full: false})
-		if err := ads.WaitSingle(time.Second*5, v3.EndpointType, v3.ClusterType); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -396,8 +389,8 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		// Validate that endpoints are pushed.
 		lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
 		eh, euh := xdstest.ExtractHealthEndpoints(lbe)
-		gotHealthy := sets.NewSet(eh...).SortedList()
-		gotUnhealthy := sets.NewSet(euh...).SortedList()
+		gotHealthy := sets.NewWith(eh...).SortedList()
+		gotUnhealthy := sets.NewWith(euh...).SortedList()
 		if !reflect.DeepEqual(gotHealthy, healthy) {
 			t.Fatalf("did not get expected endpoints: got %v, want %v", gotHealthy, healthy)
 		}

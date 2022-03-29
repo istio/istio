@@ -23,12 +23,12 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -73,7 +73,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	// First, extract and index all webhooks we found
 	webhooks := map[string][]v1.MutatingWebhook{}
 	resources := map[string]*resource.Instance{}
-	revisions := sets.NewSet()
+	revisions := sets.New()
 	context.ForEach(webhookCol, func(resource *resource.Instance) bool {
 		wh := resource.Message.(*v1.MutatingWebhookConfiguration)
 		revs := extractRevisions(wh)
@@ -84,7 +84,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 		for _, h := range wh.Webhooks {
 			resources[fmt.Sprintf("%v/%v", resource.Metadata.FullName.String(), h.Name)] = resource
 		}
-		revisions.Insert(revs...)
+		revisions.InsertAll(revs...)
 		return true
 	})
 
@@ -107,7 +107,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	// For each permutation, we check which webhooks it matches. It must match exactly 0 or 1!
 	for _, nl := range namespaceLabels {
 		for _, ol := range objectLabels {
-			matches := sets.NewSet()
+			matches := sets.New()
 			for name, whs := range webhooks {
 				for _, wh := range whs {
 					if selectorMatches(wh.NamespaceSelector, nl) && selectorMatches(wh.ObjectSelector, ol) {
@@ -117,7 +117,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 			}
 			if len(matches) > 1 {
 				for match := range matches {
-					others := matches.Difference(sets.NewSet(match))
+					others := matches.Difference(sets.NewWith(match))
 					context.Report(webhookCol, msg.NewInvalidWebhook(resources[match],
 						fmt.Sprintf("Webhook overlaps with others: %v. This may cause injection to occur twice.", others.UnsortedList())))
 				}
@@ -156,7 +156,7 @@ func isIstioWebhook(wh *v1.MutatingWebhookConfiguration) bool {
 }
 
 func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
-	revs := sets.NewSet()
+	revs := sets.New()
 	if r, f := wh.Labels[label.IoIstioRev.Name]; f {
 		revs.Insert(r)
 	}
@@ -168,7 +168,7 @@ func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
 
 			for _, ls := range webhook.NamespaceSelector.MatchExpressions {
 				if ls.Key == label.IoIstioRev.Name {
-					revs.Insert(ls.Values...)
+					revs.InsertAll(ls.Values...)
 				}
 			}
 		}
@@ -179,7 +179,7 @@ func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
 
 			for _, ls := range webhook.ObjectSelector.MatchExpressions {
 				if ls.Key == label.IoIstioRev.Name {
-					revs.Insert(ls.Values...)
+					revs.InsertAll(ls.Values...)
 				}
 			}
 		}

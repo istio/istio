@@ -101,6 +101,9 @@ rules:
   - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
     resources: ["*"] # TODO: should be on just */status but wildcard is not supported
     verbs: ["update", "patch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gatewayclasses"]
+    verbs: ["create", "update", "patch", "delete"]
 
   # Needed for multicluster secret reading, possibly ingress certs in the future
   - apiGroups: [""]

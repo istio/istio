@@ -26,9 +26,9 @@ import (
 	"github.com/miekg/dns"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // NetworkGateway is the gateway of a network
@@ -169,7 +169,7 @@ func (mgr *NetworkManager) reload() NetworkGatewaySet {
 func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway]struct{}) {
 	// filter the list of gateways to resolve
 	hostnameGateways := map[string][]NetworkGateway{}
-	names := sets.NewSet()
+	names := sets.New()
 	for gw := range gatewaySet {
 		if gwIP := net.ParseIP(gw.Addr); gwIP != nil {
 			continue

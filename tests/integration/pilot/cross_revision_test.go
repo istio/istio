@@ -58,7 +58,7 @@ func TestRevisionTraffic(t *testing.T) {
 				})
 			}
 			// Allow all namespaces so we do not hit passthrough cluster
-			t.ConfigIstio().YAML(apps.NS1().Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
+			t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
   name: allow-cross-namespaces
@@ -82,7 +82,7 @@ spec:
 			}
 			instances := builder.BuildOrFail(t)
 			// Add our existing revision to the instances list
-			instances = append(instances, apps.NS1().A...)
+			instances = append(instances, apps.A...)
 			testAllEchoCalls(t, instances)
 		})
 }

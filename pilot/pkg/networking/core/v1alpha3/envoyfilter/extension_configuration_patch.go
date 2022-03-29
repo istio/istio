@@ -20,7 +20,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -30,7 +30,7 @@ func InsertedExtensionConfigurations(efw *model.EnvoyFilterWrapper, names []stri
 	if efw == nil {
 		return result
 	}
-	hasName := sets.NewSet(names...)
+	hasName := sets.NewWith(names...)
 	for _, p := range efw.Patches[networking.EnvoyFilter_EXTENSION_CONFIG] {
 		if p.Operation != networking.EnvoyFilter_Patch_ADD {
 			continue

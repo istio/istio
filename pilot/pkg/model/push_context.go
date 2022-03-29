@@ -31,7 +31,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
 
@@ -356,6 +356,22 @@ type PushRequest struct {
 	// There should only be multiple reasons if the push request is the result of two distinct triggers, rather than
 	// classifying a single trigger as having multiple reasons.
 	Reason []TriggerReason
+
+	// Delta defines the resources that were added or removed as part of this push request.
+	// This is set only on requests from the client which change the set of resources they (un)subscribe from.
+	Delta ResourceDelta
+}
+
+// ResourceDelta records the difference in requested resources by an XDS client
+type ResourceDelta struct {
+	// Subscribed indicates the client requested these additional resources
+	Subscribed sets.Set
+	// Unsubscribed indicates the client no longer requires these resources
+	Unsubscribed sets.Set
+}
+
+func (rd ResourceDelta) IsEmpty() bool {
+	return len(rd.Subscribed) == 0 && len(rd.Unsubscribed) == 0
 }
 
 type TriggerReason string
@@ -724,8 +740,6 @@ func virtualServiceDestinationHosts(v *networking.VirtualService) []string {
 // GatewayServices returns the set of services which are referred from the proxy gateways.
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := proxy.SidecarScope.services
-	// host set.
-	hostsFromGateways := map[string]struct{}{}
 
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
@@ -733,6 +747,8 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 		return nil
 	}
 
+	// host set.
+	hostsFromGateways := sets.New()
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		for _, vsConfig := range ps.VirtualServicesForGateway(proxy.ConfigNamespace, gw) {
 			vs, ok := vsConfig.Spec.(*networking.VirtualService)
@@ -742,10 +758,13 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 			}
 
 			for _, host := range virtualServiceDestinationHosts(vs) {
-				hostsFromGateways[host] = struct{}{}
+				hostsFromGateways.Insert(host)
 			}
 		}
 	}
+
+	hostsFromMeshConfig := getHostsFromMeshConfig(ps)
+	hostsFromGateways.Merge(hostsFromMeshConfig)
 
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
@@ -762,6 +781,38 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	log.Debugf("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
 
 	return gwSvcs
+}
+
+// add services from MeshConfig.ExtensionProviders
+// TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
+func getHostsFromMeshConfig(ps *PushContext) sets.Set {
+	hostsFromMeshConfig := sets.New()
+
+	for _, prov := range ps.Mesh.ExtensionProviders {
+		switch p := prov.Provider.(type) {
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
+			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzHttp.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
+			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzGrpc.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
+			hostsFromMeshConfig.Insert(p.Zipkin.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
+			hostsFromMeshConfig.Insert(p.Lightstep.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
+			hostsFromMeshConfig.Insert(p.Datadog.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+			hostsFromMeshConfig.Insert(p.Opencensus.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
+			hostsFromMeshConfig.Insert(p.Skywalking.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
+			hostsFromMeshConfig.Insert(p.EnvoyHttpAls.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
+			hostsFromMeshConfig.Insert(p.EnvoyTcpAls.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
+			hostsFromMeshConfig.Insert(p.EnvoyOtelAls.Service)
+		}
+	}
+	return hostsFromMeshConfig
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
@@ -1548,13 +1599,13 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sidecarConfigWithSelector := make([]config.Config, 0)
 	sidecarConfigWithoutSelector := make([]config.Config, 0)
-	sidecarsWithoutSelectorByNamespace := make(map[string]struct{})
+	sidecarsWithoutSelectorByNamespace := sets.New()
 	for _, sidecarConfig := range sidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
 			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
 		} else {
-			sidecarsWithoutSelectorByNamespace[sidecarConfig.Namespace] = struct{}{}
+			sidecarsWithoutSelectorByNamespace.Insert(sidecarConfig.Namespace)
 			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
 		}
 	}
@@ -2011,8 +2062,8 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 	for _, s := range servers {
 		ports[int(s.Port.Number)] = struct{}{}
 	}
-	foundInternal := sets.NewSet()
-	foundExternal := sets.NewSet()
+	foundInternal := sets.New()
+	foundExternal := sets.New()
 	warnings := []string{}
 	for _, g := range gwsvcs {
 		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
@@ -2037,13 +2088,13 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
 				// Fetch external IPs from all clusters
 				svc.Attributes.ClusterExternalAddresses.ForEach(func(c cluster.ID, externalIPs []string) {
-					foundExternal.Insert(externalIPs...)
+					foundExternal.InsertAll(externalIPs...)
 				})
 			} else {
 				if instancesEmpty(gc.ps.ServiceIndex.instancesByPort[svcKey]) {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
 				} else {
-					hintPort := sets.NewSet()
+					hintPort := sets.New()
 					for _, instances := range gc.ps.ServiceIndex.instancesByPort[svcKey] {
 						for _, i := range instances {
 							if i.Endpoint.EndpointPort == uint32(port) {

@@ -18,7 +18,8 @@ import (
 	"errors"
 	"sort"
 
-	"istio.io/istio/pilot/pkg/model"
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 )
@@ -28,7 +29,7 @@ var _ Target = Instances{}
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
 
-func (i Instances) NamespacedName() model.NamespacedName {
+func (i Instances) NamespacedName() NamespacedName {
 	return i.Config().NamespacedName()
 }
 
@@ -45,7 +46,7 @@ func (i Instances) Instances() Instances {
 }
 
 func (i Instances) mustGetFirst() Instance {
-	if len(i) == 0 {
+	if i.Len() == 0 {
 		panic("instances are empty")
 	}
 	return i[0]
@@ -156,4 +157,28 @@ func (i Instances) Copy() Instances {
 // Append returns a new Instances array with the given values appended.
 func (i Instances) Append(instances Instances) Instances {
 	return append(i.Copy(), instances...)
+}
+
+// Restart each Instance
+func (i Instances) Restart() error {
+	g := multierror.Group{}
+	for _, app := range i {
+		app := app
+		g.Go(app.Restart)
+	}
+	return g.Wait().ErrorOrNil()
+}
+
+func (i Instances) Len() int {
+	return len(i)
+}
+
+func (i Instances) NamespacedNames() NamespacedNames {
+	out := make(NamespacedNames, 0, i.Len())
+	for _, ii := range i {
+		out = append(out, ii.NamespacedName())
+	}
+
+	sort.Stable(out)
+	return out
 }

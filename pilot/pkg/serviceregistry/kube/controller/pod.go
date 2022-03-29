@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -239,7 +239,7 @@ func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
 	if _, f := pc.needResync[ip]; !f {
-		pc.needResync[ip] = sets.NewSet(key)
+		pc.needResync[ip] = sets.NewWith(key)
 	} else {
 		pc.needResync[ip].Insert(key)
 	}

@@ -23,11 +23,11 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
 
@@ -140,8 +140,8 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
-	verifiedCertificateReferences := sets.NewSet()
-	http3AdvertisingRoutes := make(map[string]struct{})
+	verifiedCertificateReferences := sets.New()
+	http3AdvertisingRoutes := sets.New()
 	tlsHostsByPort := map[uint32]sets.Set{} // port -> host set
 	autoPassthrough := false
 
@@ -190,7 +190,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					// To avoid this, we need to make sure we don't have duplicated hosts, which will become
 					// SNI filter chain matches.
 					if tlsHostsByPort[resolvedPort] == nil {
-						tlsHostsByPort[resolvedPort] = sets.NewSet()
+						tlsHostsByPort[resolvedPort] = sets.New()
 					}
 					if duplicateHosts := CheckDuplicates(s.Hosts, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
 						log.Debugf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)

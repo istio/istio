@@ -152,13 +152,11 @@ func IsIPv6(ipAddrs []string) bool {
 			continue
 		}
 
-		// Check that a address can be an IPv6 address but configuration is not configured K8s for dual-stack support.
-		// In this case an ipv6 link local address will appear, but not one that is routable to with K8s
-		if addr.To4() == nil && addr.To16() != nil && !addr.IsLinkLocalUnicast() {
-			return true
+		if addr.To4() != nil {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // IsIPv4 checks the addresses slice and returns true if atleast one of the addresses
@@ -174,7 +172,7 @@ func IsIPv4(ipAddrs []string) bool {
 
 		// Check that a address can be an IPv6 address but configuration is not configured K8s for dual-stack support.
 		// In this case an ipv6 link local address will appear, but not one that is routable to with K8s
-		if addr.To4() != nil && !addr.IsLinkLocalUnicast() {
+		if addr.To4() != nil {
 			return true
 		}
 	}

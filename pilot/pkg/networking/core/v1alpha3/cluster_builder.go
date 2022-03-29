@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	istio_cluster "istio.io/istio/pkg/cluster"
@@ -50,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -246,7 +246,6 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		port:             port,
 		clusterMode:      clusterMode,
 		direction:        model.TrafficDirectionOutbound,
-		cache:            cb.cache,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -382,7 +381,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		istioMtlsSni:     "",
 		clusterMode:      DefaultClusterMode,
 		direction:        direction,
-		cache:            cb.cache,
 		serviceInstances: cb.serviceInstances,
 	}
 	// decides whether the cluster corresponds to a service external to mesh or not.

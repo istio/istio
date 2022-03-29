@@ -22,8 +22,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // baseCases contains a few trivial test cases to do a very brief sanity check of a test
@@ -107,7 +107,7 @@ func walkMatch(root string, pattern *regexp.Regexp) ([]string, error) {
 }
 
 func TestFuzzers(t *testing.T) {
-	testedFuzzers := sets.NewSet()
+	testedFuzzers := sets.New()
 	cases := []struct {
 		name   string
 		fuzzer func([]byte) int
@@ -178,7 +178,7 @@ func TestFuzzers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		allFuzzers := sets.NewSet(fuzzers...)
+		allFuzzers := sets.NewWith(fuzzers...)
 		if !allFuzzers.Equals(testedFuzzers) {
 			t.Fatalf("Not all fuzzers are tested! Missing %v", allFuzzers.Difference(testedFuzzers))
 		}

@@ -20,9 +20,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -617,7 +617,7 @@ var (
 			"Comma separated list of potentially insecure kubeconfig authentication options that are allowed for multicluster authentication."+
 				"Support values: all authProviders (`gcp`, `azure`, `exec`, `openstack`), "+
 				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
-		return sets.NewSet(strings.Split(v, ",")...)
+		return sets.NewWith(strings.Split(v, ",")...)
 	}()
 
 	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", true,
