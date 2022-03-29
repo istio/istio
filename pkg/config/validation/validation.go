@@ -647,10 +647,13 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to destination rule")
 		}
-
 		v := Validation{}
 		if features.EnableDestinationRuleInheritance {
 			if rule.Host == "" {
+				if rule.GetWorkloadSelector() != nil {
+					v = appendValidation(v,
+						fmt.Errorf("mesh/namespace destination rule cannot have workloadSelector configured"))
+				}
 				if len(rule.Subsets) != 0 {
 					v = appendValidation(v,
 						fmt.Errorf("mesh/namespace destination rule cannot have subsets"))
@@ -679,12 +682,15 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			}
 			v = appendValidation(v, validateSubset(subset))
 		}
+		v = appendValidation(v,
+			validateExportTo(cfg.Namespace, rule.ExportTo, false, rule.GetWorkloadSelector() != nil))
 
-		v = appendValidation(v, validateExportTo(cfg.Namespace, rule.ExportTo, false))
+		v = appendValidation(v, validateWorkloadSelector(rule.GetWorkloadSelector()))
+
 		return v.Unwrap()
 	})
 
-func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) (errs error) {
+func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, isDestinationRuleWithSelector bool) (errs error) {
 	if len(exportTo) > 0 {
 		// Make sure there are no duplicates
 		exportToSet := sets.New()
@@ -714,6 +720,17 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 						exportToSet.Insert(key)
 					}
 				}
+			}
+		}
+
+		// Make sure workloadSelector based destination rule does not use exportTo other than current namespace
+		if isDestinationRuleWithSelector && !exportToSet.IsEmpty() {
+			if exportToSet.Contains(namespace) {
+				if len(exportToSet) > 1 {
+					errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector cannot have multiple entries in exportTo"))
+				}
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector cannot have exportTo beyond current namespace"))
 			}
 		}
 
@@ -2098,7 +2115,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendValidation(errs, validateTCPRoute(tcpRoute))
 		}
 
-		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false))
+		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false, false))
 
 		warnUnused := func(ruleno, reason string) {
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
@@ -3180,7 +3197,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 		}
 
-		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true))
+		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true, false))
 		return errs.Unwrap()
 	})
 

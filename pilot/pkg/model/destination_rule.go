@@ -21,6 +21,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -37,50 +38,73 @@ import (
 func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleConfig config.Config, exportToMap map[visibility.Instance]bool) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
+	if mdrList, exists := p.destRules[resolvedHost]; exists {
+		// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
+		addRuleToProcessedDestRules := true
+		for i, mdr := range mdrList {
+			existingRule := mdr.Spec.(*networking.DestinationRule)
+			bothWithoutSelector := rule.GetWorkloadSelector() == nil && existingRule.GetWorkloadSelector() == nil
+			bothWithSelector := existingRule.GetWorkloadSelector() != nil && rule.GetWorkloadSelector() != nil
+			selectorsMatch := labels.Instance(existingRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels())
 
-	if mdr, exists := p.destRule[resolvedHost]; exists {
-		// Deep copy destination rule, to prevent mutate it later when merge with a new one.
-		// This can happen when there are more than one destination rule of same host in one namespace.
-		copied := mdr.DeepCopy()
-		p.destRule[resolvedHost] = &copied
-		mergedRule := copied.Spec.(*networking.DestinationRule)
-		existingSubset := map[string]struct{}{}
-		for _, subset := range mergedRule.Subsets {
-			existingSubset[subset.Name] = struct{}{}
-		}
-		// we have an another destination rule for same host.
-		// concatenate both of them -- essentially add subsets from one to other.
-		// Note: we only add the subsets and do not overwrite anything else like exportTo or top level
-		// traffic policies if they already exist
-		for _, subset := range rule.Subsets {
-			if _, ok := existingSubset[subset.Name]; !ok {
-				// if not duplicated, append
-				mergedRule.Subsets = append(mergedRule.Subsets, subset)
-			} else {
-				// duplicate subset
-				ps.AddMetric(DuplicatedSubsets, string(resolvedHost), "",
-					fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
-						subset.Name, string(resolvedHost)))
+			if bothWithSelector && !selectorsMatch {
+				// If the new destination rule and the existing one has workload selectors associated with them, skip merging
+				// if the selectors do not match
+				continue
+			}
+
+			// If both the destination rules are without a workload selector or with matching workload selectors, simply merge them.
+			// If the incoming rule has a workload selector, it has to be merged with the existing rules with workload selector, and
+			// at the same time added as a unique entry in the processedDestRules.
+			if bothWithoutSelector || (rule.GetWorkloadSelector() != nil && selectorsMatch) {
+				addRuleToProcessedDestRules = false
+			}
+
+			// Deep copy destination rule, to prevent mutate it later when merge with a new one.
+			// This can happen when there are more than one destination rule of same host in one namespace.
+			copied := mdr.DeepCopy()
+			p.destRules[resolvedHost][i] = &copied
+			mergedRule := copied.Spec.(*networking.DestinationRule)
+
+			existingSubset := map[string]struct{}{}
+			for _, subset := range mergedRule.Subsets {
+				existingSubset[subset.Name] = struct{}{}
+			}
+			// we have an another destination rule for same host.
+			// concatenate both of them -- essentially add subsets from one to other.
+			// Note: we only add the subsets and do not overwrite anything else like exportTo or top level
+			// traffic policies if they already exist
+			for _, subset := range rule.Subsets {
+				if _, ok := existingSubset[subset.Name]; !ok {
+					// if not duplicated, append
+					mergedRule.Subsets = append(mergedRule.Subsets, subset)
+				} else {
+					// duplicate subset
+					ps.AddMetric(DuplicatedSubsets, string(resolvedHost), "",
+						fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
+							subset.Name, string(resolvedHost)))
+				}
+			}
+
+			// If there is no top level policy and the incoming rule has top level
+			// traffic policy, use the one from the incoming rule.
+			if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
+				mergedRule.TrafficPolicy = rule.TrafficPolicy
+			}
+			// If there is no exportTo in the existing rule and
+			// the incoming rule has an explicit exportTo, use the
+			// one from the incoming rule.
+			if len(p.exportTo[resolvedHost]) == 0 && len(exportToMap) > 0 {
+				p.exportTo[resolvedHost] = exportToMap
 			}
 		}
-
-		// If there is no top level policy and the incoming rule has top level
-		// traffic policy, use the one from the incoming rule.
-		if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
-			mergedRule.TrafficPolicy = rule.TrafficPolicy
-		}
-
-		// If there is no exportTo in the existing rule and
-		// the incoming rule has an explicit exportTo, use the
-		// one from the incoming rule.
-		if len(p.exportTo[resolvedHost]) == 0 && len(exportToMap) > 0 {
-			p.exportTo[resolvedHost] = exportToMap
+		if addRuleToProcessedDestRules {
+			p.destRules[resolvedHost] = append(p.destRules[resolvedHost], &destRuleConfig)
 		}
 		return
 	}
-
 	// DestinationRule does not exist for the resolved host so add it
-	p.destRule[resolvedHost] = &destRuleConfig
+	p.destRules[resolvedHost] = append(p.destRules[resolvedHost], &destRuleConfig)
 	p.exportTo[resolvedHost] = exportToMap
 }
 

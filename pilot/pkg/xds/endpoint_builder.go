@@ -87,7 +87,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 
 	var dr *config.Config
 	if svc != nil {
-		dr = proxy.SidecarScope.DestinationRule(svc.Hostname)
+		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 	}
 	b := EndpointBuilder{
 		clusterName:     clusterName,
