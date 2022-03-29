@@ -151,12 +151,11 @@ func IsIPv6(ipAddrs []string) bool {
 			// skip it to prevent a panic.
 			continue
 		}
-
-		if addr.To4() != nil {
-			return false
+		if addr.To4() == nil && addr.To16() != nil {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // IsIPv4 checks the addresses slice and returns true if atleast one of the addresses
@@ -169,9 +168,6 @@ func IsIPv4(ipAddrs []string) bool {
 			// skip it to prevent a panic.
 			continue
 		}
-
-		// Check that a address can be an IPv6 address but configuration is not configured K8s for dual-stack support.
-		// In this case an ipv6 link local address will appear, but not one that is routable to with K8s
 		if addr.To4() != nil {
 			return true
 		}
