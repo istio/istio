@@ -116,6 +116,28 @@ func TestMain(m *testing.M) {
 }
 
 func testSetup(ctx resource.Context) (err error) {
+	// enable custom tag in the stats
+	bootstrapPatch := `
+		apiVersion: networking.istio.io/v1alpha3
+		kind: EnvoyFilter
+		metadata:
+		  name: bootstrap-tag
+		  namespace: istio-system
+		spec:
+		  configPatches:
+			- applyTo: BOOTSTRAP
+			  patch:
+				operation: MERGE
+				value:
+				  stats_config:
+					stats_tags:
+					- regex: "(custom_dimension=\\.=(.*?);\\.;)"
+					  tag_name: "custom_dimension"
+		`
+	if err := ctx.ConfigIstio().YAML("istio-system", bootstrapPatch).Apply(resource.Wait); err != nil {
+		return err
+	}
+
 	var nsErr error
 	appNsInst, nsErr = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
@@ -235,27 +257,6 @@ func setupWasmExtension(ctx resource.Context) error {
 		return err
 	}
 
-	// enable custom tag in the stats
-	bootstrapPatch := `
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: bootstrap-tag
-  namespace: istio-system
-spec:
-  configPatches:
-    - applyTo: BOOTSTRAP
-      patch:
-        operation: MERGE
-        value:
-          stats_config:
-            stats_tags:
-            - regex: "(custom_dimension=\\.=(.*?);\\.;)"
-              tag_name: "custom_dimension"
-`
-	if err := ctx.ConfigIstio().YAML("istio-system", bootstrapPatch).Apply(resource.Wait); err != nil {
-		return err
-	}
 	return nil
 }
 
