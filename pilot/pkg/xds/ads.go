@@ -202,7 +202,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
 	}
-	shouldRespond := s.shouldRespond(con, req)
+	shouldRespond, delta := s.shouldRespond(con, req)
 	if !shouldRespond {
 		return nil
 	}
@@ -216,11 +216,13 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 		// is used by the XDS cache to determine if a entry is stale. If we use Now() with an old push context,
 		// we may end up overriding active cache entries with stale ones.
 		Start: con.proxy.LastPushTime,
+		Delta: delta,
 	}
 
 	// SidecarScope for the proxy may not have been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
-	// but before proxy's SidecarScope has been updated(s.updateProxy).
+	// but proxy's SidecarScope has been updated(s.updateProxy) due to optimizations that skip sidecar scope
+	// computation.
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
 		s.computeProxyState(con.proxy, request)
 	}
@@ -322,9 +324,11 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	}
 }
 
+var emptyResourceDelta = model.ResourceDelta{}
+
 // shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
 // using WatchedResource for previous state and discovery request for the current state.
-func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
+func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) (bool, model.ResourceDelta) {
 	stype := v3.GetShortType(request.TypeUrl)
 
 	// If there is an error in request that means previous response is erroneous.
@@ -342,7 +346,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 			w.NonceNacked = request.ResponseNonce
 		}
 		con.proxy.Unlock()
-		return false
+		return false, emptyResourceDelta
 	}
 
 	if shouldUnsubscribe(request) {
@@ -350,7 +354,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		con.proxy.Lock()
 		delete(con.proxy.WatchedResources, request.TypeUrl)
 		con.proxy.Unlock()
-		return false
+		return false, emptyResourceDelta
 	}
 
 	con.proxy.RLock()
@@ -368,7 +372,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
 		con.proxy.Unlock()
-		return true
+		return true, emptyResourceDelta
 	}
 
 	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
@@ -380,7 +384,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 		con.proxy.Unlock()
-		return false
+		return false, emptyResourceDelta
 	}
 
 	// If it comes here, that means nonce match. This an ACK. We should record
@@ -392,16 +396,23 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
 	con.proxy.Unlock()
 
+	prev := sets.NewWith(previousResources...)
+	cur := sets.NewWith(request.ResourceNames...)
+	removed := prev.Difference(cur)
+	added := cur.Difference(prev)
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
-	if listEqualUnordered(previousResources, request.ResourceNames) {
+	if len(removed) == 0 && len(added) == 0 {
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
-		return false
+		return false, emptyResourceDelta
 	}
-	log.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
-		previousResources, request.ResourceNames, con.conID, request.VersionInfo, request.ResponseNonce)
+	log.Debugf("ADS:%s: RESOURCE CHANGE added %v removed %v %s %s %s", stype,
+		added, removed, con.conID, request.VersionInfo, request.ResponseNonce)
 
-	return true
+	return true, model.ResourceDelta{
+		Subscribed:   added,
+		Unsubscribed: removed,
+	}
 }
 
 // shouldUnsubscribe checks if we should unsubscribe. This is done when Envoy is

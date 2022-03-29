@@ -165,7 +165,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 		Metadata:        &model.NodeMetadata{Labels: labels},
 		IPAddresses:     []string{"99.1.1.1"},
 		Type:            model.Router,
-	}, nil, watchAll)
+	}, nil, []string{v3.ClusterType, v3.EndpointType, v3.ListenerType})
 
 	// Expect 2 listeners : 1 for 80, 1 for 443
 	// where 443 listener has 3 filter chains
