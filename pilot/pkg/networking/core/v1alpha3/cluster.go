@@ -138,7 +138,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
 
-// buildDeltaClusters builds clusters for the proxy with the services passed.
+// buildDeltaClusters builds delta clusters for the proxy with the services passed.
 func (configgen *ConfigGeneratorImpl) buildDeltaClusters(proxy *model.Proxy, req *model.PushRequest,
 	services []*model.Service, watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
