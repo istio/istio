@@ -21,7 +21,7 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
   $ kubectl wait pod --for=condition=ready -n spire -l app=spire-agent
   ```
 
-1. Use the configuration profile provided to install Istio (requires istioctl v1.15 or newer):
+1. Use the configuration profile provided to install Istio (requires istioctl v1.14+):
 
   ```bash
   $ istioctl install -f istio-spire-config.yaml
