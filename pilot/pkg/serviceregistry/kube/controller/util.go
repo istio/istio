@@ -29,6 +29,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/constants"
@@ -182,7 +183,7 @@ func ptrValueOrEmpty(ptr *string) string {
 }
 
 func getNodeSelectorsForService(svc *v1.Service) labels.Instance {
-	if nodeSelector := svc.Annotations[kube.NodeSelectorAnnotation]; nodeSelector != "" {
+	if nodeSelector := svc.Annotations[annotation.TrafficNodeSelector.Name]; nodeSelector != "" {
 		var nodeSelectorKV map[string]string
 		if err := json.Unmarshal([]byte(nodeSelector), &nodeSelectorKV); err != nil {
 			log.Debugf("failed to unmarshal node selector annotation value for service %s.%s: %v",
@@ -201,7 +202,7 @@ func isNodePortGatewayService(svc *v1.Service) bool {
 	if svc == nil {
 		return false
 	}
-	_, ok := svc.Annotations[kube.NodeSelectorAnnotation]
+	_, ok := svc.Annotations[annotation.TrafficNodeSelector.Name]
 	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
 }
 
