@@ -144,6 +144,7 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 // IsIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
 // for all other cases it returns false
 func IsIPv6Proxy(ipAddrs []string) bool {
+	result := false
 	for i := 0; i < len(ipAddrs); i++ {
 		addr := net.ParseIP(ipAddrs[i])
 		if addr == nil {
@@ -153,7 +154,7 @@ func IsIPv6Proxy(ipAddrs []string) bool {
 		}
 		result = IsIPv6Address(addr)
 	}
-	return true
+	return result
 }
 
 // IsIPv6Address check an address is valid IPv6 address or not
