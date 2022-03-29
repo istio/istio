@@ -53,6 +53,9 @@ type GatewayConformanceInputs struct {
 var gatewayConformanceInputs GatewayConformanceInputs
 
 func TestGatewayConformance(t *testing.T) {
+	if gatewayConformanceInputs.Client == nil {
+		t.Skip("Not supported; requires CRDv1 support.")
+	}
 	mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
 	c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
 		Scheme: kube.IstioScheme,

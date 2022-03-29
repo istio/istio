@@ -58,9 +58,6 @@ func TestGateway(t *testing.T) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			if err := t.ConfigIstio().File("", "testdata/gateway-api-crd.yaml").Apply(resource.NoCleanup); err != nil {
-				t.Fatal(err)
-			}
 			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
 				false, t.Clusters().Configs()...)
 			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
