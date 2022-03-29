@@ -58,13 +58,9 @@ func TestMain(m *testing.M) {
 			return deployment.SetupSingleNamespace(t, &apps)
 		}).
 		Setup(func(t resource.Context) error {
-			if supportsCRDv1(t) {
-				gatewayConformanceInputs.Client = t.Clusters().Default()
-				gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
-				if err := t.ConfigIstio().File("", "testdata/gateway-api-crd.yaml").Apply(resource.NoCleanup); err != nil {
-					return err
-				}
-			}
+			gatewayConformanceInputs.Client = t.Clusters().Default()
+			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
+
 			return nil
 		}).
 		Run()

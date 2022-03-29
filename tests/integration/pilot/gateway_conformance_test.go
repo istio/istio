@@ -32,14 +32,19 @@
 package pilot
 
 import (
+	"context"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
@@ -53,30 +58,44 @@ type GatewayConformanceInputs struct {
 var gatewayConformanceInputs GatewayConformanceInputs
 
 func TestGatewayConformance(t *testing.T) {
-	if gatewayConformanceInputs.Client == nil {
-		t.Skip("Not supported; requires CRDv1 support.")
-	}
-	mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
-	c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
-		Scheme: kube.IstioScheme,
-		Mapper: mapper,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	framework.
+		NewTest(t).
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
+			if !supportsCRDv1(ctx) {
+				t.Skip("Not supported; requires CRDv1 support.")
+			}
+			if err := ctx.ConfigIstio().File("", "testdata/gateway-api-crd.yaml").Apply(resource.NoCleanup); err != nil {
+				ctx.Fatal(err)
+			}
+			// Wait until our GatewayClass is ready
+			retry.UntilSuccessOrFail(ctx, func() error {
+				_, err := ctx.Clusters().Default().GatewayAPI().GatewayV1alpha2().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+				return err
+			})
 
-	csuite := suite.New(suite.Options{
-		Client:           c,
-		GatewayClassName: "istio",
-		Debug:            scopes.Framework.DebugEnabled(),
-		Cleanup:          gatewayConformanceInputs.Cleanup,
-		RoundTripper:     nil,
-	})
-	csuite.Setup(t)
+			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
+			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
+				Scheme: kube.IstioScheme,
+				Mapper: mapper,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	for _, ct := range tests.ConformanceTests {
-		t.Run(ct.ShortName, func(t *testing.T) {
-			ct.Run(t, csuite)
+			csuite := suite.New(suite.Options{
+				Client:           c,
+				GatewayClassName: "istio",
+				Debug:            scopes.Framework.DebugEnabled(),
+				Cleanup:          gatewayConformanceInputs.Cleanup,
+				RoundTripper:     nil,
+			})
+			csuite.Setup(t)
+
+			for _, ct := range tests.ConformanceTests {
+				t.Run(ct.ShortName, func(t *testing.T) {
+					ct.Run(t, csuite)
+				})
+			}
 		})
-	}
 }
