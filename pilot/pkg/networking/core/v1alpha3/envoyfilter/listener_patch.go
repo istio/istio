@@ -428,15 +428,18 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 			IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, false)
 			continue
 		}
+		// clone instead of mutating the patch directly, otherwise it may influence other proxy
+		httpFilterPatch := proto.Clone(lp.Value).(*hcm.HttpFilter)
+		httpFilterPatch.Name = toCanonicalName(httpFilterPatch.Name)
 		if lp.Operation == networking.EnvoyFilter_Patch_ADD {
 			applied = true
-			httpconn.HttpFilters = append(httpconn.HttpFilters, proto.Clone(lp.Value).(*hcm.HttpFilter))
+			httpconn.HttpFilters = append(httpconn.HttpFilters, httpFilterPatch)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
-			httpconn.HttpFilters = append([]*hcm.HttpFilter{proto.Clone(lp.Value).(*hcm.HttpFilter)}, httpconn.HttpFilters...)
+			httpconn.HttpFilters = append([]*hcm.HttpFilter{httpFilterPatch}, httpconn.HttpFilters...)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a filter match is same as ADD in the end
 			if !hasHTTPFilterMatch(lp) {
-				httpconn.HttpFilters = append(httpconn.HttpFilters, proto.Clone(lp.Value).(*hcm.HttpFilter))
+				httpconn.HttpFilters = append(httpconn.HttpFilters, httpFilterPatch)
 				continue
 			}
 
@@ -453,16 +456,15 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 			applied = true
-			clonedVal := proto.Clone(lp.Value).(*hcm.HttpFilter)
-			httpconn.HttpFilters = append(httpconn.HttpFilters, clonedVal)
+			httpconn.HttpFilters = append(httpconn.HttpFilters, httpFilterPatch)
 			if insertPosition < len(httpconn.HttpFilters)-1 {
 				copy(httpconn.HttpFilters[insertPosition+1:], httpconn.HttpFilters[insertPosition:])
-				httpconn.HttpFilters[insertPosition] = clonedVal
+				httpconn.HttpFilters[insertPosition] = httpFilterPatch
 			}
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
 			if !hasHTTPFilterMatch(lp) {
-				httpconn.HttpFilters = append([]*hcm.HttpFilter{proto.Clone(lp.Value).(*hcm.HttpFilter)}, httpconn.HttpFilters...)
+				httpconn.HttpFilters = append([]*hcm.HttpFilter{httpFilterPatch}, httpconn.HttpFilters...)
 				continue
 			}
 
@@ -479,10 +481,9 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 			applied = true
-			clonedVal := proto.Clone(lp.Value).(*hcm.HttpFilter)
-			httpconn.HttpFilters = append(httpconn.HttpFilters, clonedVal)
+			httpconn.HttpFilters = append(httpconn.HttpFilters, httpFilterPatch)
 			copy(httpconn.HttpFilters[insertPosition+1:], httpconn.HttpFilters[insertPosition:])
-			httpconn.HttpFilters[insertPosition] = clonedVal
+			httpconn.HttpFilters[insertPosition] = httpFilterPatch
 		} else if lp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 			if !hasHTTPFilterMatch(lp) {
 				continue
