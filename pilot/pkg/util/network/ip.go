@@ -141,9 +141,26 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	return resolvedAddr, nil
 }
 
-// IsIPv6Proxy check the addresses slice and returns true for all addresses are valid IPv6 address
-// for all other cases it returns false
-func IsIPv6Proxy(ipAddrs []string) bool {
+// IsIPv6 checks the addresses slice and returns true if atleast one of the addresses
+// is a valid IPv6 address, for all other cases it returns false.
+func IsIPv6(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() == nil && addr.To16() != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// IsIPv4 checks the addresses slice and returns true if atleast one of the addresses
+// is a valid IPv64 address, for all other cases it returns false.
+func IsIPv4(ipAddrs []string) bool {
 	for i := 0; i < len(ipAddrs); i++ {
 		addr := net.ParseIP(ipAddrs[i])
 		if addr == nil {
@@ -152,8 +169,24 @@ func IsIPv6Proxy(ipAddrs []string) bool {
 			continue
 		}
 		if addr.To4() != nil {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
+}
+
+// GlobalUnicastIP returns the first global unicast address in the passed in addresses.
+func GlobalUnicastIP(ipAddrs []string) string {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.IsGlobalUnicast() {
+			return addr.String()
+		}
+	}
+	return ""
 }
