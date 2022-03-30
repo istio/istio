@@ -407,7 +407,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		for _, svc := range virtualHostWrapper.Services {
 			name := util.DomainName(string(svc.Hostname), virtualHostWrapper.Port)
-			knownFQDN.InsertAll(name, string(svc.Hostname))
+			knownFQDN.Insert(name, string(svc.Hostname))
 		}
 	}
 

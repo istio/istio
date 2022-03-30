@@ -62,7 +62,7 @@ func (c Call) IsHTTP() bool {
 	return httpProtocols.Contains(string(c.Protocol)) && (c.TLS == Plaintext || c.TLS == "")
 }
 
-var httpProtocols = sets.NewWith(string(HTTP), string(HTTP2))
+var httpProtocols = sets.New(string(HTTP), string(HTTP2))
 
 var (
 	ErrNoListener          = errors.New("no listener matched")
@@ -536,7 +536,7 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetApplicationProtocols() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
-		return sets.NewWith(fc.GetApplicationProtocols()...).Contains(input.Alpn)
+		return sets.New(fc.GetApplicationProtocols()...).Contains(input.Alpn)
 	})
 	// We do not implement the "source" based filters as we do not use them
 	if len(chains) > 1 {

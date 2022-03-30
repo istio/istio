@@ -84,7 +84,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 		for _, h := range wh.Webhooks {
 			resources[fmt.Sprintf("%v/%v", resource.Metadata.FullName.String(), h.Name)] = resource
 		}
-		revisions.InsertAll(revs...)
+		revisions.Insert(revs...)
 		return true
 	})
 
@@ -117,7 +117,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 			}
 			if len(matches) > 1 {
 				for match := range matches {
-					others := matches.Difference(sets.NewWith(match))
+					others := matches.Difference(sets.New(match))
 					context.Report(webhookCol, msg.NewInvalidWebhook(resources[match],
 						fmt.Sprintf("Webhook overlaps with others: %v. This may cause injection to occur twice.", others.UnsortedList())))
 				}
@@ -168,7 +168,7 @@ func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
 
 			for _, ls := range webhook.NamespaceSelector.MatchExpressions {
 				if ls.Key == label.IoIstioRev.Name {
-					revs.InsertAll(ls.Values...)
+					revs.Insert(ls.Values...)
 				}
 			}
 		}
@@ -179,7 +179,7 @@ func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
 
 			for _, ls := range webhook.ObjectSelector.MatchExpressions {
 				if ls.Key == label.IoIstioRev.Name {
-					revs.InsertAll(ls.Values...)
+					revs.Insert(ls.Values...)
 				}
 			}
 		}

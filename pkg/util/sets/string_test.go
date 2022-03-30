@@ -23,7 +23,7 @@ import (
 
 func TestNewSet(t *testing.T) {
 	elements := []string{"a", "b", "c"}
-	set := NewWith(elements...)
+	set := New(elements...)
 
 	if len(set) != len(elements) {
 		t.Errorf("Expected length %d != %d", len(set), len(elements))
@@ -39,10 +39,10 @@ func TestNewSet(t *testing.T) {
 func TestUnion(t *testing.T) {
 	elements := []string{"a", "b", "c", "d"}
 	elements2 := []string{"a", "b", "e"}
-	want := NewWith("a", "b", "c", "d", "e")
+	want := New("a", "b", "c", "d", "e")
 	for _, sets := range [][]Set{
-		{NewWith(elements...), NewWith(elements2...)},
-		{NewWith(elements2...), NewWith(elements...)},
+		{New(elements...), New(elements2...)},
+		{New(elements2...), New(elements...)},
 	} {
 		s1, s2 := sets[0], sets[1]
 		if got := s1.Union(s2); !got.Equals(want) {
@@ -53,10 +53,10 @@ func TestUnion(t *testing.T) {
 
 func TestDifference(t *testing.T) {
 	elements := []string{"a", "b", "c", "d"}
-	s1 := NewWith(elements...)
+	s1 := New(elements...)
 
 	elements2 := []string{"a", "b", "e"}
-	s2 := NewWith(elements2...)
+	s2 := New(elements2...)
 
 	d := s1.Difference(s2)
 
@@ -74,10 +74,10 @@ func TestDifference(t *testing.T) {
 
 func TestIntersection(t *testing.T) {
 	elements := []string{"a", "b", "d"}
-	s1 := NewWith(elements...)
+	s1 := New(elements...)
 
 	elements2 := []string{"a", "b", "c"}
-	s2 := NewWith(elements2...)
+	s2 := New(elements2...)
 
 	d := s1.Intersection(s2)
 
@@ -95,17 +95,17 @@ func TestIntersection(t *testing.T) {
 
 func TestSupersetOf(t *testing.T) {
 	elements := []string{"a", "b", "c", "d"}
-	s1 := NewWith(elements...)
+	s1 := New(elements...)
 
 	elements2 := []string{"a", "b"}
-	s2 := NewWith(elements2...)
+	s2 := New(elements2...)
 
 	if !s1.SupersetOf(s2) {
 		t.Errorf("%v should be superset of %v", s1.SortedList(), s2.SortedList())
 	}
 
-	s3 := NewWith()
-	if !NewWith().SupersetOf(s3) {
+	s3 := New()
+	if !New().SupersetOf(s3) {
 		fmt.Printf("%q\n", s3.SortedList()[0])
 		t.Errorf("%v should be superset of empty set", s1.SortedList())
 	}
@@ -126,20 +126,20 @@ func TestEquals(t *testing.T) {
 		},
 		{
 			"unequal length",
-			NewWith("test"),
-			NewWith("test", "test1"),
+			New("test"),
+			New("test", "test1"),
 			false,
 		},
 		{
 			"equal sets",
-			NewWith("test", "test1"),
-			NewWith("test", "test1"),
+			New("test", "test1"),
+			New("test", "test1"),
 			true,
 		},
 		{
 			"unequal sets",
-			NewWith("test", "test1"),
-			NewWith("test", "test2"),
+			New("test", "test1"),
+			New("test", "test2"),
 			false,
 		},
 	}
@@ -158,18 +158,18 @@ func TestMerge(t *testing.T) {
 		expected []string
 	}{
 		{
-			s1:       NewWith("a1", "a2"),
-			s2:       NewWith("a1", "a2"),
+			s1:       New("a1", "a2"),
+			s2:       New("a1", "a2"),
 			expected: []string{"a1", "a2"},
 		},
 		{
-			s1:       NewWith("a1", "a2", "a3"),
-			s2:       NewWith("a1", "a2"),
+			s1:       New("a1", "a2", "a3"),
+			s2:       New("a1", "a2"),
 			expected: []string{"a1", "a2", "a3"},
 		},
 		{
-			s1:       NewWith("a1", "a2"),
-			s2:       NewWith("a3", "a4"),
+			s1:       New("a1", "a2"),
+			s2:       New("a3", "a4"),
 			expected: []string{"a1", "a2", "a3", "a4"},
 		},
 	}

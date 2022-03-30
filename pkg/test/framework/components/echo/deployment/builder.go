@@ -390,7 +390,7 @@ func (b builder) BuildOrFail(t test.Failer) echo.Instances {
 func (b builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
 	expected := sets.New()
 	for _, subset := range config.Subsets {
-		expected.InsertAll(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
+		expected.Insert(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
 	}
 	if b.templates == nil || b.templates[c.Name()] == nil {
 		return len(expected) == 0
