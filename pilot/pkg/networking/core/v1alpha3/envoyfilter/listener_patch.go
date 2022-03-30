@@ -253,16 +253,18 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 			continue
 		}
 		applied := false
+		networkFilterPatch := proto.Clone(lp.Value).(*xdslistener.Filter)
+		networkFilterPatch.Name = toCanonicalName(networkFilterPatch.Name)
 		if lp.Operation == networking.EnvoyFilter_Patch_ADD {
-			fc.Filters = append(fc.Filters, proto.Clone(lp.Value).(*xdslistener.Filter))
+			fc.Filters = append(fc.Filters, networkFilterPatch)
 			applied = true
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
-			fc.Filters = append([]*xdslistener.Filter{proto.Clone(lp.Value).(*xdslistener.Filter)}, fc.Filters...)
+			fc.Filters = append([]*xdslistener.Filter{networkFilterPatch}, fc.Filters...)
 			applied = true
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a filter match is same as ADD in the end
 			if !hasNetworkFilterMatch(lp) {
-				fc.Filters = append(fc.Filters, proto.Clone(lp.Value).(*xdslistener.Filter))
+				fc.Filters = append(fc.Filters, networkFilterPatch)
 				continue
 			}
 			// find the matching filter first
@@ -278,16 +280,15 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 			applied = true
-			clonedVal := proto.Clone(lp.Value).(*xdslistener.Filter)
-			fc.Filters = append(fc.Filters, clonedVal)
+			fc.Filters = append(fc.Filters, networkFilterPatch)
 			if insertPosition < len(fc.Filters)-1 {
 				copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
-				fc.Filters[insertPosition] = clonedVal
+				fc.Filters[insertPosition] = networkFilterPatch
 			}
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
 			if !hasNetworkFilterMatch(lp) {
-				fc.Filters = append([]*xdslistener.Filter{proto.Clone(lp.Value).(*xdslistener.Filter)}, fc.Filters...)
+				fc.Filters = append([]*xdslistener.Filter{networkFilterPatch}, fc.Filters...)
 				continue
 			}
 			// find the matching filter first
@@ -304,10 +305,9 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 			applied = true
-			clonedVal := proto.Clone(lp.Value).(*xdslistener.Filter)
-			fc.Filters = append(fc.Filters, clonedVal)
+			fc.Filters = append(fc.Filters, networkFilterPatch)
 			copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
-			fc.Filters[insertPosition] = clonedVal
+			fc.Filters[insertPosition] = networkFilterPatch
 		} else if lp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 			if !hasNetworkFilterMatch(lp) {
 				continue
@@ -324,7 +324,7 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 			applied = true
-			fc.Filters[replacePosition] = proto.Clone(lp.Value).(*xdslistener.Filter)
+			fc.Filters[replacePosition] = networkFilterPatch
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, applied)
 	}
@@ -502,8 +502,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 			applied = true
-			clonedVal := proto.Clone(lp.Value).(*hcm.HttpFilter)
-			httpconn.HttpFilters[replacePosition] = clonedVal
+			httpconn.HttpFilters[replacePosition] = httpFilterPatch
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
