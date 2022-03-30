@@ -31,7 +31,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
 
@@ -252,7 +252,7 @@ type consolidatedDestRules struct {
 	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
 	exportTo map[host.Name]map[visibility.Instance]bool
 	// Map of dest rule host and the merged destination rules for that host
-	destRule map[host.Name]*config.Config
+	destRules map[host.Name][]*config.Config
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -356,6 +356,22 @@ type PushRequest struct {
 	// There should only be multiple reasons if the push request is the result of two distinct triggers, rather than
 	// classifying a single trigger as having multiple reasons.
 	Reason []TriggerReason
+
+	// Delta defines the resources that were added or removed as part of this push request.
+	// This is set only on requests from the client which change the set of resources they (un)subscribe from.
+	Delta ResourceDelta
+}
+
+// ResourceDelta records the difference in requested resources by an XDS client
+type ResourceDelta struct {
+	// Subscribed indicates the client requested these additional resources
+	Subscribed sets.Set
+	// Unsubscribed indicates the client no longer requires these resources
+	Unsubscribed sets.Set
+}
+
+func (rd ResourceDelta) IsEmpty() bool {
+	return len(rd.Subscribed) == 0 && len(rd.Unsubscribed) == 0
 }
 
 type TriggerReason string
@@ -732,7 +748,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	}
 
 	// host set.
-	hostsFromGateways := sets.NewSet()
+	hostsFromGateways := sets.New()
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		for _, vsConfig := range ps.VirtualServicesForGateway(proxy.ConfigNamespace, gw) {
 			vs, ok := vsConfig.Spec.(*networking.VirtualService)
@@ -770,7 +786,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 // add services from MeshConfig.ExtensionProviders
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
 func getHostsFromMeshConfig(ps *PushContext) sets.Set {
-	hostsFromMeshConfig := sets.NewSet()
+	hostsFromMeshConfig := sets.New()
 
 	for _, prov := range ps.Mesh.ExtensionProviders {
 		switch p := prov.Provider.(type) {
@@ -971,11 +987,10 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 }
 
 // destinationRule returns a destination rule for a service name in a given namespace.
-func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) *config.Config {
+func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) []*config.Config {
 	if service == nil {
 		return nil
 	}
-
 	// If the proxy config namespace is same as the root config namespace
 	// look for dest rules in the service's namespace first. This hack is needed
 	// because sometimes, istio-system tends to become the root config namespace.
@@ -990,9 +1005,9 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxyNameSpace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
-				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRule,
+				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRules,
 			); ok {
-				return ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRule[hostname]
+				return ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRules[hostname]
 			}
 		}
 	} else {
@@ -1000,9 +1015,9 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		// need to worry about overriding other DRs with *.local type rules here. If we ignore this, then exportTo=. in
 		// root namespace would always be ignored
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.destinationRuleIndex.rootNamespaceLocal.destRule,
+			ps.destinationRuleIndex.rootNamespaceLocal.destRules,
 		); ok {
-			return ps.destinationRuleIndex.rootNamespaceLocal.destRule[hostname]
+			return ps.destinationRuleIndex.rootNamespaceLocal.destRules[hostname]
 		}
 	}
 
@@ -1039,21 +1054,21 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	if features.EnableDestinationRuleInheritance {
 		// return namespace rule if present
 		if out := ps.destinationRuleIndex.inheritedByNamespace[proxyNameSpace]; out != nil {
-			return out
+			return []*config.Config{out}
 		}
 		// return mesh rule
 		if out := ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]; out != nil {
-			return out
+			return []*config.Config{out}
 		}
 	}
 
 	return nil
 }
 
-func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) *config.Config {
+func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*config.Config {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
 		if specificHostname, ok := MostSpecificHostMatch(hostname,
-			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRule,
+			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules,
 		); ok {
 			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
@@ -1065,12 +1080,19 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 					if parent = ps.destinationRuleIndex.inheritedByNamespace[clientNamespace]; parent == nil {
 						parent = ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]
 					}
-					if child := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRule[specificHostname]; child != nil {
-						return ps.inheritDestinationRule(parent, child)
+					var inheritedDrList []*config.Config
+					for _, child := range ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname] {
+						inheritedDr := ps.inheritDestinationRule(parent, child)
+						if inheritedDr != nil {
+							inheritedDrList = append(inheritedDrList, inheritedDr)
+						}
+
 					}
-					return nil
+					return inheritedDrList
 				}
-				return ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRule[specificHostname]
+				if dr, ok := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname]; ok {
+					return dr
+				}
 			}
 		}
 	}
@@ -1583,13 +1605,13 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sidecarConfigWithSelector := make([]config.Config, 0)
 	sidecarConfigWithoutSelector := make([]config.Config, 0)
-	sidecarsWithoutSelectorByNamespace := make(map[string]struct{})
+	sidecarsWithoutSelectorByNamespace := sets.New()
 	for _, sidecarConfig := range sidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
 			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
 		} else {
-			sidecarsWithoutSelectorByNamespace[sidecarConfig.Namespace] = struct{}{}
+			sidecarsWithoutSelectorByNamespace.Insert(sidecarConfig.Namespace)
 			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
 		}
 	}
@@ -1638,8 +1660,8 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 
 func newProcessedDestRules() *consolidatedDestRules {
 	return &consolidatedDestRules{
-		exportTo: map[host.Name]map[visibility.Instance]bool{},
-		destRule: map[host.Name]*config.Config{},
+		exportTo:  map[host.Name]map[visibility.Instance]bool{},
+		destRules: map[host.Name][]*config.Config{},
 	}
 }
 
@@ -1671,8 +1693,12 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
 		exportToMap := make(map[visibility.Instance]bool)
-		for _, e := range rule.ExportTo {
-			exportToMap[visibility.Instance(e)] = true
+
+		// destination rules with workloadSelector should not be exported to other namespaces
+		if rule.GetWorkloadSelector() == nil {
+			for _, e := range rule.ExportTo {
+				exportToMap[visibility.Instance(e)] = true
+			}
 		}
 
 		// add only if the dest rule is exported with . or * or explicit exportTo containing this namespace
@@ -1695,7 +1721,12 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 		// We only honor . and *
 		if len(rule.ExportTo) == 0 && ps.exportToDefaults.destinationRule[visibility.Private] {
 			isPrivateOnly = true
-		} else if len(rule.ExportTo) == 1 && exportToMap[visibility.Private] {
+		} else if len(rule.ExportTo) == 1 && (exportToMap[visibility.Private]) {
+			isPrivateOnly = true
+		}
+
+		// If destination rule has a workloadSelector set, visibility should be private.
+		if rule.GetWorkloadSelector() != nil {
 			isPrivateOnly = true
 		}
 
@@ -1718,8 +1749,10 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 		for ns := range namespaceLocalDestRules {
 			nsRule := inheritedConfigs[ns]
 			inheritedRule := ps.inheritDestinationRule(globalRule, nsRule)
-			for hostname, cfg := range namespaceLocalDestRules[ns].destRule {
-				namespaceLocalDestRules[ns].destRule[hostname] = ps.inheritDestinationRule(inheritedRule, cfg)
+			for hostname, cfgList := range namespaceLocalDestRules[ns].destRules {
+				for i, cfg := range cfgList {
+					namespaceLocalDestRules[ns].destRules[hostname][i] = ps.inheritDestinationRule(inheritedRule, cfg)
+				}
 			}
 			// update namespace rule after it has been merged with mesh rule
 			inheritedConfigs[ns] = inheritedRule
@@ -2046,8 +2079,8 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 	for _, s := range servers {
 		ports[int(s.Port.Number)] = struct{}{}
 	}
-	foundInternal := sets.NewSet()
-	foundExternal := sets.NewSet()
+	foundInternal := sets.New()
+	foundExternal := sets.New()
 	warnings := []string{}
 	for _, g := range gwsvcs {
 		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
@@ -2078,7 +2111,7 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 				if instancesEmpty(gc.ps.ServiceIndex.instancesByPort[svcKey]) {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
 				} else {
-					hintPort := sets.NewSet()
+					hintPort := sets.New()
 					for _, instances := range gc.ps.ServiceIndex.instancesByPort[svcKey] {
 						for _, i := range instances {
 							if i.Endpoint.EndpointPort == uint32(port) {

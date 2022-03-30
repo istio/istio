@@ -27,10 +27,10 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // DefaultProxyConfig for individual proxies
@@ -237,7 +237,7 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 		}
 	}
 
-	defaultConfig.TrustDomainAliases = sets.NewSet(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...).SortedList()
+	defaultConfig.TrustDomainAliases = sets.New(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...).SortedList()
 
 	if err := validation.ValidateMeshConfig(defaultConfig); err != nil {
 		return nil, err

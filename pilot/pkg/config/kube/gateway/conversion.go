@@ -32,11 +32,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -146,7 +146,7 @@ func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Referenc
 				}
 				if _, f := res[fromKey][toKey]; !f {
 					res[fromKey][toKey] = &AllowedReferences{
-						AllowedNames: sets.NewSet(),
+						AllowedNames: sets.New(),
 					}
 				}
 				if to.Name != nil {
@@ -1175,7 +1175,7 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 	gwMap := map[parentKey]map[k8s.SectionName]*parentInfo{}
 	// namespaceLabelReferences keeps track of all namespace label keys referenced by Gateways. This is
 	// used to ensure we handle namespace updates for those keys.
-	namespaceLabelReferences := sets.NewSet()
+	namespaceLabelReferences := sets.New()
 	classes := getGatewayClasses(r)
 	for _, obj := range r.Gateway {
 		obj := obj

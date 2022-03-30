@@ -22,11 +22,11 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/util/sets"
 )
 
-var knownOptimizationGaps = sets.NewSet(
+var knownOptimizationGaps = sets.New(
 	"BlackHoleCluster",
 	"InboundPassthroughClusterIpv4",
 	"InboundPassthroughClusterIpv6",
@@ -43,7 +43,7 @@ func (s *DiscoveryServer) compareDiff(
 	resp model.Resources,
 	deleted model.DeletedResources,
 	usedDelta bool,
-	generateOnly []string,
+	delta model.ResourceDelta,
 ) {
 	current := con.Watched(w.TypeUrl).LastResources
 	if current == nil {
@@ -64,12 +64,12 @@ func (s *DiscoveryServer) compareDiff(
 		curByName[v.Name] = v
 	}
 
-	watched := sets.NewSet(w.ResourceNames...)
+	watched := sets.New(w.ResourceNames...)
 
 	details := fmt.Sprintf("last:%v sotw:%v delta:%v-%v", len(current), len(full), len(resp), len(deleted))
-	wantDeleted := sets.NewSet()
-	wantChanged := sets.NewSet()
-	wantUnchanged := sets.NewSet()
+	wantDeleted := sets.New()
+	wantChanged := sets.New()
+	wantUnchanged := sets.New()
 	for _, c := range current {
 		n := newByName[c.Name]
 		if n == nil {
@@ -93,11 +93,11 @@ func (s *DiscoveryServer) compareDiff(
 		}
 	}
 
-	gotDeleted := sets.NewSet()
+	gotDeleted := sets.New()
 	if usedDelta {
 		gotDeleted.Insert(deleted...)
 	}
-	gotChanged := sets.NewSet()
+	gotChanged := sets.New()
 	for _, v := range resp {
 		gotChanged.Insert(v.Name)
 	}
@@ -109,7 +109,7 @@ func (s *DiscoveryServer) compareDiff(
 
 	// Optimization Potential
 	extraChanges := gotChanged.Difference(wantChanged).Difference(knownOptimizationGaps).SortedList()
-	if generateOnly != nil {
+	if len(delta.Subscribed) > 0 {
 		// Delta is configured to build only the request resources. Make sense we didn't build anything extra
 		if !wantChanged.SupersetOf(gotChanged) {
 			log.Errorf("%s: TEST for node:%s unexpected resources: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, wantChanged.Difference(gotChanged))
@@ -141,7 +141,7 @@ func (s *DiscoveryServer) compareDiff(
 }
 
 func applyDelta(message model.Resources, resp *discovery.DeltaDiscoveryResponse) model.Resources {
-	deleted := sets.NewSet(resp.RemovedResources...)
+	deleted := sets.New(resp.RemovedResources...)
 	byName := map[string]*discovery.Resource{}
 	for _, v := range resp.Resources {
 		byName[v.Name] = v

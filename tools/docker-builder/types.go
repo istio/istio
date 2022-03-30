@@ -22,8 +22,8 @@ import (
 
 	"k8s.io/utils/env"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	testenv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -97,7 +97,7 @@ type BuildPlan struct {
 }
 
 func (p BuildPlan) Targets() []string {
-	tgts := sets.NewSet()
+	tgts := sets.New()
 	for _, img := range p.Images {
 		tgts.Insert(img.Targets...)
 	}
@@ -169,7 +169,7 @@ func DefaultArgs() Args {
 	if os.Getenv("INCLUDE_UNTAGGED_DEFAULT") == "true" {
 		// This legacy env var was to workaround the old build logic not being very smart
 		// In the new builder, we automagically detect this. So just insert the 'default' variant
-		cur := sets.NewSet(variants...)
+		cur := sets.New(variants...)
 		cur.Insert(DefaultVariant)
 		variants = cur.SortedList()
 	}

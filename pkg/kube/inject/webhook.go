@@ -46,10 +46,10 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -675,7 +675,7 @@ func getPrometheusScrape(pod *corev1.Pod) bool {
 	return true
 }
 
-var prometheusAnnotations = sets.NewSet(
+var prometheusAnnotations = sets.New(
 	prometheusPathAnnotation,
 	prometheusPortAnnotation,
 	prometheusScrapeAnnotation,

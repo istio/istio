@@ -37,15 +37,15 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
+var deltaConfigTypes = sets.New(gvk.ServiceEntry.Kind)
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -88,8 +88,8 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		return cl, nil, lg, false
 	}
 
-	deletedClusters := make([]string, 0)
-	services := make([]*model.Service, 0)
+	var deletedClusters []string
+	var services []*model.Service
 	// holds clusters per service, keyed by hostname.
 	serviceClusters := make(map[string]sets.Set)
 	// holds service ports, keyed by hostname.
@@ -98,10 +98,10 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 	for _, cluster := range watched.ResourceNames {
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
+		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>).
 		_, _, svcHost, port := model.ParseSubsetKey(cluster)
 		if serviceClusters[string(svcHost)] == nil {
-			serviceClusters[string(svcHost)] = sets.NewSet()
+			serviceClusters[string(svcHost)] = sets.New()
 		}
 		serviceClusters[string(svcHost)].Insert(cluster)
 		if servicePorts[string(svcHost)] == nil {
@@ -229,7 +229,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
 		supportsIPv4:    cb.supportsIPv4,
 		service:         service,
-		destinationRule: proxy.SidecarScope.DestinationRule(service.Hostname),
+		destinationRule: proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname),
 		envoyFilterKeys: efKeys,
 		metadataCerts:   cb.metadataCerts,
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
@@ -285,10 +285,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 			for _, ss := range subsetClusters {
 				if patched := cp.applyResource(nil, ss); patched != nil {
-					nk := *clusterKey
-					nk.clusterName = ss.Name
 					resources = append(resources, patched)
 					if features.EnableCDSCaching {
+						nk := *clusterKey
+						nk.clusterName = ss.Name
 						cb.cache.Add(&nk, cb.req, patched)
 					}
 				}
@@ -353,7 +353,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 		if service.MeshExternal {
 			continue
 		}
-		destRule := proxy.SidecarScope.DestinationRule(service.Hostname)
+
+		destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -600,7 +601,6 @@ type buildClusterOpts struct {
 	serviceMTLSMode model.MutualTLSMode
 	// Indicates the service registry of the cluster being built.
 	serviceRegistry provider.ID
-	cache           model.XdsCache
 }
 
 type upgradeTuple struct {

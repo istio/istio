@@ -225,7 +225,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
 	var destinationRule *networking.DestinationRule
 	if service != nil {
-		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(service.Hostname))
+		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, service.Hostname))
 	}
 	if len(routes) == 1 {
 		clusterName := istioroute.GetDestinationCluster(routes[0].Destination, service, port.Port)
