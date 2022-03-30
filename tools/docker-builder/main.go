@@ -126,6 +126,27 @@ func CopyInputs(a Args) error {
 	return nil
 }
 
+func ReadPlanTargets() ([]string, []string, error) {
+	by, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
+	if err != nil {
+		return nil, nil, err
+	}
+	plan := BuildPlan{}
+	if err := yaml.Unmarshal(by, &plan); err != nil {
+		return nil, nil, err
+	}
+	bases := sets.New()
+	nonBases := sets.New()
+	for _, i := range plan.Images {
+		if i.Base {
+			bases.Insert(i.Name)
+		} else {
+			nonBases.Insert(i.Name)
+		}
+	}
+	return bases.SortedList(), nonBases.SortedList(), nil
+}
+
 func ReadPlan(a Args) (Args, error) {
 	by, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
 	if err != nil {
@@ -478,6 +499,10 @@ func RunMake(args Args, c ...string) error {
 	// Shorten output to avoid a ton of long redundant paths
 	for _, cs := range c {
 		shortArgs = append(shortArgs, filepath.Base(cs))
+	}
+	if len(c) == 0 {
+		log.Infof("Nothing to make")
+		return nil
 	}
 	log.Infof("Running make: %v", strings.Join(shortArgs, " "))
 	cmd := exec.Command("make", c...)

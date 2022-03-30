@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/pilot/common"
