@@ -672,6 +672,7 @@ func socketFileExists(path string) bool {
 // Checks whether the socket exists and is responsive.
 // If it doesn't exist, returns (false, nil)
 // If it exists and is NOT responsive, tries to delete the socket file.
+// If it can be deleted, returns (false, nil).
 // If it cannot be deleted, returns (false, error).
 // Otherwise, returns (true, nil)
 func checkSocket(ctx context.Context, socketPath string) (bool, error) {
@@ -683,10 +684,11 @@ func checkSocket(ctx context.Context, socketPath string) (bool, error) {
 	err := socketHealthCheck(ctx, socketPath)
 	if err != nil {
 		log.Errorf("SDS socket health check failed: %v", err)
-		err = os.Remove(security.WorkloadIdentitySocketPath)
+		err = os.Remove(socketPath)
 		if err != nil {
 			return false, fmt.Errorf("existing SDS socket could not be removed: %v", err)
 		}
+		return false, nil
 	}
 
 	return true, nil

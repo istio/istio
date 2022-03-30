@@ -293,6 +293,23 @@ func TestAgent(t *testing.T) {
 			_ = os.RemoveAll(dir)
 		})
 	})
+	t.Run("Unhealthy SDS socket", func(t *testing.T) {
+		dir := filepath.Dir(security.WorkloadIdentitySocketPath)
+		os.MkdirAll(dir, 0o755)
+
+		// starting an unresponsive listener on the socket
+		l, err := net.Listen("unix", security.WorkloadIdentitySocketPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer l.Close()
+
+		Setup(t).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+
+		t.Cleanup(func() {
+			_ = os.RemoveAll(dir)
+		})
+	})
 	t.Run("Workload certificates", func(t *testing.T) {
 		dir := security.WorkloadIdentityCredentialsPath
 		if err := os.MkdirAll(dir, 0o755); err != nil {
