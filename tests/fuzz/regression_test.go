@@ -178,7 +178,7 @@ func TestFuzzers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		allFuzzers := sets.NewWith(fuzzers...)
+		allFuzzers := sets.New(fuzzers...)
 		if !allFuzzers.Equals(testedFuzzers) {
 			t.Fatalf("Not all fuzzers are tested! Missing %v", allFuzzers.Difference(testedFuzzers))
 		}

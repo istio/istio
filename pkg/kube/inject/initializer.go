@@ -34,7 +34,7 @@ import (
 //    which improves the performance of the node heartbeats as the cluster scales.
 // "local-path-storage": Dynamically provisioning persistent local storage with Kubernetes.
 //    used with Kind cluster: https://github.com/rancher/local-path-provisioner
-var IgnoredNamespaces = sets.NewWith(
+var IgnoredNamespaces = sets.New(
 	constants.KubeSystemNamespace,
 	constants.KubePublicNamespace,
 	constants.KubeNodeLeaseNamespace,
