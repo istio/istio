@@ -61,6 +61,7 @@ func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
+		Label("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
 			if !supportsCRDv1(ctx) {
 				t.Skip("Not supported; requires CRDv1 support.")
