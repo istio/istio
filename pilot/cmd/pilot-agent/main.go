@@ -220,8 +220,11 @@ func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *mesh
 }
 
 func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
-	localHostAddr := localHostIPv4
-	if network.IsIPv6Proxy(proxy.IPAddresses) {
+	localHostAddr := ""
+	// Prefer IPv4 address for backward compatibility.
+	if proxy.SupportsIPv4() {
+		localHostAddr = localHostIPv4
+	} else if proxy.SupportsIPv6() {
 		localHostAddr = localHostIPv6
 	}
 	stsServer, err := stsserver.NewServer(stsserver.Config{
@@ -283,6 +286,8 @@ func initProxy(args []string) (*model.Proxy, error) {
 	if len(proxy.IPAddresses) == 0 {
 		proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
 	}
+
+	proxy.DiscoverIPVersions()
 
 	// Extract pod variables.
 	podName := options.PodNameVar.Get()
