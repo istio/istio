@@ -14,9 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+function date_cmd() {
+  case "$(uname)" in
+    "Darwin")
+      [ -z "$(which gdate)" ] && echo "gdate is required for OSX. Try installing coreutils from MacPorts or Brew."
+      echo "gdate"
+      ;;
+    *)
+      echo "date"
+      ;;
+  esac
+}
+
 # Output a message, with a timestamp matching istio log format
 function log() {
-  echo -e "$(date -u '+%Y-%m-%dT%H:%M:%S.%NZ')\t$*"
+  echo -e "$(date_cmd -u '+%Y-%m-%dT%H:%M:%S.%NZ')\t$*"
 }
 
 # Trace runs the provided command and records additional timing information
@@ -27,13 +39,13 @@ function log() {
 function trace() {
   { set +x; } 2>/dev/null
   log "Running '${1}'"
-  start="$(date -u +%s.%N)"
+  start="$(date_cmd -u +%s.%N)"
   { set -x; } 2>/dev/null
 
   "${@:2}"
 
   { set +x; } 2>/dev/null
-  elapsed=$( date +%s.%N --date="$start seconds ago" )
+  elapsed=$(date_cmd +%s.%N --date="$start seconds ago" )
   log "Command '${1}' complete in ${elapsed}s"
   # Write to YAML file as well for easy reading by tooling
   echo "'${1}': $elapsed" >> "${ARTIFACTS}/trace.yaml"
