@@ -312,9 +312,9 @@ func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
 func (c *Controller) namespaceEvent(oldObj interface{}, newObj interface{}) {
 	// First, find all the label keys on the old/new namespace. We include NamespaceNameLabel
 	// since we have special logic to always allow this on namespace.
-	touchedNamespaceLabels := sets.NewWith(NamespaceNameLabel)
-	touchedNamespaceLabels.InsertAll(getLabelKeys(oldObj)...)
-	touchedNamespaceLabels.InsertAll(getLabelKeys(newObj)...)
+	touchedNamespaceLabels := sets.New(NamespaceNameLabel)
+	touchedNamespaceLabels.Insert(getLabelKeys(oldObj)...)
+	touchedNamespaceLabels.Insert(getLabelKeys(newObj)...)
 
 	// Next, we find all keys our Gateways actually reference.
 	c.stateMu.RLock()
