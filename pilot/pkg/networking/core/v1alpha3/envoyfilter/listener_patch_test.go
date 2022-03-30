@@ -390,7 +390,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
-				Value:     buildPatchStruct(`{"name": "http-filter0"}`),
+				Value:     buildPatchStruct(`{"name": "envoy.rate_limit"}`), // deprecated name
 			},
 		},
 		{
@@ -1045,7 +1045,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				{
 					Filters: []*listener.Filter{
 						{
-							Name: "envoy.redis_proxy",
+							Name: wellknown.RedisProxy,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
 									StatPrefix: "redis_stats",
@@ -1585,7 +1585,7 @@ func TestApplyListenerPatches(t *testing.T) {
 									MergeSlashes:                 true,
 									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: "http-filter0"},
+										{Name: wellknown.HTTPRateLimit},
 										{
 											Name:       wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
@@ -1626,7 +1626,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 					Filters: []*listener.Filter{
 						{
-							Name: "envoy.redis_proxy",
+							Name: wellknown.RedisProxy,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
 									StatPrefix: "redis_stats",

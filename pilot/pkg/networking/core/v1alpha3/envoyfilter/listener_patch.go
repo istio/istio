@@ -246,7 +246,8 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	for _, lp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
-		if !commonConditionMatch(patchContext, lp) ||
+		if lp.Operation == networking.EnvoyFilter_Patch_REMOVE ||
+			!commonConditionMatch(patchContext, lp) ||
 			!listenerMatch(listener, lp) ||
 			!filterChainMatch(listener, fc, lp) {
 			IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, false)
@@ -421,7 +422,8 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 	}
 	for _, lp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		applied := false
-		if !commonConditionMatch(patchContext, lp) ||
+		if lp.Operation == networking.EnvoyFilter_Patch_REMOVE ||
+			!commonConditionMatch(patchContext, lp) ||
 			!listenerMatch(listener, lp) ||
 			!filterChainMatch(listener, fc, lp) ||
 			!networkFilterMatch(filter, lp) {
