@@ -64,6 +64,11 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		peerAddr = peerInfo.Addr.String()
 	}
 
+	if err := s.WaitForRequestLimit(stream.Context()); err != nil {
+		deltaLog.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
+		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
+	}
+
 	ids, err := s.authenticate(ctx)
 	if err != nil {
 		return status.Error(codes.Unauthenticated, err.Error())
@@ -72,11 +77,6 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		deltaLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
 		deltaLog.Debugf("Unauthenticated XDS: %v", peerAddr)
-	}
-
-	if err := s.WaitForRequestLimit(stream.Context()); err != nil {
-		deltaLog.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
-		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
 	}
 
 	// InitContext returns immediately if the context was already initialized.
