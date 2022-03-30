@@ -55,7 +55,7 @@ func (sr SecretResource) Key() string {
 }
 
 func (sr SecretResource) KubernetesResourceName() string {
-	return fmt.Sprintf("%s://%s/%s", KubernetesSecretType, sr.Namespace, sr.Name)
+	return fmt.Sprintf("%s://%s/%s", sr.Type, sr.Namespace, sr.Name)
 }
 
 func ToKubernetesGatewayResource(namespace, name string) string {

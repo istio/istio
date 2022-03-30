@@ -124,6 +124,11 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	var pullSecret []byte
 	if envs != nil {
 		if sec, found := envs.KeyValues[model.WasmSecretEnv]; found {
+			if sec == "" {
+				status = fetchFailure
+				wasmLog.Errorf("cannot fetch Wasm module %v: missing image pulling secret", wasmHTTPFilterConfig.Config.Name)
+				return
+			}
 			pullSecret = []byte(sec)
 		}
 		// Strip all internal env variables from VM env variable.
@@ -132,7 +137,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 			if len(envs.HostEnvKeys) == 0 {
 				vm.EnvironmentVariables = nil
 			} else {
-				envs.HostEnvKeys = nil
+				envs.KeyValues = nil
 			}
 		}
 	}

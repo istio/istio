@@ -600,7 +600,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, r, nil)
+		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, r, &model.PushRequest{Push: con.proxy.LastPushContext})
 		if len(resource) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(fmt.Sprintf("ExtensionConfigurationType not found, proxyID: %s\n", proxyID)))
@@ -636,6 +636,13 @@ func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 		w := &wasm.Wasm{}
 		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
 			return nil, err
+		}
+		// Redact Wasm secret env variable.
+		vmenvs := w.GetConfig().GetVmConfig().EnvironmentVariables
+		if vmenvs != nil {
+			if _, found := vmenvs.KeyValues[model.WasmSecretEnv]; found {
+				vmenvs.KeyValues[model.WasmSecretEnv] = "<Redacted>"
+			}
 		}
 		return w, nil
 	}
@@ -869,7 +876,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.Generators[v3.NameTableType] != nil {
-		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, nil)
+		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, &model.PushRequest{Push: con.proxy.LastPushContext})
 		if len(nds) == 0 {
 			return
 		}

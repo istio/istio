@@ -165,14 +165,13 @@ func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmCon
 			Runtime: defaultRuntime,
 			Code:    datasource,
 			EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
-				KeyValues: map[string]string{
-					// Put the referenced secret resource name as an env variable at VM config.
-					// At xds generation time, the value of this env variable will be replaced with the actual secret,
-					// which will be used for image pulling and removed at istio agent before forwarding to envoy.
-					WasmSecretEnv: secretName,
-				},
+				KeyValues: map[string]string{},
 			},
 		},
+	}
+
+	if secretName != "" {
+		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmSecretEnv] = secretName
 	}
 
 	if vm != nil && len(vm.Env) != 0 {
