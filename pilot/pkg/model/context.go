@@ -35,7 +35,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
-	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -855,9 +854,22 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 
 // DiscoverIPVersions discovers the IP Versions supported by Proxy based on its IP addresses.
 func (node *Proxy) DiscoverIPVersions() {
-	node.GlobalUnicastIP = networkutil.GlobalUnicastIP(node.IPAddresses)
-	node.ipv6Support = networkutil.IsIPv6(node.IPAddresses)
-	node.ipv4Support = networkutil.IsIPv4(node.IPAddresses)
+	for i := 0; i < len(node.IPAddresses); i++ {
+		addr := net.ParseIP(node.IPAddresses[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if node.GlobalUnicastIP == "" && addr.IsGlobalUnicast() {
+			node.GlobalUnicastIP = addr.String()
+		}
+		if addr.To4() != nil {
+			node.ipv4Support = true
+		} else {
+			node.ipv6Support = true
+		}
+	}
 }
 
 // SupportsIPv4 returns true if proxy supports IPv4 addresses.
