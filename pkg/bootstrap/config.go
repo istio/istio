@@ -115,16 +115,16 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if network.IsIPv6(cfg.Metadata.InstanceIPs) {
-		opts = append(opts,
-			option.Localhost(option.LocalhostIPv6),
-			option.Wildcard(option.WildcardIPv6),
-			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
-	} else {
+	if network.IsIPv4(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv4),
 			option.Wildcard(option.WildcardIPv4),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+	} else {
+		opts = append(opts,
+			option.Localhost(option.LocalhostIPv6),
+			option.Wildcard(option.WildcardIPv6),
+			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
 	}
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
