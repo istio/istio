@@ -274,8 +274,8 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		// we may end up overriding active cache entries with stale ones.
 		Start: con.proxy.LastPushTime,
 		Delta: model.ResourceDelta{
-			Subscribed:   sets.NewWith(req.ResourceNamesSubscribe...),
-			Unsubscribed: sets.NewWith(req.ResourceNamesUnsubscribe...),
+			Subscribed:   sets.New(req.ResourceNamesSubscribe...),
+			Unsubscribed: sets.New(req.ResourceNamesUnsubscribe...),
 		},
 	}
 	// SidecarScope for the proxy may has not been updated based on this pushContext.
