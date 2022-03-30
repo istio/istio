@@ -18,43 +18,28 @@ import "sort"
 
 type Set map[string]struct{}
 
-// New returns a new empty Set.
-func New() Set {
-	return make(Set)
-}
-
-// NewWithLength returns an empty Set with the given length.
+// NewWithLength returns an empty Set with the given capacity.
+// It's only a hint, not a limitation.
 func NewWithLength(l int) Set {
 	return make(Set, l)
 }
 
-// NewWith creates a new Set with the given items.
-func NewWith(items ...string) Set {
-	return NewWithLength(len(items)).InsertAll(items...)
+// New creates a new Set with the given items.
+func New(items ...string) Set {
+	s := make(Set, len(items))
+	return s.Insert(items...)
 }
 
-// Insert adds the item to the set.
-func (s Set) Insert(item string) Set {
-	s[item] = struct{}{}
-	return s
-}
-
-// InsertAll adds items to the set.
-func (s Set) InsertAll(items ...string) Set {
+// Insert adds items to the set.
+func (s Set) Insert(items ...string) Set {
 	for _, item := range items {
 		s[item] = struct{}{}
 	}
 	return s
 }
 
-// Delete removes the item from the set.
-func (s Set) Delete(item string) Set {
-	delete(s, item)
-	return s
-}
-
-// DeleteAll removes items from the set.
-func (s Set) DeleteAll(items ...string) Set {
+// Delete removes items from the set.
+func (s Set) Delete(items ...string) Set {
 	for _, item := range items {
 		delete(s, item)
 	}
@@ -182,4 +167,19 @@ func (s Set) Len() int {
 // IsEmpty indicates whether the set is the empty set.
 func (s Set) IsEmpty() bool {
 	return len(s) == 0
+}
+
+// Diff takes a pair of Sets, and returns the elements that occur only on the left and right set.
+func (s Set) Diff(other Set) (left []string, right []string) {
+	for k := range s {
+		if _, f := other[k]; !f {
+			left = append(left, k)
+		}
+	}
+	for k := range other {
+		if _, f := s[k]; !f {
+			right = append(right, k)
+		}
+	}
+	return
 }

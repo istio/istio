@@ -99,7 +99,7 @@ type BuildPlan struct {
 func (p BuildPlan) Targets() []string {
 	tgts := sets.New()
 	for _, img := range p.Images {
-		tgts.InsertAll(img.Targets...)
+		tgts.Insert(img.Targets...)
 	}
 	return tgts.SortedList()
 }
@@ -169,7 +169,7 @@ func DefaultArgs() Args {
 	if os.Getenv("INCLUDE_UNTAGGED_DEFAULT") == "true" {
 		// This legacy env var was to workaround the old build logic not being very smart
 		// In the new builder, we automagically detect this. So just insert the 'default' variant
-		cur := sets.NewWith(variants...)
+		cur := sets.New(variants...)
 		cur.Insert(DefaultVariant)
 		variants = cur.SortedList()
 	}

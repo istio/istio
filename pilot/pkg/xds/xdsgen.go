@@ -16,12 +16,14 @@ package xds
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -97,11 +99,25 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 
 	t0 := time.Now()
 
+	// If delta is set, client is requesting new resources or removing old ones. We should just generate the
+	// new resources it needs, rather than the entire set of known resources.
+	// Note: we do not need to account for unsubscribed resources as these are handled by parent removal;
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#deleting-resources.
+	// This means if there are only removals, we will not respond.
+	var logFiltered string
+	if !req.Delta.IsEmpty() && features.PartialFullPushes {
+		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
+		w = &model.WatchedResource{
+			TypeUrl:       w.TypeUrl,
+			ResourceNames: req.Delta.Subscribed.UnsortedList(),
+		}
+	}
+
 	res, logdata, err := gen.Generate(con.proxy, w, req)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, req.Push.LedgerVersion)
+			s.StatusReporter.RegisterEvent(con.conID, w.TypeUrl, req.Push.LedgerVersion)
 		}
 		return err
 	}
@@ -126,6 +142,9 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	}
 	if len(logdata.AdditionalInfo) > 0 {
 		info = " " + logdata.AdditionalInfo
+	}
+	if len(logFiltered) > 0 {
+		info += logFiltered
 	}
 
 	if err := con.send(resp); err != nil {

@@ -335,7 +335,7 @@ func (ln *listenerName) includesPort(port string) bool {
 func (f listenerNames) includes(s string) (listenerName, bool) {
 	if len(f) == 0 {
 		// filter is empty, include everything
-		return listenerName{RequestedNames: sets.NewWith(s)}, true
+		return listenerName{RequestedNames: sets.New(s)}, true
 	}
 	n, ok := f[s]
 	return n, ok
@@ -356,7 +356,7 @@ func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
 	for _, name := range names {
 		// inbound, create a simple entry and move on
 		if strings.HasPrefix(name, grpcxds.ServerListenerNamePrefix) {
-			filter[name] = listenerName{RequestedNames: sets.NewWith(name)}
+			filter[name] = listenerName{RequestedNames: sets.New(name)}
 			continue
 		}
 

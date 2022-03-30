@@ -50,7 +50,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	req *model.PushRequest,
 	routeNames []string,
 ) ([]*discovery.Resource, model.XdsLogDetails) {
-	routeConfigurations := make([]*discovery.Resource, 0)
+	var routeConfigurations model.Resources
 
 	efw := req.Push.EnvoyFilters(node)
 	hit, miss := 0, 0
@@ -407,7 +407,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		for _, svc := range virtualHostWrapper.Services {
 			name := util.DomainName(string(svc.Hostname), virtualHostWrapper.Port)
-			knownFQDN.InsertAll(name, string(svc.Hostname))
+			knownFQDN.Insert(name, string(svc.Hostname))
 		}
 	}
 

@@ -40,7 +40,7 @@ func NewIstioControlPlane(installSpec *v1alpha1.IstioOperatorSpec, translator *t
 	opts := &component.Options{
 		InstallSpec: installSpec,
 		Translator:  translator,
-		Filter:      sets.NewWith(filter...),
+		Filter:      sets.New(filter...),
 	}
 	for _, c := range name.AllCoreComponentNames {
 		o := *opts

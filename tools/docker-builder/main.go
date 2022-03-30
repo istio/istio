@@ -60,7 +60,7 @@ func main() {
 	}
 }
 
-var privilegedHubs = sets.NewWith(
+var privilegedHubs = sets.New(
 	"docker.io/istio",
 	"istio",
 	"gcr.io/istio-release",
@@ -84,7 +84,7 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("--push and --save are mutually exclusive")
 		}
 		_, inCI := os.LookupEnv("CI")
-		if args.Push && len(privilegedHubs.Intersection(sets.NewWith(args.Hubs...))) > 0 && !inCI {
+		if args.Push && len(privilegedHubs.Intersection(sets.New(args.Hubs...))) > 0 && !inCI {
 			// Safety check against developer error. If they have a legitimate use case, they can set CI var
 			return fmt.Errorf("pushing to official registry only supported in CI")
 		}
@@ -146,7 +146,7 @@ func ReadPlan(a Args) (Args, error) {
 	if err := yaml.Unmarshal([]byte(input), &plan); err != nil {
 		return a, err
 	}
-	tgt := sets.NewWith(a.Targets...)
+	tgt := sets.New(a.Targets...)
 	known := sets.New()
 	for _, img := range plan.Images {
 		known.Insert(img.Name)
@@ -282,7 +282,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	// Groups just bundles targets together to make them easier to work with
 	groups := map[string]Group{}
 
-	variants := sets.NewWith(a.Variants...)
+	variants := sets.New(a.Variants...)
 	// hasDoubleDefault checks if we defined both DefaultVariant and PrimaryVariant. If we did, these
 	// are the same exact docker build, just requesting different tags. As an optimization, and to ensure
 	// byte-for-byte identical images, we will collapse these into a single build with multiple tags.
@@ -344,7 +344,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 					}
 				}
 			}
-			allDestinations.InsertAll(t.Tags...)
+			allDestinations.Insert(t.Tags...)
 
 			// See https://docs.docker.com/engine/reference/commandline/buildx_build/#output
 			if args.Push {
@@ -458,7 +458,7 @@ func VerboseCommand(name string, arg ...string) *exec.Cmd {
 
 func StandardEnv(args Args) []string {
 	env := os.Environ()
-	if len(sets.NewWith(args.Targets...).Delete("proxyv2")) <= 1 {
+	if len(sets.New(args.Targets...).Delete("proxyv2")) <= 1 {
 		// If we are building multiple, it is faster to build all binaries in a single invocation
 		// Otherwise, build just the single item. proxyv2 is special since it is always built separately with tag=agent.
 		// Ideally we would just always build the targets we need but our Makefile is not that smart

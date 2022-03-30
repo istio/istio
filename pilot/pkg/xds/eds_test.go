@@ -71,13 +71,6 @@ func TestIncrementalPush(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	t.Run("Incremental Push", func(t *testing.T) {
-		ads.WaitClear()
-		s.Discovery.Push(&model.PushRequest{Full: false})
-		if err := ads.WaitSingle(time.Second*5, v3.EndpointType, v3.ClusterType); err != nil {
-			t.Fatal(err)
-		}
-	})
 	t.Run("Incremental Push with updated services", func(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
@@ -396,8 +389,8 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		// Validate that endpoints are pushed.
 		lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
 		eh, euh := xdstest.ExtractHealthEndpoints(lbe)
-		gotHealthy := sets.NewWith(eh...).SortedList()
-		gotUnhealthy := sets.NewWith(euh...).SortedList()
+		gotHealthy := sets.New(eh...).SortedList()
+		gotUnhealthy := sets.New(euh...).SortedList()
 		if !reflect.DeepEqual(gotHealthy, healthy) {
 			t.Fatalf("did not get expected endpoints: got %v, want %v", gotHealthy, healthy)
 		}

@@ -150,7 +150,7 @@ func InsertedExtensionConfigurations(
 	if len(wasmPlugins) == 0 {
 		return result
 	}
-	hasName := sets.NewWith(names...)
+	hasName := sets.New(names...)
 	for _, list := range wasmPlugins {
 		for _, p := range list {
 			if !hasName.Contains(p.ResourceName) {
