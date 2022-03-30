@@ -113,6 +113,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 		v3.RouteType,
 		v3.EndpointType,
 		v3.ClusterType,
+		v3.ExtensionConfigurationType,
 	}
 
 	for _, con := range sg.Server.Clients() {
