@@ -249,29 +249,32 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			input: map[string]*xdsapi.DiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
-						proxyID:       "proxy1",
-						cdsSyncStatus: status.ConfigStatus_STALE,
-						ldsSyncStatus: status.ConfigStatus_SYNCED,
-						rdsSyncStatus: status.ConfigStatus_NOT_SENT,
-						edsSyncStatus: status.ConfigStatus_SYNCED,
+						proxyID:        "proxy1",
+						cdsSyncStatus:  status.ConfigStatus_STALE,
+						ldsSyncStatus:  status.ConfigStatus_SYNCED,
+						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
+						edsSyncStatus:  status.ConfigStatus_SYNCED,
+						ecdsSyncStatus: status.ConfigStatus_SYNCED,
 					},
 				}),
 				"istiod2": xdsResponseInput("istiod2", []clientConfigInput{
 					{
-						proxyID:       "proxy2",
-						cdsSyncStatus: status.ConfigStatus_STALE,
-						ldsSyncStatus: status.ConfigStatus_SYNCED,
-						rdsSyncStatus: status.ConfigStatus_SYNCED,
-						edsSyncStatus: status.ConfigStatus_STALE,
+						proxyID:        "proxy2",
+						cdsSyncStatus:  status.ConfigStatus_STALE,
+						ldsSyncStatus:  status.ConfigStatus_SYNCED,
+						rdsSyncStatus:  status.ConfigStatus_SYNCED,
+						edsSyncStatus:  status.ConfigStatus_STALE,
+						ecdsSyncStatus: status.ConfigStatus_STALE,
 					},
 				}),
 				"istiod3": xdsResponseInput("istiod3", []clientConfigInput{
 					{
-						proxyID:       "proxy3",
-						cdsSyncStatus: status.ConfigStatus_UNKNOWN,
-						ldsSyncStatus: status.ConfigStatus_ERROR,
-						rdsSyncStatus: status.ConfigStatus_NOT_SENT,
-						edsSyncStatus: status.ConfigStatus_STALE,
+						proxyID:        "proxy3",
+						cdsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						ldsSyncStatus:  status.ConfigStatus_ERROR,
+						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
+						edsSyncStatus:  status.ConfigStatus_STALE,
+						ecdsSyncStatus: status.ConfigStatus_NOT_SENT,
 					},
 				}),
 			},
@@ -282,18 +285,20 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			input: map[string]*xdsapi.DiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
-						proxyID:       "proxy1",
-						cdsSyncStatus: status.ConfigStatus_STALE,
-						ldsSyncStatus: status.ConfigStatus_SYNCED,
-						rdsSyncStatus: status.ConfigStatus_NOT_SENT,
-						edsSyncStatus: status.ConfigStatus_SYNCED,
+						proxyID:        "proxy1",
+						cdsSyncStatus:  status.ConfigStatus_STALE,
+						ldsSyncStatus:  status.ConfigStatus_SYNCED,
+						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
+						edsSyncStatus:  status.ConfigStatus_SYNCED,
+						ecdsSyncStatus: status.ConfigStatus_NOT_SENT,
 					},
 					{
-						proxyID:       "proxy2",
-						cdsSyncStatus: status.ConfigStatus_STALE,
-						ldsSyncStatus: status.ConfigStatus_SYNCED,
-						rdsSyncStatus: status.ConfigStatus_SYNCED,
-						edsSyncStatus: status.ConfigStatus_STALE,
+						proxyID:        "proxy2",
+						cdsSyncStatus:  status.ConfigStatus_STALE,
+						ldsSyncStatus:  status.ConfigStatus_SYNCED,
+						rdsSyncStatus:  status.ConfigStatus_SYNCED,
+						edsSyncStatus:  status.ConfigStatus_STALE,
+						ecdsSyncStatus: status.ConfigStatus_NOT_SENT,
 					},
 				}),
 			},
@@ -328,10 +333,11 @@ const clientConfigType = "type.googleapis.com/envoy.service.status.v3.ClientConf
 type clientConfigInput struct {
 	proxyID string
 
-	cdsSyncStatus status.ConfigStatus
-	ldsSyncStatus status.ConfigStatus
-	rdsSyncStatus status.ConfigStatus
-	edsSyncStatus status.ConfigStatus
+	cdsSyncStatus  status.ConfigStatus
+	ldsSyncStatus  status.ConfigStatus
+	rdsSyncStatus  status.ConfigStatus
+	edsSyncStatus  status.ConfigStatus
+	ecdsSyncStatus status.ConfigStatus
 }
 
 func newXdsClientConfig(config clientConfigInput) *status.ClientConfig {
@@ -355,6 +361,10 @@ func newXdsClientConfig(config clientConfigInput) *status.ClientConfig {
 			{
 				TypeUrl:      v3.EndpointType,
 				ConfigStatus: config.edsSyncStatus,
+			},
+			{
+				TypeUrl:      v3.ExtensionConfigurationType,
+				ConfigStatus: config.ecdsSyncStatus,
 			},
 		},
 	}
