@@ -93,6 +93,9 @@ var (
 
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
 	JwtPubKeyRefreshInterval = features.PilotJwtPubKeyRefreshInterval
+
+	// channel for making jwksuri request aynsc
+	jwksuriChannel = make(chan jwtKey, 5)
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -242,16 +245,12 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 	if jwksURI == "" {
 		// Fetch the jwks URI if it is not hardcoded on config.
 		jwksURI, err = r.resolveJwksURIUsingOpenID(issuer)
+		key.jwksURI = jwksURI
 	}
 	if err != nil {
 		log.Errorf("Failed to jwks URI from %q: %v", issuer, err)
 	} else {
-		var resp []byte
-		resp, err = r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnMainFlow)
-		if err != nil {
-			log.Errorf("Failed to fetch public key from %q: %v", jwksURI, err)
-		}
-		pubKey = string(resp)
+		jwksuriChannel <- key
 	}
 
 	r.keyEntries.Store(key, jwtPubKeyEntry{
@@ -272,7 +271,11 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 		// workflow, where the JWT key resolver should have already been initialized on server creation.
 		jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI)
 		if err != nil {
-			log.Errorf("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtIssuer, jwksURI, err)
+			log.Infof("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtIssuer, jwksURI, err)
+			jwtPubKey = CreateFakeJwks(jwksURI)
+		}
+		if jwtPubKey == "" {
+			log.Infof("no public key present in the cache, adding the key to the cache")
 			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
 			jwtPubKey = CreateFakeJwks(jwksURI)
@@ -384,7 +387,7 @@ func (r *JwksResolver) refresher() {
 	for {
 		select {
 		case <-r.refreshTicker.C:
-			currentHasError := r.refresh()
+			currentHasError := r.refresh(networkFetchRetryCountOnRefreshFlow)
 			if currentHasError {
 				if lastHasError {
 					// update to exponential backoff if last time also failed.
@@ -405,15 +408,26 @@ func (r *JwksResolver) refresher() {
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return
+		case jwtKeyData := <-jwksuriChannel:
+			hasErrors := true
+			for i := 0; i < 5; i++ {
+				if !r.refresh(0) {
+					hasErrors = false
+					break
+				}
+			}
+			if hasErrors {
+				log.Errorf("Failed to get public key from  %q: %q", jwtKeyData.issuer, jwtKeyData.jwksURI)
+			}
 		}
 	}
 }
 
-func (r *JwksResolver) refresh() bool {
+func (r *JwksResolver) refresh(retryNumber int) bool {
 	var wg sync.WaitGroup
 	hasChange := false
 	hasErrors := false
-
+	oldKeyNull := false
 	r.keyEntries.Range(func(key interface{}, value interface{}) bool {
 		now := time.Now()
 		k := key.(jwtKey)
@@ -432,7 +446,9 @@ func (r *JwksResolver) refresh() bool {
 		}
 
 		oldPubKey := e.pubKey
-
+		if oldPubKey == "" {
+			oldKeyNull = true
+		}
 		// Increment the WaitGroup counter.
 		wg.Add(1)
 
@@ -451,7 +467,7 @@ func (r *JwksResolver) refresh() bool {
 				}
 			}
 
-			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
+			resp, err := r.getRemoteContentWithRetry(jwksURI, retryNumber)
 			if err != nil {
 				hasErrors = true
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
@@ -483,7 +499,9 @@ func (r *JwksResolver) refresh() bool {
 	wg.Wait()
 
 	if hasChange {
-		atomic.AddUint64(&r.refreshJobKeyChangedCount, 1)
+		if !oldKeyNull {
+			atomic.AddUint64(&r.refreshJobKeyChangedCount, 1)
+		}
 		// Push public key changes to sidecars.
 		if r.PushFunc != nil {
 			r.PushFunc()
