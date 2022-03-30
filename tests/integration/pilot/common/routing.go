@@ -2027,7 +2027,7 @@ var ConsistentHostChecker check.Checker = func(responses echoClient.Responses, _
 		hostnames[i] = r.Hostname
 	}
 	scopes.Framework.Infof("requests landed on hostnames: %v", hostnames)
-	unique := sets.NewWith(hostnames...).SortedList()
+	unique := sets.New(hostnames...).SortedList()
 	if len(unique) != 1 {
 		return fmt.Errorf("excepted only one destination, got: %v", unique)
 	}

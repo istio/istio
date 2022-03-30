@@ -617,7 +617,7 @@ var (
 			"Comma separated list of potentially insecure kubeconfig authentication options that are allowed for multicluster authentication."+
 				"Support values: all authProviders (`gcp`, `azure`, `exec`, `openstack`), "+
 				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
-		return sets.NewWith(strings.Split(v, ",")...)
+		return sets.New(strings.Split(v, ",")...)
 	}()
 
 	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", true,

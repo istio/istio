@@ -96,7 +96,7 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, in
 		purgeInterval:      purgeInterval,
 		wasmModuleExpiry:   moduleExpiry,
 		stopChan:           make(chan struct{}),
-		insecureRegistries: sets.NewWith(insecureRegistries...),
+		insecureRegistries: sets.New(insecureRegistries...),
 	}
 	go func() {
 		cache.purge()

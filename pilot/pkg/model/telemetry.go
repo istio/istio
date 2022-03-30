@@ -373,7 +373,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
-	allKeys := sets.NewWith(tml.UnsortedList()...)
+	allKeys := sets.New(tml.UnsortedList()...)
 	for k := range tmm {
 		allKeys.Insert(k)
 	}
@@ -435,7 +435,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 			loggingFilter = m.Filter
 		}
 	}
-	inScopeProviders := sets.NewWith(providerNames...)
+	inScopeProviders := sets.New(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, m := range logs {
@@ -517,7 +517,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 		}
 	}
 	// Record the names of all providers we should configure. Anything else we will ignore
-	inScopeProviders := sets.NewWith(providerNames...)
+	inScopeProviders := sets.New(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetMetrics()
 	disabledAllMetricsProviders := sets.New()

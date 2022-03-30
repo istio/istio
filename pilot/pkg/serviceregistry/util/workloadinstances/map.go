@@ -28,7 +28,7 @@ func (m MultiValueMap) Insert(key, value string) MultiValueMap {
 		values.Insert(value)
 		return m
 	}
-	m[key] = sets.NewWith(value)
+	m[key] = sets.New(value)
 	return m
 }
 

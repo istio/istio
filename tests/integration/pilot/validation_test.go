@@ -158,7 +158,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 	// types that are no longer supported.
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			ignored := sets.NewWith(ignoredCRDs...)
+			ignored := sets.New(ignoredCRDs...)
 			recognized := sets.New()
 
 			// TODO(jasonwzm) remove this after multi-version APIs are supported.

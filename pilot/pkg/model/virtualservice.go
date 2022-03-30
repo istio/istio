@@ -467,7 +467,7 @@ func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
 		if len(root.Gateways) < len(leaf.Gateways) {
 			return true
 		}
-		rootGateway := sets.NewWith(root.Gateways...)
+		rootGateway := sets.New(root.Gateways...)
 		for _, gw := range leaf.Gateways {
 			if !rootGateway.Contains(gw) {
 				return true

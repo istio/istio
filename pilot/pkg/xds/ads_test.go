@@ -866,8 +866,8 @@ func TestEdsCache(t *testing.T) {
 	assertEndpoints := func(a *adsc.ADSC, addr ...string) {
 		t.Helper()
 		retry.UntilSuccessOrFail(t, func() error {
-			got := sets.NewWith(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
-			want := sets.NewWith(addr...)
+			got := sets.New(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
+			want := sets.New(addr...)
 
 			if !got.Equals(want) {
 				return fmt.Errorf("invalid endpoints, got %v want %v", got, addr)

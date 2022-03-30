@@ -200,7 +200,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 			if !strings.HasSuffix(hostname, ".") {
 				hostname += "."
 			}
-			altHosts = sets.NewWith(hostname)
+			altHosts = sets.New(hostname)
 		}
 		ipv4, ipv6 := separateIPtypes(ni.Ips)
 		if len(ipv6) == 0 && len(ipv4) == 0 {

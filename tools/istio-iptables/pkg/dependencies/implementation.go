@@ -55,7 +55,7 @@ var exittypeToString = map[XTablesExittype]string{
 }
 
 // XTablesCmds is the set of all the xtables-related commands currently supported.
-var XTablesCmds = sets.NewWith(
+var XTablesCmds = sets.New(
 	constants.IPTABLES,
 	constants.IP6TABLES,
 	constants.IPTABLESRESTORE,

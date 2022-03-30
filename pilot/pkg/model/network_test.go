@@ -42,7 +42,7 @@ func TestGatewayHostnames(t *testing.T) {
 	})
 
 	gwHost := "test.gw.istio.io"
-	dnsServer := newFakeDNSServer(":0", 1, sets.NewWith(gwHost))
+	dnsServer := newFakeDNSServer(":0", 1, sets.New(gwHost))
 	model.NetworkGatewayTestDNSServers = []string{dnsServer.Server.PacketConn.LocalAddr().String()}
 	t.Cleanup(func() {
 		if err := dnsServer.Shutdown(); err != nil {

@@ -395,8 +395,8 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
 	con.proxy.Unlock()
 
-	prev := sets.NewWith(previousResources...)
-	cur := sets.NewWith(request.ResourceNames...)
+	prev := sets.New(previousResources...)
+	cur := sets.New(request.ResourceNames...)
 	removed := prev.Difference(cur)
 	added := cur.Difference(prev)
 	// Envoy can send two DiscoveryRequests with same version and nonce

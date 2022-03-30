@@ -226,7 +226,7 @@ func TestSanitizeKubeConfig(t *testing.T) {
 		},
 		{
 			name:      "exec allowlist",
-			allowlist: sets.NewWith("exec"),
+			allowlist: sets.New("exec"),
 			config: api.Config{
 				AuthInfos: map[string]*api.AuthInfo{
 					"default": {
