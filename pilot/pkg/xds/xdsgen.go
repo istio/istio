@@ -117,7 +117,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, req.Push.LedgerVersion)
+			s.StatusReporter.RegisterEvent(con.conID, w.TypeUrl, req.Push.LedgerVersion)
 		}
 		return err
 	}

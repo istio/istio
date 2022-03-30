@@ -36,7 +36,7 @@ func createProxies(n int) []*Connection {
 	proxies := make([]*Connection, 0, n)
 	for p := 0; p < n; p++ {
 		proxies = append(proxies, &Connection{
-			ConID:       fmt.Sprintf("proxy-%v", p),
+			conID:       fmt.Sprintf("proxy-%v", p),
 			pushChannel: make(chan *Event),
 			stream:      &fakeStream{},
 		})
@@ -80,7 +80,7 @@ func TestSendPushesManyPushes(t *testing.T) {
 				case p := <-proxy.pushChannel:
 					p.done()
 					pushesMu.Lock()
-					pushes[proxy.ConID]++
+					pushes[proxy.conID]++
 					pushesMu.Unlock()
 				case <-stopCh:
 					return
@@ -133,7 +133,7 @@ func TestSendPushesSinglePush(t *testing.T) {
 				case p := <-proxy.pushChannel:
 					p.done()
 					pushesMu.Lock()
-					pushes[proxy.ConID]++
+					pushes[proxy.conID]++
 					pushesMu.Unlock()
 					wg.Done()
 				case <-stopCh:
