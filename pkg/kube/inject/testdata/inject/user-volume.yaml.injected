@@ -19,7 +19,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","user-volume-1","user-volume-2"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","user-volume-1","user-volume-2"],"imagePullSecrets":null,"revision":"default"}'
         sidecar.istio.io/userVolume: '{"user-volume-1":{"persistentVolumeClaim":{"claimName":"pvc-claim"}},"user-volume-2":{"configMap":{"name":"configmap-volume","items":[{"key":"some-key","path":"/some-path"}]}}}'
         sidecar.istio.io/userVolumeMount: '{"user-volume-1":{"mountPath":"/mnt/volume-1","readOnly":true},"user-volume-2":{"mountPath":"/mnt/volume-2"}}'
       creationTimestamp: null
@@ -129,6 +129,10 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
+        - mountPath: /var/run/secrets/workload-spiffe-uds
+          name: workload-socket
+        - mountPath: /var/run/secrets/workload-spiffe-credentials
+          name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
@@ -188,6 +192,8 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
+      - name: workload-socket
+      - name: workload-certs
       - emptyDir:
           medium: Memory
         name: istio-envoy

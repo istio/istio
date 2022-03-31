@@ -431,7 +431,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/tmp/bootstrap/stats_inclusion/SDS"
+                    "path": "./var/run/secrets/workload-spiffe-uds/socket"
                   }
                 }
               }
