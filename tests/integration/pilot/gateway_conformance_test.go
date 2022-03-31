@@ -58,6 +58,8 @@ type GatewayConformanceInputs struct {
 var gatewayConformanceInputs GatewayConformanceInputs
 
 func TestGatewayConformance(t *testing.T) {
+	// Flaky until this is merged
+	t.Skip("https://github.com/kubernetes-sigs/gateway-api/pull/1080")
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
