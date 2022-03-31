@@ -278,11 +278,6 @@ func TestAgent(t *testing.T) {
 				return a
 			})
 			a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-
-			// Switch out our auth to only allow mTLS. In practice, the real server would allow JWT, but we
-			// don't have a good way to expire JWTs here. Instead, we just deny all JWTs to ensure mTLS is used
-			a.CaAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
-			a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		})
 		t.Run("reboot", func(t *testing.T) {
 			// Switch the JWT to a bogus path, to simulate the VM being rebooted
