@@ -469,7 +469,7 @@ data:
     }
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: spire-agent
   namespace: spire
