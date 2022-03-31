@@ -99,7 +99,7 @@ type BuildPlan struct {
 func (p BuildPlan) Targets() []string {
 	tgts := sets.New()
 	for _, img := range p.Images {
-		tgts.Insert(img.Targets...)
+		tgts.InsertAll(img.Targets...)
 	}
 	return tgts.SortedList()
 }

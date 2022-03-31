@@ -344,7 +344,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 					}
 				}
 			}
-			allDestinations.Insert(t.Tags...)
+			allDestinations.InsertAll(t.Tags...)
 
 			// See https://docs.docker.com/engine/reference/commandline/buildx_build/#output
 			if args.Push {
