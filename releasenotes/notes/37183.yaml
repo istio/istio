@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - https://github.com/istio/istio/issues/37183
+docs:
+  - '[usage] https://istio.io/latest/docs/ops/integrations/spire/'
+  - '[design] https://docs.google.com/document/d/1zJP6QJukLzckTbdY42ZMLkulGXz4gWzH9SwOh4xoe0A'
+releaseNotes:
+  - |
+    **Added** a new approach for CA integration through the Envoy SDS API.
