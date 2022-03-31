@@ -312,8 +312,8 @@ func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
 func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 	r := NewJwksResolver(
 		100*time.Millisecond, /*EvictionDuration*/
-		10*time.Millisecond,  /*RefreshInterval*/
-		10*time.Millisecond,  /*RefreshIntervalOnFailure*/
+		100*time.Millisecond, /*RefreshInterval*/
+		100*time.Millisecond, /*RefreshIntervalOnFailure*/
 		testRetryInterval,    /*RetryInterval*/
 	)
 	defer r.Close()
