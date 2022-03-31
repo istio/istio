@@ -683,7 +683,7 @@ func checkSocket(ctx context.Context, socketPath string) (bool, error) {
 
 	err := socketHealthCheck(ctx, socketPath)
 	if err != nil {
-		log.Errorf("SDS socket health check failed: %v", err)
+		log.Debugf("SDS socket detected but not healthy: %v", err)
 		err = os.Remove(socketPath)
 		if err != nil {
 			return false, fmt.Errorf("existing SDS socket could not be removed: %v", err)
