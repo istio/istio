@@ -42,6 +42,24 @@ type SingleNamespaceView struct {
 	All echo.Services
 }
 
+// TwoNamespaceView is a simplified view of Echos for tests that require 2 namespaces.
+type TwoNamespaceView struct {
+	// Ns1 contains the echo deployments in the first namespace
+	Ns1 EchoNamespace
+
+	// Ns2 contains the echo deployments in the second namespace
+	Ns2 EchoNamespace
+
+	// Ns1AndNs2 contains just the echo services in Ns1 and Ns2 (excludes External).
+	Ns1AndNs2 echo.Services
+
+	// External (out-of-mesh) deployments
+	External External
+
+	// All echo instances
+	All echo.Services
+}
+
 // Echos is a common set of echo deployments to support integration testing.
 type Echos struct {
 	// NS is the list of echo namespaces.
@@ -54,28 +72,25 @@ type Echos struct {
 	All echo.Services
 }
 
-// SingleNamespaceView converts this Echos into a SingleNamespaceView for NS1.
+// SingleNamespaceView converts this Echos into a SingleNamespaceView.
 func (d Echos) SingleNamespaceView() SingleNamespaceView {
 	return SingleNamespaceView{
-		EchoNamespace: d.NS1(),
+		EchoNamespace: d.NS[0],
 		External:      d.External,
-		All:           d.NS1().All.Append(d.External.All.Services()),
+		All:           d.NS[0].All.Append(d.External.All.Services()),
 	}
 }
 
-// NS1 is shorthand for NS[0]
-func (d Echos) NS1() EchoNamespace {
-	return d.NS[0]
-}
-
-// NS2 is shorthand for NS[1]. Will panic if there are not at least 2 apps namespaces.
-func (d Echos) NS2() EchoNamespace {
-	return d.NS[1]
-}
-
-// NS1AndNS2 returns the combined set of services in NS1 and NS2.
-func (d Echos) NS1AndNS2() echo.Services {
-	return d.NS1().All.Append(d.NS2().All)
+// TwoNamespaceView converts this Echos into a TwoNamespaceView.
+func (d Echos) TwoNamespaceView() TwoNamespaceView {
+	ns1AndNs2 := d.NS[0].All.Append(d.NS[1].All)
+	return TwoNamespaceView{
+		Ns1:       d.NS[0],
+		Ns2:       d.NS[1],
+		Ns1AndNs2: ns1AndNs2,
+		External:  d.External,
+		All:       ns1AndNs2.Append(d.External.All.Services()),
+	}
 }
 
 func (d *Echos) loadValues(t resource.Context, echos echo.Instances) error {
@@ -139,14 +154,26 @@ func (c *Config) fillDefaults() {
 }
 
 func SetupSingleNamespace(t resource.Context, view *SingleNamespaceView) error {
-	// Perform a setup with exactly 1 namespace.
+	// Perform a setup with 1 namespace.
 	var apps Echos
 	if err := Setup(t, &apps, Config{NamespaceCount: 1}); err != nil {
 		return err
 	}
 
-	// Store the single namespace view.
+	// Store the view.
 	*view = apps.SingleNamespaceView()
+	return nil
+}
+
+func SetupTwoNamespaces(t resource.Context, view *TwoNamespaceView) error {
+	// Perform a setup with 2 namespaces.
+	var apps Echos
+	if err := Setup(t, &apps, Config{NamespaceCount: 2}); err != nil {
+		return err
+	}
+
+	// Store the view.
+	*view = apps.TwoNamespaceView()
 	return nil
 }
 
@@ -172,7 +199,7 @@ func Setup(t resource.Context, apps *Echos, cfg Config) error {
 			i := i
 			g.Go(func() (err error) {
 				apps.NS[i].Namespace, err = namespace.New(t, namespace.Config{
-					Prefix: fmt.Sprintf("echo%d", i),
+					Prefix: fmt.Sprintf("echo%d", i+1),
 					Inject: true,
 				})
 				return
@@ -211,5 +238,5 @@ func Setup(t resource.Context, apps *Echos, cfg Config) error {
 
 // TODO(nmittler): should t.Settings().Skip(echo.Delta) do all of this?
 func skipDeltaXDS(t resource.Context) bool {
-	return t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.11")
+	return t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.12")
 }
