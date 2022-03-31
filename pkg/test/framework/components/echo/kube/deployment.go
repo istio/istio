@@ -613,13 +613,19 @@ func GenerateService(cfg echo.Config) (string, error) {
 
 var VMImages = map[echo.VMDistro]string{
 	echo.UbuntuXenial: "app_sidecar_ubuntu_xenial",
-	echo.UbuntuFocal:  "app_sidecar_ubuntu_focal",
-	echo.UbuntuBionic: "app_sidecar_ubuntu_bionic",
-	echo.Debian9:      "app_sidecar_debian_9",
-	echo.Debian10:     "app_sidecar_debian_10",
+	echo.UbuntuJammy:  "app_sidecar_ubuntu_jammy",
+	echo.Debian11:     "app_sidecar_debian_11",
 	echo.Centos7:      "app_sidecar_centos_7",
-	echo.Centos8:      "app_sidecar_centos_8",
+	echo.Rockylinux8:  "app_sidecar_rockylinux_8",
 }
+
+var RevVMImages = func() map[string]echo.VMDistro {
+	r := map[string]echo.VMDistro{}
+	for k, v := range VMImages {
+		r[v] = k
+	}
+	return r
+}()
 
 func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]interface{}, error) {
 	if settings == nil {
@@ -633,8 +639,13 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 
 	vmImage := VMImages[cfg.VMDistro]
+	_, knownImage := RevVMImages[cfg.VMDistro]
 	if vmImage == "" {
-		vmImage = VMImages[echo.DefaultVMDistro]
+		if knownImage {
+			vmImage = cfg.VMDistro
+		} else {
+			vmImage = VMImages[echo.DefaultVMDistro]
+		}
 		log.Debugf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
 	}
 	namespace := ""
