@@ -352,7 +352,7 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 			case <-done:
 				return
 			case <-c.C:
-				_, _ = r.GetPublicKey(mockCertURL, "")
+				_, _ = r.GetPublicKey("", mockCertURL)
 			}
 		}
 	}()
@@ -362,7 +362,7 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 
 	// Verify the cached public key is removed after failed to refresh longer than the eviction duration.
 	retry.UntilSuccessOrFail(t, func() error {
-		_, err := r.GetPublicKey(mockCertURL, "")
+		_, err := r.GetPublicKey("", mockCertURL)
 		if err == nil {
 			return fmt.Errorf("getPublicKey(\"\", %+v) fails: expected error, got no error", mockCertURL)
 		}
