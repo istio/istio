@@ -87,3 +87,7 @@ affinity: {}
 networkGateway: ""
 
 imagePullSecrets: []
+
+volumeMounts: []
+
+volumes: []
