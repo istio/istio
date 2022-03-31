@@ -29,7 +29,7 @@ images:
   files:
   - tools/packaging/common/envoy_bootstrap.json
   - tools/packaging/common/gcp_envoy_bootstrap.json
-  - ${TARGET_OUT_LINUX}/release/${SIDECAR}
+  - ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
   - ${TARGET_OUT_LINUX}/release/stats-filter.wasm
   - ${TARGET_OUT_LINUX}/release/stats-filter.compiled.wasm
   - ${TARGET_OUT_LINUX}/release/metadata-exchange-filter.wasm
