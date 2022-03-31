@@ -80,6 +80,13 @@ function download_envoy_if_necessary () {
     echo "Copying $2 to $(dirname "$2")/${3}"
     cp -f "$2" "$(dirname "$2")/${3}"
     popd
+
+  else
+    # The Envoy binary already exists; this is the case when user overrides the
+    # ISTIO_ENVOY_LINUX_RELEASE_PATH variable to use their own Envoy.
+    # In this case, we must copy it to the release directory
+    mkdir -p "${ISTIO_ENVOY_LINUX_RELEASE_DIR}"
+    cp -f "$2" "${ISTIO_ENVOY_LINUX_RELEASE_DIR}"
   fi
 }
 
