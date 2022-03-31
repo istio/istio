@@ -1645,6 +1645,32 @@ func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
 	return
 }
 
+func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
+	var errs error
+	if pkpConf.GetProvider() == nil {
+		errs = multierror.Append(errs, errors.New("private key provider confguration is required"))
+	}
+
+	switch pkpConf.GetProvider().(type) {
+	case *meshconfig.PrivateKeyProvider_Cryptomb:
+		cryptomb := pkpConf.GetCryptomb()
+		if cryptomb == nil {
+			errs = multierror.Append(errs, errors.New("cryptomb confguration is required"))
+		} else {
+			pollDelay := cryptomb.GetPollDelay()
+			if pollDelay == nil {
+				errs = multierror.Append(errs, errors.New("pollDelay is required"))
+			} else if pollDelay.GetSeconds() == 0 && pollDelay.GetNanos() == 0 {
+				errs = multierror.Append(errs, errors.New("pollDelay must be non zero"))
+			}
+		}
+	default:
+		errs = multierror.Append(errs, errors.New("unknown private key provider"))
+	}
+
+	return errs
+}
+
 // ValidateMeshConfigProxyConfig checks that the mesh config is well-formed
 func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.ConfigPath == "" {
@@ -1746,6 +1772,12 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 
 	if err := ValidatePort(int(config.StatusPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid status port:"))
+	}
+
+	if pkpConf := config.GetPrivateKeyProvider(); pkpConf != nil {
+		if err := validatePrivateKeyProvider(pkpConf); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid private key provider confguration:"))
+		}
 	}
 
 	return
