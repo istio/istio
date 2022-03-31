@@ -46,15 +46,9 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *mesh.PrivateKeyProvider) *Server {
 	s := &Server{stopped: atomic.NewBool(false)}
-<<<<<<< HEAD
-	s.workloadSds = newSDSService(workloadSecretCache, options)
+	s.workloadSds = newSDSService(workloadSecretCache, options, pkpConf)
 	s.initWorkloadSdsService()
 	sdsServiceLog.Infof("SDS server for workload certificates started, listening on %q", security.WorkloadIdentitySocketPath)
-=======
-	s.workloadSds = newSDSService(workloadSecretCache, options, pkpConf)
-	s.initWorkloadSdsService(options)
-	sdsServiceLog.Infof("SDS server for workload certificates started, listening on %q", options.WorkloadUDSPath)
->>>>>>> Handle PrivateKeyProvider configuration
 	return s
 }
 

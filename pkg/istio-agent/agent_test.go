@@ -284,7 +284,7 @@ func TestAgent(t *testing.T) {
 
 		// this SDS Server listens on the well-known socket path serving the certs copied to the temp directory,
 		// and acts as the external SDS Server that the Agent will detect at startup
-		sdsServer := sds.NewServer(secOpts, secretCache)
+		sdsServer := sds.NewServer(secOpts, secretCache, nil)
 		defer sdsServer.Stop()
 
 		Setup(t).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
