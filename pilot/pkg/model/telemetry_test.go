@@ -262,7 +262,7 @@ func TestAccessLogging(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
-			al := telemetry.AccessLogging(tt.proxy)
+			al := telemetry.AccessLogging(tt.proxy, networking.ListenerClassUndefined)
 			var got []string
 			if al != nil {
 				got = []string{} // We distinguish between nil vs empty in the test
@@ -341,7 +341,7 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
-			got := telemetry.AccessLogging(tt.proxy)
+			got := telemetry.AccessLogging(tt.proxy, networking.ListenerClassUndefined)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("got %v want %v", got, tt.want)
 			}
