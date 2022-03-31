@@ -453,7 +453,7 @@ func hostnameToStringList(h []k8s.Hostname) []string {
 	return res
 }
 
-func toInternalParentReference(p k8s.ParentRef, localNamespace string) (parentKey, error) {
+func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {
 	empty := parentKey{}
 	grp := defaultIfNil((*string)(p.Group), gvk.KubernetesGateway.Group)
 	kind := defaultIfNil((*string)(p.Kind), gvk.KubernetesGateway.Kind)
@@ -533,7 +533,7 @@ func referenceAllowed(p *parentInfo, routeKind config.GroupVersionKind, parentKi
 	return nil
 }
 
-func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*parentInfo, routeRefs []k8s.ParentRef,
+func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*parentInfo, routeRefs []k8s.ParentReference,
 	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string) []routeParentReference {
 	parentRefs := []routeParentReference{}
 	for _, ref := range routeRefs {
@@ -1113,7 +1113,7 @@ var meshGVK = config.GroupVersionKind{
 }
 
 // parentKey holds info about a parentRef (ie route binding to a Gateway). This is a mirror of
-// k8s.ParentRef in a form that can be stored in a map
+// k8s.ParentReference in a form that can be stored in a map
 type parentKey struct {
 	Kind config.GroupVersionKind
 	// Name is the original name of the resource (ie Kubernetes Gateway name)
@@ -1150,7 +1150,7 @@ type routeParentReference struct {
 	// DeniedReason, if present, indicates why the reference was not valid
 	DeniedReason error
 	// OriginalReference contains the original reference
-	OriginalReference k8s.ParentRef
+	OriginalReference k8s.ParentReference
 }
 
 // referencesToInternalNames converts valid parent references to names that can be used in VirtualService
@@ -1529,7 +1529,7 @@ func objectReferenceString(ref k8s.SecretObjectReference) string {
 		emptyIfNil((*string)(ref.Namespace)))
 }
 
-func parentRefString(ref k8s.ParentRef) string {
+func parentRefString(ref k8s.ParentReference) string {
 	return fmt.Sprintf("%s/%s/%s/%s.%s",
 		emptyIfNil((*string)(ref.Group)),
 		emptyIfNil((*string)(ref.Kind)),
