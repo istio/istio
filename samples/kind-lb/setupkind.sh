@@ -5,6 +5,13 @@
 #
 set -e
 
+# This script can only produce desired results on Linux systems.
+ENVOS=$(uname 2>/dev/null || true)
+if [[ "${ENVOS}" != "Linux" ]]; then
+  echo "Your environment is not supported by this script."
+  exit 1
+fi
+
 # Check prerequisites
 REQUISITES=("kubectl" "kind" "docker")
 for item in "${REQUISITES[@]}"; do
