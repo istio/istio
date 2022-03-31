@@ -25,7 +25,7 @@ spec:
   volumeLifecycleModes:
     - Ephemeral
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
@@ -39,95 +39,100 @@ spec:
     plural: spiffeids
     singular: spiffeid
   scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      description: SpiffeID is the Schema for the spiffeid API
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: SpiffeIDSpec defines the desired state of SpiffeID
-          properties:
-            dnsNames:
-              items:
-                type: string
-              type: array
-            parentId:
-              type: string
-            selector:
-              properties:
-                arbitrary:
-                  description: Arbitrary selectors
-                  items:
-                    type: string
-                  type: array
-                containerImage:
-                  description: Container image to match for this spiffe ID
-                  type: string
-                containerName:
-                  description: Container name to match for this spiffe ID
-                  type: string
-                namespace:
-                  description: Namespace to match for this spiffe ID
-                  type: string
-                nodeName:
-                  description: Node name to match for this spiffe ID
-                  type: string
-                podLabel:
-                  additionalProperties:
-                    type: string
-                  description: Pod label name/value to match for this spiffe ID
-                  type: object
-                podName:
-                  description: Pod name to match for this spiffe ID
-                  type: string
-                podUid:
-                  description: Pod UID to match for this spiffe ID
-                  type: string
-                serviceAccount:
-                  description: ServiceAccount to match for this spiffe ID
-                  type: string
-              type: object
-            spiffeId:
-              type: string
-          required:
-          - parentId
-          - selector
-          - spiffeId
-          type: object
-        status:
-          description: SpiffeIDStatus defines the observed state of SpiffeID
-          properties:
-            entryId:
-              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                of cluster Important: Run "make" to regenerate code after modifying
-                this file'
-              type: string
-          type: object
-      type: object
-  version: v1beta1
   versions:
   - name: v1beta1
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
+    subresources:
+      status: {}
+    schema:
+      openAPIV3Schema:
+        description: SpiffeID is the Schema for the spiffeid API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SpiffeIDSpec defines the desired state of SpiffeID
+            properties:
+              dnsNames:
+                items:
+                  type: string
+                type: array
+              federatesWith:
+                items:
+                  type: string
+                type: array
+              parentId:
+                type: string
+              downstream:
+                type: boolean
+              selector:
+                properties:
+                  arbitrary:
+                    description: Arbitrary selectors
+                    items:
+                      type: string
+                    type: array
+                  containerImage:
+                    description: Container image to match for this spiffe ID
+                    type: string
+                  containerName:
+                    description: Container name to match for this spiffe ID
+                    type: string
+                  namespace:
+                    description: Namespace to match for this spiffe ID
+                    type: string
+                  nodeName:
+                    description: Node name to match for this spiffe ID
+                    type: string
+                  podLabel:
+                    additionalProperties:
+                      type: string
+                    description: Pod label name/value to match for this spiffe ID
+                    type: object
+                  podName:
+                    description: Pod name to match for this spiffe ID
+                    type: string
+                  podUid:
+                    description: Pod UID to match for this spiffe ID
+                    type: string
+                  serviceAccount:
+                    description: ServiceAccount to match for this spiffe ID
+                    type: string
+                  cluster:
+                    description: The k8s_psat cluster name
+                    type: string
+                  agent_node_uid:
+                    description: UID of the node
+                    type: string
+                type: object
+              spiffeId:
+                type: string
+            required:
+            - parentId
+            - selector
+            - spiffeId
+            type: object
+          status:
+            description: SpiffeIDStatus defines the observed state of SpiffeID
+            properties:
+              entryId:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: string
+            type: object
+        type: object
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
