@@ -18,10 +18,10 @@ function date_cmd() {
   case "$(uname)" in
     "Darwin")
       [ -z "$(which gdate)" ] && echo "gdate is required for OSX. Try installing coreutils from MacPorts or Brew."
-      echo "gdate"
+      gdate "$@"
       ;;
     *)
-      echo "date"
+      date "$@"
       ;;
   esac
 }
