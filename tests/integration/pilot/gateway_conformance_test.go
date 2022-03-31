@@ -58,13 +58,13 @@ type GatewayConformanceInputs struct {
 var gatewayConformanceInputs GatewayConformanceInputs
 
 func TestGatewayConformance(t *testing.T) {
-	// Flaky until this is merged
-	t.Skip("https://github.com/kubernetes-sigs/gateway-api/pull/1080")
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
 		Features("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
+			// Flaky until this is merged
+			t.Skip("https://github.com/kubernetes-sigs/gateway-api/pull/1080")
 			if !supportsCRDv1(ctx) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
