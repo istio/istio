@@ -19,12 +19,16 @@ import (
 	"strings"
 	"testing"
 
+	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
+	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/durationpb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	ca2 "istio.io/istio/pkg/security"
@@ -43,8 +47,19 @@ var (
 		PrivateKey:       fakePushPrivateKey,
 		ResourceName:     testResourceName,
 	}
-	testResourceName = "default"
-	rootResourceName = "ROOTCA"
+	testResourceName           = "default"
+	rootResourceName           = "ROOTCA"
+	fakePrivateKeyProviderConf = &meshconfig.PrivateKeyProvider{
+		Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
+			Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
+				PollDelay: &durationpb.Duration{
+					Seconds: 0,
+					Nanos:   10000,
+				},
+			},
+		},
+	}
+	usefakePrivateKeyProviderConf = false
 )
 
 type TestServer struct {
@@ -75,6 +90,12 @@ type Expectation struct {
 	RootCert     []byte
 }
 
+func (s *TestServer) extractPrivateKeyProvider(provider *tlsv3.PrivateKeyProvider) []byte {
+	var cmb cryptomb.CryptoMbPrivateKeyMethodConfig
+	provider.GetTypedConfig().UnmarshalTo(&cmb)
+	return cmb.GetPrivateKey().GetInlineBytes()
+}
+
 func (s *TestServer) Verify(resp *discovery.DiscoveryResponse, expectations ...Expectation) *discovery.DiscoveryResponse {
 	s.t.Helper()
 	if len(resp.Resources) != len(expectations) {
@@ -83,9 +104,15 @@ func (s *TestServer) Verify(resp *discovery.DiscoveryResponse, expectations ...E
 	got := xdstest.ExtractTLSSecrets(s.t, resp.Resources)
 	for _, e := range expectations {
 		scrt := got[e.ResourceName]
+		var expectationKey []byte
+		if provider := scrt.GetTlsCertificate().GetPrivateKeyProvider(); provider != nil {
+			expectationKey = s.extractPrivateKeyProvider(provider)
+		} else {
+			expectationKey = scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes()
+		}
 		r := Expectation{
 			ResourceName: e.ResourceName,
-			Key:          scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes(),
+			Key:          expectationKey,
 			CertChain:    scrt.GetTlsCertificate().GetCertificateChain().GetInlineBytes(),
 			RootCert:     scrt.GetValidationContext().GetTrustedCa().GetInlineBytes(),
 		}
@@ -97,6 +124,7 @@ func (s *TestServer) Verify(resp *discovery.DiscoveryResponse, expectations ...E
 }
 
 func setupSDS(t *testing.T) *TestServer {
+	var server *Server
 	st := ca2.NewDirectSecretManager()
 	st.Set(testResourceName, &ca2.SecretItem{
 		CertificateChain: fakeCertificateChain,
@@ -109,7 +137,12 @@ func setupSDS(t *testing.T) *TestServer {
 	})
 
 	opts := &ca2.Options{}
-	server := NewServer(opts, st)
+
+	if usefakePrivateKeyProviderConf {
+		server = NewServer(opts, st, fakePrivateKeyProviderConf)
+	} else {
+		server = NewServer(opts, st, nil)
+	}
 	t.Cleanup(func() {
 		server.Stop()
 	})
@@ -281,6 +314,15 @@ func TestSDS(t *testing.T) {
 		c := s.Connect()
 		c.RequestResponseNack(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
 		c.ExpectNoResponse(t)
+	})
+	t.Run("connect_with_cryptomb", func(t *testing.T) {
+		usefakePrivateKeyProviderConf = true
+		s := setupSDS(t)
+		c := s.Connect()
+		s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		// Close out the connection
+		c.Cleanup()
+		usefakePrivateKeyProviderConf = false
 	})
 }
 
