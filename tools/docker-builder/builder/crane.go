@@ -151,9 +151,11 @@ func Build(args Args, dests []string) error {
 	}
 	if len(args.Entrypoint) > 0 {
 		cfg.Entrypoint = args.Entrypoint
+		cfg.Cmd = nil
 	}
 	if len(args.Cmd) > 0 {
 		cfg.Cmd = args.Cmd
+		cfg.Entrypoint = nil
 	}
 	if args.WorkDir != "" {
 		cfg.WorkingDir = args.WorkDir

@@ -16,7 +16,6 @@ package builder
 
 import (
 	"archive/tar"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -61,6 +60,11 @@ func WriteArchiveFromFiles(base string, files map[string]string, out io.Writer) 
 				header.Name = filepath.Join(dest, rel)
 			}
 
+			if IsExecOwner(info.Mode()) {
+				header.Mode = 0o755
+			} else {
+				header.Mode = 0o644
+			}
 			header.Uid = 0
 			header.Gid = 0
 
@@ -165,13 +169,6 @@ func WriteArchiveFromFS(base string, fsys fs.FS, out io.Writer, sourceDateEpoch 
 	return nil
 }
 
-// Writes a tarball to a temporary file.  Caller's responsibility to
-// clean it up when it's done with it.
-func WriteArchive(src string, w io.Writer, sourceDateEpoch time.Time) error {
-	fs := os.DirFS(src)
-	if err := WriteArchiveFromFS(src, fs, w, sourceDateEpoch); err != nil {
-		return fmt.Errorf("writing TAR archive failed: %w", err)
-	}
-
-	return nil
+func IsExecOwner(mode os.FileMode) bool {
+	return mode&0o100 != 0
 }
