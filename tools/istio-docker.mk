@@ -31,10 +31,10 @@ docker: ## Build all docker images
 	./tools/docker
 
 docker.save: ## Build docker images and save to tar.gz
-	./tools/docker ./tools/docker --save
+	./tools/docker --save
 
 docker.push: ## Build all docker images and push to
-	./tools/docker ./tools/docker --push
+	./tools/docker --push
 
 # Legacy command aliases
 docker.all: docker
@@ -51,26 +51,22 @@ dockerx: docker
 # Support individual images like `dockerx.pilot`
 
 # Docker commands defines some convenience targets
-define DOCKER_COMMANDS
 # Build individual docker image and push it. Ex: push.docker.pilot
-push.$(1): DOCKER_TARGETS=$(1)
-push.$(1): docker.push
-	@:
+push.docker.%:
+	DOCKER_TARGETS=docker.$* ./tools/docker --push
 
 # Build individual docker image and save it. Ex: tar.docker.pilot
-tar.$(1): DOCKER_TARGETS=$(1)
-tar.$(1): docker.save
-	@:
+tar.docker.%:
+tar.docker.%:
+	DOCKER_TARGETS=docker.$* ./tools/docker --save
 
 # Build individual docker image. Ex: docker.pilot
-$(1): DOCKER_TARGETS=$(1)
-$(1): docker
-	@:
+docker.%:
+docker.%:
+	DOCKER_TARGETS=docker.$* ./tools/docker
 
 # Build individual docker image. Ex: dockerx.pilot
-dockerx.$(1): DOCKER_TARGETS=$(1)
-dockerx.$(1): docker
-	@:
-endef
-$(foreach tgt,$(DOCKER_TARGETS),$(eval $(call DOCKER_COMMANDS,$(tgt))))
+dockerx.docker.%:
+dockerx.docker.%:
+	DOCKER_TARGETS=docker.$* ./tools/docker
 ### End docker commands ###
