@@ -177,19 +177,42 @@ type TracingConfig struct {
 type LoggingConfig struct {
 	Providers []*meshconfig.MeshConfig_ExtensionProvider
 	Filter    *tpb.AccessLogging_Filter
+	Selector  *tpb.AccessLogging_LogSelector
+}
+
+func (cfg *LoggingConfig) MatchListenerClass(class networking.ListenerClass) bool {
+	if cfg.Selector == nil ||
+		class == networking.ListenerClassUndefined {
+		return true
+	}
+
+	switch cfg.Selector.Mode {
+	case tpb.WorkloadMode_CLIENT_AND_SERVER:
+		return true
+	case tpb.WorkloadMode_CLIENT:
+		return class == networking.ListenerClassSidecarOutbound || class == networking.ListenerClassGateway
+	case tpb.WorkloadMode_SERVER:
+		return class == networking.ListenerClassSidecarInbound
+	default:
+		return false
+	}
 }
 
 // AccessLogging returns the logging configuration for a given proxy. If nil is returned, access logs
 // are not configured via Telemetry and should use fallback mechanisms. If a non-nil but empty configuration
 // is passed, access logging is explicitly disabled.
-func (t *Telemetries) AccessLogging(proxy *Proxy) *LoggingConfig {
+func (t *Telemetries) AccessLogging(proxy *Proxy, class networking.ListenerClass) *LoggingConfig {
 	ct := t.applicableTelemetries(proxy)
 	if len(ct.Logging) == 0 && len(t.meshConfig.GetDefaultProviders().GetAccessLogging()) == 0 {
 		return nil
 	}
 	cfg := LoggingConfig{}
-	providers, f := mergeLogs(ct.Logging, t.meshConfig)
+	providers, f, s := mergeLogs(ct.Logging, t.meshConfig)
 	cfg.Filter = f
+	cfg.Selector = s
+	if !cfg.MatchListenerClass(class) {
+		return nil
+	}
 	for _, p := range providers.SortedList() {
 		fp := t.fetchProvider(p)
 		if fp != nil {
@@ -369,7 +392,8 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
 	log.Debugf("merged metrics, proxyID: %s metrics: %+v", proxy.ID, tmm)
 	// Additionally, fetch relevant access logging configurations
-	tml, logsFilter := mergeLogs(c.Logging, t.meshConfig)
+	// TODO: support LoggingSelector
+	tml, logsFilter, _ := mergeLogs(c.Logging, t.meshConfig)
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
@@ -413,7 +437,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 // mergeLogs returns the set of providers for the given logging configuration.
 // This currently is just the names of providers as there is no access logging configuration, but
 // in the future it will likely be extended
-func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set, *tpb.AccessLogging_Filter) {
+func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set, *tpb.AccessLogging_Filter, *tpb.AccessLogging_LogSelector) {
 	providers := sets.New()
 
 	if len(logs) == 0 {
@@ -421,9 +445,12 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 			// Insert the default provider.
 			providers.Insert(dp)
 		}
-		return providers, nil
+		return providers, nil, nil
 	}
-	var loggingFilter *tpb.AccessLogging_Filter
+	var (
+		loggingFilter   *tpb.AccessLogging_Filter
+		loggingSelector *tpb.AccessLogging_LogSelector
+	)
 	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, m := range logs {
 		names := getProviderNames(m.Providers)
@@ -433,6 +460,10 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 
 		if m.Filter != nil {
 			loggingFilter = m.Filter
+		}
+
+		if m.Match != nil {
+			loggingSelector = m.Match
 		}
 	}
 	inScopeProviders := sets.New(providerNames...)
@@ -458,7 +489,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 		}
 	}
 
-	return providers, loggingFilter
+	return providers, loggingFilter, loggingSelector
 }
 
 func (t *Telemetries) namespaceWideTelemetryConfig(namespace string) Telemetry {

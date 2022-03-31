@@ -1632,7 +1632,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		}
 	}
 
-	accessLogBuilder.setListenerAccessLog(opts.push, opts.proxy, res)
+	accessLogBuilder.setListenerAccessLog(opts.push, opts.proxy, res, opts.class)
 
 	return res
 }
