@@ -73,12 +73,6 @@ func TestGenerator(t *testing.T) {
               exact: val`),
 		},
 		{
-			name:  "envoyFilterGenerator-invalid",
-			g:     envoyFilterGenerator{},
-			key:   "experimental.a.b.c]",
-			value: "val",
-		},
-		{
 			name:  "envoyFilterGenerator-list",
 			g:     envoyFilterGenerator{},
 			key:   "experimental.a.b.c[d]",
@@ -205,8 +199,9 @@ func TestGenerator(t *testing.T) {
 			value: "foo",
 			want: yamlPrincipal(t, `
          header:
-          exactMatch: foo
-          name: x-foo`),
+          name: x-foo
+          stringMatch:
+            exact: foo`),
 		},
 		{
 			name:  "requestClaimGenerator",
@@ -269,8 +264,9 @@ func TestGenerator(t *testing.T) {
 			value: "GET",
 			want: yamlPermission(t, `
          header:
-          exactMatch: GET
-          name: :method`),
+          name: :method
+          stringMatch:
+            exact: GET`),
 		},
 	}
 
@@ -278,24 +274,16 @@ func TestGenerator(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var got interface{}
 			var err error
-			// nolint: gocritic
 			if _, ok := tc.want.(*rbacpb.Permission); ok {
 				got, err = tc.g.permission(tc.key, tc.value, tc.forTCP)
 				if err != nil {
 					t.Errorf("both permission and principal returned error")
 				}
-			} else if _, ok := tc.want.(*rbacpb.Principal); ok {
+			} else {
 				got, err = tc.g.principal(tc.key, tc.value, tc.forTCP)
 				if err != nil {
 					t.Errorf("both permission and principal returned error")
 				}
-			} else {
-				_, err1 := tc.g.principal(tc.key, tc.value, tc.forTCP)
-				_, err2 := tc.g.permission(tc.key, tc.value, tc.forTCP)
-				if err1 == nil || err2 == nil {
-					t.Fatalf("wanted error")
-				}
-				return
 			}
 			if diff := cmp.Diff(got, tc.want, protocmp.Transform()); diff != "" {
 				var gotYaml string

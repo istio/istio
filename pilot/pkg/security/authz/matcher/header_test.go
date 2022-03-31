@@ -18,8 +18,8 @@ import (
 	"regexp"
 	"testing"
 
-	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -29,16 +29,20 @@ func TestHeaderMatcher(t *testing.T) {
 		Name   string
 		K      string
 		V      string
-		Expect *routepb.HeaderMatcher
+		Expect *route.HeaderMatcher
 	}{
 		{
 			Name: "exact match",
 			K:    ":path",
 			V:    "/productpage",
-			Expect: &routepb.HeaderMatcher{
+			Expect: &route.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_ExactMatch{
-					ExactMatch: "/productpage",
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_Exact{
+							Exact: "/productpage",
+						},
+					},
 				},
 			},
 		},
@@ -46,10 +50,14 @@ func TestHeaderMatcher(t *testing.T) {
 			Name: "suffix match",
 			K:    ":path",
 			V:    "*/productpage*",
-			Expect: &routepb.HeaderMatcher{
+			Expect: &route.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SuffixMatch{
-					SuffixMatch: "/productpage*",
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_Suffix{
+							Suffix: "/productpage*",
+						},
+					},
 				},
 			},
 		},
@@ -68,29 +76,33 @@ func TestHostMatcherWithRegex(t *testing.T) {
 		Name   string
 		K      string
 		V      string
-		Expect *routepb.HeaderMatcher
+		Expect *route.HeaderMatcher
 	}{
 		{
 			Name: "present match",
 			K:    ":authority",
 			V:    "*",
-			Expect: &routepb.HeaderMatcher{
+			Expect: &route.HeaderMatcher{
 				Name:                 ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{PresentMatch: true},
+				HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{PresentMatch: true},
 			},
 		},
 		{
 			Name: "prefix match",
 			K:    ":authority",
 			V:    "*.example.com",
-			Expect: &routepb.HeaderMatcher{
+			Expect: &route.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-					SafeRegexMatch: &matcherpb.RegexMatcher{
-						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_SafeRegex{
+							SafeRegex: &matcher.RegexMatcher{
+								EngineType: &matcher.RegexMatcher_GoogleRe2{
+									GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
+								},
+								Regex: `(?i).*\.example\.com`,
+							},
 						},
-						Regex: `(?i).*\.example\.com`,
 					},
 				},
 			},
@@ -99,14 +111,18 @@ func TestHostMatcherWithRegex(t *testing.T) {
 			Name: "suffix match",
 			K:    ":authority",
 			V:    "example.*",
-			Expect: &routepb.HeaderMatcher{
+			Expect: &route.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-					SafeRegexMatch: &matcherpb.RegexMatcher{
-						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_SafeRegex{
+							SafeRegex: &matcher.RegexMatcher{
+								EngineType: &matcher.RegexMatcher_GoogleRe2{
+									GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
+								},
+								Regex: `(?i)example\..*`,
+							},
 						},
-						Regex: `(?i)example\..*`,
 					},
 				},
 			},
@@ -115,14 +131,18 @@ func TestHostMatcherWithRegex(t *testing.T) {
 			Name: "exact match",
 			K:    ":authority",
 			V:    "example.com",
-			Expect: &routepb.HeaderMatcher{
+			Expect: &route.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-					SafeRegexMatch: &matcherpb.RegexMatcher{
-						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_SafeRegex{
+							SafeRegex: &matcher.RegexMatcher{
+								EngineType: &matcher.RegexMatcher_GoogleRe2{
+									GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
+								},
+								Regex: `(?i)example\.com`,
+							},
 						},
-						Regex: `(?i)example\.com`,
 					},
 				},
 			},
@@ -133,8 +153,7 @@ func TestHostMatcherWithRegex(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			actual := HostMatcherWithRegex(tc.K, tc.V)
 			// nolint: staticcheck
-			// Update to not use the deprecated fields later.
-			if re := actual.GetSafeRegexMatch().GetRegex(); re != "" {
+			if re := actual.GetStringMatch().GetSafeRegex().GetRegex(); re != "" {
 				_, err := regexp.Compile(re)
 				if err != nil {
 					t.Errorf("failed to compile regex %s: %v", re, err)
@@ -152,27 +171,27 @@ func TestHostMatcher(t *testing.T) {
 		Name   string
 		K      string
 		V      string
-		Expect *routepb.HeaderMatcher
+		Expect *route.HeaderMatcher
 	}{
 		{
 			Name: "present match",
 			K:    ":authority",
 			V:    "*",
-			Expect: &routepb.HeaderMatcher{
+			Expect: &route.HeaderMatcher{
 				Name:                 ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{PresentMatch: true},
+				HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{PresentMatch: true},
 			},
 		},
 		{
 			Name: "suffix match",
 			K:    ":authority",
 			V:    "*.example.com",
-			Expect: &routepb.HeaderMatcher{
+			Expect: &route.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: &matcherpb.StringMatcher{
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
 						IgnoreCase: true,
-						MatchPattern: &matcherpb.StringMatcher_Suffix{
+						MatchPattern: &matcher.StringMatcher_Suffix{
 							Suffix: ".example.com",
 						},
 					},
@@ -183,12 +202,12 @@ func TestHostMatcher(t *testing.T) {
 			Name: "prefix match",
 			K:    ":authority",
 			V:    "example.*",
-			Expect: &routepb.HeaderMatcher{
+			Expect: &route.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: &matcherpb.StringMatcher{
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
 						IgnoreCase: true,
-						MatchPattern: &matcherpb.StringMatcher_Prefix{
+						MatchPattern: &matcher.StringMatcher_Prefix{
 							Prefix: "example.",
 						},
 					},
@@ -199,12 +218,12 @@ func TestHostMatcher(t *testing.T) {
 			Name: "exact match",
 			K:    ":authority",
 			V:    "example.com",
-			Expect: &routepb.HeaderMatcher{
+			Expect: &route.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: &matcherpb.StringMatcher{
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
 						IgnoreCase: true,
-						MatchPattern: &matcherpb.StringMatcher_Exact{
+						MatchPattern: &matcher.StringMatcher_Exact{
 							Exact: "example.com",
 						},
 					},
@@ -227,15 +246,15 @@ func TestPathMatcher(t *testing.T) {
 	testCases := []struct {
 		Name   string
 		V      string
-		Expect *matcherpb.PathMatcher
+		Expect *matcher.PathMatcher
 	}{
 		{
 			Name: "exact match",
 			V:    "/productpage",
-			Expect: &matcherpb.PathMatcher{
-				Rule: &matcherpb.PathMatcher_Path{
-					Path: &matcherpb.StringMatcher{
-						MatchPattern: &matcherpb.StringMatcher_Exact{
+			Expect: &matcher.PathMatcher{
+				Rule: &matcher.PathMatcher_Path{
+					Path: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_Exact{
 							Exact: "/productpage",
 						},
 					},
@@ -245,10 +264,10 @@ func TestPathMatcher(t *testing.T) {
 		{
 			Name: "prefix match",
 			V:    "/prefix*",
-			Expect: &matcherpb.PathMatcher{
-				Rule: &matcherpb.PathMatcher_Path{
-					Path: &matcherpb.StringMatcher{
-						MatchPattern: &matcherpb.StringMatcher_Prefix{
+			Expect: &matcher.PathMatcher{
+				Rule: &matcher.PathMatcher_Path{
+					Path: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_Prefix{
 							Prefix: "/prefix",
 						},
 					},
@@ -258,10 +277,10 @@ func TestPathMatcher(t *testing.T) {
 		{
 			Name: "suffix match",
 			V:    "*suffix",
-			Expect: &matcherpb.PathMatcher{
-				Rule: &matcherpb.PathMatcher_Path{
-					Path: &matcherpb.StringMatcher{
-						MatchPattern: &matcherpb.StringMatcher_Suffix{
+			Expect: &matcher.PathMatcher{
+				Rule: &matcher.PathMatcher_Path{
+					Path: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_Suffix{
 							Suffix: "suffix",
 						},
 					},
@@ -271,14 +290,14 @@ func TestPathMatcher(t *testing.T) {
 		{
 			Name: "wildcard match",
 			V:    "*",
-			Expect: &matcherpb.PathMatcher{
-				Rule: &matcherpb.PathMatcher_Path{
-					Path: &matcherpb.StringMatcher{
-						MatchPattern: &matcherpb.StringMatcher_SafeRegex{
-							SafeRegex: &matcherpb.RegexMatcher{
+			Expect: &matcher.PathMatcher{
+				Rule: &matcher.PathMatcher_Path{
+					Path: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_SafeRegex{
+							SafeRegex: &matcher.RegexMatcher{
 								Regex: ".+",
-								EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-									GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+								EngineType: &matcher.RegexMatcher_GoogleRe2{
+									GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
 								},
 							},
 						},
