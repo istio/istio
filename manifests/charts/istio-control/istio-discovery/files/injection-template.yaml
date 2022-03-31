@@ -356,10 +356,15 @@ spec:
     resources:
   {{ template "resources" . }}
     volumeMounts:
+    - name: workload-socket
+      mountPath: /var/run/secrets/workload-spiffe-uds
     {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
     - name: gke-workload-certificate
       mountPath: /var/run/secrets/workload-spiffe-credentials
       readOnly: true
+    {{- else }}
+    - name: workload-certs
+      mountPath: /var/run/secrets/workload-spiffe-credentials
     {{- end }}
     {{- if eq .Values.global.pilotCertProvider "istiod" }}
     - mountPath: /var/run/secrets/istio
@@ -398,10 +403,15 @@ spec:
       {{ end }}
       {{- end }}
   volumes:
+  - emptyDir:
+    name: workload-socket
   {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
   - name: gke-workload-certificate
     csi:
       driver: workloadcertificates.security.cloud.google.com
+  {{- else }}
+  - emptyDir:
+    name: workload-certs
   {{- end }}
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: custom-bootstrap-volume
