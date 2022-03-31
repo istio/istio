@@ -57,16 +57,13 @@ push.docker.%:
 
 # Build individual docker image and save it. Ex: tar.docker.pilot
 tar.docker.%:
-tar.docker.%:
 	DOCKER_TARGETS=docker.$* ./tools/docker --save
 
 # Build individual docker image. Ex: docker.pilot
 docker.%:
-docker.%:
 	DOCKER_TARGETS=docker.$* ./tools/docker
 
 # Build individual docker image. Ex: dockerx.pilot
-dockerx.docker.%:
 dockerx.docker.%:
 	DOCKER_TARGETS=docker.$* ./tools/docker
 ### End docker commands ###
