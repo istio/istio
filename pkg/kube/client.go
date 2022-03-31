@@ -68,9 +68,9 @@ import (
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
-	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned/fake"
-	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
+	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
 	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
