@@ -495,6 +495,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		Tracing:                nil,
 		StatusPort:             15020,
+		PrivateKeyProvider:     nil,
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -809,6 +810,64 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 				},
 			),
 			isValid: false,
+		},
+		{
+			name: "private key provider with empty provider",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with cryptomb without poll_delay",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
+							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with cryptomb zero poll_delay",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
+							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
+								PollDelay: &durationpb.Duration{
+									Seconds: 0,
+									Nanos:   0,
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with cryptomb",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
+							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
+								PollDelay: &durationpb.Duration{
+									Seconds: 0,
+									Nanos:   10000,
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
 		},
 	}
 	for _, c := range cases {
