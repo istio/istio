@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+releaseNotes:
+- |
+  **Added** support for using PrivateKeyProvider in SDS. See [#35809](https://github.com/istio/istio/issues/35809)

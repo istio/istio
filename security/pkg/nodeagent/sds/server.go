@@ -21,6 +21,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
@@ -43,9 +44,9 @@ type Server struct {
 }
 
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(options *security.Options, workloadSecretCache security.SecretManager) *Server {
+func NewServer(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *mesh.PrivateKeyProvider) *Server {
 	s := &Server{stopped: atomic.NewBool(false)}
-	s.workloadSds = newSDSService(workloadSecretCache, options)
+	s.workloadSds = newSDSService(workloadSecretCache, options, pkpConf)
 	s.initWorkloadSdsService()
 	sdsServiceLog.Infof("SDS server for workload certificates started, listening on %q", security.WorkloadIdentitySocketPath)
 	return s
