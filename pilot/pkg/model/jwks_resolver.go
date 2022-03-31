@@ -239,61 +239,27 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		}
 		return e.pubKey, nil
 	}
-
-	var err error
-	var pubKey string
-	if jwksURI == "" {
-		// Fetch the jwks URI if it is not hardcoded on config.
-		jwksURI, err = r.resolveJwksURIUsingOpenID(issuer)
-		key.jwksURI = jwksURI
-	}
-	if err != nil {
-		log.Errorf("Failed to jwks URI from %q: %v", issuer, err)
-	} else {
-		jwksuriChannel <- key
-	}
-
-	r.keyEntries.Store(key, jwtPubKeyEntry{
-		pubKey:            pubKey,
-		lastRefreshedTime: now,
-		lastUsedTime:      now,
-	})
-
-	return pubKey, err
+	// fetching the public key in the background
+	jwksuriChannel <- key
+	return "", nil
 }
 
 // BuildLocalJwks builds local Jwks by fetching the Jwt Public Key from the URL passed if it is empty.
 func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *envoy_jwt.JwtProvider_LocalJwks {
 	if jwtPubKey == "" {
-		// var err error
-
+		var err error
 		// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
 		// workflow, where the JWT key resolver should have already been initialized on server creation.
-		_, _ = r.GetPublicKey(jwtIssuer, jwksURI)
-		key := jwtKey{issuer: jwtIssuer, jwksURI: jwksURI}
-		if val, found := r.keyEntries.Load(key); found {
-			e := val.(jwtPubKeyEntry)
-			if e.pubKey == "" {
-				log.Infof("no public key present in the cache, adding the key to the cache")
-				jwtPubKey = CreateFakeJwks(jwksURI)
-			} else {
-				jwtPubKey = e.pubKey
-			}
-
-		} else {
-			log.Infof("No entry for this issuer is present in the cache")
-			jwtPubKey = CreateFakeJwks(jwksURI)
+		jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI)
+		if err != nil {
+			log.Infof("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtIssuer, jwksURI, err)
 		}
-		// if err != nil {
-		// 	log.Infof("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtIssuer, jwksURI, err)
-		// 	jwtPubKey = CreateFakeJwks(jwksURI)
-		// }
-		// if jwtPubKey == "" {
-		// 	log.Infof("no public key present in the cache, adding the key to the cache")
-		// 	// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
-		// 	// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-		// 	jwtPubKey = CreateFakeJwks(jwksURI)
-		// }
+	}
+	if jwtPubKey == "" {
+		log.Infof("no public key present in the cache, adding the key to the cache")
+		// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
+		// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
+		jwtPubKey = CreateFakeJwks(jwksURI)
 	}
 	return &envoy_jwt.JwtProvider_LocalJwks{
 		LocalJwks: &core.DataSource{
@@ -423,6 +389,22 @@ func (r *JwksResolver) refresher() {
 			r.refreshTicker.Stop()
 			return
 		case jwtKeyData := <-jwksuriChannel:
+			var jwksURI string
+			var err error
+			now := time.Now()
+			if jwtKeyData.jwksURI == "" {
+				// Fetch the jwks URI if it is not hardcoded on config.
+				jwksURI, err = r.resolveJwksURIUsingOpenID(jwtKeyData.issuer)
+				if err != nil {
+					log.Errorf("Failed to jwks URI from %q: %v", jwtKeyData.issuer, err)
+				}
+				jwtKeyData.jwksURI = jwksURI
+			}
+			r.keyEntries.Store(jwtKeyData, jwtPubKeyEntry{
+				pubKey:            "",
+				lastRefreshedTime: now,
+				lastUsedTime:      now,
+			})
 			hasErrors := true
 			for i := 0; i < 10; i++ {
 				if !r.refresh(0) {
