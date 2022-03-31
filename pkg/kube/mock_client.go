@@ -35,8 +35,8 @@ import (
 	"k8s.io/client-go/rest/fake"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"k8s.io/kubectl/pkg/cmd/util"
-	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
-	serviceapisinformer "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
+	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	serviceapisinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 	mcsapisclient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsapisinformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 

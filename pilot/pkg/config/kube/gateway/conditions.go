@@ -39,8 +39,8 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	}
 	// Collect all of our unique parent references. There may be multiple when we have a route without section name,
 	// but reference a parent with multiple sections.
-	seen := map[k8s.ParentRef]routeParentReference{}
-	failedCount := map[k8s.ParentRef]int{}
+	seen := map[k8s.ParentReference]routeParentReference{}
+	failedCount := map[k8s.ParentReference]int{}
 	for _, gw := range gateways {
 		// We will append it if it is our first occurrence, or the existing one has an error. This means
 		// if *any* section has no errors, we will declare Admitted

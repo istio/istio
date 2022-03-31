@@ -48,7 +48,7 @@ var (
 		},
 	}
 	httpRouteSpec = &k8s.HTTPRouteSpec{
-		CommonRouteSpec: k8s.CommonRouteSpec{ParentRefs: []k8s.ParentRef{{
+		CommonRouteSpec: k8s.CommonRouteSpec{ParentRefs: []k8s.ParentReference{{
 			Name: "gwspec",
 		}}},
 		Hostnames: []k8s.Hostname{"test.cluster.local"},
