@@ -74,7 +74,7 @@ func TestGetLocalIP(t *testing.T) {
 			LocalIPAddrs = tt.lipas
 			result := constructConfig()
 			if result.EnableInboundIPv6 != tt.expected {
-				t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result.EnableInboundIPv6)
+				t.Errorf("unexpected EnableInboundIPv6 result, expected: %t got: %t", tt.expected, result.EnableInboundIPv6)
 			}
 		})
 	}
