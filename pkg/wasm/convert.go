@@ -132,6 +132,8 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 			pullSecret = []byte(sec)
 		}
 		// Strip all internal env variables from VM env variable.
+		// These env variables are added by Istio control plane and meant to be consumed by the agent for image pulling control,
+		// thus should not be leaked to Envoy or the Wasm extension runtime.
 		delete(envs.KeyValues, model.WasmSecretEnv)
 		if len(envs.KeyValues) == 0 {
 			if len(envs.HostEnvKeys) == 0 {
