@@ -75,16 +75,17 @@ images:
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
 
-- name: app_sidecar_rockylinux_8
-  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
-  files:
-  - tools/packaging/common/envoy_bootstrap.json
-  - tests/testdata/certs
-  - pkg/test/echo/docker/echo-start.sh
-  targets:
-  - ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm
-  - ${TARGET_OUT_LINUX}/client
-  - ${TARGET_OUT_LINUX}/server
+# TODO(https://github.com/istio/istio/issues/38224)
+#- name: app_sidecar_rockylinux_8
+#  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
+#  files:
+#  - tools/packaging/common/envoy_bootstrap.json
+#  - tests/testdata/certs
+#  - pkg/test/echo/docker/echo-start.sh
+#  targets:
+#  - ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm
+#  - ${TARGET_OUT_LINUX}/client
+#  - ${TARGET_OUT_LINUX}/server
 - name: app_sidecar_centos_7
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_7
   files:
@@ -136,9 +137,10 @@ images:
 - name: app_sidecar_base_ubuntu_xenial # oldest supported ubuntu
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
   base: true
-- name: app_sidecar_base_rockylinux_8 # newest RHEL-based
-  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base_centos
-  base: true
+#  TODO(https://github.com/istio/istio/issues/38224)
+#- name: app_sidecar_base_rockylinux_8 # newest RHEL-based
+#  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base_centos
+#  base: true
 - name: app_sidecar_base_centos_7 # oldest supported RHEL-based
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base_centos
   base: true
