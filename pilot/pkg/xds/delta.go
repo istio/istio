@@ -527,7 +527,7 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 
 func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) []string {
 	res := sets.New(existing...)
-	res.Insert(request.ResourceNamesSubscribe...)
+	res.InsertAll(request.ResourceNamesSubscribe...)
 	res.Delete(request.ResourceNamesUnsubscribe...)
 	return res.SortedList()
 }
