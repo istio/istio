@@ -20,9 +20,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -389,7 +389,7 @@ var (
 		"If this is set to false, will not create CA server in istiod.").Get()
 
 	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
-		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
+		"If this is set to false, the debug interface will not be enabled, recommended for production").Get()
 
 	EnableUnsafeAdminEndpoints = env.RegisterBoolVar("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
@@ -475,6 +475,10 @@ var (
 		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
 	).Get()
 
+	ALPNFilter = env.RegisterBoolVar("PILOT_ENABLE_ALPN_FILTER", true,
+		"If true, pilot will add Istio ALPN filters, required for proper protocol sniffing.",
+	).Get()
+
 	WorkloadEntryAutoRegistration = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", true,
 		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
 
@@ -487,14 +491,6 @@ var (
 
 	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
-
-	EnableFlowControl = env.RegisterBoolVar(
-		"PILOT_ENABLE_FLOW_CONTROL",
-		false,
-		"If enabled, pilot will wait for the completion of a receive operation before"+
-			"executing a push operation. This is a form of flow control and is useful in"+
-			"environments with high rates of push requests to each gateway. By default,"+
-			"this is false.").Get()
 
 	FlowControlTimeout = env.RegisterDurationVar(
 		"PILOT_FLOW_CONTROL_TIMEOUT",
@@ -541,9 +537,22 @@ var (
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
 
+	// EnableUnsafeDeltaTest enables runtime checks to test Delta XDS efficiency. This should never be enabled in
+	// production.
+	EnableUnsafeDeltaTest = env.RegisterBoolVar(
+		"UNSAFE_PILOT_ENABLE_DELTA_TEST",
+		false,
+		"If enabled, addition runtime tests for Delta XDS efficiency are added. "+
+			"These checks are extremely expensive, so this should be used only for testing, not production.",
+	).Get()
+
 	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
+
+	PartialFullPushes = env.RegisterBoolVar("PILOT_PARTIAL_FULL_PUSHES", true,
+		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
+			"This occurs for EDS in many cases regardless of this setting.").Get()
 
 	EnableLegacyIstioMutualCredentialName = env.RegisterBoolVar("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,
@@ -608,7 +617,7 @@ var (
 			"Comma separated list of potentially insecure kubeconfig authentication options that are allowed for multicluster authentication."+
 				"Support values: all authProviders (`gcp`, `azure`, `exec`, `openstack`), "+
 				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
-		return sets.NewSet(strings.Split(v, ",")...)
+		return sets.New(strings.Split(v, ",")...)
 	}()
 
 	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", true,

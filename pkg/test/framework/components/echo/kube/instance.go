@@ -24,7 +24,6 @@ import (
 	kubeCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -104,6 +103,11 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 		c.clusterIP = ""
 	}
 
+	// Start the workload manager.
+	if err := c.workloadMgr.Start(); err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -156,16 +160,11 @@ func (c *instance) firstClient() (*echoClient.Client, error) {
 	return workloads[0].(*workload).Client()
 }
 
-// Start this echo instance
-func (c *instance) Start() error {
-	return c.workloadMgr.Start()
-}
-
 func (c *instance) Close() (err error) {
 	return c.workloadMgr.Close()
 }
 
-func (c *instance) NamespacedName() model.NamespacedName {
+func (c *instance) NamespacedName() echo.NamespacedName {
 	return c.cfg.NamespacedName()
 }
 

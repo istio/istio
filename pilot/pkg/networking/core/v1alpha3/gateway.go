@@ -39,7 +39,6 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -47,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/istiomultierror"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -864,7 +864,8 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			if len(push.Mesh.OutboundClusterStatName) != 0 {
 				statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, &service.Attributes)
 			}
-			destinationRule := CastDestinationRule(proxy.SidecarScope.DestinationRule(service.Hostname))
+			destinationRule := CastDestinationRule(proxy.SidecarScope.DestinationRule(
+				model.TrafficDirectionOutbound, proxy, service.Hostname))
 
 			// First, we build the standard cluster. We match on the SNI matching the cluster name
 			// (per the spec of AUTO_PASSTHROUGH), as well as all possible Istio mTLS ALPNs. This,
@@ -1003,7 +1004,7 @@ func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 func filteredGatewayCipherSuites(server *networking.Server) []string {
 	suites := server.Tls.CipherSuites
 	ret := make([]string, 0, len(suites))
-	validCiphers := sets.NewSet()
+	validCiphers := sets.New()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
 			if !validCiphers.Contains(s) {

@@ -36,15 +36,6 @@ func (d Services) GetByService(service string) Target {
 	return nil
 }
 
-// Services gives the service names of each deployment in order.
-func (d Services) Services() []string {
-	var out []string
-	for _, target := range d {
-		out = append(out, target.Config().Service)
-	}
-	return out
-}
-
 // FQDNs gives the fully-qualified-domain-names each deployment in order.
 func (d Services) FQDNs() []string {
 	var out []string
@@ -92,4 +83,29 @@ func (d Services) Less(i, j int) bool {
 // Swap switches the positions of elements at i and j (used for sorting).
 func (d Services) Swap(i, j int) {
 	d[i], d[j] = d[j], d[i]
+}
+
+// Copy this services array.
+func (d Services) Copy() Services {
+	return append(Services{}, d...)
+}
+
+// Append returns a new Services array with the given values appended.
+func (d Services) Append(others ...Services) Services {
+	out := d.Copy()
+	for _, o := range others {
+		out = append(out, o...)
+	}
+	sort.Stable(out)
+	return out
+}
+
+func (d Services) NamespacedNames() NamespacedNames {
+	out := make(NamespacedNames, 0, d.Len())
+	for _, svc := range d {
+		out = append(out, svc.NamespacedName())
+	}
+
+	sort.Stable(out)
+	return out
 }

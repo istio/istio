@@ -62,10 +62,50 @@ func Get(ctx resource.Context) (Instance, error) {
 }
 
 // GetOrFail returns the Istio component from the context. If there is none the test is failed.
-func GetOrFail(f test.Failer, ctx resource.Context) Instance {
+func GetOrFail(t test.Failer, ctx resource.Context) Instance {
+	t.Helper()
 	i, err := Get(ctx)
 	if err != nil {
-		f.Fatal(err)
+		t.Fatal(err)
+	}
+	return i
+}
+
+// DefaultIngress returns the ingress installed in the default cluster. The ingress's service name
+// will be "istio-ingressgateway" and the istio label will be "ingressgateway".
+func DefaultIngress(ctx resource.Context) (ingress.Instance, error) {
+	i, err := Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return i.IngressFor(ctx.Clusters().Default()), nil
+}
+
+// DefaultIngressOrFail calls DefaultIngress and fails if an error is encountered.
+func DefaultIngressOrFail(t test.Failer, ctx resource.Context) ingress.Instance {
+	t.Helper()
+	i, err := DefaultIngress(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return i
+}
+
+// Ingresses returns all ingresses for "istio-ingressgateway" in each cluster.
+func Ingresses(ctx resource.Context) (ingress.Instances, error) {
+	i, err := Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return i.Ingresses(), nil
+}
+
+// IngressesOrFail calls Ingresses and fails if an error is encountered.
+func IngressesOrFail(t test.Failer, ctx resource.Context) ingress.Instances {
+	t.Helper()
+	i, err := Ingresses(ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
 	return i
 }

@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -123,7 +124,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					"dstSvc": dsts[0][0].Config().Service,
 					// tests that use RunForN need all destination deployments
 					"dsts":    dsts,
-					"dstSvcs": dsts.Services(),
+					"dstSvcs": dsts.NamespacedNames().Names(),
 				}
 				if len(src) > 0 {
 					tmplData["src"] = src
@@ -138,12 +139,12 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				// we only apply to config clusters
-				return t.ConfigIstio().YAML(cfg).Apply("")
+				return t.ConfigIstio().YAML("", cfg).Apply()
 			}).
 			WithDefaultFilters().
 			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
-			ToMatch(match.And(append(c.targetMatchers, match.IsNotProxylessGRPC)...)).
+			ToMatch(match.And(append(c.targetMatchers, match.NotProxylessGRPC)...)).
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, from echo.Caller, to echo.Services) {
@@ -210,7 +211,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(t, c.config, namespace)
 			// we only apply to config clusters
-			t.ConfigIstio().YAML(cfg).ApplyOrFail(t, "")
+			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -234,7 +235,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	}
 }
 
-func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDeployments) {
+func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *deployment.SingleNamespaceView) {
 	cases := map[string][]TrafficTestCase{}
 	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
 		cases["jwt-claim-route"] = jwtClaimRoute(apps)
@@ -244,7 +245,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases()
-	cases["autopassthrough"] = autoPassthroughCases(apps)
+	cases["autopassthrough"] = autoPassthroughCases(t, apps)
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
@@ -270,7 +271,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
 			for _, tt := range tts {
 				if tt.workloadAgnostic {
-					tt.RunForApps(t, apps.All, apps.Namespace.Name())
+					tt.RunForApps(t, apps.All.Instances(), apps.Namespace.Name())
 				} else {
 					tt.Run(t, apps.Namespace.Name())
 				}

@@ -47,6 +47,7 @@ type CertificateAuthority interface {
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
 type Server struct {
+	pb.UnimplementedIstioCertificateServiceServer
 	monitoring     monitoringMetrics
 	Authenticators []security.Authenticator
 	ca             CertificateAuthority

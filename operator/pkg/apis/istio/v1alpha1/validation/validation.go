@@ -138,15 +138,7 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 	}
 
 	for _, d := range warningSettings {
-		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
-		// the types, but since this is deprecated this is easier
-		var v interface{}
-		var f bool
-		if s := strings.SplitN(d.old, ".", 2); s[0] == "Values" {
-			v, f, _ = tpath.GetFromStructPath(valuesv1alpha1.AsMap(iop.GetValues()), s[1])
-		} else {
-			v, f, _ = tpath.GetFromStructPath(iop, d.old)
-		}
+		v, f, _ := tpath.GetFromStructPath(iop, d.old)
 		if f {
 			switch t := v.(type) {
 			// need to do conversion for bool value defined in IstioOperator component spec.
@@ -159,13 +151,7 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 		}
 	}
 	for _, d := range failHardSettings {
-		var v interface{}
-		var f bool
-		if s := strings.SplitN(d.old, ".", 2); s[0] == "Values" {
-			v, f, _ = tpath.GetFromStructPath(valuesv1alpha1.AsMap(iop.GetValues()), s[1])
-		} else {
-			v, f, _ = tpath.GetFromStructPath(iop, d.old)
-		}
+		v, f, _ := tpath.GetFromStructPath(iop, d.old)
 		if f {
 			switch t := v.(type) {
 			// need to do conversion for bool value defined in IstioOperator component spec.
@@ -236,9 +222,9 @@ func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperat
 	if !values.GetGateways().GetIstioEgressgateway().GetRunAsRoot().GetValue() {
 		errs = util.AppendErrs(errs, validateGateways(spec.GetComponents().GetEgressGateways(), "istio-egressgateway"))
 	}
-	for _, port := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
+	for _, raw := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
+		p := raw.AsMap()
 		var tp int
-		p := valuesv1alpha1.AsMap(port)
 		if p["targetPort"] != nil {
 			t, ok := p["targetPort"].(float64)
 			if !ok {

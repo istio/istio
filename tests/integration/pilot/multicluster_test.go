@@ -54,8 +54,8 @@ func TestClusterLocal(t *testing.T) {
 		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
 			// TODO use echotest to dynamically pick 2 simple pods from apps.All
-			sources := apps.PodA
-			to := apps.PodB
+			sources := apps.A
+			to := apps.B
 
 			tests := []struct {
 				name  string
@@ -70,7 +70,7 @@ serviceSettings:
     clusterLocal: true
   hosts:
   - "%s"
-`, apps.PodB[0].Config().ClusterLocalFQDN()))
+`, apps.B.Config().ClusterLocalFQDN()))
 					},
 				},
 				{
@@ -109,7 +109,7 @@ spec:
         subset: {{ .Config.Cluster.Name }}
 {{- end }}
 `, map[string]interface{}{"src": sources, "dst": to, "host": to.Config().ClusterLocalFQDN()})
-						t.ConfigIstio().YAML(cfg).ApplyOrFail(t, sources.Config().Namespace.Name())
+						t.ConfigIstio().YAML(sources.Config().Namespace.Name(), cfg).ApplyOrFail(t)
 					},
 				},
 			}
@@ -207,8 +207,41 @@ func TestBadRemoteSecret(t *testing.T) {
 					return err
 				}, retry.Timeout(15*time.Second))
 
-				t.ConfigKube().YAML(secret).ApplyOrFail(t, ns)
+				t.ConfigKube().YAML(ns, secret).ApplyOrFail(t)
 			}
+			// Test exec auth
+			// CreateRemoteSecret can never generate this, so create it manually
+			t.ConfigIstio().YAML(ns, `apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    networking.istio.io/cluster: bad
+  creationTimestamp: null
+  labels:
+    istio/multiCluster: "true"
+  name: istio-remote-secret-bad
+stringData:
+  bad: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        server: https://127.0.0.1
+      name: bad
+    contexts:
+    - context:
+        cluster: bad
+        user: bad
+      name: bad
+    current-context: bad
+    users:
+    - name: bad
+      user:
+        exec:
+          command: /bin/sh
+          args: ["-c", "hello world!"]
+---
+`).ApplyOrFail(t)
 
 			// create a new istiod pod using the template from the deployment, but not managed by the deployment
 			t.Logf("creating pod %s/%s", ns, pod)

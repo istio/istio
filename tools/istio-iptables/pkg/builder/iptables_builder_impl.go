@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/istio/tools/istio-iptables/pkg/log"
@@ -147,17 +148,17 @@ func (rb *IptablesBuilder) AppendRuleV6(command log.Command, chain string, table
 }
 
 func (rb *IptablesBuilder) buildRules(command string, rules []*Rule) [][]string {
-	output := [][]string{}
-	chainTableLookupMap := make(map[string]struct{})
+	output := make([][]string, 0)
+	chainTableLookupSet := sets.New()
 	for _, r := range rules {
 		chainTable := fmt.Sprintf("%s:%s", r.chain, r.table)
 		// Create new chain if key: `chainTable` isn't present in map
-		if _, present := chainTableLookupMap[chainTable]; !present {
+		if !chainTableLookupSet.Contains(chainTable) {
 			// Ignore chain creation for built-in chains for iptables
 			if _, present := constants.BuiltInChainsMap[r.chain]; !present {
 				cmd := []string{command, "-t", r.table, "-N", r.chain}
 				output = append(output, cmd)
-				chainTableLookupMap[chainTable] = struct{}{}
+				chainTableLookupSet.Insert(chainTable)
 			}
 		}
 	}
@@ -180,11 +181,11 @@ func (rb *IptablesBuilder) constructIptablesRestoreContents(tableRulesMap map[st
 	var b strings.Builder
 	for table, rules := range tableRulesMap {
 		if len(rules) > 0 {
-			fmt.Fprintln(&b, "*", table)
+			_, _ = fmt.Fprintln(&b, "*", table)
 			for _, r := range rules {
-				fmt.Fprintln(&b, r)
+				_, _ = fmt.Fprintln(&b, r)
 			}
-			fmt.Fprintln(&b, "COMMIT")
+			_, _ = fmt.Fprintln(&b, "COMMIT")
 		}
 	}
 	return b.String()
@@ -197,15 +198,15 @@ func (rb *IptablesBuilder) buildRestore(rules []*Rule) string {
 		constants.MANGLE: {},
 	}
 
-	chainTableLookupMap := make(map[string]struct{})
+	chainTableLookupMap := sets.New()
 	for _, r := range rules {
 		chainTable := fmt.Sprintf("%s:%s", r.chain, r.table)
 		// Create new chain if key: `chainTable` isn't present in map
-		if _, present := chainTableLookupMap[chainTable]; !present {
+		if !chainTableLookupMap.Contains(chainTable) {
 			// Ignore chain creation for built-in chains for iptables
 			if _, present := constants.BuiltInChainsMap[r.chain]; !present {
 				tableRulesMap[r.table] = append(tableRulesMap[r.table], fmt.Sprintf("-N %s", r.chain))
-				chainTableLookupMap[chainTable] = struct{}{}
+				chainTableLookupMap.Insert(chainTable)
 			}
 		}
 	}

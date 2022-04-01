@@ -46,9 +46,9 @@ func TestRequestAuthentication(t *testing.T) {
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			t.ConfigKube().EvalFile(map[string]string{
+			t.ConfigKube().EvalFile(ns.Name(), map[string]string{
 				"Namespace": ns.Name(),
-			}, "../../../samples/jwt-server/jwt-server.yaml").ApplyOrFail(t, ns.Name())
+			}, "../../../samples/jwt-server/jwt-server.yaml").ApplyOrFail(t)
 
 			type testCase struct {
 				name          string
@@ -64,15 +64,15 @@ func TestRequestAuthentication(t *testing.T) {
 									"Namespace": ns.Name(),
 									"dst":       to.Config().Service,
 								}
-								return t.ConfigIstio().EvalFile(args, policy).Apply(ns.Name(), resource.Wait)
+								return t.ConfigIstio().EvalFile(ns.Name(), args, policy).Apply(resource.Wait)
 							}
 							return nil
 						}).
 						FromMatch(
 							// TODO(JimmyCYJ): enable VM for all test cases.
-							util.SourceMatcher(ns.Name(), true)).
+							util.SourceMatcher(ns, true)).
 						ConditionallyTo(echotest.ReachableDestinations).
-						ToMatch(util.DestMatcher(ns.Name(), true)).
+						ToMatch(util.DestMatcher(ns, true)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							for _, c := range cases {
@@ -395,10 +395,10 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			ns := apps.Namespace1
 
 			// Apply the policy.
-			t.ConfigIstio().EvalFile(map[string]string{
+			t.ConfigIstio().EvalFile(newRootNS(t).Name(), map[string]string{
 				"Namespace":     ns.Name(),
 				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
-			}, "testdata/requestauthn/global-jwt.yaml.tmpl").ApplyOrFail(t, newRootNS(t).Name(), resource.Wait)
+			}, "testdata/requestauthn/global-jwt.yaml.tmpl").ApplyOrFail(t, resource.Wait)
 
 			type testCase struct {
 				name          string
@@ -414,16 +414,16 @@ func TestIngressRequestAuthentication(t *testing.T) {
 									"Namespace": ns.Name(),
 									"dst":       to.Config().Service,
 								}
-								return t.ConfigIstio().EvalFile(args, policy).Apply(ns.Name(), resource.Wait)
+								return t.ConfigIstio().EvalFile(ns.Name(), args, policy).Apply(resource.Wait)
 							}
 							return nil
 						}).
-						FromMatch(util.SourceMatcher(ns.Name(), false)).
+						FromMatch(util.SourceMatcher(ns, false)).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
-							return match.InCluster(from.Config().Cluster).GetMatches(to)
+							return match.Cluster(from.Config().Cluster).GetMatches(to)
 						}).
-						ToMatch(util.DestMatcher(ns.Name(), false)).
+						ToMatch(util.DestMatcher(ns, false)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							for _, c := range cases {
@@ -466,10 +466,10 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 			t.NewSubTest("ingress-authn").Run(func(t framework.TestContext) {
 				// TODO(JimmyCYJ): add workload-agnostic test pattern to support ingress gateway tests.
-				t.ConfigIstio().EvalFile(map[string]string{
+				t.ConfigIstio().EvalFile(ns.Name(), map[string]string{
 					"Namespace": ns.Name(),
 					"dst":       util.BSvc,
-				}, "testdata/requestauthn/ingress.yaml.tmpl").ApplyOrFail(t, ns.Name())
+				}, "testdata/requestauthn/ingress.yaml.tmpl").ApplyOrFail(t)
 
 				for _, cluster := range t.Clusters() {
 					ingr := ist.IngressFor(cluster)

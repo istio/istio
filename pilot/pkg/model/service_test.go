@@ -15,7 +15,12 @@
 package model
 
 import (
+	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	fuzz "github.com/google/gofuzz"
 
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
@@ -291,5 +296,17 @@ func BenchmarkServiceDeepCopy(b *testing.B) {
 	}
 	for n := 0; n < b.N; n++ {
 		_ = svc1.DeepCopy()
+	}
+}
+
+func TestFuzzServiceDeepCopy(t *testing.T) {
+	fuzzer := fuzz.New()
+	originalSvc := &Service{}
+	fuzzer.Fuzz(originalSvc)
+	copied := originalSvc.DeepCopy()
+	if !reflect.DeepEqual(originalSvc, copied) {
+		cmp.AllowUnexported()
+		diff := cmp.Diff(originalSvc, copied, cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex"))
+		t.Errorf("unexpected diff %v", diff)
 	}
 }

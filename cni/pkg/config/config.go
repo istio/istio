@@ -39,6 +39,8 @@ type InstallConfig struct {
 	CNINetworkConfigFile string
 	// CNI config template string
 	CNINetworkConfig string
+	// Whether to install CNI configuration and binary files
+	CNIEnableInstall bool
 	// Whether to reinstall CNI configuration and binary files
 	CNIEnableReinstall bool
 
@@ -121,6 +123,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")
 	b.WriteString("CNINetworkConfigFile: " + c.CNINetworkConfigFile + "\n")
 	b.WriteString("CNINetworkConfig: " + c.CNINetworkConfig + "\n")
+	b.WriteString("CNIEnableInstall: " + fmt.Sprint(c.CNIEnableInstall) + "\n")
 	b.WriteString("CNIEnableReinstall: " + fmt.Sprint(c.CNIEnableReinstall) + "\n")
 
 	b.WriteString("LogLevel: " + c.LogLevel + "\n")

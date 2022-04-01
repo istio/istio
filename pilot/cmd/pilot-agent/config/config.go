@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -56,13 +56,13 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	}
 	proxyConfig := mesh.DefaultProxyConfig()
 	if meshConfig.DefaultConfig != nil {
-		proxyConfig = *meshConfig.DefaultConfig
+		proxyConfig = meshConfig.DefaultConfig
 	}
 
 	if concurrency != 0 {
 		// If --concurrency is explicitly set, we will use that. Otherwise, use source determined by
 		// proxy config.
-		proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
+		proxyConfig.Concurrency = &wrapperspb.Int32Value{Value: int32(concurrency)}
 	}
 	if x, ok := proxyConfig.GetClusterName().(*meshconfig.ProxyConfig_ServiceCluster); ok {
 		if x.ServiceCluster == "" {
@@ -79,10 +79,10 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 			proxyConfig.StatsdUdpAddress = addr
 		}
 	}
-	if err := validation.ValidateMeshConfigProxyConfig(&proxyConfig); err != nil {
+	if err := validation.ValidateMeshConfigProxyConfig(proxyConfig); err != nil {
 		return nil, err
 	}
-	return applyAnnotations(&proxyConfig, annotations), nil
+	return applyAnnotations(proxyConfig, annotations), nil
 }
 
 // getMeshConfig gets the mesh config to use for proxy configuration
@@ -93,7 +93,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 //
 // Merging is done by replacement. Any fields present in the overlay will replace those existing fields, while
 // untouched fields will remain untouched. This means lists will be replaced, not appended to, for example.
-func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string, isSidecar bool) (meshconfig.MeshConfig, error) {
+func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string, isSidecar bool) (*meshconfig.MeshConfig, error) {
 	mc := mesh.DefaultMeshConfig()
 	// Gateway default should be concurrency unset (ie listen on all threads)
 	if !isSidecar {
@@ -104,27 +104,27 @@ func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string, isSi
 		log.Infof("Apply mesh config from file %v", fileOverride)
 		fileMesh, err := mesh.ApplyMeshConfig(fileOverride, mc)
 		if err != nil || fileMesh == nil {
-			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config from file [%v]: %v", fileOverride, err)
+			return nil, fmt.Errorf("failed to unmarshal mesh config from file [%v]: %v", fileOverride, err)
 		}
-		mc = *fileMesh
+		mc = fileMesh
 	}
 
 	if proxyConfigEnv != "" {
 		log.Infof("Apply proxy config from env %v", proxyConfigEnv)
 		envMesh, err := mesh.ApplyProxyConfig(proxyConfigEnv, mc)
 		if err != nil || envMesh == nil {
-			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config from environment [%v]: %v", proxyConfigEnv, err)
+			return nil, fmt.Errorf("failed to unmarshal mesh config from environment [%v]: %v", proxyConfigEnv, err)
 		}
-		mc = *envMesh
+		mc = envMesh
 	}
 
 	if annotationOverride != "" {
 		log.Infof("Apply proxy config from annotation %v", annotationOverride)
 		annotationMesh, err := mesh.ApplyProxyConfig(annotationOverride, mc)
 		if err != nil || annotationMesh == nil {
-			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config from annotation [%v]: %v", annotationOverride, err)
+			return nil, fmt.Errorf("failed to unmarshal mesh config from annotation [%v]: %v", annotationOverride, err)
 		}
-		mc = *annotationMesh
+		mc = annotationMesh
 	}
 
 	return mc, nil

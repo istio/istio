@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -546,17 +545,17 @@ spec:
 
 			// TODO(slandow) replace this with built-in framework filters (blocked by https://github.com/istio/istio/pull/31565)
 			srcMatcher := match.Or(
-				match.NamespacedName(model.NamespacedName{
+				match.ServiceName(echo.NamespacedName{
 					Name:      util.NakedSvc,
-					Namespace: ns.Name(),
+					Namespace: ns,
 				}),
-				match.NamespacedName(model.NamespacedName{
+				match.ServiceName(echo.NamespacedName{
 					Name:      util.BSvc,
-					Namespace: ns.Name(),
+					Namespace: ns,
 				}),
-				match.NamespacedName(model.NamespacedName{
+				match.ServiceName(echo.NamespacedName{
 					Name:      util.VMSvc,
-					Namespace: ns.Name(),
+					Namespace: ns,
 				}))
 			for _, tc := range cases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
@@ -616,7 +615,7 @@ spec:
 									"IP": to.WorkloadsOrFail(t)[0].Address(),
 								},
 							), ns.Name())
-							return t.ConfigIstio().YAML(cfg, fakesvc).Apply(ns.Name())
+							return t.ConfigIstio().YAML(ns.Name(), cfg, fakesvc).Apply()
 						}).
 						FromMatch(srcMatcher).
 						ConditionallyTo(echotest.ReachableDestinations).
@@ -624,9 +623,9 @@ spec:
 							echotest.SingleSimplePodServiceAndAllSpecial(),
 							echotest.FilterMatch(match.And(
 								match.Namespace(ns.Name()),
-								match.IsNotHeadless,
-								match.IsNotNaked,
-								match.IsNotExternal,
+								match.NotHeadless,
+								match.NotNaked,
+								match.NotExternal,
 								util.IsNotMultiversion))).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							clusterName := from.Config().Cluster.StableName()

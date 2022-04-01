@@ -17,6 +17,8 @@ package options
 import (
 	"os"
 	"testing"
+
+	"istio.io/istio/pkg/security"
 )
 
 func TestCheckGkeWorkloadCertificate(t *testing.T) {
@@ -51,7 +53,7 @@ func TestCheckGkeWorkloadCertificate(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		result := CheckGkeWorkloadCertificate(tt.paths[0], tt.paths[1], tt.paths[2])
+		result := security.CheckWorkloadCertificate(tt.paths[0], tt.paths[1], tt.paths[2])
 		if result != tt.expected {
 			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
 		}

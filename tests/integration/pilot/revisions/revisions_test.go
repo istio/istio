@@ -106,7 +106,7 @@ func TestMultiRevision(t *testing.T) {
 
 			echotest.New(t, echos).
 				ConditionallyTo(echotest.ReachableDestinations).
-				ToMatch(match.Service("server")).
+				ToMatch(match.ServiceName(echo.NamespacedName{Name: "server", Namespace: canary})).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := from.Call(echo.CallOptions{

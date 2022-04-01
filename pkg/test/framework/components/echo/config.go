@@ -23,7 +23,6 @@ import (
 	"github.com/mitchellh/copystructure"
 	"gopkg.in/yaml.v3"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
@@ -45,7 +44,7 @@ type Configurable interface {
 	Config() Config
 
 	// NamespacedName is a short form for Config().NamespacedName().
-	NamespacedName() model.NamespacedName
+	NamespacedName() NamespacedName
 
 	// PortForName is a short form for Config().Ports.MustForName().
 	PortForName(name string) Port
@@ -55,14 +54,12 @@ type VMDistro = string
 
 const (
 	UbuntuXenial VMDistro = "UbuntuXenial"
-	UbuntuFocal  VMDistro = "UbuntuFocal"
-	UbuntuBionic VMDistro = "UbuntuBionic"
-	Debian9      VMDistro = "Debian9"
-	Debian10     VMDistro = "Debian10"
+	UbuntuJammy  VMDistro = "UbuntuJammy"
+	Debian11     VMDistro = "Debian9"
 	Centos7      VMDistro = "Centos7"
-	Centos8      VMDistro = "Centos8"
+	Rockylinux8  VMDistro = "Centos8"
 
-	DefaultVMDistro = UbuntuBionic
+	DefaultVMDistro = UbuntuJammy
 )
 
 // Config defines the options for creating an Echo component.
@@ -154,10 +151,10 @@ type Config struct {
 }
 
 // NamespacedName returns the namespaced name for the service.
-func (c Config) NamespacedName() model.NamespacedName {
-	return model.NamespacedName{
+func (c Config) NamespacedName() NamespacedName {
+	return NamespacedName{
 		Name:      c.Service,
-		Namespace: c.Namespace.Name(),
+		Namespace: c.Namespace,
 	}
 }
 
@@ -249,6 +246,16 @@ func (c Config) IsVM() bool {
 func (c Config) IsDelta() bool {
 	// TODO this doesn't hold if delta is on by default
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations.Get(SidecarProxyConfig), "ISTIO_DELTA_XDS")
+}
+
+// IsRegularPod returns true if the echo pod is not any of the following:
+// - VM
+// - Naked
+// - Headless
+// - TProxy
+// - Multi-Subset
+func (c Config) IsRegularPod() bool {
+	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet() && !c.IsProxylessGRPC()
 }
 
 // DeepCopy creates a clone of IstioEndpoint.

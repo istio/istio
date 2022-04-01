@@ -77,7 +77,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	if s.kubeClient == nil {
 		// Use a default mesh.
 		meshConfig := mesh.DefaultMeshConfig()
-		s.environment.Watcher = mesh.NewFixedWatcher(&meshConfig)
+		s.environment.Watcher = mesh.NewFixedWatcher(meshConfig)
 		log.Warnf("Using default mesh - missing file %s and no k8s client", args.MeshConfigFile)
 		return
 	}

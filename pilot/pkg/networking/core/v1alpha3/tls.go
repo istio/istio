@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"reflect"
 	"sort"
 	"strings"
 
@@ -195,7 +194,8 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
 			sniHosts = []string{string(service.Hostname)}
 		}
-		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(service.Hostname))
+		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
+			model.TrafficDirectionOutbound, node, service.Hostname))
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
 			destinationCIDRs: []string{destinationCIDR},
@@ -275,7 +275,7 @@ TcpLoop:
 				// and will reject the config.
 				sort.Strings(virtualServiceDestinationSubnets)
 				sort.Strings(destinationCIDRs)
-				if reflect.DeepEqual(virtualServiceDestinationSubnets, destinationCIDRs) {
+				if util.StringSliceEqual(virtualServiceDestinationSubnets, destinationCIDRs) {
 					log.Warnf("Existing filter chain with same matching CIDR: %v.", destinationCIDRs)
 					defaultRouteAdded = true
 				}
@@ -295,7 +295,8 @@ TcpLoop:
 
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
 		statPrefix := clusterName
-		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(service.Hostname))
+		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
+			model.TrafficDirectionOutbound, node, service.Hostname))
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
 			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)

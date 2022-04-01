@@ -87,16 +87,16 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: http2
+  name: http-not-selected
   namespace: default
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: RouteAdmitted
-      status: "True"
+      message: no hostnames matched parent hostname "*.domain.example"
+      reason: InvalidParentReference
+      status: "False"
       type: Accepted
     controllerName: istio.io/gateway-controller
     parentRef:
@@ -107,7 +107,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: redirect
+  name: http2
   namespace: default
 spec: null
 status:
@@ -147,16 +147,16 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: http-not-selected
+  name: redirect
   namespace: default
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: no hostnames matched parent hostname "*.domain.example"
-      reason: InvalidParentReference
-      status: "False"
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
       type: Accepted
     controllerName: istio.io/gateway-controller
     parentRef:

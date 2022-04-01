@@ -69,7 +69,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			configs := make(map[string]string)
 			t.ConditionalCleanup(func() {
 				for _, config := range configs {
-					_ = t.ConfigIstio().YAML(config).Delete("istio-system")
+					_ = t.ConfigIstio().YAML("istio-system", config).Delete()
 				}
 			})
 
@@ -122,7 +122,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			}
 			instances := builder.BuildOrFail(t)
 			// add an existing pod from apps to the rotation to avoid an extra deployment
-			instances = append(instances, apps.PodA[0])
+			instances = append(instances, apps.A[0])
 
 			testAllEchoCalls(t, instances)
 		})
@@ -169,7 +169,7 @@ func installRevisionOrFail(t framework.TestContext, version string, configs map[
 		t.Fatalf("could not read installation config: %v", err)
 	}
 	configs[version] = config
-	if err := t.ConfigIstio().YAML(config).Apply(i.Settings().SystemNamespace, resource.NoCleanup); err != nil {
+	if err := t.ConfigIstio().YAML(i.Settings().SystemNamespace, config).Apply(resource.NoCleanup); err != nil {
 		t.Fatal(err)
 	}
 }

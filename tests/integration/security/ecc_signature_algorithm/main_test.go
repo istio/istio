@@ -100,12 +100,12 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	apps.Client, err = match.Service("client").First(echos)
+	apps.Client, err = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: apps.Namespace}).First(echos)
 	if err != nil {
 		return err
 	}
 
-	apps.Server, err = match.Service("server").First(echos)
+	apps.Server, err = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: apps.Namespace}).First(echos)
 	if err != nil {
 		return err
 	}

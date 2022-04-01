@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -26,9 +26,9 @@ import (
 )
 
 func TestEnvoyArgs(t *testing.T) {
-	proxyConfig := model.NodeMetaProxyConfig(mesh.DefaultProxyConfig())
+	proxyConfig := (*model.NodeMetaProxyConfig)(mesh.DefaultProxyConfig())
 	proxyConfig.ClusterName = &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: "my-cluster"}
-	proxyConfig.Concurrency = &types.Int32Value{Value: 8}
+	proxyConfig.Concurrency = &wrapperspb.Int32Value{Value: 8}
 
 	cfg := ProxyConfig{
 		LogLevel:               "trace",

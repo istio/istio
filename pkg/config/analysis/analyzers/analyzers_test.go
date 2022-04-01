@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type message struct {
@@ -725,18 +726,17 @@ func TestAnalyzersInAll(t *testing.T) {
 func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	g := NewWithT(t)
 
-	existingNames := make(map[string]struct{})
+	existingNames := sets.New()
 	for _, a := range All() {
 		n := a.Metadata().Name
-		_, ok := existingNames[n]
 		// TODO (Nino-K): remove this condition once metadata is clean up
-		if ok == true && n == "schema.ValidationAnalyzer.ServiceEntry" {
+		if existingNames.Contains(n) && n == "schema.ValidationAnalyzer.ServiceEntry" {
 			continue
 		}
-		g.Expect(ok).To(BeFalse(), fmt.Sprintf("Analyzer name %q is used more than once. "+
+		g.Expect(existingNames.Contains(n)).To(BeFalse(), fmt.Sprintf("Analyzer name %q is used more than once. "+
 			"Analyzers should be registered in All() exactly once and have a unique name.", n))
 
-		existingNames[n] = struct{}{}
+		existingNames.Insert(n)
 	}
 }
 

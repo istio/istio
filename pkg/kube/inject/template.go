@@ -19,20 +19,19 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"reflect"
 	"strconv"
 	"strings"
 	"text/template"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -74,12 +73,8 @@ func env(key string, def string) string {
 	return val
 }
 
-func formatDuration(in *types.Duration) string {
-	dur, err := types.DurationFromProto(in)
-	if err != nil {
-		return "1s"
-	}
-	return dur.String()
+func formatDuration(in *durationpb.Duration) string {
+	return in.AsDuration().String()
 }
 
 func isset(m map[string]string, key string) bool {
@@ -269,8 +264,7 @@ func protoToJSON(v proto.Message) string {
 		return "{}"
 	}
 
-	m := jsonpb.Marshaler{}
-	ba, err := m.MarshalToString(v)
+	ba, err := protomarshal.ToJSON(v)
 	if err != nil {
 		log.Warnf("Unable to marshal %v: %v", v, err)
 		return "{}"
@@ -287,7 +281,7 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if !ok || originalProxyConfig == nil {
 		return msg
 	}
-	pc := *originalProxyConfig
+	pc := proto.Clone(originalProxyConfig).(*meshconfig.ProxyConfig)
 	defaults := mesh.DefaultProxyConfig()
 	if pc.ConfigPath == defaults.ConfigPath {
 		pc.ConfigPath = ""
@@ -303,25 +297,26 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 			pc.ClusterName = nil
 		}
 	}
-	if reflect.DeepEqual(pc.DrainDuration, defaults.DrainDuration) {
+
+	if proto.Equal(pc.DrainDuration, defaults.DrainDuration) {
 		pc.DrainDuration = nil
 	}
-	if reflect.DeepEqual(pc.TerminationDrainDuration, defaults.TerminationDrainDuration) {
+	if proto.Equal(pc.TerminationDrainDuration, defaults.TerminationDrainDuration) {
 		pc.TerminationDrainDuration = nil
 	}
-	if reflect.DeepEqual(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
+	if proto.Equal(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
 		pc.ParentShutdownDuration = nil
 	}
 	if pc.DiscoveryAddress == defaults.DiscoveryAddress {
 		pc.DiscoveryAddress = ""
 	}
-	if reflect.DeepEqual(pc.EnvoyMetricsService, defaults.EnvoyMetricsService) {
+	if proto.Equal(pc.EnvoyMetricsService, defaults.EnvoyMetricsService) {
 		pc.EnvoyMetricsService = nil
 	}
-	if reflect.DeepEqual(pc.EnvoyAccessLogService, defaults.EnvoyAccessLogService) {
+	if proto.Equal(pc.EnvoyAccessLogService, defaults.EnvoyAccessLogService) {
 		pc.EnvoyAccessLogService = nil
 	}
-	if reflect.DeepEqual(pc.Tracing, defaults.Tracing) {
+	if proto.Equal(pc.Tracing, defaults.Tracing) {
 		pc.Tracing = nil
 	}
 	if pc.ProxyAdminPort == defaults.ProxyAdminPort {
@@ -333,11 +328,11 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if pc.StatusPort == defaults.StatusPort {
 		pc.StatusPort = 0
 	}
-	if reflect.DeepEqual(pc.Concurrency, defaults.Concurrency) {
+	if proto.Equal(pc.Concurrency, defaults.Concurrency) {
 		pc.Concurrency = nil
 	}
 	if len(pc.ProxyMetadata) == 0 {
 		pc.ProxyMetadata = nil
 	}
-	return proto.Message(&pc)
+	return proto.Message(pc)
 }

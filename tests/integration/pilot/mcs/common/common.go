@@ -78,11 +78,11 @@ func InstallMCSCRDs(t resource.Context) error {
 
 			// Add/Update the CRD in this cluster...
 			if t.Settings().NoCleanup {
-				if err := t.ConfigKube(c).YAML(crdYAML).Apply("", resource.NoCleanup); err != nil {
+				if err := t.ConfigKube(c).YAML("", crdYAML).Apply(resource.NoCleanup); err != nil {
 					return err
 				}
 			} else {
-				if err := t.ConfigKube(c).YAML(crdYAML).Apply(""); err != nil {
+				if err := t.ConfigKube(c).YAML("", crdYAML).Apply(); err != nil {
 					return err
 				}
 			}
@@ -106,7 +106,7 @@ func isCRDInstalled(c cluster.Cluster, crdName string, version string) bool {
 }
 
 type EchoDeployment struct {
-	Namespace string
+	Namespace namespace.Instance
 	echo.Instances
 }
 
@@ -120,7 +120,7 @@ func DeployEchosFunc(nsPrefix string, d *EchoDeployment) func(t resource.Context
 		if err != nil {
 			return err
 		}
-		d.Namespace = ns.Name()
+		d.Namespace = ns
 
 		// Create echo instances in each cluster.
 		d.Instances, err = deployment.New(t).

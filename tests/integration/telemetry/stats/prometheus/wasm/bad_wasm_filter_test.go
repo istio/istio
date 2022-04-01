@@ -40,7 +40,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			// Test bad wasm remote load in only one cluster.
 			// There is no need to repeat the same testing logic in multiple clusters.
-			cltInstance := match.InCluster(t.Clusters().Default()).FirstOrFail(t, common.GetClientInstances())
+			cltInstance := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetClientInstances())
 			// Verify that echo server could return 200
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := common.SendTraffic(cltInstance); err != nil {
@@ -51,7 +51,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			t.Log("echo server returns OK, apply bad wasm remote load filter.")
 
 			// Apply bad filter config
-			t.ConfigIstio().File("testdata/bad-filter.yaml").ApplyOrFail(t, common.GetAppNamespace().Name())
+			t.ConfigIstio().File(common.GetAppNamespace().Name(), "testdata/bad-filter.yaml").ApplyOrFail(t)
 
 			// Wait until there is agent metrics for wasm download failure
 			retry.UntilSuccessOrFail(t, func() error {

@@ -77,6 +77,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validati
 	errs = appendValidation(errs, validateCORSPolicy(http.CorsPolicy))
 	errs = appendValidation(errs, validateHTTPFaultInjection(http.Fault))
 
+	// nolint: staticcheck
 	if http.MirrorPercent != nil {
 		if value := http.MirrorPercent.GetValue(); value > 100 {
 			errs = appendValidation(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))

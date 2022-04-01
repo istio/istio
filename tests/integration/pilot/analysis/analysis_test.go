@@ -20,10 +20,11 @@ package analysis
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/meta/v1alpha1"
@@ -53,7 +54,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 				Revision: "",
 				Labels:   nil,
 			})
-			t.ConfigIstio().YAML(`
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: v1
 kind: Service
 metadata:
@@ -67,9 +68,9 @@ spec:
     port: 15014
     protocol: TCP
     targetPort: 15014
-`).ApplyOrFail(t, ns.Name())
+`).ApplyOrFail(t)
 			// Apply bad config (referencing invalid host)
-			t.ConfigIstio().YAML(`
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -82,13 +83,13 @@ spec:
   - route:
     - destination: 
         host: reviews
-`).ApplyOrFail(t, ns.Name())
+`).ApplyOrFail(t)
 			// Status should report error
 			retry.UntilSuccessOrFail(t, func() error {
 				return expectVirtualServiceStatus(t, ns, true)
 			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
-			t.ConfigIstio().YAML(`
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -103,7 +104,7 @@ spec:
       protocol: HTTP
     hosts:
     - "*"
-`).ApplyOrFail(t, ns.Name())
+`).ApplyOrFail(t)
 			// Status should no longer report error
 			retry.UntilSuccessOrFail(t, func() error {
 				return expectVirtualServiceStatus(t, ns, false)
@@ -123,14 +124,14 @@ func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 			})
 
 			// create WorkloadEntry
-			t.ConfigIstio().YAML(`
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadEntry
 metadata:
   name: vm-1
 spec:
   address: 127.0.0.1
-`).ApplyOrFail(t, ns.Name())
+`).ApplyOrFail(t)
 
 			retry.UntilSuccessOrFail(t, func() error {
 				// we should expect an empty array not nil
@@ -232,7 +233,7 @@ func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, 
 		t.Fatalf("unexpected test failure: can't get virtualservice: %v", err)
 	}
 
-	status := x.Status
+	status := &x.Status
 
 	if hasError {
 		if len(status.ValidationMessages) < 1 {
@@ -289,7 +290,7 @@ func expectWorkloadEntryStatus(t framework.TestContext, ns namespace.Instance, e
 		}
 	}
 
-	if !reflect.DeepEqual(statusConds, expectedConds) {
+	if !cmp.Equal(statusConds, expectedConds, protocmp.Transform()) {
 		return fmt.Errorf("expected conditions %v got %v", expectedConds, statusConds)
 	}
 	return nil

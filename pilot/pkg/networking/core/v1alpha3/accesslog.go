@@ -29,14 +29,12 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	pbtypes "github.com/gogo/protobuf/types"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
@@ -360,14 +358,9 @@ func buildFileAccessTextLogFormat(text string) (*fileaccesslog.FileAccessLog_Log
 
 func buildFileAccessJSONLogFormat(
 	logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
-	jsonLogStruct := &structpb.Struct{}
+	jsonLogStruct := EnvoyJSONLogFormatIstio
 	if logFormat.Labels != nil {
-		if err := xds.GogoStructToMessage(logFormat.Labels, jsonLogStruct, false); err != nil {
-			log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
-			jsonLogStruct = EnvoyJSONLogFormatIstio
-		}
-	} else {
-		jsonLogStruct = EnvoyJSONLogFormatIstio
+		jsonLogStruct = logFormat.Labels
 	}
 
 	// allow default behavior when no labels supplied.
@@ -511,7 +504,7 @@ func buildOpenTelemetryLogHelper(pushCtx *model.PushContext,
 		f = provider.LogFormat.Text
 	}
 
-	var labels *pbtypes.Struct
+	var labels *structpb.Struct
 	if provider.LogFormat != nil {
 		labels = provider.LogFormat.Labels
 	}
@@ -524,7 +517,7 @@ func buildOpenTelemetryLogHelper(pushCtx *model.PushContext,
 	}
 }
 
-func buildOpenTelemetryAccessLogConfig(logName, clusterName, format string, labels *pbtypes.Struct) *otelaccesslog.OpenTelemetryAccessLogConfig {
+func buildOpenTelemetryAccessLogConfig(logName, clusterName, format string, labels *structpb.Struct) *otelaccesslog.OpenTelemetryAccessLogConfig {
 	cfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: logName,
@@ -557,7 +550,7 @@ func buildOpenTelemetryAccessLogConfig(logName, clusterName, format string, labe
 	return cfg
 }
 
-func convertStructToAttributeKeyValues(labels map[string]*pbtypes.Value) []*otlpcommon.KeyValue {
+func convertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otlpcommon.KeyValue {
 	if len(labels) == 0 {
 		return nil
 	}

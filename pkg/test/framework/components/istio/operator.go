@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"
@@ -53,7 +54,6 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -201,7 +201,7 @@ func (i *operatorComponent) Close() error {
 func (i *operatorComponent) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 	scopes.Framework.Infof("clean up cluster %s", c.Name())
 	errG.Go(func() (err error) {
-		if e := i.ctx.ConfigKube(c).YAML(removeCRDsSlice(i.installManifest[c.Name()])).Delete(""); e != nil {
+		if e := i.ctx.ConfigKube(c).YAML("", removeCRDsSlice(i.installManifest[c.Name()])).Delete(); e != nil {
 			err = multierror.Append(err, e)
 		}
 		// Cleanup all secrets and configmaps - these are dynamically created by tests and/or istiod so they are not captured above
@@ -346,7 +346,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			return installControlPlaneCluster(s, i, cfg, c, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec)
 		})
 	}
-	if err := errG.Wait(); err != nil {
+	if err := errG.Wait().ErrorOrNil(); err != nil {
 		scopes.Framework.Errorf("one or more errors occurred installing control-plane clusters: %v", err)
 		return i, err
 	}
@@ -486,37 +486,21 @@ func initIOPFile(s *resource.Settings, cfg Config, iopFile string, valuesYaml st
 	operatorYaml := cfg.IstioOperatorConfigYAML(s, valuesYaml)
 
 	operatorCfg := &pkgAPI.IstioOperator{}
-	if err := gogoprotomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
+	if err := yaml.Unmarshal([]byte(operatorYaml), operatorCfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
 	}
-	values := &pkgAPI.Values{}
-	if operatorCfg.Spec.Values != nil {
-		valuesJSON, err := gogoprotomarshal.ToJSON(operatorCfg.Spec.Values)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal base values: %v", err)
-		}
-		if err := gogoprotomarshal.ApplyJSON(valuesJSON, values); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal base values: %v", err)
-		}
-	}
-
-	valuesMap, err := gogoprotomarshal.ToStruct(values)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert values to json map: %v", err)
-	}
-	operatorCfg.Spec.Values = valuesMap
 
 	// marshaling entire operatorCfg causes panic because of *time.Time in ObjectMeta
-	out, err := gogoprotomarshal.ToYAML(operatorCfg.Spec)
+	outb, err := yaml.Marshal(operatorCfg.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed marshaling iop spec: %v", err)
 	}
 
-	out = fmt.Sprintf(`
+	out := fmt.Sprintf(`
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-%s`, Indent(out, "  "))
+%s`, Indent(string(outb), "  "))
 
 	if err := os.WriteFile(iopFile, []byte(out), os.ModePerm); err != nil {
 		return nil, fmt.Errorf("failed to write iop: %v", err)
@@ -829,7 +813,7 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", c.Name(), err)
 	}
-	if err := ctx.ConfigKube(clusters...).YAML(secret).Apply(cfg.SystemNamespace, resource.NoCleanup); err != nil {
+	if err := ctx.ConfigKube(clusters...).YAML(cfg.SystemNamespace, secret).Apply(resource.NoCleanup); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil

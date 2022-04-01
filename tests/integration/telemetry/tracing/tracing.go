@@ -19,6 +19,7 @@ package tracing
 
 import (
 	"fmt"
+	"strings"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -106,8 +107,14 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	client = match.ServicePrefix("client").GetMatches(echos)
-	server = match.Service("server").GetMatches(echos)
+
+	servicePrefix := func(prefix string) match.Matcher {
+		return func(i echo.Instance) bool {
+			return strings.HasPrefix(i.Config().Service, prefix)
+		}
+	}
+	client = servicePrefix("client").GetMatches(echos)
+	server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: appNsInst}).GetMatches(echos)
 	ingInst = ist.IngressFor(ctx.Clusters().Default())
 	addr, _ := ingInst.HTTPAddress()
 	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addr})

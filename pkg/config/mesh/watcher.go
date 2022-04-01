@@ -22,7 +22,7 @@ import (
 	"unsafe"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -156,8 +156,8 @@ func (w *internalWatcher) merged() *meshconfig.MeshConfig {
 		if err != nil {
 			log.Errorf("user config invalid, ignoring it %v %s", err, w.userMeshConfig)
 		} else {
-			mc = *mc1
-			log.Infof("Applied user config: %s", PrettyFormatOfMeshConfig(&mc))
+			mc = mc1
+			log.Infof("Applied user config: %s", PrettyFormatOfMeshConfig(mc))
 		}
 	}
 	if w.revMeshConfig != "" {
@@ -165,11 +165,11 @@ func (w *internalWatcher) merged() *meshconfig.MeshConfig {
 		if err != nil {
 			log.Errorf("revision config invalid, ignoring it %v %s", err, w.userMeshConfig)
 		} else {
-			mc = *mc1
-			log.Infof("Applied revision mesh config: %s", PrettyFormatOfMeshConfig(&mc))
+			mc = mc1
+			log.Infof("Applied revision mesh config: %s", PrettyFormatOfMeshConfig(mc))
 		}
 	}
-	return &mc
+	return mc
 }
 
 // HandleMeshConfig calls all handlers for a given mesh configuration update. This must be called
@@ -225,6 +225,6 @@ func addFileWatcher(fileWatcher filewatcher.FileWatcher, file string, callback f
 }
 
 func PrettyFormatOfMeshConfig(meshConfig *meshconfig.MeshConfig) string {
-	meshConfigDump, _ := gogoprotomarshal.ToJSONWithIndent(meshConfig, "    ")
+	meshConfigDump, _ := protomarshal.ToJSONWithIndent(meshConfig, "    ")
 	return meshConfigDump
 }

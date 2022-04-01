@@ -97,7 +97,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 		Features(feature).
 		Run(func(t framework.TestContext) {
 			// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
-			t.ConfigIstio().YAML(PeerAuthenticationConfig).ApplyOrFail(t, ist.Settings().SystemNamespace)
+			t.ConfigIstio().YAML(ist.Settings().SystemNamespace, PeerAuthenticationConfig).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
 				cltInstance := cltInstance
@@ -149,7 +149,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
-				st := match.InCluster(prom.Config().Cluster).FirstOrFail(t, server)
+				st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, server)
 				prom.CallOrFail(t, echo.CallOptions{
 					Address: st.WorkloadsOrFail(t)[0].Address(),
 					Scheme:  scheme.HTTPS,
@@ -309,10 +309,10 @@ proxyMetadata:
 	for _, c := range ctx.Clusters() {
 		ingr = append(ingr, ist.IngressFor(c))
 	}
-	client = match.Service("client").GetMatches(echos)
-	server = match.Service("server").GetMatches(echos)
-	nonInjectedServer = match.Service("server-no-sidecar").GetMatches(echos)
-	mockProm = match.Service("mock-prom").GetMatches(echos)
+	client = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: appNsInst}).GetMatches(echos)
+	server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: appNsInst}).GetMatches(echos)
+	nonInjectedServer = match.ServiceName(echo.NamespacedName{Name: "server-no-sidecar", Namespace: appNsInst}).GetMatches(echos)
+	mockProm = match.ServiceName(echo.NamespacedName{Name: "mock-prom", Namespace: appNsInst}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return

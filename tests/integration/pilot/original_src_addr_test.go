@@ -35,7 +35,7 @@ func TestTproxy(t *testing.T) {
 			if t.Settings().Skip(echo.TProxy) {
 				t.Skip()
 			}
-			workloads, err := apps.PodA[0].Workloads()
+			workloads, err := apps.A[0].Workloads()
 			if err != nil {
 				t.Errorf("failed to get Subsets: %v", err)
 				return
@@ -45,7 +45,7 @@ func TestTproxy(t *testing.T) {
 			for _, w := range workloads {
 				srcIps = append(srcIps, w.Address())
 			}
-			checkOriginalSrcIP(t, apps.PodA[0], apps.PodTproxy[0], srcIps)
+			checkOriginalSrcIP(t, apps.A[0], apps.Tproxy[0], srcIps)
 		})
 }
 

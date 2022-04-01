@@ -121,8 +121,8 @@ func TestSecureNaming(t *testing.T) {
 			callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := match.And(match.InCluster(cluster), match.Namespace(testNamespace.Name())).GetMatches(apps.A)[0]
-					b := match.And(match.InCluster(cluster), match.Namespace(testNamespace.Name())).GetMatches(apps.B)[0]
+					a := match.And(match.Cluster(cluster), match.Namespace(testNamespace.Name())).GetMatches(apps.A)[0]
+					b := match.And(match.Cluster(cluster), match.Namespace(testNamespace.Name())).GetMatches(apps.B)[0]
 					t.NewSubTest("mTLS cert validation with plugin CA").
 						Run(func(t framework.TestContext) {
 							// Verify that the certificate issued to the sidecar is as expected.
@@ -171,7 +171,7 @@ func TestSecureNaming(t *testing.T) {
 						t.NewSubTest(tc.name).
 							Run(func(t framework.TestContext) {
 								dr := strings.ReplaceAll(tc.destinationRule, "NS", testNamespace.Name())
-								t.ConfigIstio().YAML(dr).ApplyOrFail(t, testNamespace.Name())
+								t.ConfigIstio().YAML(testNamespace.Name(), dr).ApplyOrFail(t)
 								// Verify mTLS works between a and b
 								opts := echo.CallOptions{
 									To: to,

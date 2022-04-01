@@ -21,8 +21,8 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -163,7 +163,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewWithT(t)
 		cluster := buildSmallClusterWithNilLocalities()
 		lbsetting := &networking.LocalityLoadBalancerSetting{
-			Enabled: &types.BoolValue{Value: false},
+			Enabled: &wrappers.BoolValue{Value: false},
 		}
 		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, lbsetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
@@ -527,8 +527,8 @@ func TestGetLocalityLbSetting(t *testing.T) {
 		{
 			"dr only override",
 			nil,
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
 		},
 		{
 			"both",
@@ -538,21 +538,21 @@ func TestGetLocalityLbSetting(t *testing.T) {
 		},
 		{
 			"mesh disabled",
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: false}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
 			nil,
 			nil,
 		},
 		{
 			"dr disabled",
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: false}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
 			nil,
 		},
 		{
 			"dr enabled override mesh disabled",
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: false}},
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
 		},
 	}
 	for _, tt := range cases {
@@ -579,7 +579,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	})
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
+		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
@@ -631,7 +631,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	})
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
+		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
@@ -688,7 +688,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 	})
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
+		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},

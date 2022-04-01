@@ -249,14 +249,14 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	apps.A = match.Service(ASvc).GetMatches(echos)
-	apps.B = match.Service(BSvc).GetMatches(echos)
-	apps.Client = match.Service("client").GetMatches(echos)
-	apps.ServerNakedFoo = match.Service("server-naked-foo").GetMatches(echos)
-	apps.ServerNakedBar = match.Service("server-naked-bar").GetMatches(echos)
-	apps.ServerNakedFooAlt = match.Service("server-naked-foo-alt").GetMatches(echos)
-	apps.Naked = match.Service("naked").GetMatches(echos)
-	apps.Server = match.Service("server").GetMatches(echos)
+	apps.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Client = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: apps.Namespace}).GetMatches(echos)
+	apps.ServerNakedFoo = match.ServiceName(echo.NamespacedName{Name: "server-naked-foo", Namespace: apps.Namespace}).GetMatches(echos)
+	apps.ServerNakedBar = match.ServiceName(echo.NamespacedName{Name: "server-naked-bar", Namespace: apps.Namespace}).GetMatches(echos)
+	apps.ServerNakedFooAlt = match.ServiceName(echo.NamespacedName{Name: "server-naked-foo-alt", Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Naked = match.ServiceName(echo.NamespacedName{Name: "naked", Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: apps.Namespace}).GetMatches(echos)
 	return nil
 }
 

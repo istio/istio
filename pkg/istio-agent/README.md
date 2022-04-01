@@ -14,6 +14,17 @@ requests to the agent, which will be forwarded to the configured discovery serve
 
 ## CA Flow
 
+istio-agent checks the presence of a socket file on the defined **socket path** `/var/run/secrets/workload-spiffe-uds/socket`.
+
+* If a socket is found, istio-agent will not start its own SDS Server and Envoy will be configured to use that socket as its source of cryptographic material.
+* If a socket is not found, istio-agent then checks whether certificate files are present or not on the defined **certificate path** `/var/run/secrets/workload-spiffe-credentials`. If certificate files are found, istio-agent will start its own SDS Server, listening and serving these certificates on the defined **socket path** `/var/run/secrets/workload-spiffe-uds/socket`,
+   while also keeping file watchers on them. Envoy proxy then connects to istio-agent's SDS Server through the defined socket path and gets the cryptographic materials of the certificate files served by the SDS API.
+* If istio-agent does not find either the socket, or the certificate files in their respective paths it will start its own SDS Server using a `caClient` to connect to istiod or an external CA, to fetch cryptographic materials (See Default CA Flow).
+
+![SDS decision flow](docs/sds-flow.svg)
+
+### Default CA Flow through istio-agent
+
 ![CA Flow](docs/ca.svg)
 
 A single SDS request from Envoy goes through a few different layers in istio-agent.

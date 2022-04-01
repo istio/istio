@@ -102,7 +102,7 @@ func TestTrustDomainValidation(t *testing.T) {
 
 			testNS := apps.Namespace
 
-			ctx.ConfigIstio().YAML(fmt.Sprintf(policy, testNS.Name())).ApplyOrFail(ctx, testNS.Name())
+			ctx.ConfigIstio().YAML(testNS.Name(), fmt.Sprintf(policy, testNS.Name())).ApplyOrFail(ctx)
 
 			trustDomains := map[string]struct {
 				cert string
@@ -123,9 +123,9 @@ func TestTrustDomainValidation(t *testing.T) {
 					// naked: only test app without sidecar, send requests from trust domain aliases
 					// client: app with sidecar, send request from cluster.local
 					// server: app with sidecar, verify requests from cluster.local or trust domain aliases
-					client := match.InCluster(cluster).FirstOrFail(t, apps.Client)
-					naked := match.InCluster(cluster).FirstOrFail(t, apps.Naked)
-					server := match.InCluster(cluster).FirstOrFail(t, apps.Server)
+					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
+					naked := match.Cluster(cluster).FirstOrFail(t, apps.Naked)
+					server := match.Cluster(cluster).FirstOrFail(t, apps.Server)
 					verify := func(ctx framework.TestContext, from echo.Instance, td, port string, s scheme.Instance, allow bool) {
 						ctx.Helper()
 						want := "allow"
