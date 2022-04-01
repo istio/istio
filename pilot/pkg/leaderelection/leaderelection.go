@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,6 +52,9 @@ const (
 	AnalyzeController           = "istio-analyze-leader"
 )
 
+// Leader election key prefix for remote istiod managed clusters
+const remoteIstiodPrefix = "^"
+
 type LeaderElection struct {
 	namespace string
 	name      string
@@ -60,6 +64,7 @@ type LeaderElection struct {
 
 	// Criteria to determine leader priority.
 	revision       string
+	remote         bool
 	prioritized    bool
 	defaultWatcher revisions.DefaultWatcher
 
@@ -119,14 +124,20 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			log.Infof("leader election lock lost: %v", l.electionID)
 		},
 	}
+
+	key := l.revision
+	if l.remote {
+		key = remoteIstiodPrefix + key
+	}
 	lock := k8sresourcelock.ConfigMapLock{
 		ConfigMapMeta: metaV1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 		Client:        l.client.CoreV1(),
 		LockConfig: k8sresourcelock.ResourceLockConfig{
 			Identity: l.name,
-			Key:      l.revision,
+			Key:      key,
 		},
 	}
+
 	config := k8sleaderelection.LeaderElectionConfig{
 		Lock:          &lock,
 		LeaseDuration: l.ttl,
@@ -141,11 +152,21 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 
 	if l.prioritized {
 		// Function to use to decide whether this revision should steal the existing lock.
-		config.KeyComparison = func(currentLeaderRevision string) bool {
+		config.KeyComparison = func(currentLeaderKey string) bool {
+			_, currentLeaderRevision, currentLeaderRemote := strings.Cut(currentLeaderKey, remoteIstiodPrefix)
+			if l.remote && !currentLeaderRemote {
+				// remote istiod should never steal from local one
+				return false
+			}
 			defaultRevision := l.defaultWatcher.GetDefault()
-			return l.revision != currentLeaderRevision &&
+			return (l.revision != currentLeaderRevision || l.remote != currentLeaderRemote) &&
 				// empty default revision indicates that there is no default set
 				defaultRevision != "" && defaultRevision == l.revision
+		}
+	} else {
+		config.KeyComparison = func(currentLeaderKey string) bool {
+			// prioritize local over remote leader
+			return strings.HasPrefix(currentLeaderKey, remoteIstiodPrefix) && !l.remote
 		}
 	}
 
@@ -160,6 +181,10 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 }
 
 func NewLeaderElection(namespace, name, electionID, revision string, client kube.Client) *LeaderElection {
+	return NewLeaderElectionMulticluster(namespace, name, electionID, revision, false, client)
+}
+
+func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
 	var watcher revisions.DefaultWatcher
 	if features.PrioritizedLeaderElection {
 		watcher = revisions.NewDefaultWatcher(client, revision)
@@ -174,6 +199,7 @@ func NewLeaderElection(namespace, name, electionID, revision string, client kube
 		client:         client,
 		electionID:     electionID,
 		revision:       revision,
+		remote:         remote,
 		prioritized:    features.PrioritizedLeaderElection,
 		defaultWatcher: watcher,
 		// Default to a 30s ttl. Overridable for tests

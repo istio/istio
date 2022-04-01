@@ -38,6 +38,14 @@ func createElection(t *testing.T,
 	watcher revisions.DefaultWatcher,
 	prioritized, expectLeader bool,
 	client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
+	return createElectionMulticluster(t, name, revision, false, watcher, prioritized, expectLeader, client, fns...)
+}
+
+func createElectionMulticluster(t *testing.T,
+	name string, revision string, remote bool,
+	watcher revisions.DefaultWatcher,
+	prioritized, expectLeader bool,
+	client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
 	t.Helper()
 	l := &LeaderElection{
 		namespace:      "ns",
@@ -45,6 +53,7 @@ func createElection(t *testing.T,
 		electionID:     testLock,
 		client:         client,
 		revision:       revision,
+		remote:         remote,
 		prioritized:    prioritized,
 		defaultWatcher: watcher,
 		ttl:            time.Second,
@@ -125,6 +134,38 @@ func TestPrioritizedLeaderElection(t *testing.T) {
 	_, stop7 := createElection(t, "pod5", "red", watcher, false, false, client)
 	close(stop6)
 	close(stop7)
+}
+
+func TestMulticlusterLeaderElection(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	watcher := &fakeDefaultWatcher{}
+	// First remote pod becomes the leader
+	_, stop := createElectionMulticluster(t, "pod1", "", true, watcher, false, true, client)
+	// A new local pod takes over as leader
+	_, stop2 := createElectionMulticluster(t, "pod2", "", false, watcher, false, true, client)
+	// A new remote pod cannot become leader
+	_, stop3 := createElectionMulticluster(t, "pod3", "", true, watcher, false, false, client)
+	close(stop3)
+	close(stop2)
+	close(stop)
+}
+
+func TestPrioritizedMulticlusterLeaderElection(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	watcher := &fakeDefaultWatcher{defaultRevision: "red"}
+
+	// First pod, revision "green" becomes the remote leader
+	_, stop := createElectionMulticluster(t, "pod1", "green", true, watcher, true, true, client)
+	// Second pod, revision "red", steals the leader lock from "green" since it is the default revision
+	_, stop2 := createElectionMulticluster(t, "pod2", "red", true, watcher, true, true, client)
+	// Third pod with revision "red" comes in and can take the lock since it is a local revision "red"
+	_, stop3 := createElectionMulticluster(t, "pod3", "red", false, watcher, true, true, client)
+	// Fourth pod with revision "red" cannot take the lock since it is remote
+	_, stop4 := createElectionMulticluster(t, "pod4", "red", true, watcher, true, false, client)
+	close(stop4)
+	close(stop3)
+	close(stop2)
+	close(stop)
 }
 
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {
