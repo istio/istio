@@ -313,8 +313,8 @@ func (c *Controller) namespaceEvent(oldObj interface{}, newObj interface{}) {
 	// First, find all the label keys on the old/new namespace. We include NamespaceNameLabel
 	// since we have special logic to always allow this on namespace.
 	touchedNamespaceLabels := sets.New(NamespaceNameLabel)
-	touchedNamespaceLabels.Insert(getLabelKeys(oldObj)...)
-	touchedNamespaceLabels.Insert(getLabelKeys(newObj)...)
+	touchedNamespaceLabels.InsertAll(getLabelKeys(oldObj)...)
+	touchedNamespaceLabels.InsertAll(getLabelKeys(newObj)...)
 
 	// Next, we find all keys our Gateways actually reference.
 	c.stateMu.RLock()
