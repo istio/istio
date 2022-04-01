@@ -83,6 +83,8 @@ type ImagePlan struct {
 	Files []string `json:"files"`
 	// Targets list make targets that are ran and then copied into the image
 	Targets []string `json:"targets"`
+	// Base indicates if this is a base image or not
+	Base bool `json:"base"`
 }
 
 func (p ImagePlan) Dependencies() []string {
@@ -99,7 +101,7 @@ type BuildPlan struct {
 func (p BuildPlan) Targets() []string {
 	tgts := sets.New()
 	for _, img := range p.Images {
-		tgts.Insert(img.Targets...)
+		tgts.InsertAll(img.Targets...)
 	}
 	return tgts.SortedList()
 }
@@ -129,22 +131,10 @@ const (
 
 func DefaultArgs() Args {
 	// By default, we build all targets
-	// TODO find from plan
-	targets := []string{
-		"pilot",
-		"proxyv2",
-		"app",
-		"istioctl",
-		"operator",
-		"install-cni",
-
-		"app_sidecar_ubuntu_xenial",
-		"app_sidecar_ubuntu_bionic",
-		"app_sidecar_ubuntu_focal",
-		"app_sidecar_debian_9",
-		"app_sidecar_debian_10",
-		"app_sidecar_centos_8",
-		"app_sidecar_centos_7",
+	var targets []string
+	_, nonBaseImages, err := ReadPlanTargets()
+	if err == nil {
+		targets = nonBaseImages
 	}
 	if legacy, f := os.LookupEnv("DOCKER_TARGETS"); f {
 		// Allow env var config. It is a string separated list like "docker.pilot docker.proxy"

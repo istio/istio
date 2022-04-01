@@ -535,7 +535,7 @@ func (s *Server) initSDSServer() {
 				Reason: []model.TriggerReason{model.SecretTrigger},
 			})
 		})
-		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID)
+		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID, s.environment.Mesh())
 		s.multiclusterController.AddHandler(creds)
 		if ecdsGen, found := s.XDSServer.Generators[v3.ExtensionConfigurationType]; found {
 			ecdsGen.(*xds.EcdsGenerator).SetCredController(creds)

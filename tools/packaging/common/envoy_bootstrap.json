@@ -231,7 +231,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "{{ .config.ConfigPath }}/SDS"
+                    "path": "./var/run/secrets/workload-spiffe-uds/socket"
                   }
                 }
               }

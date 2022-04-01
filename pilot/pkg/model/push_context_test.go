@@ -31,6 +31,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -942,7 +943,7 @@ func TestInitPushContext(t *testing.T) {
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, consolidatedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
-			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}),
+			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, consolidatedDestRule{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
@@ -1274,12 +1275,13 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 		},
 	}
 	testCases := []struct {
-		name            string
-		proxyNs         string
-		serviceNs       string
-		serviceHostname string
-		expectedConfig  string
-		expectedPolicy  *networking.TrafficPolicy
+		name               string
+		proxyNs            string
+		serviceNs          string
+		serviceHostname    string
+		expectedConfig     string
+		expectedSourceRule []types.NamespacedName
+		expectedPolicy     *networking.TrafficPolicy
 	}{
 		{
 			name:            "merge mesh+namespace+service DR",
@@ -1287,6 +1289,11 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceNs:       "test",
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule",
+			expectedSourceRule: []types.NamespacedName{
+				{"istio-system", "meshRule"},
+				{"test", "nsRule"},
+				{"test", "svcRule"},
+			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
@@ -1313,6 +1320,10 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceNs:       "test2",
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule2",
+			expectedSourceRule: []types.NamespacedName{
+				{"istio-system", "meshRule"},
+				{"test2", "svcRule2"},
+			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
@@ -1334,6 +1345,11 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceNs:       "test2",
 			serviceHostname: testhost,
 			expectedConfig:  "drRule2",
+			expectedSourceRule: []types.NamespacedName{
+				{"istio-system", "meshRule"},
+				{"test2", "drRule2"},
+				{"test2", "svcRule2"},
+			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
@@ -1361,6 +1377,10 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceNs:       "test",
 			serviceHostname: "unknown.host",
 			expectedConfig:  "nsRule",
+			expectedSourceRule: []types.NamespacedName{
+				{"istio-system", "meshRule"},
+				{"test", "nsRule"},
+			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
@@ -1389,31 +1409,37 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceNs:       "unknown",
 			serviceHostname: "unknown.host",
 			expectedConfig:  "meshRule",
-			expectedPolicy:  meshDestinationRule.Spec.(*networking.DestinationRule).TrafficPolicy,
+			expectedSourceRule: []types.NamespacedName{
+				{"istio-system", "meshRule"},
+			},
+			expectedPolicy: meshDestinationRule.Spec.(*networking.DestinationRule).TrafficPolicy,
 		},
 	}
 
 	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2, workloadSpecificDrNamespace2})
 
 	for _, tt := range testCases {
-		mergedConfigList := ps.destinationRule(tt.proxyNs,
-			&Service{
-				Hostname: host.Name(tt.serviceHostname),
-				Attributes: ServiceAttributes{
-					Namespace: tt.serviceNs,
-				},
-			})
-		expectedConfigPresent := false
-		for _, mergedConfig := range mergedConfigList {
-			if mergedConfig.Name == tt.expectedConfig {
-				expectedConfigPresent = true
-				mergedPolicy := mergedConfig.Spec.(*networking.DestinationRule).TrafficPolicy
-				assert.Equal(t, mergedPolicy, tt.expectedPolicy)
+		t.Run(tt.name, func(t *testing.T) {
+			mergedConfigList := ps.destinationRule(tt.proxyNs,
+				&Service{
+					Hostname: host.Name(tt.serviceHostname),
+					Attributes: ServiceAttributes{
+						Namespace: tt.serviceNs,
+					},
+				})
+			expectedConfigPresent := false
+			for _, mergedConfig := range mergedConfigList {
+				if mergedConfig.rule.Name == tt.expectedConfig {
+					expectedConfigPresent = true
+					mergedPolicy := mergedConfig.rule.Spec.(*networking.DestinationRule).TrafficPolicy
+					assert.Equal(t, mergedPolicy, tt.expectedPolicy)
+					assert.Equal(t, mergedConfig.from, tt.expectedSourceRule)
+				}
 			}
-		}
-		if !expectedConfigPresent {
-			t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v but missing", tt.name, tt.expectedConfig)
-		}
+			if !expectedConfigPresent {
+				t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v but missing", tt.name, tt.expectedConfig)
+			}
+		})
 	}
 }
 
@@ -1580,8 +1606,8 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 			t.Errorf("case %s failed, %d destinationRules for host %v got %v", tt.name, tt.expectedDrCount, tt.serviceHostname, drList)
 		}
 		for i, dr := range drList {
-			if dr.Meta.Name != tt.expectedDrName[i] {
-				t.Errorf("case %s failed, destinationRuleName expected %v got %v", tt.name, tt.expectedDrName[i], dr.Meta.Name)
+			if dr.rule.Name != tt.expectedDrName[i] {
+				t.Errorf("case %s failed, destinationRuleName expected %v got %v", tt.name, tt.expectedDrName[i], dr.rule.Name)
 			}
 		}
 	}
@@ -1625,13 +1651,20 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 			},
 		},
 	}
+	expectedDestRules := []types.NamespacedName{
+		{"test", "rule1"},
+		{"test", "rule2"},
+	}
 	ps.SetDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
-	subsetsLocal := ps.destinationRuleIndex.namespaceLocal["test"].destRules[host.Name(testhost)][0].Spec.(*networking.DestinationRule).Subsets
-	subsetsExport := ps.destinationRuleIndex.exportedByNamespace["test"].destRules[host.Name(testhost)][0].Spec.(*networking.DestinationRule).Subsets
+	private := ps.destinationRuleIndex.namespaceLocal["test"].destRules[host.Name(testhost)]
+	public := ps.destinationRuleIndex.exportedByNamespace["test"].destRules[host.Name(testhost)]
+	subsetsLocal := private[0].rule.Spec.(*networking.DestinationRule).Subsets
+	subsetsExport := public[0].rule.Spec.(*networking.DestinationRule).Subsets
+	assert.Equal(t, private[0].from, expectedDestRules)
+	assert.Equal(t, public[0].from, expectedDestRules)
 	if len(subsetsLocal) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsLocal))
 	}
-
 	if len(subsetsExport) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsExport))
 	}
@@ -1859,7 +1892,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			if destRuleConfig == nil {
 				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
 			}
-			destRule := destRuleConfig.Spec.(*networking.DestinationRule)
+			destRule := destRuleConfig.rule.Spec.(*networking.DestinationRule)
 			var gotSubsets []string
 			for _, ss := range destRule.Subsets {
 				gotSubsets = append(gotSubsets, ss.Name)
