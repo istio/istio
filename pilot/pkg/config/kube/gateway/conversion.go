@@ -1213,7 +1213,7 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 		invalidListeners := []k8s.SectionName{}
 		for i, l := range kgw.Listeners {
 			i := i
-			namespaceLabelReferences.Insert(getNamespaceLabelReferences(l.AllowedRoutes)...)
+			namespaceLabelReferences.InsertAll(getNamespaceLabelReferences(l.AllowedRoutes)...)
 			server, ok := buildListener(r, obj, l, i)
 			if !ok {
 				invalidListeners = append(invalidListeners, l.Name)

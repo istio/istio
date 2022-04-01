@@ -84,7 +84,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 		for _, h := range wh.Webhooks {
 			resources[fmt.Sprintf("%v/%v", resource.Metadata.FullName.String(), h.Name)] = resource
 		}
-		revisions.Insert(revs...)
+		revisions.InsertAll(revs...)
 		return true
 	})
 
@@ -168,7 +168,7 @@ func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
 
 			for _, ls := range webhook.NamespaceSelector.MatchExpressions {
 				if ls.Key == label.IoIstioRev.Name {
-					revs.Insert(ls.Values...)
+					revs.InsertAll(ls.Values...)
 				}
 			}
 		}
@@ -179,7 +179,7 @@ func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
 
 			for _, ls := range webhook.ObjectSelector.MatchExpressions {
 				if ls.Key == label.IoIstioRev.Name {
-					revs.Insert(ls.Values...)
+					revs.InsertAll(ls.Values...)
 				}
 			}
 		}

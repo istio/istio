@@ -26,12 +26,18 @@ func NewWithLength(l int) Set {
 
 // New creates a new Set with the given items.
 func New(items ...string) Set {
-	s := make(Set, len(items))
-	return s.Insert(items...)
+	s := NewWithLength(len(items))
+	return s.InsertAll(items...)
 }
 
-// Insert adds items to the set.
-func (s Set) Insert(items ...string) Set {
+// Insert a single item to this Set.
+func (s Set) Insert(item string) Set {
+	s[item] = struct{}{}
+	return s
+}
+
+// InsertAll adds the items to this Set.
+func (s Set) InsertAll(items ...string) Set {
 	for _, item := range items {
 		s[item] = struct{}{}
 	}

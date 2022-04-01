@@ -95,7 +95,7 @@ func (s *DiscoveryServer) compareDiff(
 
 	gotDeleted := sets.New()
 	if usedDelta {
-		gotDeleted.Insert(deleted...)
+		gotDeleted.InsertAll(deleted...)
 	}
 	gotChanged := sets.New()
 	for _, v := range resp {
