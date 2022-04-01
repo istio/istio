@@ -82,79 +82,54 @@ func TestTlsVersion13Config(t *testing.T) {
 			}
 
 			// Check that TLS-1.1 is disallowed
-			err = checkTLS11Disallowed(kubeConfig, retry, apps.Namespace1, fromPod, "istio-proxy", target)
+			err = checkTLSVersion(false, "-tls1_1", kubeConfig, retry, apps.Namespace1, fromPod, "istio-proxy", target)
 			if err != nil {
-				t.Errorf("checkTLS11Disallowed() returns error: %v", err)
+				t.Errorf("Checking TLS 1.1 disallowed returns error: %v", err)
 			} else {
 				t.Logf("as expected, TLS 1.1 is disallowed")
 			}
 			// Check that TLS-1.2 is disallowed
-			err = checkTLS12Disallowed(kubeConfig, retry, apps.Namespace1, fromPod, "istio-proxy", target)
+			err = checkTLSVersion(false, "-tls1_2", kubeConfig, retry, apps.Namespace1, fromPod, "istio-proxy", target)
 			if err != nil {
-				t.Errorf("checkTLS12Disallowed() returns error: %v", err)
+				t.Errorf("Checking TLS 1.2 disallowed returns error: %v", err)
 			} else {
 				t.Logf("as expected, TLS 1.2 is disallowed")
 			}
 			// Check that TLS-1.3 is allowed
-			err = checkTLS13Allowed(kubeConfig, retry, apps.Namespace1, fromPod, "istio-proxy", target)
+			err = checkTLSVersion(true, "-tls1_3", kubeConfig, retry, apps.Namespace1, fromPod, "istio-proxy", target)
 			if err != nil {
-				t.Errorf("checkTLS13Allowed() returns error: %v", err)
+				t.Errorf("Checking TLS 1.3 allowed returns error: %v", err)
 			} else {
 				t.Logf("as expected, TLS 1.3 is allowed")
 			}
 		})
 }
 
-func checkTLS11Disallowed(kubeConfig string, retry tutil.Retrier, ns namespace.Instance, fromPod, fromContainer, connectTarget string) error {
+// Two cases:
+// 1. Check a TLS version is allowed when allow is true.
+// 2. Check a TLS version is disallowed when allow is false.
+func checkTLSVersion(allow bool, tlsVer, kubeConfig string, retry tutil.Retrier, ns namespace.Instance, fromPod, fromContainer, connectTarget string) error {
+	checkString := "Cipher is (NONE)"
+	var expResult string
+	if allow {
+		expResult = "allowed"
+	} else {
+		expResult = "disallowed"
+	}
+
 	retryFn := func(_ context.Context, i int) error {
 		execCmd := fmt.Sprintf(
-			"kubectl exec %s -c %s -n %s --kubeconfig %s -- openssl s_client -alpn istio -tls1_1 -connect %s",
-			fromPod, fromContainer, ns.Name(), kubeConfig, connectTarget)
+			"kubectl exec %s -c %s -n %s --kubeconfig %s -- openssl s_client -alpn istio %s -connect %s",
+			fromPod, fromContainer, ns.Name(), kubeConfig, tlsVer, connectTarget)
 		out, _ := shell.Execute(false, execCmd)
-		if !strings.Contains(out, "Cipher is (NONE)") {
-			return fmt.Errorf("unexpected output when checking that TLS 1.1 is disallowed: %v", out)
+		if (!allow && !strings.Contains(out, checkString)) || (allow && strings.Contains(out, checkString)) {
+			return fmt.Errorf("unexpected output when checking that %s is %s: %v", tlsVer, expResult, out)
 		}
 		return nil
 	}
 
 	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
-		return fmt.Errorf("retry of checking that TLS 1.1 is disallowed returns an err: %v", err)
-	}
-	return nil
-}
-
-func checkTLS12Disallowed(kubeConfig string, retry tutil.Retrier, ns namespace.Instance, fromPod, fromContainer, connectTarget string) error {
-	retryFn := func(_ context.Context, i int) error {
-		execCmd := fmt.Sprintf(
-			"kubectl exec %s -c %s -n %s --kubeconfig %s -- openssl s_client -alpn istio -tls1_2 -connect %s",
-			fromPod, fromContainer, ns.Name(), kubeConfig, connectTarget)
-		out, _ := shell.Execute(false, execCmd)
-		if !strings.Contains(out, "Cipher is (NONE)") {
-			return fmt.Errorf("unexpected output when checking that TLS 1.2 is disallowed: %v", out)
-		}
-		return nil
-	}
-
-	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
-		return fmt.Errorf("retry of checking that TLS 1.2 is disallowed returns an err: %v", err)
-	}
-	return nil
-}
-
-func checkTLS13Allowed(kubeConfig string, retry tutil.Retrier, ns namespace.Instance, fromPod, fromContainer, connectTarget string) error {
-	retryFn := func(_ context.Context, i int) error {
-		execCmd := fmt.Sprintf(
-			"kubectl exec %s -c %s -n %s --kubeconfig %s -- openssl s_client -alpn istio -tls1_3 -connect %s",
-			fromPod, fromContainer, ns.Name(), kubeConfig, connectTarget)
-		out, _ := shell.Execute(false, execCmd)
-		if strings.Contains(out, "Cipher is (NONE)") {
-			return fmt.Errorf("unexpected output when checking that TLS 1.3 is allowed: %v", out)
-		}
-		return nil
-	}
-
-	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
-		return fmt.Errorf("retry of checking that TLS 1.3 is allowed returns an err: %v", err)
+		return fmt.Errorf("retry of checking that %s is %s returns an err: %v", tlsVer, expResult, err)
 	}
 	return nil
 }

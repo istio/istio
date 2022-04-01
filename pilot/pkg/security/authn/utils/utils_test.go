@@ -22,7 +22,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
-func TestConfigureTLSVersion(t *testing.T) {
+func TestGetTLSVersions(t *testing.T) {
 	tests := []struct {
 		name              string
 		minTLSVer         meshconfig.MeshConfig_TLSConfig_TLSProtocol
@@ -55,13 +55,12 @@ func TestConfigureTLSVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var param tls.TlsParameters
-			configureTLSVersion(tt.minTLSVer, &param)
-			if param.TlsMinimumProtocolVersion != tt.expectedMinTLSVer ||
-				param.TlsMaximumProtocolVersion != tt.expectedMaxTLSVer {
+			minVersion, maxVersion := getTLSVersions(tt.minTLSVer)
+			if minVersion != tt.expectedMinTLSVer ||
+				maxVersion != tt.expectedMaxTLSVer {
 				t.Errorf("unexpected result: expected min ver %v got %v; "+
-					"expected max ver %v got %v", tt.expectedMinTLSVer, param.TlsMinimumProtocolVersion,
-					tt.expectedMaxTLSVer, param.TlsMaximumProtocolVersion)
+					"expected max ver %v got %v", tt.expectedMinTLSVer, minVersion,
+					tt.expectedMaxTLSVer, maxVersion)
 			}
 		})
 	}
