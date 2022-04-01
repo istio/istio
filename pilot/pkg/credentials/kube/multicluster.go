@@ -146,3 +146,19 @@ func (a *AggregateController) Authorize(serviceAccount, namespace string) error 
 func (a *AggregateController) AddEventHandler(f func(name string, namespace string)) {
 	// no ops
 }
+
+func (a *AggregateController) GetDockerCredential(name, namespace string) ([]byte, error) {
+	// Search through all clusters, find first non-empty result
+	var firstError error
+	for _, c := range a.controllers {
+		k, err := c.GetDockerCredential(name, namespace)
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+		} else {
+			return k, nil
+		}
+	}
+	return nil, firstError
+}

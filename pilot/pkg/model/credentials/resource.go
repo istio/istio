@@ -25,7 +25,7 @@ const (
 	// KubernetesSecretType is the name of a SDS secret stored in Kubernetes. Secrets here take the form
 	// kubernetes://secret-name. They will be pulled from the same namespace and cluster as the requesting proxy lives in.
 	KubernetesSecretType    = "kubernetes"
-	kubernetesSecretTypeURI = KubernetesSecretType + "://"
+	KubernetesSecretTypeURI = KubernetesSecretType + "://"
 	// KubernetesGatewaySecretType is the name of a SDS secret stored in Kubernetes, used by the gateway-api. Secrets here
 	// take the form kubernetes-gateway://namespace/name. They are pulled from the config cluster.
 	KubernetesGatewaySecretType    = "kubernetes-gateway"
@@ -54,6 +54,10 @@ func (sr SecretResource) Key() string {
 	return "sds://" + sr.Type + "/" + sr.Name + "/" + sr.Namespace + "/" + string(sr.Cluster)
 }
 
+func (sr SecretResource) KubernetesResourceName() string {
+	return fmt.Sprintf("%s://%s/%s", sr.Type, sr.Namespace, sr.Name)
+}
+
 func ToKubernetesGatewayResource(namespace, name string) string {
 	if strings.HasPrefix(name, BuiltinGatewaySecretTypeURI) {
 		return BuiltinGatewaySecretTypeURI
@@ -67,23 +71,23 @@ func ToResourceName(name string) string {
 		return "default"
 	}
 	// If they explicitly defined the type, keep it
-	if strings.HasPrefix(name, kubernetesSecretTypeURI) || strings.HasPrefix(name, kubernetesGatewaySecretTypeURI) {
+	if strings.HasPrefix(name, KubernetesSecretTypeURI) || strings.HasPrefix(name, kubernetesGatewaySecretTypeURI) {
 		return name
 	}
 	// Otherwise, to kubernetes://
-	return kubernetesSecretTypeURI + name
+	return KubernetesSecretTypeURI + name
 }
 
 // ParseResourceName parses a raw resourceName string.
 func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster cluster.ID, configCluster cluster.ID) (SecretResource, error) {
 	sep := "/"
-	if strings.HasPrefix(resourceName, kubernetesSecretTypeURI) {
+	if strings.HasPrefix(resourceName, KubernetesSecretTypeURI) {
 		// Valid formats:
 		// * kubernetes://secret-name
 		// * kubernetes://secret-namespace/secret-name
 		// If namespace is not set, we will fetch from the namespace of the proxy. The secret will be read from
 		// the cluster the proxy resides in. This mirrors the legacy behavior mounting a secret as a file
-		res := strings.TrimPrefix(resourceName, kubernetesSecretTypeURI)
+		res := strings.TrimPrefix(resourceName, KubernetesSecretTypeURI)
 		split := strings.Split(res, sep)
 		namespace := proxyNamespace
 		name := split[0]

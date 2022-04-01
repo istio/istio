@@ -268,7 +268,7 @@ func TestWasmCache(t *testing.T) {
 				}
 			}
 
-			gotFilePath, gotErr := cache.Get(c.fetchURL, c.checksum, c.requestTimeout)
+			gotFilePath, gotErr := cache.Get(c.fetchURL, c.checksum, c.requestTimeout, []byte{})
 			if cacheHitKey != nil {
 				cache.mux.Lock()
 				if entry, ok := cache.modules[*cacheHitKey]; ok && entry.last == initTime {
@@ -379,7 +379,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 
 	// Get wasm module three times, since checksum is not specified, it will be fetched from module server every time.
 	// 1st time
-	gotFilePath, err := cache.Get(ts.URL, "", 0)
+	gotFilePath, err := cache.Get(ts.URL, "", 0, []byte{})
 	if err != nil {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}
@@ -388,7 +388,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 	}
 
 	// 2nd time
-	gotFilePath, err = cache.Get(ts.URL, "", 0)
+	gotFilePath, err = cache.Get(ts.URL, "", 0, []byte{})
 	if err != nil {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}
@@ -397,7 +397,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 	}
 
 	// 3rd time
-	gotFilePath, err = cache.Get(ts.URL, "", 0)
+	gotFilePath, err = cache.Get(ts.URL, "", 0, []byte{})
 	if err != nil {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}

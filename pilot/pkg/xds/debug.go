@@ -640,6 +640,13 @@ func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
 			return nil, err
 		}
+		// Redact Wasm secret env variable.
+		vmenvs := w.GetConfig().GetVmConfig().EnvironmentVariables
+		if vmenvs != nil {
+			if _, found := vmenvs.KeyValues[model.WasmSecretEnv]; found {
+				vmenvs.KeyValues[model.WasmSecretEnv] = "<Redacted>"
+			}
+		}
 		return w, nil
 	}
 

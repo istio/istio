@@ -19,16 +19,19 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -46,9 +49,8 @@ func TestImageFetcherOption_useDefaultKeyChain(t *testing.T) {
 		exp  bool
 	}{
 		{name: "default key chain", exp: true},
-		{name: "missing username", opt: ImageFetcherOption{Password: "pass"}, exp: true},
-		{name: "missing password", opt: ImageFetcherOption{Username: "name"}, exp: true},
-		{name: "use basic auth", opt: ImageFetcherOption{Username: "name", Password: "pass"}},
+		{name: "use secret config", opt: ImageFetcherOption{PullSecret: []byte("secret")}},
+		{name: "missing secret", opt: ImageFetcherOption{}, exp: true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -610,4 +612,31 @@ func TestExtractWasmPluginBinary(t *testing.T) {
 			t.Errorf("extractWasmPluginBinary must fail with not found")
 		}
 	})
+}
+
+func TestWasmKeyChain(t *testing.T) {
+	dockerjson := fmt.Sprintf(`{"auths": {"test.io": {"auth": %q}}}`, encode("foo", "bar"))
+	keyChain := wasmKeyChain{data: []byte(dockerjson)}
+	testRegistry, _ := name.NewRegistry("test.io", name.WeakValidation)
+	keyChain.Resolve(testRegistry)
+	auth, err := keyChain.Resolve(testRegistry)
+	if err != nil {
+		t.Fatalf("Resolve() = %v", err)
+	}
+	got, err := auth.Authorization()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := &authn.AuthConfig{
+		Username: "foo",
+		Password: "bar",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
+func encode(user, pass string) string {
+	delimited := fmt.Sprintf("%s:%s", user, pass)
+	return base64.StdEncoding.EncodeToString([]byte(delimited))
 }

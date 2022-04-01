@@ -48,7 +48,8 @@ type ConfigGenerator interface {
 	BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable
 
 	// BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names. This is the ECDS output.
-	BuildExtensionConfiguration(node *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig
+	BuildExtensionConfiguration(node *model.Proxy, push *model.PushContext, extensionConfigNames []string,
+		pullSecrets map[string][]byte) []*core.TypedExtensionConfig
 
 	// MeshConfigChanged is invoked when mesh config is changed, giving a chance to rebuild any cached config.
 	MeshConfigChanged(mesh *meshconfig.MeshConfig)

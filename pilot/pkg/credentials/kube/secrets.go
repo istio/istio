@@ -84,7 +84,8 @@ func NewCredentialsController(client kube.Client, clusterID cluster.ID) *Credent
 		return informersv1.NewFilteredSecretInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 			func(options *metav1.ListOptions) {
-				// We only care about TLS certificates. Unfortunately, it is not as simple as selecting type=kubernetes.io/tls.
+				// We only care about TLS certificates and docker config for Wasm image pulling.
+				// Unfortunately, it is not as simple as selecting type=kubernetes.io/tls and type=kubernetes.io/dockerconfigjson.
 				// Because of legacy reasons and supporting an extra ca.crt, we also support generic types.
 				// Its also likely users have started to use random types and expect them to continue working.
 				// This makes the assumption we will never care about Helm secrets or SA token secrets - two common
@@ -216,6 +217,20 @@ func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, 
 		return extractRoot(k8sSecret)
 	}
 	return extractRoot(k8sSecret)
+}
+
+func (s *CredentialsController) GetDockerCredential(name, namespace string) ([]byte, error) {
+	k8sSecret, err := s.secretLister.Secrets(namespace).Get(name)
+	if err != nil || k8sSecret == nil {
+		return nil, fmt.Errorf("secret %v/%v not found", namespace, name)
+	}
+	if k8sSecret.Type != v1.SecretTypeDockerConfigJson {
+		return nil, fmt.Errorf("type of secret %v/%v is not %v", namespace, name, v1.SecretTypeDockerConfigJson)
+	}
+	if cred, found := k8sSecret.Data[v1.DockerConfigJsonKey]; found {
+		return cred, nil
+	}
+	return nil, fmt.Errorf("cannot find docker config at secret %v/%v", namespace, name)
 }
 
 func hasKeys(d map[string][]byte, keys ...string) bool {

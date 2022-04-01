@@ -365,6 +365,7 @@ func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace st
 		}
 		dumpProxyCommand(c, pod, workDir, "proxy-config.json", "pilot-agent request GET config_dump?include_eds=true")
 		dumpProxyCommand(c, pod, workDir, "proxy-clusters.txt", "pilot-agent request GET clusters")
+		dumpProxyCommand(c, pod, workDir, "proxy-stats.txt", "pilot-agent request GET stats/prometheus")
 	}
 }
 
