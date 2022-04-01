@@ -70,10 +70,12 @@ func TestGetLocalIP(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		LocalIPAddrs = tt.lipas
-		result := constructConfig()
-		if result.EnableInboundIPv6 != tt.expected {
-			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result.EnableInboundIPv6)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			LocalIPAddrs = tt.lipas
+			result := constructConfig()
+			if result.EnableInboundIPv6 != tt.expected {
+				t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result.EnableInboundIPv6)
+			}
+		})
 	}
 }
