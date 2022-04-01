@@ -152,8 +152,11 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 
 	if l.prioritized {
 		// Function to use to decide whether this revision should steal the existing lock.
-		config.KeyComparison = func(currentLeaderKey string) bool {
-			_, currentLeaderRevision, currentLeaderRemote := strings.Cut(currentLeaderKey, remoteIstiodPrefix)
+		config.KeyComparison = func(currentLeaderRevision string) bool {
+			var currentLeaderRemote bool
+			if currentLeaderRemote = strings.HasPrefix(currentLeaderRevision, remoteIstiodPrefix); currentLeaderRemote {
+				currentLeaderRevision = strings.TrimPrefix(currentLeaderRevision, remoteIstiodPrefix)
+			}
 			if l.remote && !currentLeaderRemote {
 				// remote istiod should never steal from local one
 				return false
