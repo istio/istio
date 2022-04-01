@@ -16,6 +16,7 @@ package wasm
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/tls"
@@ -23,8 +24,11 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"reflect"
 	"strings"
 
+	"github.com/docker/cli/cli/config/configfile"
+	dtypes "github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -40,15 +44,20 @@ import (
 var errWasmOCIImageDigestMismatch = errors.New("fetched image's digest does not match the expected one")
 
 type ImageFetcherOption struct {
-	Username string
-	Password string
 	// TODO(mathetake) Add signature verification stuff.
-
-	Insecure bool
+	PullSecret []byte
+	Insecure   bool
 }
 
 func (o *ImageFetcherOption) useDefaultKeyChain() bool {
-	return o.Username == "" || o.Password == ""
+	return o.PullSecret == nil
+}
+
+func (o ImageFetcherOption) String() string {
+	if o.PullSecret == nil {
+		return fmt.Sprintf("{Insecure: %v}", o.Insecure)
+	}
+	return fmt.Sprintf("{Insecure: %v, PullSecret: <redacted>}", o.Insecure)
 }
 
 type ImageFetcher struct {
@@ -63,7 +72,7 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 		// so must set the envvar when reaching this branch is expected.
 		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	} else {
-		fetchOpts = append(fetchOpts, remote.WithAuth(&authn.Basic{Username: opt.Username}))
+		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(&wasmKeyChain{data: opt.PullSecret}))
 	}
 
 	if opt.Insecure {
@@ -318,4 +327,45 @@ func extractOCIArtifactImage(img v1.Image) ([]byte, error) {
 		return nil, fmt.Errorf("could not extract wasm binary: %v", err)
 	}
 	return ret, nil
+}
+
+type wasmKeyChain struct {
+	data []byte
+}
+
+// Resolve an image reference to a credential.
+// The function code is borrowed from https://github.com/google/go-containerregistry/blob/v0.8.0/pkg/authn/keychain.go#L65,
+// by making it take dockerconfigjson directly as bytes instead of reading from files.
+func (k *wasmKeyChain) Resolve(target authn.Resource) (authn.Authenticator, error) {
+	if reflect.DeepEqual(k.data, []byte("null")) {
+		// Filter out key chain with content "null" to prevent crash at underlying docker library.
+		// Remove this check when https://github.com/docker/cli/pull/3434 is merged.
+		return nil, fmt.Errorf("")
+	}
+	reader := bytes.NewReader(k.data)
+	cf := configfile.ConfigFile{}
+	if err := cf.LoadFromReader(reader); err != nil {
+		return nil, err
+	}
+	key := target.RegistryStr()
+	if key == name.DefaultRegistry {
+		key = authn.DefaultAuthKey
+	}
+	cfg, err := cf.GetAuthConfig(key)
+	if err != nil {
+		return nil, err
+	}
+
+	empty := dtypes.AuthConfig{}
+	if cfg == empty {
+		return authn.Anonymous, nil
+	}
+	authConfig := authn.AuthConfig{
+		Username:      cfg.Username,
+		Password:      cfg.Password,
+		Auth:          cfg.Auth,
+		IdentityToken: cfg.IdentityToken,
+		RegistryToken: cfg.RegistryToken,
+	}
+	return authn.FromConfig(authConfig), nil
 }
