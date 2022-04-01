@@ -643,7 +643,7 @@ func TestGlobalUnicastIP(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var node model.Proxy
 			node.IPAddresses = tt.in
-			node.DiscoverIPVersions()
+			node.DiscoverIPMode()
 			if got := node.GlobalUnicastIP; got != tt.expect {
 				t.Errorf("GlobalUnicastIP = %v, want %v", got, tt.expect)
 			}

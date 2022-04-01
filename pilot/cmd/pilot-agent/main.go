@@ -221,7 +221,7 @@ func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *mesh
 
 func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
 	localHostAddr := localHostIPv4
-	if network.IsIPv6Proxy(proxy.IPAddresses) {
+	if proxy.IsIPv6() {
 		localHostAddr = localHostIPv6
 	}
 	stsServer, err := stsserver.NewServer(stsserver.Config{
@@ -263,6 +263,9 @@ func initProxy(args []string) (*model.Proxy, error) {
 	if podIP != nil {
 		proxy.IPAddresses = []string{podIP.String()}
 	}
+
+	// After IP addresses are set, let us discover IPMode.
+	proxy.DiscoverIPMode()
 
 	// Obtain all the IPs from the node
 	if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {

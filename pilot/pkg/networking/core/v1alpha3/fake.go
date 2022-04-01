@@ -244,7 +244,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	p.SetSidecarScope(pc)
 	p.SetServiceInstances(f.env.ServiceDiscovery)
 	p.SetGatewaysForProxy(pc)
-	p.DiscoverIPVersions()
+	p.DiscoverIPMode()
 	return p
 }
 
