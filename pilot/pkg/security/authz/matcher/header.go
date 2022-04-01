@@ -36,34 +36,22 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 	} else if strings.HasPrefix(v, "*") {
 		return &routepb.HeaderMatcher{
 			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: &matcherpb.StringMatcher{
-					MatchPattern: &matcherpb.StringMatcher_Suffix{
-						Suffix: v[1:],
-					},
-				},
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_SuffixMatch{
+				SuffixMatch: v[1:],
 			},
 		}
 	} else if strings.HasSuffix(v, "*") {
 		return &routepb.HeaderMatcher{
 			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: &matcherpb.StringMatcher{
-					MatchPattern: &matcherpb.StringMatcher_Prefix{
-						Prefix: v[:len(v)-1],
-					},
-				},
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_PrefixMatch{
+				PrefixMatch: v[:len(v)-1],
 			},
 		}
 	}
 	return &routepb.HeaderMatcher{
 		Name: k,
-		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-			StringMatch: &matcherpb.StringMatcher{
-				MatchPattern: &matcherpb.StringMatcher_Exact{
-					Exact: v,
-				},
-			},
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_ExactMatch{
+			ExactMatch: v,
 		},
 	}
 }
@@ -87,16 +75,12 @@ func HostMatcherWithRegex(k, v string) *routepb.HeaderMatcher {
 	}
 	return &routepb.HeaderMatcher{
 		Name: k,
-		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-			StringMatch: &matcherpb.StringMatcher{
-				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
-					SafeRegex: &matcherpb.RegexMatcher{
-						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
-						},
-						Regex: `(?i)` + regex,
-					},
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &matcherpb.RegexMatcher{
+				EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+					GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
 				},
+				Regex: `(?i)` + regex,
 			},
 		},
 	}
