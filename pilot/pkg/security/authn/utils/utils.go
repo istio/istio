@@ -86,11 +86,15 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 	return ctx
 }
 
-func getTLSVersions(ver meshconfig.MeshConfig_TLSConfig_TLSProtocol) (tls.TlsParameters_TlsProtocol, tls.TlsParameters_TlsProtocol) {
-	switch ver {
+func getTLSVersions(mcMinTLSVer meshconfig.MeshConfig_TLSConfig_TLSProtocol) (tls.TlsParameters_TlsProtocol, tls.TlsParameters_TlsProtocol) {
+	// The min TLS version is at least TLS 1.2.
+	minVersion := tls.TlsParameters_TLSv1_2
+	// If user configures the min TLS version to be TLS 1.3, the min TLS version will be TLS 1.3.
+	switch mcMinTLSVer {
 	case meshconfig.MeshConfig_TLSConfig_TLSV1_3:
-		return tls.TlsParameters_TLSv1_3, tls.TlsParameters_TLSv1_3
-	default:
-		return tls.TlsParameters_TLSv1_2, tls.TlsParameters_TLSv1_3
+		minVersion = tls.TlsParameters_TLSv1_3
 	}
+	// The max TLS version is configured as TLS 1.3
+	maxVersion := tls.TlsParameters_TLSv1_3
+	return minVersion, maxVersion
 }
