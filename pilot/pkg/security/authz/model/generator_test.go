@@ -17,7 +17,7 @@ package model
 import (
 	"testing"
 
-	rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -205,9 +205,8 @@ func TestGenerator(t *testing.T) {
 			value: "foo",
 			want: yamlPrincipal(t, `
          header:
-          name: x-foo
-          stringMatch:
-            exact: foo`),
+          exactMatch: foo
+          name: x-foo`),
 		},
 		{
 			name:  "requestClaimGenerator",
@@ -270,9 +269,8 @@ func TestGenerator(t *testing.T) {
 			value: "GET",
 			want: yamlPermission(t, `
          header:
-          name: :method
-          stringMatch:
-            exact: GET`),
+          exactMatch: GET
+          name: :method`),
 		},
 	}
 
@@ -280,12 +278,13 @@ func TestGenerator(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var got interface{}
 			var err error
-			if _, ok := tc.want.(*rbac.Permission); ok {
+			// nolint: gocritic
+			if _, ok := tc.want.(*rbacpb.Permission); ok {
 				got, err = tc.g.permission(tc.key, tc.value, tc.forTCP)
 				if err != nil {
 					t.Errorf("both permission and principal returned error")
 				}
-			} else if _, ok := tc.want.(*rbac.Principal); ok {
+			} else if _, ok := tc.want.(*rbacpb.Principal); ok {
 				got, err = tc.g.principal(tc.key, tc.value, tc.forTCP)
 				if err != nil {
 					t.Errorf("both permission and principal returned error")
@@ -313,18 +312,18 @@ func TestGenerator(t *testing.T) {
 	}
 }
 
-func yamlPermission(t *testing.T, yaml string) *rbac.Permission {
+func yamlPermission(t *testing.T, yaml string) *rbacpb.Permission {
 	t.Helper()
-	p := &rbac.Permission{}
+	p := &rbacpb.Permission{}
 	if err := protomarshal.ApplyYAML(yaml, p); err != nil {
 		t.Fatalf("failed to parse yaml: %s", err)
 	}
 	return p
 }
 
-func yamlPrincipal(t *testing.T, yaml string) *rbac.Principal {
+func yamlPrincipal(t *testing.T, yaml string) *rbacpb.Principal {
 	t.Helper()
-	p := &rbac.Principal{}
+	p := &rbacpb.Principal{}
 	if err := protomarshal.ApplyYAML(yaml, p); err != nil {
 		t.Fatalf("failed to parse yaml: %s", err)
 	}

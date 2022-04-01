@@ -11,22 +11,19 @@ typedConfig:
                 rules:
                 - header:
                     name: :authority
-                    stringMatch:
-                      safeRegex:
-                        googleRe2: {}
-                        regex: (?i)example\.com
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)example\.com
                 - header:
                     name: :authority
-                    stringMatch:
-                      safeRegex:
-                        googleRe2: {}
-                        regex: (?i)prefix\.example\..*
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)prefix\.example\..*
                 - header:
                     name: :authority
-                    stringMatch:
-                      safeRegex:
-                        googleRe2: {}
-                        regex: (?i).*\.example\.com
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i).*\.example\.com
                 - header:
                     name: :authority
                     presentMatch: true
@@ -35,22 +32,19 @@ typedConfig:
                   rules:
                   - header:
                       name: :authority
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: (?i)not-example\.com
+                      safeRegexMatch:
+                        googleRe2: {}
+                        regex: (?i)not-example\.com
                   - header:
                       name: :authority
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: (?i)prefix\.not-example\..*
+                      safeRegexMatch:
+                        googleRe2: {}
+                        regex: (?i)prefix\.not-example\..*
                   - header:
                       name: :authority
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: (?i).*\.not-example\.com
+                      safeRegexMatch:
+                        googleRe2: {}
+                        regex: (?i).*\.not-example\.com
                   - header:
                       name: :authority
                       presentMatch: true
