@@ -16,9 +16,11 @@ package extension
 
 import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -29,6 +31,7 @@ import (
 
 	// include for registering wasm logging scope
 	_ "istio.io/istio/pkg/wasm"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -129,7 +132,7 @@ func popAppend(list []*hcm_filter.HttpFilter,
 
 func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilter {
 	return &hcm_filter.HttpFilter{
-		Name: wasmPlugin.ExtensionConfiguration.Name,
+		Name: wasmPlugin.ResourceName,
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
@@ -142,7 +145,7 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 // InsertedExtensionConfigurations returns pre-generated extension configurations added via WasmPlugin.
 func InsertedExtensionConfigurations(
 	wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper,
-	names []string) []*envoy_config_core_v3.TypedExtensionConfig {
+	names []string, pullSecrets map[string][]byte) []*envoy_config_core_v3.TypedExtensionConfig {
 	result := make([]*envoy_config_core_v3.TypedExtensionConfig, 0)
 	if len(wasmPlugins) == 0 {
 		return result
@@ -150,10 +153,35 @@ func InsertedExtensionConfigurations(
 	hasName := sets.New(names...)
 	for _, list := range wasmPlugins {
 		for _, p := range list {
-			if !hasName.Contains(p.ExtensionConfiguration.Name) {
+			if !hasName.Contains(p.ResourceName) {
 				continue
 			}
-			result = append(result, proto.Clone(p.ExtensionConfiguration).(*envoy_config_core_v3.TypedExtensionConfig))
+			wasmExtensionConfig := proto.Clone(p.WasmExtensionConfig).(*extensionsv3.Wasm)
+			// Find the pull secret resource name from wasm vm env variables.
+			// The Wasm extension config should already have a `ISTIO_META_WASM_IMAGE_PULL_SECRET` env variable
+			// at in the VM env variables, with value being the secret resource name. We try to find the actual
+			// secret, and replace the env variable value with it. When ECDS config update reaches the proxy,
+			// agent will extract out the secret from env variable, use it for image pulling, and strip the
+			// env variable from VM config before forwarding it to envoy.
+			envs := wasmExtensionConfig.GetConfig().GetVmConfig().GetEnvironmentVariables().GetKeyValues()
+			secretName := envs[model.WasmSecretEnv]
+			if secretName != "" {
+				if sec, found := pullSecrets[secretName]; found {
+					envs[model.WasmSecretEnv] = string(sec)
+				} else {
+					envs[model.WasmSecretEnv] = ""
+				}
+			}
+			typedConfig, err := anypb.New(wasmExtensionConfig)
+			if err != nil {
+				log.Warnf("wasmplugin %s/%s failed to marshal to TypedExtensionConfig: %s", p.Namespace, p.Name, err)
+				continue
+			}
+			ec := &envoy_config_core_v3.TypedExtensionConfig{
+				Name:        p.ResourceName,
+				TypedConfig: typedConfig,
+			}
+			result = append(result, ec)
 		}
 	}
 	return result
