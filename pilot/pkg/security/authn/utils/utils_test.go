@@ -22,45 +22,38 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
-func TestGetTLSVersions(t *testing.T) {
+func TestGetMinTLSVersion(t *testing.T) {
 	tests := []struct {
 		name              string
 		minTLSVer         meshconfig.MeshConfig_TLSConfig_TLSProtocol
 		expectedMinTLSVer tls.TlsParameters_TlsProtocol
-		expectedMaxTLSVer tls.TlsParameters_TlsProtocol
 	}{
 		{
 			name:              "Default TLS versions",
 			expectedMinTLSVer: tls.TlsParameters_TLSv1_2,
-			expectedMaxTLSVer: tls.TlsParameters_TLSv1_3,
 		},
 		{
 			name:              "Configure minimum TLS version 1.2",
 			minTLSVer:         meshconfig.MeshConfig_TLSConfig_TLSV1_2,
 			expectedMinTLSVer: tls.TlsParameters_TLSv1_2,
-			expectedMaxTLSVer: tls.TlsParameters_TLSv1_3,
 		},
 		{
 			name:              "Configure minimum TLS version 1.3",
 			minTLSVer:         meshconfig.MeshConfig_TLSConfig_TLSV1_3,
 			expectedMinTLSVer: tls.TlsParameters_TLSv1_3,
-			expectedMaxTLSVer: tls.TlsParameters_TLSv1_3,
 		},
 		{
 			name:              "Configure minimum TLS version to be auto",
 			minTLSVer:         meshconfig.MeshConfig_TLSConfig_TLS_AUTO,
 			expectedMinTLSVer: tls.TlsParameters_TLSv1_2,
-			expectedMaxTLSVer: tls.TlsParameters_TLSv1_3,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			minVersion, maxVersion := getTLSVersions(tt.minTLSVer)
-			if minVersion != tt.expectedMinTLSVer ||
-				maxVersion != tt.expectedMaxTLSVer {
-				t.Errorf("unexpected result: expected min ver %v got %v; "+
-					"expected max ver %v got %v", tt.expectedMinTLSVer, minVersion,
-					tt.expectedMaxTLSVer, maxVersion)
+			minVersion := getMinTLSVersion(tt.minTLSVer)
+			if minVersion != tt.expectedMinTLSVer {
+				t.Errorf("unexpected result: expected min ver %v got %v",
+					tt.expectedMinTLSVer, minVersion)
 			}
 		})
 	}
