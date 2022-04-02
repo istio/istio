@@ -109,7 +109,7 @@ func (nc *NamespaceController) startCaBundleWatcher(stop <-chan struct{}) {
 
 // insertDataForNamespace will add data into the configmap for the specified namespace
 // If the configmap is not found, it will be created.
-// If you know the current contents of the configmap, using UpdateDataInConfigMap is more efficient.
+// If you know the current contents of the configmap, using updateDataInConfigMap is more efficient.
 func (nc *NamespaceController) insertDataForNamespace(o types.NamespacedName) error {
 	ns := o.Namespace
 	if ns == "" {

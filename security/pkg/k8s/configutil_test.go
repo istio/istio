@@ -94,7 +94,7 @@ func TestUpdateDataInConfigMap(t *testing.T) {
 				}
 			}
 			client.ClearActions()
-			err := UpdateDataInConfigMap(client.CoreV1(), tc.existingConfigMap, []byte(caBundle))
+			err := updateDataInConfigMap(client.CoreV1(), tc.existingConfigMap, []byte(caBundle))
 			if err != nil && err.Error() != tc.expectedErr {
 				t.Errorf("actual error (%s) different from expected error (%s).", err.Error(), tc.expectedErr)
 			}
