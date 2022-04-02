@@ -96,9 +96,6 @@ var (
 
 	// channel for making jwksuri request aynsc
 	jwksuriChannel = make(chan jwtKey, 5)
-
-	// stops the existing refresher logic whenever we are fetching public key
-	stopBackgroundRefresh = false
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -370,26 +367,7 @@ func (r *JwksResolver) refresher() {
 	for {
 		select {
 		case <-r.refreshTicker.C:
-			if !stopBackgroundRefresh {
-				currentHasError := r.refresh(networkFetchRetryCountOnRefreshFlow)
-				if currentHasError {
-					if lastHasError {
-						// update to exponential backoff if last time also failed.
-						r.refreshInterval *= 2
-						if r.refreshInterval > JwtPubKeyRefreshIntervalOnFailureResetThreshold {
-							r.refreshInterval = JwtPubKeyRefreshIntervalOnFailureResetThreshold
-						}
-					} else {
-						// change to the refreshIntervalOnFailure if failed for the first time.
-						r.refreshInterval = r.refreshIntervalOnFailure
-					}
-				} else {
-					// reset the refresh interval if success.
-					r.refreshInterval = r.refreshDefaultInterval
-				}
-				lastHasError = currentHasError
-				r.refreshTicker.Reset(r.refreshInterval)
-			}
+			lastHasError = r.refreshCache(networkFetchRetryCountOnRefreshFlow, lastHasError, true)
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return
@@ -397,7 +375,6 @@ func (r *JwksResolver) refresher() {
 			var jwksURI string
 			var err error
 			now := time.Now()
-			stopBackgroundRefresh = true
 			if jwtKeyData.jwksURI == "" {
 				// Fetch the jwks URI if it is not hardcoded on config.
 				jwksURI, err = r.resolveJwksURIUsingOpenID(jwtKeyData.issuer)
@@ -411,19 +388,33 @@ func (r *JwksResolver) refresher() {
 				lastRefreshedTime: now,
 				lastUsedTime:      now,
 			})
-			hasErrors := true
-			for i := 0; i < 10; i++ {
-				if !r.refresh(0) {
-					hasErrors = false
-					break
-				}
-			}
+			hasErrors := r.refreshCache(10, lastHasError, false)
 			if hasErrors {
 				log.Errorf("Failed to get public key from  %q: %q", jwtKeyData.issuer, jwtKeyData.jwksURI)
 			}
-			stopBackgroundRefresh = false
 		}
 	}
+}
+
+func (r *JwksResolver) refreshCache(retryNumber int, lastHasError bool, periodicRefresh bool) bool {
+	currentHasError := r.refresh(retryNumber)
+	if currentHasError && periodicRefresh {
+		if lastHasError {
+			// update to exponential backoff if last time also failed.
+			r.refreshInterval *= 2
+			if r.refreshInterval > JwtPubKeyRefreshIntervalOnFailureResetThreshold {
+				r.refreshInterval = JwtPubKeyRefreshIntervalOnFailureResetThreshold
+			}
+		} else {
+			// change to the refreshIntervalOnFailure if failed for the first time.
+			r.refreshInterval = r.refreshIntervalOnFailure
+		}
+	} else {
+		// reset the refresh interval if success.
+		r.refreshInterval = r.refreshDefaultInterval
+	}
+	r.refreshTicker.Reset(r.refreshInterval)
+	return currentHasError
 }
 
 func (r *JwksResolver) refresh(retryNumber int) bool {
