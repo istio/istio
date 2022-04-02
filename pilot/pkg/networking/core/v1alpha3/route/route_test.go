@@ -224,9 +224,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
-		// nolint: staticcheck
-		// Update to not use the deprecated fields later.
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
 	})
 
 	t.Run("for virtual service with regex matching on without_header", func(t *testing.T) {
@@ -238,9 +236,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
-		// nolint: staticcheck
-		// Update to not use the deprecated fields later.
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(true))
 	})
 
@@ -1678,7 +1674,6 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 }
 
 func TestCombineVHostRoutes(t *testing.T) {
-	// nolint: staticcheck
 	regexEngine := &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(10),
@@ -1713,9 +1708,11 @@ func TestCombineVHostRoutes(t *testing.T) {
 			},
 			Headers: []*envoyroute.HeaderMatcher{
 				{
-					Name:                 "foo",
-					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
-					InvertMatch:          false,
+					Name: "foo",
+					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_StringMatch{
+						StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: "bar"}},
+					},
+					InvertMatch: false,
 				},
 			},
 		}},
@@ -1747,9 +1744,11 @@ func TestCombineVHostRoutes(t *testing.T) {
 			},
 			Headers: []*envoyroute.HeaderMatcher{
 				{
-					Name:                 "foo",
-					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
-					InvertMatch:          false,
+					Name: "foo",
+					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_StringMatch{
+						StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: "bar"}},
+					},
+					InvertMatch: false,
 				},
 			},
 		}},
