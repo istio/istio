@@ -25,6 +25,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/util"
 	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/labels"
@@ -170,11 +171,14 @@ func TestIsCatchAllRoute(t *testing.T) {
 					Headers: []*route.HeaderMatcher{
 						{
 							Name: "Authentication",
-							HeaderMatchSpecifier: &route.HeaderMatcher_SafeRegexMatch{
-								SafeRegexMatch: &matcher.RegexMatcher{
-									// nolint: staticcheck
-									EngineType: &matcher.RegexMatcher_GoogleRe2{},
-									Regex:      "*",
+							HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+								StringMatch: &matcher.StringMatcher{
+									MatchPattern: &matcher.StringMatcher_SafeRegex{
+										SafeRegex: &matcher.RegexMatcher{
+											EngineType: util.RegexEngine,
+											Regex:      "*",
+										},
+									},
 								},
 							},
 						},
@@ -295,7 +299,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			{
 				MatchPattern: &matcher.StringMatcher_SafeRegex{
 					SafeRegex: &matcher.RegexMatcher{
-						EngineType: regexEngine,
+						EngineType: util.RegexEngine,
 						Regex:      "regex",
 					},
 				},
