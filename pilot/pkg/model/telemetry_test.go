@@ -137,6 +137,49 @@ func TestAccessLogging(t *testing.T) {
 			},
 		},
 	}
+
+	client := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_CLIENT,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+		},
+	}
+	server := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_SERVER,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+		},
+	}
+	serverAndClient := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_CLIENT_AND_SERVER,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+		},
+	}
 	stackdriver := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -183,6 +226,7 @@ func TestAccessLogging(t *testing.T) {
 	tests := []struct {
 		name             string
 		cfgs             []config.Config
+		class            networking.ListenerClass
 		proxy            *Proxy
 		defaultProviders []string
 		want             []string
@@ -190,6 +234,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"empty",
 			nil,
+			networking.ListenerClassUndefined,
 			sidecar,
 			nil,
 			nil,
@@ -197,6 +242,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"default provider only",
 			nil,
+			networking.ListenerClassUndefined,
 			sidecar,
 			[]string{"envoy"},
 			[]string{"envoy"},
@@ -204,6 +250,79 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"provider only",
 			[]config.Config{newTelemetry("istio-system", envoy)},
+			networking.ListenerClassUndefined,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"client - gateway",
+			[]config.Config{newTelemetry("istio-system", client)},
+			networking.ListenerClassGateway,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"client - outbound",
+			[]config.Config{newTelemetry("istio-system", client)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"client - inbound",
+			[]config.Config{newTelemetry("istio-system", client)},
+			networking.ListenerClassSidecarInbound,
+			sidecar,
+			nil,
+			nil,
+		},
+		{
+			"server - gateway",
+			[]config.Config{newTelemetry("istio-system", server)},
+			networking.ListenerClassGateway,
+			sidecar,
+			nil,
+			nil,
+		},
+		{
+			"server - inbound",
+			[]config.Config{newTelemetry("istio-system", server)},
+			networking.ListenerClassSidecarInbound,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"server - outbound",
+			[]config.Config{newTelemetry("istio-system", server)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			nil,
+		},
+		{
+			"server and client - gateway",
+			[]config.Config{newTelemetry("istio-system", serverAndClient)},
+			networking.ListenerClassGateway,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"server and client - inbound",
+			[]config.Config{newTelemetry("istio-system", serverAndClient)},
+			networking.ListenerClassSidecarInbound,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"server and client - outbound",
+			[]config.Config{newTelemetry("istio-system", serverAndClient)},
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
 			[]string{"envoy"},
@@ -211,6 +330,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"override default",
 			[]config.Config{newTelemetry("istio-system", envoy)},
+			networking.ListenerClassUndefined,
 			sidecar,
 			[]string{"stackdriver"},
 			[]string{"envoy"},
@@ -218,6 +338,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"override namespace",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", stackdriver)},
+			networking.ListenerClassUndefined,
 			sidecar,
 			nil,
 			[]string{"stackdriver"},
@@ -225,6 +346,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"empty config inherits",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", empty)},
+			networking.ListenerClassUndefined,
 			sidecar,
 			nil,
 			[]string{"envoy"},
@@ -232,6 +354,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"default envoy JSON",
 			[]config.Config{newTelemetry("istio-system", defaultJSON)},
+			networking.ListenerClassUndefined,
 			sidecar,
 			nil,
 			[]string{"envoy-json"},
@@ -239,6 +362,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"disable config",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", disabled)},
+			networking.ListenerClassUndefined,
 			sidecar,
 			nil,
 			[]string{},
@@ -246,6 +370,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"disable default",
 			[]config.Config{newTelemetry("default", disabled)},
+			networking.ListenerClassUndefined,
 			sidecar,
 			[]string{"envoy"},
 			[]string{},
@@ -253,6 +378,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"non existing",
 			[]config.Config{newTelemetry("default", nonExistant)},
+			networking.ListenerClassUndefined,
 			sidecar,
 			[]string{"envoy"},
 			[]string{},
@@ -262,7 +388,7 @@ func TestAccessLogging(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
-			al := telemetry.AccessLogging(tt.proxy, networking.ListenerClassUndefined)
+			al := telemetry.AccessLogging(tt.proxy, tt.class)
 			var got []string
 			if al != nil {
 				got = []string{} // We distinguish between nil vs empty in the test
