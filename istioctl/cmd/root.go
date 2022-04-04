@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kubectl/pkg/util/templates"
 
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/multicluster"
@@ -144,6 +145,9 @@ func GetRootCmd(args []string) *cobra.Command {
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
+		},
 		PersistentPreRunE: configureLogging,
 	}
 
@@ -178,7 +182,6 @@ debug and diagnose their Istio mesh.
 
 	kubeInjectCmd := injectCommand()
 	hideInheritedFlags(kubeInjectCmd, FlagNamespace)
-	rootCmd.AddCommand(kubeInjectCmd)
 
 	experimentalCmd := &cobra.Command{
 		Use:     "experimental",
@@ -190,39 +193,12 @@ debug and diagnose their Istio mesh.
 		xdsVersionCommand(),
 		xdsStatusCommand(),
 	}
-	debugBasedTroubleshooting := []*cobra.Command{
-		newVersionCommand(),
-		statusCommand(),
-	}
-	var debugCmdAttachmentPoint *cobra.Command
-	if viper.GetBool("PREFER-EXPERIMENTAL") {
-		legacyCmd := &cobra.Command{
-			Use:   "legacy",
-			Short: "Legacy command variants",
-		}
-		rootCmd.AddCommand(legacyCmd)
-		for _, c := range xdsBasedTroubleshooting {
-			rootCmd.AddCommand(c)
-		}
-		debugCmdAttachmentPoint = legacyCmd
-	} else {
-		debugCmdAttachmentPoint = rootCmd
-	}
 	for _, c := range xdsBasedTroubleshooting {
 		experimentalCmd.AddCommand(c)
 	}
-	for _, c := range debugBasedTroubleshooting {
-		debugCmdAttachmentPoint.AddCommand(c)
-	}
 
-	rootCmd.AddCommand(experimentalCmd)
-	rootCmd.AddCommand(proxyConfig())
-	rootCmd.AddCommand(adminCmd())
 	experimentalCmd.AddCommand(injectorCommand())
-
-	rootCmd.AddCommand(install.NewVerifyCommand())
 	experimentalCmd.AddCommand(AuthZ())
-	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(uninjectCommand())
 	experimentalCmd.AddCommand(metricsCmd())
 	experimentalCmd.AddCommand(describe())
@@ -239,59 +215,45 @@ debug and diagnose their Istio mesh.
 
 	analyzeCmd := Analyze()
 	hideInheritedFlags(analyzeCmd, FlagIstioNamespace)
-	rootCmd.AddCommand(analyzeCmd)
 
 	dashboardCmd := dashboard()
 	hideInheritedFlags(dashboardCmd, FlagNamespace, FlagIstioNamespace)
-	rootCmd.AddCommand(dashboardCmd)
 
 	manifestCmd := mesh.ManifestCmd(loggingOptions)
 	hideInheritedFlags(manifestCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
-	rootCmd.AddCommand(manifestCmd)
 
 	operatorCmd := mesh.OperatorCmd()
 	hideInheritedFlags(operatorCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
-	rootCmd.AddCommand(operatorCmd)
 
 	installCmd := mesh.InstallCmd(loggingOptions)
 	hideInheritedFlags(installCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
-	rootCmd.AddCommand(installCmd)
 
 	profileCmd := mesh.ProfileCmd(loggingOptions)
 	hideInheritedFlags(profileCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
-	rootCmd.AddCommand(profileCmd)
 
 	upgradeCmd := mesh.UpgradeCmd(loggingOptions)
 	hideInheritedFlags(upgradeCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
-	rootCmd.AddCommand(upgradeCmd)
 
 	bugReportCmd := bugreport.Cmd(loggingOptions)
 	hideInheritedFlags(bugReportCmd, FlagNamespace, FlagIstioNamespace)
-	rootCmd.AddCommand(bugReportCmd)
 
 	tagCmd := tagCommand()
 	hideInheritedFlags(tagCommand(), FlagNamespace, FlagIstioNamespace, FlagCharts)
-	rootCmd.AddCommand(tagCmd)
 
 	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
 	remoteClustersCmd := clustersCommand()
 	// leave the multicluster commands in x for backwards compat
-	rootCmd.AddCommand(remoteSecretCmd)
-	rootCmd.AddCommand(remoteClustersCmd)
 	experimentalCmd.AddCommand(remoteSecretCmd)
 	experimentalCmd.AddCommand(remoteClustersCmd)
 
-	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+	manCmd := collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
 		Section: "istioctl CLI",
 		Manual:  "Istio Control",
-	}))
+	})
 
 	validateCmd := validate.NewValidateCommand(&istioNamespace, &namespace)
 	hideInheritedFlags(validateCmd, "kubeconfig")
-	rootCmd.AddCommand(validateCmd)
-
-	rootCmd.AddCommand(optionsCommand(rootCmd))
 
 	// BFS apply the flag error function to all subcommands
 	seenCommands := make(map[*cobra.Command]bool)
@@ -314,6 +276,57 @@ debug and diagnose their Istio mesh.
 		})
 	}
 
+	filters := []string{"options"}
+	groups := templates.CommandGroups{
+		{
+			Message:  "Available Commands:",
+			Commands: []*cobra.Command{},
+		},
+	}
+
+	if viper.GetBool("PREFER-EXPERIMENTAL") {
+		legacyCmd := &cobra.Command{
+			Use:   "legacy",
+			Short: "Legacy command variants",
+		}
+		group := templates.CommandGroup{
+			Message: "Legacy Commands:",
+			Commands: []*cobra.Command{
+				legacyCmd,
+			},
+		}
+		for _, c := range xdsBasedTroubleshooting {
+			group.Commands = append(group.Commands, c)
+		}
+		groups = append(groups, group)
+	}
+
+	groups[0].Commands = append(groups[0].Commands, []*cobra.Command{
+		adminCmd(),
+		analyzeCmd,
+		seeExperimentalCmd("authz"),
+		bugReportCmd,
+		remoteSecretCmd,
+		dashboardCmd,
+		experimentalCmd,
+		installCmd,
+		kubeInjectCmd,
+		manifestCmd,
+		operatorCmd,
+		optionsCommand(),
+		profileCmd,
+		proxyConfig(),
+		statusCommand(),
+		remoteClustersCmd,
+		tagCmd,
+		upgradeCmd,
+		validateCmd,
+		install.NewVerifyCommand(),
+		newVersionCommand(),
+		manCmd,
+	}...)
+	groups.Add(rootCmd)
+	templates.ActsAsRootCommand(rootCmd, filters, groups...)
 	return rootCmd
 }
 
