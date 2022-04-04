@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+   - |
+     **Added** Auto-Sni Support.
+docs:
+   - https://docs.google.com/document/d/1pTUl-Ng3nXAWJb7UGJtalftznpxQEfID/
