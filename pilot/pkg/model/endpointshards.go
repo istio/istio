@@ -64,8 +64,6 @@ type EndpointShards struct {
 	// Due to the larger time, it is still possible that connection errors will occur while
 	// CDS is updated.
 	ServiceAccounts sets.Set
-
-	sortedKeys []ShardKey
 }
 
 // Keys gives a sorted list of keys for EndpointShards.Shards.

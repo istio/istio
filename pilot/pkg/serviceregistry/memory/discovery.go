@@ -16,11 +16,11 @@ package memory
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/cluster"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
