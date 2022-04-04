@@ -278,19 +278,11 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	// and should, therefore, not be accessed from outside the cluster.
 	isClusterLocal := b.clusterLocal
 
-	shards.Lock()
+	shards.RLock()
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output. Since
 	// len(shards) ~= number of remote clusters which isn't too large, doing this sort shouldn't be
 	// too problematic. If it becomes an issue we can cache it in the EndpointShards struct.
-	keys := make([]model.ShardKey, 0, len(shards.Shards))
-	for k := range shards.Shards {
-		keys = append(keys, k)
-	}
-	if len(keys) >= 2 {
-		sort.Slice(keys, func(i, j int) bool {
-			return keys[i] < keys[j]
-		})
-	}
+	keys := shards.Keys()
 	// The shards are updated independently, now need to filter and merge for this cluster
 	for _, shardKey := range keys {
 		endpoints := shards.Shards[shardKey]
@@ -343,7 +335,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 		}
 	}
-	shards.Unlock()
+	shards.RUnlock()
 
 	locEps := make([]*LocLbEndpointsAndOptions, 0, len(localityEpMap))
 	locs := make([]string, 0, len(localityEpMap))

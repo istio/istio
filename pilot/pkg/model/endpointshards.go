@@ -15,11 +15,13 @@
 package model
 
 import (
-	"istio.io/istio/pkg/config/schema/gvk"
+	"fmt"
+	"sort"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -40,6 +42,10 @@ type ShardKey struct {
 	Provider provider.ID
 }
 
+func (sk ShardKey) String() string {
+	return fmt.Sprintf("%s/%s", sk.Provider, sk.Cluster)
+}
+
 // EndpointShards holds the set of endpoint shards of a service. Registries update
 // individual shards incrementally. The shards are aggregated and split into
 // clusters when a push for the specific cluster is needed.
@@ -58,6 +64,26 @@ type EndpointShards struct {
 	// Due to the larger time, it is still possible that connection errors will occur while
 	// CDS is updated.
 	ServiceAccounts sets.Set
+
+	sortedKeys []ShardKey
+}
+
+// Keys gives a sorted list of keys for EndpointShards.Shards.
+// Calls to Keys should be guarded with a lock on the EndpointShards.
+func (es *EndpointShards) Keys() []ShardKey {
+	keys := make([]ShardKey, 0, len(es.Shards))
+	for k := range es.Shards {
+		keys = append(keys, k)
+	}
+	if len(keys) >= 2 {
+		sort.Slice(keys, func(i, j int) bool {
+			if keys[i].Provider == keys[j].Provider {
+				return keys[i].Cluster < keys[j].Cluster
+			}
+			return keys[i].Provider < keys[j].Provider
+		})
+	}
+	return keys
 }
 
 // EndpointIndex is a mutex protected index of endpoint shards
