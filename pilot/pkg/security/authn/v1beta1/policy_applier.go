@@ -154,13 +154,15 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *mo
 	if a.push != nil {
 		mc = a.push.Mesh
 	}
+	// Configure TLS version based on meshconfig TLS API.
+	minTLSVersion := authn_utils.GetMinTLSVersion(mc.GetMeshMTLS().GetMinProtocolVersion())
 	return plugin.MTLSSettings{
 		Port: endpointPort,
 		Mode: effectiveMTLSMode,
 		TCP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP,
-			trustDomainAliases, mc),
+			trustDomainAliases, minTLSVersion),
 		HTTP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP,
-			trustDomainAliases, mc),
+			trustDomainAliases, minTLSVersion),
 	}
 }
 

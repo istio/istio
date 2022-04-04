@@ -38,7 +38,7 @@ var SupportedCiphers = []string{
 
 // BuildInboundTLS returns the TLS context corresponding to the mTLS mode.
 func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
-	protocol networking.ListenerProtocol, trustDomainAliases []string, mc *meshconfig.MeshConfig,
+	protocol networking.ListenerProtocol, trustDomainAliases []string, minTLSVersion tls.TlsParameters_TlsProtocol,
 ) *tls.DownstreamTlsContext {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
@@ -73,15 +73,15 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
 		CipherSuites: SupportedCiphers,
 	}
-	// Configure TLS version based on meshconfig TLS API.
-	ctx.CommonTlsContext.TlsParams.TlsMinimumProtocolVersion = getMinTLSVersion(mc.GetMeshMTLS().GetMinProtocolVersion())
+	ctx.CommonTlsContext.TlsParams.TlsMinimumProtocolVersion = minTLSVersion
 	ctx.CommonTlsContext.TlsParams.TlsMaximumProtocolVersion = tls.TlsParameters_TLSv1_3
 	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{}, /*subjectAltNames*/
 		trustDomainAliases, ctx.RequireClientCertificate.Value)
 	return ctx
 }
 
-func getMinTLSVersion(ver meshconfig.MeshConfig_TLSConfig_TLSProtocol) tls.TlsParameters_TlsProtocol {
+// GetMinTLSVersion returns the minimum TLS version for workloads based on the mesh config.
+func GetMinTLSVersion(ver meshconfig.MeshConfig_TLSConfig_TLSProtocol) tls.TlsParameters_TlsProtocol {
 	switch ver {
 	case meshconfig.MeshConfig_TLSConfig_TLSV1_3:
 		return tls.TlsParameters_TLSv1_3

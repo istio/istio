@@ -50,7 +50,7 @@ func TestGetMinTLSVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			minVersion := getMinTLSVersion(tt.minTLSVer)
+			minVersion := GetMinTLSVersion(tt.minTLSVer)
 			if minVersion != tt.expectedMinTLSVer {
 				t.Errorf("unexpected result: expected min ver %v got %v",
 					tt.expectedMinTLSVer, minVersion)
