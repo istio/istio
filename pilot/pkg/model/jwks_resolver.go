@@ -256,7 +256,7 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 		}
 	}
 	if jwtPubKey == "" {
-		log.Infof("no public key present in the cache, adding the key to the cache")
+		log.Infof("no public key present in the cache, creating fake jwks")
 		// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 		// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
 		jwtPubKey = CreateFakeJwks(jwksURI)
