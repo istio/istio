@@ -15,9 +15,7 @@
 package model
 
 import (
-	"fmt"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"strings"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -31,24 +29,15 @@ type shardRegistry interface {
 	Provider() provider.ID
 }
 
-func NewShardKey(cluster cluster.ID, provider provider.ID) ShardKey {
-	return ShardKey(fmt.Sprintf("%s/%s", cluster, provider))
-}
-
 // ShardKeyFromRegistry computes the shard key based on provider type and cluster id.
 func ShardKeyFromRegistry(instance shardRegistry) ShardKey {
-	return NewShardKey(instance.Cluster(), instance.Provider())
+	return ShardKey{Cluster: instance.Cluster(), Provider: instance.Provider()}
 }
 
 // ShardKey is the key for EndpointShards made of a key with the format "cluster/provider"
-type ShardKey string
-
-func (sk ShardKey) Cluster() cluster.ID {
-	p := strings.Split(string(sk), "/")
-	if len(p) < 1 {
-		return ""
-	}
-	return cluster.ID(p[0])
+type ShardKey struct {
+	Cluster  cluster.ID
+	Provider provider.ID
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update

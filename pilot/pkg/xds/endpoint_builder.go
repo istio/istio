@@ -296,7 +296,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 		endpoints := shards.Shards[shardKey]
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (shardKey.Cluster() != b.clusterID) {
+		if isClusterLocal && (shardKey.Cluster != b.clusterID) {
 			continue
 		}
 		for _, ep := range endpoints {
