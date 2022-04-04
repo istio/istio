@@ -71,6 +71,8 @@ type EndpointShards struct {
 // Keys gives a sorted list of keys for EndpointShards.Shards.
 // Calls to Keys should be guarded with a lock on the EndpointShards.
 func (es *EndpointShards) Keys() []ShardKey {
+	// len(shards) ~= number of remote clusters which isn't too large, doing this sort frequently
+	// shouldn't be too problematic. If it becomes an issue we can cache it in the EndpointShards struct.
 	keys := make([]ShardKey, 0, len(es.Shards))
 	for k := range es.Shards {
 		keys = append(keys, k)
