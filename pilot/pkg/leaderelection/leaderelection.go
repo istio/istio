@@ -157,19 +157,11 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			if currentLeaderRemote = strings.HasPrefix(currentLeaderRevision, remoteIstiodPrefix); currentLeaderRemote {
 				currentLeaderRevision = strings.TrimPrefix(currentLeaderRevision, remoteIstiodPrefix)
 			}
-			if l.remote && !currentLeaderRemote {
-				// remote istiod should never steal from local one
-				return false
-			}
+			preferredLocation := !l.remote && currentLeaderRemote // this revison is running locally while the current one is remote
 			defaultRevision := l.defaultWatcher.GetDefault()
-			return (l.revision != currentLeaderRevision || l.remote != currentLeaderRemote) &&
+			return (l.revision != currentLeaderRevision || preferredLocation) &&
 				// empty default revision indicates that there is no default set
 				defaultRevision != "" && defaultRevision == l.revision
-		}
-	} else {
-		config.KeyComparison = func(currentLeaderKey string) bool {
-			// prioritize local over remote leader
-			return strings.HasPrefix(currentLeaderKey, remoteIstiodPrefix) && !l.remote
 		}
 	}
 

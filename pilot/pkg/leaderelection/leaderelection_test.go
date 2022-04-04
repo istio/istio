@@ -141,8 +141,8 @@ func TestMulticlusterLeaderElection(t *testing.T) {
 	watcher := &fakeDefaultWatcher{}
 	// First remote pod becomes the leader
 	_, stop := createElectionMulticluster(t, "pod1", "", true, watcher, false, true, client)
-	// A new local pod takes over as leader
-	_, stop2 := createElectionMulticluster(t, "pod2", "", false, watcher, false, true, client)
+	// A new local pod cannot become leader
+	_, stop2 := createElectionMulticluster(t, "pod2", "", false, watcher, false, false, client)
 	// A new remote pod cannot become leader
 	_, stop3 := createElectionMulticluster(t, "pod3", "", true, watcher, false, false, client)
 	close(stop3)
