@@ -623,6 +623,11 @@ func TestDeleteService(t *testing.T) {
 	}
 }
 
+var (
+	c1Key = model.ShardKey{Cluster: "c1"}
+	c2Key = model.ShardKey{Cluster: "c2"}
+)
+
 func TestUpdateServiceAccount(t *testing.T) {
 	cluster1Endppoints := []*model.IstioEndpoint{
 		{Address: "10.172.0.1", ServiceAccount: "sa1"},
@@ -637,19 +642,19 @@ func TestUpdateServiceAccount(t *testing.T) {
 	}{
 		{
 			name:      "added new endpoint",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa1"}),
 			expect:    false,
 		},
 		{
 			name:      "added new sa",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa2"}),
 			expect:    true,
 		},
 		{
 			name:     "updated endpoints address",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.5", ServiceAccount: "sa1"},
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
@@ -658,7 +663,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:     "deleted one endpoint with unique sa",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.1", ServiceAccount: "sa1"},
 			},
@@ -666,7 +671,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:     "deleted one endpoint with duplicate sa",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
 			},
@@ -674,7 +679,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:      "deleted endpoints",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: nil,
 			expect:    true,
 		},
@@ -685,8 +690,8 @@ func TestUpdateServiceAccount(t *testing.T) {
 			s := new(xds.DiscoveryServer)
 			originalEndpointsShard := &model.EndpointShards{
 				Shards: map[model.ShardKey][]*model.IstioEndpoint{
-					"c1": cluster1Endppoints,
-					"c2": {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
+					c1Key: cluster1Endppoints,
+					c2Key: {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
 				},
 				ServiceAccounts: map[string]struct{}{
 					"sa1":    {},
@@ -712,12 +717,12 @@ func TestZeroEndpointShardSA(t *testing.T) {
 	s.EndpointIndex = model.NewEndpointIndex()
 	originalEndpointsShard, _ := s.EndpointIndex.GetOrCreateEndpointShard("test", "test")
 	originalEndpointsShard.Shards = map[model.ShardKey][]*model.IstioEndpoint{
-		"c1": cluster1Endppoints,
+		c1Key: cluster1Endppoints,
 	}
 	originalEndpointsShard.ServiceAccounts = map[string]struct{}{
 		"sa1": {},
 	}
-	s.EDSCacheUpdate("c1", "test", "test", []*model.IstioEndpoint{})
+	s.EDSCacheUpdate(c1Key, "test", "test", []*model.IstioEndpoint{})
 	modifiedShard, _ := s.EndpointIndex.GetOrCreateEndpointShard("test", "test")
 	if len(modifiedShard.ServiceAccounts) != 0 {
 		t.Errorf("endpoint shard service accounts got %v want 0", len(modifiedShard.ServiceAccounts))

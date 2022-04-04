@@ -41,7 +41,6 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/sets"
 )
 
 var (
