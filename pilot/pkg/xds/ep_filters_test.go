@@ -739,18 +739,18 @@ func environment(t test.Failer, c ...config.Config) *FakeDiscoveryServer {
 func testShards() *model.EndpointShards {
 	shards := &model.EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{
 		// network1 has one endpoint in each cluster
-		model.ShardKey{Cluster: "cluster1a"}: {
+		{Cluster: "cluster1a"}: {
 			{Network: "network1", Address: "10.0.0.1"},
 		},
-		model.ShardKey{Cluster: "cluster1b"}: {
+		{Cluster: "cluster1b"}: {
 			{Network: "network1", Address: "10.0.0.2"},
 		},
 
 		// network2 has an imbalance of endpoints between its clusters
-		model.ShardKey{Cluster: "cluster2a"}: {
+		{Cluster: "cluster2a"}: {
 			{Network: "network2", Address: "20.0.0.1"},
 		},
-		model.ShardKey{Cluster: "cluster2b"}: {
+		{Cluster: "cluster2b"}: {
 			{Network: "network2", Address: "20.0.0.2"},
 			{Network: "network2", Address: "20.0.0.3"},
 		},
@@ -759,7 +759,7 @@ func testShards() *model.EndpointShards {
 
 		// network4 has a single endpoint, but not gateway so it will always
 		// be considered directly reachable.
-		model.ShardKey{Cluster: "cluster4"}: {
+		{Cluster: "cluster4"}: {
 			{Network: "network4", Address: "40.0.0.1"},
 		},
 	}}
