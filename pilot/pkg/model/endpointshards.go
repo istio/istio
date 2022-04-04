@@ -19,8 +19,8 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // shardRegistry is a simplified interface for registries that can produce a shard key
