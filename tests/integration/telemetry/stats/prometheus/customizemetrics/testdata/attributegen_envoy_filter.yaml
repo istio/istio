@@ -1,4 +1,13 @@
 {{- if .WasmRemoteLoad }}
+---
+apiVersion: v1
+data:
+  .dockerconfigjson: {{ .DockerConfigJson }}
+kind: Secret
+metadata:
+  name: regcred
+type: kubernetes.io/dockerconfigjson
+---
 apiVersion: extensions.istio.io/v1alpha1
 kind: WasmPlugin
 metadata:
@@ -9,6 +18,7 @@ spec:
     matchLabels:
       app: server
   url: {{ .AttributeGenURL }}
+  imagePullSecret: regcred
   pluginConfig:
     attributes:
     - output_attribute: istio_responseClass

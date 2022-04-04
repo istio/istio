@@ -54,8 +54,8 @@ spec:
               value: {{.Release.Namespace | quote}}
             - name: WAIT_FOR_RESOURCES_TIMEOUT
               value: {{.Values.waitForResourcesTimeout | quote}}
-            - name: WAIT_FOR_RESOURCES_TIMEOUT
-              value: {{.Values.waitForResourcesTimeout | quote}}
+            - name: REVISION
+              value: {{.Values.revision | quote}}
             - name: RENEW_DEADLINE
               value: {{.Values.renewDeadline | quote}}
       {{- with .Values.nodeSelector }}

@@ -115,11 +115,13 @@ function build_images() {
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
 
-  # use ubuntu:bionic to test vms by default
+  # use ubuntu:jammy to test vms by default
   nonDistrolessTargets="docker.app docker.app_sidecar_ubuntu_jammy "
-  if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" && "${JOB_TYPE:-presubmit}" == "postsubmit" ]]; then
+  if [[ "${JOB_TYPE:-presubmit}" == "postsubmit" ]]; then
     # We run tests across all VM types only in postsubmit
-    nonDistrolessTargets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_debian_11  docker.app_sidecar_centos_7 docker.app_sidecar_rockylinux_8 "
+    nonDistrolessTargets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_debian_11  docker.app_sidecar_centos_7 "
+    # TODO(https://github.com/istio/istio/issues/38224)
+#    nonDistrolessTargets+="docker.app_sidecar_rockylinux_8 "
   fi
   if [[ "${SELECT_TEST}" == "test.integration.operator.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
     targets+="docker.operator "

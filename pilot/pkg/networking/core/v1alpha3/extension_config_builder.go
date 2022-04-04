@@ -25,10 +25,10 @@ import (
 // BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names.
 // This is the ECDS output.
 func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
-	proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig {
+	proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string, pullSecrets map[string][]byte) []*core.TypedExtensionConfig {
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	extensions := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
 	wasmPlugins := push.WasmPlugins(proxy)
-	extensions = append(extensions, extension.InsertedExtensionConfigurations(wasmPlugins, extensionConfigNames)...)
+	extensions = append(extensions, extension.InsertedExtensionConfigurations(wasmPlugins, extensionConfigNames, pullSecrets)...)
 	return extensions
 }
