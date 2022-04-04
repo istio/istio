@@ -81,6 +81,7 @@ func (e *EndpointIndex) SetCache(cache XdsCache) {
 	e.cache = cache
 }
 
+// must be called with lock
 func (e *EndpointIndex) clearCacheForService(svc, ns string) {
 	if e.cache == nil {
 		return
@@ -108,8 +109,8 @@ func (e *EndpointIndex) Shardz() map[string]map[string]*EndpointShards {
 
 // ShardsForService returns the shards and true if they are found, or returns nil, false.
 func (e *EndpointIndex) ShardsForService(serviceName, namespace string) (*EndpointShards, bool) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	byNs, ok := e.shardsBySvc[serviceName]
 	if !ok {
 		return nil, false
@@ -158,6 +159,7 @@ func (e *EndpointIndex) DeleteShard(shardKey ShardKey) {
 	e.cache.ClearAll()
 }
 
+// must be called with lock
 func (e *EndpointIndex) deleteServiceInner(shard ShardKey, serviceName, namespace string, preserveKeys bool) {
 	if e.shardsBySvc[serviceName] == nil ||
 		e.shardsBySvc[serviceName][namespace] == nil {
@@ -176,7 +178,6 @@ func (e *EndpointIndex) deleteServiceInner(shard ShardKey, serviceName, namespac
 	}
 	// Clear the cache here to avoid race in cache writes.
 	e.clearCacheForService(serviceName, namespace)
-	epShards.Unlock()
 	if !preserveKeys {
 		if len(epShards.Shards) == 0 {
 			delete(e.shardsBySvc[serviceName], namespace)
@@ -185,4 +186,5 @@ func (e *EndpointIndex) deleteServiceInner(shard ShardKey, serviceName, namespac
 			delete(e.shardsBySvc, serviceName)
 		}
 	}
+	epShards.Unlock()
 }
