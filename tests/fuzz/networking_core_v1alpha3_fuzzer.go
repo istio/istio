@@ -121,8 +121,8 @@ func InternalFuzzbuildSidecarOutboundHTTPRouteConfig(data []byte) int {
 
 func InternalFuzzbuildSidecarInboundListeners(data []byte) int {
 	f := fuzz.NewConsumer(data)
-	proxy := model.Proxy{}
-	err := f.GenerateStruct(&proxy)
+	proxy := &model.Proxy{}
+	err := f.GenerateStruct(proxy)
 	if err != nil {
 		return 0
 	}
@@ -183,7 +183,7 @@ func InternalFuzzbuildSidecarInboundListeners(data []byte) int {
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 
 	fmt.Println("Calling our target:")
-	listeners := cg.buildSidecarInboundListeners(&proxy, env.PushContext)
+	listeners := cg.buildSidecarInboundListeners(proxy, env.PushContext)
 	_ = listeners
 	return 1
 }

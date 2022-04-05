@@ -56,8 +56,8 @@ func InternalFuzzApplyClusterMerge(data []byte) int {
 	}
 
 	// crete mesh config
-	testMesh := meshconfig.MeshConfig{}
-	err = f.GenerateStruct(&testMesh)
+	testMesh := &meshconfig.MeshConfig{}
+	err = f.GenerateStruct(testMesh)
 	if err != nil {
 		return 0
 	}
