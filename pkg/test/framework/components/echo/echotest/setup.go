@@ -17,6 +17,7 @@ package echotest
 import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 type (
@@ -44,7 +45,7 @@ func (t *T) Setup(setupFn srcSetupFn) *T {
 func (t *T) setup(ctx framework.TestContext, from echo.Callers) {
 	if !t.hasSourceSetup() {
 		ctx.SkipDumping()
-		ctx.Logf("No echotest setup; skipping test dump at this scope.")
+		scopes.Framework.Debugf("No echotest setup; skipping test dump at this scope.")
 	}
 	for _, setupFn := range t.sourceDeploymentSetup {
 		if err := setupFn(ctx, from); err != nil {
@@ -93,7 +94,7 @@ func (t *T) hasDestinationSetup() bool {
 func (t *T) setupPair(ctx framework.TestContext, from echo.Callers, dsts echo.Services) {
 	if !t.hasDestinationSetup() {
 		ctx.SkipDumping()
-		ctx.Logf("No echotest setup; skipping test dump at this scope.")
+		scopes.Framework.Debugf("No echotest setup; skipping test dump at this scope.")
 	}
 	for _, setupFn := range t.deploymentPairSetup {
 		if err := setupFn(ctx, from, dsts); err != nil {
