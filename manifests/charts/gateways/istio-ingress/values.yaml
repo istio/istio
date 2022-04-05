@@ -315,3 +315,9 @@ meshConfig:
     #        sni:               # example: tracer.somedomain
     #        subjectAltNames: []
     # - tracer.somedomain
+
+# if specified, the terminationGracePeriodSeconds value will override the default
+terminationGracePeriodSeconds: ""
+
+# if specified, the lifecyle values will override what is set for the global proxy lifecyle values
+lifecycle: {}
