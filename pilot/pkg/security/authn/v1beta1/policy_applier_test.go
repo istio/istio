@@ -1334,6 +1334,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 			TlsParams: &tls.TlsParameters{
 				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+				TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 				CipherSuites: []string{
 					"ECDHE-ECDSA-AES256-GCM-SHA384",
 					"ECDHE-RSA-AES256-GCM-SHA384",
