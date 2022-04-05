@@ -7,7 +7,7 @@
       "type": "object"
     },
     "terminationGracePeriodSeconds": {
-      "type": "integer"
+      "type": "string"
     },
     "lifecycle": {
       "type": "object"
