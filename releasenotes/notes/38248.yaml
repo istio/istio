@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+
+releaseNotes:
+- |
+  **Added** `datasource` variable for Grafana Dashboards to improve support when importing into Grafana environment which does not have a datasource named exactly `Prometheus`
