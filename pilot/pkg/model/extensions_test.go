@@ -24,6 +24,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -91,6 +93,11 @@ func TestBuildVMConfig(t *testing.T) {
 			expected: &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 				VmConfig: &envoyExtensionsWasmV3.VmConfig{
 					Runtime: defaultRuntime,
+					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
+						KeyValues: map[string]string{
+							WasmSecretEnv: "secret-name",
+						},
+					},
 				},
 			},
 		},
@@ -113,7 +120,8 @@ func TestBuildVMConfig(t *testing.T) {
 					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
 						HostEnvKeys: []string{"POD_NAME"},
 						KeyValues: map[string]string{
-							"ENV1": "VAL1",
+							"ENV1":        "VAL1",
+							WasmSecretEnv: "secret-name",
 						},
 					},
 				},
@@ -123,8 +131,81 @@ func TestBuildVMConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
-			got := buildVMConfig(nil, tc.vm)
+			got := buildVMConfig(nil, tc.vm, "secret-name")
 			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestToSecretName(t *testing.T) {
+	cases := []struct {
+		name                  string
+		namespace             string
+		want                  string
+		wantResourceName      string
+		wantResourceNamespace string
+	}{
+		{
+			name:                  "sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
+		},
+		{
+			name:                  "nm/sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
+		},
+		{
+			name:      "nm2/sec",
+			namespace: "nm",
+			// Makes sure we won't search namespace outside of nm (which is the WasmPlugin namespace).
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
+		},
+		{
+			name:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
+		},
+		{
+			name:                  "kubernetes://nm2/sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
+		},
+		{
+			name:                  "kubernetes://sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toSecretResourceName(tt.name, tt.namespace)
+			if got != tt.want {
+				t.Errorf("got secret name %q, want %q", got, tt.want)
+			}
+			sr, err := credentials.ParseResourceName(got, tt.namespace, cluster.ID("cluster"), cluster.ID("cluster"))
+			if err != nil {
+				t.Error(err)
+			}
+			if sr.Name != tt.wantResourceName {
+				t.Errorf("parse secret name got %v want %v", sr.Name, tt.name)
+			}
+			if sr.Namespace != tt.wantResourceNamespace {
+				t.Errorf("parse secret name got %v want %v", sr.Name, tt.name)
+			}
 		})
 	}
 }
