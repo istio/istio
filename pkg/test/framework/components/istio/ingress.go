@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"time"
@@ -52,6 +53,7 @@ var (
 	getAddressDelay   = retry.BackoffDelay(500 * time.Millisecond)
 
 	_ ingress.Instance = &ingressImpl{}
+	_ io.Closer        = &ingressImpl{}
 )
 
 type ingressConfig struct {
@@ -79,6 +81,7 @@ func newIngress(ctx resource.Context, cfg ingressConfig) (i ingress.Instance) {
 		namespace:   cfg.Namespace,
 		env:         ctx.Environment().(*kube.Environment),
 		cluster:     ctx.Clusters().GetOrDefault(cfg.Cluster),
+		caller:      common.NewCaller(),
 	}
 	return c
 }
@@ -90,6 +93,11 @@ type ingressImpl struct {
 
 	env     *kube.Environment
 	cluster cluster.Cluster
+	caller  *common.Caller
+}
+
+func (c *ingressImpl) Close() error {
+	return c.caller.Close()
 }
 
 // getAddressInner returns the external address for the given port. When we don't have support for LoadBalancer,
@@ -229,7 +237,7 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 	if len(c.cluster.HTTPProxy()) > 0 {
 		opts.HTTP.HTTPProxy = c.cluster.HTTPProxy()
 	}
-	return common.CallEcho(c, opts)
+	return c.caller.CallEcho(c, opts)
 }
 
 func (c *ingressImpl) schemeFor(opts echo.CallOptions) (scheme.Instance, error) {

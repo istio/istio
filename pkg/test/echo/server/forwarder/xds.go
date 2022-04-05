@@ -24,17 +24,55 @@ import (
 	xdsresolver "google.golang.org/grpc/xds"
 
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/echo/proto"
 )
 
 var _ protocol = &grpcProtocol{}
 
 type xdsProtocol struct {
-	conn *grpc.ClientConn
+	e *executor
 }
 
-func newXDSProtocol(r *Config) (protocol, error) {
+func newXDSProtocol(e *executor) protocol {
+	return &xdsProtocol{e: e}
+}
+
+func (c *xdsProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.ForwardEchoResponse, error) {
+	var getConn grpcConnectionGetter
+	if cfg.newConnectionPerRequest {
+		// Create a new connection per request.
+		getConn = func() (*grpc.ClientConn, func(), error) {
+			conn, err := newXDSConnection(cfg)
+			if err != nil {
+				return nil, nil, err
+			}
+			return conn, func() { _ = conn.Close() }, nil
+		}
+	} else {
+		// Reuse the connection across all requests.
+		conn, err := newXDSConnection(cfg)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = conn.Close() }()
+		getConn = func() (*grpc.ClientConn, func(), error) {
+			return conn, func() {}, nil
+		}
+	}
+
+	call := grpcCall{
+		e:       c.e,
+		getConn: getConn,
+	}
+	return doForward(ctx, cfg, c.e, call.makeRequest)
+}
+
+func (c *xdsProtocol) Close() error {
+	return nil
+}
+
+func newXDSConnection(cfg *Config) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
-	// grpc-go sets incorrect authority header
 
 	// transport security
 	creds, err := xds.NewClientCredentials(xds.ClientOptions{FallbackCreds: insecure.NewCredentials()})
@@ -42,38 +80,23 @@ func newXDSProtocol(r *Config) (protocol, error) {
 		return nil, err
 	}
 	security := grpc.WithTransportCredentials(creds)
-	if len(r.XDSTestBootstrap) > 0 {
-		r, err := xdsresolver.NewXDSResolverWithConfigForTesting(r.XDSTestBootstrap)
+	if len(cfg.XDSTestBootstrap) > 0 {
+		r, err := xdsresolver.NewXDSResolverWithConfigForTesting(cfg.XDSTestBootstrap)
 		if err != nil {
 			return nil, err
 		}
 		opts = append(opts, grpc.WithResolvers(r))
 	}
 
-	if r.getClientCertificate != nil {
-		security = grpc.WithTransportCredentials(credentials.NewTLS(r.tlsConfig))
+	if cfg.getClientCertificate != nil {
+		security = grpc.WithTransportCredentials(credentials.NewTLS(cfg.tlsConfig))
 	}
 
-	address := r.Request.Url
+	address := cfg.Request.Url
 
 	// Connect to the GRPC server.
 	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
 	defer cancel()
-	opts = append(opts, security, grpc.WithAuthority(r.headers.Get(hostHeader)))
-	conn, err := grpc.DialContext(ctx, address, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return &xdsProtocol{
-		conn: conn,
-	}, nil
-}
-
-func (c *xdsProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
-	return makeGRPCRequest(ctx, c.conn, req)
-}
-
-func (c *xdsProtocol) Close() error {
-	return c.conn.Close()
+	opts = append(opts, security, grpc.WithAuthority(cfg.hostHeader))
+	return grpc.DialContext(ctx, address, opts...)
 }
