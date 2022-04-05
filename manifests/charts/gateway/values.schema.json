@@ -6,6 +6,12 @@
     "global": {
       "type": "object"
     },
+    "terminationGracePeriodSeconds": {
+      "type": "integer"
+    },
+    "lifecycle": {
+      "type": "object"
+    },
     "affinity": {
       "type": "object"
     },

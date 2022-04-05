@@ -83,6 +83,12 @@ tolerations: []
 
 affinity: {}
 
+# if specified, the terminationGracePeriodSeconds value will override the default
+terminationGracePeriodSeconds: ""
+
+# if specified, the lifecyle values will override what is set for the global proxy lifecyle values
+lifecycle: {}
+
 # If specified, the gateway will act as a network gateway for the given network.
 networkGateway: ""
 
