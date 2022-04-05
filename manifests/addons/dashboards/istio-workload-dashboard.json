@@ -2484,11 +2484,6 @@
   "templating": {
     "list": [
       {
-        "current": {
-          "selected": true,
-          "text": "default",
-          "value": "default"
-        },
         "hide": 0,
         "includeAll": false,
         "label": null,
