@@ -44,6 +44,11 @@ var (
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
 )
 
+// mock net.InterfaceAddrs to make its unit test become available
+var (
+	LocalIPAddrs = net.InterfaceAddrs
+)
+
 var rootCmd = &cobra.Command{
 	Use:    "istio-iptables",
 	Short:  "Set up iptables rules for Istio Sidecar",
@@ -179,7 +184,7 @@ func constructConfig() *config.Config {
 
 // getLocalIP returns the local IP address
 func getLocalIP() (net.IP, error) {
-	addrs, err := net.InterfaceAddrs()
+	addrs, err := LocalIPAddrs()
 	if err != nil {
 		return nil, err
 	}
