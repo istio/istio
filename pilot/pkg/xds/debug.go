@@ -30,6 +30,7 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 
@@ -624,8 +625,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 }
 
 const (
-	apiTypePrefix      = "type.googleapis.com/"
-	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
+	wasmHTTPFilterType = resource.APITypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
 )
 
 func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {

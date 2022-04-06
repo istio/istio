@@ -23,7 +23,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v20.10.12+incompatible
-	github.com/envoyproxy/go-control-plane v0.10.2-0.20220119144013-5ce31a86d483
+	github.com/envoyproxy/go-control-plane v0.10.2-0.20220405155244-d12adc5eba8e
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
 	github.com/felixge/fgprof v0.9.2
@@ -66,7 +66,7 @@ require (
 	github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5
 	github.com/yl2chen/cidranger v1.0.2
 	go.opencensus.io v0.23.0
-	go.opentelemetry.io/proto/otlp v0.12.0
+	go.opentelemetry.io/proto/otlp v0.15.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.8.0
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
@@ -76,7 +76,7 @@ require (
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.73.0
-	google.golang.org/genproto v0.0.0-20220323144105-ec3c684e5b14
+	google.golang.org/genproto v0.0.0-20220329172620-7be39ac1afc7
 	google.golang.org/grpc v1.45.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -133,7 +133,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.12+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
-	github.com/envoyproxy/protoc-gen-validate v0.6.2 // indirect
+	github.com/envoyproxy/protoc-gen-validate v0.6.7 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
@@ -213,7 +213,7 @@ require (
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/stretchr/testify v1.7.1 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
