@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -86,7 +85,7 @@ func (c *Controller) HasSynced() bool {
 	return c.queue.HasSynced()
 }
 
-func (c *Controller) processItem(types.NamespacedName) error {
+func (c *Controller) processItem(interface{}) error {
 	cm, err := c.informer.Lister().ConfigMaps(c.configMapNamespace).Get(c.configMapName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
