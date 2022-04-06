@@ -137,7 +137,7 @@ func (s *scope) done(nocleanup bool) error {
 		close(s.closeChan)
 	}()
 
-	var err error
+	g := multierror.Group{}
 	// Do reverse walk for cleanup.
 	for i := len(s.closers) - 1; i >= 0; i-- {
 		c := s.closers[i]
@@ -150,18 +150,24 @@ func (s *scope) done(nocleanup bool) error {
 			}
 		}
 
-		name := "lambda"
-		if r, ok := c.(resource.Resource); ok {
-			name = fmt.Sprintf("resource %v", r.ID())
-		}
+		g.Go(func() error {
+			name := "lambda"
+			if r, ok := c.(resource.Resource); ok {
+				name = fmt.Sprintf("resource %v", r.ID())
+			}
 
-		scopes.Framework.Debugf("Begin cleaning up %s", name)
-		if e := c.Close(); e != nil {
-			scopes.Framework.Debugf("Error cleaning up %s: %v", name, e)
-			err = multierror.Append(err, e).ErrorOrNil()
-		}
-		scopes.Framework.Debugf("Cleanup complete for %s", name)
+			scopes.Framework.Debugf("Begin cleaning up %s", name)
+			defer scopes.Framework.Debugf("Cleanup complete for %s", name)
+
+			if e := c.Close(); e != nil {
+				scopes.Framework.Debugf("Error cleaning up %s: %v", name, e)
+				return e
+			}
+			return nil
+		})
 	}
+
+	err := g.Wait().ErrorOrNil()
 
 	s.mu.Lock()
 	s.resources = nil
