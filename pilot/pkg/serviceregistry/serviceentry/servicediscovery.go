@@ -124,7 +124,7 @@ func WithNetworkIDCb(cb func(endpointIP string, labels labels.Instance) network.
 func NewController(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater,
 	options ...Option) *Controller {
 
-	s := newController(configController, store, xdsUpdater, options...)
+	s := newController(store, xdsUpdater, options...)
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
@@ -136,7 +136,7 @@ func NewController(configController model.ConfigStoreCache, store model.IstioCon
 // NewWorkloadEntryController creates a new WorkloadEntry discovery service.
 func NewWorkloadEntryController(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater,
 	options ...Option) *Controller {
-	s := newController(configController, store, xdsUpdater, options...)
+	s := newController(store, xdsUpdater, options...)
 	// Disable service entry processing for workload entry controller.
 	s.processServiceEntry = false
 	for _, o := range options {
@@ -150,8 +150,7 @@ func NewWorkloadEntryController(configController model.ConfigStoreCache, store m
 	return s
 }
 
-func newController(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater,
-	options ...Option) *Controller {
+func newController(store model.IstioConfigStore, xdsUpdater model.XDSUpdater, options ...Option) *Controller {
 	s := &Controller{
 		XdsUpdater: xdsUpdater,
 		store:      store,
