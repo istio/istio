@@ -1,5 +1,5 @@
-{{- if and (.Values.autoscaling.enabled) (eq .Values.kind "Deployment") }}
-apiVersion: autoscaling/v2beta2
+{{- if .Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "gateway.name" . }}

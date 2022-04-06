@@ -650,10 +650,12 @@ spec:
             kind: Deployment
             name: istiod
           metrics:
-          - type: Resource
-            resource:
+          - resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
+            type: Resource
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -779,10 +781,12 @@ spec:
             kind: Deployment
             name: istiod
           metrics:
-          - type: Resource
-            resource:
+          - resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
+            type: Resource
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux

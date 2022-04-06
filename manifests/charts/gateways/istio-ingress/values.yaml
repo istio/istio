@@ -295,7 +295,8 @@ global:
     # The service port used by Security Token Service (STS) server to handle token exchange requests.
     # Setting this port to a non-zero value enables STS server.
     servicePort: 0
-
+  # whether to use autoscaling/v2 template for HPA settings
+  autoscalingv2API: true
 
 meshConfig:
   enablePrometheusMerge: true

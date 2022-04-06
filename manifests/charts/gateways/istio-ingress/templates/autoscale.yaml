@@ -1,6 +1,7 @@
 {{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 {{- if and $gateway.autoscaleEnabled $gateway.autoscaleMin $gateway.autoscaleMax }}
-apiVersion: autoscaling/v2beta2
+{{- if .Values.global.autoscalingv2API }}
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ $gateway.name }}
@@ -26,4 +27,30 @@ spec:
           type: Utilization
           averageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
 ---
+{{- else }}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $gateway.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{ $gateway.labels | toYaml | indent 4 }}
+release: {{ .Release.Name }}
+istio.io/rev: {{ .Values.revision | default "default" }}
+install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+operator.istio.io/component: "IngressGateways"
+spec:
+  maxReplicas: {{ $gateway.autoscaleMax }}
+  minReplicas: {{ $gateway.autoscaleMin }}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $gateway.name }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
+---
+{{- end }}
 {{- end }}

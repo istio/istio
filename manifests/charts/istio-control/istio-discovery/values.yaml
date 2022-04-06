@@ -525,6 +525,9 @@ global:
   # mechanisms (e.g., environmental variable CA_PROVIDER).
   caName: ""
 
+  # whether to use autoscaling/v2 template for HPA settings
+  autoscalingv2API: true
+
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true
