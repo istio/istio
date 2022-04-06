@@ -22,6 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
 
@@ -29,9 +30,8 @@ import (
 )
 
 const (
-	apiTypePrefix      = "type.googleapis.com/"
-	typedStructType    = apiTypePrefix + "udpa.type.v1.TypedStruct"
-	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
+	typedStructType    = resource.APITypePrefix + "udpa.type.v1.TypedStruct"
+	wasmHTTPFilterType = resource.APITypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
 )
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
