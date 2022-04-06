@@ -2583,8 +2583,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			if tc.enableVerifyCertAtClient {
 				if len(tc.tls.Sni) == 0 {
 					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
-				} else {
-					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, false)
+				} else if tc.opts.mutable.httpProtocolOptions != nil {
+					t.Errorf("expecting nil httpProtocolOptions but got %v", tc.opts.mutable.httpProtocolOptions)
 				}
 			}
 		})
