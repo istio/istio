@@ -97,7 +97,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 }
 
 // determineConcurrencyOption determines the correct setting for --concurrency based on CPU limits
-func determineConcurrencyOption() *types.Int32Value {
+func determineConcurrencyOption() *wrapperspb.Int32Value {
 	// If limit is set, us that
 	// The format in the file is a plain integer. `100` in the file is equal to `100m` (based on `divisor: 1m`
 	// in the pod spec).
@@ -105,7 +105,7 @@ func determineConcurrencyOption() *types.Int32Value {
 	// the pod will get concurrency=1. With 6500m, it will get concurrency=7.
 	limit, err := readPodCPULimits()
 	if err == nil && limit > 0 {
-		return &types.Int32Value{Value: int32(math.Ceil(float64(limit) / 1000))}
+		return &wrapperspb.Int32Value{Value: int32(math.Ceil(float64(limit) / 1000))}
 	}
 	return nil
 }
