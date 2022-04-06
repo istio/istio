@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func createTestTelemetries(configs []config.Config, t *testing.T) *Telemetries {
@@ -277,7 +278,7 @@ func TestAccessLogging(t *testing.T) {
 			networking.ListenerClassSidecarInbound,
 			sidecar,
 			nil,
-			nil,
+			[]string{},
 		},
 		{
 			"server - gateway",
@@ -285,7 +286,7 @@ func TestAccessLogging(t *testing.T) {
 			networking.ListenerClassGateway,
 			sidecar,
 			nil,
-			nil,
+			[]string{},
 		},
 		{
 			"server - inbound",
@@ -301,7 +302,7 @@ func TestAccessLogging(t *testing.T) {
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
-			nil,
+			[]string{},
 		},
 		{
 			"server and client - gateway",
@@ -446,6 +447,7 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 			sidecar,
 			[]string{"custom-provider"},
 			&LoggingConfig{
+				ProviderNames: sets.New("custom-provider"),
 				Filter: &tpb.AccessLogging_Filter{
 					Expression: "response.code >= 400",
 				},
@@ -457,6 +459,7 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 			sidecar,
 			[]string{"custom-provider"},
 			&LoggingConfig{
+				ProviderNames: sets.New("custom-provider"),
 				Filter: &tpb.AccessLogging_Filter{
 					Expression: "response.code >= 500",
 				},
