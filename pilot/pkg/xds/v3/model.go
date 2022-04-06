@@ -17,12 +17,11 @@ package v3
 import (
 	"strings"
 
-	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 )
 
 const (
-	apiTypePrefix   = "type.googleapis.com/"
-	envoyTypePrefix = apiTypePrefix + "envoy."
+	envoyTypePrefix = resource.APITypePrefix + "envoy."
 
 	ClusterType                = resource.ClusterType
 	EndpointType               = resource.EndpointType
@@ -31,12 +30,12 @@ const (
 	SecretType                 = resource.SecretType
 	ExtensionConfigurationType = resource.ExtensionConfigType
 
-	NameTableType   = apiTypePrefix + "istio.networking.nds.v1.NameTable"
-	HealthInfoType  = apiTypePrefix + "istio.v1.HealthInformation"
-	ProxyConfigType = apiTypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
+	NameTableType   = resource.APITypePrefix + "istio.networking.nds.v1.NameTable"
+	HealthInfoType  = resource.APITypePrefix + "istio.v1.HealthInformation"
+	ProxyConfigType = resource.APITypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
 	// DebugType requests debug info from istio, a secured implementation for istio debug interface.
 	DebugType     = "istio.io/debug"
-	BootstrapType = apiTypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
+	BootstrapType = resource.APITypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
 
 	// nolint
 	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
