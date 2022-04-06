@@ -123,7 +123,6 @@ func WithNetworkIDCb(cb func(endpointIP string, labels labels.Instance) network.
 // NewController creates a new ServiceEntry discovery service.
 func NewController(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater,
 	options ...Option) *Controller {
-
 	s := newController(store, xdsUpdater, options...)
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
