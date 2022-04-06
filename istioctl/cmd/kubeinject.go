@@ -393,8 +393,9 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 			if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision); err != nil {
 				return nil, nil, err
 			}
+		} else {
+			return injector, nil, nil
 		}
-		return injector, nil, nil
 	}
 
 	// Get configs from IOP files firstly, and if not exists, get configs from files and configmaps.
