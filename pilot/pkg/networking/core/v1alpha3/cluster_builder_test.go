@@ -1774,12 +1774,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	credentialName := "some-fake-credential"
 
 	testCases := []struct {
-		name   string
-		opts   *buildClusterOpts
-		tls    *networking.ClientTLSSettings
-		h2     bool
-		router bool
-		result expectedResult
+		name                     string
+		opts                     *buildClusterOpts
+		tls                      *networking.ClientTLSSettings
+		h2                       bool
+		router                   bool
+		result                   expectedResult
+		enableVerifyCertAtClient bool
 	}{
 		{
 			name: "tls mode disabled",
@@ -1966,6 +1967,56 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				err: nil,
 			},
+		},
+		{
+			name: "tls mode SIMPLE, with VerifyCert enabled and no sni specified in tls",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				SubjectAltNames: []string{"SAN"},
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
+					},
+				},
+				err: nil,
+			},
+			enableVerifyCertAtClient: true,
+		},
+		{
+			name: "tls mode SIMPLE, with VerifyCert enabled and sni specified in tls",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+			enableVerifyCertAtClient: true,
 		},
 		{
 			name: "tls mode SIMPLE, with certs specified in tls",
@@ -2512,6 +2563,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			features.VerifyCertAtClient = tc.enableVerifyCertAtClient
 			var proxy *model.Proxy
 			if tc.router {
 				proxy = newGatewayProxy()
@@ -2527,6 +2579,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
 			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: `%v", diff)
+			}
+			if tc.enableVerifyCertAtClient {
+				if len(tc.tls.Sni) == 0 {
+					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
+				} else if tc.opts.mutable.httpProtocolOptions != nil {
+					t.Errorf("expecting nil httpProtocolOptions but got %v", tc.opts.mutable.httpProtocolOptions)
+				}
 			}
 		})
 	}
