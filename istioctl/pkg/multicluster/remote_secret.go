@@ -242,7 +242,6 @@ func getServiceAccountSecret(client kube.ExtendedClient, opt RemoteSecretOptions
 		return legacyGetServiceAccountSecret(serviceAccount, client, opt)
 	}
 	return getOrCreateServiceAccountSecret(serviceAccount, client, opt)
-
 }
 
 // In Kubernetes 1.24+ we can't assume the secrets will be referenced in the ServiceAccount or be created automatically.
@@ -285,11 +284,15 @@ func getOrCreateServiceAccountSecret(
 	// TODO ephemeral time-based tokens are preferred; we should re-think this
 	return client.CoreV1().Secrets(opt.Namespace).Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        serviceAccount.Name + "-istio-remote-secret-token",
+			Name:        tokenSecretName(serviceAccount.Name),
 			Annotations: map[string]string{v1.ServiceAccountNameKey: serviceAccount.Name},
 		},
 		Type: v1.SecretTypeServiceAccountToken,
 	}, metav1.CreateOptions{})
+}
+
+func tokenSecretName(saName string) string {
+	return saName + "-istio-remote-secret-token"
 }
 
 func validateServiceAccountSecret(serviceAccount *v1.ServiceAccount, secret *v1.Secret) error {
