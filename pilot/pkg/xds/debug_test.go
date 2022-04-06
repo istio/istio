@@ -65,6 +65,19 @@ func TestSyncz(t *testing.T) {
 		node, _ := model.ParseServiceNodeWithMetadata(ads.ID, &model.NodeMetadata{})
 		verifySyncStatus(t, s.Discovery, node.ID, true, false)
 	})
+	t.Run("sync ecds", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			ConfigString: mustReadFile(t, "./testdata/ecds.yaml"),
+		})
+		ads := s.ConnectADS()
+
+		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{
+			TypeUrl:       v3.ExtensionConfigurationType,
+			ResourceNames: []string{"extension-config"},
+		})
+		node, _ := model.ParseServiceNodeWithMetadata(ads.ID, &model.NodeMetadata{})
+		verifySyncStatus(t, s.Discovery, node.ID, true, true)
+	})
 }
 
 func getSyncStatus(t *testing.T, server *xds.DiscoveryServer) []xds.SyncStatus {
@@ -122,6 +135,12 @@ func verifySyncStatus(t *testing.T, s *xds.DiscoveryServer, nodeID string, wantS
 				}
 				if (ss.EndpointAcked != "") != wantAcked {
 					errorHandler("wanted EndpointAcked set %v got %v for %v", wantAcked, ss.EndpointAcked, nodeID)
+				}
+				if (ss.ExtesionConfigSent != "") != wantSent {
+					errorHandler("wanted ExtesionConfigSent set %v got %v for %v", wantSent, ss.ExtesionConfigSent, nodeID)
+				}
+				if (ss.ExtensionConfigAcked != "") != wantAcked {
+					errorHandler("wanted ExtensionConfigAcked set %v got %v for %v", wantAcked, ss.ExtensionConfigAcked, nodeID)
 				}
 				return
 			}
