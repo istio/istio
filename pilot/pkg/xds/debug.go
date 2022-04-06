@@ -108,18 +108,20 @@ type AdsClients struct {
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
-	ClusterID     string `json:"cluster_id,omitempty"`
-	ProxyID       string `json:"proxy,omitempty"`
-	ProxyVersion  string `json:"proxy_version,omitempty"`
-	IstioVersion  string `json:"istio_version,omitempty"`
-	ClusterSent   string `json:"cluster_sent,omitempty"`
-	ClusterAcked  string `json:"cluster_acked,omitempty"`
-	ListenerSent  string `json:"listener_sent,omitempty"`
-	ListenerAcked string `json:"listener_acked,omitempty"`
-	RouteSent     string `json:"route_sent,omitempty"`
-	RouteAcked    string `json:"route_acked,omitempty"`
-	EndpointSent  string `json:"endpoint_sent,omitempty"`
-	EndpointAcked string `json:"endpoint_acked,omitempty"`
+	ClusterID            string `json:"cluster_id,omitempty"`
+	ProxyID              string `json:"proxy,omitempty"`
+	ProxyVersion         string `json:"proxy_version,omitempty"`
+	IstioVersion         string `json:"istio_version,omitempty"`
+	ClusterSent          string `json:"cluster_sent,omitempty"`
+	ClusterAcked         string `json:"cluster_acked,omitempty"`
+	ListenerSent         string `json:"listener_sent,omitempty"`
+	ListenerAcked        string `json:"listener_acked,omitempty"`
+	RouteSent            string `json:"route_sent,omitempty"`
+	RouteAcked           string `json:"route_acked,omitempty"`
+	EndpointSent         string `json:"endpoint_sent,omitempty"`
+	EndpointAcked        string `json:"endpoint_acked,omitempty"`
+	ExtesionConfigSent   string `json:"extensionconfig_sent,omitempty"`
+	ExtensionConfigAcked string `json:"extensionconfig_acked,omitempty"`
 }
 
 // SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
@@ -268,17 +270,19 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 		node := con.proxy
 		if node != nil {
 			syncz = append(syncz, SyncStatus{
-				ProxyID:       node.ID,
-				ClusterID:     node.Metadata.ClusterID.String(),
-				IstioVersion:  node.Metadata.IstioVersion,
-				ClusterSent:   con.NonceSent(v3.ClusterType),
-				ClusterAcked:  con.NonceAcked(v3.ClusterType),
-				ListenerSent:  con.NonceSent(v3.ListenerType),
-				ListenerAcked: con.NonceAcked(v3.ListenerType),
-				RouteSent:     con.NonceSent(v3.RouteType),
-				RouteAcked:    con.NonceAcked(v3.RouteType),
-				EndpointSent:  con.NonceSent(v3.EndpointType),
-				EndpointAcked: con.NonceAcked(v3.EndpointType),
+				ProxyID:              node.ID,
+				ClusterID:            node.Metadata.ClusterID.String(),
+				IstioVersion:         node.Metadata.IstioVersion,
+				ClusterSent:          con.NonceSent(v3.ClusterType),
+				ClusterAcked:         con.NonceAcked(v3.ClusterType),
+				ListenerSent:         con.NonceSent(v3.ListenerType),
+				ListenerAcked:        con.NonceAcked(v3.ListenerType),
+				RouteSent:            con.NonceSent(v3.RouteType),
+				RouteAcked:           con.NonceAcked(v3.RouteType),
+				EndpointSent:         con.NonceSent(v3.EndpointType),
+				EndpointAcked:        con.NonceAcked(v3.EndpointType),
+				ExtesionConfigSent:   con.NonceSent(v3.ExtensionConfigurationType),
+				ExtensionConfigAcked: con.NonceSent(v3.ExtensionConfigurationType),
 			})
 		}
 	}
