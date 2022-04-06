@@ -259,33 +259,33 @@ defaultConfig:
 	writeTestData := func(t *testing.T, file string, annotations string, limit int) {
 		// Setup mesh
 		if file != "" {
-			err := os.MkdirAll(filepath.Dir(meshConfigFile), 0777)
+			err := os.MkdirAll(filepath.Dir(meshConfigFile), 0o777)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			err = os.WriteFile(meshConfigFile, []byte(file), 0666)
+			err = os.WriteFile(meshConfigFile, []byte(file), 0o666)
 			if err != nil {
 				t.Fatal(err)
 			}
 		}
 
 		// Setup pod annotations (simulate downward)
-		err := os.MkdirAll(filepath.Dir(constants.PodInfoAnnotationsPath), 0777)
+		err := os.MkdirAll(filepath.Dir(constants.PodInfoAnnotationsPath), 0o777)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = os.WriteFile(constants.PodInfoAnnotationsPath, []byte(annotations), 0666)
+		err = os.WriteFile(constants.PodInfoAnnotationsPath, []byte(annotations), 0o666)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// Setup pod cpu limit (simulate downward)
-		err = os.MkdirAll(filepath.Dir(constants.PodInfoCPULimitsPath), 0777)
+		err = os.MkdirAll(filepath.Dir(constants.PodInfoCPULimitsPath), 0o777)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = os.WriteFile(constants.PodInfoCPULimitsPath, []byte(strconv.Itoa(limit)), 0666)
+		err = os.WriteFile(constants.PodInfoCPULimitsPath, []byte(strconv.Itoa(limit)), 0o666)
 		if err != nil {
 			t.Fatal(err)
 		}
