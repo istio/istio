@@ -27,6 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -36,19 +37,26 @@ const (
 	defaultRuntime = "envoy.wasm.runtime.v8"
 	fileScheme     = "file"
 	ociScheme      = "oci"
+
+	// name of environment variable at Wasm VM, which will carry the Wasm image pull secret.
+	WasmSecretEnv = "ISTIO_META_WASM_IMAGE_PULL_SECRET"
 )
 
 type WasmPluginWrapper struct {
 	*extensions.WasmPlugin
 
-	Name      string
-	Namespace string
+	Name         string
+	Namespace    string
+	ResourceName string
 
-	ExtensionConfiguration *envoyCoreV3.TypedExtensionConfig
+	WasmExtensionConfig *envoyWasmFilterV3.Wasm
 }
 
-func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
+func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	var ok bool
+	// Make a deep copy since we are going to mutate the resource later for secret env variable.
+	// We do not want to mutate the underlying resource at informer cache.
+	plugin := originPlugin.DeepCopy()
 	var wasmPlugin *extensions.WasmPlugin
 	if wasmPlugin, ok = plugin.Spec.(*extensions.WasmPlugin); !ok {
 		return nil
@@ -75,30 +83,50 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 	if u.Scheme == "" {
 		u.Scheme = ociScheme
 	}
-
+	// Normalize the image pull secret to the full resource name.
+	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace)
 	datasource := buildDataSource(u, wasmPlugin)
-	typedConfig, err := anypb.New(&envoyWasmFilterV3.Wasm{
+	wasmExtensionConfig := &envoyWasmFilterV3.Wasm{
 		Config: &envoyExtensionsWasmV3.PluginConfig{
 			Name:          plugin.Namespace + "." + plugin.Name,
 			RootId:        wasmPlugin.PluginName,
 			Configuration: cfg,
-			Vm:            buildVMConfig(datasource, wasmPlugin.VmConfig),
+			Vm:            buildVMConfig(datasource, wasmPlugin.VmConfig, wasmPlugin.ImagePullSecret),
 		},
-	})
+	}
 	if err != nil {
 		log.Warnf("WasmPlugin %s/%s failed to marshal to TypedExtensionConfig: %s", plugin.Namespace, plugin.Name, err)
 		return nil
 	}
-	ec := &envoyCoreV3.TypedExtensionConfig{
-		Name:        plugin.Namespace + "." + plugin.Name,
-		TypedConfig: typedConfig,
-	}
 	return &WasmPluginWrapper{
-		Name:                   plugin.Name,
-		Namespace:              plugin.Namespace,
-		WasmPlugin:             wasmPlugin,
-		ExtensionConfiguration: ec,
+		Name:                plugin.Name,
+		Namespace:           plugin.Namespace,
+		ResourceName:        plugin.Namespace + "." + plugin.Name,
+		WasmPlugin:          wasmPlugin,
+		WasmExtensionConfig: wasmExtensionConfig,
 	}
+}
+
+// toSecretResourceName converts a imagePullSecret to a resource name referenced at Wasm SDS.
+// NOTE: the secret referenced by WasmPlugin has to be in the same namespace as the WasmPlugin,
+// so this function makes sure that the secret resource name, which will be used to retrieve secret at
+// xds generation time, has the same namespace as the WasmPlugin.
+func toSecretResourceName(name, pluginNamespace string) string {
+	if name == "" {
+		return ""
+	}
+	// Convert user provided secret name to secret resource name.
+	rn := credentials.ToResourceName(name)
+	// Parse the secret resource name.
+	sr, err := credentials.ParseResourceName(rn, pluginNamespace, "", "")
+	if err != nil {
+		log.Debugf("Failed to parse wasm secret resource name %v", err)
+		return ""
+	}
+	// Forcely rewrite secret namespace to plugin namespace, since we require secret resource
+	// referenced by WasmPlugin co-located with WasmPlugin in the same namespace.
+	sr.Namespace = pluginNamespace
+	return sr.KubernetesResourceName()
 }
 
 func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3.AsyncDataSource {
@@ -131,29 +159,32 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3
 	}
 }
 
-func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmConfig) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
+func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmConfig, secretName string) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
 	cfg := &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 		VmConfig: &envoyExtensionsWasmV3.VmConfig{
 			Runtime: defaultRuntime,
 			Code:    datasource,
+			EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
+				KeyValues: map[string]string{},
+			},
 		},
+	}
+
+	if secretName != "" {
+		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmSecretEnv] = secretName
 	}
 
 	if vm != nil && len(vm.Env) != 0 {
 		hostEnvKeys := make([]string, 0, len(vm.Env))
-		inlineEnvs := make(map[string]string, 0)
 		for _, e := range vm.Env {
 			switch e.ValueFrom {
 			case extensions.EnvValueSource_INLINE:
-				inlineEnvs[e.Name] = e.Value
+				cfg.VmConfig.EnvironmentVariables.KeyValues[e.Name] = e.Value
 			case extensions.EnvValueSource_HOST:
 				hostEnvKeys = append(hostEnvKeys, e.Name)
 			}
 		}
-		cfg.VmConfig.EnvironmentVariables = &envoyExtensionsWasmV3.EnvironmentVariables{
-			HostEnvKeys: hostEnvKeys,
-			KeyValues:   inlineEnvs,
-		}
+		cfg.VmConfig.EnvironmentVariables.HostEnvKeys = hostEnvKeys
 	}
 
 	return cfg

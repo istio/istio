@@ -1,7 +1,10 @@
 
 # Create a KinD cluster with an external load balancer
 
-This bash script sets up a k8s cluster using kind and metallb.
+This bash script sets up a k8s cluster using kind and metallb on Linux.
+
+WARNING: when it runs in an environment other than Linux, it will only
+produce an error message.
 
 The following dependencies must be installed before running the script:
   1. kubectl

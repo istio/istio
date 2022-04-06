@@ -398,11 +398,11 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
 					ProxyID: con.proxy.ID,
-					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ClusterType),
+					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.ClusterType),
 						resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ListenerType),
+					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.ListenerType),
 						resourceID, knownVersions),
-					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.RouteType),
+					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.RouteType),
 						resourceID, knownVersions),
 				})
 			}
@@ -523,9 +523,9 @@ func (s *DiscoveryServer) connectionsHandler(w http.ResponseWriter, req *http.Re
 
 	for _, c := range connections {
 		adsClient := AdsClient{
-			ConnectionID: c.ConID,
-			ConnectedAt:  c.Connect,
-			PeerAddress:  c.PeerAddr,
+			ConnectionID: c.conID,
+			ConnectedAt:  c.connectedAt,
+			PeerAddress:  c.peerAddr,
 		}
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
@@ -557,9 +557,9 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	adsClients.Total = len(connections)
 	for _, c := range connections {
 		adsClient := AdsClient{
-			ConnectionID: c.ConID,
-			ConnectedAt:  c.Connect,
-			PeerAddress:  c.PeerAddr,
+			ConnectionID: c.conID,
+			ConnectedAt:  c.connectedAt,
+			PeerAddress:  c.peerAddr,
 			Metadata:     c.proxy.Metadata,
 			Watches:      map[string][]string{},
 		}
@@ -639,6 +639,13 @@ func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 		w := &wasm.Wasm{}
 		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
 			return nil, err
+		}
+		// Redact Wasm secret env variable.
+		vmenvs := w.GetConfig().GetVmConfig().EnvironmentVariables
+		if vmenvs != nil {
+			if _, found := vmenvs.KeyValues[model.WasmSecretEnv]; found {
+				vmenvs.KeyValues[model.WasmSecretEnv] = "<Redacted>"
+			}
 		}
 		return w, nil
 	}
@@ -915,7 +922,7 @@ func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Reque
 
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	for _, con := range s.Clients() {
-		if strings.Contains(con.ConID, proxyID) {
+		if strings.Contains(con.conID, proxyID) {
 			return con
 		}
 	}

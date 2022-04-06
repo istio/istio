@@ -18,11 +18,13 @@ import (
 	"testing"
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -47,33 +49,27 @@ var (
 		Name: "unknown.filter",
 	}
 	someAuthNFilter = &model.WasmPluginWrapper{
-		Name:      "someAuthNFilter",
-		Namespace: "istio-system",
+		Name:         "someAuthNFilter",
+		Namespace:    "istio-system",
+		ResourceName: "istio-system.someAuthNFilter",
 		WasmPlugin: &extensions.WasmPlugin{
 			Priority: &wrappers.Int64Value{Value: 1},
 		},
-		ExtensionConfiguration: &envoy_config_core_v3.TypedExtensionConfig{
-			Name: "istio-system.someAuthNFilter",
-		},
 	}
 	someImportantAuthNFilter = &model.WasmPluginWrapper{
-		Name:      "someImportantAuthNFilter",
-		Namespace: "istio-system",
+		Name:         "someImportantAuthNFilter",
+		Namespace:    "istio-system",
+		ResourceName: "istio-system.someImportantAuthNFilter",
 		WasmPlugin: &extensions.WasmPlugin{
 			Priority: &wrappers.Int64Value{Value: 1000},
-		},
-		ExtensionConfiguration: &envoy_config_core_v3.TypedExtensionConfig{
-			Name: "istio-system.someImportantAuthNFilter",
 		},
 	}
 	someAuthZFilter = &model.WasmPluginWrapper{
-		Name:      "someAuthZFilter",
-		Namespace: "istio-system",
+		Name:         "someAuthZFilter",
+		Namespace:    "istio-system",
+		ResourceName: "istio-system.someAuthZFilter",
 		WasmPlugin: &extensions.WasmPlugin{
 			Priority: &wrappers.Int64Value{Value: 1000},
-		},
-		ExtensionConfiguration: &envoy_config_core_v3.TypedExtensionConfig{
-			Name: "istio-system.someAuthZFilter",
 		},
 	}
 )
@@ -193,6 +189,7 @@ func TestAddWasmPluginsToMutableObjects(t *testing.T) {
 }
 
 func TestInsertedExtensionConfigurations(t *testing.T) {
+	wasm, _ := anypb.New(&extensionsv3.Wasm{})
 	testCases := []struct {
 		name        string
 		wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper
@@ -215,13 +212,16 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 			},
 			names: []string{someAuthNFilter.Namespace + "." + someAuthNFilter.Name},
 			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{
-				someAuthNFilter.ExtensionConfiguration,
+				{
+					Name:        "istio-system.someAuthNFilter",
+					TypedConfig: wasm,
+				},
 			},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ecs := InsertedExtensionConfigurations(tc.wasmPlugins, tc.names)
+			ecs := InsertedExtensionConfigurations(tc.wasmPlugins, tc.names, nil)
 			if diff := cmp.Diff(tc.expectedECs, ecs, protocmp.Transform()); diff != "" {
 				t.Fatal(diff)
 			}
