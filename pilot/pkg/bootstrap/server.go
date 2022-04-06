@@ -168,9 +168,6 @@ type Server struct {
 	istiodCertBundleWatcher *keycertbundle.Watcher
 	server                  server.Instance
 
-	// requiredTerminations keeps track of components that should block server exit
-	// if they are not stopped. This allows important cleanup tasks to be completed.
-	// Note: this is still best effort; a process can die at any time.
 	readinessProbes map[string]readinessProbe
 
 	// duration used for graceful shutdown.
