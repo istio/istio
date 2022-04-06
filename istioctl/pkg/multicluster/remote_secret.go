@@ -245,7 +245,7 @@ func getServiceAccountSecret(client kube.ExtendedClient, opt RemoteSecretOptions
 
 }
 
-// In 1.24+ we can't assume the secrets will be referenced in the ServiceAccount or be created automatically.
+// In Kubernetes 1.24+ we can't assume the secrets will be referenced in the ServiceAccount or be created automatically.
 // See https://github.com/istio/istio/issues/38246
 func getOrCreateServiceAccountSecret(
 	serviceAccount *v1.ServiceAccount,
