@@ -175,7 +175,8 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool,
 	return preProcessed, nil
 }
 
-func (c *controller) onEvent(item types.NamespacedName) error {
+func (c *controller) onEvent(key interface{}) error {
+	item := key.(types.NamespacedName)
 	event := model.EventUpdate
 	ing, err := c.ingressLister.Ingresses(item.Namespace).Get(item.Name)
 	if err != nil {
