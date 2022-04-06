@@ -120,9 +120,9 @@ type Server struct {
 
 	multiclusterController *multicluster.Controller
 
-	configController  model.ConfigStoreCache
-	ConfigStores      []model.ConfigStoreCache
-	serviceEntryStore *serviceentry.ServiceEntryStore
+	configController       model.ConfigStoreCache
+	ConfigStores           []model.ConfigStoreCache
+	serviceEntryController *serviceentry.Controller
 
 	httpServer       *http.Server // debug, monitoring and readiness Server.
 	httpsServer      *http.Server // webhooks HTTPS Server.
