@@ -84,18 +84,18 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 		}
 	}
 
-	// Generate the pull secrets first, which will be used when populating the extension config.
-	var secretController credscontroller.Controller
-	if e.secretController != nil {
-		var err error
-		secretController, err = e.secretController.ForCluster(proxy.Metadata.ClusterID)
-		if err != nil {
-			log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates for Wasm image pull: %v", proxy.ID, err)
-			return nil, model.DefaultXdsLogDetails, nil
-		}
-	}
 	var secrets map[string][]byte
 	if len(secretResources) > 0 {
+		// Generate the pull secrets first, which will be used when populating the extension config.
+		var secretController credscontroller.Controller
+		if e.secretController != nil {
+			var err error
+			secretController, err = e.secretController.ForCluster(proxy.Metadata.ClusterID)
+			if err != nil {
+				log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates for Wasm image pull: %v", proxy.ID, err)
+				return nil, model.DefaultXdsLogDetails, nil
+			}
+		}
 		// Inserts Wasm pull secrets in ECDS response, which will be used at xds proxy for image pull.
 		// Before forwarding to Envoy, xds proxy will remove the secret from ECDS response.
 		secrets = e.GeneratePullSecrets(proxy, updatedSecrets, secretResources, secretController, req)
