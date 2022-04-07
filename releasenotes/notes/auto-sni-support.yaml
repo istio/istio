@@ -4,6 +4,6 @@ area: traffic-management
 releaseNotes:
    - |
      **Added** the ability to configure automatically set SNI when `DestinationRules`
-     do not specify it and `VERIFY_CLIENT_AT_CERT` is enabled.
+     do not specify it and `VERIFY_CERTIFICATE_AT_CLIENT` is enabled.
 docs:
    - https://docs.google.com/document/d/1pTUl-Ng3nXAWJb7UGJtalftznpxQEfID/
