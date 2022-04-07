@@ -100,6 +100,12 @@ func describeRouteDomains(domains []string) string {
 	for _, d := range domains {
 		if !strings.Contains(d, ":") {
 			withoutPort = append(withoutPort, d)
+			// if the domain contains IPv6, such as [fd00:10:96::7fc7] and [fd00:10:96::7fc7]:8090
+		} else if strings.Count(d, ":") > 2 {
+			// if the domain is only a IPv6 address, such as [fd00:10:96::7fc7], append it
+			if strings.HasSuffix(d, "]") {
+				withoutPort = append(withoutPort, d)
+			}
 		}
 	}
 	withoutPort = unexpandDomains(withoutPort)
