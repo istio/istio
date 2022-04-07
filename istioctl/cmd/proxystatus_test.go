@@ -24,11 +24,11 @@ func TestProxyStatus(t *testing.T) {
 	cases := []execTestCase{
 		{ // case 0
 			args:           strings.Split("proxy-status", " "),
-			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ISTIOD",
+			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
 		},
 		{ // case 1 short name "ps"
 			args:           strings.Split("ps", " "),
-			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ISTIOD",
+			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
 		},
 		{ // case 2: supplying nonexistent pod name should result in error with flag
 			args:          strings.Split("proxy-status deployment/random-gibberish", " "),
@@ -48,7 +48,7 @@ func TestProxyStatus(t *testing.T) {
 		},
 		{ // case 6: new --revision argument
 			args:           strings.Split("proxy-status --revision canary", " "),
-			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ISTIOD",
+			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
 		},
 		{ // case 7: supplying type that doesn't select pods should fail
 			args:          strings.Split("proxy-status serviceaccount/sleep", " "),

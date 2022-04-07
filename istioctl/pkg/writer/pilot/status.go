@@ -48,13 +48,14 @@ type XdsStatusWriter struct {
 }
 
 type xdsWriterStatus struct {
-	proxyID        string
-	istiodID       string
-	istiodVersion  string
-	clusterStatus  string
-	listenerStatus string
-	routeStatus    string
-	endpointStatus string
+	proxyID              string
+	istiodID             string
+	istiodVersion        string
+	clusterStatus        string
+	listenerStatus       string
+	routeStatus          string
+	endpointStatus       string
+	extensionconfigStaus string
 }
 
 // PrintAll takes a slice of Pilot syncz responses and outputs them using a tabwriter
@@ -88,8 +89,8 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string)
 }
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
-	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tISTIOD\tVERSION")
+	w := new(tabwriter.Writer).Init(s.Writer, 0, 9, 5, ' ', 0)
+	_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
 	fullStatus := make([]*writerStatus, 0, len(statuses))
 	for pilot, status := range statuses {
 		var ss []*writerStatus
@@ -116,6 +117,7 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 	listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked)
 	routeSynced := xdsStatus(status.RouteSent, status.RouteAcked)
 	endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked)
+	extensionconfigSynced := xdsStatus(status.ExtesionConfigSent, status.ExtensionConfigAcked)
 	version := status.IstioVersion
 	if version == "" {
 		// If we can't find an Istio version (talking to a 1.1 pilot), fallback to the proxy version
@@ -123,8 +125,10 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 		// but it is better than not providing any information.
 		version = status.ProxyVersion + "*"
 	}
-	_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
-		status.ProxyID, status.ClusterID, clusterSynced, listenerSynced, endpointSynced, routeSynced, status.pilot, version)
+	_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+		status.ProxyID, status.ClusterID,
+		clusterSynced, listenerSynced, endpointSynced, routeSynced, extensionconfigSynced,
+		status.pilot, version)
 	return nil
 }
 
@@ -174,23 +178,24 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 				}
-				cds, lds, eds, rds := getSyncStatus(&clientConfig)
+				cds, lds, eds, rds, ecds := getSyncStatus(&clientConfig)
 				cp := multixds.CpInfo(dr)
 				fullStatus = append(fullStatus, &xdsWriterStatus{
-					proxyID:        clientConfig.GetNode().GetId(),
-					istiodID:       cp.ID,
-					istiodVersion:  cp.Info.Version,
-					clusterStatus:  cds,
-					listenerStatus: lds,
-					routeStatus:    rds,
-					endpointStatus: eds,
+					proxyID:              clientConfig.GetNode().GetId(),
+					istiodID:             cp.ID,
+					istiodVersion:        cp.Info.Version,
+					clusterStatus:        cds,
+					listenerStatus:       lds,
+					routeStatus:          rds,
+					endpointStatus:       eds,
+					extensionconfigStaus: ecds,
 				})
 				if len(fullStatus) == 0 {
 					return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
 				}
 
-				w = new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-				_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tISTIOD\tVERSION")
+				w = new(tabwriter.Writer).Init(s.Writer, 0, 9, 5, ' ', 0)
+				_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
 
 				sort.Slice(fullStatus, func(i, j int) bool {
 					return fullStatus[i].proxyID < fullStatus[j].proxyID
@@ -221,14 +226,15 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 }
 
 func xdsStatusPrintln(w io.Writer, status *xdsWriterStatus) error {
-	_, err := fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+	_, err := fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 		status.proxyID,
 		status.clusterStatus, status.listenerStatus, status.endpointStatus, status.routeStatus,
+		status.extensionconfigStaus,
 		status.istiodID, status.istiodVersion)
 	return err
 }
 
-func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds string) {
+func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds, ecds string) {
 	configs := handleAndGetXdsConfigs(clientConfig)
 	for _, config := range configs {
 		cfgType := config.GetTypeUrl()
@@ -241,6 +247,8 @@ func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds str
 			rds = config.GetConfigStatus().String()
 		case xdsresource.EndpointType:
 			eds = config.GetConfigStatus().String()
+		case xdsresource.ExtensionConfigurationType:
+			ecds = config.GetConfigStatus().String()
 		default:
 			log.Infof("GenericXdsConfig unexpected type %s\n", xdsresource.GetShortType(cfgType))
 		}
@@ -278,5 +286,6 @@ func handleAndGetXdsConfigs(clientConfig *xdsstatus.ClientConfig) []*xdsstatus.C
 			})
 		}
 	}
+
 	return configs
 }
