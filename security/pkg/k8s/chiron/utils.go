@@ -44,6 +44,7 @@ const (
 	csrRetriesMax = 3
 	// cert-manager use below annotation on kubernetes CSR to control TTL for the generated cert.
 	RequestLifeTimeAnnotationForCertManager = "experimental.cert-manager.io/request-duration"
+	KubernatesBuiltinSignerName             = "kubernetes.io/legacy-unknown"
 )
 
 type CsrNameGenerator func(string, string) string
@@ -82,7 +83,7 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 		certv1.UsageClientAuth,
 	}
 	if signerName == "" {
-		signerName = "kubernetes.io/legacy-unknown"
+		signerName = KubernatesBuiltinSignerName
 	}
 	certChain, caCert, err := SignCSRK8s(client, csrPEM, signerName, usages, dnsName, caFilePath, approveCsr, true, requestedLifetime)
 
@@ -98,28 +99,25 @@ func SignCSRK8s(client clientset.Interface, csrData []byte, signerName string, u
 	dnsName, caFilePath string, approveCsr, appendCaCert bool, requestedLifetime time.Duration,
 ) ([]byte, []byte, error) {
 	var err error
-	v1Req := false
 
+	useV1 := checkUseV1(signerName, usages)
 	// 1. Submit the CSR
 
-	csrName, v1CsrReq, v1Beta1CsrReq, err := submitCSR(client, csrData, signerName, usages, csrRetriesMax, requestedLifetime)
+	csrName, v1CsrReq, v1Beta1CsrReq, err := submitCSR(client, csrData, signerName, usages, csrRetriesMax, &useV1, requestedLifetime)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to submit CSR request (%v). Error: %v", csrName, err)
 	}
 	log.Debugf("CSR (%v) has been created", csrName)
-	if v1CsrReq != nil {
-		v1Req = true
-	}
 
 	// clean up certificate request after deletion
 	defer func() {
-		_ = cleanUpCertGen(client, v1Req, csrName)
+		_ = cleanUpCertGen(client, useV1, csrName)
 	}()
 
 	// 2. Approve the CSR
 	if approveCsr {
 		csrMsg := fmt.Sprintf("CSR (%s) for the certificate (%s) is approved", csrName, dnsName)
-		err = approveCSR(csrName, csrMsg, client, v1CsrReq, v1Beta1CsrReq)
+		err = approveCSR(csrName, csrMsg, client, v1CsrReq, v1Beta1CsrReq, useV1)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to approve CSR request. Error: %v", err)
 		}
@@ -128,13 +126,20 @@ func SignCSRK8s(client clientset.Interface, csrData []byte, signerName string, u
 
 	// 3. Read the signed certificate
 	certChain, caCert, err := readSignedCertificate(client,
-		csrName, certWatchTimeout, certReadInterval, maxNumCertRead, caFilePath, appendCaCert, v1Req)
+		csrName, certWatchTimeout, certReadInterval, maxNumCertRead, caFilePath, appendCaCert, useV1)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// If there is a failure of cleaning up CSR, the error is returned.
 	return certChain, caCert, err
+}
+
+func checkUseV1(signerName string, usages []certv1.KeyUsage) bool {
+	if len(usages) > 0 && len(signerName) > 0 && signerName != KubernatesBuiltinSignerName {
+		return true
+	}
+	return false
 }
 
 // Read CA certificate and check whether it is a valid certificate.
@@ -189,17 +194,16 @@ func reloadCACert(wc *WebhookController) (bool, error) {
 
 func submitCSR(clientset clientset.Interface,
 	csrData []byte, signerName string,
-	usages []certv1.KeyUsage, numRetries int, requestedLifetime time.Duration) (string, *certv1.CertificateSigningRequest,
+	usages []certv1.KeyUsage, numRetries int, useV1 *bool, requestedLifetime time.Duration) (string, *certv1.CertificateSigningRequest,
 	*certv1beta1.CertificateSigningRequest, error,
 ) {
 	var lastErr error
-	useV1 := true
 	csrName := ""
 	for i := 0; i < numRetries; i++ {
 		if csrName == "" {
 			csrName = GenCsrName()
 		}
-		if useV1 && len(usages) > 0 && len(signerName) > 0 && signerName != "kubernetes.io/legacy-unknown" {
+		if *useV1 {
 			log.Debugf("trial %v using v1 api to create CSR (%v)", i+1, csrName)
 			csr := &certv1.CertificateSigningRequest{
 				// Username, UID, Groups will be injected by API server.
@@ -226,7 +230,7 @@ func submitCSR(clientset clientset.Interface,
 				continue
 			} else if apierrors.IsNotFound(err) {
 				// don't attempt to use older api unless we get an API error
-				useV1 = false
+				*useV1 = false
 			} else {
 				continue
 			}
@@ -243,6 +247,7 @@ func submitCSR(clientset clientset.Interface,
 				Request:    csrData,
 			},
 		}
+
 		for _, usage := range usages {
 			v1beta1csr.Spec.Usages = append(v1beta1csr.Spec.Usages, certv1beta1.KeyUsage(usage))
 		}
@@ -264,22 +269,11 @@ func submitCSR(clientset clientset.Interface,
 }
 
 func approveCSR(csrName string, csrMsg string, client clientset.Interface,
-	v1CsrReq *certv1.CertificateSigningRequest, v1Beta1CsrReq *certv1beta1.CertificateSigningRequest,
+	v1CsrReq *certv1.CertificateSigningRequest, v1Beta1CsrReq *certv1beta1.CertificateSigningRequest, useV1 bool,
 ) error {
 	err := errors.New("invalid CSR")
 
-	if v1Beta1CsrReq != nil {
-		v1Beta1CsrReq.Status.Conditions = append(v1Beta1CsrReq.Status.Conditions, certv1beta1.CertificateSigningRequestCondition{
-			Type:    certv1beta1.CertificateApproved,
-			Reason:  csrMsg,
-			Message: csrMsg,
-		})
-		_, err = client.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(context.TODO(), v1Beta1CsrReq, metav1.UpdateOptions{})
-		if err != nil {
-			log.Errorf("failed to approve CSR (%v): %v", csrName, err)
-			return err
-		}
-	} else if v1CsrReq != nil {
+	if useV1 && v1CsrReq != nil {
 		v1CsrReq.Status.Conditions = append(v1CsrReq.Status.Conditions, certv1.CertificateSigningRequestCondition{
 			Type:    certv1.CertificateApproved,
 			Reason:  csrMsg,
@@ -287,6 +281,18 @@ func approveCSR(csrName string, csrMsg string, client clientset.Interface,
 			Status:  corev1.ConditionTrue,
 		})
 		_, err = client.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.TODO(), csrName, v1CsrReq, metav1.UpdateOptions{})
+		if err != nil {
+			log.Errorf("failed to approve CSR (%v): %v", csrName, err)
+			return err
+		}
+	} else if v1Beta1CsrReq != nil {
+		v1Beta1CsrReq.Status.Conditions = append(v1Beta1CsrReq.Status.Conditions, certv1beta1.CertificateSigningRequestCondition{
+			Type:    certv1beta1.CertificateApproved,
+			Reason:  csrMsg,
+			Message: csrMsg,
+			Status:  corev1.ConditionTrue,
+		})
+		_, err = client.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(context.TODO(), v1Beta1CsrReq, metav1.UpdateOptions{})
 		if err != nil {
 			log.Errorf("failed to approve CSR (%v): %v", csrName, err)
 			return err

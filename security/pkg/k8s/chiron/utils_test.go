@@ -397,8 +397,10 @@ func TestSubmitCSR(t *testing.T) {
 			cert.UsageClientAuth,
 		}
 
+		useV1 := true
+
 		_, r, _, err := submitCSR(wc.clientset, []byte("test-pem"), "test-signer",
-			usages, numRetries, DefaulCertTTL)
+			usages, numRetries, &useV1, DefaulCertTTL)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("test case (%s) should have failed", tcName)
