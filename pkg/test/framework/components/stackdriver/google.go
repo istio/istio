@@ -76,7 +76,7 @@ var (
 			resourceType: "k8s_pod",
 		},
 	}
-	queryInterval = -90 * time.Second
+	queryInterval = -5 * time.Minute
 )
 
 func newRealStackdriver(_ resource.Context, _ Config) (Instance, error) {

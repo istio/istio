@@ -31,6 +31,6 @@ var (
 func init() {
 	flag.DurationVar(&TelemetryRetryDelay, "istio.test.telemetry.retryDelay", time.Second*2, "Default retry delay used in tests")
 	flag.DurationVar(&TelemetryRetryTimeout, "istio.test.telemetry.retryTimeout", time.Second*80, "Default retry timeout used in tests")
-	flag.BoolVar(&UseRealStackdriver, "istio.test.telemetry.useRealStackdriver", false,
+	flag.BoolVar(&UseRealStackdriver, "istio.test.telemetry.useRealStackdriver", true,
 		"controls whether to use real Stackdriver backend or not for Stackdriver integration test.")
 }
