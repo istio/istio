@@ -72,7 +72,7 @@ const (
 	// How many times should we retry the failed network fetch on refresh flow. The refresh flow
 	// means it's called when the periodically refresh job is triggered. We can retry more aggressively
 	// as it's running separately from the main flow.
-	networkFetchRetryCountOnRefreshFlow = 3
+	networkFetchRetryCountOnRefreshFlow = 7
 
 	// jwksExtraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
 	jwksExtraRootCABundlePath = "/cacerts/extra.pem"
@@ -239,6 +239,11 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		}
 		return e.pubKey, nil
 	}
+	r.keyEntries.Store(key, jwtPubKeyEntry{
+		pubKey:            "",
+		lastRefreshedTime: now,
+		lastUsedTime:      now,
+	})
 	// fetching the public key in the background
 	jwksuriChannel <- key
 	return "", nil
@@ -367,28 +372,12 @@ func (r *JwksResolver) refresher() {
 	for {
 		select {
 		case <-r.refreshTicker.C:
-			lastHasError = r.refreshCache(networkFetchRetryCountOnRefreshFlow, lastHasError, true)
+			lastHasError = r.refreshCache(lastHasError)
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return
 		case jwtKeyData := <-jwksuriChannel:
-			var jwksURI string
-			var err error
-			now := time.Now()
-			if jwtKeyData.jwksURI == "" {
-				// Fetch the jwks URI if it is not hardcoded on config.
-				jwksURI, err = r.resolveJwksURIUsingOpenID(jwtKeyData.issuer)
-				if err != nil {
-					log.Errorf("Failed to jwks URI from %q: %v", jwtKeyData.issuer, err)
-				}
-				jwtKeyData.jwksURI = jwksURI
-			}
-			r.keyEntries.Store(jwtKeyData, jwtPubKeyEntry{
-				pubKey:            "",
-				lastRefreshedTime: now,
-				lastUsedTime:      now,
-			})
-			hasErrors := r.refreshCache(10, lastHasError, false)
+			hasErrors := r.refreshCache(lastHasError)
 			if hasErrors {
 				log.Errorf("Failed to get public key from  %q: %q", jwtKeyData.issuer, jwtKeyData.jwksURI)
 			}
@@ -396,9 +385,9 @@ func (r *JwksResolver) refresher() {
 	}
 }
 
-func (r *JwksResolver) refreshCache(retryNumber int, lastHasError bool, periodicRefresh bool) bool {
-	currentHasError := r.refresh(retryNumber)
-	if currentHasError && periodicRefresh {
+func (r *JwksResolver) refreshCache(lastHasError bool) bool {
+	currentHasError := r.refresh()
+	if currentHasError {
 		if lastHasError {
 			// update to exponential backoff if last time also failed.
 			r.refreshInterval *= 2
@@ -417,7 +406,7 @@ func (r *JwksResolver) refreshCache(retryNumber int, lastHasError bool, periodic
 	return currentHasError
 }
 
-func (r *JwksResolver) refresh(retryNumber int) bool {
+func (r *JwksResolver) refresh() bool {
 	var wg sync.WaitGroup
 	hasChange := false
 	hasErrors := false
@@ -460,7 +449,7 @@ func (r *JwksResolver) refresh(retryNumber int) bool {
 				}
 			}
 
-			resp, err := r.getRemoteContentWithRetry(jwksURI, retryNumber)
+			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
 			if err != nil {
 				hasErrors = true
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
