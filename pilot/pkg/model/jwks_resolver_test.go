@@ -221,7 +221,6 @@ func TestGetPublicKeyUsingTLS(t *testing.T) {
 	if test.JwtPubKey1 != pk {
 		t.Errorf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
 	}
-
 }
 func TestGetPublicKeyUsingTLSBadCert(t *testing.T) {
 	r := newJwksResolverWithCABundlePaths(
@@ -258,7 +257,6 @@ func TestGetPublicKeyUsingTLSBadCert(t *testing.T) {
 	if _, found := r.keyEntries.Load(key); found {
 		t.Errorf("GetPublicKey(\"\", %+v) did not fail: expected bad certificate error, got no error", mockCertURL)
 	}
-
 }
 
 func TestGetPublicKeyUsingTLSWithoutCABundles(t *testing.T) {
