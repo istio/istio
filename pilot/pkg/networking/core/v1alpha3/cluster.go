@@ -224,7 +224,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		locality:        cb.locality,
 		proxyClusterID:  cb.clusterID,
 		proxySidecar:    cb.sidecarProxy(),
-		networkView:     cb.networkView,
+		proxyView:       cb.proxyView,
 		http2:           port.Protocol.IsHTTP2(),
 		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
 		supportsIPv4:    cb.supportsIPv4,
@@ -260,7 +260,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
-			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.networkView, service, port.Port, nil)
+			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.proxyView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxyType, service)
@@ -275,7 +275,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
-				clusterKey.networkView, clusterKey.destinationRule, clusterKey.serviceAccounts)
+				clusterKey.proxyView, clusterKey.destinationRule, clusterKey.serviceAccounts)
 
 			if patched := cp.applyResource(nil, defaultCluster.build()); patched != nil {
 				resources = append(resources, patched)
@@ -347,7 +347,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 	clusters := make([]*cluster.Cluster, 0)
 	cb := NewClusterBuilder(proxy, req, nil)
 
-	networkView := proxy.GetNetworkView()
+	proxyView := proxy.GetView()
 
 	for _, service := range proxy.SidecarScope.Services() {
 		if service.MeshExternal {
@@ -359,7 +359,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
+			lbEndpoints := cb.buildLocalityLbEndpoints(proxyView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxyType, service)
@@ -370,7 +370,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if defaultCluster == nil {
 				continue
 			}
-			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView, destRule, nil)
+			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, proxyView, destRule, nil)
 			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
