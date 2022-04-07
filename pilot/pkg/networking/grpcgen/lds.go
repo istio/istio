@@ -148,7 +148,7 @@ func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *mo
 		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
 		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
 		// No need to warn on each push - the behavior is still consistent with auto-mtls, which is the
-		// replacement for permissive. 
+		// replacement for permissive.
 		mode = model.MTLSDisable
 	}
 
@@ -248,7 +248,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 //
 // nolint: unparam
 func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext,
-		a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy) *rbacpb.RBAC {
+	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy) *rbacpb.RBAC {
 	rules := &rbacpb.RBAC{
 		Action:   a,
 		Policies: map[string]*rbacpb.Policy{},
