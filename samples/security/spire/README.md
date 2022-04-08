@@ -1,9 +1,9 @@
 # Integrating SPIRE as a CA through Envoy's SDS API
 
 This sample deploys a setup of [SPIRE](https://github.com/spiffe/spire) (the SPIFFE Runtime Environment) as an example of integrating with [Envoy's SDS](https://www.envoyproxy.io/docs/envoy/latest/configuration/security/secret) API. For more information
-on SPIFFE and SPIRE specs, refer to the [SPIFFE Overview](https://spiffe.io/docs/latest/spiffe-about/overview/).
+on the SPIFFE specs, refer to the [SPIFFE Overview](https://spiffe.io/docs/latest/spiffe-about/overview/).
 
-Once SPIRE is deployed and integrated with Istio, this sample deploys a modified version of the [sleep](/samples/sleep/README.md) service and validates that its [identity](https://spiffe.io/docs/latest/spiffe-about/spiffe-concepts/#spiffe-verifiable-identity-document-svid) was issued by SPIRE.
+Once SPIRE is deployed and integrated with Istio, this sample deploys a modified version of the [sleep](/samples/sleep/README.md) service and validates that its [identity](https://spiffe.io/docs/latest/spiffe-about/spiffe-concepts/#spiffe-verifiable-identity-document-svid) was issued by SPIRE. Workload registration is automatically handled by the [k8s-workload-registrar](https://github.com/spiffe/spire/blob/main/support/k8s/k8s-workload-registrar/README.md).
 
 See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrations/spire) for further details about this integration.
 
@@ -35,7 +35,7 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
   $ kubectl apply -f sleep-spire.yaml
   ```
 
-  Otherwise, manually inject the sidecars before applying:
+  Otherwise, manually inject the sidecar before applying:
 
   ```bash
   $ kubectl apply -f <(istioctl kube-inject -f sleep-spire.yaml)
@@ -49,7 +49,7 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
   '.dynamicActiveSecrets[0].secret.tlsCertificate.certificateChain.inlineBytes' | base64 --decode > chain.pem
   ```
 
-1. Inspect the certificate and verify that SPIRE was the issuer:
+1. Inspect the certificate content and verify that SPIRE was the issuer:
 
   ```bash
   $ openssl x509 -in chain.pem -text | grep SPIRE
