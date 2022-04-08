@@ -57,12 +57,34 @@ type xdsWriterStatus struct {
 	endpointStatus string
 }
 
+func (s *StatusWriter) PrintJSON(statuses map[string][]byte) error {
+	pilotStatuses := make(map[string][]*xds.SyncStatus)
+	for pilot, status := range statuses {
+		var ss []*xds.SyncStatus
+		err := json.Unmarshal(status, &ss)
+		if err != nil {
+			return err
+		}
+
+		pilotStatuses[pilot] = ss
+	}
+
+	out, err := json.MarshalIndent(pilotStatuses, "", "\t")
+	if err != nil {
+		return fmt.Errorf("error while marshaling to JSON: %v", err)
+	}
+
+	fmt.Fprintln(s.Writer, string(out))
+	return nil
+}
+
 // PrintAll takes a slice of Pilot syncz responses and outputs them using a tabwriter
 func (s *StatusWriter) PrintAll(statuses map[string][]byte) error {
 	w, fullStatus, err := s.setupStatusPrint(statuses)
 	if err != nil {
 		return err
 	}
+
 	for _, status := range fullStatus {
 		if err := statusPrintln(w, status); err != nil {
 			return err

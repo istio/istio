@@ -33,6 +33,14 @@ import (
 	"istio.io/pkg/log"
 )
 
+type statusArguments struct {
+	output string
+}
+
+var (
+	statusArgs = statusArguments{}
+)
+
 func statusCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
@@ -103,7 +111,17 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if err != nil {
 				return err
 			}
+
 			sw := pilot.StatusWriter{Writer: c.OutOrStdout()}
+
+			switch statusArgs.output {
+			case jsonFormat:
+				return sw.PrintJSON(statuses)
+			case tableFormat:
+			default:
+				return fmt.Errorf("unknown format: %s", statusArgs.output)
+			}
+
 			return sw.PrintAll(statuses)
 		},
 	}
@@ -111,6 +129,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	opts.AttachControlPlaneFlags(statusCmd)
 	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
+	statusCmd.PersistentFlags().StringVarP(&statusArgs.output, "output", "o", tableFormat, "Output format for revision description "+
+		"(available formats: json,table)")
 
 	return statusCmd
 }
