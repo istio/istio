@@ -225,7 +225,11 @@ func newJwksResolverWithCABundlePaths(
 
 var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")
 
+<<<<<<< HEAD
 // GetOrUpdatePublicKey returns the  JWT public key if it is available in the cache,
+=======
+// GetOrUpdatePublicKey returns the  JWT public key if it is available in the cache
+>>>>>>> 04038cc63e (istiod async changes)
 // or start a background job to add the key in the cache
 func (r *JwksResolver) GetOrUpdatePublicKey(issuer string, jwksURI string) (string, error) {
 	now := time.Now()
