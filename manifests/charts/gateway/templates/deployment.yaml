@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ .Values.kind | default "Deployment" }}
 metadata:
   name: {{ include "gateway.name" . }}
   namespace: {{ .Release.Namespace }}
