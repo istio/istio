@@ -59,6 +59,7 @@ var (
 )
 
 type mockCAServer struct {
+	pb.UnimplementedIstioCertificateServiceServer
 	Certs         []string
 	Authenticator *security.FakeAuthenticator
 	Err           error
@@ -131,7 +132,11 @@ func TestCitadelClientRotation(t *testing.T) {
 	t.Run("cert always present", func(t *testing.T) {
 		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
 		addr := serve(t, server, tlsOptions(t))
-		opts := &security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: certDir}
+		opts := &security.Options{
+			CAEndpoint:  addr,
+			CredFetcher: plugin.CreateTokenPlugin("testdata/token"),
+			ProvCert:    certDir,
+		}
 		rootCert := path.Join(certDir, constants.RootCertFilename)
 		key := path.Join(certDir, constants.KeyFilename)
 		cert := path.Join(certDir, constants.CertChainFilename)
@@ -155,7 +160,11 @@ func TestCitadelClientRotation(t *testing.T) {
 	t.Run("cert never present", func(t *testing.T) {
 		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
 		addr := serve(t, server, tlsOptions(t))
-		opts := &security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: "."}
+		opts := &security.Options{
+			CAEndpoint:  addr,
+			CredFetcher: plugin.CreateTokenPlugin("testdata/token"),
+			ProvCert:    ".",
+		}
 		rootCert := path.Join(certDir, constants.RootCertFilename)
 		key := path.Join(opts.ProvCert, constants.KeyFilename)
 		cert := path.Join(opts.ProvCert, constants.CertChainFilename)
@@ -178,7 +187,11 @@ func TestCitadelClientRotation(t *testing.T) {
 		dir := t.TempDir()
 		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
 		addr := serve(t, server, tlsOptions(t))
-		opts := &security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: dir}
+		opts := &security.Options{
+			CAEndpoint:  addr,
+			CredFetcher: plugin.CreateTokenPlugin("testdata/token"),
+			ProvCert:    dir,
+		}
 		rootCert := path.Join(certDir, constants.RootCertFilename)
 		key := path.Join(opts.ProvCert, constants.KeyFilename)
 		cert := path.Join(opts.ProvCert, constants.CertChainFilename)
@@ -278,6 +291,7 @@ func TestCitadelClient(t *testing.T) {
 }
 
 type mockTokenCAServer struct {
+	pb.UnimplementedIstioCertificateServiceServer
 	Certs []string
 }
 

@@ -59,7 +59,7 @@ func TestGenCSR(t *testing.T) {
 		csrPem, _, err := GenCSR(tc.csrOptions)
 		if err != nil {
 			if tc.err != nil {
-				if reflect.DeepEqual(err, tc.err) {
+				if err.Error() == tc.err.Error() {
 					continue
 				}
 				t.Fatalf("%s: expected error to match expected error: %v", id, err)

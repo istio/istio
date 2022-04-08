@@ -169,7 +169,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: section-name-cross-namespace
+  name: bind-all
   namespace: default
 spec: null
 status:
@@ -184,39 +184,49 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: host-mismatch
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: no hostnames matched parent hostname "*.foobar.example"
+      reason: InvalidParentReference
+      status: "False"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
       sectionName: foobar
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: same-namespace-valid
-  namespace: istio-system
+  name: invalid-bind-cross-namespace
+  namespace: default
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: RouteAdmitted
-      status: "True"
+      message: hostnames matched parent hostname "*.namespace-selector.example", but
+        namespace "default" is not allowed by the parent
+      reason: InvalidParentReference
+      status: "False"
       type: Accepted
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
-      sectionName: same-namespace
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: RouteAdmitted
-      status: "True"
-      type: Accepted
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      name: gateway
-      namespace: istio-system
-      sectionName: foobar
+      sectionName: namespace-selector
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
@@ -244,28 +254,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: host-mismatch
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: no hostnames matched parent hostname "*.foobar.example"
-      reason: InvalidParentReference
-      status: "False"
-      type: Accepted
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      name: gateway
-      namespace: istio-system
-      sectionName: foobar
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: HTTPRoute
-metadata:
-  creationTimestamp: null
-  name: bind-all
+  name: section-name-cross-namespace
   namespace: default
 spec: null
 status:
@@ -280,6 +269,7 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
+      sectionName: foobar
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
@@ -327,23 +317,33 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: invalid-bind-cross-namespace
-  namespace: default
+  name: same-namespace-valid
+  namespace: istio-system
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: hostnames matched parent hostname "*.namespace-selector.example", but
-        namespace "default" is not allowed by the parent
-      reason: InvalidParentReference
-      status: "False"
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
       type: Accepted
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
-      sectionName: namespace-selector
+      sectionName: same-namespace
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: foobar
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute

@@ -44,7 +44,7 @@ func TestDeepCopy(t *testing.T) {
 
 	copied := cfg.DeepCopy()
 
-	if diff := cmp.Diff(copied, cfg); diff != "" {
+	if diff := cmp.Diff(copied, cfg, protocmp.Transform()); diff != "" {
 		t.Fatalf("cloned config is not identical: %v", diff)
 	}
 
@@ -82,7 +82,7 @@ func TestDeepCopyTypes(t *testing.T) {
 				c.(*networking.VirtualService).Gateways = []string{"bar"}
 				return c
 			},
-			nil,
+			protocmp.Transform(),
 		},
 		// Kubernetes type
 		{
@@ -109,7 +109,7 @@ func TestDeepCopyTypes(t *testing.T) {
 				c.(*config.MockConfig).Key = "bar"
 				return c
 			},
-			nil,
+			protocmp.Transform(),
 		},
 		// XDS type, to test golang/proto
 		{
@@ -211,7 +211,6 @@ func TestApplyJSON(t *testing.T) {
 		},
 		// mock type
 		{
-
 			input:  &config.MockConfig{},
 			json:   `{"key":"foobar","fake-field":1}`,
 			output: &config.MockConfig{Key: "foobar"},
@@ -235,7 +234,7 @@ func TestApplyJSON(t *testing.T) {
 			if err := ApplyJSON(tt.input, tt.json); err != nil {
 				t.Fatal(err)
 			}
-			if diff := cmp.Diff(tt.input, tt.output, tt.option); diff != "" {
+			if diff := cmp.Diff(tt.input, tt.output, protocmp.Transform()); diff != "" {
 				t.Fatalf("Diff: %v", diff)
 			}
 			if err := ApplyJSONStrict(tt.input, tt.json); err == nil {
@@ -267,7 +266,6 @@ func TestToJSON(t *testing.T) {
 		},
 		// mock type
 		{
-
 			input: &config.MockConfig{Key: "foobar"},
 			json:  `{"key":"foobar"}`,
 		},
@@ -323,7 +321,6 @@ func TestToMap(t *testing.T) {
 		},
 		// mock type
 		{
-
 			input: &config.MockConfig{Key: "foobar"},
 			mp: map[string]interface{}{
 				"key": "foobar",

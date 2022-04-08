@@ -301,7 +301,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	whc := func() map[string]string {
 		if wh != nil {
-			return wh.Config.Templates
+			return wh.Config.RawTemplates
 		}
 		return map[string]string{}
 	}
@@ -368,14 +368,14 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, error) {
 	// JWTRule is from the JWT_RULE environment variable.
 	// An example of json string for JWTRule is:
-	//`{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
-	jwtRule := v1beta1.JWTRule{}
-	err := json.Unmarshal([]byte(args.JwtRule), &jwtRule)
+	// `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
+	jwtRule := &v1beta1.JWTRule{}
+	err := json.Unmarshal([]byte(args.JwtRule), jwtRule)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JWT rule: %v", err)
 	}
 	log.Infof("Istiod authenticating using JWTRule: %v", jwtRule)
-	jwtAuthn, err := authenticate.NewJwtAuthenticator(&jwtRule, trustDomain)
+	jwtAuthn, err := authenticate.NewJwtAuthenticator(jwtRule, trustDomain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the JWT authenticator: %v", err)
 	}
@@ -522,7 +522,7 @@ func (s *Server) initSDSServer() {
 		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 	} else {
 		creds := kubecredentials.NewMulticluster(s.clusterID)
-		creds.AddEventHandler(func(name string, namespace string) {
+		creds.AddSecretHandler(func(name string, namespace string) {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
@@ -535,8 +535,11 @@ func (s *Server) initSDSServer() {
 				Reason: []model.TriggerReason{model.SecretTrigger},
 			})
 		})
-		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID)
+		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID, s.environment.Mesh())
 		s.multiclusterController.AddHandler(creds)
+		if ecdsGen, found := s.XDSServer.Generators[v3.ExtensionConfigurationType]; found {
+			ecdsGen.(*xds.EcdsGenerator).SetCredController(creds)
+		}
 	}
 }
 
@@ -1184,12 +1187,6 @@ func (s *Server) initMeshHandlers() {
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
-		})
-	})
-	s.environment.AddNetworksHandler(func() {
-		s.XDSServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
-			Reason: []model.TriggerReason{model.NetworksTrigger},
 		})
 	})
 }

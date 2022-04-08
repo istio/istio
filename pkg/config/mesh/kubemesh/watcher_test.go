@@ -21,7 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/testing/protocmp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -145,10 +147,8 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	t.Cleanup(func() { close(stop) })
 	w := NewConfigMapWatcher(client, namespace, name, key, false, stop)
 
-	defaultMesh := mesh.DefaultMeshConfig()
-
 	var mu sync.Mutex
-	newM := &defaultMesh
+	newM := mesh.DefaultMeshConfig()
 	w.AddMeshHandler(func() {
 		mu.Lock()
 		defer mu.Unlock()
@@ -162,7 +162,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 		expect *meshconfig.MeshConfig
 	}{
-		{expect: &defaultMesh},
+		{expect: mesh.DefaultMeshConfig()},
 		{added: cm, expect: m},
 
 		// Handle misconfiguration errors.
@@ -172,8 +172,8 @@ func TestNewConfigMapWatcher(t *testing.T) {
 		{updated: badCM, expect: m},
 		{updated: cm, expect: m},
 
-		{deleted: cm, expect: &defaultMesh},
-		{added: badCM, expect: &defaultMesh},
+		{deleted: cm, expect: mesh.DefaultMeshConfig()},
+		{added: badCM, expect: mesh.DefaultMeshConfig()},
 	}
 
 	for i, step := range steps {
@@ -192,12 +192,12 @@ func TestNewConfigMapWatcher(t *testing.T) {
 					Should(Succeed())
 			}
 
-			g.Eventually(w.Mesh).Should(Equal(step.expect))
-			g.Eventually(func() *meshconfig.MeshConfig {
+			retry.UntilOrFail(t, func() bool { return cmp.Equal(w.Mesh(), step.expect, protocmp.Transform()) })
+			retry.UntilOrFail(t, func() bool {
 				mu.Lock()
 				defer mu.Unlock()
-				return newM
-			}, time.Second).Should(Equal(step.expect))
+				return cmp.Equal(newM, step.expect, protocmp.Transform())
+			})
 		})
 	}
 }

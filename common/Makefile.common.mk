@@ -69,13 +69,13 @@ lint-licenses:
 lint-all: lint-dockerfiles lint-scripts lint-yaml lint-helm lint-copyright-banner lint-go lint-python lint-markdown lint-sass lint-typescript lint-protos lint-licenses
 
 tidy-go:
-	@go mod tidy
+	@find -name go.mod -execdir go mod tidy \;
 
 mod-download-go:
-	@-GOFLAGS="-mod=readonly" go mod download
+	@-GOFLAGS="-mod=readonly" find -name go.mod -execdir go mod download \;
 # go mod tidy is needed with Golang 1.16+ as go mod download affects go.sum
 # https://github.com/golang/go/issues/43994
-	@go mod tidy
+	@find -name go.mod -execdir go mod tidy \;
 
 format-go: tidy-go
 	@${FINDFILES} -name '*.go' \( ! \( -name '*.gen.go' -o -name '*.pb.go' \) \) -print0 | ${XARGS} common/scripts/format_go.sh
@@ -123,6 +123,6 @@ tidy-docker:
 
 # help works by looking over all Makefile includes matching `target: ## comment` regex and outputting them
 help: ## Show this help
-	@egrep -h '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort  | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@egrep -h '^[a-zA-Z_\.-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort  | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: lint-dockerfiles lint-scripts lint-yaml lint-copyright-banner lint-go lint-python lint-helm lint-markdown lint-sass lint-typescript lint-protos lint-all format-go format-python format-protos update-common update-common-protos lint-licenses dump-licenses dump-licenses-csv check-clean-repo tidy-docker help tidy-go mod-download-go

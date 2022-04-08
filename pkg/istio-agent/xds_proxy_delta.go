@@ -103,7 +103,7 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
+	upstreamConn, err := p.buildUpstreamConn(ctx)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		metrics.IstiodConnectionFailures.Increment()
@@ -221,7 +221,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do
 					// This assumes internal types are always singleton
-					return
+					break
 				}
 				err := h(resp.Resources[0].Resource)
 				var errorResp *google_rpc.Status

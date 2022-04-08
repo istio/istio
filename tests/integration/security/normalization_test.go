@@ -19,11 +19,13 @@ package security
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -222,21 +224,25 @@ func TestNormalization(t *testing.T) {
 			}
 			for _, tt := range cases {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
-					istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), fmt.Sprintf(`
+					istio.PatchMeshConfig(t, ist.Settings().SystemNamespace, t.Clusters(), fmt.Sprintf(`
 pathNormalization:
   normalization: %v`, tt.ntype.String()))
 					for _, c := range apps.A {
 						for _, tt := range tt.expectations {
 							t.NewSubTest(tt.in).Run(func(t framework.TestContext) {
-								validator := echo.ExpectKey("URL", tt.out)
+								checker := check.URL(tt.out)
 								if tt.out == "400" {
-									validator = echo.ExpectCode("400")
+									checker = check.Status(http.StatusBadRequest)
 								}
-								c.CallWithRetryOrFail(t, echo.CallOptions{
-									Target:    apps.B[0],
-									Path:      tt.in,
-									PortName:  "http",
-									Validator: validator,
+								c.CallOrFail(t, echo.CallOptions{
+									To: apps.B,
+									HTTP: echo.HTTP{
+										Path: tt.in,
+									},
+									Port: echo.Port{
+										Name: "http",
+									},
+									Check: checker,
 								})
 							})
 						}

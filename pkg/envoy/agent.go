@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/http"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -36,7 +36,7 @@ var activeConnectionCheckDelay = 1 * time.Second
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
 func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Duration, localhost string,
 	adminPort, statusPort, prometheusPort int, exitOnZeroActiveConnections bool) *Agent {
-	knownIstioListeners := sets.NewSet(
+	knownIstioListeners := sets.New(
 		fmt.Sprintf("listener.0.0.0.0_%d.downstream_cx_active", statusPort),
 		fmt.Sprintf("listener.0.0.0.0_%d.downstream_cx_active", prometheusPort),
 		"listener.admin.downstream_cx_active",
@@ -60,7 +60,6 @@ func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Durat
 
 // Proxy defines command interface for a proxy
 type Proxy interface {
-
 	// Run command for an epoch, and abort channel
 	Run(int, <-chan error) error
 
@@ -149,7 +148,18 @@ func (a *Agent) terminate() {
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
 		for range ticker.C {
-			ac := a.activeProxyConnections()
+			ac, err := a.activeProxyConnections()
+			if err != nil {
+				log.Errorf(err.Error())
+				a.abortCh <- errAbort
+				return
+			}
+			if ac == -1 {
+				log.Info("downstream_cx_active are not available. This either means there are no downstream connection established yet" +
+					" or the stats are not enabled. Skipping active connections check...")
+				a.abortCh <- errAbort
+				return
+			}
 			if ac == 0 {
 				log.Info("There are no more active connections. terminating proxy...")
 				a.abortCh <- errAbort
@@ -166,15 +176,14 @@ func (a *Agent) terminate() {
 	log.Warnf("Aborted all epochs")
 }
 
-func (a *Agent) activeProxyConnections() int {
+func (a *Agent) activeProxyConnections() (int, error) {
 	activeConnectionsURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=downstream_cx_active$", a.localhost, a.adminPort)
 	stats, err := http.DoHTTPGet(activeConnectionsURL)
 	if err != nil {
-		log.Warnf("Unable to get listener stats from Envoy : %v", err)
-		return -1
+		return -1, fmt.Errorf("unable to get listener stats from Envoy : %v", err)
 	}
 	if stats.Len() == 0 {
-		return -1
+		return -1, nil
 	}
 	activeConnections := 0
 	for stats.Len() > 0 {
@@ -204,7 +213,7 @@ func (a *Agent) activeProxyConnections() int {
 	if activeConnections > 0 {
 		log.Debugf("Active connections stats: %s", stats.String())
 	}
-	return activeConnections
+	return activeConnections, nil
 }
 
 // runWait runs the start-up command as a go routine and waits for it to finish

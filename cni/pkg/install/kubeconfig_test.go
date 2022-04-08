@@ -15,7 +15,6 @@
 package install
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -76,18 +75,10 @@ func TestCreateKubeconfigFile(t *testing.T) {
 		},
 	}
 
-	for i, c := range cases {
+	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// Create temp directory for files
-			tempDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-", i))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() {
-				if err := os.RemoveAll(tempDir); err != nil {
-					t.Fatal(err)
-				}
-			}()
+			tempDir := t.TempDir()
 
 			cfg := &config.InstallConfig{
 				MountedCNINetDir:   tempDir,

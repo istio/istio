@@ -23,10 +23,10 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -263,6 +263,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	if entryName == "" {
 		return nil
 	}
+	proxy.AutoregisteredWorkloadEntryName = entryName
 
 	c.mutex.Lock()
 	c.adsConnections[makeProxyKey(proxy)]++
@@ -324,7 +325,7 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 		return
 	}
 	// check if the WE already exists, update the status
-	entryName := autoregisteredWorkloadEntryName(proxy)
+	entryName := proxy.AutoregisteredWorkloadEntryName
 	if entryName == "" {
 		return
 	}
@@ -384,8 +385,7 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 	delete(wle.Annotations, ConnectedAtAnnotation)
 	wle.Annotations[DisconnectedAtAnnotation] = disconTime.Format(timeFormat)
 	// use update instead of patch to prevent race condition
-	_, err := c.store.Update(wle)
-	if err != nil {
+	if _, err := c.store.Update(wle); err != nil {
 		autoRegistrationErrors.Increment()
 		return fmt.Errorf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 	}
@@ -412,7 +412,7 @@ func (c *Controller) QueueWorkloadEntryHealth(proxy *model.Proxy, event HealthEv
 	// we assume that the workload entry exists
 	// if auto registration does not exist, try looking
 	// up in NodeMetadata
-	entryName := autoregisteredWorkloadEntryName(proxy)
+	entryName := proxy.AutoregisteredWorkloadEntryName
 	if entryName == "" {
 		log.Errorf("unable to derive WorkloadEntry for health update for %v", proxy.ID)
 		return
@@ -441,7 +441,7 @@ func (c *Controller) updateWorkloadEntryHealth(obj interface{}) error {
 	if ok {
 		healthCondition := status.GetCondition(wleStatus.Conditions, status.ConditionHealthy)
 		if healthCondition != nil {
-			if healthCondition.LastProbeTime.Compare(condition.condition.LastProbeTime) > 0 {
+			if healthCondition.LastProbeTime.AsTime().After(condition.condition.LastProbeTime.AsTime()) {
 				return nil
 			}
 		}
@@ -573,8 +573,8 @@ func transformHealthEvent(proxy *model.Proxy, entryName string, event HealthEven
 		Type: status.ConditionHealthy,
 		// last probe and transition are the same because
 		// we only send on transition in the agent
-		LastProbeTime:      types.TimestampNow(),
-		LastTransitionTime: types.TimestampNow(),
+		LastProbeTime:      timestamppb.Now(),
+		LastTransitionTime: timestamppb.Now(),
 	}
 	out := HealthCondition{
 		proxy:     proxy,

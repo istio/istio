@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 )
 
 const (
@@ -111,6 +112,18 @@ func (fx *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
 	case fx.Events <- FakeXdsEvent{Type: "removeShard", ID: string(shardKey)}:
 	default:
 	}
+}
+
+func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, et string) *FakeXdsEvent {
+	return fx.WaitForDurationOrFail(t, et, 5*time.Second)
+}
+
+func (fx *FakeXdsUpdater) WaitForDurationOrFail(t test.Failer, et string, d time.Duration) *FakeXdsEvent {
+	ev := fx.WaitForDuration(et, d)
+	if ev == nil {
+		t.Fatalf("Timeout creating %q after %s", et, d)
+	}
+	return ev
 }
 
 func (fx *FakeXdsUpdater) Wait(et string) *FakeXdsEvent {

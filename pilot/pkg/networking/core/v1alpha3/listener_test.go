@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -30,10 +31,10 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -381,6 +382,68 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			if !reflect.DeepEqual(chains, tt.expectedChains) {
 				t.Fatalf("expected filter chains %v, found %v", tt.expectedChains, chains)
 			}
+
+			if listeners[0].ConnectionBalanceConfig != nil {
+				t.Fatalf("expected connection balance config to be set to empty, found %v", listeners[0].ConnectionBalanceConfig)
+			}
+		})
+	}
+}
+
+func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
+	tests := []struct {
+		name           string
+		CIDR           string
+		expectedChains []string
+	}{
+		{
+			name:           "same CIDR",
+			CIDR:           "10.10.0.0/24",
+			expectedChains: []string{"10.10.0.0"},
+		},
+		{
+			name:           "different CIDR",
+			CIDR:           "10.10.10.0/24",
+			expectedChains: []string{"10.10.0.0", "10.10.10.0"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			services := []*model.Service{
+				buildService("test.com", tt.CIDR, protocol.TCP, tnow),
+			}
+
+			p := &fakePlugin{}
+			virtualService := config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+					Name:             "test_vs",
+					Namespace:        "default",
+				},
+				Spec: virtualServiceSpec,
+			}
+			proxy := getProxy()
+			proxy.Metadata.InboundListenerExactBalance = true
+			proxy.Metadata.OutboundListenerExactBalance = true
+			listeners := buildOutboundListeners(t, p, proxy, nil, &virtualService, services...)
+
+			if len(listeners) != 1 {
+				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+			}
+			var chains []string
+			for _, fc := range listeners[0].FilterChains {
+				for _, cidr := range fc.FilterChainMatch.PrefixRanges {
+					chains = append(chains, cidr.AddressPrefix)
+				}
+			}
+			// There should not be multiple filter chains with same CIDR match
+			if !reflect.DeepEqual(chains, tt.expectedChains) {
+				t.Fatalf("expected filter chains %v, found %v", tt.expectedChains, chains)
+			}
+
+			if listeners[0].ConnectionBalanceConfig == nil || listeners[0].ConnectionBalanceConfig.GetExactBalance() == nil {
+				t.Fatalf("expected connection balance config to be set to exact_balance, found %v", listeners[0].ConnectionBalanceConfig)
+			}
 		})
 	}
 }
@@ -481,12 +544,18 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			})
 
 			proxy := cg.SetupProxy(nil)
+			proxy.Metadata.InboundListenerExactBalance = true
+			proxy.Metadata.OutboundListenerExactBalance = true
 
 			listeners := cg.ConfigGen.buildSidecarOutboundListeners(proxy, cg.env.PushContext)
 			listenersToCheck := make([]string, 0)
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
 					listenersToCheck = append(listenersToCheck, l.Name)
+				}
+
+				if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
+					t.Fatalf("expected connection balance config to be set to exact_balance, found %v", listeners[0].ConnectionBalanceConfig)
 				}
 			}
 
@@ -759,6 +828,207 @@ func TestFilterChainMatchFields(t *testing.T) {
 	// If this fails, that means new fields have been added to FilterChainMatch, filterChainMatchEqual function needs to be updated.
 	if e.NumField() != 14 {
 		t.Fatalf("Expected 14 fields, got %v. This means we need to update filterChainMatchEqual implementation", e.NumField())
+	}
+}
+
+func TestInboundListener_PrivilegedPorts(t *testing.T) {
+	// Verify that an explicit ingress listener will not bind to privileged ports
+	// if proxy is not using Iptables and cannot bind to privileged ports (1-1023).
+	//
+	// Even if a user explicitly created a Sidecar config with an ingress listener for a privileged port,
+	// it is still not worth it creating such a listener if we already known that a proxy will end up
+	// rejecting it.
+	testPrivilegedPorts(t, func(t *testing.T, proxy *model.Proxy, port uint32) []*listener.Listener {
+		p := &fakePlugin{}
+
+		// simulate user-defined Sidecar config with an ingress listener for a given port
+		sidecarConfig := &config.Config{
+			Meta: config.Meta{
+				Name:             "sidecar-with-ingress-listener",
+				Namespace:        proxy.ConfigNamespace,
+				GroupVersionKind: gvk.Sidecar,
+			},
+			Spec: &networking.Sidecar{
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.Port{
+							Number:   port,
+							Protocol: "HTTP",
+							Name:     strconv.Itoa(int(port)),
+						},
+						DefaultEndpoint: "127.0.0.1:8080",
+					},
+				},
+			},
+		}
+
+		return buildInboundListeners(t, p, proxy, sidecarConfig)
+	})
+}
+
+func TestOutboundListener_PrivilegedPorts(t *testing.T) {
+	// Verify that an implicit catch all egress listener will not bind to privileged ports
+	// if proxy is not using Iptables and cannot bind to privileged ports (1-1023).
+	//
+	// It is very common for the catch all egress listener to match services on ports 80 and 443.
+	// Therefore, the default behavior should not force users to start from looking for a workaround.
+	t.Run("implicit catch all egress listener", func(t *testing.T) {
+		testPrivilegedPorts(t, func(t *testing.T, proxy *model.Proxy, port uint32) []*listener.Listener {
+			p := &fakePlugin{}
+
+			// simulate a service on a given port
+			services := []*model.Service{buildServiceWithPort("httpbin.com", int(port), protocol.HTTP, tnow.Add(1*time.Second))}
+
+			return buildOutboundListeners(t, p, proxy, nil, nil, services...)
+		})
+	})
+
+	// Verify that an explicit per-port egress listener will not bind to privileged ports
+	// if proxy is not using Iptables and cannot bind to privileged ports (1-1023).
+	//
+	// Even if a user explicitly created a Sidecar config with an egress listener for a privileged port,
+	// it is still not worth it creating such a listener if we already known that a proxy will end up
+	// rejecting it.
+	t.Run("explicit per-port egress listener", func(t *testing.T) {
+		testPrivilegedPorts(t, func(t *testing.T, proxy *model.Proxy, port uint32) []*listener.Listener {
+			p := &fakePlugin{}
+
+			// simulate a service on a given port
+			services := []*model.Service{buildServiceWithPort("httpbin.com", int(port), protocol.HTTP, tnow.Add(1*time.Second))}
+
+			// simulate user-defined Sidecar config with an egress listener for a given port
+			sidecarConfig := &config.Config{
+				Meta: config.Meta{
+					Name:             "sidecar-with-per-port-egress-listener",
+					Namespace:        proxy.ConfigNamespace,
+					GroupVersionKind: gvk.Sidecar,
+				},
+				Spec: &networking.Sidecar{
+					Egress: []*networking.IstioEgressListener{
+						{
+							Hosts: []string{"default/*"},
+							Port: &networking.Port{
+								Number:   port,
+								Protocol: "HTTP",
+								Name:     strconv.Itoa(int(port)),
+							},
+						},
+					},
+				},
+			}
+
+			return buildOutboundListeners(t, p, proxy, sidecarConfig, nil, services...)
+		})
+	})
+}
+
+func testPrivilegedPorts(t *testing.T, buildListeners func(t *testing.T, proxy *model.Proxy, port uint32) []*listener.Listener) {
+	privilegedPorts := []uint32{1, 80, 443, 1023}
+	unprivilegedPorts := []uint32{1024, 8080, 8443, 15443}
+	anyPorts := append(privilegedPorts, unprivilegedPorts...)
+
+	// multiple test cases to ensure that privileged ports get treated differently
+	// only under certain conditions, namely
+	// 1) proxy explicitly indicated it is not using Iptables
+	// 2) proxy explicitly indicated it is not a privileged process (cannot bind to  1-1023)
+	cases := []struct {
+		name           string
+		unprivileged   bool // whether proxy is unprivileged
+		mode           model.TrafficInterceptionMode
+		ports          []uint32
+		expectListener bool // expect listener to be generated
+	}{
+		{
+			name:           "privileged proxy; implicit REDIRECT mode; any ports",
+			unprivileged:   false,
+			mode:           "",
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "privileged proxy; explicit REDIRECT mode; any ports",
+			unprivileged:   false,
+			mode:           model.InterceptionRedirect,
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "privileged proxy; explicit TPROXY mode; any ports",
+			unprivileged:   false,
+			mode:           model.InterceptionTproxy,
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "privileged proxy; explicit NONE mode; any ports",
+			unprivileged:   false,
+			mode:           model.InterceptionNone,
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "unprivileged proxy; implicit REDIRECT mode; any ports",
+			unprivileged:   true,
+			mode:           "",
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "unprivileged proxy; explicit REDIRECT mode; any ports",
+			unprivileged:   true,
+			mode:           model.InterceptionRedirect,
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "unprivileged proxy; explicit TPROXY mode; any ports",
+			unprivileged:   true,
+			mode:           model.InterceptionTproxy,
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "unprivileged proxy; explicit NONE mode; privileged ports",
+			unprivileged:   true,
+			mode:           model.InterceptionNone,
+			ports:          privilegedPorts,
+			expectListener: false,
+		},
+		{
+			name:           "unprivileged proxy; explicit NONE mode; unprivileged ports",
+			unprivileged:   true,
+			mode:           model.InterceptionNone,
+			ports:          unprivilegedPorts,
+			expectListener: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, port := range tc.ports {
+				t.Run(strconv.Itoa(int(port)), func(t *testing.T) {
+					proxy := getProxy()
+					proxy.Metadata.UnprivilegedPod = strconv.FormatBool(tc.unprivileged)
+					proxy.Metadata.InterceptionMode = tc.mode
+
+					listeners := buildListeners(t, proxy, port)
+
+					if tc.expectListener {
+						if expected := 1; len(listeners) != expected {
+							t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+						}
+						l := findListenerByPort(listeners, port)
+						if l == nil {
+							t.Fatalf("expected listener on port %d, but not found", port)
+						}
+					} else {
+						if expected := 0; len(listeners) != expected {
+							t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+						}
+					}
+				})
+			}
+		})
 	}
 }
 
@@ -1528,6 +1798,9 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 		if expectedListenerType == "HTTP" && !isHTTPListener(l) {
 			t.Fatalf("expected HTTP listener %s, but found TCP", listenerName)
 		}
+		if l.ConnectionBalanceConfig != nil {
+			t.Fatalf("expected connection balance config to be nil, found %v", l.ConnectionBalanceConfig)
+		}
 	}
 
 	if l := findListenerByPort(listeners, 9090); !isHTTPListener(l) {
@@ -1543,12 +1816,79 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 	}
 }
 
+func TestVirtualListeners_TrafficRedirectionEnabled(t *testing.T) {
+	cases := []struct {
+		name string
+		mode model.TrafficInterceptionMode
+	}{
+		{
+			name: "empty value",
+			mode: "",
+		},
+		{
+			name: "unknown value",
+			mode: model.TrafficInterceptionMode("UNKNOWN_VALUE"),
+		},
+		{
+			name: string(model.InterceptionTproxy),
+			mode: model.InterceptionTproxy,
+		},
+		{
+			name: string(model.InterceptionRedirect),
+			mode: model.InterceptionRedirect,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &fakePlugin{}
+			env := buildListenerEnv(nil)
+			proxy := getProxy()
+
+			// simulate particular interception mode
+			proxy.Metadata.InterceptionMode = tc.mode
+
+			got := buildAllListeners(p, env, proxy)
+
+			virtualInboundListener := findListenerByName(got, model.VirtualInboundListenerName)
+			if virtualInboundListener == nil {
+				t.Fatalf("buildSidecarListeners() did not generate virtual inbound listener")
+			}
+
+			virtualOutboundListener := findListenerByName(got, model.VirtualOutboundListenerName)
+			if virtualOutboundListener == nil {
+				t.Fatalf("buildSidecarListeners() did not generate virtual outbound listener")
+			}
+		})
+	}
+}
+
+func TestVirtualListeners_TrafficRedirectionDisabled(t *testing.T) {
+	p := &fakePlugin{}
+	env := buildListenerEnv(nil)
+	proxy := getProxy()
+
+	// simulate particular interception mode
+	proxy.Metadata.InterceptionMode = model.InterceptionNone
+
+	got := buildAllListeners(p, env, proxy)
+
+	virtualInboundListener := findListenerByName(got, model.VirtualInboundListenerName)
+	if virtualInboundListener != nil {
+		t.Fatalf("buildSidecarListeners() generated virtual inbound listener while it shouldn't")
+	}
+
+	virtualOutboundListener := findListenerByName(got, model.VirtualOutboundListenerName)
+	if virtualOutboundListener != nil {
+		t.Fatalf("buildSidecarListeners() generated virtual outbound listener while it shouldn't")
+	}
+}
+
 func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env)
+	listeners := buildAllListeners(p, env, getProxy())
 	found := false
 	for _, l := range listeners {
 		if l.Name == model.VirtualOutboundListenerName {
@@ -1558,6 +1898,9 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 			}
 			if fc.AccessLog == nil {
 				t.Fatal("expected access log configuration")
+			}
+			if l.ConnectionBalanceConfig != nil {
+				t.Fatalf("expected connection balance config to be empty, found %v", l.ConnectionBalanceConfig)
 			}
 			found = true
 			break
@@ -1574,7 +1917,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env)
+	listeners = buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
 		if l.Name == model.VirtualOutboundListenerName {
 			validateAccessLog(t, l, "format modified")
@@ -1587,7 +1930,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env)
+	listeners := buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
 
 		if l.AccessLog == nil {
@@ -1604,7 +1947,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env)
+	listeners = buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
 		if l.AccessLog[0].Filter == nil {
 			t.Fatal("expected filter config in listener access log configuration")
@@ -2363,14 +2706,13 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, env *model.Environment) []*listener.Listener {
+func buildAllListeners(p plugin.Plugin, env *model.Environment, proxy *model.Proxy) []*listener.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		return nil
 	}
 
-	proxy := getProxy()
 	proxy.ServiceInstances = nil
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	builder := NewListenerBuilder(proxy, env.PushContext)
@@ -2506,6 +2848,16 @@ func findListenerByAddress(listeners []*listener.Listener, address string) *list
 	return nil
 }
 
+func findListenerByName(listeners []*listener.Listener, name string) *listener.Listener {
+	for _, l := range listeners {
+		if name == l.Name {
+			return l
+		}
+	}
+
+	return nil
+}
+
 func buildService(hostname string, ip string, protocol protocol.Instance, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime:   creationTime,
@@ -2560,7 +2912,7 @@ func buildListenerEnv(services []*model.Service) *model.Environment {
 
 func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServices []*config.Config,
 	destinationRules []*config.Config) *model.Environment {
-	serviceDiscovery := memregistry.NewServiceDiscovery(services)
+	serviceDiscovery := memregistry.NewServiceDiscovery(services...)
 
 	instances := make([]*model.ServiceInstance, 0, len(services))
 	for _, s := range services {
@@ -2590,7 +2942,7 @@ func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServ
 					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
-						Value:     &types.Struct{},
+						Value:     &structpb.Struct{},
 					},
 				},
 			},
@@ -2611,7 +2963,7 @@ func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServ
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(&m),
+		Watcher:          mesh.NewFixedWatcher(m),
 	}
 	env.Init()
 	return &env

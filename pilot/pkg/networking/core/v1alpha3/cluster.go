@@ -25,7 +25,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -36,26 +37,15 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/util/gogo"
+	"istio.io/istio/pkg/util/sets"
 )
-
-// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
-// or those whose label value does not match "istio"
-var defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
-	Name:  "tlsMode-disabled",
-	Match: &structpb.Struct{},
-	TransportSocket: &core.TransportSocket{
-		Name: util.EnvoyRawBufferSocketName,
-	},
-}
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
+var deltaConfigTypes = sets.New(gvk.ServiceEntry.Kind)
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -83,7 +73,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
 		services = req.Push.GatewayServices(proxy)
 	} else {
-		services = req.Push.Services(proxy)
+		services = proxy.SidecarScope.Services()
 	}
 	return configgen.buildClusters(proxy, req, services)
 }
@@ -97,26 +87,50 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		cl, lg := configgen.BuildClusters(proxy, updates)
 		return cl, nil, lg, false
 	}
-	deletedClusters := make([]string, 0)
-	services := make([]*model.Service, 0)
+
+	var deletedClusters []string
+	var services []*model.Service
+	// holds clusters per service, keyed by hostname.
+	serviceClusters := make(map[string]sets.Set)
+	// holds service ports, keyed by hostname.
+	// inner map holds port and its cluster name.
+	servicePorts := make(map[string]map[int]string)
+
+	for _, cluster := range watched.ResourceNames {
+		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
+		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>).
+		_, _, svcHost, port := model.ParseSubsetKey(cluster)
+		if serviceClusters[string(svcHost)] == nil {
+			serviceClusters[string(svcHost)] = sets.New()
+		}
+		serviceClusters[string(svcHost)].Insert(cluster)
+		if servicePorts[string(svcHost)] == nil {
+			servicePorts[string(svcHost)] = make(map[int]string)
+		}
+		servicePorts[string(svcHost)][port] = cluster
+	}
+
 	// In delta, we only care about the services that have changed.
 	for key := range updates.ConfigsUpdated {
 		// get the service that has changed.
 		service := updates.Push.ServiceForHostname(proxy, host.Name(key.Name))
-		// SidecarScope.Service will return nil if the proxy doesn't care about the service OR it was deleted.
-		// we can cross reference with WatchedResources to figure out which services were deleted.
+		// if this service removed, we can conclude that it is a removed cluster.
 		if service == nil {
-			// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-			// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
-			// so, if this service is part of watched resources, we can conclude that it is a removed cluster.
-			for _, n := range watched.ResourceNames {
-				_, _, svcHost, _ := model.ParseSubsetKey(n)
-				if svcHost == host.Name(key.Name) {
-					deletedClusters = append(deletedClusters, n)
-				}
+			for cluster := range serviceClusters[key.Name] {
+				deletedClusters = append(deletedClusters, cluster)
 			}
 		} else {
 			services = append(services, service)
+			// If servicePorts has this service, that means it is old service.
+			if servicePorts[service.Hostname.String()] != nil {
+				oldPorts := servicePorts[service.Hostname.String()]
+				for port, cluster := range oldPorts {
+					// if this service port is removed, we can conclude that it is a removed cluster.
+					if _, exists := service.Ports.GetByPort(port); !exists {
+						deletedClusters = append(deletedClusters, cluster)
+					}
+				}
+			}
 		}
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
@@ -174,10 +188,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
-	return updates != nil && allConfigKeysOfType(updates.ConfigsUpdated) && len(updates.ConfigsUpdated) > 0
+	return updates != nil && deltaAwareConfigTypes(updates.ConfigsUpdated) && len(updates.ConfigsUpdated) > 0
 }
 
-func allConfigKeysOfType(cfgs map[model.ConfigKey]struct{}) bool {
+// deltaAwareConfigTypes returns true if all updated configs are delta enabled.
+func deltaAwareConfigTypes(cfgs map[model.ConfigKey]struct{}) bool {
 	for k := range cfgs {
 		if !deltaConfigTypes.Contains(k.Kind.Kind) {
 			return false
@@ -214,7 +229,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
 		supportsIPv4:    cb.supportsIPv4,
 		service:         service,
-		destinationRule: cb.req.Push.DestinationRule(proxy, service),
+		destinationRule: proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname),
 		envoyFilterKeys: efKeys,
 		metadataCerts:   cb.metadataCerts,
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
@@ -270,10 +285,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 			for _, ss := range subsetClusters {
 				if patched := cp.applyResource(nil, ss); patched != nil {
-					nk := *clusterKey
-					nk.clusterName = ss.Name
 					resources = append(resources, patched)
 					if features.EnableCDSCaching {
+						nk := *clusterKey
+						nk.clusterName = ss.Name
 						cb.cache.Add(&nk, cb.req, patched)
 					}
 				}
@@ -334,11 +349,12 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 
 	networkView := proxy.GetNetworkView()
 
-	for _, service := range req.Push.Services(proxy) {
+	for _, service := range proxy.SidecarScope.Services() {
 		if service.MeshExternal {
 			continue
 		}
-		destRule := cb.req.Push.DestinationRule(proxy, service)
+
+		destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -585,7 +601,6 @@ type buildClusterOpts struct {
 	serviceMTLSMode model.MutualTLSMode
 	// Indicates the service registry of the cluster being built.
 	serviceRegistry provider.ID
-	cache           model.XdsCache
 }
 
 type upgradeTuple struct {
@@ -659,10 +674,10 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 
 	if outlier.Interval != nil {
-		out.Interval = gogo.DurationToProtoDuration(outlier.Interval)
+		out.Interval = outlier.Interval
 	}
 	if outlier.BaseEjectionTime != nil {
-		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
+		out.BaseEjectionTime = outlier.BaseEjectionTime
 	}
 	if outlier.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
@@ -692,6 +707,13 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 }
 
+func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
+	if features.EnableLegacyLBAlgorithmDefault {
+		return cluster.Cluster_ROUND_ROBIN
+	}
+	return cluster.Cluster_LEAST_REQUEST
+}
+
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
 	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig) {
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
@@ -703,12 +725,11 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
 	}
-
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
 	applyLocalityLBSetting(locality, proxyLabels, c, localityLbSetting)
 
 	// apply default round robin lb policy
-	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+	c.LbPolicy = defaultLBAlgorithm()
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		return
@@ -726,18 +747,54 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
-	case networking.LoadBalancerSettings_LEAST_CONN:
-		c.LbPolicy = cluster.Cluster_LEAST_REQUEST
+	// nolint: staticcheck
+	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
+		ApplyLeastRequestLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_RANDOM:
 		c.LbPolicy = cluster.Cluster_RANDOM
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
-		c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+		ApplyRoundRobinLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
+	default:
+		c.LbPolicy = defaultLBAlgorithm()
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)
+}
+
+// ApplyRoundRobinLoadBalancer will set the LbPolicy and create an LbConfig for ROUND_ROBIN if used in LoadBalancerSettings
+func ApplyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+
+	if loadbalancer.GetWarmupDurationSecs() != nil {
+		c.LbConfig = &cluster.Cluster_RoundRobinLbConfig_{
+			RoundRobinLbConfig: &cluster.Cluster_RoundRobinLbConfig{
+				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
+			},
+		}
+	}
+}
+
+// ApplyLeastRequestLoadBalancer will set the LbPolicy and create an LbConfig for LEAST_REQUEST if used in LoadBalancerSettings
+func ApplyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+	c.LbPolicy = cluster.Cluster_LEAST_REQUEST
+
+	if loadbalancer.GetWarmupDurationSecs() != nil {
+		c.LbConfig = &cluster.Cluster_LeastRequestLbConfig_{
+			LeastRequestLbConfig: &cluster.Cluster_LeastRequestLbConfig{
+				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
+			},
+		}
+	}
+}
+
+// setSlowStartConfig will set the warmupDurationSecs for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
+func setSlowStartConfig(dur *durationpb.Duration) *cluster.Cluster_SlowStartConfig {
+	return &cluster.Cluster_SlowStartConfig{
+		SlowStartWindow: dur,
+	}
 }
 
 // ApplyRingHashLoadBalancer will set the LbPolicy and create an LbConfig for RING_HASH if  used in LoadBalancerSettings

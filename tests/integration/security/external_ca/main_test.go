@@ -23,7 +23,8 @@ import (
 	csrctrl "istio.io/istio/pkg/test/csrctrl/controllers"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -59,7 +60,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 		return err
 	}
 
-	builder := echoboot.NewBuilder(ctx)
+	builder := deployment.New(ctx)
 	builder.
 		WithClusters(ctx.Clusters()...).
 		WithConfig(util.EchoConfig(ASvc, apps.Namespace, false, nil)).
@@ -69,14 +70,15 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	apps.A = echos.Match(echo.Service(ASvc))
-	apps.B = echos.Match(echo.Service(BSvc))
+	apps.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: apps.Namespace}).GetMatches(echos)
 	return nil
 }
 
 func TestMain(m *testing.M) {
 	// Integration test for testing interoperability with external CA's that are integrated with K8s CSR API
 	// Refer to https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
+	// nolint: staticcheck
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireMinVersion(19).
@@ -118,31 +120,32 @@ values:
 {{.rootcert2 | indent 8}}
       certSigners:
       - {{.signer2}}
-  components:
-    pilot:
-      k8s:
-        env:
-        - name: CERT_SIGNER_DOMAIN
-          value: clusterissuers.istio.io
-        - name: EXTERNAL_CA
-          value: ISTIOD_RA_KUBERNETES_API
-        - name: PILOT_CERT_PROVIDER
-          value: k8s.io/clusterissuers.istio.io/signer2
-        overlays:
-          # Amend ClusterRole to add permission for istiod to approve certificate signing by custom signer
-          - kind: ClusterRole
-            name: istiod-clusterrole-istio-system
-            patches:
-              - path: rules[-1]
-                value: |
-                  apiGroups:
-                  - certificates.k8s.io
-                  resourceNames:
-                  - clusterissuers.istio.io/*
-                  resources:
-                  - signers
-                  verbs:
-                  - approve
+components:
+  pilot:
+    enabled: true
+    k8s:
+      env:
+      - name: CERT_SIGNER_DOMAIN
+        value: clusterissuers.istio.io
+      - name: EXTERNAL_CA
+        value: ISTIOD_RA_KUBERNETES_API
+      - name: PILOT_CERT_PROVIDER
+        value: k8s.io/clusterissuers.istio.io/signer2
+      overlays:
+        # Amend ClusterRole to add permission for istiod to approve certificate signing by custom signer
+        - kind: ClusterRole
+          name: istiod-clusterrole-istio-system
+          patches:
+            - path: rules[-1]
+              value: |
+                apiGroups:
+                - certificates.k8s.io
+                resourceNames:
+                - clusterissuers.istio.io/*
+                resources:
+                - signers
+                verbs:
+                - approve
 `, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
 	cfg.ControlPlaneValues = cfgYaml
 	cfg.DeployEastWestGW = false

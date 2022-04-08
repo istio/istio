@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kubeExtInformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
@@ -34,8 +35,8 @@ import (
 	"k8s.io/client-go/rest/fake"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"k8s.io/kubectl/pkg/cmd/util"
-	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
-	serviceapisinformer "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
+	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	serviceapisinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 	mcsapisclient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsapisinformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
@@ -76,6 +77,10 @@ type MockClient struct {
 	IstioVersions     *version.MeshInfo
 	KubernetesVersion uint
 	IstiodVersion     string
+}
+
+func (c MockClient) ExtInformer() kubeExtInformers.SharedInformerFactory {
+	panic("not used in mock")
 }
 
 func (c MockClient) Istio() istioclient.Interface {

@@ -19,12 +19,14 @@ package filemountedcerts
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 	"strings"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
@@ -55,6 +57,7 @@ const (
 )
 
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
@@ -164,10 +167,10 @@ values:
     pilotCertProvider: "mycopki"
   pilot:
     env:
-      # We need to turn off the XDS Auth because test certificates only have a fixed/hardcoded identity, but the identity of the actual 
-      # deployed test services changes on each run due to a randomly generated namespace suffixes. 
+      # We need to turn off the XDS Auth because test certificates only have a fixed/hardcoded identity, but the identity of the actual
+      # deployed test services changes on each run due to a randomly generated namespace suffixes.
       # Turning the XDS-Auth ON will result in the error messages like:
-      # Unauthorized XDS: 10.1.0.159:41960 with identity [spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]: 
+      # Unauthorized XDS: 10.1.0.159:41960 with identity [spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]:
       #    no identities ([spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]) matched istio-fd-sds-1-4523/default
       XDS_AUTH: "false"
 `
@@ -216,9 +219,14 @@ func CreateCustomSecret(ctx resource.Context, name string, namespace namespace.I
 
 	_, err = kubeAccessor.CoreV1().Secrets(namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
-		return err
+		if kerrors.IsAlreadyExists(err) {
+			if _, err := kubeAccessor.CoreV1().Secrets(namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("failed updating secret %s: %v", secret.Name, err)
+			}
+		} else {
+			return fmt.Errorf("failed creating secret %s: %v", secret.Name, err)
+		}
 	}
-
 	return nil
 }
 

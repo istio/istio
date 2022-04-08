@@ -28,11 +28,9 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -52,15 +50,15 @@ import (
 
 const (
 	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
-	BlackHoleCluster = istionetworking.BlackHoleCluster
+	BlackHoleCluster = "BlackHoleCluster"
 	// BlackHole is the name of the virtual host and route name used to block all traffic
-	BlackHole = istionetworking.BlackHole
+	BlackHole = "block_all"
 	// PassthroughCluster to forward traffic to the original destination requested. This cluster is used when
 	// traffic does not match any listener in envoy.
-	PassthroughCluster = istionetworking.PassthroughCluster
+	PassthroughCluster = "PassthroughCluster"
 	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
-	Passthrough = istionetworking.Passthrough
+	Passthrough = "allow_any"
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
@@ -130,8 +128,14 @@ var ALPNHttp = []string{"h2", "http/1.1"}
 // ALPNHttp3OverQUIC advertises that Proxy is going to talk HTTP/3 over QUIC
 var ALPNHttp3OverQUIC = []string{"h3"}
 
-// ALPNDownstream advertises that Proxy is going to talking either tcp(for metadata exchange), http2 or http 1.1.
-var ALPNDownstream = []string{"istio-peer-exchange", "h2", "http/1.1"}
+// ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
+var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
+
+// ALPNDownstream advertises that Proxy is going to talk http2 or http 1.1.
+var ALPNDownstream = []string{"h2", "http/1.1"}
+
+// RegexEngine is the default google RE2 regex engine.
+var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -230,18 +234,6 @@ func MessageToAny(msg proto.Message) *anypb.Any {
 	return out
 }
 
-// GogoDurationToDuration converts from gogo proto duration to time.duration
-func GogoDurationToDuration(d *types.Duration) *durationpb.Duration {
-	if d == nil {
-		return nil
-	}
-
-	return &durationpb.Duration{
-		Seconds: d.Seconds,
-		Nanos:   d.Nanos,
-	}
-}
-
 // SortVirtualHosts sorts a slice of virtual hosts by name.
 //
 // Envoy computes a hash of RDS to see if things have changed - hash is affected by order of elements in the filter. Therefore
@@ -253,12 +245,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
-}
-
-// IsIstioVersionGE112 checks whether the given Istio version is greater than or equals 1.12.
-func IsIstioVersionGE112(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 12, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -602,6 +588,37 @@ func StringToPrefixMatch(in []string) []*matcher.StringMatcher {
 		})
 	}
 	return res
+}
+
+func ConvertToEnvoyMatches(in []*networking.StringMatch) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+
+	for _, im := range in {
+		if em := ConvertToEnvoyMatch(im); em != nil {
+			res = append(res, em)
+		}
+	}
+
+	return res
+}
+
+func ConvertToEnvoyMatch(in *networking.StringMatch) *matcher.StringMatcher {
+	switch m := in.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		return &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}}
+	case *networking.StringMatch_Prefix:
+		return &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: m.Prefix}}
+	case *networking.StringMatch_Regex:
+		return &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: RegexEngine,
+					Regex:      m.Regex,
+				},
+			},
+		}
+	}
+	return nil
 }
 
 func StringSliceEqual(a, b []string) bool {

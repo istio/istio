@@ -37,13 +37,14 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
-	testutils "istio.io/istio/tests/util"
 )
 
 func TestAccessLogs(t *testing.T) {
@@ -66,23 +67,31 @@ metadata:
   name: logs
 spec:
   accessLogging:
-  - disabled: %v
+  - providers:
+    - name: envoy
+    disabled: %v
 `, !expectLogs)
-	t.ConfigIstio().ApplyYAMLOrFail(t, common.GetAppNamespace().Name(), config)
-	testID := testutils.RandomString(16)
+	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).ApplyOrFail(t)
+	testID := rand.String(16)
+	to := common.GetTarget()
+	callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 	if expectLogs {
 		// For positive test, we use the same ID and repeatedly send requests and check the count
 		retry.UntilSuccessOrFail(t, func() error {
-			common.GetClientInstances()[0].CallWithRetryOrFail(t, echo.CallOptions{
-				Target:   common.GetServerInstances()[0],
-				PortName: "http",
-				Count:    util.CallsPerCluster * len(common.GetServerInstances().Clusters()),
-				Path:     "/" + testID,
+			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
+				To: to,
+				Port: echo.Port{
+					Name: "http",
+				},
+				Count: callCount,
+				HTTP: echo.HTTP{
+					Path: "/" + testID,
+				},
 			})
 			// Retry a bit to get the logs. There is some delay before they are output, so they may not be immediately ready
 			// If not ready in 5s, we retry sending a call again.
 			retry.UntilSuccessOrFail(t, func() error {
-				count := logCount(t, common.GetServerInstances(), testID)
+				count := logCount(t, to, testID)
 				if count > 0 != expectLogs {
 					return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
 				}
@@ -95,17 +104,21 @@ spec:
 		// (due to hitting old code path with logs still enabled) doesn't stop us from succeeding later
 		// once we stop logging.
 		retry.UntilSuccessOrFail(t, func() error {
-			testID := testutils.RandomString(16)
-			common.GetClientInstances()[0].CallWithRetryOrFail(t, echo.CallOptions{
-				Target:   common.GetServerInstances()[0],
-				PortName: "http",
-				Count:    util.CallsPerCluster * len(common.GetServerInstances().Clusters()),
-				Path:     "/" + testID,
+			testID := rand.String(16)
+			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
+				To: to,
+				Port: echo.Port{
+					Name: "http",
+				},
+				Count: callCount,
+				HTTP: echo.HTTP{
+					Path: "/" + testID,
+				},
 			})
 			// This is a negative test; there isn't much we can do other than wait a few seconds and ensure we didn't emit logs
 			// Logs should flush every 1s, so 2s should be plenty of time for logs to be emitted
 			time.Sleep(time.Second * 2)
-			count := logCount(t, common.GetServerInstances(), testID)
+			count := logCount(t, common.GetTarget(), testID)
 			if count > 0 != expectLogs {
 				return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
 			}
@@ -114,23 +127,17 @@ spec:
 	}
 }
 
-func logCount(t test.Failer, instances echo.Instances, testID string) float64 {
+func logCount(t test.Failer, to echo.Target, testID string) float64 {
 	counts := map[string]float64{}
-	for _, instance := range instances {
-		workloads, err := instance.Workloads()
-		if err != nil {
-			t.Fatalf("failed to get Subsets: %v", err)
-		}
+	for _, w := range to.WorkloadsOrFail(t) {
 		var logs string
-		for _, w := range workloads {
-			l, err := w.Sidecar().Logs()
-			if err != nil {
-				t.Fatalf("failed getting logs: %v", err)
-			}
-			logs += l
+		l, err := w.Sidecar().Logs()
+		if err != nil {
+			t.Fatalf("failed getting logs: %v", err)
 		}
+		logs += l
 		if c := float64(strings.Count(logs, testID)); c > 0 {
-			counts[instance.Config().Cluster.Name()] = c
+			counts[w.Cluster().Name()] = c
 		}
 	}
 	var total float64

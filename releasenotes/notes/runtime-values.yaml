@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 37202
+releaseNotes:
+- |
+  **Added** an API, `runtimeValues`, to [Proxy Config](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#ProxyConfig) to configure Envoy runtime configuration using.

@@ -29,12 +29,21 @@ spec:
   http:
   - match:
     - uri:
-        exact: /path
+        exact: /sub/path/
     route:
     - destination:
         host: service1.ns.svc.mydomain
         port:
-          number: 4200
+          number: 4202
+      weight: 100
+  - match:
+    - uri:
+        exact: /sub/path/
+    route:
+    - destination:
+        host: service1.ns.svc.mydomain
+        port:
+          number: 4207
       weight: 100
   - match:
     - uri:
@@ -47,57 +56,12 @@ spec:
       weight: 100
   - match:
     - uri:
-        exact: /sub/path/
-    route:
-    - destination:
-        host: service1.ns.svc.mydomain
-        port:
-          number: 4202
-      weight: 100
-  - match:
-    - uri:
-        prefix: /regex1
-    route:
-    - destination:
-        host: service1.ns.svc.mydomain
-        port:
-          number: 4203
-      weight: 100
-  - match:
-    - uri:
-        exact: /regex2*
-    route:
-    - destination:
-        host: service1.ns.svc.mydomain
-        port:
-          number: 4204
-      weight: 100
-  - match:
-    - uri:
-        prefix: /regex3
-    route:
-    - destination:
-        host: service1.ns.svc.mydomain
-        port:
-          number: 4205
-      weight: 100
-  - match:
-    - uri:
         exact: /sub/path
     route:
     - destination:
         host: service1.ns.svc.mydomain
         port:
           number: 4206
-      weight: 100
-  - match:
-    - uri:
-        exact: /sub/path/
-    route:
-    - destination:
-        host: service1.ns.svc.mydomain
-        port:
-          number: 4207
       weight: 100
   - match:
     - uri:
@@ -116,5 +80,41 @@ spec:
         host: service1.ns.svc.mydomain
         port:
           number: 4209
+      weight: 100
+  - match:
+    - uri:
+        exact: /regex2*
+    route:
+    - destination:
+        host: service1.ns.svc.mydomain
+        port:
+          number: 4204
+      weight: 100
+  - match:
+    - uri:
+        prefix: /regex1
+    route:
+    - destination:
+        host: service1.ns.svc.mydomain
+        port:
+          number: 4203
+      weight: 100
+  - match:
+    - uri:
+        prefix: /regex3
+    route:
+    - destination:
+        host: service1.ns.svc.mydomain
+        port:
+          number: 4205
+      weight: 100
+  - match:
+    - uri:
+        exact: /path
+    route:
+    - destination:
+        host: service1.ns.svc.mydomain
+        port:
+          number: 4200
       weight: 100
 ---

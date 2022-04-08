@@ -138,8 +138,7 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 	}
 
 	if un.GetKind() == name.DeploymentStr {
-		err := v.validateDeploymentLabel(istioNamespace, un, writer)
-		if err != nil {
+		if err := v.validateDeploymentLabel(istioNamespace, un, writer); err != nil {
 			return nil, err
 		}
 		return nil, nil

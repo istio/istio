@@ -18,15 +18,15 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
@@ -34,7 +34,7 @@ import (
 func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
 
-	vsset := sets.NewSet()
+	vsset := sets.New()
 	addVirtualService := func(vs config.Config, hosts host.Names) {
 		vsname := vs.Name + "/" + vs.Namespace
 		rule := vs.Spec.(*networking.VirtualService)
@@ -46,7 +46,7 @@ func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]h
 			for _, h := range rule.Hosts {
 				// VirtualServices can have many hosts, so we need to avoid appending
 				// duplicated virtualservices to slice importedVirtualServices
-				if ih.Matches(host.Name(h)) {
+				if vsHostMatches(h, ih, vs) {
 					importedVirtualServices = append(importedVirtualServices, vs)
 					vsset.Insert(vsname)
 					break
@@ -73,6 +73,18 @@ func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]h
 	}
 
 	return importedVirtualServices
+}
+
+// vsHostMatches checks if the given VirtualService host matches the importedHost (from Sidecar)
+func vsHostMatches(vsHost string, importedHost host.Name, vs config.Config) bool {
+	if UseGatewaySemantics(vs) {
+		// The new way. Matching logic exactly mirrors Service matching
+		// If a route defines `*.com` and we import `a.com`, it will not match
+		return host.Name(vsHost).SubsetOf(importedHost)
+	}
+
+	// The old way. We check Matches which is bi-directional. This is for backwards compatibility
+	return host.Name(vsHost).Matches(importedHost)
 }
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
@@ -179,12 +191,6 @@ func mergeVirtualServicesIfNeeded(
 		out = append(out, vs)
 	}
 
-	// If `PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE` feature disabled,
-	// filter out invalid vs(root or delegate), this can happen after enable -> disable
-	if !features.EnableVirtualServiceDelegate {
-		return out, nil
-	}
-
 	delegatesByRoot := make(map[ConfigKey][]ConfigKey, len(rootVses))
 
 	// 2. merge delegates and root
@@ -283,6 +289,7 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	if delegate.Mirror == nil {
 		delegate.Mirror = root.Mirror
 	}
+	// nolint: staticcheck
 	if delegate.MirrorPercent == nil {
 		delegate.MirrorPercent = root.MirrorPercent
 	}
@@ -332,7 +339,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
-	out := *delegate
+	out := proto.Clone(delegate).(*networking.HTTPMatchRequest)
 	if out.Name == "" {
 		out.Name = root.Name
 	} else if root.Name != "" {
@@ -404,7 +411,7 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Gateways = root.Gateways
 	}
 
-	return &out
+	return out
 }
 
 func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
@@ -460,7 +467,7 @@ func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
 		if len(root.Gateways) < len(leaf.Gateways) {
 			return true
 		}
-		rootGateway := sets.NewSet(root.Gateways...)
+		rootGateway := sets.New(root.Gateways...)
 		for _, gw := range leaf.Gateways {
 			if !rootGateway.Contains(gw) {
 				return true
@@ -517,4 +524,11 @@ func isRootVs(vs *networking.VirtualService) bool {
 		}
 	}
 	return false
+}
+
+// UseGatewaySemantics determines which logic we should use for VirtualService
+// This allows gateway-api and VS to both be represented by VirtualService, but have different
+// semantics.
+func UseGatewaySemantics(cfg config.Config) bool {
+	return cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
 }

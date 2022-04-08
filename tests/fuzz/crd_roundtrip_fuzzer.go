@@ -27,6 +27,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/testing/protocmp"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -136,8 +138,8 @@ func roundTrip(codec runtime.Codec, object runtime.Object) {
 
 	// ensure that the object produced from decoding the encoded data is equal
 	// to the original object
-	if diff := cmp.Diff(obj2, obj3); diff != "" {
-		panic("These should not be different")
+	if diff := cmp.Diff(obj2, obj3, protocmp.Transform(), cmpopts.EquateNaNs()); diff != "" {
+		panic("These should not be different: " + diff)
 	}
 }
 

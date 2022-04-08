@@ -501,7 +501,6 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 
 	sortPorts(svcPorts)
 	svc.Ports = svcPorts
-
 	return svc
 }
 

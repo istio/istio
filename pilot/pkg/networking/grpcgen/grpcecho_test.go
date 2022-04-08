@@ -20,6 +20,7 @@ import (
 	"math"
 	"net"
 	"runtime"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -34,14 +35,12 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 	"istio.io/istio/pkg/test/util/retry"
 )
-
-const grpcEchoPort = 14058
 
 type echoCfg struct {
 	version   string
@@ -53,6 +52,7 @@ type configGenTest struct {
 	*testing.T
 	endpoints []endpoint.Instance
 	ds        *xds.FakeDiscoveryServer
+	xdsPort   int
 }
 
 // newConfigGenTest creates a FakeDiscoveryServer that listens for gRPC on grpcXdsAddr
@@ -75,37 +75,33 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 
 	cgt := &configGenTest{T: t}
 	wg := sync.WaitGroup{}
-	for i, s := range servers {
-		host := fmt.Sprintf("127.0.0.%d", i+1)
-		discoveryOpts.Configs = append(discoveryOpts.Configs, makeWE(s, host, grpcEchoPort))
-	}
+	cfgs := []config.Config{}
+
 	discoveryOpts.ListenerBuilder = func() (net.Listener, error) {
-		return net.Listen("tcp", grpcXdsAddr)
+		return net.Listen("tcp", "127.0.0.1:0")
 	}
 	// Start XDS server
 	cgt.ds = xds.NewFakeDiscoveryServer(t, discoveryOpts)
+	_, xdsPorts, _ := net.SplitHostPort(cgt.ds.Listener.Addr().String())
+	xdsPort, _ := strconv.Atoi(xdsPorts)
+	cgt.xdsPort = xdsPort
 	for i, s := range servers {
 		if s.namespace == "" {
 			s.namespace = "default"
 		}
 		// TODO this breaks without extra ifonfig aliases on OSX, and probably elsewhere
-		host := fmt.Sprintf("127.0.0.%d", i+1)
-		nodeID := fmt.Sprintf("sidecar~%s~echo-%s.%s~cluster.local", host, s.version, s.namespace)
-		bootstrapBytes, err := bootstrapForTest(nodeID, s.namespace)
-		if err != nil {
-			t.Fatal(err)
-		}
+		ip := fmt.Sprintf("127.0.0.%d", i+1)
 
 		ep, err := endpoint.New(endpoint.Config{
 			Port: &common.Port{
 				Name:             "grpc",
-				Port:             grpcEchoPort,
+				Port:             0,
 				Protocol:         protocol.GRPC,
 				XDSServer:        true,
 				XDSReadinessTLS:  s.tls,
-				XDSTestBootstrap: bootstrapBytes,
+				XDSTestBootstrap: GRPCBootstrap("echo-"+s.version, s.namespace, ip, xdsPort),
 			},
-			ListenerIP: host,
+			ListenerIP: ip,
 			Version:    s.version,
 		})
 		if err != nil {
@@ -117,12 +113,19 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 		}); err != nil {
 			t.Fatal(err)
 		}
+
+		cfgs = append(cfgs, makeWE(s, ip, ep.GetConfig().Port.Port))
 		cgt.endpoints = append(cgt.endpoints, ep)
 		t.Cleanup(func() {
 			if err := ep.Close(); err != nil {
-				t.Errorf("failed to close endpoint %s: %v", host, err)
+				t.Errorf("failed to close endpoint %s: %v", ip, err)
 			}
 		})
+	}
+	for _, cfg := range cfgs {
+		if _, err := cgt.ds.Env().Create(cfg); err != nil {
+			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
+		}
 	}
 	// we know onReady will get called because there are internal timeouts for this
 	wg.Wait()
@@ -151,9 +154,9 @@ func makeWE(s echoCfg, host string, port int) config.Config {
 	}
 }
 
-func (t *configGenTest) dialEcho(addr string) *client.Instance {
-	resolver := resolverForTest(t, "default")
-	out, err := client.New(addr, nil, grpc.WithResolvers(resolver))
+func (t *configGenTest) dialEcho(addr string) *echo.Client {
+	resolver := resolverForTest(t, t.xdsPort, "default")
+	out, err := echo.New(addr, nil, grpc.WithResolvers(resolver))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +313,7 @@ spec:
   ports:
   - name: grpc
     targetPort: grpc
-    port: 7070
+    port: 7071
 `,
 		ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
@@ -330,7 +333,7 @@ spec:
         host: echo-app.default.svc.cluster.local
 `,
 	}, echoCfg{version: "v1"})
-	c := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
+	c := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7071")
 
 	// without a delay it usually takes ~500us
 	st := time.Now()

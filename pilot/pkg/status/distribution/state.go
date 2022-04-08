@@ -16,10 +16,11 @@ package distribution
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -73,6 +74,9 @@ func NewController(restConfig *rest.Config, namespace string, cs model.ConfigSto
 		clock:           clock.RealClock{},
 		configStore:     cs,
 		workers: m.CreateIstioStatusController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
+			if status == nil {
+				return nil
+			}
 			distributionState := context.(Progress)
 			if needsReconcile, desiredStatus := ReconcileStatuses(status, distributionState); needsReconcile {
 				return desiredStatus
@@ -145,6 +149,10 @@ func (c *Controller) writeAllStatus() (staleReporters []string) {
 	defer c.mu.RUnlock()
 	c.mu.RLock()
 	for config, fractions := range c.CurrentState {
+		if !strings.HasSuffix(config.Group, "istio.io") {
+			// don't try to write status for non-istio types
+			continue
+		}
 		var distributionState Progress
 		for reporter, w := range fractions {
 			// check for stale data here
@@ -201,8 +209,8 @@ func ReconcileStatuses(current *v1alpha1.IstioStatus, desired Progress) (bool, *
 	desiredCondition := v1alpha1.IstioCondition{
 		Type:               "Reconciled",
 		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),
-		LastProbeTime:      types.TimestampNow(),
-		LastTransitionTime: types.TimestampNow(),
+		LastProbeTime:      timestamppb.Now(),
+		LastTransitionTime: timestamppb.Now(),
 		Message:            fmt.Sprintf("%d/%d proxies up to date.", desired.AckedInstances, desired.TotalInstances),
 	}
 	current = current.DeepCopy()

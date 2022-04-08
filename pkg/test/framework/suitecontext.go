@@ -22,12 +22,15 @@ import (
 	"strings"
 	"sync"
 
+	"sigs.k8s.io/yaml"
+
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // suiteContext contains suite-level items used during runtime.
@@ -51,12 +54,14 @@ type suiteContext struct {
 	globalScope *scope
 
 	contextMu    sync.Mutex
-	contextNames map[string]struct{}
+	contextNames sets.Set
 
 	suiteLabels label.Set
 
 	outcomeMu    sync.RWMutex
 	testOutcomes []TestOutcome
+
+	traces sync.Map
 }
 
 func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, labels label.Set) (*suiteContext, error) {
@@ -72,7 +77,7 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 		workDir:      workDir,
 		FileWriter:   yml.NewFileWriter(workDir),
 		suiteLabels:  labels,
-		contextNames: make(map[string]struct{}),
+		contextNames: sets.New(),
 	}
 
 	env, err := envFn(c)
@@ -94,8 +99,8 @@ func (s *suiteContext) allocateContextID(prefix string) string {
 	candidate := prefix
 	discriminator := 0
 	for {
-		if _, found := s.contextNames[candidate]; !found {
-			s.contextNames[candidate] = struct{}{}
+		if !s.contextNames.Contains(candidate) {
+			s.contextNames.Insert(candidate)
 			return candidate
 		}
 
@@ -112,8 +117,8 @@ func (s *suiteContext) allocateResourceID(contextID string, r resource.Resource)
 	candidate := fmt.Sprintf("%s/[%s]", contextID, t.String())
 	discriminator := 0
 	for {
-		if _, found := s.contextNames[candidate]; !found {
-			s.contextNames[candidate] = struct{}{}
+		if !s.contextNames.Contains(candidate) {
+			s.contextNames.Insert(candidate)
 			return candidate
 		}
 
@@ -238,4 +243,21 @@ func (s *suiteContext) registerOutcome(test *testImpl) {
 	s.contextMu.Lock()
 	defer s.contextMu.Unlock()
 	s.testOutcomes = append(s.testOutcomes, newOutcome)
+}
+
+func (s *suiteContext) RecordTraceEvent(key string, value interface{}) {
+	s.traces.Store(key, value)
+}
+
+func (s *suiteContext) marshalTraceEvent() []byte {
+	kvs := map[string]interface{}{}
+	s.traces.Range(func(key, value interface{}) bool {
+		kvs[key.(string)] = value
+		return true
+	})
+	outer := map[string]interface{}{
+		fmt.Sprintf("suite/%s", s.settings.TestID): kvs,
+	}
+	d, _ := yaml.Marshal(outer)
+	return d
 }

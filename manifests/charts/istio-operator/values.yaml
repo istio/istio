@@ -15,6 +15,9 @@ enableCRDTemplates: false
 # revision for the operator resources
 revision: ""
 
+# The number of old ReplicaSets to retain in operator deployment
+deploymentHistory: 10
+
 # Operator resource defaults
 operator:
   resources:
@@ -24,6 +27,15 @@ operator:
     requests:
       cpu: 50m
       memory: 128Mi
+
+# Node labels for pod assignment
+nodeSelector: {}
+
+# Tolerations for pod assignment
+tolerations: []
+
+# Affinity for pod assignment
+affinity: {}
 
 # Additional labels and annotations to apply on the pod level for monitoring and logging configuration.
 podLabels: {}

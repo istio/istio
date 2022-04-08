@@ -25,7 +25,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -35,10 +34,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -54,10 +53,10 @@ type Telemetry struct {
 // Telemetries organizes Telemetry configuration by namespace.
 type Telemetries struct {
 	// Maps from namespace to the Telemetry configs.
-	namespaceToTelemetries map[string][]Telemetry
+	NamespaceToTelemetries map[string][]Telemetry `json:"namespace_to_telemetries"`
 
 	// The name of the root namespace.
-	rootNamespace string
+	RootNamespace string `json:"root_namespace"`
 
 	// Computed meshConfig
 	meshConfig *meshconfig.MeshConfig
@@ -96,8 +95,8 @@ type metricsKey struct {
 // getTelemetries returns the Telemetry configurations for the given environment.
 func getTelemetries(env *Environment) (*Telemetries, error) {
 	telemetries := &Telemetries{
-		namespaceToTelemetries: map[string][]Telemetry{},
-		rootNamespace:          env.Mesh().GetRootNamespace(),
+		NamespaceToTelemetries: map[string][]Telemetry{},
+		RootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
 		computedMetricsFilters: map[metricsKey]interface{}{},
 	}
@@ -113,8 +112,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 			Namespace: config.Namespace,
 			Spec:      config.Spec.(*tpb.Telemetry),
 		}
-		telemetries.namespaceToTelemetries[config.Namespace] =
-			append(telemetries.namespaceToTelemetries[config.Namespace], telemetry)
+		telemetries.NamespaceToTelemetries[config.Namespace] = append(telemetries.NamespaceToTelemetries[config.Namespace], telemetry)
 	}
 
 	return telemetries, nil
@@ -168,10 +166,11 @@ type computedTelemetries struct {
 }
 
 type TracingConfig struct {
-	Provider                 *meshconfig.MeshConfig_ExtensionProvider
-	Disabled                 bool
-	RandomSamplingPercentage float64
-	CustomTags               map[string]*tpb.Tracing_CustomTag
+	Provider                     *meshconfig.MeshConfig_ExtensionProvider
+	Disabled                     bool
+	RandomSamplingPercentage     float64
+	CustomTags                   map[string]*tpb.Tracing_CustomTag
+	UseRequestIDForTraceSampling bool
 }
 
 type LoggingConfig struct {
@@ -224,7 +223,8 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	supportedProvider := providerNames[0]
 
 	cfg := TracingConfig{
-		Provider: t.fetchProvider(supportedProvider),
+		Provider:                     t.fetchProvider(supportedProvider),
+		UseRequestIDForTraceSampling: true,
 	}
 	if cfg.Provider == nil {
 		cfg.Disabled = true
@@ -263,6 +263,9 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 		if m.RandomSamplingPercentage != nil {
 			cfg.RandomSamplingPercentage = m.RandomSamplingPercentage.GetValue()
 		}
+		if m.UseRequestIdForTraceSampling != nil {
+			cfg.UseRequestIDForTraceSampling = m.UseRequestIdForTraceSampling.Value
+		}
 	}
 	return &cfg
 }
@@ -296,8 +299,8 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	ls := []*tpb.AccessLogging{}
 	ts := []*tpb.Tracing{}
 	key := telemetryKey{}
-	if t.rootNamespace != "" {
-		telemetry := t.namespaceWideTelemetryConfig(t.rootNamespace)
+	if t.RootNamespace != "" {
+		telemetry := t.namespaceWideTelemetryConfig(t.RootNamespace)
 		if telemetry != (Telemetry{}) {
 			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
@@ -306,7 +309,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		}
 	}
 
-	if namespace != t.rootNamespace {
+	if namespace != t.RootNamespace {
 		telemetry := t.namespaceWideTelemetryConfig(namespace)
 		if telemetry != (Telemetry{}) {
 			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
@@ -316,7 +319,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		}
 	}
 
-	for _, telemetry := range t.namespaceToTelemetries[namespace] {
+	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
 		spec := telemetry.Spec
 		if len(spec.GetSelector().GetMatchLabels()) == 0 {
 			continue
@@ -364,16 +367,18 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 
 	// First, take all the metrics configs and transform them into a normalized form
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
+	log.Debugf("merged metrics, proxyID: %s metrics: %+v", proxy.ID, tmm)
 	// Additionally, fetch relevant access logging configurations
 	tml, logsFilter := mergeLogs(c.Logging, t.meshConfig)
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
-	m := []telemetryFilterConfig{}
-	allKeys := sets.NewSet(tml.UnsortedList()...)
+	allKeys := sets.New(tml.UnsortedList()...)
 	for k := range tmm {
 		allKeys.Insert(k)
 	}
+
+	m := make([]telemetryFilterConfig, 0, len(allKeys))
 	for _, k := range allKeys.SortedList() {
 		p := t.fetchProvider(k)
 		if p == nil {
@@ -409,7 +414,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 // This currently is just the names of providers as there is no access logging configuration, but
 // in the future it will likely be extended
 func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set, *tpb.AccessLogging_Filter) {
-	providers := sets.NewSet()
+	providers := sets.New()
 
 	if len(logs) == 0 {
 		for _, dp := range mesh.GetDefaultProviders().GetAccessLogging() {
@@ -430,7 +435,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 			loggingFilter = m.Filter
 		}
 	}
-	inScopeProviders := sets.NewSet(providerNames...)
+	inScopeProviders := sets.New(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, m := range logs {
@@ -457,7 +462,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 }
 
 func (t *Telemetries) namespaceWideTelemetryConfig(namespace string) Telemetry {
-	for _, tel := range t.namespaceToTelemetries[namespace] {
+	for _, tel := range t.NamespaceToTelemetries[namespace] {
 		if len(tel.Spec.GetSelector().GetMatchLabels()) == 0 {
 			return tel
 		}
@@ -476,7 +481,7 @@ func (t *Telemetries) fetchProvider(m string) *meshconfig.MeshConfig_ExtensionPr
 }
 
 var allMetrics = func() []string {
-	r := []string{}
+	r := make([]string, 0, len(tpb.MetricSelector_IstioMetric_value))
 	for k := range tpb.MetricSelector_IstioMetric_value {
 		if k != tpb.MetricSelector_IstioMetric_name[int32(tpb.MetricSelector_ALL_METRICS)] {
 			r = append(r, k)
@@ -489,7 +494,7 @@ var allMetrics = func() []string {
 // mergeMetrics merges many Metrics objects into a normalized configuration
 func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[string]metricsConfig {
 	type metricOverride struct {
-		Disabled     *types.BoolValue
+		Disabled     *wrappers.BoolValue
 		TagOverrides map[string]*tpb.MetricsOverrides_TagOverride
 	}
 	// provider -> mode -> metric -> overrides
@@ -512,9 +517,10 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 		}
 	}
 	// Record the names of all providers we should configure. Anything else we will ignore
-	inScopeProviders := sets.NewSet(providerNames...)
+	inScopeProviders := sets.New(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetMetrics()
+	disabledAllMetricsProviders := sets.New()
 	for _, m := range metrics {
 		providerNames := getProviderNames(m.Providers)
 		// If providers is not set, use parent's
@@ -534,10 +540,21 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 					tpb.WorkloadMode_SERVER: {},
 				}
 			}
+
 			mp := providers[provider]
 			// For each override, we normalize the configuration. The metrics list is an ordered list - latter
 			// elements have precedence. As a result, we will apply updates on top of previous entries.
 			for _, o := range m.Overrides {
+				// if we disable all metrics, we should drop the entire filter
+				if isAllMetrics(o.GetMatch()) && o.Disabled.GetValue() {
+					disabledAllMetricsProviders.Insert(provider)
+					continue
+				}
+
+				// root namespace disables all, but then enables them by namespace scoped
+				disabledAllMetricsProviders.Delete(provider)
+
+				metricsNames := getMatches(o.GetMatch())
 				// If client or server is set explicitly, only apply there. Otherwise, we will apply to both.
 				// Note: client and server keys may end up the same, which is fine
 				for _, mode := range getModes(o.GetMatch().GetMode()) {
@@ -547,8 +564,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 					// TODO: we always flatten ALL_METRICS into each metric mode. For some stats providers (prometheus),
 					// we are able to apply overrides to all metrics directly rather than duplicating the config.
 					// We should tweak this to collapse to this mode where possible
-					// TODO: similar to above, if we disable all metrics, we should drop the entire filter
-					for _, metricName := range getMatches(o.GetMatch()) {
+					for _, metricName := range metricsNames {
 						if _, f := mp[mode]; !f {
 							mp[mode] = map[string]metricOverride{}
 						}
@@ -571,6 +587,10 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 
 	processed := map[string]metricsConfig{}
 	for provider, modeMap := range providers {
+		if disabledAllMetricsProviders.Contains(provider) {
+			continue
+		}
+
 		for mode, metricMap := range modeMap {
 			for metric, override := range metricMap {
 				tags := []tagOverride{}
@@ -636,6 +656,17 @@ func getModes(mode tpb.WorkloadMode) []tpb.WorkloadMode {
 	}
 }
 
+func isAllMetrics(match *tpb.MetricSelector) bool {
+	switch m := match.GetMetricMatch().(type) {
+	case *tpb.MetricSelector_CustomMetric:
+		return false
+	case *tpb.MetricSelector_Metric:
+		return m.Metric == tpb.MetricSelector_ALL_METRICS
+	default:
+		return false
+	}
+}
+
 func getMatches(match *tpb.MetricSelector) []string {
 	switch m := match.GetMetricMatch().(type) {
 	case *tpb.MetricSelector_CustomMetric:
@@ -664,16 +695,16 @@ func statsRootIDForClass(class networking.ListenerClass) string {
 	}
 }
 
-func buildHTTPTelemetryFilter(class networking.ListenerClass, filterConfigs []telemetryFilterConfig) []*hcm.HttpFilter {
-	res := []*hcm.HttpFilter{}
-	for _, cfg := range filterConfigs {
+func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
+	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))
+	for _, cfg := range metricsCfg {
 		switch cfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
 			if !cfg.Metrics {
 				// No logging for prometheus
 				continue
 			}
-			cfg := generateStatsConfig(class, cfg)
+			statsCfg := generateStatsConfig(class, cfg)
 			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
 			root := statsRootIDForClass(class)
 			vmConfig.VmConfig.VmId = root
@@ -682,7 +713,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, filterConfigs []te
 				Config: &wasm.PluginConfig{
 					RootId:        root,
 					Vm:            vmConfig,
-					Configuration: cfg,
+					Configuration: statsCfg,
 				},
 			}
 
@@ -692,7 +723,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, filterConfigs []te
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-			cfg := generateSDConfig(class, cfg)
+			sdCfg := generateSDConfig(class, cfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
@@ -700,7 +731,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, filterConfigs []te
 				Config: &wasm.PluginConfig{
 					RootId:        vmConfig.VmConfig.VmId,
 					Vm:            vmConfig,
-					Configuration: cfg,
+					Configuration: sdCfg,
 				},
 			}
 
@@ -851,7 +882,11 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 				cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
 			}
 		}
+	} else {
+		// The field is deprecated, but until it is removed we need to set it.
+		cfg.DisableServerAccessLogging = true // nolint: staticcheck
 	}
+
 	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)

@@ -20,23 +20,59 @@ import (
 	"istio.io/istio/pkg/test/util/yml"
 )
 
+type ConfigOptions struct {
+	NoCleanup bool
+	Wait      bool
+}
+
+type ConfigOption func(o *ConfigOptions)
+
+// NoCleanup does not delete the applied Config once it goes out of scope.
+var NoCleanup ConfigOption = func(o *ConfigOptions) {
+	o.NoCleanup = true
+}
+
+// Wait for the Config to be applied everywhere.
+var Wait ConfigOption = func(o *ConfigOptions) {
+	o.Wait = true
+}
+
+// ConfigFactory is a factory for creating new Config resources.
+type ConfigFactory interface {
+	// YAML adds YAML content to this config for the given namespace.
+	YAML(ns string, yamlText ...string) Config
+
+	// File reads the given YAML files and adds their content to this config
+	// for the given namespace.
+	File(ns string, paths ...string) Config
+
+	// Eval the same as YAML, but it evaluates the template parameters.
+	Eval(ns string, args interface{}, yamlText ...string) Config
+
+	// EvalFile the same as File, but it evaluates the template parameters.
+	EvalFile(ns string, args interface{}, paths ...string) Config
+}
+
+// Config builds a configuration that can be applied or deleted as a single
+type Config interface {
+	// ConfigFactory for appending to this Config
+	ConfigFactory
+
+	// Apply this config to all clusters within the ConfigManager
+	Apply(opts ...ConfigOption) error
+	ApplyOrFail(t test.Failer, opts ...ConfigOption)
+
+	// Delete this config from all clusters within the ConfigManager
+	Delete() error
+	DeleteOrFail(t test.Failer)
+}
+
 // ConfigManager is an interface for applying/deleting yaml resources.
 type ConfigManager interface {
-	// ApplyYAML applies the given config yaml text. Applied YAML is automatically deleted when the
-	// test exits.
-	ApplyYAML(ns string, yamlText ...string) error
+	ConfigFactory
 
-	// ApplyYAMLNoCleanup applies the given config yaml text.
-	ApplyYAMLNoCleanup(ns string, yamlText ...string) error
-
-	// ApplyYAMLOrFail applies the given config yaml text.
-	ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string)
-
-	// DeleteYAML deletes the given config yaml text.
-	DeleteYAML(ns string, yamlText ...string) error
-
-	// DeleteYAMLOrFail deletes the given config yaml text.
-	DeleteYAMLOrFail(t test.Failer, ns string, yamlText ...string)
+	// New empty Config.
+	New() Config
 
 	// WithFilePrefix sets the prefix used for intermediate files.
 	WithFilePrefix(prefix string) ConfigManager
@@ -60,16 +96,16 @@ type Context interface {
 	// The Environment in which the tests run
 	Environment() Environment
 
-	// Mesh clusters in this Environment. There will always be at least one.
+	// Clusters in this Environment. There will always be at least one.
 	Clusters() cluster.Clusters
 
-	// All clusters in this Environment, including external control planes.
+	// AllClusters in this Environment, including external control planes.
 	AllClusters() cluster.Clusters
 
 	// Settings returns common settings
 	Settings() *Settings
 
-	// WhenDone runs the given function when the test context completes.
+	// ConditionalCleanup runs the given function when the test context completes.
 	// If -istio.test.nocleanup is set, this function will not be executed. To unconditionally cleanup, use Cleanup.
 	// This function may not (safely) access the test context.
 	ConditionalCleanup(fn func())
@@ -92,4 +128,7 @@ type Context interface {
 
 	// ConfigIstio returns a ConfigManager that writes config to all Istio config clusters.
 	ConfigIstio() ConfigManager
+
+	// RecordTraceEvent records an event. This is later saved to trace.yaml for analysis
+	RecordTraceEvent(key string, value interface{})
 }

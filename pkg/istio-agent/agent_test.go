@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -30,9 +31,11 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -51,10 +54,15 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
+	"istio.io/istio/security/pkg/nodeagent/cache"
 	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
+	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/stsservice"
+	stsmock "istio.io/istio/security/pkg/stsservice/mock"
+	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/tests/util/leak"
 	pkgenv "istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -182,7 +190,7 @@ func TestAgent(t *testing.T) {
 			a.Security.CertChainFilePath = cfg.CertificatePath
 			a.Security.KeyFilePath = cfg.PrivateKeyPath
 			a.Security.RootCertFilePath = cfg.CaCertificatePath
-			a.Security.JWTPath = "bogus"
+			a.Security.CredFetcher = plugin.CreateTokenPlugin(filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"))
 			a.ProxyConfig.ProxyMetadata = map[string]string{}
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertChain] = filepath.Join(dir, "cert-chain.pem")
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
@@ -259,6 +267,62 @@ func TestAgent(t *testing.T) {
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
+	t.Run("External SDS socket", func(t *testing.T) {
+		dir := mktemp()
+		copyCerts(t, dir)
+
+		secOpts := &security.Options{}
+		secOpts.RootCertFilePath = filepath.Join(dir, "/root-cert.pem")
+		secOpts.CertChainFilePath = filepath.Join(dir, "/cert-chain.pem")
+		secOpts.KeyFilePath = filepath.Join(dir, "/key.pem")
+
+		secretCache, err := cache.NewSecretManagerClient(nil, secOpts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer secretCache.Close()
+
+		// this SDS Server listens on the well-known socket path serving the certs copied to the temp directory,
+		// and acts as the external SDS Server that the Agent will detect at startup
+		sdsServer := sds.NewServer(secOpts, secretCache, nil)
+		defer sdsServer.Stop()
+
+		Setup(t).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+
+		t.Cleanup(func() {
+			_ = os.RemoveAll(dir)
+		})
+	})
+	t.Run("Unhealthy SDS socket", func(t *testing.T) {
+		dir := filepath.Dir(security.WorkloadIdentitySocketPath)
+		os.MkdirAll(dir, 0o755)
+
+		// starting an unresponsive listener on the socket
+		l, err := net.Listen("unix", security.WorkloadIdentitySocketPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer l.Close()
+
+		Setup(t).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+
+		t.Cleanup(func() {
+			_ = os.RemoveAll(dir)
+		})
+	})
+	t.Run("Workload certificates", func(t *testing.T) {
+		dir := security.WorkloadIdentityCredentialsPath
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		copyCerts(t, dir)
+
+		Setup(t).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+
+		t.Cleanup(func() {
+			_ = os.RemoveAll(dir)
+		})
+	})
 	t.Run("VMs", func(t *testing.T) {
 		// Bootstrap sets up a short lived JWT token and root certificate. The initial run will fetch
 		// a certificate and write it to disk. This will be used (by mTLS authenticator) for future
@@ -272,11 +336,6 @@ func TestAgent(t *testing.T) {
 				return a
 			})
 			a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-
-			// Switch out our auth to only allow mTLS. In practice, the real server would allow JWT, but we
-			// don't have a good way to expire JWTs here. Instead, we just deny all JWTs to ensure mTLS is used
-			a.CaAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
-			a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		})
 		t.Run("reboot", func(t *testing.T) {
 			// Switch the JWT to a bogus path, to simulate the VM being rebooted
@@ -285,7 +344,7 @@ func TestAgent(t *testing.T) {
 				a.CaAuthenticator.Set("", fakeSpiffeID)
 				a.Security.OutputKeyCertToDir = dir
 				a.Security.ProvCert = dir
-				a.Security.JWTPath = "bogus"
+				a.Security.CredFetcher = plugin.CreateTokenPlugin(filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"))
 				return a
 			})
 			// Ensure we can still make requests
@@ -428,7 +487,7 @@ func TestAgent(t *testing.T) {
 				return fmt.Errorf("envoy %q is not ready", name)
 			}
 			return nil
-		}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*15))
+		}, retry.Timeout(time.Second*150))
 	}
 	t.Run("Envoy lifecycle", func(t *testing.T) {
 		Setup(t, func(a AgentTest) AgentTest {
@@ -489,16 +548,63 @@ func TestAgent(t *testing.T) {
 
 		testutil.CompareContent(t, got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"))
 	})
+	t.Run("ROOT CA change", func(t *testing.T) {
+		dir := mktemp()
+		rootCertFileName := "root-cert.pem"
+
+		// use a invalid root cert, XDS will fail with `authentication handshake failed`
+		localRootCert := filepath.Join(env.IstioSrc, "./tests/testdata/local/etc/certs/root-cert.pem")
+		if err := file.Copy(localRootCert, dir, rootCertFileName); err != nil {
+			t.Fatalf("failed to init root CA: %v", err)
+		}
+		a := Setup(t, func(a AgentTest) AgentTest {
+			a.AgentConfig.XDSRootCerts = path.Join(dir, rootCertFileName)
+			return a
+		})
+		meta := proxyConfigToMetadata(t, a.ProxyConfig)
+		if err := test.Wrap(func(t test.Failer) {
+			conn := setupDownstreamConnectionUDS(t, a.AgentConfig.XdsUdsPath)
+			xdsc := xds.NewAdsTest(t, conn).WithMetadata(meta)
+			_ = xdsc.RequestResponseAck(t, nil)
+		}); err == nil {
+			t.Fatalf("connect success with wrong CA")
+		}
+
+		// change ROOT CA, XDS will success
+		if err := file.Copy(path.Join(certDir, rootCertFileName), dir, rootCertFileName); err != nil {
+			t.Fatalf("failed to change root CA: %v", err)
+		}
+		a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+	})
+	t.Run("GCP", func(t *testing.T) {
+		os.MkdirAll(filepath.Join(wd, "var/run/secrets/tokens"), 0o755)
+		ioutil.WriteFile(filepath.Join(wd, "var/run/secrets/tokens/istio-token"), []byte("test-token"), 0o644)
+		a := Setup(t, func(a AgentTest) AgentTest {
+			a.envoyEnable = true
+			a.enableSTS = true
+			a.XdsAuthenticator.Set("Fake STS", "")
+			a.ProxyConfig.ProxyBootstrapTemplatePath = filepath.Join(env.IstioSrc, "./tools/packaging/common/gcp_envoy_bootstrap.json")
+			a.AgentConfig.Platform = &fakePlatform{meta: map[string]string{
+				"gcp_project": "my-sd-project",
+			}}
+			a.AgentConfig.XDSRootCerts = filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
+			return a
+		})
+		// We cannot actually check that envoy is ready, since it depends on RTDS and Istiod does not implement this.
+		// So instead just make sure it authenticated, which ensures the full STS flow properly functions
+		retry.UntilOrFail(t, func() bool { return a.XdsAuthenticator.Successes.Load() > 0 })
+	})
 }
 
 type AgentTest struct {
-	ProxyConfig      meshconfig.ProxyConfig
+	ProxyConfig      *meshconfig.ProxyConfig
 	Security         security.Options
 	AgentConfig      AgentOptions
 	XdsAuthenticator *security.FakeAuthenticator
 	CaAuthenticator  *security.FakeAuthenticator
 
 	envoyEnable bool
+	enableSTS   bool
 
 	agent *Agent
 }
@@ -508,6 +614,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	resp := AgentTest{
 		XdsAuthenticator: security.NewFakeAuthenticator("xds").Set("fake", ""),
 		CaAuthenticator:  security.NewFakeAuthenticator("ca").Set("fake", ""),
+		ProxyConfig:      mesh.DefaultProxyConfig(),
 	}
 	// Run through opts one time just to get the authenticators.
 	for _, opt := range opts {
@@ -515,11 +622,10 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	}
 	ca := setupCa(t, resp.CaAuthenticator)
 	resp.Security = security.Options{
-		WorkloadUDSPath:   filepath.Join(d, "SDS"),
 		CAEndpoint:        ca.URL,
 		CAProviderName:    "Citadel",
 		TrustDomain:       "cluster.local",
-		JWTPath:           filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"),
+		CredFetcher:       plugin.CreateTokenPlugin(filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token")),
 		WorkloadNamespace: "namespace",
 		ServiceAccount:    "sa",
 		// Signing in 2048 bit RSA is extremely slow when running with -race enabled, sometimes taking 5s+ in
@@ -559,10 +665,29 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	for _, opt := range opts {
 		resp = opt(resp)
 	}
-	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
+	if resp.enableSTS {
+		tokenManager := stsmock.CreateFakeTokenManager()
+		tokenManager.SetRespStsParam(stsservice.StsResponseParameters{
+			AccessToken:     "Fake STS",
+			IssuedTokenType: "urn:ietf:params:oauth:token-type:access_token",
+			TokenType:       "Bearer",
+			ExpiresIn:       60,
+			Scope:           "example.com",
+		})
+		stsServer, err := stsserver.NewServer(stsserver.Config{
+			LocalHostAddr: "localhost",
+			LocalPort:     0,
+		}, tokenManager)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Security.STSPort = stsServer.Port
+		t.Cleanup(stsServer.Stop)
+	}
+
+	a := NewAgent(resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
 	t.Cleanup(a.Close)
 	ctx, done := context.WithCancel(context.Background())
-
 	wait, err := a.Run(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -593,7 +718,7 @@ func (a *AgentTest) Check(t *testing.T, expectedSDS ...string) map[string]*xds.A
 	sdsStreams := map[string]*xds.AdsTest{}
 	gotKeys := []string{}
 	for _, res := range xdstest.ExtractSecretResources(t, resp.Resources) {
-		sds := xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, a.Security.WorkloadUDSPath)).
+		sds := xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, security.WorkloadIdentitySocketPath)).
 			WithMetadata(meta).
 			WithTimeout(time.Second * 20) // CSR can be extremely slow with race detection enabled due to 2048 RSA
 		sds.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{res}})
@@ -711,7 +836,7 @@ func filenames(t *testing.T, dir string) []string {
 	return res
 }
 
-func proxyConfigToMetadata(t *testing.T, proxyConfig meshconfig.ProxyConfig) model.NodeMetadata {
+func proxyConfigToMetadata(t *testing.T, proxyConfig *meshconfig.ProxyConfig) model.NodeMetadata {
 	t.Helper()
 	m := map[string]interface{}{}
 	for k, v := range proxyConfig.ProxyMetadata {
@@ -727,10 +852,10 @@ func proxyConfigToMetadata(t *testing.T, proxyConfig meshconfig.ProxyConfig) mod
 	if err := json.Unmarshal(b, &meta); err != nil {
 		t.Fatal(err)
 	}
-	pc := model.NodeMetaProxyConfig(proxyConfig)
+	pc := (*model.NodeMetaProxyConfig)(proxyConfig)
 	meta.Namespace = "fake-namespace"
 	meta.ServiceAccount = "fake-sa"
-	meta.ProxyConfig = &pc
+	meta.ProxyConfig = pc
 	return meta
 }
 
@@ -819,10 +944,32 @@ spec:
 `})
 	ds.Discovery.Authenticators = []security.Authenticator{auth}
 	grpcServer := grpc.NewServer(opt)
+	reflection.Register(grpcServer)
 	ds.Discovery.Register(grpcServer)
 	go func() {
 		_ = grpcServer.Serve(l)
 	}()
 	t.Cleanup(grpcServer.Stop)
 	return net.JoinHostPort("localhost", fmt.Sprint(l.Addr().(*net.TCPAddr).Port))
+}
+
+type fakePlatform struct {
+	meta   map[string]string
+	labels map[string]string
+}
+
+func (f *fakePlatform) Metadata() map[string]string {
+	return f.meta
+}
+
+func (f *fakePlatform) Locality() *core.Locality {
+	return &core.Locality{}
+}
+
+func (f *fakePlatform) Labels() map[string]string {
+	return f.labels
+}
+
+func (f *fakePlatform) IsKubernetes() bool {
+	return true
 }

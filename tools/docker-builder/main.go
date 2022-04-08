@@ -15,9 +15,12 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -25,16 +28,18 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
+	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	testenv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
 
 func main() {
-	rootCmd.Flags().StringVar(&args.Hub, "hub", args.Hub, "docker hub")
-	rootCmd.Flags().StringVar(&args.Tag, "tag", args.Tag, "docker tag")
+	rootCmd.Flags().StringSliceVar(&args.Hubs, "hub", args.Hubs, "docker hub(s)")
+	rootCmd.Flags().StringSliceVar(&args.Tags, "tag", args.Tags, "docker tag(s)")
 
 	rootCmd.Flags().StringVar(&args.BaseVersion, "base-version", args.BaseVersion, "base version to use")
 	rootCmd.Flags().StringVar(&args.ProxyVersion, "proxy-version", args.ProxyVersion, "proxy version to use")
@@ -45,7 +50,9 @@ func main() {
 	rootCmd.Flags().StringSliceVar(&args.Architectures, "architecures", args.Architectures, "architectures to build")
 	rootCmd.Flags().BoolVar(&args.Push, "push", args.Push, "push targets to registry")
 	rootCmd.Flags().BoolVar(&args.Save, "save", args.Save, "save targets to tar.gz")
+	rootCmd.Flags().BoolVar(&args.NoCache, "no-cache", args.NoCache, "disable caching")
 	rootCmd.Flags().BoolVar(&args.BuildxEnabled, "buildx", args.BuildxEnabled, "use buildx for builds")
+	rootCmd.Flags().BoolVar(&args.NoClobber, "no-clobber", args.NoClobber, "do not allow pushing images that already exist")
 	rootCmd.Flags().BoolVar(&version, "version", version, "show build version")
 
 	if err := rootCmd.Execute(); err != nil {
@@ -53,34 +60,47 @@ func main() {
 	}
 }
 
+var privilegedHubs = sets.New(
+	"docker.io/istio",
+	"istio",
+	"gcr.io/istio-release",
+	"gcr.io/istio-testing",
+)
+
 var rootCmd = &cobra.Command{
-	Use:   "",
-	Short: "Builds Istio docker images",
+	SilenceUsage: true,
+	Short:        "Builds Istio docker images",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		if version {
 			fmt.Println(pkgversion.Info.GitRevision)
 			os.Exit(0)
 		}
 		log.Infof("Args: %+v", args)
+		if len(args.Targets) == 0 {
+			return fmt.Errorf("no targets specified")
+		}
 		if args.Push && args.Save {
 			// TODO(https://github.com/moby/buildkit/issues/1555) support both
 			return fmt.Errorf("--push and --save are mutually exclusive")
 		}
 		_, inCI := os.LookupEnv("CI")
-		if (args.Hub == "docker.io/istio" || args.Hub == "istio" || args.Hub == "gcr.io/istio-release") && !inCI {
+		if args.Push && len(privilegedHubs.Intersection(sets.New(args.Hubs...))) > 0 && !inCI {
 			// Safety check against developer error. If they have a legitimate use case, they can set CI var
 			return fmt.Errorf("pushing to official registry only supported in CI")
 		}
 
+		args, err := ReadPlan(args)
+		if err != nil {
+			return err
+		}
 		tarFiles, err := ConstructBakeFile(args)
 		if err != nil {
 			return err
 		}
-		targets := []string{}
-		for _, t := range args.Targets {
-			targets = append(targets, fmt.Sprintf("docker.%s", t))
+		if err := RunMake(args, args.Plan.Targets()...); err != nil {
+			return err
 		}
-		if err := RunMake(args, targets...); err != nil {
+		if err := CopyInputs(args); err != nil {
 			return err
 		}
 		if err := RunBake(args); err != nil {
@@ -92,6 +112,79 @@ var rootCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func CopyInputs(a Args) error {
+	for _, target := range a.Targets {
+		bp := a.Plan.Find(target)
+		args := bp.Dependencies()
+		args = append(args, filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target)))
+		if err := RunCommand(a, "tools/docker-copy.sh", args...); err != nil {
+			return fmt.Errorf("copy: %v", err)
+		}
+	}
+	return nil
+}
+
+func ReadPlanTargets() ([]string, []string, error) {
+	by, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
+	if err != nil {
+		return nil, nil, err
+	}
+	plan := BuildPlan{}
+	if err := yaml.Unmarshal(by, &plan); err != nil {
+		return nil, nil, err
+	}
+	bases := sets.New()
+	nonBases := sets.New()
+	for _, i := range plan.Images {
+		if i.Base {
+			bases.Insert(i.Name)
+		} else {
+			nonBases.Insert(i.Name)
+		}
+	}
+	return bases.SortedList(), nonBases.SortedList(), nil
+}
+
+func ReadPlan(a Args) (Args, error) {
+	by, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
+	if err != nil {
+		return a, err
+	}
+	plan := BuildPlan{}
+	input := os.Expand(string(by), func(s string) string {
+		data := map[string]string{
+			"SIDECAR": "envoy",
+		}
+		if r, f := data[s]; f {
+			return r
+		}
+
+		// Fallback to env
+		return os.Getenv(s)
+	})
+	if err := yaml.Unmarshal([]byte(input), &plan); err != nil {
+		return a, err
+	}
+	tgt := sets.New(a.Targets...)
+	known := sets.New()
+	for _, img := range plan.Images {
+		known.Insert(img.Name)
+	}
+	if unknown := tgt.Difference(known).SortedList(); len(unknown) > 0 {
+		return a, fmt.Errorf("unknown targets: %v", unknown)
+	}
+	// Filter down to requested targets
+	desiredImages := []ImagePlan{}
+	for _, i := range plan.Images {
+		if tgt.Contains(i.Name) {
+			desiredImages = append(desiredImages, i)
+		}
+	}
+	plan.Images = desiredImages
+	a.Plan = plan
+	return a, nil
 }
 
 func RunBake(args Args) error {
@@ -108,11 +201,36 @@ func RunBake(args Args) error {
 // --save requires a custom builder. Automagically create it if needed
 func createBuildxBuilderIfNeeded(a Args) error {
 	if !a.Save {
-		return nil
+		return nil // default builder supports all but .save
 	}
 	if _, f := os.LookupEnv("CI"); !f {
-		// For now only do this for CI, we do not want to mess with users config. And users rarely use --save
-		return nil
+		// If we are not running in CI and the user is not using --save, assume the current
+		// builder is OK.
+		if !a.Save {
+			return nil
+		}
+		// --save is specified so verify if the current builder's driver is `docker-container` (needed to satisfy the export)
+		// This is typically used when running release-builder locally.
+		// Output an error message telling the user how to create a builder with the correct driver.
+		c := VerboseCommand("docker", "buildx", "ls") // get current builder
+		out := new(bytes.Buffer)
+		c.Stdout = out
+		err := c.Run()
+		if err != nil {
+			return fmt.Errorf("command failed: %v", err)
+		}
+		scanner := bufio.NewScanner(out)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Split(line, " ")[1] == "*" { // This is the default builder
+				if strings.Split(line, " ")[3] == "docker-container" { // if using docker-container driver
+					return nil // current builder will work for --save
+				}
+				return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
+					"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.9.2" +
+					" --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
+			}
+		}
 	}
 	return exec.Command("sh", "-c", `
 export DOCKER_CLI_EXPERIMENTAL=enabled
@@ -185,18 +303,21 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	// Groups just bundles targets together to make them easier to work with
 	groups := map[string]Group{}
 
-	variants := sets.NewSet(a.Variants...)
+	variants := sets.New(a.Variants...)
 	// hasDoubleDefault checks if we defined both DefaultVariant and PrimaryVariant. If we did, these
 	// are the same exact docker build, just requesting different tags. As an optimization, and to ensure
 	// byte-for-byte identical images, we will collapse these into a single build with multiple tags.
 	hasDoubleDefault := variants.Contains(DefaultVariant) && variants.Contains(PrimaryVariant)
 
-	allGroups := sets.NewSet()
+	allGroups := sets.New()
 	// Tar files builds a mapping of tar file name (when used with --save) -> alias for that
 	// If the value is "", the tar file exists but has no aliases
 	tarFiles := map[string]string{}
+
+	allDestinations := sets.New()
 	for _, variant := range a.Variants {
 		for _, target := range a.Targets {
+			bp := a.Plan.Find(target)
 			if variant == DefaultVariant && hasDoubleDefault {
 				// This will be process by the PrimaryVariant, skip it here
 				continue
@@ -211,10 +332,10 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			if strings.HasPrefix(target, "app_") && variant == DistrolessVariant {
 				continue
 			}
-			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("docker.%s", target))
+			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
 			t := Target{
 				Context:    sp(p),
-				Dockerfile: sp(fmt.Sprintf("Dockerfile.%s", target)),
+				Dockerfile: sp(filepath.Base(bp.Dockerfile)),
 				Args: map[string]string{
 					// Base version defines the tag of the base image to use. Typically, set in the Makefile and not overridden.
 					"BASE_VERSION": args.BaseVersion,
@@ -229,17 +350,22 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 				Platforms: args.Architectures,
 			}
 
-			if variant == DefaultVariant {
-				// For default, we have no suffix
-				t.Tags = []string{fmt.Sprintf("%s/%s:%s", a.Hub, target, a.Tag)}
-			} else {
-				// Otherwise, we have a suffix with the variant
-				t.Tags = []string{fmt.Sprintf("%s/%s:%s-%s", a.Hub, target, a.Tag, variant)}
-				// If we need a default as well, add it as a second tag for the same image to avoid building twice
-				if variant == PrimaryVariant && hasDoubleDefault {
-					t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s", a.Hub, target, a.Tag))
+			for _, h := range a.Hubs {
+				for _, tg := range a.Tags {
+					if variant == DefaultVariant {
+						// For default, we have no suffix
+						t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s", h, target, tg))
+					} else {
+						// Otherwise, we have a suffix with the variant
+						t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s-%s", h, target, tg, variant))
+						// If we need a default as well, add it as a second tag for the same image to avoid building twice
+						if variant == PrimaryVariant && hasDoubleDefault {
+							t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s", h, target, tg))
+						}
+					}
 				}
 			}
+			allDestinations.InsertAll(t.Tags...)
 
 			// See https://docs.docker.com/engine/reference/commandline/buildx_build/#output
 			if args.Push {
@@ -257,6 +383,11 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+".tar")}
 			} else {
 				t.Outputs = []string{"type=docker"}
+			}
+
+			if args.NoCache {
+				x := true
+				t.NoCache = &x
 			}
 
 			name := fmt.Sprintf("%s-%s", target, variant)
@@ -279,7 +410,38 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 		return nil, err
 	}
 	_ = os.MkdirAll(filepath.Join(testenv.LocalOut, "dockerx_build"), 0o755)
+
+	if args.NoClobber {
+		e := errgroup.Group{}
+		for _, i := range allDestinations.SortedList() {
+			if strings.HasSuffix(i, ":latest") { // Allow clobbering of latest - don't verify existence
+				continue
+			}
+			i := i
+			e.Go(func() error {
+				return assertImageNonExisting(i)
+			})
+		}
+		if err := e.Wait(); err != nil {
+			return nil, err
+		}
+	}
+
 	return tarFiles, os.WriteFile(out, j, 0o644)
+}
+
+func assertImageNonExisting(i string) error {
+	c := exec.Command("crane", "manifest", i)
+	b := &bytes.Buffer{}
+	c.Stderr = b
+	err := c.Run()
+	if err != nil {
+		if strings.Contains(b.String(), "MANIFEST_UNKNOWN") {
+			return nil
+		}
+		return fmt.Errorf("failed to check image existence: %v, %v", err, b.String())
+	}
+	return fmt.Errorf("image %q already exists", i)
 }
 
 func vmImageName(target string) string {
@@ -317,7 +479,7 @@ func VerboseCommand(name string, arg ...string) *exec.Cmd {
 
 func StandardEnv(args Args) []string {
 	env := os.Environ()
-	if len(sets.NewSet(args.Targets...).Delete("proxyv2")) <= 1 {
+	if len(sets.New(args.Targets...).Delete("proxyv2")) <= 1 {
 		// If we are building multiple, it is faster to build all binaries in a single invocation
 		// Otherwise, build just the single item. proxyv2 is special since it is always built separately with tag=agent.
 		// Ideally we would just always build the targets we need but our Makefile is not that smart
@@ -327,20 +489,36 @@ func StandardEnv(args Args) []string {
 	env = append(env,
 		// Build should already run in container, having multiple layers of docker causes issues
 		"BUILD_WITH_CONTAINER=0",
-		// Overwrite rules for buildx
-		"DOCKER_RULE=./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@",
-		"RENAME_TEMPLATE=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)",
 	)
 	return env
 }
 
 // RunMake runs a make command for the repo, with standard environment variables set
 func RunMake(args Args, c ...string) error {
-	cmd := VerboseCommand("make", c...)
+	shortArgs := []string{}
+	// Shorten output to avoid a ton of long redundant paths
+	for _, cs := range c {
+		shortArgs = append(shortArgs, filepath.Base(cs))
+	}
+	if len(c) == 0 {
+		log.Infof("Nothing to make")
+		return nil
+	}
+	log.Infof("Running make: %v", strings.Join(shortArgs, " "))
+	cmd := exec.Command("make", c...)
 	cmd.Env = StandardEnv(args)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Dir = testenv.IstioSrc
-	log.Infof("Running make %v", strings.Join(c, " "))
+	return cmd.Run()
+}
+
+// RunCommand runs a command for the repo, with standard environment variables set
+func RunCommand(args Args, c string, cargs ...string) error {
+	cmd := VerboseCommand(c, cargs...)
+	cmd.Env = StandardEnv(args)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Dir = testenv.IstioSrc
 	return cmd.Run()
 }

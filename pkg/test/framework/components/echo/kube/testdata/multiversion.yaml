@@ -34,7 +34,7 @@ spec:
       labels:
         app: multiversion
         version: v-istio
-        test.istio.io/class: standard
+        test.istio.io/class: naked
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
@@ -101,7 +101,7 @@ spec:
         startupProbe:
           tcpSocket:
             port: tcp-health-port
-          periodSeconds: 10
+          periodSeconds: 1
           failureThreshold: 10
 ---
 apiVersion: apps/v1
@@ -119,7 +119,7 @@ spec:
       labels:
         app: multiversion
         version: v-legacy
-        test.istio.io/class: standard
+        test.istio.io/class: naked
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
@@ -182,6 +182,6 @@ spec:
         startupProbe:
           tcpSocket:
             port: tcp-health-port
-          periodSeconds: 10
+          periodSeconds: 1
           failureThreshold: 10
 ---

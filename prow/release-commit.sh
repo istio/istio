@@ -32,11 +32,11 @@ DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=5c13ba8b2b7c5507cd3bd6fa60856dc5c0381694
+BUILDER_SHA=2d930dc6ef98e9ce45a8723e3f5fb2f76dfd9ebc
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
-NEXT_VERSION=1.13
+NEXT_VERSION=1.14
 TAG=$(git rev-parse HEAD)
 VERSION="${NEXT_VERSION}-alpha.${TAG}"
 
@@ -66,15 +66,15 @@ ${DEPENDENCIES:-$(cat <<EOD
   client-go:
     git: https://github.com/istio/client-go
     branch: master
-  gogo-genproto:
-    git: https://github.com/istio/gogo-genproto
-    branch: master
   test-infra:
     git: https://github.com/istio/test-infra
     branch: master
   tools:
     git: https://github.com/istio/tools
     branch: master
+  release-builder:
+    git: https://github.com/istio/release-builder
+    sha: ${BUILDER_SHA}
 EOD
 )}
 dashboards:
@@ -91,8 +91,7 @@ EOF
 # "Temporary" hacks
 export PATH=${GOPATH}/bin:${PATH}
 
-# cd to not impact go.mod
-(cd /tmp; go get "istio.io/release-builder@${BUILDER_SHA}")
+go install "istio.io/release-builder@${BUILDER_SHA}"
 
 release-builder build --manifest <(echo "${MANIFEST}")
 

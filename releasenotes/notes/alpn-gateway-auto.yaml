@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 37196
+releaseNotes:
+- |
+  **Fixed** an issue causing traffic from a gateway to a service with an [undeclared protocol](/docs/ops/configuration/traffic-management/protocol-selection/#automatic-protocol-selection) being treated as TCP traffic rather than HTTP.

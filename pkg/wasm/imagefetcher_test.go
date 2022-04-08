@@ -19,16 +19,19 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -46,9 +49,8 @@ func TestImageFetcherOption_useDefaultKeyChain(t *testing.T) {
 		exp  bool
 	}{
 		{name: "default key chain", exp: true},
-		{name: "missing username", opt: ImageFetcherOption{Password: "pass"}, exp: true},
-		{name: "missing password", opt: ImageFetcherOption{Username: "name"}, exp: true},
-		{name: "use basic auth", opt: ImageFetcherOption{Username: "name", Password: "pass"}},
+		{name: "use secret config", opt: ImageFetcherOption{PullSecret: []byte("secret")}},
+		{name: "missing secret", opt: ImageFetcherOption{}, exp: true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -100,30 +102,37 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Fetch docker image without digest
-		actual, err := fetcher.Fetch(ref, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(actual) != exp {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
-		}
-
 		// Fetch docker image with digest
 		d, err := img.Digest()
 		if err != nil {
 			t.Fatal(err)
 		}
-		actual, err = fetcher.Fetch(ref, d.Hex)
+
+		// Fetch docker image without digest
+		actual, actualDiget, err := fetcher.Fetch(ref, "")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if string(actual) != exp {
 			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
 		}
+		if actualDiget != d.Hex {
+			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
+		}
+
+		actual, actualDiget, err = fetcher.Fetch(ref, d.Hex)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(actual) != exp {
+			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
+		}
+		if actualDiget != d.Hex {
+			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
+		}
 
 		// Giving wrong digest should be error
-		_, err = fetcher.Fetch(ref, "foobar")
+		_, _, err = fetcher.Fetch(ref, "foobar")
 		if err == nil {
 			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
@@ -151,30 +160,37 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Fetch OCI image.
-		actual, err := fetcher.Fetch(ref, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(actual) != exp {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
-		}
-
 		// Fetch OCI image with digest
 		d, err := img.Digest()
 		if err != nil {
 			t.Fatal(err)
 		}
-		actual, err = fetcher.Fetch(ref, d.Hex)
+
+		// Fetch OCI image.
+		actual, actualDiget, err := fetcher.Fetch(ref, "")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if string(actual) != exp {
 			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
 		}
+		if actualDiget != d.Hex {
+			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
+		}
+
+		actual, actualDiget, err = fetcher.Fetch(ref, d.Hex)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(actual) != exp {
+			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
+		}
+		if actualDiget != d.Hex {
+			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
+		}
 
 		// Giving wrong digest should be error
-		_, err = fetcher.Fetch(ref, "foobar")
+		_, _, err = fetcher.Fetch(ref, "foobar")
 		if err == nil {
 			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
@@ -216,31 +232,37 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Fetch OCI image.
-		actual, err := fetcher.Fetch(ref, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if string(actual) != string(want) {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), string(want))
-		}
-
 		// Fetch OCI image with digest
 		d, err := img.Digest()
 		if err != nil {
 			t.Fatal(err)
 		}
-		actual, err = fetcher.Fetch(ref, d.Hex)
+
+		// Fetch OCI image.
+		actual, actualDiget, err := fetcher.Fetch(ref, "")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if string(actual) != string(want) {
+		if !bytes.Equal(actual, want) {
+			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), string(want))
+		}
+		if actualDiget != d.Hex {
+			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
+		}
+
+		actual, actualDiget, err = fetcher.Fetch(ref, d.Hex)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(actual, want) {
 			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), want)
+		}
+		if actualDiget != d.Hex {
+			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
 		}
 
 		// Giving wrong digest should be error
-		_, err = fetcher.Fetch(ref, "foobar")
+		_, _, err = fetcher.Fetch(ref, "foobar")
 		if err == nil {
 			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
@@ -266,7 +288,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Try to fetch.
-		actual, err := fetcher.Fetch(ref, "")
+		actual, _, err := fetcher.Fetch(ref, "")
 		if actual != nil {
 			t.Errorf("ImageFetcher.Fetch got %s, but want nil", string(actual))
 		}
@@ -470,7 +492,7 @@ func TestExtractOCIArtifactImage(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if string(actual) != string(want) {
+		if !bytes.Equal(actual, want) {
 			t.Errorf("extractOCIArtifactImage got %s, but want '%s'", string(actual), string(want))
 		}
 	})
@@ -590,4 +612,31 @@ func TestExtractWasmPluginBinary(t *testing.T) {
 			t.Errorf("extractWasmPluginBinary must fail with not found")
 		}
 	})
+}
+
+func TestWasmKeyChain(t *testing.T) {
+	dockerjson := fmt.Sprintf(`{"auths": {"test.io": {"auth": %q}}}`, encode("foo", "bar"))
+	keyChain := wasmKeyChain{data: []byte(dockerjson)}
+	testRegistry, _ := name.NewRegistry("test.io", name.WeakValidation)
+	keyChain.Resolve(testRegistry)
+	auth, err := keyChain.Resolve(testRegistry)
+	if err != nil {
+		t.Fatalf("Resolve() = %v", err)
+	}
+	got, err := auth.Authorization()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := &authn.AuthConfig{
+		Username: "foo",
+		Password: "bar",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
+func encode(user, pass string) string {
+	delimited := fmt.Sprintf("%s:%s", user, pass)
+	return base64.StdEncoding.EncodeToString([]byte(delimited))
 }

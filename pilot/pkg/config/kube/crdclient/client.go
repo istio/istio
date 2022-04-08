@@ -48,7 +48,7 @@ import (
 	//  import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/cache"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pilot/pkg/features"
@@ -112,6 +112,7 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 
 var crdWatches = map[config.GroupVersionKind]*waiter{
 	gvk.KubernetesGateway: newWaiter(),
+	gvk.GatewayClass:      newWaiter(),
 }
 
 type waiter struct {
@@ -174,10 +175,18 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
-		if _, f := known[name]; f {
+		crd := true
+		if _, f := collections.Builtin.Find(s.Name().String()); f {
+			crd = false
+		}
+		if !crd {
 			handleCRDAdd(out, name, nil)
 		} else {
-			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+			if _, f := known[name]; f {
+				handleCRDAdd(out, name, nil)
+			} else {
+				scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+			}
 		}
 	}
 
@@ -505,17 +514,24 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	var i informers.GenericInformer
 	var ifactory starter
 	var err error
-	if s.Resource().Group() == gvk.KubernetesGateway.Group {
+	switch s.Resource().Group() {
+	case gvk.KubernetesGateway.Group:
 		ifactory = cl.client.GatewayAPIInformer()
 		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)
-	} else {
+	case gvk.Pod.Group, gvk.Deployment.Group, gvk.MutatingWebhookConfiguration.Group:
+		ifactory = cl.client.KubeInformer()
+		i, err = cl.client.KubeInformer().ForResource(gvr)
+	case gvk.CustomResourceDefinition.Group:
+		ifactory = cl.client.ExtInformer()
+		i, err = cl.client.ExtInformer().ForResource(gvr)
+	default:
 		ifactory = cl.client.IstioInformer()
 		i, err = cl.client.IstioInformer().ForResource(gvr)
 	}
 
 	if err != nil {
 		// Shouldn't happen
-		scope.Errorf("failed to create informer for %v", resourceGVK)
+		scope.Errorf("failed to create informer for %v: %v", resourceGVK, err)
 		return
 	}
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)

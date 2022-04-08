@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Statically link protobuf descriptors from UDPA
@@ -89,13 +90,23 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind)
 	return ret
 }
 
+// ConfigsHaveKind checks if configurations have the specified kind.
+func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) bool {
+	for conf := range configs {
+		if conf.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[string]struct{} {
-	ret := make(map[string]struct{})
+	ret := sets.New()
 
 	for conf := range configs {
 		if conf.Kind == kind {
-			ret[conf.Name] = struct{}{}
+			ret.Insert(conf.Name)
 		}
 	}
 
@@ -153,7 +164,6 @@ type ConfigStore interface {
 	// operation to achieve optimistic concurrency. This method returns a new
 	// revision if the operation succeeds.
 	Update(config config.Config) (newRevision string, err error)
-
 	UpdateStatus(config config.Config) (newRevision string, err error)
 
 	// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
@@ -190,7 +200,6 @@ type ConfigStoreCache interface {
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
-
 	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
 
 	// HasSynced returns true after initial cache synchronization is complete
@@ -281,9 +290,9 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 	return out
 }
 
-// MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
-// matching the needle, or false if no element in the stack matches the needle.
-func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []host.Name) (host.Name, bool) {
+// MostSpecificHostMatch compares the map of the stack to the needle, and returns the longest element
+// matching the needle, or false if no element in the map matches the needle.
+func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*consolidatedDestRule) (host.Name, bool) {
 	matches := []host.Name{}
 
 	// exact match first
@@ -291,18 +300,10 @@ func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []h
 		if _, ok := m[needle]; ok {
 			return needle, true
 		}
-	} else {
-		for _, h := range stack {
-			if h == needle {
-				return needle, true
-			}
-		}
 	}
 
 	if needle.IsWildCarded() {
-		// slice has better loop performance than map, so use stack to range
-		// and stack is ordered before
-		for _, h := range stack {
+		for h := range m {
 			// both needle and h are wildcards
 			if h.IsWildCarded() {
 				if len(needle) < len(h) {
@@ -314,7 +315,7 @@ func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []h
 			}
 		}
 	} else {
-		for _, h := range stack {
+		for h := range m {
 			// only n is wildcard
 			if h.IsWildCarded() {
 				if strings.HasSuffix(string(needle), string(h[1:])) {
@@ -323,7 +324,56 @@ func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []h
 			}
 		}
 	}
+	if len(matches) > 1 {
+		// Sort the host names, find the most specific one.
+		sort.Sort(host.Names(matches))
+	}
+	if len(matches) > 0 {
+		// TODO: return closest match out of all non-exact matching hosts
+		return matches[0], true
+	}
+	return "", false
+}
 
+// MostSpecificHostMatch2 compares the map of the stack to the needle, and returns the longest element
+// matching the needle, or false if no element in the map matches the needle.
+// TODO: merge with MostSpecificHostMatch once go 1.18 is used
+func MostSpecificHostMatch2(needle host.Name, m map[host.Name]struct{}) (host.Name, bool) {
+	matches := []host.Name{}
+
+	// exact match first
+	if m != nil {
+		if _, ok := m[needle]; ok {
+			return needle, true
+		}
+	}
+
+	if needle.IsWildCarded() {
+		for h := range m {
+			// both needle and h are wildcards
+			if h.IsWildCarded() {
+				if len(needle) < len(h) {
+					continue
+				}
+				if strings.HasSuffix(string(needle[1:]), string(h[1:])) {
+					matches = append(matches, h)
+				}
+			}
+		}
+	} else {
+		for h := range m {
+			// only n is wildcard
+			if h.IsWildCarded() {
+				if strings.HasSuffix(string(needle), string(h[1:])) {
+					matches = append(matches, h)
+				}
+			}
+		}
+	}
+	if len(matches) > 1 {
+		// Sort the host names, find the most specific one.
+		sort.Sort(host.Names(matches))
+	}
 	if len(matches) > 0 {
 		// TODO: return closest match out of all non-exact matching hosts
 		return matches[0], true

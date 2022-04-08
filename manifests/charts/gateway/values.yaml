@@ -52,6 +52,7 @@ service:
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
   externalTrafficPolicy: ""
+  externalIPs: []
 
 resources:
   requests:
@@ -84,3 +85,5 @@ affinity: {}
 
 # If specified, the gateway will act as a network gateway for the given network.
 networkGateway: ""
+
+imagePullSecrets: []

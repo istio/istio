@@ -43,7 +43,6 @@ type Instance interface {
 	// the given cluster. This allows access to the discovery server from
 	// outside its cluster.
 	RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPAddr, error)
-
 	Settings() Config
 }
 
@@ -63,10 +62,50 @@ func Get(ctx resource.Context) (Instance, error) {
 }
 
 // GetOrFail returns the Istio component from the context. If there is none the test is failed.
-func GetOrFail(f test.Failer, ctx resource.Context) Instance {
+func GetOrFail(t test.Failer, ctx resource.Context) Instance {
+	t.Helper()
 	i, err := Get(ctx)
 	if err != nil {
-		f.Fatal(err)
+		t.Fatal(err)
+	}
+	return i
+}
+
+// DefaultIngress returns the ingress installed in the default cluster. The ingress's service name
+// will be "istio-ingressgateway" and the istio label will be "ingressgateway".
+func DefaultIngress(ctx resource.Context) (ingress.Instance, error) {
+	i, err := Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return i.IngressFor(ctx.Clusters().Default()), nil
+}
+
+// DefaultIngressOrFail calls DefaultIngress and fails if an error is encountered.
+func DefaultIngressOrFail(t test.Failer, ctx resource.Context) ingress.Instance {
+	t.Helper()
+	i, err := DefaultIngress(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return i
+}
+
+// Ingresses returns all ingresses for "istio-ingressgateway" in each cluster.
+func Ingresses(ctx resource.Context) (ingress.Instances, error) {
+	i, err := Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return i.Ingresses(), nil
+}
+
+// IngressesOrFail calls Ingresses and fails if an error is encountered.
+func IngressesOrFail(t test.Failer, ctx resource.Context) ingress.Instances {
+	t.Helper()
+	i, err := Ingresses(ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
 	return i
 }
@@ -105,7 +144,7 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 }
 
 // Deploy deploys (or attaches to) an Istio deployment and returns a handle. If cfg is nil, then DefaultConfig is used.
-func Deploy(ctx resource.Context, cfg *Config) (i Instance, err error) {
+func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	if cfg == nil {
 		c, err := DefaultConfig(ctx)
 		if err != nil {
@@ -116,18 +155,12 @@ func Deploy(ctx resource.Context, cfg *Config) (i Instance, err error) {
 
 	t0 := time.Now()
 	scopes.Framework.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
-	defer func() {
-		if err != nil {
-			scopes.Framework.Infof("=== FAILED: Deploy Istio in %v [Suite=%s] ===", time.Since(t0), ctx.Settings().TestID)
-		} else {
-			scopes.Framework.Infof("=== SUCCEEDED: Deploy Istio in %v [Suite=%s]===", time.Since(t0), ctx.Settings().TestID)
-		}
-	}()
 
-	if cfg.DeployHelm {
-		i, err = deployWithHelm(ctx, ctx.Environment().(*kube.Environment), *cfg)
+	i, err := deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+	if err != nil {
+		scopes.Framework.Infof("=== FAILED: Deploy Istio in %v [Suite=%s] ===", time.Since(t0), ctx.Settings().TestID)
 	} else {
-		i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+		scopes.Framework.Infof("=== SUCCEEDED: Deploy Istio in %v [Suite=%s]===", time.Since(t0), ctx.Settings().TestID)
 	}
-	return
+	return i, err
 }

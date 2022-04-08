@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Updated** Istio's default load balancing algorithm from `ROUND_ROBIN` to `LEAST_REQUEST`.
+    The `ROUND_ROBIN` algorithm can lead to overburdened endpoints, especially when weights
+    are used. The `LEAST_REQUEST` algorithm, distributes more evenly across and is far less
+    likely to overburden endpoints. A number of experiments (by both the Istio and
+    Envoy teams) have shown that `LEAST_REQUEST` outperforms `ROUND_ROBIN` in virtually all
+    cases, with little/no downsides. It's generally considered a drop-in replacement for
+    ROUND_ROBIN.
+    
+    `ROUND_ROBIN` will continue to be supported if explicitly specified. To restore
+    `ROUND_ROBIN` as the default, set the istiod environment variable
+    `ENABLE_LEGACY_LB_ALGORITHM_DEFAULT=true`.

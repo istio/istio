@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -40,8 +41,8 @@ import (
 	"k8s.io/utils/env"
 
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
 	"istio.io/istio/pkg/test/util/retry"
@@ -119,7 +120,7 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	healthServer := health.NewServer()
 	grpcHealth.RegisterHealthServer(s.server, healthServer)
 
-	proto.RegisterEchoTestServiceServer(s.server, &grpcHandler{
+	proto.RegisterEchoTestServiceServer(s.server, &EchoGrpcHandler{
 		Config: s.Config,
 	})
 	reflection.Register(s.server)
@@ -227,26 +228,32 @@ func (s *grpcInstance) Close() error {
 	return nil
 }
 
-type grpcHandler struct {
+type EchoGrpcHandler struct {
 	proto.UnimplementedEchoTestServiceServer
 	Config
 }
 
-func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
+func (h *EchoGrpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
 	defer common.Metrics.GrpcRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
 	body := bytes.Buffer{}
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		for key, values := range md {
 			if strings.HasSuffix(key, "-bin") {
+				// Skip binary headers.
 				continue
 			}
-			field := response.Field(key)
+
+			field := key
+
 			if key == ":authority" {
-				field = response.HostField
+				for _, value := range values {
+					writeField(&body, echo.HostField, value)
+				}
 			}
+
 			for _, value := range values {
-				writeField(&body, field, value)
+				writeRequestHeader(&body, field, value)
 			}
 		}
 	}
@@ -264,35 +271,35 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 		ip, _, _ = net.SplitHostPort(peerInfo.Addr.String())
 	}
 
-	writeField(&body, response.StatusCodeField, response.StatusCodeOK)
-	writeField(&body, response.ServiceVersionField, h.Version)
-	writeField(&body, response.ServicePortField, strconv.Itoa(portNumber))
-	writeField(&body, response.ClusterField, h.Cluster)
-	writeField(&body, response.IPField, ip)
-	writeField(&body, response.IstioVersionField, h.IstioVersion)
+	writeField(&body, echo.StatusCodeField, strconv.Itoa(http.StatusOK))
+	writeField(&body, echo.ServiceVersionField, h.Version)
+	writeField(&body, echo.ServicePortField, strconv.Itoa(portNumber))
+	writeField(&body, echo.ClusterField, h.Cluster)
+	writeField(&body, echo.IPField, ip)
+	writeField(&body, echo.IstioVersionField, h.IstioVersion)
+	writeField(&body, echo.ProtocolField, "GRPC")
 	writeField(&body, "Echo", req.GetMessage())
 
 	if hostname, err := os.Hostname(); err == nil {
-		writeField(&body, response.HostnameField, hostname)
+		writeField(&body, echo.HostnameField, hostname)
 	}
 
 	epLog.WithLabels("id", id).Infof("GRPC Response")
 	return &proto.EchoResponse{Message: body.String()}, nil
 }
 
-func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
+func (h *EchoGrpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
 	id := uuid.New()
 	l := epLog.WithLabels("url", req.Url, "id", id)
 	l.Infof("ForwardEcho request")
 	t0 := time.Now()
 	instance, err := forwarder.New(forwarder.Config{
 		Request: req,
-		Dialer:  h.Dialer,
 	})
 	if err != nil {
 		return nil, err
 	}
-	defer instance.Close()
+	defer func() { _ = instance.Close() }()
 
 	ret, err := instance.Run(ctx)
 	if err == nil {

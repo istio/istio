@@ -51,6 +51,9 @@ var rootCmd = &cobra.Command{
 	PreRun: bindFlags,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
+		if err := cfg.Validate(); err != nil {
+			handleErrorWithCode(err, 1)
+		}
 		var ext dep.Dependencies
 		if cfg.DryRun {
 			ext = &dep.StdoutStubDependencies{}
@@ -90,6 +93,9 @@ var configureRoutesCommand = &cobra.Command{
 	PreRun: bindFlags,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
+		if err := cfg.Validate(); err != nil {
+			handleErrorWithCode(err, 1)
+		}
 		if !cfg.SkipRuleApply {
 			if err := capture.ConfigureRoutes(cfg, nil); err != nil {
 				handleErrorWithCode(err, 1)
@@ -113,6 +119,8 @@ func constructConfig() *config.Config {
 		InboundTProxyRouteTable: viper.GetString(constants.InboundTProxyRouteTable),
 		InboundPortsInclude:     viper.GetString(constants.InboundPorts),
 		InboundPortsExclude:     viper.GetString(constants.LocalExcludePorts),
+		OwnerGroupsInclude:      viper.GetString(constants.OwnerGroupsInclude.Name),
+		OwnerGroupsExclude:      viper.GetString(constants.OwnerGroupsExclude.Name),
 		OutboundPortsInclude:    viper.GetString(constants.OutboundPorts),
 		OutboundPortsExclude:    viper.GetString(constants.LocalOutboundPortsExclude),
 		OutboundIPRangesInclude: viper.GetString(constants.ServiceCidr),
@@ -177,7 +185,7 @@ func getLocalIP() (net.IP, error) {
 	}
 
 	for _, a := range addrs {
-		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() {
 			return ipnet.IP, nil
 		}
 	}
@@ -259,6 +267,16 @@ func bindFlags(cmd *cobra.Command, args []string) {
 		handleError(err)
 	}
 	viper.SetDefault(constants.ServiceExcludeCidr, "")
+
+	if err := viper.BindEnv(constants.OwnerGroupsInclude.Name); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OwnerGroupsInclude.Name, constants.OwnerGroupsInclude.DefaultValue)
+
+	if err := viper.BindEnv(constants.OwnerGroupsExclude.Name); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OwnerGroupsExclude.Name, constants.OwnerGroupsExclude.DefaultValue)
 
 	if err := viper.BindPFlag(constants.OutboundPorts, cmd.Flags().Lookup(constants.OutboundPorts)); err != nil {
 		handleError(err)

@@ -308,7 +308,7 @@ func TestMostSpecificHostMatch(t *testing.T) {
 		}
 
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.needle), func(t *testing.T) {
-			actual, found := model.MostSpecificHostMatch(tt.needle, m, tt.in)
+			actual, found := model.MostSpecificHostMatch2(tt.needle, m)
 			if tt.want != "" && !found {
 				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
 			} else if actual != tt.want {
@@ -351,13 +351,11 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 
 		for i := 1; i <= bm.time; i++ {
 			h := host.Name(bm.baseHost + "." + strconv.Itoa(i))
-			bm.hosts = append(bm.hosts, h)
 			bm.hostsMap[h] = struct{}{}
 		}
-
 		b.Run(bm.name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
-				_, _ = model.MostSpecificHostMatch(bm.needle, bm.hostsMap, bm.hosts)
+				_, _ = model.MostSpecificHostMatch2(bm.needle, bm.hostsMap)
 			}
 		})
 	}
@@ -480,5 +478,51 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 
 	if !reflect.DeepEqual(expectedConfig, cfgs) {
 		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
+	}
+}
+
+func TestConfigsOnlyHaveKind(t *testing.T) {
+	tests := []struct {
+		name    string
+		configs map[model.ConfigKey]struct{}
+		want    bool
+	}{
+		{
+			name: "mix",
+			configs: map[model.ConfigKey]struct{}{
+				{Kind: gvk.Deployment}: {},
+				{Kind: gvk.Secret}:     {},
+			},
+			want: true,
+		},
+		{
+			name: "no secret",
+			configs: map[model.ConfigKey]struct{}{
+				{Kind: gvk.Deployment}: {},
+			},
+			want: false,
+		},
+		{
+			name: "only secret",
+			configs: map[model.ConfigKey]struct{}{
+				{Kind: gvk.Secret}: {},
+				{Kind: gvk.Secret}: {},
+			},
+			want: true,
+		},
+		{
+			name:    "empty",
+			configs: map[model.ConfigKey]struct{}{},
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := model.ConfigsHaveKind(tt.configs, gvk.Secret)
+			if tt.want != got {
+				t.Errorf("got %v want %v", got, tt.want)
+			}
+		})
 	}
 }

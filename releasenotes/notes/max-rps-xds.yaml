@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issues:
+- 35263
+releaseNotes:
+- |
+  **Improved** the default `PILOT_MAX_REQUESTS_PER_SECOND`, which limits the number of **new** XDS connections per second,
+  to 25 (from 100). This has been shown to improve performance under high load.

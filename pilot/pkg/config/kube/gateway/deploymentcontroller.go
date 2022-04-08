@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"sigs.k8s.io/gateway-api/pkg/client/listers/gateway/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config"
@@ -148,11 +148,14 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 
 	gw, err := d.gatewayLister.Gateways(req.Namespace).Get(req.Name)
 	if err != nil || gw == nil {
-		log.Errorf("unable to fetch Gateway: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
-		return controllers.IgnoreNotFound(err)
+		if err := controllers.IgnoreNotFound(err); err != nil {
+			log.Errorf("unable to fetch Gateway: %v", err)
+			return err
+		}
+		return nil
 	}
 
 	gc, _ := d.gatewayClassLister.Get(string(gw.Spec.GatewayClassName))

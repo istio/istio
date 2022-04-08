@@ -106,6 +106,7 @@ rules:
   - namespaces
   - pods
   - pods/proxy
+  - pods/portforward
   - persistentvolumeclaims
   - secrets
   - services

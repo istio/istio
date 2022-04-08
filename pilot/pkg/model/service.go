@@ -24,10 +24,8 @@ package model
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -36,7 +34,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -44,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -387,6 +385,16 @@ type Locality struct {
 	ClusterID cluster.ID
 }
 
+// Endpoint health status.
+type HealthStatus int32
+
+const (
+	// Healthy.
+	Healthy HealthStatus = 0
+	// Unhealthy.
+	UnHealthy HealthStatus = 1
+)
+
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
 // service. A service has one or more instances each running in a
 // container/VM/pod. If a service has multiple ports, then the same
@@ -458,6 +466,9 @@ type IstioEndpoint struct {
 
 	// Determines the discoverability of this endpoint throughout the mesh.
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
+
+	// Indicatesthe endpoint health status.
+	HealthStatus HealthStatus
 }
 
 // GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.
@@ -567,7 +578,7 @@ type ServiceDiscovery interface {
 	NetworkGatewaysWatcher
 
 	// Services list declarations of all services in the system
-	Services() ([]*Service, error)
+	Services() []*Service
 
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname host.Name) *Service
@@ -614,7 +625,6 @@ type ServiceDiscovery interface {
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) []*ServiceInstance
-
 	GetProxyWorkloadLabels(*Proxy) labels.Collection
 
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
@@ -738,6 +748,17 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
+// GetAddresses returns a Service's addresses.
+// This method returns all the VIPs of a service if the ClusterID is explicitly set to "", otherwise only return the VIP
+// specific to the cluster where the node resides
+func (s *Service) GetAddresses(node *Proxy) []string {
+	if node.Metadata != nil && node.Metadata.ClusterID == "" {
+		return s.getAllAddresses()
+	}
+
+	return []string{s.GetAddressForProxy(node)}
+}
+
 // GetAddressForProxy returns a Service's address specific to the cluster where the node resides
 func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
@@ -755,6 +776,17 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 	}
 
 	return s.DefaultAddress
+}
+
+// getAllAddresses returns a Service's all addresses.
+func (s *Service) getAllAddresses() []string {
+	var addresses []string
+	addressMap := s.ClusterVIPs.GetAddresses()
+	for _, clusterAddresses := range addressMap {
+		addresses = append(addresses, clusterAddresses...)
+	}
+
+	return addresses
 }
 
 // GetTLSModeFromEndpointLabels returns the value of the label
@@ -787,31 +819,39 @@ func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) [
 			sa.Insert(si.Endpoint.ServiceAccount)
 		}
 	}
-	sa.Insert(svc.ServiceAccounts...)
+	sa.InsertAll(svc.ServiceAccounts...)
 
 	return sa.UnsortedList()
 }
 
 // DeepCopy creates a clone of Service.
-// TODO : See if there is any efficient alternative to this function - copystructure can not be used as is because
-// Service has sync.RWMutex that can not be copied.
 func (s *Service) DeepCopy() *Service {
-	ports := copyInternal(s.Ports)
-	accounts := copyInternal(s.ServiceAccounts)
-
-	return &Service{
-		Attributes:           s.Attributes.DeepCopy(),
-		Ports:                ports.(PortList),
-		ServiceAccounts:      accounts.([]string),
-		CreationTime:         s.CreationTime,
-		Hostname:             s.Hostname,
-		ClusterVIPs:          s.ClusterVIPs.DeepCopy(),
-		DefaultAddress:       s.DefaultAddress,
-		AutoAllocatedAddress: s.AutoAllocatedAddress,
-		Resolution:           s.Resolution,
-		MeshExternal:         s.MeshExternal,
-		ResourceVersion:      s.ResourceVersion,
+	// nolint: govet
+	out := *s
+	out.Attributes = s.Attributes.DeepCopy()
+	if s.Ports != nil {
+		out.Ports = make(PortList, len(s.Ports))
+		for i, port := range s.Ports {
+			if port != nil {
+				out.Ports[i] = &Port{
+					Name:     port.Name,
+					Port:     port.Port,
+					Protocol: port.Protocol,
+				}
+			} else {
+				out.Ports[i] = nil
+			}
+		}
 	}
+
+	if s.ServiceAccounts != nil {
+		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
+		for i, sa := range s.ServiceAccounts {
+			out.ServiceAccounts[i] = sa
+		}
+	}
+	out.ClusterVIPs = s.ClusterVIPs.DeepCopy()
+	return &out
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
@@ -819,22 +859,8 @@ func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
 }
 
-// Configure copystructure so that it will not copy mutexes.
-var copyInternalConfig = copystructure.Config{
-	Copiers: map[reflect.Type]copystructure.CopierFunc{
-		reflect.TypeOf(sync.Mutex{}): func(interface{}) (interface{}, error) {
-			// Return a new mutex.
-			return sync.Mutex{}, nil
-		},
-		reflect.TypeOf(sync.RWMutex{}): func(interface{}) (interface{}, error) {
-			// Return a new mutex.
-			return sync.RWMutex{}, nil
-		},
-	},
-}
-
 func copyInternal(v interface{}) interface{} {
-	copied, err := copyInternalConfig.Copy(v)
+	copied, err := copystructure.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
 		//  * The reflection walk over the structure fails, which should never happen

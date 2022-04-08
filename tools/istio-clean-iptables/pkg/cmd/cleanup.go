@@ -18,9 +18,29 @@ import (
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	common "istio.io/istio/tools/istio-iptables/pkg/capture"
+	types "istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
+
+func NewDependencies(cfg *config.Config) dep.Dependencies {
+	if cfg.DryRun {
+		return &dep.StdoutStubDependencies{}
+	}
+	return &dep.RealDependencies{}
+}
+
+type IptablesCleaner struct {
+	ext dep.Dependencies
+	cfg *config.Config
+}
+
+func NewIptablesCleaner(cfg *config.Config, ext dep.Dependencies) *IptablesCleaner {
+	return &IptablesCleaner{
+		ext: ext,
+		cfg: cfg,
+	}
+}
 
 func flushAndDeleteChains(ext dep.Dependencies, cmd string, table string, chains []string) {
 	for _, chain := range chains {
@@ -39,8 +59,10 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	redirectDNS := cfg.RedirectDNS
 	// Remove the old DNS UDP rules
 	if redirectDNS {
+		ownerGroupsFilter := types.ParseInterceptFilter(cfg.OwnerGroupsInclude, cfg.OwnerGroupsExclude)
+
 		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesBuilder(nil), ext, cmd, cfg.ProxyUID, cfg.ProxyGID,
-			cfg.DNSServersV4, cfg.DNSServersV6, cfg.CaptureAllDNS)
+			cfg.DNSServersV4, cfg.DNSServersV6, cfg.CaptureAllDNS, ownerGroupsFilter)
 	}
 
 	// Flush and delete the istio chains from NAT table.
@@ -55,22 +77,15 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	flushAndDeleteChains(ext, cmd, constants.NAT, chains)
 }
 
-func cleanup(cfg *config.Config) {
-	var ext dep.Dependencies
-	if cfg.DryRun {
-		ext = &dep.StdoutStubDependencies{}
-	} else {
-		ext = &dep.RealDependencies{}
-	}
-
+func (c *IptablesCleaner) Run() {
 	defer func() {
 		for _, cmd := range []string{constants.IPTABLESSAVE, constants.IP6TABLESSAVE} {
 			// iptables-save is best efforts
-			_ = ext.Run(cmd)
+			_ = c.ext.Run(cmd)
 		}
 	}()
 
 	for _, cmd := range []string{constants.IPTABLES, constants.IP6TABLES} {
-		removeOldChains(cfg, ext, cmd)
+		removeOldChains(c.cfg, c.ext, cmd)
 	}
 }

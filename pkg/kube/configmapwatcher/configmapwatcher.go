@@ -59,7 +59,7 @@ func NewController(client kube.Client, namespace, name string, callback func(*v1
 	c.informer = informers.NewSharedInformerFactoryWithOptions(client.Kube(), 12*time.Hour,
 		informers.WithNamespace(namespace),
 		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
-			listOptions.FieldSelector = fields.OneTermEqualSelector("metadata.name", name).String()
+			listOptions.FieldSelector = fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()
 		})).
 		Core().V1().ConfigMaps()
 

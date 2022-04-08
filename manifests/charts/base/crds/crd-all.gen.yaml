@@ -85,6 +85,27 @@ spec:
                 type: string
               verificationKey:
                 type: string
+              vmConfig:
+                description: Configuration for a Wasm VM.
+                properties:
+                  env:
+                    description: Specifies environment variables to be injected to
+                      this VM.
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        value:
+                          description: Value for the environment variable.
+                          type: string
+                        valueFrom:
+                          enum:
+                          - INLINE
+                          - HOST
+                          type: string
+                      type: object
+                    type: array
+                type: object
             type: object
           status:
             type: object
@@ -361,10 +382,15 @@ spec:
                               type: object
                             simple:
                               enum:
-                              - ROUND_ROBIN
+                              - UNSPECIFIED
                               - LEAST_CONN
                               - RANDOM
                               - PASSTHROUGH
+                              - ROUND_ROBIN
+                              - LEAST_REQUEST
+                              type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
                               type: string
                           type: object
                         outlierDetection:
@@ -608,10 +634,16 @@ spec:
                                     type: object
                                   simple:
                                     enum:
-                                    - ROUND_ROBIN
+                                    - UNSPECIFIED
                                     - LEAST_CONN
                                     - RANDOM
                                     - PASSTHROUGH
+                                    - ROUND_ROBIN
+                                    - LEAST_REQUEST
+                                    type: string
+                                  warmupDurationSecs:
+                                    description: Represents the warmup duration of
+                                      Service.
                                     type: string
                                 type: object
                               outlierDetection:
@@ -922,10 +954,15 @@ spec:
                         type: object
                       simple:
                         enum:
-                        - ROUND_ROBIN
+                        - UNSPECIFIED
                         - LEAST_CONN
                         - RANDOM
                         - PASSTHROUGH
+                        - ROUND_ROBIN
+                        - LEAST_REQUEST
+                        type: string
+                      warmupDurationSecs:
+                        description: Represents the warmup duration of Service.
                         type: string
                     type: object
                   outlierDetection:
@@ -1164,10 +1201,15 @@ spec:
                               type: object
                             simple:
                               enum:
-                              - ROUND_ROBIN
+                              - UNSPECIFIED
                               - LEAST_CONN
                               - RANDOM
                               - PASSTHROUGH
+                              - ROUND_ROBIN
+                              - LEAST_REQUEST
+                              type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
                               type: string
                           type: object
                         outlierDetection:
@@ -1277,6 +1319,13 @@ spec:
                         items:
                           type: string
                         type: array
+                    type: object
+                type: object
+              workloadSelector:
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
                     type: object
                 type: object
             type: object
@@ -1528,10 +1577,15 @@ spec:
                               type: object
                             simple:
                               enum:
-                              - ROUND_ROBIN
+                              - UNSPECIFIED
                               - LEAST_CONN
                               - RANDOM
                               - PASSTHROUGH
+                              - ROUND_ROBIN
+                              - LEAST_REQUEST
+                              type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
                               type: string
                           type: object
                         outlierDetection:
@@ -1775,10 +1829,16 @@ spec:
                                     type: object
                                   simple:
                                     enum:
-                                    - ROUND_ROBIN
+                                    - UNSPECIFIED
                                     - LEAST_CONN
                                     - RANDOM
                                     - PASSTHROUGH
+                                    - ROUND_ROBIN
+                                    - LEAST_REQUEST
+                                    type: string
+                                  warmupDurationSecs:
+                                    description: Represents the warmup duration of
+                                      Service.
                                     type: string
                                 type: object
                               outlierDetection:
@@ -2089,10 +2149,15 @@ spec:
                         type: object
                       simple:
                         enum:
-                        - ROUND_ROBIN
+                        - UNSPECIFIED
                         - LEAST_CONN
                         - RANDOM
                         - PASSTHROUGH
+                        - ROUND_ROBIN
+                        - LEAST_REQUEST
+                        type: string
+                      warmupDurationSecs:
+                        description: Represents the warmup duration of Service.
                         type: string
                     type: object
                   outlierDetection:
@@ -2331,10 +2396,15 @@ spec:
                               type: object
                             simple:
                               enum:
-                              - ROUND_ROBIN
+                              - UNSPECIFIED
                               - LEAST_CONN
                               - RANDOM
                               - PASSTHROUGH
+                              - ROUND_ROBIN
+                              - LEAST_REQUEST
+                              type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
                               type: string
                           type: object
                         outlierDetection:
@@ -2444,6 +2514,13 @@ spec:
                         items:
                           type: string
                         type: array
+                    type: object
+                type: object
+              workloadSelector:
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
                     type: object
                 type: object
             type: object
@@ -3388,6 +3465,66 @@ spec:
                         targetPort:
                           type: integer
                       type: object
+                    tls:
+                      properties:
+                        caCertificates:
+                          description: REQUIRED if mode is `MUTUAL`.
+                          type: string
+                        cipherSuites:
+                          description: 'Optional: If specified, only support the specified
+                            cipher list.'
+                          items:
+                            type: string
+                          type: array
+                        credentialName:
+                          type: string
+                        httpsRedirect:
+                          type: boolean
+                        maxProtocolVersion:
+                          description: 'Optional: Maximum TLS protocol version.'
+                          enum:
+                          - TLS_AUTO
+                          - TLSV1_0
+                          - TLSV1_1
+                          - TLSV1_2
+                          - TLSV1_3
+                          type: string
+                        minProtocolVersion:
+                          description: 'Optional: Minimum TLS protocol version.'
+                          enum:
+                          - TLS_AUTO
+                          - TLSV1_0
+                          - TLSV1_1
+                          - TLSV1_2
+                          - TLSV1_3
+                          type: string
+                        mode:
+                          enum:
+                          - PASSTHROUGH
+                          - SIMPLE
+                          - MUTUAL
+                          - AUTO_PASSTHROUGH
+                          - ISTIO_MUTUAL
+                          type: string
+                        privateKey:
+                          description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                          type: string
+                        serverCertificate:
+                          description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                          type: string
+                        subjectAltNames:
+                          items:
+                            type: string
+                          type: array
+                        verifyCertificateHash:
+                          items:
+                            type: string
+                          type: array
+                        verifyCertificateSpki:
+                          items:
+                            type: string
+                          type: array
+                      type: object
                   type: object
                 type: array
               outboundTrafficPolicy:
@@ -3499,6 +3636,66 @@ spec:
                           type: string
                         targetPort:
                           type: integer
+                      type: object
+                    tls:
+                      properties:
+                        caCertificates:
+                          description: REQUIRED if mode is `MUTUAL`.
+                          type: string
+                        cipherSuites:
+                          description: 'Optional: If specified, only support the specified
+                            cipher list.'
+                          items:
+                            type: string
+                          type: array
+                        credentialName:
+                          type: string
+                        httpsRedirect:
+                          type: boolean
+                        maxProtocolVersion:
+                          description: 'Optional: Maximum TLS protocol version.'
+                          enum:
+                          - TLS_AUTO
+                          - TLSV1_0
+                          - TLSV1_1
+                          - TLSV1_2
+                          - TLSV1_3
+                          type: string
+                        minProtocolVersion:
+                          description: 'Optional: Minimum TLS protocol version.'
+                          enum:
+                          - TLS_AUTO
+                          - TLSV1_0
+                          - TLSV1_1
+                          - TLSV1_2
+                          - TLSV1_3
+                          type: string
+                        mode:
+                          enum:
+                          - PASSTHROUGH
+                          - SIMPLE
+                          - MUTUAL
+                          - AUTO_PASSTHROUGH
+                          - ISTIO_MUTUAL
+                          type: string
+                        privateKey:
+                          description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                          type: string
+                        serverCertificate:
+                          description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                          type: string
+                        subjectAltNames:
+                          items:
+                            type: string
+                          type: array
+                        verifyCertificateHash:
+                          items:
+                            type: string
+                          type: array
+                        verifyCertificateSpki:
+                          items:
+                            type: string
+                          type: array
                       type: object
                   type: object
                 type: array
@@ -5985,6 +6182,17 @@ spec:
                             should be logged.
                           type: string
                       type: object
+                    match:
+                      description: Allows tailoring of logging behavior to specific
+                        conditions.
+                      properties:
+                        mode:
+                          enum:
+                          - CLIENT_AND_SERVER
+                          - CLIENT
+                          - SERVER
+                          type: string
+                      type: object
                     providers:
                       description: Optional.
                       items:
@@ -6042,8 +6250,6 @@ spec:
                                 - GRPC_RESPONSE_MESSAGES
                                 type: string
                               mode:
-                                description: 'Controls which mode of metrics generation
-                                  is selected: CLIENT and/or SERVER.'
                                 enum:
                                 - CLIENT_AND_SERVER
                                 - CLIENT
@@ -6123,8 +6329,6 @@ spec:
                                 type: string
                             type: object
                           header:
-                            description: RequestHeader adds the value of an header
-                              from the request to each span.
                             properties:
                               defaultValue:
                                 description: Optional.
@@ -6149,6 +6353,16 @@ spec:
                       description: Controls span reporting.
                       nullable: true
                       type: boolean
+                    match:
+                      description: Allows tailoring of behavior to specific conditions.
+                      properties:
+                        mode:
+                          enum:
+                          - CLIENT_AND_SERVER
+                          - CLIENT
+                          - SERVER
+                          type: string
+                      type: object
                     providers:
                       description: Optional.
                       items:

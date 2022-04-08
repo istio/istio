@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
@@ -100,6 +101,8 @@ type FakeOptions struct {
 	// EnableFakeXDSUpdater will use a XDSUpdater that can be used to watch events
 	EnableFakeXDSUpdater       bool
 	DisableSecretAuthorization bool
+	Services                   []*model.Service
+	Gateways                   []model.NetworkGateway
 }
 
 type FakeDiscoveryServer struct {
@@ -121,14 +124,13 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	m := opts.MeshConfig
 	if m == nil {
-		def := mesh.DefaultMeshConfig()
-		m = &def
+		m = mesh.DefaultMeshConfig()
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz},
 		"pilot-123", "istio-system", map[string]string{})
-	s.InitGenerators(&model.Environment{PushContext: model.NewPushContext()}, "istio-system")
+	s.InitGenerators(s.Env, "istio-system")
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
 		s.pushQueue.ShutDown()
@@ -171,7 +173,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
-	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName)
+	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
+	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
@@ -208,6 +211,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	})
 	defaultKubeClient.RunAndWait(stop)
 
+	var gwc *gateway.Controller
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 		Configs:             opts.Configs,
 		ConfigString:        opts.ConfigString,
@@ -217,12 +221,22 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ServiceRegistries:   registries,
 		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
-		SkipRun:             true,
-		ClusterID:           defaultKubeController.Cluster(),
+		CreateConfigStore: func(c model.ConfigStoreCache) model.ConfigStoreCache {
+			g := gateway.NewController(defaultKubeClient, c, kube.Options{
+				DomainSuffix: "cluster.local",
+			})
+			gwc = g
+			return gwc
+		},
+		SkipRun:   true,
+		ClusterID: defaultKubeController.Cluster(),
+		Services:  opts.Services,
+		Gateways:  opts.Gateways,
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
 	s.updateMutex.Lock()
 	s.Env = cg.Env()
+	s.Env.GatewayAPIController = gwc
 	if err := s.Env.InitNetworksManager(s); err != nil {
 		t.Fatal(err)
 	}

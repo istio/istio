@@ -18,7 +18,7 @@
 package telemetry
 
 const (
-	// For multicluster tests we multiply the number of requests with a
+	// RequestCountMultipler for multicluster tests we multiply the number of requests with a
 	// constant multiplier to make sure we have cross cluster traffic.
-	RequestCountMultipler = 3
+	RequestCountMultipler = 20
 )

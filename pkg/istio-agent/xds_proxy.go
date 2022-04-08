@@ -25,13 +25,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 	"sync"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	gogotypes "github.com/gogo/protobuf/types"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -47,15 +45,14 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
@@ -90,6 +87,7 @@ type XdsProxy struct {
 	downstreamGrpcServer *grpc.Server
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
+	optsMutex            sync.RWMutex
 	handlers             map[string]ResponseHandler
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
@@ -141,6 +139,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			LocalHostAddr: localHostAddr,
 		}
 	}
+
+	cache := wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry, ia.cfg.WASMInsecureRegistries)
 	proxy := &XdsProxy{
 		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
 		istiodSAN:             ia.cfg.IstiodSAN,
@@ -150,7 +150,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		healthChecker:         health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
 		xdsHeaders:            ia.cfg.XDSHeaders,
 		xdsUdsPath:            ia.cfg.XdsUdsPath,
-		wasmCache:             wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry),
+		wasmCache:             cache,
 		proxyAddresses:        ia.cfg.ProxyIPAddresses,
 		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
 	}
@@ -168,8 +168,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
 		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
-			var pc meshconfig.ProxyConfig
-			if err := gogotypes.UnmarshalAny(gogo.ConvertAny(resp), &pc); err != nil {
+			pc := &meshconfig.ProxyConfig{}
+			if err := resp.UnmarshalTo(pc); err != nil {
 				log.Errorf("failed to unmarshal proxy config: %v", err)
 				return err
 			}
@@ -189,7 +189,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		return nil, err
 	}
 
-	if proxy.istiodDialOptions, err = proxy.buildUpstreamClientDialOpts(ia); err != nil {
+	if err = proxy.InitIstiodDialOptions(ia); err != nil {
 		return nil, err
 	}
 
@@ -328,7 +328,8 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
+
+	upstreamConn, err := p.buildUpstreamConn(ctx)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		metrics.IstiodConnectionFailures.Increment()
@@ -343,6 +344,15 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 	}
 	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
 	return p.HandleUpstream(ctx, con, xds)
+}
+
+func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, error) {
+	p.optsMutex.RLock()
+	opts := make([]grpc.DialOption, 0, len(p.istiodDialOptions))
+	opts = append(opts, p.istiodDialOptions...)
+	p.optsMutex.RUnlock()
+
+	return grpc.DialContext(ctx, p.istiodAddress, opts...)
 }
 
 func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
@@ -492,7 +502,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do
 					// This assumes internal types are always singleton
-					return
+					break
 				}
 				err := h(resp.Resources[0])
 				var errorResp *google_rpc.Status
@@ -614,25 +624,16 @@ func (p *XdsProxy) initDownstreamServer() error {
 	return nil
 }
 
-// getKeyCertPaths returns the paths for key and cert.
-func (p *XdsProxy) getKeyCertPaths(opts *security.Options, proxyConfig *meshconfig.ProxyConfig) (string, string) {
-	var key, cert string
-	if opts.ProvCert != "" {
-		key = path.Join(opts.ProvCert, constants.KeyFilename)
-		cert = path.Join(opts.ProvCert, constants.CertChainFilename)
-
-		// CSR may not have completed – use JWT to auth.
-		if _, err := os.Stat(key); os.IsNotExist(err) {
-			return "", ""
-		}
-		if _, err := os.Stat(cert); os.IsNotExist(err) {
-			return "", ""
-		}
-	} else if opts.FileMountedCerts {
-		key = proxyConfig.ProxyMetadata[MetadataClientCertKey]
-		cert = proxyConfig.ProxyMetadata[MetadataClientCertChain]
+func (p *XdsProxy) InitIstiodDialOptions(agent *Agent) error {
+	opts, err := p.buildUpstreamClientDialOpts(agent)
+	if err != nil {
+		return err
 	}
-	return key, cert
+
+	p.optsMutex.Lock()
+	p.istiodDialOptions = opts
+	p.optsMutex.Unlock()
+	return nil
 }
 
 func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
@@ -739,14 +740,12 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 }
 
 // sendUpstream sends discovery request.
-func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
-	request *discovery.DiscoveryRequest) error {
+func sendUpstream(upstream xds.DiscoveryClient, request *discovery.DiscoveryRequest) error {
 	return istiogrpc.Send(upstream.Context(), func() error { return upstream.Send(request) })
 }
 
 // sendDownstream sends discovery response.
-func sendDownstream(downstream adsStream,
-	response *discovery.DiscoveryResponse) error {
+func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse) error {
 	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }
 

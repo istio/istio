@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 			if err != nil {
 				return err
 			}
-			return ctx.ConfigIstio().ApplyYAML(i.Settings().SystemNamespace, `
+			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, `
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
@@ -55,7 +55,7 @@ spec:
   metrics:
   - providers:
     - name: prometheus
-`)
+`).Apply()
 		}).
 		Setup(common.TestSetup).
 		Run()

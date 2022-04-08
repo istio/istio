@@ -34,12 +34,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type Protocol string
@@ -62,7 +62,7 @@ func (c Call) IsHTTP() bool {
 	return httpProtocols.Contains(string(c.Protocol)) && (c.TLS == Plaintext || c.TLS == "")
 }
 
-var httpProtocols = sets.NewSet(string(HTTP), string(HTTP2))
+var httpProtocols = sets.New(string(HTTP), string(HTTP2))
 
 var (
 	ErrNoListener          = errors.New("no listener matched")
@@ -84,6 +84,8 @@ type Expect struct {
 }
 
 type CallMode string
+
+type CustomFilterChainValidation func(filterChain *listener.FilterChain) error
 
 var (
 	// CallModeGateway simulate no iptables
@@ -114,6 +116,10 @@ type Call struct {
 
 	// CallMode describes the type of call to make.
 	CallMode CallMode
+
+	CustomListenerValidations []CustomFilterChainValidation
+
+	MtlsSecretConfigName string
 }
 
 func (c Call) FillDefaults() Call {
@@ -209,11 +215,12 @@ type Simulation struct {
 }
 
 func NewSimulationFromConfigGen(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) *Simulation {
+	l := s.Listeners(proxy)
 	sim := &Simulation{
 		t:         t,
-		Listeners: s.Listeners(proxy),
+		Listeners: l,
 		Clusters:  s.Clusters(proxy),
-		Routes:    s.Routes(proxy),
+		Routes:    s.RoutesFromListeners(proxy, l),
 	}
 	return sim
 }
@@ -289,11 +296,25 @@ func (sim *Simulation) Run(input Call) (result Result) {
 		result.Error = ErrTLSError
 		return
 	}
+
+	mTLSSecretConfigName := "default"
+	if input.MtlsSecretConfigName != "" {
+		mTLSSecretConfigName = input.MtlsSecretConfigName
+	}
+
 	// mTLS listener will only accept mTLS traffic
-	if fc.TransportSocket != nil && sim.requiresMTLS(fc) != (input.TLS == MTLS) {
+	if fc.TransportSocket != nil && sim.requiresMTLS(fc, mTLSSecretConfigName) != (input.TLS == MTLS) {
 		// If there is no tls inspector, then
 		result.Error = ErrMTLSError
 		return
+	}
+
+	if len(input.CustomListenerValidations) > 0 {
+		for _, validation := range input.CustomListenerValidations {
+			if err := validation(fc); err != nil {
+				result.Error = err
+			}
+		}
 	}
 
 	if hcm := xdstest.ExtractHTTPConnectionManager(sim.t, fc); hcm != nil {
@@ -347,7 +368,7 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	return
 }
 
-func (sim *Simulation) requiresMTLS(fc *listener.FilterChain) bool {
+func (sim *Simulation) requiresMTLS(fc *listener.FilterChain, mTLSSecretConfigName string) bool {
 	if fc.TransportSocket == nil {
 		return false
 	}
@@ -360,7 +381,13 @@ func (sim *Simulation) requiresMTLS(fc *listener.FilterChain) bool {
 		return false
 	}
 	// This is a lazy heuristic, we could check for explicit default resource or spiffe if it becomes necessary
-	return t.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()[0].Name == "default"
+	if t.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()[0].Name != mTLSSecretConfigName {
+		return false
+	}
+	if !t.RequireClientCertificate.Value {
+		return false
+	}
+	return true
 }
 
 func (sim *Simulation) matchRoute(vh *route.VirtualHost, input Call) *route.Route {
@@ -509,7 +536,7 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetApplicationProtocols() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
-		return sets.NewSet(fc.GetApplicationProtocols()...).Contains(input.Alpn)
+		return sets.New(fc.GetApplicationProtocols()...).Contains(input.Alpn)
 	})
 	// We do not implement the "source" based filters as we do not use them
 	if len(chains) > 1 {

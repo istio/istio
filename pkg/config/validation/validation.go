@@ -29,7 +29,6 @@ import (
 
 	udpaa "github.com/cncf/xds/go/udpa/annotations"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwk"
 	"google.golang.org/protobuf/proto"
@@ -37,6 +36,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 	any "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -48,7 +48,6 @@ import (
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/constant"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -59,6 +58,8 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -560,14 +561,27 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		return
 	}
 
-	invalidCiphers := sets.NewSet()
+	invalidCiphers := sets.New()
+	validCiphers := sets.New()
+	duplicateCiphers := sets.New()
 	for _, cs := range tls.CipherSuites {
 		if !security.IsValidCipherSuite(cs) {
 			invalidCiphers.Insert(cs)
+		} else {
+			if !validCiphers.Contains(cs) {
+				validCiphers.Insert(cs)
+			} else {
+				duplicateCiphers.Insert(cs)
+			}
 		}
 	}
+
 	if len(invalidCiphers) > 0 {
-		return WrapWarning(fmt.Errorf("ignoring invalid cipher suites: %v", invalidCiphers.SortedList()))
+		v = appendWarningf(v, "ignoring invalid cipher suites: %v", invalidCiphers.SortedList())
+	}
+
+	if len(duplicateCiphers) > 0 {
+		v = appendWarningf(v, "ignoring duplicate cipher suites: %v", duplicateCiphers.SortedList())
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
@@ -582,8 +596,22 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		if tls.CaCertificates != "" {
 			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
 		}
-
+		if tls.CredentialName != "" {
+			if features.EnableLegacyIstioMutualCredentialName {
+				// Legacy mode enabled, just warn
+				v = appendWarningf(v, "ISTIO_MUTUAL TLS cannot have associated credentialName")
+			} else {
+				v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
+			}
+		}
 		return
+	}
+
+	if tls.Mode == networking.ServerTLSSettings_PASSTHROUGH || tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
+		if tls.ServerCertificate != "" || tls.PrivateKey != "" || tls.CaCertificates != "" || tls.CredentialName != "" {
+			// Warn for backwards compatibility
+			v = appendWarningf(v, "%v mode does not use certificates, they will be ignored", tls.Mode)
+		}
 	}
 
 	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL) && tls.CredentialName != "" {
@@ -619,10 +647,13 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to destination rule")
 		}
-
 		v := Validation{}
 		if features.EnableDestinationRuleInheritance {
 			if rule.Host == "" {
+				if rule.GetWorkloadSelector() != nil {
+					v = appendValidation(v,
+						fmt.Errorf("mesh/namespace destination rule cannot have workloadSelector configured"))
+				}
 				if len(rule.Subsets) != 0 {
 					v = appendValidation(v,
 						fmt.Errorf("mesh/namespace destination rule cannot have subsets"))
@@ -651,15 +682,18 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			}
 			v = appendValidation(v, validateSubset(subset))
 		}
+		v = appendValidation(v,
+			validateExportTo(cfg.Namespace, rule.ExportTo, false, rule.GetWorkloadSelector() != nil))
 
-		v = appendValidation(v, validateExportTo(cfg.Namespace, rule.ExportTo, false))
+		v = appendValidation(v, validateWorkloadSelector(rule.GetWorkloadSelector()))
+
 		return v.Unwrap()
 	})
 
-func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) (errs error) {
+func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, isDestinationRuleWithSelector bool) (errs error) {
 	if len(exportTo) > 0 {
 		// Make sure there are no duplicates
-		exportToMap := make(map[string]struct{})
+		exportToSet := sets.New()
 		for _, e := range exportTo {
 			key := e
 			if visibility.Instance(e) == visibility.Private {
@@ -667,7 +701,7 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 				// can check for duplicates like ., namespace
 				key = namespace
 			}
-			if _, exists := exportToMap[key]; exists {
+			if exportToSet.Contains(key) {
 				if key != e {
 					errs = appendErrors(errs, fmt.Errorf("duplicate entries in exportTo: . and current namespace %s", namespace))
 				} else {
@@ -678,19 +712,30 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 				// a service that is not even visible within the local namespace to anyone other
 				// than the proxies of that service.
 				if isServiceEntry && visibility.Instance(e) == visibility.None {
-					exportToMap[key] = struct{}{}
+					exportToSet.Insert(key)
 				} else {
 					if err := visibility.Instance(key).Validate(); err != nil {
 						errs = appendErrors(errs, err)
 					} else {
-						exportToMap[key] = struct{}{}
+						exportToSet.Insert(key)
 					}
 				}
 			}
 		}
 
+		// Make sure workloadSelector based destination rule does not use exportTo other than current namespace
+		if isDestinationRuleWithSelector && !exportToSet.IsEmpty() {
+			if exportToSet.Contains(namespace) {
+				if len(exportToSet) > 1 {
+					errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector cannot have multiple entries in exportTo"))
+				}
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector cannot have exportTo beyond current namespace"))
+			}
+		}
+
 		// Make sure we have only one of . or *
-		if _, public := exportToMap[string(visibility.Public)]; public {
+		if exportToSet.Contains(string(visibility.Public)) {
 			// make sure that there are no other entries in the exportTo
 			// i.e. no point in saying ns1,ns2,*. Might as well say *
 			if len(exportTo) > 1 {
@@ -699,7 +744,7 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 		}
 
 		// if this is a service entry, then we need to disallow * and ~ together. Or ~ and other namespaces
-		if _, none := exportToMap[string(visibility.None)]; none {
+		if exportToSet.Contains(string(visibility.None)) {
 			if len(exportTo) > 1 {
 				errs = appendErrors(errs, fmt.Errorf("cannot export service entry to no one (~) and someone"))
 			}
@@ -1025,6 +1070,27 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 				}
 			}
+
+			if i.Tls != nil {
+				if len(i.Tls.SubjectAltNames) > 0 {
+					errs = appendValidation(errs, fmt.Errorf("sidecar: subjectAltNames is not supported in ingress tls"))
+				}
+				if i.Tls.HttpsRedirect {
+					errs = appendValidation(errs, fmt.Errorf("sidecar: httpsRedirect is not supported"))
+				}
+				if i.Tls.CredentialName != "" {
+					errs = appendValidation(errs, fmt.Errorf("sidecar: credentialName is not currently supported"))
+				}
+				if i.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL || i.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
+					errs = appendValidation(errs, fmt.Errorf("configuration is invalid: cannot set mode to %s in sidecar ingress tls", i.Tls.Mode.String()))
+				}
+				protocol := protocol.Parse(i.Port.Protocol)
+				if !protocol.IsTLS() {
+					errs = appendValidation(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
+				}
+				errs = appendValidation(errs, validateTLSOptions(i.Tls))
+			}
+
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -1213,6 +1279,7 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Valida
 	if outlier.BaseEjectionTime != nil {
 		errs = appendValidation(errs, ValidateDuration(outlier.BaseEjectionTime))
 	}
+	// nolint: staticcheck
 	if outlier.ConsecutiveErrors != 0 {
 		warn := "outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead"
 		scope.Warnf(warn)
@@ -1377,11 +1444,8 @@ func ValidateProxyAddress(hostAddr string) error {
 }
 
 // ValidateDuration checks that a proto duration is well-formed
-func ValidateDuration(pd *types.Duration) error {
-	dur, err := types.DurationFromProto(pd)
-	if err != nil {
-		return err
-	}
+func ValidateDuration(pd *durationpb.Duration) error {
+	dur := pd.AsDuration()
 	if dur < time.Millisecond {
 		return errors.New("duration must be greater than 1ms")
 	}
@@ -1401,7 +1465,7 @@ func ValidateDurationRange(dur, min, max time.Duration) error {
 }
 
 // ValidateParentAndDrain checks that parent and drain durations are valid
-func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs error) {
+func ValidateParentAndDrain(drainTime, parentShutdown *durationpb.Duration) (errs error) {
 	if err := ValidateDuration(drainTime); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
 	}
@@ -1412,8 +1476,8 @@ func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs err
 		return
 	}
 
-	drainDuration, _ := types.DurationFromProto(drainTime)
-	parentShutdownDuration, _ := types.DurationFromProto(parentShutdown)
+	drainDuration := drainTime.AsDuration()
+	parentShutdownDuration := parentShutdown.AsDuration()
 
 	if drainDuration%time.Second != 0 {
 		errs = multierror.Append(errs,
@@ -1458,6 +1522,16 @@ func ValidateLightstepCollector(ls *meshconfig.Tracing_Lightstep) error {
 	return errs
 }
 
+// validateCustomTags validates that tracing CustomTags map does not contain any nil items
+func validateCustomTags(tags map[string]*meshconfig.Tracing_CustomTag) error {
+	for tagName, tagVal := range tags {
+		if tagVal == nil {
+			return fmt.Errorf("encountered nil value for custom tag: %s", tagName)
+		}
+	}
+	return nil
+}
+
 // ValidateZipkinCollector validates the configuration for sending envoy spans to Zipkin
 func ValidateZipkinCollector(z *meshconfig.Tracing_Zipkin) error {
 	return ValidateProxyAddress(strings.Replace(z.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
@@ -1470,22 +1544,18 @@ func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
 }
 
 // ValidateConnectTimeout validates the envoy connection timeout
-func ValidateConnectTimeout(timeout *types.Duration) error {
+func ValidateConnectTimeout(timeout *durationpb.Duration) error {
 	if err := ValidateDuration(timeout); err != nil {
 		return err
 	}
 
-	timeoutDuration, _ := types.DurationFromProto(timeout)
-	err := ValidateDurationRange(timeoutDuration, connectTimeoutMin, connectTimeoutMax)
+	err := ValidateDurationRange(timeout.AsDuration(), connectTimeoutMin, connectTimeoutMax)
 	return err
 }
 
 // ValidateProtocolDetectionTimeout validates the envoy protocol detection timeout
-func ValidateProtocolDetectionTimeout(timeout *types.Duration) error {
-	dur, err := types.DurationFromProto(timeout)
-	if err != nil {
-		return err
-	}
+func ValidateProtocolDetectionTimeout(timeout *durationpb.Duration) error {
+	dur := timeout.AsDuration()
 	// 0s is a valid value if trying to disable protocol detection timeout
 	if dur == time.Second*0 {
 		return nil
@@ -1575,6 +1645,32 @@ func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
 	return
 }
 
+func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
+	var errs error
+	if pkpConf.GetProvider() == nil {
+		errs = multierror.Append(errs, errors.New("private key provider confguration is required"))
+	}
+
+	switch pkpConf.GetProvider().(type) {
+	case *meshconfig.PrivateKeyProvider_Cryptomb:
+		cryptomb := pkpConf.GetCryptomb()
+		if cryptomb == nil {
+			errs = multierror.Append(errs, errors.New("cryptomb confguration is required"))
+		} else {
+			pollDelay := cryptomb.GetPollDelay()
+			if pollDelay == nil {
+				errs = multierror.Append(errs, errors.New("pollDelay is required"))
+			} else if pollDelay.GetSeconds() == 0 && pollDelay.GetNanos() == 0 {
+				errs = multierror.Append(errs, errors.New("pollDelay must be non zero"))
+			}
+		}
+	default:
+		errs = multierror.Append(errs, errors.New("unknown private key provider"))
+	}
+
+	return errs
+}
+
 // ValidateMeshConfigProxyConfig checks that the mesh config is well-formed
 func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.ConfigPath == "" {
@@ -1585,9 +1681,17 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		errs = multierror.Append(errs, errors.New("binary path must be set"))
 	}
 
-	if config.ServiceCluster == "" {
-		errs = multierror.Append(errs, errors.New("service cluster must be set"))
+	clusterName := config.GetClusterName()
+	switch naming := clusterName.(type) {
+	case *meshconfig.ProxyConfig_ServiceCluster:
+		if naming.ServiceCluster == "" {
+			errs = multierror.Append(errs, errors.New("service cluster must be specified"))
+		}
+	case *meshconfig.ProxyConfig_TracingServiceName_: // intentionally left empty for now
+	default:
+		errs = multierror.Append(errs, errors.New("oneof service cluster or tracing service name must be specified"))
 	}
+
 	if err := ValidateParentAndDrain(config.DrainDuration, config.ParentShutdownDuration); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
 	}
@@ -1625,12 +1729,19 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		}
 	}
 
+	if tracerCustomTags := config.GetTracing().GetCustomTags(); tracerCustomTags != nil {
+		if err := validateCustomTags(tracerCustomTags); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid tracing custom tags:"))
+		}
+	}
+
 	if config.StatsdUdpAddress != "" {
 		if err := ValidateProxyAddress(config.StatsdUdpAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid statsd udp address %q:", config.StatsdUdpAddress)))
 		}
 	}
 
+	// nolint: staticcheck
 	if config.EnvoyMetricsServiceAddress != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
@@ -1661,6 +1772,12 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 
 	if err := ValidatePort(int(config.StatusPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid status port:"))
+	}
+
+	if pkpConf := config.GetPrivateKeyProvider(); pkpConf != nil {
+		if err := validatePrivateKeyProvider(pkpConf); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid private key provider confguration:"))
+		}
 	}
 
 	return
@@ -1936,16 +2053,8 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			return nil, errors.New("cannot cast to virtual service")
 		}
 		errs := Validation{}
-		isDelegate := false
 		if len(virtualService.Hosts) == 0 {
-			if features.EnableVirtualServiceDelegate {
-				isDelegate = true
-			} else {
-				errs = appendValidation(errs, fmt.Errorf("virtual service must have at least one host"))
-			}
-		}
-
-		if isDelegate {
+			// This must be delegate - enforce delegate validations.
 			if len(virtualService.Gateways) != 0 {
 				// meaningless to specify gateways in delegate
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
@@ -2029,7 +2138,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 				errs = appendValidation(errs, errors.New("http route may not be null"))
 				continue
 			}
-			errs = appendValidation(errs, validateHTTPRoute(httpRoute, isDelegate))
+			errs = appendValidation(errs, validateHTTPRoute(httpRoute, len(virtualService.Hosts) == 0))
 		}
 		for _, tlsRoute := range virtualService.Tls {
 			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService))
@@ -2038,7 +2147,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendValidation(errs, validateTCPRoute(tcpRoute))
 		}
 
-		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false))
+		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false, false))
 
 		warnUnused := func(ruleno, reason string) {
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
@@ -2356,9 +2465,10 @@ func asJSON(data interface{}) string {
 	switch mr := data.(type) {
 	case *networking.HTTPMatchRequest:
 		if mr != nil && mr.Name != "" {
-			unnamed := *mr
-			unnamed.Name = ""
-			data = &unnamed
+			cl := &networking.HTTPMatchRequest{}
+			protomarshal.ShallowCopy(cl, mr)
+			cl.Name = ""
+			data = cl
 		}
 	}
 
@@ -2395,67 +2505,65 @@ func requestName(match interface{}, matchn int) string {
 	return fmt.Sprintf("#%d", matchn)
 }
 
-func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) error {
-	var errs error
+func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) (errs Validation) {
 	if tls == nil {
-		return nil
+		return
 	}
 	if len(tls.Match) == 0 {
-		errs = appendErrors(errs, errors.New("TLS route must have at least one match condition"))
+		errs = appendValidation(errs, errors.New("TLS route must have at least one match condition"))
 	}
 	for _, match := range tls.Match {
-		errs = appendErrors(errs, validateTLSMatch(match, context))
+		errs = appendValidation(errs, validateTLSMatch(match, context))
 	}
 	if len(tls.Route) == 0 {
-		errs = appendErrors(errs, errors.New("TLS route is required"))
+		errs = appendValidation(errs, errors.New("TLS route is required"))
 	}
-	errs = appendErrors(errs, validateRouteDestinations(tls.Route))
+	errs = appendValidation(errs, validateRouteDestinations(tls.Route))
 	return errs
 }
 
-func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.VirtualService) (errs error) {
+func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.VirtualService) (errs Validation) {
 	if match == nil {
-		errs = appendErrors(errs, errors.New("TLS match may not be null"))
+		errs = appendValidation(errs, errors.New("TLS match may not be null"))
 		return
 	}
 	if len(match.SniHosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
+		errs = appendValidation(errs, fmt.Errorf("TLS match must have at least one SNI host"))
 	} else {
 		for _, sniHost := range match.SniHosts {
-			err := validateSniHost(sniHost, context)
-			if err != nil {
-				errs = appendErrors(errs, err)
-			}
+			errs = appendValidation(errs, validateSniHost(sniHost, context))
 		}
 	}
 
 	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
+		errs = appendValidation(errs, ValidateIPSubnet(destinationSubnet))
 	}
 
 	if match.Port != 0 {
-		errs = appendErrors(errs, ValidatePort(int(match.Port)))
+		errs = appendValidation(errs, ValidatePort(int(match.Port)))
 	}
-	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
-	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+	errs = appendValidation(errs, labels.Instance(match.SourceLabels).Validate())
+	errs = appendValidation(errs, validateGatewayNames(match.Gateways))
 	return
 }
 
-func validateSniHost(sniHost string, context *networking.VirtualService) error {
+func validateSniHost(sniHost string, context *networking.VirtualService) (errs Validation) {
 	if err := ValidateWildcardDomain(sniHost); err != nil {
 		ipAddr := net.ParseIP(sniHost) // Could also be an IP
-		if ipAddr == nil {
-			return err
+		if ipAddr != nil {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do not support this", ipAddr)))
+			return
 		}
+		return appendValidation(errs, err)
 	}
 	sniHostname := host.Name(sniHost)
 	for _, hostname := range context.Hosts {
 		if sniHostname.SubsetOf(host.Name(hostname)) {
-			return nil
+			return
 		}
 	}
-	return fmt.Errorf("SNI host %q is not a compatible subset of any of the virtual service hosts: [%s]",
-		sniHost, strings.Join(context.Hosts, ", "))
+	return appendValidation(errs, fmt.Errorf("SNI host %q is not a compatible subset of any of the virtual service hosts: [%s]",
+		sniHost, strings.Join(context.Hosts, ", ")))
 }
 
 func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
@@ -3121,7 +3229,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 		}
 
-		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true))
+		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true, false))
 		return errs.Unwrap()
 	})
 
@@ -3461,6 +3569,10 @@ func validateTelemetryTracing(tracing []*telemetry.Tracing) (v Validation) {
 			if name == "" {
 				v = appendErrorf(v, "tag name may not be empty")
 			}
+			if tag == nil {
+				v = appendErrorf(v, "tag '%s' may not have a nil value", name)
+				continue
+			}
 			switch t := tag.Type.(type) {
 			case *telemetry.Tracing_CustomTag_Literal:
 				if t.Literal.GetValue() == "" {
@@ -3545,6 +3657,7 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 			validateWorkloadSelector(spec.Selector),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
+			validateWasmPluginVMConfig(spec.VmConfig),
 		)
 		return errs.Unwrap()
 	})
@@ -3579,5 +3692,29 @@ func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
 			return fmt.Errorf("sha256 field must match [a-f0-9]{64} pattern")
 		}
 	}
+	return nil
+}
+
+func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
+	if vm == nil || len(vm.Env) == 0 {
+		return nil
+	}
+
+	keys := sets.New()
+	for _, env := range vm.Env {
+		if env == nil {
+			continue
+		}
+
+		if env.Name == "" {
+			return fmt.Errorf("spec.vmConfig.env invalid")
+		}
+
+		if keys.Contains(env.Name) {
+			return fmt.Errorf("duplicate env")
+		}
+		keys.Insert(env.Name)
+	}
+
 	return nil
 }

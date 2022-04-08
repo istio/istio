@@ -37,6 +37,5 @@ type Environment interface {
 
 	// All clusters in this Environment, including external control planes.
 	AllClusters() cluster.Clusters
-
 	IsMultinetwork() bool
 }

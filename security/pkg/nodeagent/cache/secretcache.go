@@ -17,6 +17,8 @@ package cache
 
 import (
 	"bytes"
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,11 +29,11 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/monitoring"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -411,9 +413,19 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 // Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
 	// There is a remote possibility that key is written and cert is not written yet.
-	// To handle that case, we wait for some time here.
-	timer := time.After(sc.configOptions.FileDebounceDuration)
-	<-timer
+	// To handle that case, check if cert and key are valid if they are valid then only send to proxy.
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = sc.configOptions.FileDebounceDuration
+	secretValid := func() error {
+		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
+		if errors.Is(err, os.ErrNotExist) {
+			return backoff.Permanent(err)
+		}
+		return err
+	}
+	if err := backoff.Retry(secretValid, b); err != nil {
+		return nil, err
+	}
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
 }
 
@@ -542,7 +554,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 }
 
 func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security.SecretItem, error) {
-	var trustBundlePEM []string = []string{}
+	trustBundlePEM := []string{}
 	var rootCertPEM []byte
 
 	if sc.caClient == nil {
@@ -628,6 +640,7 @@ func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Durat
 
 func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 	delay := sc.rotateTime(item)
+	certExpirySeconds.ValueFrom(func() float64 { return time.Until(item.ExpireTime).Seconds() }, item.ResourceName)
 	item.ResourceName = security.WorkloadKeyCertResourceName
 	// In case there are two calls to GenerateSecret at once, we don't want both to be concurrently registered
 	if sc.cache.GetWorkload() != nil {
@@ -747,7 +760,7 @@ func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte
 	sc.configTrustBundleMutex.RLock()
 	existingCerts := pkiutil.PemCertBytestoString(sc.configTrustBundle)
 	sc.configTrustBundleMutex.RUnlock()
-	anchors := sets.NewSet()
+	anchors := sets.New()
 	for _, cert := range existingCerts {
 		anchors.Insert(cert)
 	}

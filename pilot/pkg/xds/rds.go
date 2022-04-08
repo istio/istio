@@ -35,6 +35,8 @@ var skippedRdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.PeerAuthentication:    {},
 	gvk.Secret:                {},
 	gvk.WasmPlugin:            {},
+	gvk.Telemetry:             {},
+	gvk.ProxyConfig:           {},
 }
 
 func rdsNeedsPush(req *model.PushRequest) bool {
@@ -57,8 +59,7 @@ func rdsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !rdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}

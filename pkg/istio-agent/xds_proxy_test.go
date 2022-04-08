@@ -272,7 +272,7 @@ func setupXdsProxyWithDownstreamOptions(t *testing.T, opts []grpc.ServerOption) 
 		MetadataClientRootCert:  path.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem"),
 	}
 	dir := t.TempDir()
-	ia := NewAgent(&proxyConfig, &AgentOptions{
+	ia := NewAgent(proxyConfig, &AgentOptions{
 		XdsUdsPath:            filepath.Join(dir, "XDS"),
 		DownstreamGrpcOptions: opts,
 	}, secOpts, envoy.ProxyConfig{TestOnly: true})
@@ -449,14 +449,14 @@ func TestXdsProxyReconnects(t *testing.T) {
 
 type fakeAckCache struct{}
 
-func (f *fakeAckCache) Get(string, string, time.Duration) (string, error) {
+func (f *fakeAckCache) Get(string, string, time.Duration, []byte) (string, error) {
 	return "test", nil
 }
 func (f *fakeAckCache) Cleanup() {}
 
 type fakeNackCache struct{}
 
-func (f *fakeNackCache) Get(string, string, time.Duration) (string, error) {
+func (f *fakeNackCache) Get(string, string, time.Duration, []byte) (string, error) {
 	return "", errors.New("errror")
 }
 func (f *fakeNackCache) Cleanup() {}
@@ -465,6 +465,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{
 		Namespace:   "default",
 		InstanceIPs: []string{"1.1.1.1"},
+		ClusterID:   "Kubernetes",
 	}
 	proxy := setupXdsProxy(t)
 
@@ -514,7 +515,6 @@ func TestECDSWasmConversion(t *testing.T) {
 		Config: &wasmv3.PluginConfig{
 			Vm: &wasmv3.PluginConfig_VmConfig{
 				VmConfig: &wasmv3.VmConfig{
-
 					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
 						Local: &core.DataSource{
 							Specifier: &core.DataSource_Filename{

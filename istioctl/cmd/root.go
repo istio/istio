@@ -224,7 +224,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(AuthZ())
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(uninjectCommand())
-	experimentalCmd.AddCommand(metricsCmd)
+	experimentalCmd.AddCommand(metricsCmd())
 	experimentalCmd.AddCommand(describe())
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
@@ -235,6 +235,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(revisionCommand())
 	experimentalCmd.AddCommand(debugCommand())
 	experimentalCmd.AddCommand(preCheck())
+	experimentalCmd.AddCommand(statsConfigCmd())
 
 	analyzeCmd := Analyze()
 	hideInheritedFlags(analyzeCmd, FlagIstioNamespace)

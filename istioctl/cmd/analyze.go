@@ -73,6 +73,7 @@ var (
 	suppress          []string
 	analysisTimeout   time.Duration
 	recursive         bool
+	ignoreUnknown     bool
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -279,7 +280,7 @@ func Analyze() *cobra.Command {
 			var returnError error
 			if msgOutputFormat == formatting.LogFormat {
 				returnError = errorIfMessagesExceedThreshold(result.Messages)
-				if returnError == nil && parseErrors > 0 {
+				if returnError == nil && parseErrors > 0 && !ignoreUnknown {
 					returnError = FileParseError{}
 				}
 			}
@@ -313,6 +314,8 @@ func Analyze() *cobra.Command {
 		"The duration to wait before failing")
 	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
 		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
+	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
+		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
 	return analysisCmd
 }
 

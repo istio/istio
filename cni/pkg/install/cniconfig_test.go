@@ -16,7 +16,6 @@ package install
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,15 +28,7 @@ import (
 )
 
 func TestGetDefaultCNINetwork(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	tempDir := t.TempDir()
 
 	cases := []struct {
 		name            string
@@ -107,7 +98,7 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if c.fileContents != "" {
-				err = os.WriteFile(filepath.Join(c.dir, c.inFilename), []byte(c.fileContents), 0o644)
+				err := os.WriteFile(filepath.Join(c.dir, c.inFilename), []byte(c.fileContents), 0o644)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -197,18 +188,10 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 		},
 	}
 
-	for i, c := range cases {
+	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// Create temp directory for files
-			tempDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-", i))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() {
-				if err := os.RemoveAll(tempDir); err != nil {
-					t.Fatal(err)
-				}
-			}()
+			tempDir := t.TempDir()
 
 			// Create existing config files if specified in test case
 			for _, filename := range c.existingConfFiles {
@@ -466,7 +449,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 		},
 	}
 
-	for i, c := range cases {
+	for _, c := range cases {
 		cfgFile := config.InstallConfig{
 			CNIConfName:          c.specifiedConfName,
 			ChainedCNIPlugin:     c.chainedCNIPlugin,
@@ -485,15 +468,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 		test := func(cfg config.InstallConfig) func(t *testing.T) {
 			return func(t *testing.T) {
 				// Create temp directory for files
-				tempDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-", i))
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer func() {
-					if err := os.RemoveAll(tempDir); err != nil {
-						t.Fatal(err)
-					}
-				}()
+				tempDir := t.TempDir()
 
 				// Create existing config files if specified in test case
 				for srcFilename, targetFilename := range c.existingConfFiles {

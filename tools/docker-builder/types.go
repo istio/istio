@@ -22,8 +22,8 @@ import (
 
 	"k8s.io/utils/env"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	testenv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -59,14 +59,60 @@ type Args struct {
 	Push          bool
 	Save          bool
 	BuildxEnabled bool
+	NoClobber     bool
+	NoCache       bool
 	Targets       []string
 	Variants      []string
 	Architectures []string
 	BaseVersion   string
 	ProxyVersion  string
 	IstioVersion  string
-	Tag           string
-	Hub           string
+	Tags          []string
+	Hubs          []string
+
+	// Plan describes the build plan, read from file
+	Plan BuildPlan
+}
+
+type ImagePlan struct {
+	// Name of the image. For example, "pilot"
+	Name string `json:"name"`
+	// Dockerfile path to build from
+	Dockerfile string `json:"dockerfile"`
+	// Files list files that are copied as-is into the image
+	Files []string `json:"files"`
+	// Targets list make targets that are ran and then copied into the image
+	Targets []string `json:"targets"`
+	// Base indicates if this is a base image or not
+	Base bool `json:"base"`
+}
+
+func (p ImagePlan) Dependencies() []string {
+	v := []string{p.Dockerfile}
+	v = append(v, p.Files...)
+	v = append(v, p.Targets...)
+	return v
+}
+
+type BuildPlan struct {
+	Images []ImagePlan `json:"images"`
+}
+
+func (p BuildPlan) Targets() []string {
+	tgts := sets.New()
+	for _, img := range p.Images {
+		tgts.InsertAll(img.Targets...)
+	}
+	return tgts.SortedList()
+}
+
+func (p BuildPlan) Find(n string) ImagePlan {
+	for _, i := range p.Images {
+		if i.Name == n {
+			return i
+		}
+	}
+	panic("couldn't find target " + n)
 }
 
 // Define variants, which control the base image of an image.
@@ -85,21 +131,10 @@ const (
 
 func DefaultArgs() Args {
 	// By default, we build all targets
-	targets := []string{
-		"pilot",
-		"proxyv2",
-		"app",
-		"istioctl",
-		"operator",
-		"install-cni",
-
-		"app_sidecar_ubuntu_xenial",
-		"app_sidecar_ubuntu_bionic",
-		"app_sidecar_ubuntu_focal",
-		"app_sidecar_debian_9",
-		"app_sidecar_debian_10",
-		"app_sidecar_centos_8",
-		"app_sidecar_centos_7",
+	var targets []string
+	_, nonBaseImages, err := ReadPlanTargets()
+	if err == nil {
+		targets = nonBaseImages
 	}
 	if legacy, f := os.LookupEnv("DOCKER_TARGETS"); f {
 		// Allow env var config. It is a string separated list like "docker.pilot docker.proxy"
@@ -124,7 +159,7 @@ func DefaultArgs() Args {
 	if os.Getenv("INCLUDE_UNTAGGED_DEFAULT") == "true" {
 		// This legacy env var was to workaround the old build logic not being very smart
 		// In the new builder, we automagically detect this. So just insert the 'default' variant
-		cur := sets.NewSet(variants...)
+		cur := sets.New(variants...)
 		cur.Insert(DefaultVariant)
 		variants = cur.SortedList()
 	}
@@ -133,12 +168,23 @@ func DefaultArgs() Args {
 	if legacy, f := os.LookupEnv("DOCKER_ARCHITECTURES"); f {
 		arch = strings.Split(legacy, ",")
 	}
+
+	hub := []string{env.GetString("HUB", "localhost:5000")}
+	if hubs, f := os.LookupEnv("HUBS"); f {
+		hub = strings.Split(hubs, " ")
+	}
+	tag := []string{env.GetString("TAG", "latest")}
+	if tags, f := os.LookupEnv("TAGS"); f {
+		tag = strings.Split(tags, " ")
+	}
+
 	return Args{
 		Push:          false,
 		Save:          false,
+		NoCache:       false,
 		BuildxEnabled: true,
-		Hub:           env.GetString("HUB", "localhost:5000"),
-		Tag:           env.GetString("TAG", "latest"),
+		Hubs:          hub,
+		Tags:          tag,
 		BaseVersion:   fetchBaseVersion(),
 		IstioVersion:  fetchIstioVersion(),
 		ProxyVersion:  pv,

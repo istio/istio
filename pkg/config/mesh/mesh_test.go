@@ -16,18 +16,17 @@ package mesh_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
-	ptypes "github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestApplyProxyConfig(t *testing.T) {
@@ -96,7 +95,7 @@ func TestApplyProxyConfig(t *testing.T) {
 		config.DefaultConfig.ProxyMetadata = map[string]string{
 			"foo": "bar",
 		}
-		orig, err := gogoprotomarshal.ToYAML(&config)
+		orig, err := protomarshal.ToYAML(config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -104,7 +103,7 @@ func TestApplyProxyConfig(t *testing.T) {
 		if _, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config); err != nil {
 			t.Fatal(err)
 		}
-		after, err := gogoprotomarshal.ToYAML(&config)
+		after, err := protomarshal.ToYAML(config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -115,15 +114,13 @@ func TestApplyProxyConfig(t *testing.T) {
 }
 
 func TestDefaultProxyConfig(t *testing.T) {
-	proxyConfig := mesh.DefaultProxyConfig()
-	if err := validation.ValidateMeshConfigProxyConfig(&proxyConfig); err != nil {
+	if err := validation.ValidateMeshConfigProxyConfig(mesh.DefaultProxyConfig()); err != nil {
 		t.Errorf("validation of default proxy config failed with %v", err)
 	}
 }
 
 func TestDefaultMeshConfig(t *testing.T) {
-	m := mesh.DefaultMeshConfig()
-	if err := validation.ValidateMeshConfig(&m); err != nil {
+	if err := validation.ValidateMeshConfig(mesh.DefaultMeshConfig()); err != nil {
 		t.Errorf("validation of default mesh config failed with %v", err)
 	}
 }
@@ -142,7 +139,7 @@ defaultConfig:
 	if err != nil {
 		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
 	}
-	assert.Equal(t, got, &want)
+	assert.Equal(t, got, want)
 	// Verify overrides
 	got, err = mesh.ApplyMeshConfigDefaults(`
 serviceSettings: 
@@ -176,14 +173,14 @@ defaultConfig:
 	if len(got.DefaultProviders.GetMetrics()) != 0 {
 		t.Errorf("default providers deep merge failed, got %v", got.DefaultProviders.GetMetrics())
 	}
-	if !reflect.DeepEqual(getExtensionProviders(got.ExtensionProviders), []string{"prometheus", "stackdriver", "envoy", "sd"}) {
+	if !cmp.Equal(getExtensionProviders(got.ExtensionProviders), []string{"prometheus", "stackdriver", "envoy", "sd"}, protocmp.Transform()) {
 		t.Errorf("extension providers deep merge failed, got %v", getExtensionProviders(got.ExtensionProviders))
 	}
 	if len(got.TrustDomainAliases) != 2 {
 		t.Errorf("trust domain aliases deep merge failed")
 	}
 
-	gotY, err := gogoprotomarshal.ToYAML(got)
+	gotY, err := protomarshal.ToYAML(got)
 	t.Log("Result: \n", gotY, err)
 }
 
@@ -316,7 +313,7 @@ trustDomainAliases:
 				Name: "stackdriver",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_Stackdriver{
 					Stackdriver: &meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider{
-						MaxNumberOfAttributes: &ptypes.Int64Value{Value: 3},
+						MaxNumberOfAttributes: &wrapperspb.Int64Value{Value: 3},
 					},
 				},
 			}}
@@ -332,7 +329,7 @@ trustDomainAliases:
 			minimal.TrustDomainAliases = res.TrustDomainAliases
 
 			want := &meshconfig.MeshConfig{}
-			gogoprotomarshal.ApplyYAML(tt.out, want)
+			protomarshal.ApplyYAML(tt.out, want)
 			if d := cmp.Diff(want, minimal, protocmp.Transform()); d != "" {
 				t.Fatalf("got diff %v", d)
 			}

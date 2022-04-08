@@ -65,30 +65,46 @@ type StatusVerifier struct {
 	client           kube.ExtendedClient
 }
 
+type StatusVerifierOptions func(*StatusVerifier)
+
+func WithLogger(l clog.Logger) StatusVerifierOptions {
+	return func(s *StatusVerifier) {
+		s.logger = l
+	}
+}
+
+func WithIOP(iop *v1alpha1.IstioOperator) StatusVerifierOptions {
+	return func(s *StatusVerifier) {
+		s.iop = iop
+	}
+}
+
 // NewStatusVerifier creates a new instance of post-install verifier
 // which checks the status of various resources from the manifest.
-// TODO(su225): This is doing too many things. Refactor: break it down
 func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string,
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
-	logger clog.Logger, installedIOP *v1alpha1.IstioOperator) (*StatusVerifier, error) {
-	if logger == nil {
-		logger = clog.NewDefaultLogger()
-	}
+	options ...StatusVerifierOptions) (*StatusVerifier, error) {
 	client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, context), "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	return &StatusVerifier{
+
+	verifier := StatusVerifier{
+		logger:           clog.NewDefaultLogger(),
+		successMarker:    "✔",
+		failureMarker:    "✘",
 		istioNamespace:   istioNamespace,
 		manifestsPath:    manifestsPath,
 		filenames:        filenames,
 		controlPlaneOpts: controlPlaneOpts,
-		logger:           logger,
 		client:           client,
-		iop:              installedIOP,
-		successMarker:    "✔",
-		failureMarker:    "✘",
-	}, nil
+	}
+
+	for _, opt := range options {
+		opt(&verifier)
+	}
+
+	return &verifier, nil
 }
 
 func (v *StatusVerifier) Colorize() {
@@ -199,7 +215,7 @@ func (v *StatusVerifier) verifyInstall() error {
 func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOperator, filename string) (int, int, error) {
 	t := translate.NewTranslator()
 
-	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t)
+	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t, nil)
 	if err != nil {
 		return 0, 0, err
 	}

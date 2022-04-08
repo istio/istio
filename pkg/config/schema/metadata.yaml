@@ -104,46 +104,57 @@ collections:
   - name: "k8s/apiextensions.k8s.io/v1/customresourcedefinitions"
     kind: "CustomResourceDefinition"
     group: "apiextensions.k8s.io"
+    builtin: true
 
   - name: "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations"
     kind: "MutatingWebhookConfiguration"
     group: "admissionregistration.k8s.io"
+    builtin: true
 
   - name: "k8s/apps/v1/deployments"
     kind: "Deployment"
     group: "apps"
+    builtin: true
 
   - name: "k8s/core/v1/endpoints"
     kind: "Endpoints"
     group: ""
+    builtin: true
 
   - name: "k8s/core/v1/namespaces"
     kind: "Namespace"
     group: ""
+    builtin: true
 
   - name: "k8s/core/v1/nodes"
     kind: "Node"
     group: ""
+    builtin: true
 
   - name: "k8s/core/v1/pods"
     kind: "Pod"
     group: ""
+    builtin: true
 
   - name: "k8s/core/v1/secrets"
     kind: "Secret"
     group: ""
+    builtin: true
 
   - name: "k8s/core/v1/services"
     kind: "Service"
     group: ""
+    builtin: true
 
   - name: "k8s/core/v1/configmaps"
     kind: "ConfigMap"
     group: ""
+    builtin: true
 
   - name: "k8s/extensions/v1beta1/ingresses"
     kind: "Ingress"
     group: "extensions"
+    builtin: true
 
   - kind: "GatewayClass"
     name: "k8s/gateway_api/v1alpha2/gatewayclasses"

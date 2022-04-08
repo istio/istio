@@ -24,6 +24,8 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -40,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -1189,7 +1192,7 @@ func TestPassthroughTraffic(t *testing.T) {
 				MeshConfig: func() *meshconfig.MeshConfig {
 					m := mesh.DefaultMeshConfig()
 					m.OutboundTrafficPolicy.Mode = tp
-					return &m
+					return m
 				}(),
 			}
 			expectedCluster := map[meshconfig.MeshConfig_OutboundTrafficPolicy_Mode]string{
@@ -1306,4 +1309,1162 @@ func TestLoop(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestInboundSidecarTLSModes(t *testing.T) {
+	peerAuthConfig := func(m string) string {
+		return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: peer-auth
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: foo
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    9080:
+      mode: %s
+---
+`, m)
+	}
+	sidecarSimple := func(protocol string) string {
+		return fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  labels:
+    app: foo
+  name: sidecar
+  namespace: default
+spec:
+  ingress:
+    - defaultEndpoint: 0.0.0.0:9080
+      port:
+        name: tls
+        number: 9080
+        protocol: %s
+      tls:
+        mode: SIMPLE
+        privateKey: "httpbinkey.pem"
+        serverCertificate: "httpbin.pem"
+  workloadSelector:
+    labels:
+      app: foo
+---
+`, protocol)
+	}
+	sidecarMutual := func(protocol string) string {
+		return fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  labels:
+    app: foo
+  name: sidecar
+  namespace: default
+spec:
+  ingress:
+    - defaultEndpoint: 0.0.0.0:9080
+      port:
+        name: tls
+        number: 9080
+        protocol: %s
+      tls:
+        mode: MUTUAL
+        privateKey: "httpbinkey.pem"
+        serverCertificate: "httpbin.pem"
+        caCertificates: "rootCA.pem"
+  workloadSelector:
+    labels:
+      app: foo
+---
+`, protocol)
+	}
+	expectedTLSContext := func(filterChain *listener.FilterChain) error {
+		tlsContext := &tls.DownstreamTlsContext{}
+		if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
+			return err
+		}
+		commonTLSContext := tlsContext.CommonTlsContext
+		if len(commonTLSContext.TlsCertificateSdsSecretConfigs) == 0 {
+			return fmt.Errorf("expected tls certificates")
+		}
+		if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:httpbin.pem~httpbinkey.pem" {
+			return fmt.Errorf("expected certificate httpbin.pem, actual %s", commonTLSContext.TlsCertificates[0].CertificateChain.String())
+		}
+		if tlsContext.RequireClientCertificate.Value == true {
+			return fmt.Errorf("expected RequireClientCertificate to be false")
+		}
+		return nil
+	}
+
+	mkCall := func(port int, protocol simulation.Protocol,
+		tls simulation.TLSMode, validations []simulation.CustomFilterChainValidation,
+		mTLSSecretConfigName string,
+	) simulation.Call {
+		return simulation.Call{
+			Protocol:                  protocol,
+			Port:                      port,
+			CallMode:                  simulation.CallModeInbound,
+			TLS:                       tls,
+			CustomListenerValidations: validations,
+			MtlsSecretConfigName:      mTLSSecretConfigName,
+		}
+	}
+	cases := []struct {
+		name   string
+		config string
+		calls  []simulation.Expect
+	}{
+		{
+			name:   "sidecar http over TLS simple mode with peer auth on port disabled",
+			config: peerAuthConfig("DISABLE") + sidecarSimple("HTTPS"),
+			calls: []simulation.Expect{
+				{
+					Name: "http over tls",
+					Call: mkCall(9080, simulation.HTTP, simulation.TLS, []simulation.CustomFilterChainValidation{expectedTLSContext}, ""),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						VirtualHostMatched: "inbound|http|9080",
+						RouteMatched:       "default",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "http over mTLS",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar TCP over TLS simple mode with peer auth on port disabled",
+			config: peerAuthConfig("DISABLE") + sidecarSimple("TLS"),
+			calls: []simulation.Expect{
+				{
+					Name: "tcp over tls",
+					Call: mkCall(9080, simulation.TCP, simulation.TLS, []simulation.CustomFilterChainValidation{expectedTLSContext}, ""),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.TCP, simulation.Plaintext, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "tcp over mTLS",
+					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar http over mTLS mutual mode with peer auth on port disabled",
+			config: peerAuthConfig("DISABLE") + sidecarMutual("HTTPS"),
+			calls: []simulation.Expect{
+				{
+					Name: "http over mtls",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "http over tls",
+					Call: mkCall(9080, simulation.HTTP, simulation.TLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar tcp over mTLS mutual mode with peer auth on port disabled",
+			config: peerAuthConfig("DISABLE") + sidecarMutual("TLS"),
+			calls: []simulation.Expect{
+				{
+					Name: "tcp over mtls",
+					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.TCP, simulation.Plaintext, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "http over tls",
+					Call: mkCall(9080, simulation.TCP, simulation.TLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar http over TLS SIMPLE mode with peer auth on port STRICT",
+			config: peerAuthConfig("STRICT") + sidecarMutual("TLS"),
+			calls: []simulation.Expect{
+				{
+					Name: "http over tls",
+					Call: mkCall(9080, simulation.HTTP, simulation.TLS, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "http over mtls",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, ""),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+			},
+		},
+	}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
+	features.EnableTLSOnSidecarIngress = true
+	for _, tt := range cases {
+		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
+			name:   tt.name,
+			config: tt.config,
+			calls:  tt.calls,
+		})
+	}
+}
+
+const (
+	TimeOlder = "2019-01-01T00:00:00Z"
+	TimeBase  = "2020-01-01T00:00:00Z"
+	TimeNewer = "2021-01-01T00:00:00Z"
+)
+
+type Configer interface {
+	Config(variant string) string
+}
+
+type vsArgs struct {
+	Namespace string
+	Match     string
+	Matches   []string
+	Dest      string
+	Port      int
+	PortMatch int
+	Time      string
+}
+
+func (args vsArgs) Config(variant string) string {
+	if args.Time == "" {
+		args.Time = TimeBase
+	}
+
+	if args.PortMatch != 0 {
+		// TODO(v0.4.2) test port match
+		variant = "virtualservice"
+	}
+	if args.Matches == nil {
+		args.Matches = []string{args.Match}
+	}
+	switch variant {
+	case "httproute":
+		return tmpl.MustEvaluate(`apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: "{{.Namespace}}{{.Match | replace "*" "wild"}}{{.Dest}}"
+  namespace: {{.Namespace}}
+  creationTimestamp: "{{.Time}}"
+spec:
+  parentRefs:
+  - kind: Mesh
+    name: istio
+{{ with .PortMatch }}
+    port: {{.}}
+{{ end }}
+  hostnames:
+{{- range $val := .Matches }}
+  - "{{$val}}"
+{{ end }}
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: {{.Dest}}
+      port: {{.Port | default 80}}
+`, args)
+	case "virtualservice":
+		return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: "{{.Namespace}}{{.Match | replace "*" "wild"}}{{.Dest}}"
+  namespace: {{.Namespace}}
+  creationTimestamp: "{{.Time}}"
+spec:
+  hosts:
+{{- range $val := .Matches }}
+  - "{{$val}}"
+{{ end }}
+  http:
+  - route:
+    - destination:
+        host: {{.Dest}}
+{{ with .Port }}
+        port:
+          number: {{.}}
+{{ end }}
+{{ with .PortMatch }}
+    match:
+    - port: {{.}}
+{{ end }}
+`, args)
+	default:
+		panic(variant + " unknown")
+	}
+}
+
+type scArgs struct {
+	Namespace string
+	Egress    []string
+}
+
+func (args scArgs) Config(variant string) string {
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: "{{.Namespace}}"
+  namespace: "{{.Namespace}}"
+spec:
+  egress:
+  - hosts:
+{{- range $val := .Egress }}
+    - "{{$val}}"
+{{- end }}
+`, args)
+}
+
+func TestSidecarRoutes(t *testing.T) {
+	knownServices := `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: known-default.example.com
+  namespace: default
+spec:
+  hosts:
+  - known-default.example.com
+  addresses:
+  - 2.0.0.0
+  endpoints:
+  - address: 1.0.0.0
+  resolution: STATIC
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: http-other
+    number: 8080
+    protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: alt-known-default.example.com
+  namespace: default
+spec:
+  hosts:
+  - alt-known-default.example.com
+  addresses:
+  - 2.0.0.1
+  endpoints:
+  - address: 1.0.0.1
+  resolution: STATIC
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: http-other
+    number: 8080
+    protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: not-default.example.org
+  namespace: not-default
+spec:
+  hosts:
+  - not-default.example.org
+  addresses:
+  - 2.0.0.2
+  endpoints:
+  - address: 1.0.0.2
+  resolution: STATIC
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: http-other
+    number: 8080
+    protocol: HTTP
+---
+`
+	proxy := func(ns string) *model.Proxy {
+		return &model.Proxy{ConfigNamespace: ns}
+	}
+	cases := []struct {
+		name            string
+		cfg             []Configer
+		proxy           *model.Proxy
+		routeName       string
+		expected        map[string][]string
+		expectedGateway map[string][]string
+	}{
+		// Port 80 has special cases as there is defaulting logic around this port
+		{
+			name: "simple port 80",
+			cfg: []Configer{vsArgs{
+				Namespace: "default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "simple port 8080",
+			cfg: []Configer{vsArgs{
+				Namespace: "default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}},
+			proxy:     proxy("default"),
+			routeName: "8080",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
+			},
+			expectedGateway: map[string][]string{
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "unknown port 80",
+			cfg: []Configer{vsArgs{
+				Namespace: "default",
+				Match:     "foo.com",
+				Dest:      "foo.com",
+			}},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"foo.com": {"outbound|80||foo.com"},
+			},
+		},
+		{
+			name: "unknown port 8080",
+			cfg: []Configer{vsArgs{
+				Namespace: "default",
+				Match:     "foo.com",
+				Dest:      "foo.com",
+			}},
+			proxy:     proxy("default"),
+			routeName: "8080",
+			// For unknown services, we only will add a route to the port 80
+			expected: map[string][]string{
+				"default.com": nil,
+			},
+		},
+		{
+			name: "unknown port 8080 match 8080",
+			cfg: []Configer{vsArgs{
+				Namespace: "default",
+				Match:     "foo.com",
+				Dest:      "foo.com",
+				PortMatch: 8080,
+			}},
+			proxy:     proxy("default"),
+			routeName: "8080",
+			// For unknown services, we only will add a route to the port 80
+			expected: map[string][]string{
+				"foo.com": nil,
+			},
+		},
+		{
+			name: "unknown port 8080 dest 8080 ",
+			cfg: []Configer{vsArgs{
+				Namespace: "default",
+				Match:     "foo.com",
+				Dest:      "foo.com",
+				Port:      8080,
+			}},
+			proxy:     proxy("default"),
+			routeName: "8080",
+			// For unknown services, we only will add a route to the port 80
+			expected: map[string][]string{
+				"default.com": nil,
+			},
+		},
+		{
+			name: "producer rule port 80",
+			cfg: []Configer{vsArgs{
+				Namespace: "default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}},
+			proxy:     proxy("not-default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "producer rule port 8080",
+			cfg: []Configer{vsArgs{
+				Namespace: "default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}},
+			proxy:     proxy("not-default"),
+			routeName: "8080",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
+			},
+			expectedGateway: map[string][]string{ // No implicit port matching for gateway
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "consumer rule port 80",
+			cfg: []Configer{vsArgs{
+				Namespace: "not-default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}},
+			proxy:     proxy("not-default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "consumer rule port 8080",
+			cfg: []Configer{vsArgs{
+				Namespace: "not-default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}},
+			proxy:     proxy("not-default"),
+			routeName: "8080",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
+			},
+			expectedGateway: map[string][]string{ // No implicit port matching for gateway
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "arbitrary rule port 80",
+			cfg: []Configer{vsArgs{
+				Namespace: "arbitrary",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}},
+			proxy:     proxy("not-default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "arbitrary rule port 8080",
+			cfg: []Configer{vsArgs{
+				Namespace: "arbitrary",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}},
+			proxy:     proxy("not-default"),
+			routeName: "8080",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
+			},
+			expectedGateway: map[string][]string{ // No implicit port matching for gateway
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "multiple rules 80",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "arbitrary",
+					Match:     "known-default.example.com",
+					Dest:      "arbitrary.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "default.example.com",
+					Time:      TimeBase,
+				},
+				vsArgs{
+					Namespace: "not-default",
+					Match:     "known-default.example.com",
+					Dest:      "not-default.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("not-default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Oldest wins
+				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
+			},
+			expectedGateway: map[string][]string{
+				// TODO: consumer namespace wins
+				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
+			},
+		},
+		{
+			name: "multiple rules 8080",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "arbitrary",
+					Match:     "known-default.example.com",
+					Dest:      "arbitrary.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "default.example.com",
+					Time:      TimeBase,
+				},
+				vsArgs{
+					Namespace: "not-default",
+					Match:     "known-default.example.com",
+					Dest:      "not-default.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("not-default"),
+			routeName: "8080",
+			expected: map[string][]string{
+				// Oldest wins
+				"known-default.example.com": {"outbound|8080||arbitrary.example.com"},
+			},
+			expectedGateway: map[string][]string{
+				// TODO: Consumer gateway wins. No implicit destination port for Gateway
+				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
+			},
+		},
+		{
+			name: "wildcard random",
+			cfg: []Configer{vsArgs{
+				Namespace: "default",
+				Match:     "*.unknown.example.com",
+				Dest:      "arbitrary.example.com",
+			}},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// match no VS, get default config
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				"known-default.example.com":     {"outbound|80||known-default.example.com"},
+				// Wildcard doesn't match any known services, insert it as-is
+				"*.unknown.example.com": {"outbound|80||arbitrary.example.com"},
+			},
+		},
+		{
+			name: "wildcard match with sidecar",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "arbitrary.example.com",
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/*.example.com"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"alt-known-default.example.com": {"outbound|80||arbitrary.example.com"},
+				"known-default.example.com":     {"outbound|80||arbitrary.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+			expectedGateway: map[string][]string{
+				// Exact service matches do not get the wildcard applied
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				"known-default.example.com":     {"outbound|80||known-default.example.com"},
+				// The wildcard
+				"*.example.com": {"outbound|80||arbitrary.example.com"},
+			},
+		},
+		{
+			name: "wildcard first then explicit",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
+				"known-default.example.com":     {"outbound|80||wild.example.com"}, // oldest wins
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+			expectedGateway: map[string][]string{
+				// No overrides, use default
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				// Explicit has precedence
+				"known-default.example.com": {"outbound|80||explicit.example.com"},
+				// Last is our wildcard
+				"*.example.com": {"outbound|80||wild.example.com"},
+			},
+		},
+		{
+			name: "explicit first then wildcard",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "wild.example.com",
+					Time:      TimeNewer,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+					Time:      TimeOlder,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
+				"known-default.example.com":     {"outbound|80||explicit.example.com"}, // oldest wins
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+			expectedGateway: map[string][]string{
+				// No overrides, use default
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				// Explicit has precedence
+				"known-default.example.com": {"outbound|80||explicit.example.com"},
+				// Last is our wildcard
+				"*.example.com": {"outbound|80||wild.example.com"},
+			},
+		},
+		{
+			name: "wildcard and explicit with sidecar",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"default/known-default.example.com", "default/alt-known-default.example.com"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Even though we did not import `*.example.com`, the VS attaches
+				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
+				"known-default.example.com":     {"outbound|80||wild.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+			expectedGateway: map[string][]string{
+				// No rule imported
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				// Imported rule
+				"known-default.example.com": {"outbound|80||explicit.example.com"},
+				// Not imported
+				"*.example.com": nil,
+			},
+		},
+		{
+			name: "explicit first then wildcard with sidecar cross namespace",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "not-default",
+					Match:     "*.example.com",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"default/known-default.example.com", "default/alt-known-default.example.com"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Similar to above, but now the older wildcard VS is in a complete different namespace which we don't import
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				"known-default.example.com":     {"outbound|80||explicit.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+		},
+		{
+			name: "wildcard and explicit cross namespace",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "not-default",
+					Match:     "*.com",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Wildcard is older, so it wins, even though it is cross namespace
+				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
+				"known-default.example.com":     {"outbound|80||wild.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.com": nil,
+			},
+			expectedGateway: map[string][]string{
+				// Exact match wins
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				"known-default.example.com":     {"outbound|80||explicit.example.com"},
+				// Wildcard last
+				"*.com": {"outbound|80||wild.example.com"},
+			},
+		},
+		{
+			name: "wildcard and explicit unknown",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.tld",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "example.tld",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// wildcard does not match
+				"known-default.example.com": {"outbound|80||known-default.example.com"},
+				// Even though its less exact, this wildcard wins
+				"*.tld":         {"outbound|80||wild.example.com"},
+				"*.example.tld": nil,
+			},
+		},
+		{
+			name: "explicit match with wildcard sidecar",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "arbitrary.example.com",
+					Dest:      "arbitrary.example.com",
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/*.example.com"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"arbitrary.example.com": {"outbound|80||arbitrary.example.com"},
+			},
+		},
+		{
+			name: "wildcard match with explicit sidecar",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "arbitrary.example.com",
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/known-default.example.com"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
+				"*.example.com":             nil,
+			},
+			expectedGateway: map[string][]string{
+				"known-default.example.com": {"outbound|80||known-default.example.com"},
+				"*.example.com":             nil,
+			},
+		},
+		{
+			name: "non-service wildcard match with explicit sidecar",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.example.org",
+					Dest:      "arbitrary.example.com",
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/explicit.example.org", "*/alt-known-default.example.com"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com":     nil,                                            // Not imported
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"}, // No change
+				"*.example.org":                 {"outbound|80||arbitrary.example.com"},
+			},
+			expectedGateway: map[string][]string{
+				"known-default.example.com":     nil,                                            // Not imported
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"}, // No change
+				"*.example.org":                 nil,                                            // Not imported
+			},
+		},
+		{
+			name: "sidecar filter",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "not-default",
+					Match:     "*.example.com",
+					Dest:      "arbitrary.example.com",
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "explicit.example.com",
+					Dest:      "explicit.example.com",
+				},
+				scArgs{
+					Namespace: "not-default",
+					Egress:    []string{"not-default/*.example.com", "not-default/not-default.example.org"},
+				},
+			},
+			proxy:     proxy("not-default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// even though there is an *.example.com, since we do not import it we should create a wildcard matcher
+				"*.example.com": {"outbound|80||arbitrary.example.com"},
+				// We did not import this, shouldn't show up
+				"explicit.example.com": nil,
+			},
+		},
+		{
+			name: "same namespace conflict",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "old.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "new.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||old.example.com"}, // oldest wins
+			},
+		},
+		{
+			name: "cross namespace conflict",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "not-default",
+					Match:     "known-default.example.com",
+					Dest:      "producer.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "consumer.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// oldest wins
+				"known-default.example.com": {"outbound|80||producer.example.com"},
+			},
+			expectedGateway: map[string][]string{
+				// TODO: consumer namespace wins
+				"known-default.example.com": {"outbound|80||producer.example.com"},
+			},
+		},
+		{
+			name: "import only a unknown service route",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "a.example.org",
+					Dest:      "example.com",
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/a.example.com"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected:  nil, // We do not even get a route as there is no service on the port
+		},
+		{
+			// https://github.com/istio/istio/issues/37087
+			name: "multi-host import single",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Matches:   []string{"a.example.org", "b.example.org"},
+					Dest:      "example.com",
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/known-default.example.com", "*/a.example.org"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// imported
+				"a.example.org": {"outbound|80||example.com"},
+				// Not imported but we include it anyway
+				"b.example.org": {"outbound|80||example.com"},
+			},
+			expectedGateway: map[string][]string{
+				// imported
+				"a.example.org": {"outbound|80||example.com"},
+				// Not imported but we include it anyway
+				"b.example.org": nil,
+			},
+		},
+	}
+	for _, variant := range []string{"httproute", "virtualservice"} {
+		t.Run(variant, func(t *testing.T) {
+			for _, tt := range cases {
+				t.Run(tt.name, func(t *testing.T) {
+					cfg := knownServices
+					for _, tc := range tt.cfg {
+						cfg = cfg + "\n---\n" + tc.Config(variant)
+					}
+					s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: cfg})
+					sim := simulation.NewSimulation(t, s, s.SetupProxy(tt.proxy))
+					xdstest.ValidateListeners(t, sim.Listeners)
+					xdstest.ValidateRouteConfigurations(t, sim.Routes)
+					r := xdstest.ExtractRouteConfigurations(sim.Routes)
+					vh := r[tt.routeName]
+					exp := tt.expected
+					if variant == "httproute" && tt.expectedGateway != nil {
+						exp = tt.expectedGateway
+					}
+					if vh == nil && exp != nil {
+						t.Fatalf("route %q not found, have %v", tt.routeName, xdstest.MapKeys(r))
+					}
+					gotHosts := xdstest.ExtractVirtualHosts(vh)
+
+					for wk, wv := range exp {
+						got := gotHosts[wk]
+						if !reflect.DeepEqual(wv, got) {
+							t.Errorf("%v: wanted %v, got %v (had %v)", wk, wv, got, xdstest.MapKeys(gotHosts))
+						}
+					}
+				})
+			}
+		})
+	}
 }

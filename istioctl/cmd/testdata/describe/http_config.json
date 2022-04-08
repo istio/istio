@@ -1,0 +1,199 @@
+{
+  "configs": [
+    {
+      "@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+      "dynamic_route_configs": [
+        {
+          "version_info": "2022-03-04T10:22:24Z/54",
+          "route_config": {
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+            "name": "http.8080",
+            "virtual_hosts": [
+              {
+                "name": "*:80",
+                "domains": [
+                  "*"
+                ],
+                "routes": [
+                  {
+                    "match": {
+                      "path": "/productpage",
+                      "case_sensitive": true
+                    },
+                    "route": {
+                      "cluster": "outbound|9080||productpage.default.svc.cluster.local",
+                      "timeout": "0s",
+                      "retry_policy": {
+                        "retry_on": "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
+                        "num_retries": 2,
+                        "retry_host_predicate": [
+                          {
+                            "name": "envoy.retry_host_predicates.previous_hosts"
+                          }
+                        ],
+                        "host_selection_retry_max_attempts": "5",
+                        "retriable_status_codes": [
+                          503
+                        ]
+                      },
+                      "max_grpc_timeout": "0s"
+                    },
+                    "metadata": {
+                      "filter_metadata": {
+                        "istio": {
+                          "config": "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo"
+                        }
+                      }
+                    },
+                    "decorator": {
+                      "operation": "productpage.default.svc.cluster.local:9080/productpage"
+                    }
+                  },
+                  {
+                    "match": {
+                      "prefix": "/static",
+                      "case_sensitive": true
+                    },
+                    "route": {
+                      "cluster": "outbound|9080||productpage.default.svc.cluster.local",
+                      "timeout": "0s",
+                      "retry_policy": {
+                        "retry_on": "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
+                        "num_retries": 2,
+                        "retry_host_predicate": [
+                          {
+                            "name": "envoy.retry_host_predicates.previous_hosts"
+                          }
+                        ],
+                        "host_selection_retry_max_attempts": "5",
+                        "retriable_status_codes": [
+                          503
+                        ]
+                      },
+                      "max_grpc_timeout": "0s"
+                    },
+                    "metadata": {
+                      "filter_metadata": {
+                        "istio": {
+                          "config": "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo"
+                        }
+                      }
+                    },
+                    "decorator": {
+                      "operation": "productpage.default.svc.cluster.local:9080/static*"
+                    }
+                  },
+                  {
+                    "match": {
+                      "path": "/login",
+                      "case_sensitive": true
+                    },
+                    "route": {
+                      "cluster": "outbound|9080||productpage.default.svc.cluster.local",
+                      "timeout": "0s",
+                      "retry_policy": {
+                        "retry_on": "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
+                        "num_retries": 2,
+                        "retry_host_predicate": [
+                          {
+                            "name": "envoy.retry_host_predicates.previous_hosts"
+                          }
+                        ],
+                        "host_selection_retry_max_attempts": "5",
+                        "retriable_status_codes": [
+                          503
+                        ]
+                      },
+                      "max_grpc_timeout": "0s"
+                    },
+                    "metadata": {
+                      "filter_metadata": {
+                        "istio": {
+                          "config": "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo"
+                        }
+                      }
+                    },
+                    "decorator": {
+                      "operation": "productpage.default.svc.cluster.local:9080/login"
+                    }
+                  },
+                  {
+                    "match": {
+                      "path": "/logout",
+                      "case_sensitive": true
+                    },
+                    "route": {
+                      "cluster": "outbound|9080||productpage.default.svc.cluster.local",
+                      "timeout": "0s",
+                      "retry_policy": {
+                        "retry_on": "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
+                        "num_retries": 2,
+                        "retry_host_predicate": [
+                          {
+                            "name": "envoy.retry_host_predicates.previous_hosts"
+                          }
+                        ],
+                        "host_selection_retry_max_attempts": "5",
+                        "retriable_status_codes": [
+                          503
+                        ]
+                      },
+                      "max_grpc_timeout": "0s"
+                    },
+                    "metadata": {
+                      "filter_metadata": {
+                        "istio": {
+                          "config": "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo"
+                        }
+                      }
+                    },
+                    "decorator": {
+                      "operation": "productpage.default.svc.cluster.local:9080/logout"
+                    }
+                  },
+                  {
+                    "match": {
+                      "prefix": "/api/v1/products",
+                      "case_sensitive": true
+                    },
+                    "route": {
+                      "cluster": "outbound|9080||productpage.default.svc.cluster.local",
+                      "timeout": "0s",
+                      "retry_policy": {
+                        "retry_on": "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
+                        "num_retries": 2,
+                        "retry_host_predicate": [
+                          {
+                            "name": "envoy.retry_host_predicates.previous_hosts"
+                          }
+                        ],
+                        "host_selection_retry_max_attempts": "5",
+                        "retriable_status_codes": [
+                          503
+                        ]
+                      },
+                      "max_grpc_timeout": "0s"
+                    },
+                    "metadata": {
+                      "filter_metadata": {
+                        "istio": {
+                          "config": "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo"
+                        }
+                      }
+                    },
+                    "decorator": {
+                      "operation": "productpage.default.svc.cluster.local:9080/api/v1/products*"
+                    }
+                  }
+                ],
+                "include_request_attempt_count": true
+              }
+            ],
+            "validate_clusters": false
+          },
+          "last_updated": "2022-03-04T10:22:24.737Z"
+        }
+      ]
+    }
+  ]
+}

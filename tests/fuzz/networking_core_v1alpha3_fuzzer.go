@@ -24,8 +24,8 @@ import (
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/tests/fuzz/utils"
@@ -70,6 +70,9 @@ func InternalFuzzbuildGatewayListeners(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if !proxyValid(proxy) {
+		return 0
+	}
 	lb := &ListenerBuilder{}
 	err = f.GenerateStruct(lb)
 	if err != nil {
@@ -98,6 +101,9 @@ func InternalFuzzbuildSidecarOutboundHTTPRouteConfig(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if !proxyValid(proxy) {
+		return 0
+	}
 	req := &model.PushRequest{}
 	err = f.GenerateStruct(req)
 	if err != nil {
@@ -118,6 +124,9 @@ func InternalFuzzbuildSidecarInboundListeners(data []byte) int {
 	proxy := model.Proxy{}
 	err := f.GenerateStruct(&proxy)
 	if err != nil {
+		return 0
+	}
+	if !proxyValid(proxy) {
 		return 0
 	}
 
@@ -196,9 +205,19 @@ func InternalFuzzbuildSidecarOutboundListeners(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if !proxyValid(proxy) {
+		return 0
+	}
 	cg := NewConfigGenTest(t, to)
 	p := cg.SetupProxy(proxy)
 	listeners := cg.ConfigGen.buildSidecarOutboundListeners(p, cg.env.PushContext)
 	_ = listeners
 	return 1
+}
+
+func proxyValid(p *model.Proxy) bool {
+	if len(p.IPAddresses) == 0 {
+		return false
+	}
+	return true
 }

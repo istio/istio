@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestOverlayIOP(t *testing.T) {
@@ -41,17 +42,15 @@ func TestOverlayIOP(t *testing.T) {
 
 func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 	// Transform default mesh config into map[string]interface{} for inclusion in IstioOperator.
-	my, err := yaml.Marshal(mesh.DefaultMeshConfig())
+	m := mesh.DefaultMeshConfig()
+	my, err := protomarshal.ToJSONMap(m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	mm := make(map[string]interface{})
-	if err := yaml.Unmarshal(my, &mm); err != nil {
-		t.Fatal(err)
-	}
+
 	iop := &v1alpha1.IstioOperator{
 		Spec: &v1alpha12.IstioOperatorSpec{
-			MeshConfig: mm,
+			MeshConfig: MustStruct(my),
 		},
 	}
 
@@ -62,6 +61,21 @@ func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 
 	// overlaying tree over itself exercises all paths for merging
 	if _, err := OverlayIOP(string(iy), string(iy)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOverlayIOPIngressGatewayLabel(t *testing.T) {
+	l1, err := os.ReadFile("testdata/yaml/input/yaml_layer1.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l2, err := os.ReadFile("testdata/yaml/input/yaml_layer2.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := OverlayIOP(string(l1), string(l2)); err != nil {
 		t.Fatal(err)
 	}
 }

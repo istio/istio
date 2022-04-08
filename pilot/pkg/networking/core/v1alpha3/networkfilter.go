@@ -43,9 +43,8 @@ var redisOpTimeout = 5 * time.Second
 
 func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []*listener.Filter {
 	filterstack := make([]*listener.Filter, 0)
-
 	// We add metadata exchange on inbound only; outbound is handled in cluster filter
-	if class == istionetworking.ListenerClassSidecarInbound {
+	if class == istionetworking.ListenerClassSidecarInbound && features.MetadataExchange {
 		filterstack = append(filterstack, xdsfilters.TCPListenerMx)
 	}
 
@@ -67,6 +66,10 @@ func buildInboundNetworkFilters(push *model.PushContext, proxy *model.Proxy, ins
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
+	}
+	idleTimeout, err := time.ParseDuration(proxy.Metadata.IdleTimeout)
+	if err == nil {
+		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxy, tcpProxy)
 
@@ -220,8 +223,10 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
 	port *model.Port, configMeta config.Meta) []*listener.Filter {
 	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
-	destRule := push.DestinationRule(node, service)
-	destinationRule := CastDestinationRule(destRule)
+	var destinationRule *networking.DestinationRule
+	if service != nil {
+		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, service.Hostname))
+	}
 	if len(routes) == 1 {
 		clusterName := istioroute.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		statPrefix := clusterName
