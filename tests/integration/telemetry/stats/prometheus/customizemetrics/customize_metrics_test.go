@@ -138,6 +138,11 @@ spec:
 		return err
 	}
 
+	registry, err = containerregistry.New(ctx, containerregistry.Config{Cluster: ctx.AllClusters().Default()})
+	if err != nil {
+		return
+	}
+
 	var nsErr error
 	appNsInst, nsErr = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
@@ -146,9 +151,10 @@ spec:
 	if nsErr != nil {
 		return nsErr
 	}
-	enableBootstrapDiscovery := `
+	proxyMetadata := fmt.Sprintf(`
 proxyMetadata:
-  BOOTSTRAP_XDS_AGENT: "true"`
+  BOOTSTRAP_XDS_AGENT: "true"
+  WASM_INSECURE_REGISTRIES: %q`, registry.Address())
 
 	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
@@ -160,7 +166,7 @@ proxyMetadata:
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
 						echo.SidecarProxyConfig: {
-							Value: enableBootstrapDiscovery,
+							Value: proxyMetadata,
 						},
 					},
 				},
@@ -173,7 +179,7 @@ proxyMetadata:
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
 						echo.SidecarProxyConfig: {
-							Value: enableBootstrapDiscovery,
+							Value: proxyMetadata,
 						},
 					},
 				},
@@ -198,10 +204,6 @@ proxyMetadata:
 	client = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: appNsInst}).GetMatches(echos)
 	server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: appNsInst}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
-	if err != nil {
-		return
-	}
-	registry, err = containerregistry.New(ctx, containerregistry.Config{Cluster: ctx.AllClusters().Default()})
 	if err != nil {
 		return
 	}
