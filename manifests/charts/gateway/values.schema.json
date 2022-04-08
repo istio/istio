@@ -6,9 +6,6 @@
     "global": {
       "type": "object"
     },
-    "terminationGracePeriodSeconds": {
-      "type": "string"
-    },
     "lifecycle": {
       "type": "object"
     },
