@@ -57,9 +57,9 @@ e+5z6MTAO6ktvHdQlSuH6ARn47bJrZOlkttAhg==
 )
 
 var (
-	testCsrHostName       string = spiffe.Identity{TrustDomain: "cluster.local", Namespace: "default", ServiceAccount: "bookinfo-productpage"}.String()
-	TestCACertFile        string = "../testdata/example-ca-cert.pem"
-	mismatchCertChainFile string = "../testdata/cert-chain.pem"
+	testCsrHostName       = spiffe.Identity{TrustDomain: "cluster.local", Namespace: "default", ServiceAccount: "bookinfo-productpage"}.String()
+	TestCACertFile        = "../testdata/example-ca-cert.pem"
+	mismatchCertChainFile = "../testdata/cert-chain.pem"
 )
 
 func TestK8sSignWithMeshConfig(t *testing.T) {

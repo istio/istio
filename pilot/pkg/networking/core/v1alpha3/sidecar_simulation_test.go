@@ -1395,7 +1395,7 @@ spec:
 		if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:httpbin.pem~httpbinkey.pem" {
 			return fmt.Errorf("expected certificate httpbin.pem, actual %s", commonTLSContext.TlsCertificates[0].CertificateChain.String())
 		}
-		if tlsContext.RequireClientCertificate.Value == true {
+		if tlsContext.RequireClientCertificate.Value {
 			return fmt.Errorf("expected RequireClientCertificate to be false")
 		}
 		return nil

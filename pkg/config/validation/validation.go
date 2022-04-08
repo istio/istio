@@ -65,7 +65,9 @@ import (
 
 // Constants for duration fields
 const (
+	// nolint: revive
 	connectTimeoutMax = time.Second * 30
+	// nolint: revive
 	connectTimeoutMin = time.Millisecond
 
 	drainTimeMax          = time.Hour
@@ -1090,7 +1092,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				}
 				errs = appendValidation(errs, validateTLSOptions(i.Tls))
 			}
-
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -1173,7 +1174,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					errs = appendValidation(errs, WrapWarning(fmt.Errorf("`*/*` host select all resources, no other hosts can be added")))
 				}
 			}
-
 		}
 
 		errs = appendValidation(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
@@ -2359,9 +2359,9 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 				duplicateMatches++
 				// no need to handle for totally duplicated match rules
 				continue
-			} else {
-				matchesEncountered[asJSON(match)] = rulen
 			}
+			matchesEncountered[asJSON(match)] = rulen
+
 			// build the match rules into struct OverlappingMatchValidationForHTTPRoute based on current match
 			matchHTTPRoute := genMatchHTTPRoutes(route, match, rulen, matchn)
 			if matchHTTPRoute != nil {
@@ -2485,7 +2485,6 @@ func routeName(route interface{}, routen int) string {
 		if r.Name != "" {
 			return fmt.Sprintf("%q", r.Name)
 		}
-
 		// TCP and TLS routes have no names
 	}
 
@@ -2498,7 +2497,6 @@ func requestName(match interface{}, matchn int) string {
 		if mr != nil && mr.Name != "" {
 			return fmt.Sprintf("%q", mr.Name)
 		}
-
 		// TCP and TLS matches have no names
 	}
 
@@ -3160,7 +3158,6 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 					}
 				}
 				errs = appendValidation(errs, labels.Instance(endpoint.Labels).Validate())
-
 			}
 			if unixEndpoint && len(serviceEntry.Ports) != 1 {
 				errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))
