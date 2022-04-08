@@ -225,8 +225,9 @@ func newJwksResolverWithCABundlePaths(
 
 var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")
 
-// GetPublicKey gets JWT public key and cache the key for future use.
-func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, error) {
+// GetPublicKey returns the  JWT public key if it is available
+// in the cache of start a background job to add the key in the cache
+func (r *JwksResolver) GetOrUpdatePublicKey(issuer string, jwksURI string) (string, error) {
 	now := time.Now()
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
 	if val, found := r.keyEntries.Load(key); found {
@@ -255,7 +256,7 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 		var err error
 		// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
 		// workflow, where the JWT key resolver should have already been initialized on server creation.
-		jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI)
+		jwtPubKey, err = r.GetOrUpdatePublicKey(jwtIssuer, jwksURI)
 		if err != nil {
 			log.Infof("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtIssuer, jwksURI, err)
 		}
@@ -377,8 +378,8 @@ func (r *JwksResolver) refresher() {
 			r.refreshTicker.Stop()
 			return
 		case jwtKeyData := <-jwksuriChannel:
-			hasErrors := r.refreshCache(lastHasError)
-			if hasErrors {
+			lastHasError = r.refreshCache(lastHasError)
+			if lastHasError {
 				log.Errorf("Failed to get public key from  %q: %q", jwtKeyData.issuer, jwtKeyData.jwksURI)
 			}
 		}
@@ -447,6 +448,7 @@ func (r *JwksResolver) refresh() bool {
 					atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
 					return
 				}
+				k.jwksURI = jwksURI
 			}
 
 			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
@@ -456,7 +458,6 @@ func (r *JwksResolver) refresh() bool {
 				atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
 				return
 			}
-			log.Infof("Fetched the key successfully from the jwksuri, adding it to the cache")
 			newPubKey := string(resp)
 			r.keyEntries.Store(k, jwtPubKeyEntry{
 				pubKey:            newPubKey,
