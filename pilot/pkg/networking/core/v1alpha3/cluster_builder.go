@@ -172,10 +172,8 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	proxyNetworkView map[network.ID]bool) *cluster.Cluster {
 	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
-	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
 		subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
-		defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
 	} else {
 		subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
 	}
@@ -211,10 +209,12 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 
 	// Apply traffic policy for subset cluster with the destination rule traffic policy.
 	opts.mutable = subsetCluster
-	opts.istioMtlsSni = defaultSni
 
 	// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
 	opts.policy = MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
+	if opts.policy != nil && opts.policy.GetTls().GetMode() == networking.ClientTLSSettings_ISTIO_MUTUAL {
+		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
+	}
 	// Apply traffic policy for the subset cluster.
 	cb.applyTrafficPolicy(opts)
 
@@ -250,8 +250,9 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 
 	if clusterMode == DefaultClusterMode {
 		opts.serviceAccounts = serviceAccounts
-		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-		opts.simpleTLSSni = string(service.Hostname)
+		if opts.policy != nil && opts.policy.GetTls().GetMode() == networking.ClientTLSSettings_ISTIO_MUTUAL {
+			opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+		}
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
@@ -1020,9 +1021,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
 			},
 		}
-		// Set default SNI of cluster name for istio_mutual if sni is not set.
+		// Set default SNI for istio_mutual if sni is not set.
 		if len(tlsContext.Sni) == 0 {
-			tlsContext.Sni = c.cluster.Name
+			tlsContext.Sni = opts.istioMtlsSni
 		}
 		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
 		// We add `istio-peer-exchange` to the list of alpn strings.
