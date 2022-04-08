@@ -168,6 +168,8 @@ func TestAuthorization_JWT(t *testing.T) {
 						cases := []func(testContext framework.TestContext){
 							newTestCase(a[0], dst, "[NoJWT]", "", "/token1", false),
 							newTestCase(a[0], dst, "[NoJWT]", "", "/token2", false),
+							newTestCase(a[0], dst, "[Token3]", jwt.TokenIssuer1, "/token3", false),
+							newTestCase(a[0], dst, "[Token3]", jwt.TokenIssuer2, "/token3", true),
 							newTestCase(a[0], dst, "[Token1]", jwt.TokenIssuer1, "/token1", true),
 							newTestCase(a[0], dst, "[Token1]", jwt.TokenIssuer1, "/token2", false),
 							newTestCase(a[0], dst, "[Token2]", jwt.TokenIssuer2, "/token1", false),
@@ -463,16 +465,19 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				}
 
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
-					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
+					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool,
+						method string, address string, port string) func(t framework.TestContext) {
 						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
 								To: to,
 								Port: echo.Port{
-									Name: "http",
+									Name: port,
 								},
 								HTTP: echo.HTTP{
-									Path: path,
+									Path:    path,
+									Method:  method,
+									Headers: headers.New().WithHost(address).Build(),
 								},
 								Count: callCount,
 							}
@@ -494,31 +499,37 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 					// a connects to b, c and d in ns1 with mTLS.
 					// bInNs2 connects to b and c with mTLS, to d with plain-text.
 					cases := []func(testContext framework.TestContext){
-						// Test the policy with overlapped `paths` and `not_paths` on b.
+						// Test the policy with overlapped `paths`, `not_paths` and `not_methods` on b.
 						// a and bInNs2 should have the same results:
 						// - path with prefix `/prefix` should be denied explicitly.
 						// - path `/prefix/allowlist` should be excluded from the deny.
 						// - path `/allow` should be allowed implicitly.
-						newTestCase(a[0], b, "/prefix", false),
-						newTestCase(a[0], b, "/prefix/other", false),
-						newTestCase(a[0], b, "/prefix/allowlist", true),
-						newTestCase(a[0], b, "/allow", true),
-						newTestCase(bInNS2[0], b, "/prefix", false),
-						newTestCase(bInNS2[0], b, "/prefix/other", false),
-						newTestCase(bInNS2[0], b, "/prefix/allowlist", true),
-						newTestCase(bInNS2[0], b, "/allow", true),
+						newTestCase(a[0], b, "/", false, "GET", "", "http"),
+						newTestCase(a[0], b, "/", true, "PUT", "", "http"),
+						newTestCase(a[0], b, "/prefix", false, "PUT", "", "http"),
+						newTestCase(a[0], b, "/prefix/other", false, "PUT", "", "http"),
+						newTestCase(a[0], b, "/prefix/allowlist", true, "PUT", "", "http"),
+						newTestCase(a[0], b, "/allow", true, "PUT", "", "http"),
+						newTestCase(bInNS2[0], b, "/prefix", false, "PUT", "", "http"),
+						newTestCase(bInNS2[0], b, "/prefix/other", false, "PUT", "", "http"),
+						newTestCase(bInNS2[0], b, "/prefix/allowlist", true, "PUT", "", "http"),
+						newTestCase(bInNS2[0], b, "/allow", true, "PUT", "", "http"),
 
 						// Test the policy that denies other namespace on c.
 						// a should be allowed because it's from the same namespace.
+						// any request to path deny.com should be denied
 						// bInNs2 should be denied because it's from a different namespace.
-						newTestCase(a[0], c, "/", true),
-						newTestCase(bInNS2[0], c, "/", false),
+						newTestCase(a[0], c, "/", true, "PUT", "", "http"),
+						newTestCase(a[0], c, "/", false, "PUT", "deny.com", "http"),
+						newTestCase(bInNS2[0], c, "/", false, "PUT", "", "http"),
 
 						// Test the policy that denies plain-text traffic on d.
 						// a should be allowed because it's using mTLS.
+						// any request to port 8091 should be denied
 						// bInNs2 should be denied because it's using plain-text.
-						newTestCase(a[0], d, "/", true),
-						newTestCase(bInNS2[0], d, "/", false),
+						newTestCase(a[0], d, "/", true, "PUT", "", "http-8092"),
+						newTestCase(a[0], d, "/", false, "PUT", "", "http-8091"),
+						newTestCase(bInNS2[0], d, "/", false, "PUT", "", "http"),
 
 						// Test the policy with overlapped `paths` and `not_paths` on vm.
 						// a and bInNs2 should have the same results:
@@ -526,14 +537,14 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						// - path `/prefix/allowlist` should be excluded from the deny.
 						// - path `/allow` should be allowed implicitly.
 						// TODO(JimmyCYJ): support multiple VMs and test negative match on multiple VMs.
-						newTestCase(a[0], vm, "/prefix", false),
-						newTestCase(a[0], vm, "/prefix/other", false),
-						newTestCase(a[0], vm, "/prefix/allowlist", true),
-						newTestCase(a[0], vm, "/allow", true),
-						newTestCase(bInNS2[0], vm, "/prefix", false),
-						newTestCase(bInNS2[0], vm, "/prefix/other", false),
-						newTestCase(bInNS2[0], vm, "/prefix/allowlist", true),
-						newTestCase(bInNS2[0], vm, "/allow", true),
+						newTestCase(a[0], vm, "/prefix", false, "PUT", "", "http"),
+						newTestCase(a[0], vm, "/prefix/other", false, "PUT", "", "http"),
+						newTestCase(a[0], vm, "/prefix/allowlist", true, "PUT", "", "http"),
+						newTestCase(a[0], vm, "/allow", true, "PUT", "", "http"),
+						newTestCase(bInNS2[0], vm, "/prefix", false, "PUT", "", "http"),
+						newTestCase(bInNS2[0], vm, "/prefix/other", false, "PUT", "", "http"),
+						newTestCase(bInNS2[0], vm, "/prefix/allowlist", true, "PUT", "", "http"),
+						newTestCase(bInNS2[0], vm, "/allow", true, "PUT", "", "http"),
 					}
 
 					for _, c := range cases {
@@ -708,6 +719,20 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 							Path:     "/",
 							IP:       "10.4.5.6",
 							WantCode: http.StatusOK,
+						},
+						{
+							Name:     "allow 172.19.19.19",
+							Host:     "ipblocks.company.com",
+							Path:     "/",
+							IP:       "172.19.19.19",
+							WantCode: http.StatusOK,
+						},
+						{
+							Name:     "deny 172.19.19.20",
+							Host:     "notipblocks.company.com",
+							Path:     "/",
+							IP:       "172.19.19.20",
+							WantCode: http.StatusForbidden,
 						},
 					}
 
