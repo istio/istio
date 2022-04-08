@@ -26,6 +26,7 @@ import (
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 
 	"istio.io/istio/istioctl/pkg/multixds"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	xdsresource "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/pkg/log"
@@ -49,6 +50,7 @@ type XdsStatusWriter struct {
 
 type xdsWriterStatus struct {
 	proxyID              string
+	clusterID            string
 	istiodID             string
 	istiodVersion        string
 	clusterStatus        string
@@ -180,8 +182,13 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 				}
 				cds, lds, eds, rds, ecds := getSyncStatus(&clientConfig)
 				cp := multixds.CpInfo(dr)
+				meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
+				if err != nil {
+					return nil, nil, fmt.Errorf("could not parse node metadata: %w", err)
+				}
 				fullStatus = append(fullStatus, &xdsWriterStatus{
 					proxyID:              clientConfig.GetNode().GetId(),
+					clusterID:            meta.ClusterID.String(),
 					istiodID:             cp.ID,
 					istiodVersion:        cp.Info.Version,
 					clusterStatus:        cds,
@@ -194,8 +201,8 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 					return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
 				}
 
-				w = new(tabwriter.Writer).Init(s.Writer, 0, 9, 5, ' ', 0)
-				_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
+				w = new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
+				_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
 
 				sort.Slice(fullStatus, func(i, j int) bool {
 					return fullStatus[i].proxyID < fullStatus[j].proxyID
@@ -226,8 +233,8 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 }
 
 func xdsStatusPrintln(w io.Writer, status *xdsWriterStatus) error {
-	_, err := fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
-		status.proxyID,
+	_, err := fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+		status.proxyID, status.clusterID,
 		status.clusterStatus, status.listenerStatus, status.endpointStatus, status.routeStatus,
 		status.extensionconfigStaus,
 		status.istiodID, status.istiodVersion)
