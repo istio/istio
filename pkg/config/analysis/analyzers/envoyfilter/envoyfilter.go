@@ -26,16 +26,16 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-// EnvoyFilterAnalyzer checks envoyFilters to see if the patch section is okay
-type EnvoyFilterAnalyzer struct{}
+// EnvoyPatchAnalyzer checks envoyFilters to see if the patch section is okay
+type EnvoyPatchAnalyzer struct{}
 
 // (compile-time check that we implement the interface)
-var _ analysis.Analyzer = &EnvoyFilterAnalyzer{}
+var _ analysis.Analyzer = &EnvoyPatchAnalyzer{}
 
 // Metadata implements analysis.Analyzer
-func (*EnvoyFilterAnalyzer) Metadata() analysis.Metadata {
+func (*EnvoyPatchAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        "envoyfilter.EnvoyFilterAnalyzer",
+		Name:        "envoyfilter.EnvoyPatchAnalyzer",
 		Description: "Checks an envoyFilters ",
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Envoyfilters.Name(),
@@ -44,14 +44,14 @@ func (*EnvoyFilterAnalyzer) Metadata() analysis.Metadata {
 }
 
 // Analyze implements analysis.Analyzer
-func (s *EnvoyFilterAnalyzer) Analyze(c analysis.Context) {
+func (s *EnvoyPatchAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
-		s.analyzeEnvoyFilter(r, c)
+		s.analyzeEnvoyFilterPatch(r, c)
 		return true
 	})
 }
 
-func (*EnvoyFilterAnalyzer) analyzeEnvoyFilter(r *resource.Instance, c analysis.Context) {
+func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analysis.Context) {
 	ef := r.Message.(*network.EnvoyFilter)
 
 	// if the envoyFilter does not have a priority and it uses the INSERT_BEFORE or INSERT_AFTER

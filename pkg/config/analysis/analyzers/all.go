@@ -62,7 +62,7 @@ func All() []analysis.Analyzer {
 		&destinationrule.CaCertificateAnalyzer{},
 		&serviceentry.ProtocolAdressesAnalyzer{},
 		&webhook.Analyzer{},
-		&envoyfilter.EnvoyFilterAnalyzer{},
+		&envoyfilter.EnvoyPatchAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

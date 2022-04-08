@@ -635,7 +635,7 @@ var testGrid = []testCase{
 	{
 		name:       "EnvoyFilterUsesRelativeOperation",
 		inputFiles: []string{"testdata/relative-envoy-filter-operation.yaml"},
-		analyzer:   &envoyfilter.EnvoyFilterAnalyzer{},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
 		expected: []message{
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-1"},
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-2"},
@@ -644,7 +644,7 @@ var testGrid = []testCase{
 	{
 		name:       "EnvoyFilterUsesAbsoluteOperation",
 		inputFiles: []string{"testdata/absolute-envoy-filter-operation.yaml"},
-		analyzer:   &envoyfilter.EnvoyFilterAnalyzer{},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
 		expected:   []message{
 			// Test no messages are received for absolute operation usage
 		},
