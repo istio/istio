@@ -1021,6 +1021,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
 			},
 		}
+		// Set default SNI of cluster name for istio_mutual if sni is not set.
+		if len(tlsContext.Sni) == 0 {
+			tlsContext.Sni = c.cluster.Name
+		}
 		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
 		// We add `istio-peer-exchange` to the list of alpn strings.
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
