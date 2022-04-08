@@ -17,6 +17,7 @@ package fuzz
 
 import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 func FuzzParseInputs(data []byte) int {
@@ -25,4 +26,11 @@ func FuzzParseInputs(data []byte) int {
 		return 0
 	}
 	return 1
+}
+
+func proxyValid(p *model.Proxy) bool {
+	if len(p.IPAddresses) == 0 {
+		return false
+	}
+	return true
 }
