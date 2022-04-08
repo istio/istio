@@ -2563,6 +2563,10 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			old := features.VerifyCertAtClient
+			defer func() {
+				features.VerifyCertAtClient = old
+			}()
 			features.VerifyCertAtClient = tc.enableVerifyCertAtClient
 			var proxy *model.Proxy
 			if tc.router {
@@ -2970,9 +2974,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 }
 
 func TestApplyDestinationRuleOSCACert(t *testing.T) {
-	defer func() {
-		features.VerifyCertAtClient = false
-	}()
 	servicePort := model.PortList{
 		&model.Port{
 			Name:     "default",
@@ -3132,6 +3133,10 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			old := features.VerifyCertAtClient
+			defer func() {
+				features.VerifyCertAtClient = old
+			}()
 			features.VerifyCertAtClient = tt.enableVerifyCertAtClient
 			instances := []*model.ServiceInstance{
 				{
