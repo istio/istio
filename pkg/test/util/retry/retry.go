@@ -187,7 +187,6 @@ func UntilComplete(fn RetriableFunc, options ...Option) (interface{}, error) {
 			continue
 		}
 		successes = 0
-
 		if err != nil {
 			scope.Debugf("encountered an error on attempt %d: %v", attempts, err)
 			lasterr = err

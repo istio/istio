@@ -411,7 +411,6 @@ func (s *suiteImpl) run() (errLevel int) {
 			scopes.Framework.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
 			break
 		}
-
 		scopes.Framework.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
 			ctx.Settings().TestID, errLevel)
 		if attempt <= ctx.settings.Retries {

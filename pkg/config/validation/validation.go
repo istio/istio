@@ -2361,7 +2361,6 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 				continue
 			}
 			matchesEncountered[asJSON(match)] = rulen
-
 			// build the match rules into struct OverlappingMatchValidationForHTTPRoute based on current match
 			matchHTTPRoute := genMatchHTTPRoutes(route, match, rulen, matchn)
 			if matchHTTPRoute != nil {

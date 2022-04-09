@@ -210,7 +210,6 @@ func (wc *WebhookController) upsertSecret(secretName, dnsName, secretNamespace s
 			}
 			break
 		}
-
 		log.Warnf("failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
 		time.Sleep(time.Second)
 	}
