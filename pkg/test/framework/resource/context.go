@@ -112,7 +112,7 @@ type Context interface {
 
 	// Cleanup runs the given function when the test context completes.
 	// This function will always run, regardless of -istio.test.nocleanup. To run only when cleanup is enabled,
-	// use ConditionalCleanup.
+	// use WhenDone.
 	// This function may not (safely) access the test context.
 	Cleanup(fn func())
 
