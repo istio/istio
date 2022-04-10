@@ -547,7 +547,7 @@ func (s *ServiceEntryStore) Services() []*model.Service {
 	}
 	s.mutex.Unlock()
 	for _, svc := range allServices {
-		// shallow copy, copy `AutoAllocatedAddress`
+		// shallow copy, copy `AutoAllocatedIPv4Address` and `AutoAllocatedIPv6Address`
 		// if return the pointer directly, there will be a race with `BuildNameTable`
 		// nolint: govet
 		shallowSvc := *svc
@@ -804,7 +804,8 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 // Automatically allocates IPs for service entry services WITHOUT an
 // address field if the hostname is not a wildcard, or when resolution
 // is not NONE. The IPs are allocated from the reserved Class E subnet
-// (240.240.0.0/16) that is not reachable outside the pod. When DNS
+// (240.240.0.0/16) that is not reachable outside the pod or reserved
+// Benchmarking IP range (2001:0002::/48) in RFC5180. When DNS
 // capture is enabled, Envoy will resolve the DNS to these IPs. The
 // listeners for TCP services will also be set up on these IPs. The
 // IPs allocated to a service entry may differ from istiod to istiod
@@ -843,8 +844,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		//   for NONE because we will not know the original DST IP that the application requested.
 		// 2. the address is not set (0.0.0.0)
 		// 3. the hostname is not a wildcard
-		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
-			svc.Resolution != model.Passthrough {
+		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() && svc.Resolution != model.Passthrough {
 			x++
 			if x%255 == 0 {
 				x++
@@ -855,7 +855,11 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			}
 			thirdOctet := x / 255
 			fourthOctet := x % 255
-			svc.AutoAllocatedAddress = fmt.Sprintf("240.240.%d.%d", thirdOctet, fourthOctet)
+
+			svc.AutoAllocatedIPv4Address = fmt.Sprintf("240.240.%d.%d", thirdOctet, fourthOctet)
+			// if the service of service entry has IPv6 address, then allocate the IPv4-Mapped IPv6 Address for it
+			svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:0002::f0f0:%s%s",
+				strconv.FormatInt(int64(thirdOctet), 16), strconv.FormatInt(int64(fourthOctet), 16))
 		}
 	}
 	return services
