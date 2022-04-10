@@ -33,20 +33,89 @@ import (
 
 type sendFunc func(req *proto.ForwardEchoRequest) (echoclient.Responses, error)
 
-func callInternal(srcName string, opts *echo.CallOptions, send sendFunc) (echoclient.Responses, error) {
-	if err := opts.FillDefaults(); err != nil {
-		return nil, err
+func callInternal(srcName string, from echo.Caller, opts echo.CallOptions, send sendFunc) (echo.CallResult, error) {
+	// Create the proto request.
+	req := newForwardRequest(opts)
+	sendAndValidate := func() (echo.CallResult, error) {
+		responses, err := send(req)
+
+		// Verify the number of responses matches the expected.
+		if err == nil && len(responses) != opts.Count {
+			err = fmt.Errorf("unexpected number of responses: expected %d, received %d",
+				opts.Count, len(responses))
+		}
+
+		// Convert to a CallResult.
+		result := echo.CallResult{
+			From:      from,
+			Opts:      opts,
+			Responses: responses,
+		}
+
+		// Return the results from the validator.
+		err = opts.Check(result, err)
+		if err != nil {
+			err = fmt.Errorf("call failed from %s to %s (using %s): %v",
+				srcName, getTargetURL(opts), opts.Scheme, err)
+		}
+
+		return result, err
 	}
 
-	targetURL := getTargetURL(opts)
+	if opts.Retry.NoRetry {
+		// Retry is disabled, just send once.
+		t0 := time.Now()
+		defer scopes.Framework.Debugf("echo call complete with duration %v", time.Since(t0))
+		return sendAndValidate()
+	}
 
-	// Copy all the headers.
-	protoHeaders := common.HTTPToProtoHeaders(opts.HTTP.Headers)
+	// Retry the call until it succeeds or times out.
+	var result echo.CallResult
+	var err error
+	_, _ = retry.UntilComplete(func() (interface{}, bool, error) {
+		result, err = sendAndValidate()
+		if err != nil {
+			return nil, false, err
+		}
+		return nil, true, nil
+	}, opts.Retry.Options...)
 
-	req := &proto.ForwardEchoRequest{
-		Url:                targetURL,
+	return result, err
+}
+
+func CallEcho(from echo.Caller, opts echo.CallOptions) (echo.CallResult, error) {
+	if err := opts.FillDefaults(); err != nil {
+		return echo.CallResult{}, err
+	}
+
+	send := func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
+		instance, err := forwarder.New(forwarder.Config{
+			Request: req,
+			Proxy:   opts.HTTP.HTTPProxy,
+		})
+		if err != nil {
+			return nil, err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+		defer func() {
+			cancel()
+			_ = instance.Close()
+		}()
+		ret, err := instance.Run(ctx)
+		if err != nil {
+			return nil, err
+		}
+		resp := echoclient.ParseResponses(req, ret)
+		return resp, nil
+	}
+	return callInternal("TestRunner", from, opts, send)
+}
+
+func newForwardRequest(opts echo.CallOptions) *proto.ForwardEchoRequest {
+	return &proto.ForwardEchoRequest{
+		Url:                getTargetURL(opts),
 		Count:              int32(opts.Count),
-		Headers:            protoHeaders,
+		Headers:            common.HTTPToProtoHeaders(opts.HTTP.Headers),
 		TimeoutMicros:      common.DurationToMicros(opts.Timeout),
 		Message:            opts.Message,
 		ExpectedResponse:   opts.TCP.ExpectedResponse,
@@ -61,82 +130,31 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc) (echocl
 		KeyFile:            opts.TLS.KeyFile,
 		CaCertFile:         opts.TLS.CaCertFile,
 		InsecureSkipVerify: opts.TLS.InsecureSkipVerify,
+		Alpn:               getProtoALPN(opts.TLS.Alpn),
 		FollowRedirects:    opts.HTTP.FollowRedirects,
 		ServerName:         opts.TLS.ServerName,
 	}
-	if opts.TLS.Alpn != nil {
-		req.Alpn = &proto.Alpn{
-			Value: opts.TLS.Alpn,
-		}
-	}
-
-	var responses echoclient.Responses
-	sendAndValidate := func() error {
-		var err error
-		responses, err = send(req)
-
-		// Verify the number of responses matches the expected.
-		if err == nil {
-			if len(responses) != opts.Count {
-				err = fmt.Errorf("unexpected number of responses: expected %d, received %d",
-					opts.Count, len(responses))
-			}
-		}
-
-		// Return the results from the validator.
-		return opts.Check(responses, err)
-	}
-
-	formatError := func(err error) error {
-		if err != nil {
-			return fmt.Errorf("call failed from %s to %s (using %s): %v", srcName, targetURL, opts.Scheme, err)
-		}
-		return nil
-	}
-
-	if !opts.Retry.NoRetry {
-		// Add defaults retry options to the beginning, since last option encountered wins.
-		err := retry.UntilSuccess(sendAndValidate, opts.Retry.Options...)
-		return responses, formatError(err)
-	}
-
-	t0 := time.Now()
-	// Retry not enabled for this call.
-	err := sendAndValidate()
-	scopes.Framework.Debugf("echo call complete with duration %v", time.Since(t0))
-	return responses, formatError(err)
 }
 
-func CallEcho(opts *echo.CallOptions) (echoclient.Responses, error) {
-	send := func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
-		instance, err := forwarder.New(forwarder.Config{
-			Request: req,
-			Proxy:   opts.HTTP.HTTPProxy,
-		})
-		if err != nil {
-			return nil, err
+func getProtoALPN(alpn []string) *proto.Alpn {
+	if alpn != nil {
+		return &proto.Alpn{
+			Value: alpn,
 		}
-		defer func() {
-			_ = instance.Close()
-		}()
-		ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
-		defer cancel()
-		ret, err := instance.Run(ctx)
-		if err != nil {
-			return nil, err
-		}
-		resp := echoclient.ParseResponses(req, ret)
-		return resp, nil
 	}
-	return callInternal("TestRunner", opts, send)
+	return nil
 }
 
 // EchoClientProvider provides dynamic creation of Echo clients. This allows retries to potentially make
 // use of different (ready) workloads for forward requests.
 type EchoClientProvider func() (*echoclient.Client, error)
 
-func ForwardEcho(srcName string, clientProvider EchoClientProvider, opts *echo.CallOptions) (echoclient.Responses, error) {
-	res, err := callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
+func ForwardEcho(srcName string, from echo.Caller, opts echo.CallOptions, clientProvider EchoClientProvider) (echo.CallResult, error) {
+	if err := opts.FillDefaults(); err != nil {
+		return echo.CallResult{}, err
+	}
+
+	res, err := callInternal(srcName, from, opts, func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
 		c, err := clientProvider()
 		if err != nil {
 			return nil, err
@@ -144,7 +162,7 @@ func ForwardEcho(srcName string, clientProvider EchoClientProvider, opts *echo.C
 		return c.ForwardEcho(context.Background(), req)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed calling %s->'%s': %v",
+		return echo.CallResult{}, fmt.Errorf("failed calling %s->'%s': %v",
 			srcName,
 			getTargetURL(opts),
 			err)
@@ -152,7 +170,7 @@ func ForwardEcho(srcName string, clientProvider EchoClientProvider, opts *echo.C
 	return res, nil
 }
 
-func getTargetURL(opts *echo.CallOptions) string {
+func getTargetURL(opts echo.CallOptions) string {
 	port := opts.Port.ServicePort
 	addressAndPort := net.JoinHostPort(opts.Address, strconv.Itoa(port))
 	// Forward a request from 'this' service to the destination service.

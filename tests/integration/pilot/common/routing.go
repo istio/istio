@@ -36,11 +36,11 @@ import (
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
@@ -132,7 +132,7 @@ func httpGateway(host string) string {
 	})
 }
 
-func virtualServiceCases(skipVM bool) []TrafficTestCase {
+func virtualServiceCases(t framework.TestContext, skipVM bool) []TrafficTestCase {
 	var cases []TrafficTestCase
 	cases = append(cases,
 		TrafficTestCase{
@@ -704,10 +704,10 @@ spec:
       weight: {{ ( index $split $idx ) }}
 {{- end }}
 `,
-			checkForN: func(src echo.Caller, dests echo.Services, opts *echo.CallOptions) check.Checker {
+			checkForN: func(src echo.Caller, dests echo.Services, opts *echo.CallOptions) echo.Checker {
 				return check.And(
 					check.OK(),
-					func(responses echoClient.Responses, err error) error {
+					func(result echo.CallResult, err error) error {
 						errorThreshold := 10
 						if len(split) != len(dests) {
 							// shouldn't happen
@@ -719,7 +719,7 @@ spec:
 							splitPerHost[destNames[i]] = pct
 						}
 						for serviceName, exp := range splitPerHost {
-							hostResponses := responses.Match(func(r echoClient.Response) bool {
+							hostResponses := result.Responses.Match(func(r echoClient.Response) bool {
 								return strings.HasPrefix(r.Hostname, serviceName.Name)
 							})
 							if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
@@ -727,14 +727,19 @@ spec:
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
 							to := match.ServiceName(serviceName).GetMatches(dests.Instances())
+							fromCluster := src.(echo.Instance).Config().Cluster
 							toClusters := to.Clusters()
 							// don't check headless since lb is unpredictable
 							headlessTarget := match.Headless.Any(to)
-							if !headlessTarget && len(toClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
+							if !headlessTarget && len(toClusters.ByNetwork()[fromCluster.NetworkName()]) > 1 {
 								// Conditionally check reached clusters to work around connection load balancing issues
 								// See https://github.com/istio/istio/issues/32208 for details
 								// We want to skip this for requests from the cross-network pod
-								if err := check.ReachedClusters(toClusters).Check(hostResponses, nil); err != nil {
+								if err := check.ReachedClusters(t.AllClusters(), toClusters).Check(echo.CallResult{
+									From:      result.From,
+									Opts:      result.Opts,
+									Responses: hostResponses,
+								}, nil); err != nil {
 									return fmt.Errorf("did not reach all clusters for %s: %v", serviceName, err)
 								}
 							}
@@ -901,7 +906,7 @@ func trafficLoopCases(apps *deployment.SingleNamespaceView) []TrafficTestCase {
 				c, d, port := c, d, port
 				cases = append(cases, TrafficTestCase{
 					name: port,
-					call: func(t test.Failer, options echo.CallOptions) echoClient.Responses {
+					call: func(t test.Failer, options echo.CallOptions) echo.CallResult {
 						dwl := d.WorkloadsOrFail(t)[0]
 						cwl := c.WorkloadsOrFail(t)[0]
 						resp, err := cwl.ForwardEcho(context.Background(), &epb.ForwardEchoRequest{
@@ -913,7 +918,11 @@ func trafficLoopCases(apps *deployment.SingleNamespaceView) []TrafficTestCase {
 						if err == nil {
 							t.Fatalf("expected request to fail, but it didn't: %v", resp)
 						}
-						return nil
+						return echo.CallResult{
+							From:      nil,
+							Opts:      options,
+							Responses: nil,
+						}
 					},
 				})
 			}
@@ -1952,8 +1961,8 @@ spec:
 					Port:    echo.Port{ServicePort: ports.All().MustForName("http").ServicePort, Protocol: protocol.HTTP},
 					Check: check.And(
 						check.OK(),
-						func(responses echoClient.Responses, rerr error) error {
-							err := ConsistentHostChecker.Check(responses, rerr)
+						func(result echo.CallResult, rerr error) error {
+							err := ConsistentHostChecker.Check(result, rerr)
 							if err == nil {
 								return fmt.Errorf("expected inconsistent hash, but it was consistent")
 							}
@@ -2021,9 +2030,9 @@ spec:
 	return cases
 }
 
-var ConsistentHostChecker check.Checker = func(responses echoClient.Responses, _ error) error {
-	hostnames := make([]string, len(responses))
-	for i, r := range responses {
+var ConsistentHostChecker echo.Checker = func(result echo.CallResult, _ error) error {
+	hostnames := make([]string, len(result.Responses))
+	for i, r := range result.Responses {
 		hostnames[i] = r.Hostname
 	}
 	scopes.Framework.Infof("requests landed on hostnames: %v", hostnames)
@@ -2151,7 +2160,7 @@ func protocolSniffingCases(apps *deployment.SingleNamespaceView) []TrafficTestCa
 				Scheme:  call.scheme,
 				Timeout: time.Second * 5,
 			},
-			check: func(src echo.Caller, opts *echo.CallOptions) check.Checker {
+			check: func(src echo.Caller, opts *echo.CallOptions) echo.Checker {
 				if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
 					// no host header for TCP
 					// TODO understand why proxyless adds the port to :authority md
@@ -2531,8 +2540,8 @@ spec:
 			if tt.server != "" {
 				address += "&server=" + tt.server
 			}
-			var checker check.Checker = func(responses echoClient.Responses, _ error) error {
-				for _, r := range responses {
+			var checker echo.Checker = func(result echo.CallResult, _ error) error {
+				for _, r := range result.Responses {
 					if !reflect.DeepEqual(r.Body(), tt.expected) {
 						return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, r.Body())
 					}
@@ -2592,8 +2601,8 @@ spec:
 					Count:   1,
 					Scheme:  scheme.DNS,
 					Address: address,
-					Check: func(responses echoClient.Responses, _ error) error {
-						for _, r := range responses {
+					Check: func(result echo.CallResult, _ error) error {
+						for _, r := range result.Responses {
 							ips := r.Body()
 							sort.Strings(ips)
 							exp := []string{expected}
@@ -2610,7 +2619,7 @@ spec:
 	return tcases
 }
 
-func VMTestCases(vms echo.Instances, apps *deployment.SingleNamespaceView) []TrafficTestCase {
+func VMTestCases(t framework.TestContext, vms echo.Instances, apps *deployment.SingleNamespaceView) []TrafficTestCase {
 	var testCases []vmCase
 
 	for _, vm := range vms {
@@ -2685,7 +2694,7 @@ func VMTestCases(vms echo.Instances, apps *deployment.SingleNamespaceView) []Tra
 		checker := check.OK()
 		if !match.Headless.Any(c.to) {
 			// headless load-balancing can be inconsistent
-			checker = check.And(checker, check.ReachedClusters(c.to.Clusters()))
+			checker = check.And(checker, check.ReachedClusters(t.AllClusters(), c.to.Clusters()))
 		}
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),
@@ -2790,7 +2799,7 @@ func serverFirstTestCases(apps *deployment.SingleNamespaceView) []TrafficTestCas
 		port    string
 		dest    string
 		auth    string
-		checker check.Checker
+		checker echo.Checker
 	}{
 		// TODO: All these cases *should* succeed (except the TLS mismatch cases) - but don't due to issues in our implementation
 
