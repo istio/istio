@@ -442,7 +442,15 @@ istioctl-install-container: istioctl
 
 .PHONY: test
 
+# This target sets JUNIT_REPORT to the location of the  go-junit-report binary.
+# This binary is provided in the build container. If it is not found, the build
+# container is not being used, so ask the user to install go-junit-report.
 JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
+
+${ISTIO_BIN}/go-junit-report:
+	@echo "go-junit-report was not found in the build environment."
+	@echo "Please install go-junit-report (ex. go install github.com/jstemmer/go-junit-report@latest)"
+	@exit 1
 
 # This is just an alias for racetest now
 test: racetest ## Runs all unit tests
