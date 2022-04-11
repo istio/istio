@@ -77,6 +77,9 @@ func FuzzWE(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if !proxyValid(proxy) {
+		return 0
+	}
 
 	store := memory.NewController(memory.Make(collections.All))
 	c := workloadentry.NewController(store, "", keepalive.Infinity)
