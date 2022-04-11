@@ -29,7 +29,6 @@ import (
 const xdsHeaderPrefix = "XDS_HEADER_"
 
 func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
-	proxy.DiscoverIPMode()
 	o := &istioagent.AgentOptions{
 		XDSRootCerts:                xdsRootCA,
 		CARootCerts:                 caRootCA,
