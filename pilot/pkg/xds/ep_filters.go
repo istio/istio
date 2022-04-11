@@ -67,6 +67,13 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 
 		// Process all of the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
+			istioEndpoint := ep.istioEndpoints[i]
+
+			// If the proxy can't view the network for this endpoint, exclude it entirely.
+			if !b.proxyView.IsVisible(istioEndpoint) {
+				continue
+			}
+
 			// Copy the endpoint in order to expand the load balancing weight.
 			// When multiplying, be careful to avoid overflow - clipping the
 			// result at the maximum value for uint32.
@@ -78,7 +85,6 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				}
 			}
 
-			istioEndpoint := ep.istioEndpoints[i]
 			epNetwork := istioEndpoint.Network
 			epCluster := istioEndpoint.Locality.ClusterID
 			gateways := b.selectNetworkGateways(epNetwork, epCluster)
@@ -89,11 +95,6 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
 				// The endpoint is directly reachable - just add it.
 				lbEndpoints.append(ep.istioEndpoints[i], lbEp, ep.istioEndpoints[i].TunnelAbility)
-				continue
-			}
-
-			// If the proxy can't view the network for this endpoint, exclude it entirely.
-			if !b.canViewNetwork(epNetwork) {
 				continue
 			}
 

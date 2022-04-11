@@ -63,7 +63,7 @@ type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
 	network         network.ID
-	networkView     map[network.ID]bool
+	proxyView       model.ProxyView
 	clusterID       cluster.ID
 	locality        *core.Locality
 	destinationRule *config.Config
@@ -92,7 +92,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	b := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
-		networkView:     proxy.GetNetworkView(),
+		proxyView:       proxy.GetView(),
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,
@@ -141,13 +141,8 @@ func (b EndpointBuilder) Key() string {
 	if b.service != nil {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
-	if b.networkView != nil {
-		nv := make([]string, 0, len(b.networkView))
-		for nw := range b.networkView {
-			nv = append(nv, string(nw))
-		}
-		sort.Strings(nv)
-		params = append(params, nv...)
+	if b.proxyView != nil {
+		params = append(params, b.proxyView.String())
 	}
 	hash := md5.New()
 	for _, param := range params {
@@ -179,13 +174,6 @@ var edsDependentTypes = []config.GroupVersionKind{gvk.PeerAuthentication}
 
 func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
 	return edsDependentTypes
-}
-
-func (b *EndpointBuilder) canViewNetwork(network network.ID) bool {
-	if b.networkView == nil {
-		return true
-	}
-	return b.networkView[network]
 }
 
 // TODO(lambdai): Receive port value(15009 by default), builder to cover wide cases.
