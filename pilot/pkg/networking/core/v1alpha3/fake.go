@@ -97,7 +97,7 @@ type ConfigGenTest struct {
 	env                  *model.Environment
 	ConfigGen            *ConfigGeneratorImpl
 	MemRegistry          *memregistry.ServiceDiscovery
-	ServiceEntryRegistry *serviceentry.ServiceEntryStore
+	ServiceEntryRegistry *serviceentry.Controller
 	Registry             model.Controller
 	initialConfigs       []config.Config
 	stop                 chan struct{}
@@ -127,7 +127,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
-	se := serviceentry.NewServiceDiscovery(
+	se := serviceentry.NewController(
 		configController, model.MakeIstioStore(configStore),
 		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry

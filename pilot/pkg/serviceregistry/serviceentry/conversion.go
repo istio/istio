@@ -229,7 +229,7 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 	return out
 }
 
-func (s *ServiceEntryStore) convertEndpoint(service *model.Service, servicePort *networking.Port,
+func (s *Controller) convertEndpoint(service *model.Service, servicePort *networking.Port,
 	wle *networking.WorkloadEntry, configKey *configKey, clusterID cluster.ID) *model.ServiceInstance {
 	var instancePort uint32
 	addr := wle.GetAddress()
@@ -279,7 +279,7 @@ func (s *ServiceEntryStore) convertEndpoint(service *model.Service, servicePort 
 
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
-func (s *ServiceEntryStore) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
+func (s *Controller) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
 	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
@@ -290,7 +290,7 @@ func (s *ServiceEntryStore) convertWorkloadEntryToServiceInstances(wle *networki
 	return out
 }
 
-func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
+func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if serviceEntry == nil {
@@ -375,7 +375,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this workload instance when selecting workload entries
-func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
+func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
 	we := convertWorkloadEntry(cfg)
 	addr := we.GetAddress()
 	dnsServiceEntryOnly := false

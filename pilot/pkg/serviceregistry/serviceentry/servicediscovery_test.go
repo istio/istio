@@ -55,7 +55,7 @@ func createConfigs(configs []*config.Config, store model.IstioConfigStore, t tes
 	}
 }
 
-func callInstanceHandlers(instances []*model.WorkloadInstance, sd *ServiceEntryStore, ev model.Event, t testing.TB) {
+func callInstanceHandlers(instances []*model.WorkloadInstance, sd *Controller, ev model.Event, t testing.TB) {
 	t.Helper()
 	for _, instance := range instances {
 		sd.WorkloadInstanceHandler(instance, ev)
@@ -137,13 +137,13 @@ func waitForEvent(t testing.TB, ch chan Event) Event {
 	}
 }
 
-func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
+func initServiceDiscovery() (model.IstioConfigStore, *Controller, chan Event, func()) {
 	return initServiceDiscoveryWithOpts()
 }
 
 // initServiceDiscoveryWithoutEvents initializes a test setup with no events. This avoids excessive attempts to push
 // EDS updates to a full queue
-func initServiceDiscoveryWithoutEvents(t test.Failer) (model.IstioConfigStore, *ServiceEntryStore) {
+func initServiceDiscoveryWithoutEvents(t test.Failer) (model.IstioConfigStore, *Controller) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
@@ -165,14 +165,14 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.IstioConfigStore, *
 	}()
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater)
+	serviceController := NewController(configController, istioStore, xdsUpdater)
 	t.Cleanup(func() {
 		close(stop)
 	})
 	return istioStore, serviceController
 }
 
-func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
+func initServiceDiscoveryWithOpts(opts ...Option) (model.IstioConfigStore, *Controller, chan Event, func()) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
@@ -185,7 +185,7 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 	}
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater, opts...)
+	serviceController := NewController(configController, istioStore, xdsUpdater, opts...)
 	go serviceController.Run(stop)
 	return istioStore, serviceController, eventch, func() {
 		close(stop)
@@ -1044,7 +1044,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 	})
 }
 
-func expectProxyInstances(t testing.TB, sd *ServiceEntryStore, expected []*model.ServiceInstance, ip string) {
+func expectProxyInstances(t testing.TB, sd *Controller, expected []*model.ServiceInstance, ip string) {
 	t.Helper()
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
@@ -1099,7 +1099,7 @@ func expectEvents(t testing.TB, ch chan Event, events ...Event) {
 	}
 }
 
-func expectServiceInstances(t testing.TB, sd *ServiceEntryStore, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
+func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
 	t.Helper()
 	svcs := convertServices(*cfg)
 	if len(svcs) != len(expected) {
@@ -1562,7 +1562,8 @@ func Test_autoAllocateIP_values(t *testing.T) {
 }
 
 func TestWorkloadEntryOnlyMode(t *testing.T) {
-	store, registry, _, cleanup := initServiceDiscoveryWithOpts(DisableServiceEntryProcessing())
+	store, registry, _, cleanup := initServiceDiscoveryWithOpts()
+	registry.processServiceEntry = false
 	defer cleanup()
 	createConfigs([]*config.Config{httpStatic}, store, t)
 	svcs := registry.Services()

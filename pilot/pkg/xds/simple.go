@@ -102,8 +102,8 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	// Endpoints/Clusters - using the config store for ServiceEntries
 	serviceControllers := aggregate.NewController(aggregate.Options{})
 
-	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, s.MemoryConfigStore, ds)
-	serviceControllers.AddRegistry(serviceEntryStore)
+	serviceEntryController := serviceentry.NewController(configController, s.MemoryConfigStore, ds)
+	serviceControllers.AddRegistry(serviceEntryController)
 
 	sd := controllermemory.NewServiceDiscovery()
 	sd.EDSUpdater = ds
