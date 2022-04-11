@@ -9,7 +9,7 @@ docs: []
 
 releaseNotes:
 - |
-  **Added** values to the Istio Pilot Helm charts for configuring affinity rules and tolerations on the Deployment.  Can be used for better placement of Istio pilot workloads.
+  **Added** values to the Istio Pilot Helm charts for configuring affinity rules and tolerations on the Deployment. Can be used for better placement of Istio pilot workloads.
 upgradeNotes: []
 
 securityNotes: []
