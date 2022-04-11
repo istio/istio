@@ -585,16 +585,10 @@ type buildClusterOpts struct {
 	port             *model.Port
 	serviceAccounts  []string
 	serviceInstances []*model.ServiceInstance
-	// Used for traffic across multiple Istio clusters
-	// the ingress gateway in a remote cluster will use this value to route
+	// Used for traffic across multiple network clusters
+	// the east-west gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service
-	istioMtlsSni string
-	// This is used when the sidecar is sending simple TLS traffic
-	// to endpoints. This is different from the previous SNI
-	// because usually in this case the traffic is going to a
-	// non-sidecar workload that can only understand the service's
-	// hostname in the SNI.
-	simpleTLSSni    string
+	istioMtlsSni    string
 	clusterMode     ClusterMode
 	direction       model.TrafficDirection
 	meshExternal    bool

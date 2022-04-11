@@ -251,7 +251,6 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	if clusterMode == DefaultClusterMode {
 		opts.serviceAccounts = serviceAccounts
 		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-		opts.simpleTLSSni = string(service.Hostname)
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
@@ -808,7 +807,7 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(
 		}
 		// For backward compatibility, use metadata certs if provided.
 		if cb.hasMetadataCerts() {
-			// When building Mutual TLS settings, we should always user supplied SubjectAltNames and SNI
+			// When building Mutual TLS settings, we should always use user supplied SubjectAltNames and SNI
 			// in destination rule. The Service Accounts and auto computed SNI should only be used for
 			// ISTIO_MUTUAL.
 			return cb.buildMutualTLS(tls.SubjectAltNames, tls.Sni), userSupplied
@@ -818,14 +817,14 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(
 		}
 		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
 		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
-		// are useful when routing via gateways. Use Service Acccounts if Subject Alt names
+		// are useful when routing via gateways. Use Service Accounts if Subject Alt names
 		// are not specified in TLS settings.
 		sniToUse := tls.Sni
 		if len(sniToUse) == 0 {
 			sniToUse = sni
 		}
 		subjectAltNamesToUse := tls.SubjectAltNames
-		if len(subjectAltNamesToUse) == 0 {
+		if subjectAltNamesToUse == nil {
 			subjectAltNamesToUse = serviceAccounts
 		}
 		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
@@ -868,10 +867,10 @@ func (cb *ClusterBuilder) buildMutualTLS(serviceAccounts []string, sni string) *
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func (cb *ClusterBuilder) buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
+func (cb *ClusterBuilder) buildIstioMutualTLS(san []string, sni string) *networking.ClientTLSSettings {
 	return &networking.ClientTLSSettings{
 		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-		SubjectAltNames: serviceAccounts,
+		SubjectAltNames: san,
 		Sni:             sni,
 	}
 }
