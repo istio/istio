@@ -957,7 +957,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 			} else {
 				// Address is a CIDR. Fall back to 0.0.0.0 and
 				// filter chain match
-				*destinationCIDR = svcListenAddress
+				destinationCIDR = svcListenAddress
 				listenerOpts.bind = actualWildcard
 			}
 		}
@@ -1044,7 +1044,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 // allowed only if they have different CIDR matches.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
 	listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcard string) {
-	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
 	var ret bool
@@ -1118,7 +1117,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 			listenerOpts.filterChainOpts = opts
 
 		case istionetworking.ListenerProtocolTCP:
-			if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(&destinationCIDR, &listenerMapKey, &currentListenerEntry,
+			if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry,
 				&listenerOpts, listenerMap, virtualServices, actualWildcard); !ret {
 				return
 			}
@@ -1140,7 +1139,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 
 		case istionetworking.ListenerProtocolAuto:
 			// Add tcp filter chain, build TCP filter chain first.
-			if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(&destinationCIDR, &listenerMapKey, &currentListenerEntry,
+			if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry,
 				&listenerOpts, listenerMap, virtualServices, actualWildcard); !ret {
 				return
 			}
