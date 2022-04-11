@@ -23,6 +23,6 @@ COPY ${TARGETARCH:-amd64}/install-cni /usr/local/bin/install-cni
 # Copy over the Taint binary
 COPY ${TARGETARCH:-amd64}/istio-cni-taint /opt/local/bin/istio-cni-taint
 
-ENV PATH=$PATH:/opt/cni/bin
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/cni/bin
 WORKDIR /opt/cni/bin
 CMD ["/usr/local/bin/install-cni"]
