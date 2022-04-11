@@ -101,6 +101,10 @@ const (
 	// Path for DestinationRule port-level tls certificate.
 	// Required parameters: portLevelSettings index.
 	DestinationRuleTLSPortLevelCert = "{.spec.trafficPolicy.portLevelSettings[%d].tls.caCertificates}"
+
+	// Path for ConfigPatch in envoyFilter
+	// Required parameters: envoyFilter config patch index
+	EnvoyFilterConfigPath = "{.spec.configPatches[%d].patch.value}"
 )
 
 // ErrorLine returns the line number of the input path key in the resource

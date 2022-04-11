@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
+	"istio.io/istio/pkg/config/analysis/analyzers/envoyfilter"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -629,6 +630,23 @@ var testGrid = []testCase{
 		analyzer:   &service.PortNameAnalyzer{},
 		expected:   []message{
 			// Test no messages are received for correct port name
+		},
+	},
+	{
+		name:       "EnvoyFilterUsesRelativeOperation",
+		inputFiles: []string{"testdata/relative-envoy-filter-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-1"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-2"},
+		},
+	},
+	{
+		name:       "EnvoyFilterUsesAbsoluteOperation",
+		inputFiles: []string{"testdata/absolute-envoy-filter-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected:   []message{
+			// Test no messages are received for absolute operation usage
 		},
 	},
 }
