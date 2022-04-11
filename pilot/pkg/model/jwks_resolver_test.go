@@ -101,23 +101,20 @@ func TestGetOrUpdatePublicKey(t *testing.T) {
 		},
 	}
 
-	r.GetOrUpdatePublicKey(cases[0].in[0], cases[0].in[1])
-	key := jwtKey{issuer: cases[0].in[0], jwksURI: cases[0].in[1]}
-	retry.UntilSuccessOrFail(t, func() error {
-		// Make sure cache will be updated with public key.
-		if val, found := r.keyEntries.Load(key); found {
-			e := val.(jwtPubKeyEntry)
-			if e.pubKey != "" {
-				return nil
-			}
-		}
-		return fmt.Errorf("failed to update the cache with public key")
-	})
 	for _, c := range cases {
-		pk, err := r.GetOrUpdatePublicKey(c.in[0], c.in[1])
-		if err != nil {
-			t.Errorf("GetOrUpdatePublicKey(\"\", %+v) fails: expected no error, got (%v)", c.in, err)
-		}
+		pk := r.GetOrUpdatePublicKey(c.in[0], c.in[1])
+		key := jwtKey{issuer: c.in[0], jwksURI: c.in[1]}
+		retry.UntilSuccessOrFail(t, func() error {
+			// Make sure cache will be updated with public key.
+			if val, found := r.keyEntries.Load(key); found {
+				e := val.(jwtPubKeyEntry)
+				if e.pubKey != "" {
+					pk = e.pubKey
+					return nil
+				}
+			}
+			return fmt.Errorf("failed to update the cache with public key")
+		})
 		if c.expectedJwtPubkey != pk {
 			t.Errorf("GetOrUpdatePublicKey(\"\", %+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
@@ -156,23 +153,21 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 		},
 	}
 	r.GetOrUpdatePublicKey(cases[0].in[0], cases[0].in[1])
-	key := jwtKey{issuer: cases[0].in[0], jwksURI: cases[0].in[1]}
-	retry.UntilSuccessOrFail(t, func() error {
-		// Make sure cache will be updated with public key.
-		if val, found := r.keyEntries.Load(key); found {
-			e := val.(jwtPubKeyEntry)
-			if e.pubKey != "" {
-				return nil
-			}
 
-		}
-		return fmt.Errorf("failed to update the cache the public key")
-	})
 	for _, c := range cases {
-		pk, err := r.GetOrUpdatePublicKey(c.in[0], c.in[1])
-		if err != nil {
-			t.Errorf("GetOrUpdatePublicKey(\"\", %+v) fails: expected no error, got (%v)", c.in, err)
-		}
+		pk := r.GetOrUpdatePublicKey(c.in[0], c.in[1])
+		key := jwtKey{issuer: c.in[0], jwksURI: c.in[1]}
+		retry.UntilSuccessOrFail(t, func() error {
+			// Make sure cache will be updated with public key.
+			if val, found := r.keyEntries.Load(key); found {
+				e := val.(jwtPubKeyEntry)
+				if e.pubKey != "" {
+					pk = e.pubKey
+					return nil
+				}
+			}
+			return fmt.Errorf("failed to update the cache the public key")
+		})
 		if c.expectedJwtPubkey != pk {
 			t.Errorf("GetOrUpdatePublicKey(\"\", %+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
@@ -180,7 +175,7 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 	}
 
 	// Verify refresh job key changed count is zero.
-	if got, want := r.refreshJobKeyChangedCount, uint64(0); got != want {
+	if got, want := r.refreshJobKeyChangedCount, uint64(1); got != want {
 		t.Errorf("JWKs Resolver Refreshed Key Count => expected %d but got %d", want, got)
 	}
 }
@@ -215,10 +210,7 @@ func TestGetPublicKeyUsingTLS(t *testing.T) {
 		return fmt.Errorf("failed to update the cache with public key")
 	})
 
-	pk, err := r.GetOrUpdatePublicKey("", mockCertURL)
-	if err != nil {
-		t.Errorf("GetOrUpdatePublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
-	}
+	pk := r.GetOrUpdatePublicKey("", mockCertURL)
 	if test.JwtPubKey1 != pk {
 		t.Errorf("GetOrUpdatePublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
 	}
@@ -356,10 +348,7 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 		return fmt.Errorf("failed to update the cache with the public key")
 	})
 
-	pk, err := r.GetOrUpdatePublicKey("", mockCertURL)
-	if err != nil {
-		t.Fatalf("GetOrUpdatePublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
-	}
+	pk := r.GetOrUpdatePublicKey("", mockCertURL)
 	// Mock server returns JwtPubKey1 for first call.
 	if test.JwtPubKey1 != pk {
 		t.Fatalf("GetOrUpdatePublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
@@ -374,7 +363,7 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 			case <-done:
 				return
 			case <-c.C:
-				_, _ = r.GetOrUpdatePublicKey("", mockCertURL)
+				r.GetOrUpdatePublicKey("", mockCertURL)
 			}
 		}
 	}()
@@ -384,8 +373,8 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 
 	// Verify the cached public key is removed after failed to refresh longer than the eviction duration.
 	retry.UntilSuccessOrFail(t, func() error {
-		_, err := r.GetOrUpdatePublicKey("", mockCertURL)
-		if err == nil {
+		pk := r.GetOrUpdatePublicKey("", mockCertURL)
+		if pk != "" {
 			return fmt.Errorf("getPublicKey(\"\", %+v) fails: expected error, got no error", mockCertURL)
 		}
 		return nil
@@ -457,10 +446,7 @@ func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 		}
 		return fmt.Errorf("failed to update the cache with public key")
 	})
-	pk, err := r.GetOrUpdatePublicKey("", mockCertURL)
-	if err != nil {
-		t.Errorf("GetOrUpdatePublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
-	}
+	pk := r.GetOrUpdatePublicKey("", mockCertURL)
 	if test.JwtPubKey1 != pk {
 		t.Errorf("GetOrUpdatePublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
 	}
@@ -507,13 +493,9 @@ func TestJwtRefreshIntervalRecoverFromFail(t *testing.T) {
 		}
 		return fmt.Errorf("failed to update the cache with public key")
 	})
-	_, err := r.GetOrUpdatePublicKey("", mockCertURL)
-	if err != nil {
-		t.Fatalf("GetOrUpdatePublicKey(%q, %+v) fails: expected no error, got (%v)", "", mockCertURL, err)
-	}
 
 	retry.UntilOrFail(t, func() bool {
-		pk, _ := r.GetOrUpdatePublicKey("", mockCertURL)
+		pk := r.GetOrUpdatePublicKey("", mockCertURL)
 		return test.JwtPubKey1 == pk
 	}, retry.Delay(time.Millisecond))
 	r.Close()
@@ -566,7 +548,7 @@ func TestJwtPubKeyMetric(t *testing.T) {
 
 	for _, c := range cases {
 		retry.UntilOrFail(t, func() bool {
-			pk, _ := r.GetOrUpdatePublicKey(c.in[0], c.in[1])
+			pk := r.GetOrUpdatePublicKey(c.in[0], c.in[1])
 			return c.expectedJwtPubkey == pk
 		}, retry.Delay(time.Millisecond))
 	}
@@ -607,10 +589,7 @@ func verifyKeyRefresh(t *testing.T, r *JwksResolver, ms *test.MockOpenIDDiscover
 		return fmt.Errorf("failed to update the cache with public key")
 	})
 
-	pk, err := r.GetOrUpdatePublicKey("", mockCertURL)
-	if err != nil {
-		t.Fatalf("GetOrUpdatePublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
-	}
+	pk := r.GetOrUpdatePublicKey("", mockCertURL)
 	// Mock server returns JwtPubKey1 for first call.
 	if test.JwtPubKey1 != pk {
 		t.Fatalf("GetOrUpdatePublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
@@ -619,15 +598,12 @@ func verifyKeyRefresh(t *testing.T, r *JwksResolver, ms *test.MockOpenIDDiscover
 	// Wait until refresh job at least finished once.
 	retry.UntilSuccessOrFail(t, func() error {
 		// Make sure refresh job has run and detect change or refresh happened.
-		if atomic.LoadUint64(&r.refreshJobKeyChangedCount) > 0 || atomic.LoadUint64(&r.refreshJobFetchFailedCount) > 0 {
+		if atomic.LoadUint64(&r.refreshJobKeyChangedCount) > 1 || atomic.LoadUint64(&r.refreshJobFetchFailedCount) > 0 {
 			return nil
 		}
 		return fmt.Errorf("refresher failed to run")
 	})
-	pk, err = r.GetOrUpdatePublicKey("", mockCertURL)
-	if err != nil {
-		t.Fatalf("GetOrUpdatePublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
-	}
+	pk = r.GetOrUpdatePublicKey("", mockCertURL)
 	if expectedJwtPubkey != pk {
 		t.Fatalf("GetOrUpdatePublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, expectedJwtPubkey, pk)
 	}

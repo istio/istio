@@ -229,9 +229,14 @@ var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")
 // GetOrUpdatePublicKey returns the  JWT public key if it is available in the cache,
 =======
 // GetOrUpdatePublicKey returns the  JWT public key if it is available in the cache
+<<<<<<< HEAD
 >>>>>>> 04038cc63e (istiod async changes)
 // or start a background job to add the key in the cache
 func (r *JwksResolver) GetOrUpdatePublicKey(issuer string, jwksURI string) (string, error) {
+=======
+// or adds the jwksURI in the cache to fetch the public key in the background process
+func (r *JwksResolver) GetOrUpdatePublicKey(issuer string, jwksURI string) string {
+>>>>>>> 4ca905a9d5 (resolved PR comments)
 	now := time.Now()
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
 	if val, found := r.keyEntries.Load(key); found {
@@ -240,9 +245,9 @@ func (r *JwksResolver) GetOrUpdatePublicKey(issuer string, jwksURI string) (stri
 		e.lastUsedTime = now
 		r.keyEntries.Store(key, e)
 		if e.pubKey == "" {
-			return e.pubKey, errEmptyPubKeyFoundInCache
+			return e.pubKey
 		}
-		return e.pubKey, nil
+		return e.pubKey
 	}
 	r.keyEntries.Store(key, jwtPubKeyEntry{
 		pubKey:            "",
@@ -251,22 +256,19 @@ func (r *JwksResolver) GetOrUpdatePublicKey(issuer string, jwksURI string) (stri
 	})
 	// fetching the public key in the background
 	jwksuriChannel <- key
-	return "", nil
+	return ""
 }
 
 // BuildLocalJwks builds local Jwks by fetching the Jwt Public Key from the URL passed if it is empty.
 func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *envoy_jwt.JwtProvider_LocalJwks {
 	if jwtPubKey == "" {
-		var err error
 		// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
 		// workflow, where the JWT key resolver should have already been initialized on server creation.
-		jwtPubKey, err = r.GetOrUpdatePublicKey(jwtIssuer, jwksURI)
-		if err != nil {
-			log.Infof("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtIssuer, jwksURI, err)
-		}
+		jwtPubKey = r.GetOrUpdatePublicKey(jwtIssuer, jwksURI)
+
 	}
 	if jwtPubKey == "" {
-		log.Infof("no public key present in the cache, creating fake jwks")
+		log.Infof("The JWKS key is not yet fetched for issuer %s (%s), using a fake JWKS for now", jwtIssuer, jwksURI)
 		// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 		// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
 		jwtPubKey = CreateFakeJwks(jwksURI)
@@ -381,11 +383,8 @@ func (r *JwksResolver) refresher() {
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return
-		case jwtKeyData := <-jwksuriChannel:
+		case <-jwksuriChannel:
 			lastHasError = r.refreshCache(lastHasError)
-			if lastHasError {
-				log.Errorf("Failed to get public key from  %q: %q", jwtKeyData.issuer, jwtKeyData.jwksURI)
-			}
 		}
 	}
 }
@@ -415,7 +414,6 @@ func (r *JwksResolver) refresh() bool {
 	var wg sync.WaitGroup
 	hasChange := false
 	hasErrors := false
-	oldKeyNull := false
 	r.keyEntries.Range(func(key interface{}, value interface{}) bool {
 		now := time.Now()
 		k := key.(jwtKey)
@@ -433,9 +431,6 @@ func (r *JwksResolver) refresh() bool {
 		}
 
 		oldPubKey := e.pubKey
-		if oldPubKey == "" {
-			oldKeyNull = true
-		}
 		// Increment the WaitGroup counter.
 		wg.Add(1)
 
@@ -487,9 +482,7 @@ func (r *JwksResolver) refresh() bool {
 	wg.Wait()
 
 	if hasChange {
-		if !oldKeyNull {
-			atomic.AddUint64(&r.refreshJobKeyChangedCount, 1)
-		}
+		atomic.AddUint64(&r.refreshJobKeyChangedCount, 1)
 		// Push public key changes to sidecars.
 		if r.PushFunc != nil {
 			r.PushFunc()
