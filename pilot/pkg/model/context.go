@@ -641,25 +641,11 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 	return def
 }
 
-// GetNetworkView returns the networks that the proxy requested.
-// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
-// endpoints corresponding to the networks that the proxy wants to see.
+// GetView returns a restricted view of the mesh for this proxy. The view can be
+// restricted by network (via ISTIO_META_REQUESTED_NETWORK_VIEW).
 // If not set, we assume that the proxy wants to see endpoints in any network.
-func (node *Proxy) GetNetworkView() map[network.ID]bool {
-	if node == nil || node.Metadata == nil {
-		return nil
-	}
-	if len(node.Metadata.RequestedNetworkView) == 0 {
-		return nil
-	}
-
-	nmap := make(map[network.ID]bool)
-	for _, n := range node.Metadata.RequestedNetworkView {
-		nmap[network.ID(n)] = true
-	}
-	nmap[identifier.Undefined] = true
-
-	return nmap
+func (node *Proxy) GetView() ProxyView {
+	return newProxyView(node)
 }
 
 // InNetwork returns true if the proxy is on the given network, or if either
