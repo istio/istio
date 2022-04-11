@@ -33,6 +33,8 @@ pilot:
   enableProtocolSniffingForInbound: true
 
   nodeSelector: {}
+  tolerations: []
+  affinity: {}
   podAnnotations: {}
   serviceAnnotations: {}
 
