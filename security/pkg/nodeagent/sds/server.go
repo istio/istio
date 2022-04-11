@@ -52,7 +52,7 @@ func NewServer(options *security.Options, workloadSecretCache security.SecretMan
 	return s
 }
 
-func (s *Server) UpdateCallback(resourceName string) {
+func (s *Server) OnSecretUpdate(resourceName string) {
 	if s.workloadSds == nil {
 		return
 	}
