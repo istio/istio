@@ -95,8 +95,7 @@ func (w *WebhookCertPatcher) HasSynced() bool {
 }
 
 // webhookPatchTask takes the result of patchMutatingWebhookConfig and modifies the result for use in task queue
-func (w *WebhookCertPatcher) webhookPatchTask(key interface{}) error {
-	o := key.(types.NamespacedName)
+func (w *WebhookCertPatcher) webhookPatchTask(o types.NamespacedName) error {
 	reportWebhookPatchAttempts(o.Name)
 	err := w.patchMutatingWebhookConfig(
 		w.client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
