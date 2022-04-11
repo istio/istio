@@ -15,7 +15,6 @@
 package kube
 
 import (
-	"strconv"
 	"strings"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -45,16 +44,6 @@ const (
 	// TODO: move to API
 	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
 )
-
-// For most common ports allow the protocol to be guessed, this isn't meant
-// to replace /etc/services. Fully qualified proto[-extra]:port is the
-// recommended usage.
-var portsToName = map[int32]string{
-	80:   "http",
-	443:  "https",
-	3306: "mysql",
-	8080: "http",
-}
 
 func convertPort(port coreV1.ServicePort) *model.Port {
 	return &model.Port{
@@ -237,33 +226,4 @@ func KeyFunc(name, namespace string) string {
 		return name
 	}
 	return namespace + "/" + name
-}
-
-// NamedPort defines the Port and Name tuple needed for services and endpoints.
-type NamedPort struct {
-	Port int32
-	Name string
-}
-
-// Str2NamedPort parses a proto:port string into a namePort struct.
-func Str2NamedPort(str string) (NamedPort, error) {
-	var r NamedPort
-	idx := strings.Index(str, ":")
-	if idx >= 0 {
-		r.Name = str[:idx]
-		str = str[idx+1:]
-	}
-	p, err := strconv.Atoi(str)
-	if err != nil {
-		return r, err
-	}
-	r.Port = int32(p)
-	if len(r.Name) == 0 {
-		name, found := portsToName[r.Port]
-		r.Name = name
-		if !found {
-			r.Name = str
-		}
-	}
-	return r, nil
 }
