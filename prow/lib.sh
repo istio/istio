@@ -110,8 +110,6 @@ function buildx-create() {
 function build_images() {
   SELECT_TEST="${1}"
 
-  buildx-create
-
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
 
