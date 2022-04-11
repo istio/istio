@@ -51,7 +51,7 @@ func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceN
 	if err != nil {
 		t.Fatal(err)
 	}
-	sc.SetUpdateCallback(notifyCb)
+	sc.RegisterSecretHandler(notifyCb)
 	t.Cleanup(sc.Close)
 	return sc
 }
