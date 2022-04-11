@@ -33,6 +33,7 @@ import (
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -230,6 +231,12 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 		cfg.Disabled = true
 		return &cfg
 	}
+
+	cfg.RandomSamplingPercentage = features.TraceSampling // default provider sampling should be 1%
+	if len(ct.Tracing) != 0 {
+		cfg.RandomSamplingPercentage = 0 // telemetry default sampling should be 0%
+	}
+
 	for _, m := range ct.Tracing {
 		names := getProviderNames(m.Providers)
 

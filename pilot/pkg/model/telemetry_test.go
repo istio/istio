@@ -28,6 +28,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
@@ -357,6 +358,15 @@ func newTracingConfig(providerName string, disabled bool) *TracingConfig {
 	}
 }
 
+func newTracingConfigWithSampling(providerName string, disabled bool, sampling float64) *TracingConfig {
+	return &TracingConfig{
+		Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: providerName},
+		Disabled:                     disabled,
+		RandomSamplingPercentage:     sampling,
+		UseRequestIDForTraceSampling: true,
+	}
+}
+
 const (
 	reportingEnabled  = false
 	reportingDisabled = !reportingEnabled
@@ -460,7 +470,7 @@ func TestTracing(t *testing.T) {
 			nil,
 			sidecar,
 			[]string{"envoy"},
-			newTracingConfig("envoy", reportingEnabled),
+			newTracingConfigWithSampling("envoy", reportingEnabled, features.TraceSampling),
 		},
 		{
 			"provider only",
