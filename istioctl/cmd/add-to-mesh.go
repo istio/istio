@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
-	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	istioProtocol "istio.io/istio/pkg/config/protocol"
@@ -51,6 +50,16 @@ import (
 )
 
 var crdFactory = createDynamicInterface
+
+// For most common ports allow the protocol to be guessed, this isn't meant
+// to replace /etc/services. Fully qualified proto[-extra]:port is the
+// recommended usage.
+var portsToName = map[int32]string{
+	80:   "http",
+	443:  "https",
+	3306: "mysql",
+	8080: "http",
+}
 
 // vmServiceOpts contains the options of a mesh expansion service running on VM.
 type vmServiceOpts struct {
@@ -414,21 +423,50 @@ func createDynamicInterface(kubeconfig string) (dynamic.Interface, error) {
 func convertPortList(ports []string) (model.PortList, error) {
 	portList := model.PortList{}
 	for _, p := range ports {
-		np, err := kube_registry.Str2NamedPort(p)
+		np, err := str2NamedPort(p)
 		if err != nil {
 			return nil, fmt.Errorf("invalid port format %v", p)
 		}
-		protocol := istioProtocol.Parse(np.Name)
+		protocol := istioProtocol.Parse(np.name)
 		if protocol == istioProtocol.Unsupported {
-			return nil, fmt.Errorf("protocol %s is not supported by Istio", np.Name)
+			return nil, fmt.Errorf("protocol %s is not supported by Istio", np.name)
 		}
 		portList = append(portList, &model.Port{
-			Port:     int(np.Port),
+			Port:     int(np.port),
 			Protocol: protocol,
-			Name:     np.Name + "-" + strconv.Itoa(int(np.Port)),
+			Name:     np.name + "-" + strconv.Itoa(int(np.port)),
 		})
 	}
 	return portList, nil
+}
+
+// namedPort defines the Port and Name tuple needed for services and endpoints.
+type namedPort struct {
+	port int32
+	name string
+}
+
+// str2NamedPort parses a proto:port string into a namePort struct.
+func str2NamedPort(str string) (namedPort, error) {
+	var r namedPort
+	idx := strings.Index(str, ":")
+	if idx >= 0 {
+		r.name = str[:idx]
+		str = str[idx+1:]
+	}
+	p, err := strconv.Atoi(str)
+	if err != nil {
+		return r, err
+	}
+	r.port = int32(p)
+	if len(r.name) == 0 {
+		name, found := portsToName[r.port]
+		r.name = name
+		if !found {
+			r.name = str
+		}
+	}
+	return r, nil
 }
 
 // addServiceOnVMToMesh adds a service running on VM into Istio service mesh
