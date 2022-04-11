@@ -437,3 +437,35 @@ func TestSecureNamingSAN(t *testing.T) {
 		t.Fatalf("SAN match failed, SAN:%v  expectedSAN:%v", san, expectedSAN)
 	}
 }
+
+func TestStr2NamedPort(t *testing.T) {
+	tests := []struct {
+		input  string    // input
+		expVal NamedPort // output
+		expErr bool      // error
+	}{
+		// Good cases:
+		{"http:5555", NamedPort{5555, "http"}, false},
+		{"80", NamedPort{80, "http"}, false},
+		{"443", NamedPort{443, "https"}, false},
+		{"1234", NamedPort{1234, "1234"}, false},
+		// Error cases:
+		{"", NamedPort{0, ""}, true},
+		{"foo:bar", NamedPort{0, "foo"}, true},
+	}
+	for _, tst := range tests {
+		actVal, actErr := Str2NamedPort(tst.input)
+		if tst.expVal != actVal {
+			t.Errorf("Got '%+v', expecting '%+v' for Str2NamedPort('%s')", actVal, tst.expVal, tst.input)
+		}
+		if tst.expErr {
+			if actErr == nil {
+				t.Errorf("Got no error when expecting an error for Str2NamedPort('%s')", tst.input)
+			}
+		} else {
+			if actErr != nil {
+				t.Errorf("Got unexpected error '%+v' when expecting none for Str2NamedPort('%s')", actErr, tst.input)
+			}
+		}
+	}
+}
