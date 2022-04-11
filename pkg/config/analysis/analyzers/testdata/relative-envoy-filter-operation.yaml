@@ -1,0 +1,129 @@
+# If the patch operation is INSERT_FIRST or priority is set, then the analyzer will not do anything
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-reviews-lua-1
+  namespace: bookinfo
+spec:
+  workloadSelector:
+    labels:
+      app: reviews
+  configPatches:
+    # The first patch adds the lua filter to the listener/http connection manager
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        portNumber: 8080
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_BEFORE
+      value: # lua filter specification
+       name: envoy.lua
+       typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+          inlineCode: |
+            function envoy_on_request(request_handle)
+              -- Make an HTTP call to an upstream host with the following headers, body, and timeout.
+              local headers, body = request_handle:httpCall(
+               "lua_cluster",
+               {
+                [":method"] = "POST",
+                [":path"] = "/acl",
+                [":authority"] = "internal.org.net"
+               },
+              "authorize call",
+              5000)
+            end
+  # The second patch adds the cluster that is referenced by the lua code
+  # cds match is omitted as a new cluster is being added
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_OUTBOUND
+    patch:
+      operation: ADD
+      value: # cluster specification
+        name: "lua_cluster"
+        type: STRICT_DNS
+        connect_timeout: 0.5s
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: lua_cluster
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    protocol: TCP
+                    address: "internal.org.net"
+                    port_value: 8888
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-reviews-lua-2
+  namespace: bookinfo
+spec:
+  workloadSelector:
+    labels:
+      app: reviews
+  configPatches:
+    # The first patch adds the lua filter to the listener/http connection manager
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        portNumber: 8080
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_AFTER
+      value: # lua filter specification
+       name: envoy.lua
+       typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+          inlineCode: |
+            function envoy_on_request(request_handle)
+              -- Make an HTTP call to an upstream host with the following headers, body, and timeout.
+              local headers, body = request_handle:httpCall(
+               "lua_cluster",
+               {
+                [":method"] = "POST",
+                [":path"] = "/acl",
+                [":authority"] = "internal.org.net"
+               },
+              "authorize call",
+              5000)
+            end
+  # The second patch adds the cluster that is referenced by the lua code
+  # cds match is omitted as a new cluster is being added
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_OUTBOUND
+    patch:
+      operation: ADD
+      value: # cluster specification
+        name: "lua_cluster"
+        type: STRICT_DNS
+        connect_timeout: 0.5s
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: lua_cluster
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    protocol: TCP
+                    address: "internal.org.net"
+                    port_value: 8888
+
+
