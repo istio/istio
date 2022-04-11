@@ -19,14 +19,17 @@ source ./common/scripts/setup_env.sh
 
 set -eu
 
+# Speed up builds when using recent CPUs
+export GGCR_EXPERIMENT_SHA256_SIMD=1
+
 if [[ -f ${LOCAL_OUT}/docker-builder ]]; then
   CURRENT_BUILD="$(./common/scripts/report_build_info.sh | grep buildGitRevision | cut -d= -f2)"
   PREBUILT="$(${LOCAL_OUT}/docker-builder --version)"
-  CODE_CHG="$(git diff ./tools/docker-builder)"
+  CODE_CHG="$(git diff HEAD -- ./tools/docker-builder)"
   if [[ "${CURRENT_BUILD}" != "${PREBUILT}" ]] || [[ -n "${CODE_CHG}" ]]; then
     GOOS=${LOCAL_GO_OS} GOARCH=${LOCAL_GO_ARCH} ./common/scripts/gobuild.sh ${LOCAL_OUT}/docker-builder ./tools/docker-builder
   fi
 else
   GOOS=${LOCAL_GO_OS} GOARCH=${LOCAL_GO_ARCH} ./common/scripts/gobuild.sh ${LOCAL_OUT}/docker-builder ./tools/docker-builder
 fi
-${LOCAL_OUT}/docker-builder "$@"
+GOGC=off ${LOCAL_OUT}/docker-builder "$@"

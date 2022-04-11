@@ -82,6 +82,7 @@ images:
 #  - tools/packaging/common/envoy_bootstrap.json
 #  - tests/testdata/certs
 #  - pkg/test/echo/docker/echo-start.sh
+#  - pkg/test/echo/docker/sudoers
 #  targets:
 #  - ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm
 #  - ${TARGET_OUT_LINUX}/client
@@ -92,6 +93,7 @@ images:
   - tools/packaging/common/envoy_bootstrap.json
   - tests/testdata/certs
   - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
   targets:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm
   - ${TARGET_OUT_LINUX}/client
@@ -102,6 +104,7 @@ images:
   - tools/packaging/common/envoy_bootstrap.json
   - tests/testdata/certs
   - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
   targets:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
   - ${TARGET_OUT_LINUX}/client
@@ -112,6 +115,7 @@ images:
   - tools/packaging/common/envoy_bootstrap.json
   - tests/testdata/certs
   - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
   targets:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
   - ${TARGET_OUT_LINUX}/client
@@ -122,6 +126,7 @@ images:
   - tools/packaging/common/envoy_bootstrap.json
   - tests/testdata/certs
   - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
   targets:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
   - ${TARGET_OUT_LINUX}/client

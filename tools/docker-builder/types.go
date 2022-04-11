@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -58,7 +59,8 @@ type Target struct {
 type Args struct {
 	Push          bool
 	Save          bool
-	BuildxEnabled bool
+	Builder       string
+	KindLoad      bool
 	NoClobber     bool
 	NoCache       bool
 	Targets       []string
@@ -72,6 +74,24 @@ type Args struct {
 
 	// Plan describes the build plan, read from file
 	Plan BuildPlan
+}
+
+func (a Args) String() string {
+	var b strings.Builder
+	b.WriteString("Push:          " + fmt.Sprint(a.Push) + "\n")
+	b.WriteString("Save:          " + fmt.Sprint(a.Save) + "\n")
+	b.WriteString("NoClobber:     " + fmt.Sprint(a.NoClobber) + "\n")
+	b.WriteString("NoCache:       " + fmt.Sprint(a.NoCache) + "\n")
+	b.WriteString("Targets:       " + fmt.Sprint(a.Targets) + "\n")
+	b.WriteString("Variants:      " + fmt.Sprint(a.Variants) + "\n")
+	b.WriteString("Architectures: " + fmt.Sprint(a.Architectures) + "\n")
+	b.WriteString("BaseVersion:   " + fmt.Sprint(a.BaseVersion) + "\n")
+	b.WriteString("ProxyVersion:  " + fmt.Sprint(a.ProxyVersion) + "\n")
+	b.WriteString("IstioVersion:  " + fmt.Sprint(a.IstioVersion) + "\n")
+	b.WriteString("Tags:          " + fmt.Sprint(a.Tags) + "\n")
+	b.WriteString("Hubs:          " + fmt.Sprint(a.Hubs) + "\n")
+	b.WriteString("Builder:       " + fmt.Sprint(a.Builder) + "\n")
+	return b.String()
 }
 
 type ImagePlan struct {
@@ -129,6 +149,11 @@ const (
 	DistrolessVariant = "distroless"
 )
 
+const (
+	CraneBuilder  = "crane"
+	DockerBuilder = "docker"
+)
+
 func DefaultArgs() Args {
 	// By default, we build all targets
 	var targets []string
@@ -178,11 +203,15 @@ func DefaultArgs() Args {
 		tag = strings.Split(tags, " ")
 	}
 
+	builder := DockerBuilder
+	if b, f := os.LookupEnv("ISTIO_DOCKER_BUILDER"); f {
+		builder = b
+	}
+
 	return Args{
 		Push:          false,
 		Save:          false,
 		NoCache:       false,
-		BuildxEnabled: true,
 		Hubs:          hub,
 		Tags:          tag,
 		BaseVersion:   fetchBaseVersion(),
@@ -191,12 +220,13 @@ func DefaultArgs() Args {
 		Architectures: arch,
 		Targets:       targets,
 		Variants:      variants,
+		Builder:       builder,
 	}
 }
 
 var (
-	args    = DefaultArgs()
-	version = false
+	globalArgs = DefaultArgs()
+	version    = false
 )
 
 var baseVersionRegexp = regexp.MustCompile(`BASE_VERSION \?= (.*)`)

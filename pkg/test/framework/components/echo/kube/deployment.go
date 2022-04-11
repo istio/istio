@@ -357,6 +357,13 @@ spec:
         - bash
         - -c
         - |-
+          # To support image builders which cannot do RUN, do the run commands at startup.
+          # This exploits the fact the images remove the installer once its installed.
+          # This is a horrible idea for production images, but these are just for tests.
+          [[ -f /tmp/istio-sidecar-centos-7.rpm ]] && sudo rpm -vi /tmp/istio-sidecar-centos-7.rpm && sudo rm /tmp/istio-sidecar-centos-7.rpm
+          [[ -f /tmp/istio-sidecar.rpm ]] && sudo rpm -vi /tmp/istio-sidecar.rpm && sudo rm /tmp/istio-sidecar.rpm
+          [[ -f /tmp/istio-sidecar.deb ]] && sudo dpkg -i /tmp/istio-sidecar.deb && sudo rm /tmp/istio-sidecar.deb
+
           # Read root cert from and place signed certs here (can't mount directly or the dir would be unwritable)
           sudo mkdir -p /var/run/secrets/istio
 
@@ -415,7 +422,7 @@ spec:
           name: istio-vm-bootstrap
         {{- range $name, $value := $subset.Annotations }}
         {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
-        - mountPath: /etc/istio/custom-bootstrap
+        - mountPath: /etc/istio-custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
         {{- end }}
