@@ -54,6 +54,9 @@ func InternalFuzzApplyClusterMerge(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if !proxyValid(proxy) {
+		return 0
+	}
 
 	// crete mesh config
 	testMesh := &meshconfig.MeshConfig{}
