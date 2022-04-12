@@ -22,7 +22,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
 
