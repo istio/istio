@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -169,11 +168,11 @@ func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
 	return net.TCPAddr{IP: ip, Port: port}
 }
 
-func (c *ingressImpl) Call(options echo.CallOptions) (echoClient.Responses, error) {
+func (c *ingressImpl) Call(options echo.CallOptions) (echo.CallResult, error) {
 	return c.callEcho(options)
 }
 
-func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) echoClient.Responses {
+func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) echo.CallResult {
 	t.Helper()
 	resp, err := c.Call(options)
 	if err != nil {
@@ -182,7 +181,7 @@ func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) echoCl
 	return resp
 }
 
-func (c *ingressImpl) callEcho(opts echo.CallOptions) (echoClient.Responses, error) {
+func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 	var (
 		addr string
 		port int
@@ -192,7 +191,7 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echoClient.Responses, err
 	if opts.Port.ServicePort == 0 {
 		s, err := c.schemeFor(opts)
 		if err != nil {
-			return nil, err
+			return echo.CallResult{}, err
 		}
 		opts.Scheme = s
 
@@ -205,7 +204,7 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echoClient.Responses, err
 		case scheme.TCP:
 			addr, port = c.TCPAddress()
 		default:
-			return nil, fmt.Errorf("ingress: scheme %v not supported. Options: %v+", s, opts)
+			return echo.CallResult{}, fmt.Errorf("ingress: scheme %v not supported. Options: %v+", s, opts)
 		}
 	} else {
 		addr, port = c.AddressForPort(opts.Port.ServicePort)
@@ -230,7 +229,7 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echoClient.Responses, err
 	if len(c.cluster.HTTPProxy()) > 0 {
 		opts.HTTP.HTTPProxy = c.cluster.HTTPProxy()
 	}
-	return common.CallEcho(&opts)
+	return common.CallEcho(c, opts)
 }
 
 func (c *ingressImpl) schemeFor(opts echo.CallOptions) (scheme.Instance, error) {

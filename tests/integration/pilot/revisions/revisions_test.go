@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
@@ -109,7 +109,7 @@ func TestMultiRevision(t *testing.T) {
 				ToMatch(match.ServiceName(echo.NamespacedName{Name: "server", Namespace: canary})).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := from.Call(echo.CallOptions{
+						result, err := from.Call(echo.CallOptions{
 							To: to,
 							Port: echo.Port{
 								Name: "http",
@@ -120,12 +120,12 @@ func TestMultiRevision(t *testing.T) {
 							},
 							Check: check.And(
 								check.OK(),
-								check.ReachedClusters(to.Clusters()),
+								check.ReachedClusters(t.AllClusters(), to.Clusters()),
 							),
 						})
 						return check.And(
 							check.NoError(),
-							check.OK()).Check(resp, err)
+							check.OK()).Check(result, err)
 					}, retry.Delay(time.Millisecond*100))
 				})
 		})

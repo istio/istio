@@ -27,9 +27,9 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -137,7 +137,7 @@ func TestSecureNaming(t *testing.T) {
 								},
 								Count: callCount,
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 							a.CallOrFail(t, opts)
 						})
 
@@ -181,7 +181,7 @@ func TestSecureNaming(t *testing.T) {
 									Count: callCount,
 								}
 								if tc.expectSuccess {
-									opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 								} else {
 									opts.Check = scheck.NotOK()
 								}

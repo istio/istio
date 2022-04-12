@@ -24,10 +24,9 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
-	echoClient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -659,25 +658,25 @@ spec:
 									// Do not set To to dest, otherwise fillInCallOptions() will
 									// complain with port does not match.
 									Address: to.WorkloadsOrFail(t)[0].Address(),
-									Check: func(responses echoClient.Responses, err error) error {
+									Check: func(result echo.CallResult, err error) error {
 										if want {
 											if err != nil {
 												return fmt.Errorf("want allow but got error: %v", err)
 											}
-											if responses.Len() < 1 {
+											if result.Responses.Len() < 1 {
 												return fmt.Errorf("received no responses from request to %s", host)
 											}
-											if okErr := check.OK().Check(responses, err); okErr != nil && expect.port.Protocol == protocol.HTTP {
+											if okErr := check.OK().Check(result, err); okErr != nil && expect.port.Protocol == protocol.HTTP {
 												return fmt.Errorf("want status %d but got %s", http.StatusOK, okErr.Error())
 											}
 										} else {
 											// Check HTTP forbidden response
-											if responses.Len() >= 1 && check.Status(http.StatusForbidden).Check(responses, err) == nil {
+											if result.Responses.Len() >= 1 && check.Status(http.StatusForbidden).Check(result, err) == nil {
 												return nil
 											}
 
 											if err == nil {
-												return fmt.Errorf("want error but got none: %v", responses.String())
+												return fmt.Errorf("want error but got none: %v", result.Responses.String())
 											}
 										}
 										return nil

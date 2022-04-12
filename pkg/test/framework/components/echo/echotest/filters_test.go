@@ -23,7 +23,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"istio.io/istio/pkg/test"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -375,11 +374,11 @@ func (f fakeInstance) Clusters() cluster.Clusters {
 	panic("implement me")
 }
 
-func (f fakeInstance) Call(echo.CallOptions) (echoClient.Responses, error) {
+func (f fakeInstance) Call(echo.CallOptions) (echo.CallResult, error) {
 	panic("implement me")
 }
 
-func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echoClient.Responses {
+func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echo.CallResult {
 	panic("implement me")
 }
 
