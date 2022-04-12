@@ -66,7 +66,7 @@ type LeaderElection struct {
 	revision       string
 	remote         bool
 	prioritized    bool
-	ignoreLocation bool // turn on for testing with old key comparision
+	ignoreLocation bool // turn on for testing with old key comparison
 	defaultWatcher revisions.DefaultWatcher
 
 	// Records which "cycle" the election is on. This is incremented each time an election is won and then lost

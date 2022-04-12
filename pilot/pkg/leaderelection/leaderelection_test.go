@@ -55,6 +55,7 @@ func createElectionMulticluster(t *testing.T,
 		client:         client,
 		revision:       revision,
 		remote:         remote,
+		ignoreLocation: ignoreLocation,
 		prioritized:    prioritized,
 		defaultWatcher: watcher,
 		ttl:            time.Second,
@@ -192,7 +193,7 @@ func TestPrioritizedMulticlusterLeaderElection(t *testing.T) {
 	close(stop2)
 	_, stop2 = createElectionMulticluster(t, "pod2", "def", true, false, watcher, true, false, client) // default rev, remote, new version: can't steal
 	close(stop2)
-	_, stop2 = createElectionMulticluster(t, "pod2", "def", true, true, watcher, true, false, client)  // default rev, remote, old version: steals *
+	_, stop2 = createElectionMulticluster(t, "pod2", "def", true, true, watcher, true, true, client)   // default rev, remote, old version: steals *
 	_, stop3 = createElectionMulticluster(t, "pod1", "def", true, false, watcher, true, false, client) // default rev, remote, new version: no steal back
 	close(stop3)
 	close(stop2)
@@ -266,13 +267,13 @@ func TestPrioritizedMulticlusterLeaderElection(t *testing.T) {
 	_, stop3 = createElectionMulticluster(t, "pod1", "ndef1", true, false, watcher, true, false, client) // non-default rev, remote, new version: no steal back
 	close(stop3)
 	close(stop2)
-	_, stop2 = createElectionMulticluster(t, "pod2", "ndef1", false, false, watcher, true, false, client) // non-default rev, local, new version: steals
-	_, stop3 = createElectionMulticluster(t, "pod1", "ndef1", true, false, watcher, true, false, client)  // non-default rev, remote, new version: no steal back
+	_, stop2 = createElectionMulticluster(t, "pod2", "ndef1", false, false, watcher, true, true, client) // non-default rev, local, new version: steals
+	_, stop3 = createElectionMulticluster(t, "pod1", "ndef1", true, false, watcher, true, false, client) // non-default rev, remote, new version: no steal back
 	close(stop3)
 	close(stop2)
-	_, stop2 = createElectionMulticluster(t, "pod2", "ndef1", false, true, watcher, true, false, client) // non-default rev, local, old version: can't steal
+	_, stop2 = createElectionMulticluster(t, "pod2", "ndef1", false, true, watcher, true, false, client) // non-default rev, local, old version: can't steal *
 	close(stop2)
-	_, stop2 = createElectionMulticluster(t, "pod2", "ndef1", true, false, watcher, true, false, client) // non-default rev, remote, new version: can't steal *
+	_, stop2 = createElectionMulticluster(t, "pod2", "ndef1", true, false, watcher, true, false, client) // non-default rev, remote, new version: can't steal
 	close(stop2)
 	_, stop2 = createElectionMulticluster(t, "pod2", "ndef1", true, true, watcher, true, false, client) // non-default rev, remote, old version: can't steal
 	close(stop2)
