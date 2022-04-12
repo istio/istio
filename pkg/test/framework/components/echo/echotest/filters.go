@@ -157,7 +157,7 @@ var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.I
 }
 
 // reachableHeadlessDestinations filters out headless services that aren't in the same cluster
-// TODO https://github.com/istio/istio/issues/27342
+// TODO(stevenctl): headless across-networks https://github.com/istio/istio/issues/38327
 func reachableHeadlessDestinations(from echo.Instance) match.Matcher {
 	excluded := match.And(
 		match.Headless,
