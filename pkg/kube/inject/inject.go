@@ -336,7 +336,7 @@ func imageURL(hub, imageName, tag, imageType string) string {
 }
 
 // KnownImageTypes are image types that istio pubishes.
-var KnownImageTypes []string = []string{ImageTypeDistroless, ImageTypeDebug}
+var KnownImageTypes = []string{ImageTypeDistroless, ImageTypeDebug}
 
 func updateImageTypeIfPresent(tag string, imageType string) string {
 	if imageType == "" {
