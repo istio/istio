@@ -1551,9 +1551,6 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			chain.destinationCIDRs = append([]string{}, chain.destinationCIDRs...)
 			sort.Stable(sort.StringSlice(chain.destinationCIDRs))
 			for _, d := range chain.destinationCIDRs {
-				if len(d) == 0 {
-					continue
-				}
 				cidr := util.ConvertAddressToCidr(d)
 				if cidr != nil && cidr.AddressPrefix != constants.UnspecifiedIP {
 					match.PrefixRanges = append(match.PrefixRanges, cidr)
