@@ -457,7 +457,18 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				"vm":         vm[0].Config().Service,
 			}, "testdata/authz/v1beta1-negative-match.yaml.tmpl").ApplyOrFail(t)
 
+			type request struct {
+				method string // default value is GET if not specified
+				host   string // only set if not empty
+				port   string // default value is http if not specified
+			}
+
 			for _, srcCluster := range t.Clusters() {
+				reqParam := request{method: "GET", port: "http"}
+				reqNotMethodParam := request{method: "PUT", port: "http"}
+				reqNotPortParam := request{method: "GET", port: "http-8091"}
+				reqNotHostParam := request{method: "GET", port: "http", host: "deny.com"}
+
 				a := match.And(match.Cluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
 				bInNS2 := match.And(match.Cluster(srcCluster), match.Namespace(apps.Namespace2.Name())).GetMatches(apps.B)
 				if len(a) == 0 || len(bInNS2) == 0 {
@@ -465,19 +476,18 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				}
 
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
-					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool,
-						method string, address string, port string) func(t framework.TestContext) {
+					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool, request request) func(t framework.TestContext) {
 						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
 								To: to,
 								Port: echo.Port{
-									Name: port,
+									Name: request.port,
 								},
 								HTTP: echo.HTTP{
 									Path:    path,
-									Method:  method,
-									Headers: headers.New().WithHost(address).Build(),
+									Method:  request.method,
+									Headers: headers.New().WithHost(request.host).Build(),
 								},
 								Count: callCount,
 							}
@@ -504,32 +514,31 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						// - path with prefix `/prefix` should be denied explicitly.
 						// - path `/prefix/allowlist` should be excluded from the deny.
 						// - path `/allow` should be allowed implicitly.
-						newTestCase(a[0], b, "/", false, "GET", "", "http"),
-						newTestCase(a[0], b, "/", true, "PUT", "", "http"),
-						newTestCase(a[0], b, "/prefix", false, "PUT", "", "http"),
-						newTestCase(a[0], b, "/prefix/other", false, "PUT", "", "http"),
-						newTestCase(a[0], b, "/prefix/allowlist", true, "PUT", "", "http"),
-						newTestCase(a[0], b, "/allow", true, "PUT", "", "http"),
-						newTestCase(bInNS2[0], b, "/prefix", false, "PUT", "", "http"),
-						newTestCase(bInNS2[0], b, "/prefix/other", false, "PUT", "", "http"),
-						newTestCase(bInNS2[0], b, "/prefix/allowlist", true, "PUT", "", "http"),
-						newTestCase(bInNS2[0], b, "/allow", true, "PUT", "", "http"),
+						newTestCase(a[0], b, "/", false, reqNotMethodParam),
+						newTestCase(a[0], b, "/prefix", false, reqParam),
+						newTestCase(a[0], b, "/prefix/other", false, reqParam),
+						newTestCase(a[0], b, "/prefix/allowlist", true, reqParam),
+						newTestCase(a[0], b, "/allow", true, reqParam),
+						newTestCase(bInNS2[0], b, "/prefix", false, reqParam),
+						newTestCase(bInNS2[0], b, "/prefix/other", false, reqParam),
+						newTestCase(bInNS2[0], b, "/prefix/allowlist", true, reqParam),
+						newTestCase(bInNS2[0], b, "/allow", true, reqParam),
 
 						// Test the policy that denies other namespace on c.
 						// a should be allowed because it's from the same namespace.
 						// any request to path deny.com should be denied
 						// bInNs2 should be denied because it's from a different namespace.
-						newTestCase(a[0], c, "/", true, "PUT", "", "http"),
-						newTestCase(a[0], c, "/", false, "PUT", "deny.com", "http"),
-						newTestCase(bInNS2[0], c, "/", false, "PUT", "", "http"),
+						newTestCase(a[0], c, "/", true, reqParam),
+						newTestCase(a[0], c, "/", false, reqNotHostParam),
+						newTestCase(bInNS2[0], c, "/", false, reqParam),
 
 						// Test the policy that denies plain-text traffic on d.
 						// a should be allowed because it's using mTLS.
 						// any request to port 8091 should be denied
 						// bInNs2 should be denied because it's using plain-text.
-						newTestCase(a[0], d, "/", true, "PUT", "", "http-8092"),
-						newTestCase(a[0], d, "/", false, "PUT", "", "http-8091"),
-						newTestCase(bInNS2[0], d, "/", false, "PUT", "", "http"),
+						newTestCase(a[0], d, "/", true, reqParam),
+						newTestCase(a[0], d, "/", false, reqNotPortParam),
+						newTestCase(bInNS2[0], d, "/", false, reqParam),
 
 						// Test the policy with overlapped `paths` and `not_paths` on vm.
 						// a and bInNs2 should have the same results:
@@ -537,14 +546,14 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 						// - path `/prefix/allowlist` should be excluded from the deny.
 						// - path `/allow` should be allowed implicitly.
 						// TODO(JimmyCYJ): support multiple VMs and test negative match on multiple VMs.
-						newTestCase(a[0], vm, "/prefix", false, "PUT", "", "http"),
-						newTestCase(a[0], vm, "/prefix/other", false, "PUT", "", "http"),
-						newTestCase(a[0], vm, "/prefix/allowlist", true, "PUT", "", "http"),
-						newTestCase(a[0], vm, "/allow", true, "PUT", "", "http"),
-						newTestCase(bInNS2[0], vm, "/prefix", false, "PUT", "", "http"),
-						newTestCase(bInNS2[0], vm, "/prefix/other", false, "PUT", "", "http"),
-						newTestCase(bInNS2[0], vm, "/prefix/allowlist", true, "PUT", "", "http"),
-						newTestCase(bInNS2[0], vm, "/allow", true, "PUT", "", "http"),
+						newTestCase(a[0], vm, "/prefix", false, reqParam),
+						newTestCase(a[0], vm, "/prefix/other", false, reqParam),
+						newTestCase(a[0], vm, "/prefix/allowlist", true, reqParam),
+						newTestCase(a[0], vm, "/allow", true, reqParam),
+						newTestCase(bInNS2[0], vm, "/prefix", false, reqParam),
+						newTestCase(bInNS2[0], vm, "/prefix/other", false, reqParam),
+						newTestCase(bInNS2[0], vm, "/prefix/allowlist", true, reqParam),
+						newTestCase(bInNS2[0], vm, "/allow", true, reqParam),
 					}
 
 					for _, c := range cases {

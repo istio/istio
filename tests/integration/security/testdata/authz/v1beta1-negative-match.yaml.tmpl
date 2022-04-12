@@ -31,9 +31,10 @@ spec:
   rules:
   - to:
     - operation:
-        notMethods : ["GET"]
+        notMethods : ["PUT"]
 ---
 # The following policy denies access from other namespaces.
+
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -49,7 +50,8 @@ spec:
     - source:
         notNamespaces: ["{{ .Namespace }}"]
 ---
-# The following policy won't allow request to host "deny.com"
+# The following policy allows request if the host is not "deny.com"
+
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -83,7 +85,7 @@ spec:
     - source:
         notPrincipals: ["*"]
 ---
-# The following policy won't allow request to port 8091
+# The following policy allows request if the port is not "8091"
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
