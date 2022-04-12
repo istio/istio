@@ -64,14 +64,18 @@ func WarmBase(baseImages ...string) {
 	basesMu.Lock()
 	wg := sync.WaitGroup{}
 	wg.Add(len(baseImages))
+	resolvedBaseImages := make([]v1.Image, len(baseImages))
 	go func() {
 		wg.Wait()
+		for i, rbi := range resolvedBaseImages {
+			bases[baseImages[i]] = rbi
+		}
 		basesMu.Unlock()
 	}()
 
 	t0 := time.Now()
-	for _, b := range baseImages {
-		b := b
+	for i, b := range baseImages {
+		b, i := b, i
 		go func() {
 			ref, err := name.ParseReference(b)
 			if err != nil {
@@ -84,7 +88,7 @@ func WarmBase(baseImages ...string) {
 				return
 			}
 			log.WithLabels("image", b, "step", time.Since(t0)).Infof("base loaded")
-			bases[b] = bi
+			resolvedBaseImages[i] = bi
 			wg.Done()
 		}()
 	}
