@@ -138,7 +138,7 @@ func waitForEvent(t testing.TB, ch chan Event) Event {
 }
 
 func initServiceDiscovery() (model.IstioConfigStore, *Controller, chan Event, func()) {
-	return initServiceDiscoveryWithOpts()
+	return initServiceDiscoveryWithOpts(false)
 }
 
 // initServiceDiscoveryWithoutEvents initializes a test setup with no events. This avoids excessive attempts to push
@@ -172,7 +172,7 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.IstioConfigStore, *
 	return istioStore, serviceController
 }
 
-func initServiceDiscoveryWithOpts(opts ...Option) (model.IstioConfigStore, *Controller, chan Event, func()) {
+func initServiceDiscoveryWithOpts(workloadOnly bool, opts ...Option) (model.IstioConfigStore, *Controller, chan Event, func()) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
@@ -185,9 +185,14 @@ func initServiceDiscoveryWithOpts(opts ...Option) (model.IstioConfigStore, *Cont
 	}
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewController(configController, istioStore, xdsUpdater, opts...)
-	go serviceController.Run(stop)
-	return istioStore, serviceController, eventch, func() {
+	var controller *Controller
+	if !workloadOnly {
+		controller = NewController(configController, istioStore, xdsUpdater, opts...)
+	} else {
+		controller = NewWorkloadEntryController(configController, istioStore, xdsUpdater, opts...)
+	}
+	go controller.Run(stop)
+	return istioStore, controller, eventch, func() {
 		close(stop)
 	}
 }
@@ -1562,8 +1567,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 }
 
 func TestWorkloadEntryOnlyMode(t *testing.T) {
-	store, registry, _, cleanup := initServiceDiscoveryWithOpts()
-	registry.processServiceEntry = false
+	store, registry, _, cleanup := initServiceDiscoveryWithOpts(true)
 	defer cleanup()
 	createConfigs([]*config.Config{httpStatic}, store, t)
 	svcs := registry.Services()
