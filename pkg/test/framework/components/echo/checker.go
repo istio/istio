@@ -12,15 +12,20 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package check
+package echo
 
-import (
-	"istio.io/istio/pkg/test/echo"
-)
+var noChecker Checker = func(_ CallResult, err error) error {
+	return err
+}
 
 // Checker inspects echo call results for errors.
-type Checker func(echo.Responses, error) error
+type Checker func(CallResult, error) error
 
-func (c Checker) Check(rs echo.Responses, err error) error {
-	return c(rs, err)
+func (c Checker) Check(result CallResult, err error) error {
+	return c(result, err)
+}
+
+// NoChecker provides a Checker that returns the original raw call error, unaltered.
+func NoChecker() Checker {
+	return noChecker
 }

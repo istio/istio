@@ -23,7 +23,6 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/util/retry"
@@ -138,7 +137,7 @@ type CallOptions struct {
 
 	// Check the server responses. If none is provided, only the number of responses received
 	// will be checked.
-	Check check.Checker
+	Check Checker
 }
 
 // GetHost returns the best default host for the call. Returns the first host defined from the following
@@ -209,7 +208,7 @@ func (o *CallOptions) FillDefaults() error {
 
 	// If no Check was specified, assume no error.
 	if o.Check == nil {
-		o.Check = check.None()
+		o.Check = NoChecker()
 	}
 	return nil
 }

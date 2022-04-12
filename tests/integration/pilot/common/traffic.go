@@ -21,8 +21,6 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
-	echoclient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
@@ -41,7 +39,7 @@ const callCountMultiplier = 5
 
 type TrafficCall struct {
 	name string
-	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
+	call func(t test.Failer, options echo.CallOptions) echo.CallResult
 	opts echo.CallOptions
 }
 
@@ -59,14 +57,14 @@ type TrafficTestCase struct {
 	children []TrafficCall
 
 	// Single call. Cannot be used with children or workloadAgnostic tests.
-	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
+	call func(t test.Failer, options echo.CallOptions) echo.CallResult
 	// opts specifies the echo call options. When using RunForApps, the To will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
 	setupOpts func(src echo.Caller, opts *echo.CallOptions)
 	// check is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	check     func(src echo.Caller, opts *echo.CallOptions) check.Checker
-	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) check.Checker
+	check     func(src echo.Caller, opts *echo.CallOptions) echo.Checker
+	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) echo.Checker
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip skip
@@ -240,7 +238,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *deploym
 	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
 		cases["jwt-claim-route"] = jwtClaimRoute(apps)
 	}
-	cases["virtualservice"] = virtualServiceCases(t.Settings().Skip(echo.VM))
+	cases["virtualservice"] = virtualServiceCases(t, t.Settings().Skip(echo.VM))
 	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
@@ -264,7 +262,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *deploym
 	cases["use-client-protocol"] = useClientProtocolCases(apps)
 	cases["destinationrule"] = destinationRuleCases(apps)
 	if !t.Settings().Skip(echo.VM) {
-		cases["vm"] = VMTestCases(apps.VM, apps)
+		cases["vm"] = VMTestCases(t, apps.VM, apps)
 	}
 	cases["dns"] = DNSTestCases(apps, i.Settings().EnableCNI)
 	for name, tts := range cases {

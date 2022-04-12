@@ -164,11 +164,11 @@ func (i *instance) defaultClient() (*echoClient.Client, error) {
 	return i.workloads[0].(*workload).Client, nil
 }
 
-func (i *instance) Call(opts echo.CallOptions) (echoClient.Responses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts)
+func (i *instance) Call(opts echo.CallOptions) (echo.CallResult, error) {
+	return common.ForwardEcho(i.Config().Service, i, opts, i.defaultClient)
 }
 
-func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echoClient.Responses {
+func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echo.CallResult {
 	t.Helper()
 	res, err := i.Call(opts)
 	if err != nil {
