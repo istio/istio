@@ -34,6 +34,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -680,11 +681,6 @@ func getMatches(match *tpb.MetricSelector) []string {
 	}
 }
 
-const (
-	statsFilterName       = "istio.stats"
-	stackdriverFilterName = "istio.stackdriver"
-)
-
 func statsRootIDForClass(class networking.ListenerClass) string {
 	switch class {
 	case networking.ListenerClassSidecarInbound:
@@ -717,7 +713,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 
 			f := &hcm.HttpFilter{
-				Name:       statsFilterName,
+				Name:       constants.StatsFilterName,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
@@ -735,7 +731,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 
 			f := &hcm.HttpFilter{
-				Name:       stackdriverFilterName,
+				Name:       constants.StackdriverFilterName,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
@@ -766,7 +762,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 
 			f := &listener.Filter{
-				Name:       statsFilterName,
+				Name:       constants.StatsFilterName,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
@@ -784,7 +780,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 
 			f := &listener.Filter{
-				Name:       stackdriverFilterName,
+				Name:       constants.StackdriverFilterName,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)

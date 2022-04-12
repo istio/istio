@@ -22,16 +22,12 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
-)
-
-const (
-	typedStructType    = resource.APITypePrefix + "udpa.type.v1.TypedStruct"
-	wasmHTTPFilterType = resource.APITypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
+	"istio.io/istio/pkg/config/constants"
 )
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
@@ -80,13 +76,13 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 
 	wasmHTTPFilterConfig := &wasm.Wasm{}
 	// Wasm filter can be configured using typed struct and Wasm filter type
-	if ec.GetTypedConfig() != nil && ec.GetTypedConfig().TypeUrl == wasmHTTPFilterType {
+	if ec.GetTypedConfig() != nil && ec.GetTypedConfig().TypeUrl == constants.WasmHTTPFilterType {
 		err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig)
 		if err != nil {
 			wasmLog.Debugf("failed to unmarshal extension config resource into Wasm HTTP filter: %v", err)
 			return
 		}
-	} else if ec.GetTypedConfig() == nil || ec.GetTypedConfig().TypeUrl != typedStructType {
+	} else if ec.GetTypedConfig() == nil || ec.GetTypedConfig().TypeUrl != constants.TypedStructType {
 		wasmLog.Debugf("cannot find typed struct in %+v", ec)
 		return
 	} else {
@@ -97,7 +93,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 			return
 		}
 
-		if wasmStruct.TypeUrl != wasmHTTPFilterType {
+		if wasmStruct.TypeUrl != constants.WasmHTTPFilterType {
 			wasmLog.Debugf("typed extension config %+v does not contain wasm http filter", wasmStruct)
 			return
 		}

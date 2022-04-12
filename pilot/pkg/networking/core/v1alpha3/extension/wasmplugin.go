@@ -27,16 +27,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/util/sets"
 
 	// include for registering wasm logging scope
 	_ "istio.io/istio/pkg/wasm"
 	"istio.io/pkg/log"
-)
-
-const (
-	wasmFilterType  = "envoy.extensions.filters.http.wasm.v3.Wasm"
-	statsFilterName = "istio.stats"
 )
 
 var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
@@ -101,7 +97,7 @@ func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
 			newHTTPFilters = append(newHTTPFilters, httpFilter)
-		case statsFilterName:
+		case constants.StatsFilterName:
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_STATS)
@@ -136,7 +132,7 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
-				TypeUrls:     []string{"type.googleapis.com/" + wasmFilterType},
+				TypeUrls:     []string{constants.WasmHTTPFilterType},
 			},
 		},
 	}

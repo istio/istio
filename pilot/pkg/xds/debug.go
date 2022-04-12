@@ -30,7 +30,6 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -626,10 +626,6 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-const (
-	wasmHTTPFilterType = resource.APITypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
-)
-
 func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 	tce := &core.TypedExtensionConfig{}
 	if err := r.GetResource().UnmarshalTo(tce); err != nil {
@@ -637,7 +633,7 @@ func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 	}
 
 	switch tce.TypedConfig.TypeUrl {
-	case wasmHTTPFilterType:
+	case constants.WasmHTTPFilterType:
 		w := &wasm.Wasm{}
 		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
 			return nil, err
