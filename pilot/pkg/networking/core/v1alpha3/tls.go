@@ -132,7 +132,10 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
 					// destinationCIDR will be empty for services with VIPs
-					destinationCIDRs := []string{destinationCIDR}
+					var destinationCIDRs []string
+					if destinationCIDR != "" {
+						destinationCIDRs = []string{destinationCIDR}
+					}
 					// Only set CIDR match if the listener is bound to an IP.
 					// If its bound to a unix domain socket, then ignore the CIDR matches
 					// Unix domain socket bound ports have Port value set to 0
@@ -223,7 +226,10 @@ TcpLoop:
 	for _, cfg := range configs {
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tcp := range virtualService.Tcp {
-			destinationCIDRs := []string{destinationCIDR}
+			var destinationCIDRs []string
+			if destinationCIDR != "" {
+				destinationCIDRs = []string{destinationCIDR}
+			}
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
