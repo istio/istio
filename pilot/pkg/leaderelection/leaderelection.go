@@ -66,6 +66,7 @@ type LeaderElection struct {
 	revision       string
 	remote         bool
 	prioritized    bool
+	ignoreLocation bool // turn on for testing with old key comparision
 	defaultWatcher revisions.DefaultWatcher
 
 	// Records which "cycle" the election is on. This is incremented each time an election is won and then lost
@@ -151,17 +152,30 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 	}
 
 	if l.prioritized {
-		// Function to use to decide whether this revision should steal the existing lock.
-		config.KeyComparison = func(currentLeaderRevision string) bool {
-			var currentLeaderRemote bool
-			if currentLeaderRemote = strings.HasPrefix(currentLeaderRevision, remoteIstiodPrefix); currentLeaderRemote {
-				currentLeaderRevision = strings.TrimPrefix(currentLeaderRevision, remoteIstiodPrefix)
+		// Function to use to decide whether this leader should steal the existing lock.
+		if !l.ignoreLocation {
+			// Use location-aware key comparison impl
+			config.KeyComparison = func(currentLeaderRevision string) bool {
+				var currentLeaderRemote bool
+				if currentLeaderRemote = strings.HasPrefix(currentLeaderRevision, remoteIstiodPrefix); currentLeaderRemote {
+					currentLeaderRevision = strings.TrimPrefix(currentLeaderRevision, remoteIstiodPrefix)
+				}
+				defaultRevision := l.defaultWatcher.GetDefault()
+				if l.revision != currentLeaderRevision && defaultRevision != "" && defaultRevision == l.revision {
+					// Always steal the lock if the new one is the default revision and the current one is not
+					return true
+				}
+				// Otherwise steal the lock if the new one and the current one are the same revision, but new is local and current is remote
+				return l.revision == currentLeaderRevision && !l.remote && currentLeaderRemote
 			}
-			preferredLocation := !l.remote && currentLeaderRemote // this revison is running locally while the current one is remote
-			defaultRevision := l.defaultWatcher.GetDefault()
-			return (l.revision != currentLeaderRevision || preferredLocation) &&
-				// empty default revision indicates that there is no default set
-				defaultRevision != "" && defaultRevision == l.revision
+		} else {
+			// Use old key comparison impl for testing
+			config.KeyComparison = func(currentLeaderRevision string) bool {
+				defaultRevision := l.defaultWatcher.GetDefault()
+				return l.revision != currentLeaderRevision &&
+					// empty default revision indicates that there is no default set
+					defaultRevision != "" && defaultRevision == l.revision
+			}
 		}
 	}
 
