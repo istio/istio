@@ -51,9 +51,11 @@ func TestJWTHTTPS(t *testing.T) {
 			ns := apps.Namespace1
 			istioSystemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
-			t.ConfigKube().EvalFile(istioSystemNS.Name(), map[string]string{
-				"Namespace": istioSystemNS.Name(),
-			}, filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")).ApplyOrFail(t)
+			for _, cluster := range t.AllClusters() {
+				t.ConfigKube(cluster).EvalFile(istioSystemNS.Name(), map[string]string{
+					"Namespace": istioSystemNS.Name(),
+				}, filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")).ApplyOrFail(t)
+			}
 
 			for _, cluster := range t.AllClusters() {
 				fetchFn := kube.NewPodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
