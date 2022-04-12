@@ -184,6 +184,8 @@ EOF
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     return 9
   fi
+  # Workaround kind issue causing taints to not be removed in 1.24
+  kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- || true
 
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
