@@ -128,7 +128,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey1,
+												InlineString: model.CreateFakeJwks(jwksURI),
 											},
 										},
 									},
@@ -269,7 +269,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey2,
+												InlineString: model.CreateFakeJwks(jwksURI),
 											},
 										},
 									},
@@ -405,7 +405,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey1,
+												InlineString: model.CreateFakeJwks(jwksURI),
 											},
 										},
 									},
@@ -607,7 +607,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey1,
+												InlineString: model.CreateFakeJwks(jwksURI),
 											},
 										},
 									},
@@ -676,7 +676,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey1,
+												InlineString: model.CreateFakeJwks(jwksURI),
 											},
 										},
 									},
@@ -692,19 +692,22 @@ func TestJwtFilter(t *testing.T) {
 		},
 	}
 
-	push := model.NewPushContext()
-	push.JwtKeyResolver = model.NewJwksResolver(
-		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
-	defer push.JwtKeyResolver.Close()
-
-	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
-	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
-		Hostname: "jwt-token-issuer.mesh.svc.cluster.local",
-	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			istiotest.SetBoolForTest(t, &features.EnableRemoteJwks, c.enableRemoteJwks)
+			push := model.NewPushContext()
+			push.JwtKeyResolver = model.NewJwksResolver(
+				model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
+				model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+			defer push.JwtKeyResolver.Close()
+
+			push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
+			push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
+				Hostname: "jwt-token-issuer.mesh.svc.cluster.local",
+			}
+			defaultValue := features.EnableRemoteJwks
+			features.EnableRemoteJwks = c.enableRemoteJwks
+			defer func() { features.EnableRemoteJwks = defaultValue }()
 			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
@@ -774,7 +777,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: test.JwtPubKey1,
+									InlineString: model.CreateFakeJwks(jwksURI),
 								},
 							},
 						},
@@ -877,7 +880,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: test.JwtPubKey1,
+									InlineString: model.CreateFakeJwks(jwksURI),
 								},
 							},
 						},
@@ -1333,7 +1336,6 @@ func TestInboundMTLSSettings(t *testing.T) {
 			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 			TlsParams: &tls.TlsParameters{
 				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-				TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 				CipherSuites: []string{
 					"ECDHE-ECDSA-AES256-GCM-SHA384",
 					"ECDHE-RSA-AES256-GCM-SHA384",

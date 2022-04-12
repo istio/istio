@@ -56,7 +56,7 @@ func TestJWTHTTPS(t *testing.T) {
 			}, filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")).ApplyOrFail(t)
 
 			for _, cluster := range t.AllClusters() {
-				fetchFn := kube.NewSinglePodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
+				fetchFn := kube.NewPodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
 				_, err := kube.WaitUntilPodsAreReady(fetchFn)
 				if err != nil {
 					t.Fatalf("pod is not getting ready : %v", err)
