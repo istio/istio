@@ -805,7 +805,7 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 // address field if the hostname is not a wildcard, or when resolution
 // is not NONE. The IPs are allocated from the reserved Class E subnet
 // (240.240.0.0/16) that is not reachable outside the pod or reserved
-// Benchmarking IP range (2001:0002::/48) in RFC5180. When DNS
+// Benchmarking IP range (2001:2::/48) in RFC5180. When DNS
 // capture is enabled, Envoy will resolve the DNS to these IPs. The
 // listeners for TCP services will also be set up on these IPs. The
 // IPs allocated to a service entry may differ from istiod to istiod
@@ -858,7 +858,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 
 			svc.AutoAllocatedIPv4Address = fmt.Sprintf("240.240.%d.%d", thirdOctet, fourthOctet)
 			// if the service of service entry has IPv6 address, then allocate the IPv4-Mapped IPv6 Address for it
-			svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:0002::f0f0:%s%s",
+			svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%s%s",
 				strconv.FormatInt(int64(thirdOctet), 16), strconv.FormatInt(int64(fourthOctet), 16))
 		}
 	}
