@@ -24,7 +24,7 @@ ROOT=$(dirname "$WD")
 set -ex
 
 toJson () {
-        python -c '
+        python3 -c '
 import sys, yaml, json
 yml = list(y for y in yaml.safe_load_all(sys.stdin) if y)
 if len(yml) == 1: yml = yml[0]
