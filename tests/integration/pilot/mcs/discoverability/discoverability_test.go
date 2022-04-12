@@ -40,11 +40,10 @@ import (
 	"istio.io/api/annotation"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/kube/mcs"
-	echoClient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -103,11 +102,11 @@ func TestClusterLocal(t *testing.T) {
 			for _, ht := range hostTypes {
 				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
 					runForAllClusterCombinations(t, func(t framework.TestContext, from echo.Instance, to echo.Target) {
-						var checker check.Checker
+						var checker echo.Checker
 						if ht == hostTypeClusterLocal {
 							// For calls to cluster.local, ensure that all requests stay in the same cluster
 							expectedClusters := cluster.Clusters{from.Config().Cluster}
-							checker = checkClustersReached(expectedClusters)
+							checker = checkClustersReached(t.AllClusters(), expectedClusters)
 						} else {
 							// For calls to clusterset.local, we should fail DNS lookup. The clusterset.local host
 							// is only available for a service when it is exported in at least one cluster.
@@ -138,7 +137,7 @@ func TestMeshWide(t *testing.T) {
 							// Ensure that requests to clusterset.local reach all destination clusters.
 							expectedClusters = to.Clusters()
 						}
-						callAndValidate(t, ht, from, to, checkClustersReached(expectedClusters))
+						callAndValidate(t, ht, from, to, checkClustersReached(t.AllClusters(), expectedClusters))
 					})
 				})
 			}
@@ -179,7 +178,7 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 											expectedClusters = append(expectedClusters, from.Config().Cluster)
 										}
 									}
-									callAndValidate(t, ht, from, to, checkClustersReached(expectedClusters))
+									callAndValidate(t, ht, from, to, checkClustersReached(t.AllClusters(), expectedClusters))
 								})
 							})
 						}
@@ -227,16 +226,16 @@ func newServiceExport(service string, serviceExportGVR schema.GroupVersionResour
 	}
 }
 
-func checkClustersReached(clusters cluster.Clusters) check.Checker {
+func checkClustersReached(allClusters cluster.Clusters, clusters cluster.Clusters) echo.Checker {
 	return check.And(
 		check.OK(),
-		check.ReachedClusters(clusters))
+		check.ReachedClusters(allClusters, clusters))
 }
 
-func checkDNSLookupFailed() check.Checker {
+func checkDNSLookupFailed() echo.Checker {
 	return check.And(
 		check.Error(),
-		func(_ echoClient.Responses, err error) error {
+		func(_ echo.CallResult, err error) error {
 			if strings.Contains(err.Error(), "no such host") {
 				return nil
 			}
@@ -244,7 +243,7 @@ func checkDNSLookupFailed() check.Checker {
 		})
 }
 
-func callAndValidate(t framework.TestContext, ht hostType, from echo.Instance, to echo.Target, checker check.Checker) {
+func callAndValidate(t framework.TestContext, ht hostType, from echo.Instance, to echo.Target, checker echo.Checker) {
 	t.Helper()
 
 	var address string

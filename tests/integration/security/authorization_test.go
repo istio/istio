@@ -27,12 +27,12 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -86,7 +86,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 									Count: callCount,
 								}
 								if expectAllowed {
-									opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 								} else {
 									opts.Check = scheck.RBACFailure(&opts)
 								}
@@ -153,7 +153,7 @@ func TestAuthorization_JWT(t *testing.T) {
 									Count: callCount,
 								}
 								if expectAllowed {
-									opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 								} else {
 									opts.Check = scheck.RBACFailure(&opts)
 								}
@@ -243,7 +243,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 						Count: callCount,
 					}
 					if expectAllowed {
-						opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+						opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 					} else {
 						opts.Check = scheck.RBACFailure(&opts)
 					}
@@ -386,7 +386,7 @@ func TestAuthorization_Deny(t *testing.T) {
 								Count: callCount,
 							}
 							if expectAllowed {
-								opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+								opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 							} else {
 								opts.Check = scheck.RBACFailure(&opts)
 							}
@@ -477,7 +477,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 								Count: callCount,
 							}
 							if expectAllowed {
-								opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+								opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 							} else {
 								opts.Check = scheck.RBACFailure(&opts)
 							}
@@ -871,7 +871,11 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 											return fmt.Errorf("want %q in body but not found: %s", tc.body, r.RawContent)
 										}
 										return nil
-									})).Check(rs, err)
+									})).Check(echo.CallResult{
+									From:      nil, // TODO(nmittler): consider making workload implement Caller interface.
+									Opts:      echo.CallOptions{},
+									Responses: rs,
+								}, err)
 							}, echo.DefaultCallRetryOptions()...)
 						})
 					}
@@ -898,7 +902,7 @@ func TestAuthorization_TCP(t *testing.T) {
 						},
 					}
 					if expectAllowed {
-						opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+						opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 					} else {
 						opts.Check = scheck.RBACFailure(&opts)
 					}
@@ -1078,7 +1082,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 										Count: callCount,
 									}
 									if expectAllowed {
-										opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+										opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 									} else {
 										opts.Check = scheck.RBACFailure(&opts)
 									}
@@ -1190,7 +1194,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 										},
 									}
 									if expectAllowed {
-										opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+										opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 									} else {
 										opts.Check = scheck.RBACFailure(&opts)
 									}
@@ -1254,7 +1258,7 @@ func TestAuthorization_Path(t *testing.T) {
 									Count: callCount,
 								}
 								if expectAllowed {
-									opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 								} else {
 									opts.Check = scheck.RBACFailure(&opts)
 								}
@@ -1334,7 +1338,7 @@ func TestAuthorization_Audit(t *testing.T) {
 						},
 					}
 					if expectAllowed {
-						opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+						opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 					} else {
 						opts.Check = scheck.RBACFailure(&opts)
 					}
@@ -1469,7 +1473,7 @@ extensionProviders:
 				BuildOrFail(t)
 
 			newTestCase := func(from echo.Instance, to echo.Target, s scheme.Instance, port, path string, headers http.Header,
-				checker check.Checker, expectAllowed bool) func(t framework.TestContext) {
+				checker echo.Checker, expectAllowed bool) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
 						To: to,
@@ -1483,7 +1487,7 @@ extensionProviders:
 						},
 					}
 					if expectAllowed {
-						opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+						opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 					} else {
 						opts.Check = scheck.RBACFailure(&opts)
 					}
@@ -1496,7 +1500,7 @@ extensionProviders:
 					})
 				}
 			}
-			checkHTTPHeaders := func(hType echoClient.HeaderType) check.Checker {
+			checkHTTPHeaders := func(hType echoClient.HeaderType) echo.Checker {
 				return check.And(
 					scheck.HeaderContains(hType, map[string][]string{
 						"X-Ext-Authz-Check-Received":             {"additional-header-new-value", "additional-header-override-value"},
@@ -1507,7 +1511,7 @@ extensionProviders:
 						"X-Ext-Authz-Additional-Header-Override": {"should-be-override"},
 					}))
 			}
-			checkGRPCHeaders := func(hType echoClient.HeaderType) check.Checker {
+			checkGRPCHeaders := func(hType echoClient.HeaderType) echo.Checker {
 				return check.And(
 					scheck.HeaderContains(hType, map[string][]string{
 						"X-Ext-Authz-Check-Received":             {"should-be-override"},
@@ -1563,7 +1567,7 @@ extensionProviders:
 			t.NewSubTest("ingress").Run(func(t framework.TestContext) {
 				ingr := ist.IngressFor(t.Clusters().Default())
 				newIngressTestCase := func(from, to echo.Instance, path string, h http.Header,
-					checker check.Checker, expectAllowed bool) func(t framework.TestContext) {
+					checker echo.Checker, expectAllowed bool) func(t framework.TestContext) {
 					return func(t framework.TestContext) {
 						opts := echo.CallOptions{
 							To: to,
@@ -1580,7 +1584,7 @@ extensionProviders:
 							},
 						}
 						if expectAllowed {
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 						} else {
 							opts.Check = scheck.RBACFailure(&opts)
 						}

@@ -28,7 +28,6 @@ import (
 	"github.com/Masterminds/sprig/v3"
 
 	"istio.io/istio/pkg/test"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/scopes"
@@ -227,12 +226,12 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 	t.Helper()
 	headers := http.Header{}
 	headers.Add("Host", host)
-	checker := func(resp echoClient.Responses, inErr error) error {
+	checker := func(result echo.CallResult, inErr error) error {
 		if inErr != nil {
 			return inErr
 		}
 		got := map[string]int{}
-		for _, r := range resp {
+		for _, r := range result.Responses {
 			// Hostname will take form of svc-v1-random. We want to extract just 'svc'
 			parts := strings.SplitN(r.Hostname, "-", 2)
 			if len(parts) < 2 {

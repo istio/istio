@@ -26,12 +26,13 @@ import (
 	"strings"
 
 	echoClient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 )
 
-func NotOK() check.Checker {
+func NotOK() echo.Checker {
 	strCode := strconv.Itoa(http.StatusOK)
 	return check.Or(check.Error(), check.Each(func(r echoClient.Response) error {
 		if r.Code == strCode {
@@ -41,15 +42,15 @@ func NotOK() check.Checker {
 	}))
 }
 
-func ReachedClusters(opts *echo.CallOptions) check.Checker {
+func ReachedClusters(allClusters cluster.Clusters, opts *echo.CallOptions) echo.Checker {
 	// TODO(https://github.com/istio/istio/issues/37307): Investigate why we don't reach all clusters.
 	if opts.To.Clusters().IsMulticluster() && opts.Count > 1 && opts.Scheme != scheme.GRPC && !opts.To.Config().IsHeadless() {
-		return check.ReachedClusters(opts.To.Clusters())
+		return check.ReachedClusters(allClusters, opts.To.Clusters())
 	}
-	return check.None()
+	return echo.NoChecker()
 }
 
-func RBACFailure(opts *echo.CallOptions) check.Checker {
+func RBACFailure(opts *echo.CallOptions) echo.Checker {
 	if opts.Port.Name == "grpc" {
 		return check.ErrorContains("rpc error: code = PermissionDenied desc = RBAC: access denied")
 	}
@@ -63,7 +64,7 @@ func RBACFailure(opts *echo.CallOptions) check.Checker {
 		check.Status(http.StatusForbidden))
 }
 
-func HeaderContains(hType echoClient.HeaderType, expected map[string][]string) check.Checker {
+func HeaderContains(hType echoClient.HeaderType, expected map[string][]string) echo.Checker {
 	return check.Each(func(r echoClient.Response) error {
 		h := r.GetHeaders(hType)
 		for _, key := range sortKeys(expected) {
@@ -80,7 +81,7 @@ func HeaderContains(hType echoClient.HeaderType, expected map[string][]string) c
 	})
 }
 
-func HeaderNotContains(hType echoClient.HeaderType, expected map[string][]string) check.Checker {
+func HeaderNotContains(hType echoClient.HeaderType, expected map[string][]string) echo.Checker {
 	return check.Each(func(r echoClient.Response) error {
 		h := r.GetHeaders(hType)
 		for _, key := range sortKeys(expected) {

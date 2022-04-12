@@ -176,11 +176,15 @@ func (c *instance) Config() echo.Config {
 	return c.cfg
 }
 
-func (c *instance) Call(opts echo.CallOptions) (echoClient.Responses, error) {
+func (c *instance) Cluster() cluster.Cluster {
+	return c.cfg.Cluster
+}
+
+func (c *instance) Call(opts echo.CallOptions) (echo.CallResult, error) {
 	return c.aggregateResponses(opts)
 }
 
-func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echoClient.Responses {
+func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echo.CallResult {
 	t.Helper()
 	r, err := c.Call(opts)
 	if err != nil {
@@ -221,7 +225,7 @@ func (c *instance) Restart() error {
 }
 
 // aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
-func (c *instance) aggregateResponses(opts echo.CallOptions) (echoClient.Responses, error) {
+func (c *instance) aggregateResponses(opts echo.CallOptions) (echo.CallResult, error) {
 	// TODO put this somewhere else, or require users explicitly set the protocol - quite hacky
 	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.Port.Name == "grpc" || opts.Port.Protocol == protocol.GRPC) {
 		// for gRPC calls, use XDS resolver
@@ -231,23 +235,27 @@ func (c *instance) aggregateResponses(opts echo.CallOptions) (echoClient.Respons
 	resps := make(echoClient.Responses, 0)
 	workloads, err := c.Workloads()
 	if err != nil {
-		return nil, err
+		return echo.CallResult{}, err
 	}
 	aggErr := istiomultierror.New()
 	for _, w := range workloads {
 		clusterName := w.(*workload).cluster.Name()
 		serviceName := fmt.Sprintf("%s (cluster=%s)", c.cfg.Service, clusterName)
 
-		out, err := common.ForwardEcho(serviceName, w.(*workload).Client, &opts)
+		out, err := common.ForwardEcho(serviceName, c, opts, w.(*workload).Client)
 		if err != nil {
 			aggErr = multierror.Append(aggErr, err)
 			continue
 		}
-		resps = append(resps, out...)
+		resps = append(resps, out.Responses...)
 	}
 	if aggErr.ErrorOrNil() != nil {
-		return nil, aggErr
+		return echo.CallResult{}, aggErr
 	}
 
-	return resps, nil
+	return echo.CallResult{
+		From:      c,
+		Opts:      opts,
+		Responses: resps,
+	}, nil
 }

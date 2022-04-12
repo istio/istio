@@ -25,10 +25,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -141,7 +141,7 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 				t.NewSubTest(fmt.Sprintf("%s-%s->%s", trafficType, from.Config().Service, to.Config().Service)).
 					Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
-							resp, err := from.Call(echo.CallOptions{
+							result, err := from.Call(echo.CallOptions{
 								To: to,
 								Port: echo.Port{
 									Name: trafficType,
@@ -152,7 +152,7 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 							})
 							return check.And(
 								check.NoError(),
-								check.OK()).Check(resp, err)
+								check.OK()).Check(result, err)
 						}, retry.Delay(time.Millisecond*150))
 					})
 			}
