@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func createConfigs(configs []*config.Config, store model.IstioConfigStore, t testing.TB) {
+func createConfigs(configs []*config.Config, store model.ConfigStore, t testing.TB) {
 	t.Helper()
 	for _, cfg := range configs {
 		_, err := store.Create(*cfg)
@@ -62,7 +62,7 @@ func callInstanceHandlers(instances []*model.WorkloadInstance, sd *Controller, e
 	}
 }
 
-func deleteConfigs(configs []*config.Config, store model.IstioConfigStore, t testing.TB) {
+func deleteConfigs(configs []*config.Config, store model.ConfigStore, t testing.TB) {
 	t.Helper()
 	for _, cfg := range configs {
 		err := store.Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace, nil)
@@ -137,13 +137,13 @@ func waitForEvent(t testing.TB, ch chan Event) Event {
 	}
 }
 
-func initServiceDiscovery() (model.IstioConfigStore, *Controller, chan Event, func()) {
+func initServiceDiscovery() (model.ConfigStore, *Controller, chan Event, func()) {
 	return initServiceDiscoveryWithOpts(false)
 }
 
 // initServiceDiscoveryWithoutEvents initializes a test setup with no events. This avoids excessive attempts to push
 // EDS updates to a full queue
-func initServiceDiscoveryWithoutEvents(t test.Failer) (model.IstioConfigStore, *Controller) {
+func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Controller) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
@@ -172,7 +172,7 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.IstioConfigStore, *
 	return istioStore, serviceController
 }
 
-func initServiceDiscoveryWithOpts(workloadOnly bool, opts ...Option) (model.IstioConfigStore, *Controller, chan Event, func()) {
+func initServiceDiscoveryWithOpts(workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, chan Event, func()) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 

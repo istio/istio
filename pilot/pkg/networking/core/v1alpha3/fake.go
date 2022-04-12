@@ -154,7 +154,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
 	env.ServiceDiscovery = serviceDiscovery
-	env.IstioConfigStore = model.MakeIstioStore(configController)
+	env.ConfigStore = model.MakeIstioStore(configController)
 	env.NetworksWatcher = opts.NetworksWatcher
 	env.Init()
 

@@ -606,7 +606,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
 
-	s.Generators["api"] = apigen.NewGenerator(env.IstioConfigStore)
+	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen
 
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
