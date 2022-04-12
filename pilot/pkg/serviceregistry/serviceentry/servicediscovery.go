@@ -485,8 +485,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	instancesDeleted := []*model.ServiceInstance{}
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		workloadLabels := labels.Collection{wi.Endpoint.Labels}
-		if se.WorkloadSelector == nil || !workloadLabels.IsSupersetOf(se.WorkloadSelector.Labels) {
+		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
 			// Not a match, skip this one
 			continue
 		}

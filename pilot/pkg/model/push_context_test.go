@@ -1008,39 +1008,39 @@ func TestSidecarScope(t *testing.T) {
 		t.Fatalf("init sidecar scope failed: %v", err)
 	}
 	cases := []struct {
-		proxy      *Proxy
-		collection labels.Collection
-		sidecar    string
-		describe   string
+		proxy    *Proxy
+		labels   labels.Instance
+		sidecar  string
+		describe string
 	}{
 		{
-			proxy:      &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
-			collection: labels.Collection{map[string]string{"app": "foo"}},
-			sidecar:    "default/foo",
-			describe:   "match local sidecar",
+			proxy:    &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
+			labels:   labels.Instance{"app": "foo"},
+			sidecar:  "default/foo",
+			describe: "match local sidecar",
 		},
 		{
-			proxy:      &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
-			collection: labels.Collection{map[string]string{"app": "bar"}},
-			sidecar:    "default/global",
-			describe:   "no match local sidecar",
+			proxy:    &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
+			labels:   labels.Instance{"app": "bar"},
+			sidecar:  "default/global",
+			describe: "no match local sidecar",
 		},
 		{
-			proxy:      &Proxy{Type: SidecarProxy, ConfigNamespace: "nosidecar"},
-			collection: labels.Collection{map[string]string{"app": "bar"}},
-			sidecar:    "nosidecar/global",
-			describe:   "no sidecar",
+			proxy:    &Proxy{Type: SidecarProxy, ConfigNamespace: "nosidecar"},
+			labels:   labels.Instance{"app": "bar"},
+			sidecar:  "nosidecar/global",
+			describe: "no sidecar",
 		},
 		{
-			proxy:      &Proxy{Type: Router, ConfigNamespace: "istio-system"},
-			collection: labels.Collection{map[string]string{"app": "istio-gateway"}},
-			sidecar:    "istio-system/default-sidecar",
-			describe:   "gateway sidecar scope",
+			proxy:    &Proxy{Type: Router, ConfigNamespace: "istio-system"},
+			labels:   labels.Instance{"app": "istio-gateway"},
+			sidecar:  "istio-system/default-sidecar",
+			describe: "gateway sidecar scope",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.describe, func(t *testing.T) {
-			scope := ps.getSidecarScope(c.proxy, c.collection)
+			scope := ps.getSidecarScope(c.proxy, c.labels)
 			if c.sidecar != scopeToSidecar(scope) {
 				t.Errorf("should get sidecar %s but got %s", c.sidecar, scopeToSidecar(scope))
 			}

@@ -21,9 +21,7 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"istio.io/istio/pkg/config/schema/gvk"
 
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config"
@@ -31,7 +29,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 

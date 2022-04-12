@@ -35,18 +35,3 @@ func (c Collection) HasSubsetOf(that Instance) bool {
 	}
 	return false
 }
-
-// IsSupersetOf returns true if the input labels are a subset of any set of labels in a
-// collection
-func (c Collection) IsSupersetOf(that Instance) bool {
-	if len(c) == 0 {
-		return len(that) == 0
-	}
-
-	for _, this := range c {
-		if that.SubsetOf(this) {
-			return true
-		}
-	}
-	return false
-}

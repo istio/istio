@@ -487,7 +487,7 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 			return value
 		}
 		c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
-			NewPolicyApplier(c.push, ep.Namespace, labels.Collection{ep.Labels}).
+			NewPolicyApplier(c.push, ep.Namespace, ep.Labels).
 			GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
 		return c.peerAuthDisabledMTLS[peerAuthnKey]
 	}

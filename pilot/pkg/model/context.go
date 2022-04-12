@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
@@ -786,8 +785,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	sidecarScope := node.SidecarScope
 
 	if node.Type == SidecarProxy {
-		workloadLabels := labels.Collection{node.Metadata.Labels}
-		node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
+		node.SidecarScope = ps.getSidecarScope(node, node.Metadata.Labels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = ps.getSidecarScope(node, nil)

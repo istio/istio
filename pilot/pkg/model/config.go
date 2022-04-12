@@ -208,7 +208,6 @@ type ConfigStoreCache interface {
 // Istio configuration types
 type IstioConfigStore interface {
 	ConfigStore
-
 }
 
 const (

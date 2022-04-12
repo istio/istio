@@ -365,7 +365,7 @@ func BuildHTTPRoutesForVirtualService(
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
 // labels for the proxy or the gateway name for which we are generating a route
-func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Collection, gatewayNames map[string]bool, proxyNamespace string) bool {
+func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Instance, gatewayNames map[string]bool, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -377,7 +377,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Coll
 				return true
 			}
 		}
-	} else if proxyLabels.IsSupersetOf(match.GetSourceLabels()) {
+	} else if labels.Instance(match.GetSourceLabels()).SubsetOf(proxyLabels) {
 		return match.SourceNamespace == "" || match.SourceNamespace == proxyNamespace
 	}
 
@@ -405,7 +405,7 @@ func translateRoute(
 		return nil
 	}
 	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames, node.Metadata.Namespace) {
+	if !sourceMatchHTTP(match, node.Metadata.Labels, gatewayNames, node.Metadata.Namespace) {
 		return nil
 	}
 

@@ -19,7 +19,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
 )
 
@@ -59,7 +58,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.Muta
 
 func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	ns := in.Node.Metadata.Namespace
-	applier := factory.NewPolicyApplier(in.Push, ns, labels.Collection{in.Node.Metadata.Labels})
+	applier := factory.NewPolicyApplier(in.Push, ns, in.Node.Metadata.Labels)
 	forSidecar := in.Node.Type == model.SidecarProxy
 	for i := range mutable.FilterChains {
 		if mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
@@ -87,7 +86,7 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 }
 
 func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
-	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
+	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, in.Node.Metadata.Labels)
 	trustDomains := TrustDomainsForValidation(in.Push.Mesh)
 
 	port := in.ServiceInstance.Endpoint.EndpointPort
