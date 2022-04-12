@@ -35,7 +35,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
-	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -642,25 +641,11 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 	return def
 }
 
-// GetNetworkView returns the networks that the proxy requested.
-// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
-// endpoints corresponding to the networks that the proxy wants to see.
+// GetView returns a restricted view of the mesh for this proxy. The view can be
+// restricted by network (via ISTIO_META_REQUESTED_NETWORK_VIEW).
 // If not set, we assume that the proxy wants to see endpoints in any network.
-func (node *Proxy) GetNetworkView() map[network.ID]bool {
-	if node == nil || node.Metadata == nil {
-		return nil
-	}
-	if len(node.Metadata.RequestedNetworkView) == 0 {
-		return nil
-	}
-
-	nmap := make(map[network.ID]bool)
-	for _, n := range node.Metadata.RequestedNetworkView {
-		nmap[network.ID(n)] = true
-	}
-	nmap[identifier.Undefined] = true
-
-	return nmap
+func (node *Proxy) GetView() ProxyView {
+	return newProxyView(node)
 }
 
 // InNetwork returns true if the proxy is on the given network, or if either
@@ -855,9 +840,22 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 
 // DiscoverIPVersions discovers the IP Versions supported by Proxy based on its IP addresses.
 func (node *Proxy) DiscoverIPVersions() {
-	node.GlobalUnicastIP = networkutil.GlobalUnicastIP(node.IPAddresses)
-	node.ipv6Support = networkutil.IsIPv6(node.IPAddresses)
-	node.ipv4Support = networkutil.IsIPv4(node.IPAddresses)
+	for i := 0; i < len(node.IPAddresses); i++ {
+		addr := net.ParseIP(node.IPAddresses[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if node.GlobalUnicastIP == "" && addr.IsGlobalUnicast() {
+			node.GlobalUnicastIP = addr.String()
+		}
+		if addr.To4() != nil {
+			node.ipv4Support = true
+		} else {
+			node.ipv6Support = true
+		}
+	}
 }
 
 // SupportsIPv4 returns true if proxy supports IPv4 addresses.

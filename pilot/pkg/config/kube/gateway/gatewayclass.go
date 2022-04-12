@@ -21,8 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned/typed/apis/v1alpha2"
-	lister "sigs.k8s.io/gateway-api/pkg/client/listers/gateway/apis/v1alpha2"
+	gatewayclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/typed/apis/v1alpha2"
+	lister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -62,7 +62,7 @@ func (c *ClassController) Run(stop <-chan struct{}) {
 	c.queue.Run(stop)
 }
 
-func (c *ClassController) Reconcile(_ types.NamespacedName) error {
+func (c *ClassController) Reconcile(_ interface{}) error {
 	_, err := c.classes.Get(DefaultClassName)
 	if err := controllers.IgnoreNotFound(err); err != nil {
 		log.Errorf("unable to fetch GatewayClass: %v", err)

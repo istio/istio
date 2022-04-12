@@ -69,18 +69,18 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 			}
 		}
 		if len(eld.Labels) > 0 {
-			for kLabel, vLablel := range eld.Labels {
-				if evLablel, exists := pod.Labels[kLabel]; exists {
-					if isExactMatchedOrPatternMatched(vLablel, evLablel) {
+			for key, val := range eld.Labels {
+				if evLablel, exists := pod.Labels[key]; exists {
+					if isExactMatchedOrPatternMatched(val, evLablel) {
 						return true
 					}
 				}
 			}
 		}
 		if len(eld.Annotations) > 0 {
-			for kAnnotation, vAnnotation := range eld.Annotations {
-				if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
-					if isExactMatchedOrPatternMatched(vAnnotation, evAnnotation) {
+			for key, val := range eld.Annotations {
+				if evAnnotation, exists := pod.Annotations[key]; exists {
+					if isExactMatchedOrPatternMatched(val, evAnnotation) {
 						return true
 					}
 				}
@@ -119,9 +119,9 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 
 		if len(ild.Labels) > 0 {
 			isLabelsMatch := false
-			for kLabel, vLablel := range ild.Labels {
-				if evLablel, exists := pod.Labels[kLabel]; exists {
-					if isExactMatchedOrPatternMatched(vLablel, evLablel) {
+			for key, val := range ild.Labels {
+				if evLablel, exists := pod.Labels[key]; exists {
+					if isExactMatchedOrPatternMatched(val, evLablel) {
 						isLabelsMatch = true
 						break
 					}
@@ -134,9 +134,9 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 
 		if len(ild.Annotations) > 0 {
 			isAnnotationMatch := false
-			for kAnnotation, vAnnotation := range ild.Annotations {
-				if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
-					if isExactMatchedOrPatternMatched(vAnnotation, evAnnotation) {
+			for key, val := range ild.Annotations {
+				if evAnnotation, exists := pod.Annotations[key]; exists {
+					if isExactMatchedOrPatternMatched(val, evAnnotation) {
 						isAnnotationMatch = true
 						break
 					}

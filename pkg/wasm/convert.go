@@ -22,14 +22,16 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 const (
-	apiTypePrefix      = "type.googleapis.com/"
-	typedStructType    = apiTypePrefix + "udpa.type.v1.TypedStruct"
-	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
+	typedStructType    = resource.APITypePrefix + "udpa.type.v1.TypedStruct"
+	wasmHTTPFilterType = resource.APITypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
 )
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
@@ -78,7 +80,6 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 
 	wasmHTTPFilterConfig := &wasm.Wasm{}
 	// Wasm filter can be configured using typed struct and Wasm filter type
-	wasmLog.Debugf("original extension config resource %+v", ec)
 	if ec.GetTypedConfig() != nil && ec.GetTypedConfig().TypeUrl == wasmHTTPFilterType {
 		err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig)
 		if err != nil {
@@ -119,6 +120,29 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	status = conversionSuccess
 
 	vm := wasmHTTPFilterConfig.Config.GetVmConfig()
+	envs := vm.GetEnvironmentVariables()
+	var pullSecret []byte
+	if envs != nil {
+		if sec, found := envs.KeyValues[model.WasmSecretEnv]; found {
+			if sec == "" {
+				status = fetchFailure
+				wasmLog.Errorf("cannot fetch Wasm module %v: missing image pulling secret", wasmHTTPFilterConfig.Config.Name)
+				return
+			}
+			pullSecret = []byte(sec)
+		}
+		// Strip all internal env variables from VM env variable.
+		// These env variables are added by Istio control plane and meant to be consumed by the agent for image pulling control,
+		// thus should not be leaked to Envoy or the Wasm extension runtime.
+		delete(envs.KeyValues, model.WasmSecretEnv)
+		if len(envs.KeyValues) == 0 {
+			if len(envs.HostEnvKeys) == 0 {
+				vm.EnvironmentVariables = nil
+			} else {
+				envs.KeyValues = nil
+			}
+		}
+	}
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()
 	if httpURI == nil {
@@ -134,7 +158,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}
-	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, timeout)
+	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, timeout, pullSecret)
 	if err != nil {
 		status = fetchFailure
 		wasmLog.Errorf("cannot fetch Wasm module %v: %v", remote.GetHttpUri().GetUri(), err)

@@ -139,10 +139,10 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
-		deltaLog.Debugf("Skipping push to %v, no updates required", con.ConID)
+		deltaLog.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version
-			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, nil)
+			reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, nil)
 		}
 		return nil
 	}
@@ -157,7 +157,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, ignoreEvents)
+		reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, ignoreEvents)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -180,11 +180,11 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 		req, err := con.deltaStream.Recv()
 		if err != nil {
 			if istiogrpc.IsExpectedGRPCError(err) {
-				deltaLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				deltaLog.Infof("ADS: %q %s terminated", con.peerAddr, con.conID)
 				return
 			}
 			con.errorChan <- err
-			deltaLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
+			deltaLog.Errorf("ADS: %q %s terminated with error: %v", con.peerAddr, con.conID, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
@@ -200,13 +200,13 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 				return
 			}
 			defer s.closeConnection(con)
-			deltaLog.Infof("ADS: new delta connection for node:%s", con.ConID)
+			deltaLog.Infof("ADS: new delta connection for node:%s", con.conID)
 		}
 
 		select {
 		case con.deltaReqChan <- req:
 		case <-con.deltaStream.Context().Done():
-			deltaLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			deltaLog.Infof("ADS: %q %s terminated with stream closed", con.peerAddr, con.conID)
 			return
 		}
 	}
@@ -238,7 +238,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			conn.proxy.Unlock()
 		}
 	} else {
-		deltaLog.Infof("Timeout writing %s", conn.ConID)
+		deltaLog.Infof("Timeout writing %s", conn.conID)
 		xdsResponseWriteTimeouts.Increment()
 	}
 	return err
@@ -248,7 +248,8 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryRequest, con *Connection) error {
-	if !s.shouldProcessRequest(con.proxy, deltaToSotwRequest(req)) {
+	if req.TypeUrl == v3.HealthInfoType {
+		s.handleWorkloadHealthcheck(con.proxy, deltaToSotwRequest(req))
 		return nil
 	}
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
@@ -257,7 +258,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
+		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
 	}
 	shouldRespond := s.shouldRespondDelta(con, req)
 	if !shouldRespond {
@@ -297,7 +298,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
 		errCode := codes.Code(request.ErrorDetail.Code)
-		deltaLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
+		deltaLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.conID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
 		if s.StatusGen != nil {
 			s.StatusGen.OnNack(con.proxy, deltaToSotwRequest(request))
@@ -322,7 +323,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
 		// TODO: can we distinguish init and reconnect? Do we care?
-		deltaLog.Debugf("ADS:%s: INIT/RECONNECT %s %s", stype, con.ConID, request.ResponseNonce)
+		deltaLog.Debugf("ADS:%s: INIT/RECONNECT %s %s", stype, con.conID, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
@@ -337,7 +338,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// TODO: due to concurrent unsubscribe, this probably doesn't make sense. Do we need any logic here?
 	if request.ResponseNonce != "" && request.ResponseNonce != previousInfo.NonceSent {
 		deltaLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
-			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
+			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
@@ -370,18 +371,17 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if oldAck {
-		deltaLog.Debugf("ADS:%s: ACK  %s %s", stype, con.ConID, request.ResponseNonce)
+		deltaLog.Debugf("ADS:%s: ACK  %s %s", stype, con.conID, request.ResponseNonce)
 		return false
 	}
 	deltaLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
-		previousResources, deltaResources, con.ConID, request.ResponseNonce)
+		previousResources, deltaResources, con.conID, request.ResponseNonce)
 
 	return true
 }
 
-// Push an XDS resource for the given connection. Configuration will be generated
-// based on the passed in generator. Based on the updates field, generators may
-// choose to send partial or even no response if there are no changes.
+// Push an Delta XDS resource for the given connection. Configuration will be generated
+// based on the passed in generator.
 func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	w *model.WatchedResource, req *model.PushRequest) error {
 	if w == nil {
@@ -426,7 +426,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	if err != nil || (res == nil && deletedRes == nil) {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, req.Push.LedgerVersion)
+			s.StatusReporter.RegisterEvent(con.conID, w.TypeUrl, req.Push.LedgerVersion)
 		}
 		return err
 	}
@@ -449,7 +449,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		resp.RemovedResources = subscribed.SortedList()
 	}
 	if len(resp.RemovedResources) > 0 {
-		deltaLog.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.ConID, resp.RemovedResources)
+		deltaLog.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
 	}
 	// normally wildcard xds `subscribe` is always nil, just in case there are some extended type not handled correctly.
 	if req.Delta.Subscribed == nil && isWildcardTypeURL(w.TypeUrl) {
@@ -506,8 +506,8 @@ func newDeltaConnection(peerAddr string, stream DeltaDiscoveryStream) *Connectio
 		pushChannel:  make(chan *Event),
 		initialized:  make(chan struct{}),
 		stop:         make(chan struct{}),
-		PeerAddr:     peerAddr,
-		Connect:      time.Now(),
+		peerAddr:     peerAddr,
+		connectedAt:  time.Now(),
 		deltaStream:  stream,
 		deltaReqChan: make(chan *discovery.DeltaDiscoveryRequest, 1),
 		errorChan:    make(chan error, 1),
@@ -527,7 +527,7 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 
 func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) []string {
 	res := sets.New(existing...)
-	res.Insert(request.ResourceNamesSubscribe...)
+	res.InsertAll(request.ResourceNamesSubscribe...)
 	res.Delete(request.ResourceNamesUnsubscribe...)
 	return res.SortedList()
 }

@@ -32,10 +32,14 @@ metadata:
     service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
     service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
   annotations: {
-    {{- if eq (len $containers) 1 }}
+    {{- if ge (len $containers) 1 }}
+    {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-logs-container`) }}
     kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
+    {{- end }}
+    {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-container`) }}
     kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
-    {{ end }}
+    {{- end }}
+    {{- end }}
 {{- if .Values.istio_cni.enabled }}
     {{- if not .Values.istio_cni.chained }}
     k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `istio-cni` }}',
@@ -356,10 +360,15 @@ spec:
     resources:
   {{ template "resources" . }}
     volumeMounts:
+    - name: workload-socket
+      mountPath: /var/run/secrets/workload-spiffe-uds
     {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
     - name: gke-workload-certificate
       mountPath: /var/run/secrets/workload-spiffe-credentials
       readOnly: true
+    {{- else }}
+    - name: workload-certs
+      mountPath: /var/run/secrets/workload-spiffe-credentials
     {{- end }}
     {{- if eq .Values.global.pilotCertProvider "istiod" }}
     - mountPath: /var/run/secrets/istio
@@ -398,10 +407,15 @@ spec:
       {{ end }}
       {{- end }}
   volumes:
+  - emptyDir:
+    name: workload-socket
   {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
   - name: gke-workload-certificate
     csi:
       driver: workloadcertificates.security.cloud.google.com
+  {{- else }}
+  - emptyDir:
+    name: workload-certs
   {{- end }}
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: custom-bootstrap-volume

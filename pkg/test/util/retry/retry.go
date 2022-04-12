@@ -185,9 +185,8 @@ func UntilComplete(fn RetriableFunc, options ...Option) (interface{}, error) {
 
 			// Skip delay if we have a success
 			continue
-		} else {
-			successes = 0
 		}
+		successes = 0
 		if err != nil {
 			scope.Debugf("encountered an error on attempt %d: %v", attempts, err)
 			lasterr = err
@@ -206,6 +205,5 @@ func UntilComplete(fn RetriableFunc, options ...Option) (interface{}, error) {
 				delay = cfg.delayMax
 			}
 		}
-
 	}
 }

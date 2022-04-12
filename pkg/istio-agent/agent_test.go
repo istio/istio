@@ -54,8 +54,10 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
+	"istio.io/istio/security/pkg/nodeagent/cache"
 	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
+	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/stsservice"
@@ -265,6 +267,62 @@ func TestAgent(t *testing.T) {
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
+	t.Run("External SDS socket", func(t *testing.T) {
+		dir := mktemp()
+		copyCerts(t, dir)
+
+		secOpts := &security.Options{}
+		secOpts.RootCertFilePath = filepath.Join(dir, "/root-cert.pem")
+		secOpts.CertChainFilePath = filepath.Join(dir, "/cert-chain.pem")
+		secOpts.KeyFilePath = filepath.Join(dir, "/key.pem")
+
+		secretCache, err := cache.NewSecretManagerClient(nil, secOpts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer secretCache.Close()
+
+		// this SDS Server listens on the well-known socket path serving the certs copied to the temp directory,
+		// and acts as the external SDS Server that the Agent will detect at startup
+		sdsServer := sds.NewServer(secOpts, secretCache, nil)
+		defer sdsServer.Stop()
+
+		Setup(t).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+
+		t.Cleanup(func() {
+			_ = os.RemoveAll(dir)
+		})
+	})
+	t.Run("Unhealthy SDS socket", func(t *testing.T) {
+		dir := filepath.Dir(security.WorkloadIdentitySocketPath)
+		os.MkdirAll(dir, 0o755)
+
+		// starting an unresponsive listener on the socket
+		l, err := net.Listen("unix", security.WorkloadIdentitySocketPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer l.Close()
+
+		Setup(t).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+
+		t.Cleanup(func() {
+			_ = os.RemoveAll(dir)
+		})
+	})
+	t.Run("Workload certificates", func(t *testing.T) {
+		dir := security.WorkloadIdentityCredentialsPath
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		copyCerts(t, dir)
+
+		Setup(t).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+
+		t.Cleanup(func() {
+			_ = os.RemoveAll(dir)
+		})
+	})
 	t.Run("VMs", func(t *testing.T) {
 		// Bootstrap sets up a short lived JWT token and root certificate. The initial run will fetch
 		// a certificate and write it to disk. This will be used (by mTLS authenticator) for future
@@ -277,11 +335,6 @@ func TestAgent(t *testing.T) {
 				a.Security.ProvCert = dir
 				return a
 			})
-			a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-
-			// Switch out our auth to only allow mTLS. In practice, the real server would allow JWT, but we
-			// don't have a good way to expire JWTs here. Instead, we just deny all JWTs to ensure mTLS is used
-			a.CaAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
 			a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		})
 		t.Run("reboot", func(t *testing.T) {
@@ -569,7 +622,6 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	}
 	ca := setupCa(t, resp.CaAuthenticator)
 	resp.Security = security.Options{
-		WorkloadUDSPath:   filepath.Join(d, "SDS"),
 		CAEndpoint:        ca.URL,
 		CAProviderName:    "Citadel",
 		TrustDomain:       "cluster.local",
@@ -636,7 +688,6 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	a := NewAgent(resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
 	t.Cleanup(a.Close)
 	ctx, done := context.WithCancel(context.Background())
-
 	wait, err := a.Run(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -667,7 +718,7 @@ func (a *AgentTest) Check(t *testing.T, expectedSDS ...string) map[string]*xds.A
 	sdsStreams := map[string]*xds.AdsTest{}
 	gotKeys := []string{}
 	for _, res := range xdstest.ExtractSecretResources(t, resp.Resources) {
-		sds := xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, a.Security.WorkloadUDSPath)).
+		sds := xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, security.WorkloadIdentitySocketPath)).
 			WithMetadata(meta).
 			WithTimeout(time.Second * 20) // CSR can be extremely slow with race detection enabled due to 2048 RSA
 		sds.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{res}})

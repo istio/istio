@@ -65,7 +65,9 @@ import (
 
 // Constants for duration fields
 const (
+	// nolint: revive
 	connectTimeoutMax = time.Second * 30
+	// nolint: revive
 	connectTimeoutMin = time.Millisecond
 
 	drainTimeMax          = time.Hour
@@ -1090,7 +1092,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				}
 				errs = appendValidation(errs, validateTLSOptions(i.Tls))
 			}
-
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -1173,7 +1174,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					errs = appendValidation(errs, WrapWarning(fmt.Errorf("`*/*` host select all resources, no other hosts can be added")))
 				}
 			}
-
 		}
 
 		errs = appendValidation(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
@@ -1645,6 +1645,32 @@ func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
 	return
 }
 
+func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
+	var errs error
+	if pkpConf.GetProvider() == nil {
+		errs = multierror.Append(errs, errors.New("private key provider confguration is required"))
+	}
+
+	switch pkpConf.GetProvider().(type) {
+	case *meshconfig.PrivateKeyProvider_Cryptomb:
+		cryptomb := pkpConf.GetCryptomb()
+		if cryptomb == nil {
+			errs = multierror.Append(errs, errors.New("cryptomb confguration is required"))
+		} else {
+			pollDelay := cryptomb.GetPollDelay()
+			if pollDelay == nil {
+				errs = multierror.Append(errs, errors.New("pollDelay is required"))
+			} else if pollDelay.GetSeconds() == 0 && pollDelay.GetNanos() == 0 {
+				errs = multierror.Append(errs, errors.New("pollDelay must be non zero"))
+			}
+		}
+	default:
+		errs = multierror.Append(errs, errors.New("unknown private key provider"))
+	}
+
+	return errs
+}
+
 // ValidateMeshConfigProxyConfig checks that the mesh config is well-formed
 func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.ConfigPath == "" {
@@ -1746,6 +1772,12 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 
 	if err := ValidatePort(int(config.StatusPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid status port:"))
+	}
+
+	if pkpConf := config.GetPrivateKeyProvider(); pkpConf != nil {
+		if err := validatePrivateKeyProvider(pkpConf); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid private key provider confguration:"))
+		}
 	}
 
 	return
@@ -2327,9 +2359,8 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 				duplicateMatches++
 				// no need to handle for totally duplicated match rules
 				continue
-			} else {
-				matchesEncountered[asJSON(match)] = rulen
 			}
+			matchesEncountered[asJSON(match)] = rulen
 			// build the match rules into struct OverlappingMatchValidationForHTTPRoute based on current match
 			matchHTTPRoute := genMatchHTTPRoutes(route, match, rulen, matchn)
 			if matchHTTPRoute != nil {
@@ -2453,7 +2484,6 @@ func routeName(route interface{}, routen int) string {
 		if r.Name != "" {
 			return fmt.Sprintf("%q", r.Name)
 		}
-
 		// TCP and TLS routes have no names
 	}
 
@@ -2466,7 +2496,6 @@ func requestName(match interface{}, matchn int) string {
 		if mr != nil && mr.Name != "" {
 			return fmt.Sprintf("%q", mr.Name)
 		}
-
 		// TCP and TLS matches have no names
 	}
 
@@ -3128,7 +3157,6 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 					}
 				}
 				errs = appendValidation(errs, labels.Instance(endpoint.Labels).Validate())
-
 			}
 			if unixEndpoint && len(serviceEntry.Ports) != 1 {
 				errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))

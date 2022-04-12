@@ -90,6 +90,16 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind)
 	return ret
 }
 
+// ConfigsHaveKind checks if configurations have the specified kind.
+func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) bool {
+	for conf := range configs {
+		if conf.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[string]struct{} {
 	ret := sets.New()
@@ -282,7 +292,7 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 
 // MostSpecificHostMatch compares the map of the stack to the needle, and returns the longest element
 // matching the needle, or false if no element in the map matches the needle.
-func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*config.Config) (host.Name, bool) {
+func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*consolidatedDestRule) (host.Name, bool) {
 	matches := []host.Name{}
 
 	// exact match first

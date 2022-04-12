@@ -28,12 +28,12 @@ import (
 )
 
 var (
-	fakeCert                 string = "foo"
-	fakeCertChain                   = []string{"baz", "bar"}
-	fakeCaBundle                    = [][]string{{"bar"}, {"baz", "bar"}}
-	fakeExpectedRootCaBundle        = []string{"bar"}
-	fakePoolLocator                 = "projects/test-project/locations/test-location/caPools/test-pool"
-	badPoolLocator                  = "bad-pool"
+	fakeCert                 = "foo"
+	fakeCertChain            = []string{"baz", "bar"}
+	fakeCaBundle             = [][]string{{"bar"}, {"baz", "bar"}}
+	fakeExpectedRootCaBundle = []string{"bar"}
+	fakePoolLocator          = "projects/test-project/locations/test-location/caPools/test-pool"
+	badPoolLocator           = "bad-pool"
 )
 
 func TestGoogleCASClient(t *testing.T) {

@@ -30,6 +30,7 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 
@@ -108,18 +109,20 @@ type AdsClients struct {
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
-	ClusterID     string `json:"cluster_id,omitempty"`
-	ProxyID       string `json:"proxy,omitempty"`
-	ProxyVersion  string `json:"proxy_version,omitempty"`
-	IstioVersion  string `json:"istio_version,omitempty"`
-	ClusterSent   string `json:"cluster_sent,omitempty"`
-	ClusterAcked  string `json:"cluster_acked,omitempty"`
-	ListenerSent  string `json:"listener_sent,omitempty"`
-	ListenerAcked string `json:"listener_acked,omitempty"`
-	RouteSent     string `json:"route_sent,omitempty"`
-	RouteAcked    string `json:"route_acked,omitempty"`
-	EndpointSent  string `json:"endpoint_sent,omitempty"`
-	EndpointAcked string `json:"endpoint_acked,omitempty"`
+	ClusterID            string `json:"cluster_id,omitempty"`
+	ProxyID              string `json:"proxy,omitempty"`
+	ProxyVersion         string `json:"proxy_version,omitempty"`
+	IstioVersion         string `json:"istio_version,omitempty"`
+	ClusterSent          string `json:"cluster_sent,omitempty"`
+	ClusterAcked         string `json:"cluster_acked,omitempty"`
+	ListenerSent         string `json:"listener_sent,omitempty"`
+	ListenerAcked        string `json:"listener_acked,omitempty"`
+	RouteSent            string `json:"route_sent,omitempty"`
+	RouteAcked           string `json:"route_acked,omitempty"`
+	EndpointSent         string `json:"endpoint_sent,omitempty"`
+	EndpointAcked        string `json:"endpoint_acked,omitempty"`
+	ExtesionConfigSent   string `json:"extensionconfig_sent,omitempty"`
+	ExtensionConfigAcked string `json:"extensionconfig_acked,omitempty"`
 }
 
 // SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
@@ -268,17 +271,19 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 		node := con.proxy
 		if node != nil {
 			syncz = append(syncz, SyncStatus{
-				ProxyID:       node.ID,
-				ClusterID:     node.Metadata.ClusterID.String(),
-				IstioVersion:  node.Metadata.IstioVersion,
-				ClusterSent:   con.NonceSent(v3.ClusterType),
-				ClusterAcked:  con.NonceAcked(v3.ClusterType),
-				ListenerSent:  con.NonceSent(v3.ListenerType),
-				ListenerAcked: con.NonceAcked(v3.ListenerType),
-				RouteSent:     con.NonceSent(v3.RouteType),
-				RouteAcked:    con.NonceAcked(v3.RouteType),
-				EndpointSent:  con.NonceSent(v3.EndpointType),
-				EndpointAcked: con.NonceAcked(v3.EndpointType),
+				ProxyID:              node.ID,
+				ClusterID:            node.Metadata.ClusterID.String(),
+				IstioVersion:         node.Metadata.IstioVersion,
+				ClusterSent:          con.NonceSent(v3.ClusterType),
+				ClusterAcked:         con.NonceAcked(v3.ClusterType),
+				ListenerSent:         con.NonceSent(v3.ListenerType),
+				ListenerAcked:        con.NonceAcked(v3.ListenerType),
+				RouteSent:            con.NonceSent(v3.RouteType),
+				RouteAcked:           con.NonceAcked(v3.RouteType),
+				EndpointSent:         con.NonceSent(v3.EndpointType),
+				EndpointAcked:        con.NonceAcked(v3.EndpointType),
+				ExtesionConfigSent:   con.NonceSent(v3.ExtensionConfigurationType),
+				ExtensionConfigAcked: con.NonceSent(v3.ExtensionConfigurationType),
 			})
 		}
 	}
@@ -398,11 +403,11 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
 					ProxyID: con.proxy.ID,
-					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ClusterType),
+					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.ClusterType),
 						resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ListenerType),
+					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.ListenerType),
 						resourceID, knownVersions),
-					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.RouteType),
+					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.RouteType),
 						resourceID, knownVersions),
 				})
 			}
@@ -523,9 +528,9 @@ func (s *DiscoveryServer) connectionsHandler(w http.ResponseWriter, req *http.Re
 
 	for _, c := range connections {
 		adsClient := AdsClient{
-			ConnectionID: c.ConID,
-			ConnectedAt:  c.Connect,
-			PeerAddress:  c.PeerAddr,
+			ConnectionID: c.conID,
+			ConnectedAt:  c.connectedAt,
+			PeerAddress:  c.peerAddr,
 		}
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
@@ -557,9 +562,9 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	adsClients.Total = len(connections)
 	for _, c := range connections {
 		adsClient := AdsClient{
-			ConnectionID: c.ConID,
-			ConnectedAt:  c.Connect,
-			PeerAddress:  c.PeerAddr,
+			ConnectionID: c.conID,
+			ConnectedAt:  c.connectedAt,
+			PeerAddress:  c.peerAddr,
 			Metadata:     c.proxy.Metadata,
 			Watches:      map[string][]string{},
 		}
@@ -624,8 +629,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 }
 
 const (
-	apiTypePrefix      = "type.googleapis.com/"
-	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
+	wasmHTTPFilterType = resource.APITypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
 )
 
 func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
@@ -639,6 +643,13 @@ func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 		w := &wasm.Wasm{}
 		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
 			return nil, err
+		}
+		// Redact Wasm secret env variable.
+		vmenvs := w.GetConfig().GetVmConfig().EnvironmentVariables
+		if vmenvs != nil {
+			if _, found := vmenvs.KeyValues[model.WasmSecretEnv]; found {
+				vmenvs.KeyValues[model.WasmSecretEnv] = "<Redacted>"
+			}
 		}
 		return w, nil
 	}
@@ -915,7 +926,7 @@ func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Reque
 
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	for _, con := range s.Clients() {
-		if strings.Contains(con.ConID, proxyID) {
+		if strings.Contains(con.conID, proxyID) {
 			return con
 		}
 	}

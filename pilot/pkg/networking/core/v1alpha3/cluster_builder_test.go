@@ -49,9 +49,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/util/identifier"
 )
 
 func TestApplyDestinationRule(t *testing.T) {
@@ -82,7 +80,7 @@ func TestApplyDestinationRule(t *testing.T) {
 		clusterMode            ClusterMode
 		service                *model.Service
 		port                   *model.Port
-		networkView            map[network.ID]bool
+		proxyView              model.ProxyView
 		destRule               *networking.DestinationRule
 		expectedSubsetClusters []*cluster.Cluster
 	}{
@@ -93,7 +91,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode:            DefaultClusterMode,
 			service:                &model.Service{},
 			port:                   &model.Port{},
-			networkView:            map[network.ID]bool{},
+			proxyView:              model.ProxyViewAll,
 			destRule:               nil,
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
@@ -103,7 +101,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -129,7 +127,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -157,7 +155,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: SniDnatClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -183,7 +181,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -225,7 +223,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -245,7 +243,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -271,7 +269,8 @@ func TestApplyDestinationRule(t *testing.T) {
 					Namespace: TestServiceNamespace,
 				},
 			},
-			port: servicePort[0],
+			port:      servicePort[0],
+			proxyView: model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host:    "foo.example.com",
 				Subsets: []*networking.Subset{{Name: "v1"}},
@@ -294,7 +293,8 @@ func TestApplyDestinationRule(t *testing.T) {
 					Labels:    map[string]string{"foo": "bar"},
 				},
 			},
-			port: servicePort[0],
+			port:      servicePort[0],
+			proxyView: model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host:    "foo.example.com",
 				Subsets: []*networking.Subset{{Name: "v1"}},
@@ -317,7 +317,8 @@ func TestApplyDestinationRule(t *testing.T) {
 					Labels:    map[string]string{"foo": "bar"},
 				},
 			},
-			port: servicePort[0],
+			port:      servicePort[0],
+			proxyView: model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.example.com",
 				Subsets: []*networking.Subset{{
@@ -343,7 +344,8 @@ func TestApplyDestinationRule(t *testing.T) {
 					Labels:    map[string]string{"foo": "bar"},
 				},
 			},
-			port: servicePort[0],
+			port:      servicePort[0],
+			proxyView: model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.example.com",
 				Subsets: []*networking.Subset{{
@@ -365,7 +367,8 @@ func TestApplyDestinationRule(t *testing.T) {
 					Namespace: TestServiceNamespace,
 				},
 			},
-			port: servicePort[0],
+			port:      servicePort[0],
+			proxyView: model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host:    "foo.example.com",
 				Subsets: []*networking.Subset{{Name: "v1"}},
@@ -388,7 +391,8 @@ func TestApplyDestinationRule(t *testing.T) {
 					Labels:    map[string]string{"foo": "bar"},
 				},
 			},
-			port: servicePort[0],
+			port:      servicePort[0],
+			proxyView: model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host:    "foo.example.com",
 				Subsets: []*networking.Subset{{Name: "v1"}},
@@ -411,7 +415,8 @@ func TestApplyDestinationRule(t *testing.T) {
 					Labels:    map[string]string{"foo": "bar"},
 				},
 			},
-			port: servicePort[0],
+			port:      servicePort[0],
+			proxyView: model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.example.com",
 				Subsets: []*networking.Subset{{
@@ -437,7 +442,8 @@ func TestApplyDestinationRule(t *testing.T) {
 					Labels:    map[string]string{"foo": "bar"},
 				},
 			},
-			port: servicePort[0],
+			port:      servicePort[0],
+			proxyView: model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.example.com",
 				Subsets: []*networking.Subset{{
@@ -491,7 +497,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			ec := NewMutableCluster(tt.cluster)
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
 
-			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
+			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.proxyView, destRule, nil)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Fatalf("Unexpected subset clusters want %v, got %v. keys=%v",
 					len(tt.expectedSubsetClusters), len(subsetClusters), xdstest.MapKeys(xdstest.ExtractClusters(subsetClusters)))
@@ -1048,7 +1054,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			}
 			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
 			if defaultCluster != nil {
-				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.networkView, nil, nil)
+				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.proxyView, nil, nil)
 			}
 
 			if diff := cmp.Diff(defaultCluster.build(), tt.expectedCluster, protocmp.Transform()); diff != "" {
@@ -1455,12 +1461,12 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				})
 
 				cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-				nv := map[network.ID]bool{
-					"nw-0":               true,
-					"nw-1":               true,
-					identifier.Undefined: true,
-				}
-				actual := cb.buildLocalityLbEndpoints(nv, service, 8080, tt.labels)
+				view := (&model.Proxy{
+					Metadata: &model.NodeMetadata{
+						RequestedNetworkView: []string{"nw-0", "nw-1"},
+					},
+				}).GetView()
+				actual := cb.buildLocalityLbEndpoints(view, service, 8080, tt.labels)
 				sortEndpoints(actual)
 				if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
 					t.Fatalf("Expected (-) != actual (+):\n%s", v)
@@ -1774,12 +1780,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	credentialName := "some-fake-credential"
 
 	testCases := []struct {
-		name   string
-		opts   *buildClusterOpts
-		tls    *networking.ClientTLSSettings
-		h2     bool
-		router bool
-		result expectedResult
+		name                     string
+		opts                     *buildClusterOpts
+		tls                      *networking.ClientTLSSettings
+		h2                       bool
+		router                   bool
+		result                   expectedResult
+		enableVerifyCertAtClient bool
 	}{
 		{
 			name: "tls mode disabled",
@@ -1966,6 +1973,56 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				err: nil,
 			},
+		},
+		{
+			name: "tls mode SIMPLE, with VerifyCert enabled and no sni specified in tls",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				SubjectAltNames: []string{"SAN"},
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
+					},
+				},
+				err: nil,
+			},
+			enableVerifyCertAtClient: true,
+		},
+		{
+			name: "tls mode SIMPLE, with VerifyCert enabled and sni specified in tls",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+			enableVerifyCertAtClient: true,
 		},
 		{
 			name: "tls mode SIMPLE, with certs specified in tls",
@@ -2512,6 +2569,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			features.VerifyCertAtClient = tc.enableVerifyCertAtClient
 			var proxy *model.Proxy
 			if tc.router {
 				proxy = newGatewayProxy()
@@ -2527,6 +2585,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
 			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: `%v", diff)
+			}
+			if tc.enableVerifyCertAtClient {
+				if len(tc.tls.Sni) == 0 {
+					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
+				} else if tc.opts.mutable.httpProtocolOptions != nil {
+					t.Errorf("expecting nil httpProtocolOptions but got %v", tc.opts.mutable.httpProtocolOptions)
+				}
 			}
 		})
 	}
@@ -2941,7 +3006,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 		clusterMode               ClusterMode
 		service                   *model.Service
 		port                      *model.Port
-		networkView               map[network.ID]bool
+		proxyView                 model.ProxyView
 		destRule                  *networking.DestinationRule
 		expectedCaCertificateName string
 		enableVerifyCertAtClient  bool
@@ -2952,7 +3017,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -2977,7 +3042,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -3002,7 +3067,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -3026,7 +3091,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -3050,7 +3115,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -3113,7 +3178,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
 
 			// ACT
-			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
+			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.proxyView, destRule, nil)
 
 			byteArray, err := config.ToJSON(destRule.Spec)
 			if err != nil {

@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -112,7 +111,7 @@ type ClusterBuilder struct {
 	supportsIPv6      bool                     // Whether Proxy IPs has IPv6 address.
 	locality          *core.Locality           // Locality information of proxy.
 	proxyLabels       map[string]string        // Proxy labels.
-	networkView       map[network.ID]bool      // Proxy network view.
+	proxyView         model.ProxyView          // Proxy view of endpoints.
 	proxyIPAddresses  []string                 // IP addresses on which proxy is listening on.
 	configNamespace   string                   // Proxy config namespace.
 	// PushRequest to look for updates.
@@ -133,7 +132,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		supportsIPv6:      proxy.SupportsIPv6(),
 		locality:          proxy.Locality,
 		proxyLabels:       proxy.Metadata.Labels,
-		networkView:       proxy.GetNetworkView(),
+		proxyView:         proxy.GetView(),
 		proxyIPAddresses:  proxy.IPAddresses,
 		configNamespace:   proxy.ConfigNamespace,
 		req:               req,
@@ -169,7 +168,7 @@ func (cb *ClusterBuilder) sidecarProxy() bool {
 }
 
 func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
-	proxyNetworkView map[network.ID]bool) *cluster.Cluster {
+	proxyView model.ProxyView) *cluster.Cluster {
 	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
@@ -190,9 +189,9 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	}
 	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
 		if len(subset.Labels) != 0 {
-			lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, opts.port.Port, []labels.Instance{subset.Labels})
+			lbEndpoints = cb.buildLocalityLbEndpoints(proxyView, service, opts.port.Port, []labels.Instance{subset.Labels})
 		} else {
-			lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, opts.port.Port, nil)
+			lbEndpoints = cb.buildLocalityLbEndpoints(proxyView, service, opts.port.Port, nil)
 		}
 		if len(lbEndpoints) == 0 {
 			log.Debugf("locality endpoints missing for cluster %s", subsetClusterName)
@@ -234,7 +233,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
-	port *model.Port, proxyNetworkView map[network.ID]bool, destRule *config.Config, serviceAccounts []string) []*cluster.Cluster {
+	port *model.Port, proxyView model.ProxyView, destRule *config.Config, serviceAccounts []string) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
@@ -251,7 +250,6 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	if clusterMode == DefaultClusterMode {
 		opts.serviceAccounts = serviceAccounts
 		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-		opts.simpleTLSSni = string(service.Hostname)
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
@@ -272,7 +270,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.GetSubsets() {
-		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, proxyNetworkView)
+		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, proxyView)
 		if subsetCluster != nil {
 			subsetClusters = append(subsetClusters, subsetCluster)
 		}
@@ -406,7 +404,7 @@ type clusterCache struct {
 	locality       *core.Locality // identifies the locality the cluster is generated for
 	proxyClusterID string         // identifies the kubernetes cluster a proxy is in
 	proxySidecar   bool           // identifies if this proxy is a Sidecar
-	networkView    map[network.ID]bool
+	proxyView      model.ProxyView
 	metadataCerts  *metadataCerts // metadata certificates of proxy
 
 	// service attributes
@@ -428,13 +426,8 @@ func (t *clusterCache) Key() string {
 		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
 		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto), strconv.FormatBool(t.supportsIPv4),
 	}
-	if t.networkView != nil {
-		nv := make([]string, 0, len(t.networkView))
-		for nw := range t.networkView {
-			nv = append(nv, string(nw))
-		}
-		sort.Strings(nv)
-		params = append(params, nv...)
+	if t.proxyView != nil {
+		params = append(params, t.proxyView.String())
 	}
 	if t.metadataCerts != nil {
 		params = append(params, t.metadataCerts.String())
@@ -550,7 +543,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	return localCluster
 }
 
-func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.ID]bool, service *model.Service,
+func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, service *model.Service,
 	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
 	if !(service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB) {
 		return nil
@@ -566,7 +559,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 	for _, instance := range instances {
 		// Only send endpoints from the networks in the network view requested by the proxy.
 		// The default network view assigned to the Proxy is nil, in that case match any network.
-		if proxyNetworkView != nil && !proxyNetworkView[instance.Endpoint.Network] {
+		if !proxyView.IsVisible(instance.Endpoint) {
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}
@@ -808,7 +801,7 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(
 		}
 		// For backward compatibility, use metadata certs if provided.
 		if cb.hasMetadataCerts() {
-			// When building Mutual TLS settings, we should always user supplied SubjectAltNames and SNI
+			// When building Mutual TLS settings, we should always use user supplied SubjectAltNames and SNI
 			// in destination rule. The Service Accounts and auto computed SNI should only be used for
 			// ISTIO_MUTUAL.
 			return cb.buildMutualTLS(tls.SubjectAltNames, tls.Sni), userSupplied
@@ -818,14 +811,14 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(
 		}
 		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
 		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
-		// are useful when routing via gateways. Use Service Acccounts if Subject Alt names
+		// are useful when routing via gateways. Use Service Accounts if Subject Alt names
 		// are not specified in TLS settings.
 		sniToUse := tls.Sni
 		if len(sniToUse) == 0 {
 			sniToUse = sni
 		}
 		subjectAltNamesToUse := tls.SubjectAltNames
-		if len(subjectAltNamesToUse) == 0 {
+		if subjectAltNamesToUse == nil {
 			subjectAltNamesToUse = serviceAccounts
 		}
 		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
@@ -868,10 +861,10 @@ func (cb *ClusterBuilder) buildMutualTLS(serviceAccounts []string, sni string) *
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func (cb *ClusterBuilder) buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
+func (cb *ClusterBuilder) buildIstioMutualTLS(san []string, sni string) *networking.ClientTLSSettings {
 	return &networking.ClientTLSSettings{
 		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-		SubjectAltNames: serviceAccounts,
+		SubjectAltNames: san,
 		Sni:             sni,
 	}
 }
@@ -1047,6 +1040,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
+		// Set auto-sni if sni field is not explicitly set
+		cb.setAutoSni(c, tls)
+
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
 			tls.SubjectAltNames = opts.serviceAccounts
@@ -1083,6 +1079,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
+
+		// Set auto-sni if sni field is not explicitly set
+		cb.setAutoSni(c, tls)
+
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
 			tls.SubjectAltNames = opts.serviceAccounts
@@ -1128,6 +1128,18 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		}
 	}
 	return tlsContext, nil
+}
+
+func (cb *ClusterBuilder) setAutoSni(mc *MutableCluster, tls *networking.ClientTLSSettings) {
+	if mc != nil && features.VerifyCertAtClient && len(tls.Sni) == 0 {
+		if mc.httpProtocolOptions == nil {
+			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+		}
+		if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
+		}
+		mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
+	}
 }
 
 func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster) {
