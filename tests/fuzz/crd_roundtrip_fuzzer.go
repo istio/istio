@@ -81,7 +81,6 @@ func FuzzCRDRoundtrip(data []byte) int {
 		panic(fmt.Sprintf("%q is not a TypeMeta and cannot be tested - add it to nonRoundTrippableInternalTypes: %v\n", kgvk, err))
 	}
 	f := fuzz.NewConsumer(data[1:])
-	f.AllowUnexportedFields()
 	err = f.GenerateStruct(object)
 	if err != nil {
 		return 0
