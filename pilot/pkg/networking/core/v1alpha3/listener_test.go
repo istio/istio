@@ -1932,7 +1932,6 @@ func TestListenerAccessLogs(t *testing.T) {
 	env.Mesh().AccessLogFile = "foo"
 	listeners := buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
-
 		if l.AccessLog == nil {
 			t.Fatalf("expected access log configuration for %v", l)
 		}
@@ -2649,7 +2648,7 @@ func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *listener.Listener) 
 	}
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	actual := cfg.Fields["normalize_path"].GetBoolValue()
-	if actual != true {
+	if !actual {
 		t.Errorf("expected HTTP listener with normalize_path set to true, found false")
 	}
 }
@@ -2796,7 +2795,7 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istio
 }
 
 func (p *fakePlugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
-	var port uint32 = 0
+	var port uint32
 	if !passthrough {
 		port = in.ServiceInstance.Endpoint.EndpointPort
 	}

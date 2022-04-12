@@ -27,32 +27,32 @@ import (
 
 var (
 	// TARGET_OUT environment variable
-	// nolint: golint, stylecheck
+	// nolint: golint, revive, stylecheck
 	TARGET_OUT Variable = "TARGET_OUT"
 
 	// LOCAL_OUT environment variable
-	// nolint: golint, stylecheck
+	// nolint: golint, revive, stylecheck
 	LOCAL_OUT Variable = "LOCAL_OUT"
 
 	// REPO_ROOT environment variable
-	// nolint: golint, stylecheck
+	// nolint: golint, revive, stylecheck
 	REPO_ROOT Variable = "REPO_ROOT"
 
 	// HUB is the Docker hub to be used for images.
-	// nolint: golint, stylecheck
+	// nolint: golint, revive, stylecheck
 	HUB Variable = "HUB"
 
 	// TAG is the Docker tag to be used for images.
-	// nolint: golint, stylecheck
+	// nolint: golint, revive, stylecheck
 	TAG Variable = "TAG"
 
 	// PULL_POLICY is the image pull policy to use when rendering templates.
-	// nolint: golint, stylecheck
+	// nolint: golint, revive, stylecheck
 	PULL_POLICY Variable = "PULL_POLICY"
 
 	// KUBECONFIG is the list of Kubernetes configuration files. If configuration files are specified on
 	// the command-line, that takes precedence.
-	// nolint: golint, stylecheck
+	// nolint: golint, revive, stylecheck
 	KUBECONFIG Variable = "KUBECONFIG"
 
 	// IstioSrc is the location of istio source ($TOP/src/istio.io/istio

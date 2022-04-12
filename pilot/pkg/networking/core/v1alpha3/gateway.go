@@ -614,7 +614,7 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		}
 	}
 
-	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort = nil
+	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
 	if features.StripHostPort {
 		stripPortMode = &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true}
 	}

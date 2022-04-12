@@ -1047,7 +1047,7 @@ func diffWalk(path, separator string, installed interface{}, base interface{}) (
 		typedOrig, ok := base.([]interface{})
 		if ok {
 			for idx, vv := range v {
-				var baseMap interface{} = nil
+				var baseMap interface{}
 				if idx < len(typedOrig) {
 					baseMap = typedOrig[idx]
 				}

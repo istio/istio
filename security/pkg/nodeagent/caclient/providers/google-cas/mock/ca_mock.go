@@ -33,7 +33,7 @@ const (
 	bufSize = 1024 * 1024
 )
 
-var lis *bufconn.Listener = nil
+var lis *bufconn.Listener
 
 type ContextDialer func(ctx context.Context, address string) (net.Conn, error)
 

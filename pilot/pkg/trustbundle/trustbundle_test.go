@@ -39,10 +39,10 @@ func readCertFromFile(filename string) string {
 }
 
 var (
-	malformedCert      string = "Malformed"
-	rootCACert         string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "root-cert.pem"))
-	nonCaCert          string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "workload-bar-cert.pem"))
-	intermediateCACert string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "ca-cert.pem"))
+	malformedCert      = "Malformed"
+	rootCACert         = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "root-cert.pem"))
+	nonCaCert          = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "workload-bar-cert.pem"))
+	intermediateCACert = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "ca-cert.pem"))
 
 	// borrowed from the spiffe package, spiffe_test.go
 	validSpiffeX509Bundle = `

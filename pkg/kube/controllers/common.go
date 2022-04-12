@@ -67,12 +67,12 @@ func UnstructuredToGVR(u unstructured.Unstructured) (schema.GroupVersionResource
 // ObjectToGVR extracts the GVR of an unstructured resource. This is useful when using dynamic
 // clients.
 func ObjectToGVR(u Object) (schema.GroupVersionResource, error) {
-	kGvk := u.GetObjectKind().GroupVersionKind()
+	gvk := u.GetObjectKind().GroupVersionKind()
 
 	gk := config.GroupVersionKind{
-		Group:   kGvk.Group,
-		Version: kGvk.Version,
-		Kind:    kGvk.Kind,
+		Group:   gvk.Group,
+		Version: gvk.Version,
+		Kind:    gvk.Kind,
 	}
 	found, ok := collections.All.FindByGroupVersionKind(gk)
 	if !ok {

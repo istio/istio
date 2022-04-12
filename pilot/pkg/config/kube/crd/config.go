@@ -21,7 +21,7 @@ import (
 
 // IstioKind is the generic Kubernetes API object wrapper
 type IstioKind struct {
-	meta_v1.TypeMeta   `json:",inline"`
+	meta_v1.TypeMeta
 	meta_v1.ObjectMeta `json:"metadata"`
 	Spec               map[string]interface{} `json:"spec"`
 	Status             map[string]interface{} `json:"status,omitempty"`

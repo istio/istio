@@ -93,8 +93,8 @@ type TranslationFunc func(t *Translation, root map[string]interface{}, valuesPat
 // Translation is a mapping to an output path using a translation function.
 type Translation struct {
 	// OutPath defines the position in the yaml file
-	OutPath         string          `yaml:"outPath"`
-	translationFunc TranslationFunc `yaml:"TranslationFunc,omitempty"`
+	OutPath         string `yaml:"outPath"`
+	translationFunc TranslationFunc
 }
 
 // NewTranslator creates a new translator for minorVersion and returns a ptr to it.

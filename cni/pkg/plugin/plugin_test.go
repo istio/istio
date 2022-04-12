@@ -352,7 +352,7 @@ func TestCmdAddExcludePod(t *testing.T) {
 
 	testCmdAdd(t)
 
-	if getKubePodInfoCalled == true {
+	if getKubePodInfoCalled {
 		t.Fatalf("failed to exclude pod")
 	}
 }

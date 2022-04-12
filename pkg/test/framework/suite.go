@@ -410,12 +410,11 @@ func (s *suiteImpl) run() (errLevel int) {
 		if errLevel == 0 {
 			scopes.Framework.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
 			break
-		} else {
-			scopes.Framework.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
-				ctx.Settings().TestID, errLevel)
-			if attempt <= ctx.settings.Retries {
-				scopes.Framework.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
-			}
+		}
+		scopes.Framework.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
+			ctx.Settings().TestID, errLevel)
+		if attempt <= ctx.settings.Retries {
+			scopes.Framework.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
 		}
 	}
 	s.writeOutput()

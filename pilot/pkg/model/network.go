@@ -515,7 +515,7 @@ type dnsClient struct {
 }
 
 // NetworkGatewayTestDNSServers if set will ignore resolv.conf and use the given DNS servers for tests.
-var NetworkGatewayTestDNSServers []string = nil
+var NetworkGatewayTestDNSServers []string
 
 func newClient() (*dnsClient, error) {
 	servers := NetworkGatewayTestDNSServers
@@ -551,9 +551,8 @@ func (c *dnsClient) Query(req *dns.Msg) *dns.Msg {
 		if err == nil {
 			response = cResponse
 			break
-		} else {
-			log.Infof("upstream dns failure: %v", err)
 		}
+		log.Infof("upstream dns failure: %v", err)
 	}
 	if response == nil {
 		response = new(dns.Msg)

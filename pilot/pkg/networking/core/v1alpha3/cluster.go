@@ -255,9 +255,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 				hit += len(cached)
 				resources = append(resources, cached...)
 				continue
-			} else {
-				miss += len(cached)
 			}
+			miss += len(cached)
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
 			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.proxyView, service, port.Port, nil)

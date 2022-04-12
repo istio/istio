@@ -385,9 +385,8 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 		if err == nil {
 			response = cResponse
 			break
-		} else {
-			scope.Infof("upstream failure: %v", err)
 		}
+		scope.Infof("upstream failure: %v", err)
 	}
 	if response == nil {
 		failures.Increment()
