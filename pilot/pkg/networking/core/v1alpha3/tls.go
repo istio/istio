@@ -257,9 +257,8 @@ TcpLoop:
 						})
 						defaultRouteAdded = true
 						break TcpLoop
-					} else {
-						virtualServiceDestinationSubnets = append(virtualServiceDestinationSubnets, match.DestinationSubnets...)
 					}
+					virtualServiceDestinationSubnets = append(virtualServiceDestinationSubnets, match.DestinationSubnets...)
 				}
 			}
 
