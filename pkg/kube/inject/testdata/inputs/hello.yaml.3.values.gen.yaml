@@ -13,7 +13,6 @@
         "cpu": "10m"
       }
     },
-    "enabled": false,
     "externalIstiod": false,
     "hub": "gcr.io/istio-testing",
     "imagePullPolicy": "Always",
@@ -34,7 +33,6 @@
       "clusterName": "",
       "enabled": false
     },
-    "namespace": "istio-system",
     "network": "",
     "omitSidecarInjectorConfigMap": false,
     "oneNamespace": false,
