@@ -23,6 +23,7 @@ spec:
 # - Allow request with valid JWT token to access path /jwt1
 # - Allow request with valid JWT token of presenter foo to access path with suffix "/presenter"
 # - Allow request with valid JWT token of audiences bar to access path with suffix "/audiences"
+# - Deny request with JWT token from test-issuer-1@istio.io to access path with suffix "/token3" and "GET" method
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -108,4 +109,11 @@ spec:
     when:
     - key: request.auth.audiences
       values: ["foo"]
+  - to:
+    - operation:
+        paths: ["/token3"]
+        methods: ["GET"]
+    from:
+    - source:
+        notRequestPrincipals: ["test-issuer-1@istio.io/sub-1"]
 ---

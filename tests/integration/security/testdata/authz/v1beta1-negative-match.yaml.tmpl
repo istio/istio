@@ -16,7 +16,23 @@ spec:
         paths: ["/prefix*"]
         notPaths: ["/prefix/allowlist"]
 ---
+# The following policy will deny all the requests to GET method
 
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .b }}-allow
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .b }}"
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        notMethods : ["PUT"]
+---
 # The following policy denies access from other namespaces.
 
 apiVersion: security.istio.io/v1beta1
@@ -33,6 +49,23 @@ spec:
   - from:
     - source:
         notNamespaces: ["{{ .Namespace }}"]
+---
+# The following policy allows request if the host is not "deny.com"
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .c }}-allow
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .c }}"
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        notHosts: ["deny.com"]
 ---
 
 # The following policy denies access to a workload d if it's not mTLS, in other words, it allows only mTLS traffic to access the workload d.
@@ -52,7 +85,23 @@ spec:
     - source:
         notPrincipals: ["*"]
 ---
+# The following policy allows request if the port is not "8091"
 
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .d }}-allow
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .d }}"
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        notPorts: ["8091"]
+--- 
 # The following policy denies access to path with prefix "/prefix" except "/prefix/allowlist" to workload vm.
 # (TODO)JimmyCYJ: the following policy is a duplicate of policy-{{ .b }}-deny and can be removed once the test framework supports multiple vm workloads.
 apiVersion: security.istio.io/v1beta1
