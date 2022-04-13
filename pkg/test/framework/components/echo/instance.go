@@ -32,4 +32,7 @@ type Instance interface {
 
 	// Restart restarts the workloads associated with this echo instance
 	Restart() error
+
+	// WithWorkloads returns a target with only the specified subset of workloads
+	WithWorkloads(wl ...Workload) Instance
 }

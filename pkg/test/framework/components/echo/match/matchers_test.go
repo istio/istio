@@ -95,6 +95,11 @@ var _ echo.Instance = fakeInstance{}
 // fakeInstance wraps echo.Config for test-framework internals tests where we don't actually make calls
 type fakeInstance echo.Config
 
+func (f fakeInstance) WithWorkloads(wl ...echo.Workload) echo.Instance {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (f fakeInstance) Instances() echo.Instances {
 	return echo.Instances{f}
 }
