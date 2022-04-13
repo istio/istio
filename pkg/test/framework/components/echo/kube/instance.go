@@ -49,14 +49,15 @@ var (
 )
 
 type instance struct {
-	id          resource.ID
-	cfg         echo.Config
-	clusterIP   string
-	clusterIPs  []string
-	ctx         resource.Context
-	cluster     cluster.Cluster
-	workloadMgr *workloadManager
-	deployment  *deployment
+	id             resource.ID
+	cfg            echo.Config
+	clusterIP      string
+	clusterIPs     []string
+	ctx            resource.Context
+	cluster        cluster.Cluster
+	workloadMgr    *workloadManager
+	deployment     *deployment
+	workloadFilter []echo.Workload
 }
 
 func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, err error) {
@@ -124,7 +125,24 @@ func (c *instance) Addresses() []string {
 }
 
 func (c *instance) Workloads() (echo.Workloads, error) {
-	return c.workloadMgr.ReadyWorkloads()
+	wls, err := c.workloadMgr.ReadyWorkloads()
+	if err != nil {
+		return nil, err
+	}
+	final := []echo.Workload{}
+	for _, wl := range wls {
+		filtered := false
+		for _, filter := range c.workloadFilter {
+			if wl.Address() != filter.Address() {
+				filtered = true
+				break
+			}
+		}
+		if !filtered {
+			final = append(final, wl)
+		}
+	}
+	return final, nil
 }
 
 func (c *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
@@ -174,6 +192,12 @@ func (c *instance) PortForName(name string) echo.Port {
 
 func (c *instance) Config() echo.Config {
 	return c.cfg
+}
+
+func (c *instance) WithWorkloads(wls ...echo.Workload) echo.Instance {
+	n := *c
+	c.workloadFilter = wls
+	return &n
 }
 
 func (c *instance) Cluster() cluster.Cluster {

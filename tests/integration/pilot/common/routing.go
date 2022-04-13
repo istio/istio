@@ -18,7 +18,6 @@
 package common
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -34,10 +33,8 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
@@ -902,27 +899,17 @@ func trafficLoopCases(apps *deployment.SingleNamespaceView) []TrafficTestCase {
 	var cases []TrafficTestCase
 	for _, c := range apps.A {
 		for _, d := range apps.B {
-			for _, port := range []string{"15001", "15006"} {
+			for _, port := range []int{15001, 15006} {
 				c, d, port := c, d, port
 				cases = append(cases, TrafficTestCase{
-					name: port,
-					call: func(t test.Failer, options echo.CallOptions) echo.CallResult {
-						dwl := d.WorkloadsOrFail(t)[0]
-						cwl := c.WorkloadsOrFail(t)[0]
-						resp, err := cwl.ForwardEcho(context.Background(), &epb.ForwardEchoRequest{
-							Url:   fmt.Sprintf("http://%s:%s", dwl.Address(), port),
-							Count: 1,
-						})
+					name: fmt.Sprint(port),
+					call: c.CallOrFail,
+					opts: echo.CallOptions{
+						ToWorkload: d,
+						Port:       echo.Port{ServicePort: port, Protocol: protocol.HTTP},
 						// Ideally we would actually check to make sure we do not blow up the pod,
 						// but I couldn't find a way to reliably detect this.
-						if err == nil {
-							t.Fatalf("expected request to fail, but it didn't: %v", resp)
-						}
-						return echo.CallResult{
-							From:      nil,
-							Opts:      options,
-							Responses: nil,
-						}
+						Check: check.Error(),
 					},
 				})
 			}

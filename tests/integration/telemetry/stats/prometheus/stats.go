@@ -151,9 +151,9 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			for _, prom := range mockProm {
 				st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, server)
 				prom.CallOrFail(t, echo.CallOptions{
-					Address: st.WorkloadsOrFail(t)[0].Address(),
-					Scheme:  scheme.HTTPS,
-					Port:    echo.Port{ServicePort: 15014},
+					ToWorkload: st,
+					Scheme:     scheme.HTTPS,
+					Port:       echo.Port{ServicePort: 15014},
 					HTTP: echo.HTTP{
 						Path: "/metrics",
 					},
