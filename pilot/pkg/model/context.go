@@ -830,10 +830,7 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 		return
 	}
 	// Fallback to calling GetProxyWorkloadLabels
-	l := env.GetProxyWorkloadLabels(node)
-	if len(l) > 0 {
-		node.Metadata.Labels = l[0]
-	}
+	node.Metadata.Labels = env.GetProxyWorkloadLabels(node)
 }
 
 // DiscoverIPVersions discovers the IP Versions supported by Proxy based on its IP addresses.

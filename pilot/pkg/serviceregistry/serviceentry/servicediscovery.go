@@ -748,17 +748,16 @@ func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 	return out
 }
 
-func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
-	out := make(labels.Collection, 0)
+func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, ip := range proxy.IPAddresses {
 		instances := s.serviceInstances.getByIP(ip)
 		for _, instance := range instances {
-			out = append(out, instance.Endpoint.Labels)
+			return instance.Endpoint.Labels
 		}
 	}
-	return out
+	return nil
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation

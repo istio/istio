@@ -1314,11 +1314,9 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			},
 		},
 		{
-			name: "subset cluster endpoints with labels",
-			mesh: testMesh(),
-			labels: []labels.Instance{
-				{"version": "v1"},
-			},
+			name:   "subset cluster endpoints with labels",
+			mesh:   testMesh(),
+			labels: labels.Instance{"version": "v1"},
 			instances: []*model.ServiceInstance{
 				{
 					Service:     service,

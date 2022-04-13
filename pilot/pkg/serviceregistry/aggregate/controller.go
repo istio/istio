@@ -288,29 +288,26 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 	return out
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
-	var out labels.Collection
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	clusterID := nodeClusterID(proxy)
 	for _, r := range c.GetRegistries() {
 		// If proxy clusterID unset, we may find incorrect workload label.
 		// This can not happen in k8s env.
 		if clusterID == "" {
-			wlLabels := r.GetProxyWorkloadLabels(proxy)
-			if len(wlLabels) > 0 {
-				out = append(out, wlLabels...)
-				break
+			lbls := r.GetProxyWorkloadLabels(proxy)
+			if lbls != nil {
+				return lbls
 			}
 		} else if clusterID == r.Cluster() {
 			// find proxy in the specified cluster
-			wlLabels := r.GetProxyWorkloadLabels(proxy)
-			if len(wlLabels) > 0 {
-				out = append(out, wlLabels...)
+			lbls := r.GetProxyWorkloadLabels(proxy)
+			if lbls != nil {
+				return lbls
 			}
-			break
 		}
 	}
 
-	return out
+	return nil
 }
 
 // Run starts all the controllers

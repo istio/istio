@@ -71,7 +71,7 @@ type ServiceDiscovery struct {
 	ClusterID                    string
 
 	// Used by GetProxyWorkloadLabels
-	ip2workloadLabels map[string]*labels.Instance
+	ip2workloadLabels map[string]labels.Instance
 
 	// XDSUpdater will push EDS changes to the ADS model.
 	EDSUpdater model.XDSUpdater
@@ -94,7 +94,7 @@ func NewServiceDiscovery(services ...*model.Service) *ServiceDiscovery {
 		instancesByPortNum:  map[string][]*model.ServiceInstance{},
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
-		ip2workloadLabels:   map[string]*labels.Instance{},
+		ip2workloadLabels:   map[string]labels.Instance{},
 	}
 }
 
@@ -103,7 +103,7 @@ func (sd *ServiceDiscovery) shardKey() model.ShardKey {
 }
 
 func (sd *ServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
-	sd.ip2workloadLabels[ip] = &labels
+	sd.ip2workloadLabels[ip] = labels
 }
 
 // AddHTTPService is a helper to add a service of type http, named 'http-main', with the
@@ -289,17 +289,16 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) []*model
 	return out
 }
 
-func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
+func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	out := make(labels.Collection, 0)
 
 	for _, ip := range proxy.IPAddresses {
 		if l, found := sd.ip2workloadLabels[ip]; found {
-			out = append(out, *l)
+			return l
 		}
 	}
-	return out
+	return nil
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.

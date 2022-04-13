@@ -2399,7 +2399,7 @@ func (l *localServiceDiscovery) GetProxyServiceInstances(*Proxy) []*ServiceInsta
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) GetProxyWorkloadLabels(*Proxy) labels.Collection {
+func (l *localServiceDiscovery) GetProxyWorkloadLabels(*Proxy) labels.Instance {
 	panic("implement me")
 }
 
