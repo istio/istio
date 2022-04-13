@@ -585,13 +585,13 @@ func (s *Controller) GetService(hostname host.Name) *model.Service {
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
-func (s *Controller) InstancesByPort(svc *model.Service, port int, labels labels.Collection) []*model.ServiceInstance {
+func (s *Controller) InstancesByPort(svc *model.Service, port int, labels labels.Instance) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	s.mutex.RLock()
 	instanceLists := s.serviceInstances.getByKey(instancesKey{svc.Hostname, svc.Attributes.Namespace})
 	s.mutex.RUnlock()
 	for _, instance := range instanceLists {
-		if labels.HasSubsetOf(instance.Endpoint.Labels) &&
+		if labels.SubsetOf(instance.Endpoint.Labels) &&
 			portMatchSingle(instance, port) {
 			out = append(out, instance)
 		}

@@ -106,7 +106,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 	return out
 }
 
-func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
+func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labels labels.Instance) []*model.ServiceInstance {
 	item, exists, err := e.informer.GetIndexer().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
@@ -126,9 +126,9 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	ep := item.(*v1.Endpoints)
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
-		out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, labelsList, svcPort, model.Healthy)...)
+		out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, labels, svcPort, model.Healthy)...)
 		if features.SendUnhealthyEndpoints {
-			out = append(out, e.buildServiceInstances(ep, ss, ss.NotReadyAddresses, svc, discoverabilityPolicy, labelsList, svcPort, model.UnHealthy)...)
+			out = append(out, e.buildServiceInstances(ep, ss, ss.NotReadyAddresses, svc, discoverabilityPolicy, labels, svcPort, model.UnHealthy)...)
 		}
 	}
 	return out
@@ -183,7 +183,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 }
 
 func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.EndpointSubset, endpoints []v1.EndpointAddress,
-	svc *model.Service, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, labelsList labels.Collection,
+	svc *model.Service, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, lbls labels.Instance,
 	svcPort *model.Port, health model.HealthStatus) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 	for _, ea := range endpoints {
@@ -196,7 +196,7 @@ func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.Endp
 			podLabels = pod.Labels
 		}
 		// check that one of the input labels is a subset of the labels
-		if !labelsList.HasSubsetOf(podLabels) {
+		if !lbls.SubsetOf(podLabels) {
 			continue
 		}
 

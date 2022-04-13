@@ -605,7 +605,7 @@ type ServiceDiscovery interface {
 	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
 	// EDS calls it for building the endpoints result.
 	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(svc *Service, servicePort int, labels labels.Collection) []*ServiceInstance
+	InstancesByPort(svc *Service, servicePort int, labels labels.Instance) []*ServiceInstance
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -810,7 +810,7 @@ func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) [
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	for _, port := range ports {
-		svcInstances := discovery.InstancesByPort(svc, port, labels.Collection{})
+		svcInstances := discovery.InstancesByPort(svc, port, nil)
 		instances = append(instances, svcInstances...)
 	}
 

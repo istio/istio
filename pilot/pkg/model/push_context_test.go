@@ -555,6 +555,7 @@ func TestWasmPlugins(t *testing.T) {
 			name: "nomatch",
 			node: &Proxy{
 				ConfigNamespace: "other",
+				Metadata:        &NodeMetadata{},
 			},
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{},
 		},
@@ -2390,7 +2391,7 @@ func (l *localServiceDiscovery) GetService(host.Name) *Service {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) InstancesByPort(*Service, int, labels.Collection) []*ServiceInstance {
+func (l *localServiceDiscovery) InstancesByPort(*Service, int, labels.Instance) []*ServiceInstance {
 	return l.serviceInstances
 }
 
