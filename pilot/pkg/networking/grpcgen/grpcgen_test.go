@@ -262,7 +262,7 @@ func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
 	})
 }
 
-func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, svcname string, port int, mtls bool) {
+func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname string, port int, mtls bool) {
 	ns := "test"
 	hn := svcname + "." + ns + ".svc.cluster.local"
 	// The 'memory' store GetProxyServiceInstances uses the IP address of the node and endpoints to

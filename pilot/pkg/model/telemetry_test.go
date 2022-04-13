@@ -60,8 +60,8 @@ func createTestTelemetries(configs []config.Config, t *testing.T) *Telemetries {
 	m.ExtensionProviders = append(m.ExtensionProviders, jsonTextProvider)
 
 	environment := &Environment{
-		IstioConfigStore: MakeIstioStore(store),
-		Watcher:          mesh.NewFixedWatcher(m),
+		ConfigStore: MakeIstioStore(store),
+		Watcher:     mesh.NewFixedWatcher(m),
 	}
 	telemetries, err := getTelemetries(environment)
 	if err != nil {

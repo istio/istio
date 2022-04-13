@@ -592,7 +592,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		ConfigStore:      configStore,
 		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
@@ -649,7 +649,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		ConfigStore:      configStore,
 		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
@@ -701,7 +701,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		ConfigStore:      configStore,
 		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 

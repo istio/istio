@@ -430,7 +430,7 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	for _, cfg := range envoyFilters {
 		_, _ = store.Create(cfg)
 	}
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
@@ -618,7 +618,7 @@ func TestWasmPlugins(t *testing.T) {
 	for _, config := range wasmPlugins {
 		store.Create(config)
 	}
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
@@ -645,7 +645,7 @@ func TestServiceIndex(t *testing.T) {
 	env := &Environment{}
 	store := istioConfigStore{ConfigStore: NewFakeStore()}
 
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -890,7 +890,7 @@ func TestInitPushContext(t *testing.T) {
 	})
 	store := istioConfigStore{ConfigStore: configStore}
 
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -1004,7 +1004,7 @@ func TestSidecarScope(t *testing.T) {
 
 	store := istioConfigStore{ConfigStore: configStore}
 
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	if err := ps.initSidecarScopes(env); err != nil {
 		t.Fatalf("init sidecar scope failed: %v", err)
 	}
@@ -1071,7 +1071,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	}, securityBeta.PeerAuthentication_MutualTLS_DISABLE))
 
 	store := istioConfigStore{ConfigStore: configStore}
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	if err := ps.initAuthnPolicies(env); err != nil {
 		t.Fatalf("init authn policies failed: %v", err)
 	}
@@ -1988,7 +1988,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 
 	store := istioConfigStore{ConfigStore: configStore}
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	ps.initDefaultExportMaps()
 	if err := ps.initVirtualServices(env); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
@@ -2126,7 +2126,7 @@ func TestInitVirtualService(t *testing.T) {
 	}
 
 	store := istioConfigStore{ConfigStore: configStore}
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	ps.initDefaultExportMaps()
 	if err := ps.initVirtualServices(env); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
@@ -2320,7 +2320,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	}
 
 	store := istioConfigStore{ConfigStore: configStore}
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
 	if err := ps.initVirtualServices(env); err != nil {

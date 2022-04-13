@@ -411,7 +411,7 @@ func newProxyConfig(name, ns string, spec config.Spec) config.Config {
 	}
 }
 
-func newProxyConfigStore(t *testing.T, configs []config.Config) IstioConfigStore {
+func newProxyConfigStore(t *testing.T, configs []config.Config) ConfigStore {
 	t.Helper()
 
 	store := NewFakeStore()

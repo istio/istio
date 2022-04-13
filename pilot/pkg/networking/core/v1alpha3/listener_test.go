@@ -2961,7 +2961,7 @@ func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServ
 	env := model.Environment{
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		ConfigStore:      configStore,
 		Watcher:          mesh.NewFixedWatcher(m),
 	}
 	env.Init()

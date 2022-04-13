@@ -204,12 +204,6 @@ type ConfigStoreCache interface {
 	HasSynced() bool
 }
 
-// IstioConfigStore is a specialized interface to access config store using
-// Istio configuration types
-type IstioConfigStore interface {
-	ConfigStore
-}
-
 const (
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
@@ -379,7 +373,7 @@ type istioConfigStore struct {
 // MakeIstioStore creates a wrapper around a store.
 // In pilot it is initialized with a ConfigStoreCache, tests only use
 // a regular ConfigStore.
-func MakeIstioStore(store ConfigStore) IstioConfigStore {
+func MakeIstioStore(store ConfigStore) ConfigStore {
 	return &istioConfigStore{store}
 }
 

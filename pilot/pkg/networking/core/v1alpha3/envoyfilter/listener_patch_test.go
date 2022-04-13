@@ -63,7 +63,7 @@ var testMesh = &meshconfig.MeshConfig{
 	},
 }
 
-func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.IstioConfigStore {
+func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.ConfigStore {
 	store := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	for i, cp := range configPatches {
@@ -95,10 +95,10 @@ func buildGolangPatchStruct(config string) *structpb.Struct {
 }
 
 func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *meshconfig.MeshConfig,
-	configStore model.IstioConfigStore) *model.Environment {
+	configStore model.ConfigStore) *model.Environment {
 	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		ConfigStore:      configStore,
 		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 

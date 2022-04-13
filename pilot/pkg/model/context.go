@@ -55,7 +55,7 @@ type Environment struct {
 	ServiceDiscovery
 
 	// Config interface for listing routing rules
-	IstioConfigStore
+	ConfigStore
 
 	// Watcher is the watcher for the mesh config (to be merged into the config store)
 	mesh.Watcher

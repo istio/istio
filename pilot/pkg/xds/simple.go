@@ -48,7 +48,7 @@ type SimpleServer struct {
 
 	// MemoryStore is an in-memory config store, part of the aggregate store
 	// used by the discovery server.
-	MemoryConfigStore model.IstioConfigStore
+	MemoryConfigStore model.ConfigStore
 
 	// GRPCListener is the listener used for GRPC. For agent it is
 	// an insecure port, bound to 127.0.0.1
@@ -127,7 +127,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 
 	// TODO: fix the mess of store interfaces - most are too generic for their own good.
 	s.ConfigStoreCache = aggregateConfigController
-	env.IstioConfigStore = model.MakeIstioStore(aggregateConfigController)
+	env.ConfigStore = model.MakeIstioStore(aggregateConfigController)
 
 	return s
 }
