@@ -71,7 +71,7 @@ type ExternalInjector struct {
 	injectorAddress string
 }
 
-func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
+func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, error) {
 	cc := e.clientConfig
 	if cc == nil {
 		return nil, nil
@@ -138,6 +138,9 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 		},
 	}
 	podBytes, err := json.Marshal(pod)
+	if pod.Namespace != "" {
+		deploymentNS = pod.Namespace
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +162,7 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 			RequestResource:    nil,
 			RequestSubResource: "",
 			Name:               pod.Name,
-			Namespace:          pod.Namespace,
+			Namespace:          deploymentNS,
 		},
 		Response: nil,
 	}
