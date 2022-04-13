@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
@@ -73,7 +72,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 				}
 
 				// This loses track of grouping (shards)
-				for _, inst := range registry.InstancesByPort(svc, port.Port, labels.Collection{}) {
+				for _, inst := range registry.InstancesByPort(svc, port.Port, nil) {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
 			}

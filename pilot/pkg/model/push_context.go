@@ -922,7 +922,7 @@ func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []
 //
 // Callers can check if the sidecarScope is from user generated object or not
 // by checking the sidecarScope.Config field, that contains the user provided config
-func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Collection) *SidecarScope {
+func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Instance) *SidecarScope {
 	// Find the most specific matching sidecar config from the proxy's
 	// config namespace If none found, construct a sidecarConfig on the fly
 	// that allows the sidecar to talk to any namespace (the default
@@ -947,7 +947,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 					if sidecar.GetWorkloadSelector() != nil {
 						workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
 						// exclude workload selector that not match
-						if !workloadLabels.IsSupersetOf(workloadSelector) {
+						if !workloadSelector.SubsetOf(workloadLabels) {
 							continue
 						}
 					}
@@ -1825,10 +1825,6 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 	if proxy == nil {
 		return nil
 	}
-	var workloadLabels labels.Collection
-	if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
-		workloadLabels = labels.Collection{proxy.Metadata.Labels}
-	}
 	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
 	// First get all the extension configs from the config root namespace
 	// and then add the ones from proxy's own namespace
@@ -1836,7 +1832,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
-			if plugin.Selector == nil || workloadLabels.IsSupersetOf(plugin.Selector.MatchLabels) {
+			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Metadata.Labels) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
@@ -1845,7 +1841,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 	// To prevent duplicate extensions in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
-			if plugin.Selector == nil || workloadLabels.IsSupersetOf(plugin.Selector.MatchLabels) {
+			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Metadata.Labels) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
@@ -1952,11 +1948,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
 	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
-		var workloadLabels labels.Collection
-		if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
-			workloadLabels = labels.Collection{proxy.Metadata.Labels}
-		}
-		if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
+		if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Metadata.Labels) {
 			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 		}
 	}
@@ -2048,12 +2040,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
-			var workloadLabels labels.Collection
-			// This should never happen except in tests.
-			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
-				workloadLabels = labels.Collection{proxy.Metadata.Labels}
-			}
-			if workloadLabels.IsSupersetOf(gatewaySelector) {
+			if gatewaySelector.SubsetOf(proxy.Metadata.Labels) {
 				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 			}
 		}
@@ -2196,7 +2183,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 }
 
 // ServiceInstancesByPort returns the cached instances by port if it exists.
-func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Collection) []*ServiceInstance {
+func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Instance) []*ServiceInstance {
 	out := []*ServiceInstance{}
 	if instances, exists := ps.ServiceIndex.instancesByPort[svc.Key()][port]; exists {
 		// Use cached version of instances by port when labels are empty.
@@ -2206,7 +2193,7 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 		// If there are labels,	we will filter instances by pod labels.
 		for _, instance := range instances {
 			// check that one of the input labels is a subset of the labels
-			if labels.HasSubsetOf(instance.Endpoint.Labels) {
+			if labels.SubsetOf(instance.Endpoint.Labels) {
 				out = append(out, instance)
 			}
 		}

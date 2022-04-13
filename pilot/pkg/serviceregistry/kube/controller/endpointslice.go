@@ -291,7 +291,7 @@ func (esc *endpointSliceController) getServiceNamespacedName(es interface{}) typ
 	}
 }
 
-func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
+func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, lbls labels.Instance) []*model.ServiceInstance {
 	esLabelSelector := endpointSliceSelectorForService(svc.Attributes.Name)
 	slices, err := esc.listSlices(svc.Attributes.Namespace, esLabelSelector)
 	if err != nil {
@@ -328,7 +328,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					podLabels = pod.Labels
 				}
 				// check that one of the input labels is a subset of the labels
-				if !labelsList.HasSubsetOf(podLabels) {
+				if !lbls.SubsetOf(podLabels) {
 					continue
 				}
 

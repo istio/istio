@@ -293,7 +293,6 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	}
 
 	namespace := proxy.ConfigNamespace
-	workload := labels.Collection{proxy.Metadata.Labels}
 	// Order here matters. The latter elements will override the first elements
 	ms := []*tpb.Metrics{}
 	ls := []*tpb.AccessLogging{}
@@ -325,7 +324,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 			continue
 		}
 		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-		if workload.IsSupersetOf(selector) {
+		if selector.SubsetOf(proxy.Metadata.Labels) {
 			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
 			ls = append(ls, spec.GetAccessLogging()...)
