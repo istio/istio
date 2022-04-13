@@ -18,18 +18,16 @@
 package security
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
-	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
@@ -40,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/scheck"
@@ -746,7 +743,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			// policies at gateways are useful for managing accessibility to external
 			// services running on a VM.
 			for _, a := range []echo.Instances{a, vm} {
-				t.NewSubTestf("to %s/", a[0].Config().Service).Run(func(t framework.TestContext) {
+				t.NewSubTestf("to %s", a[0].Config().Service).Run(func(t framework.TestContext) {
 					t.ConfigIstio().EvalFile("", map[string]string{
 						"Namespace":     ns.Name(),
 						"RootNamespace": rootns.Name(),
@@ -759,7 +756,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						code  int
 						body  string
 						host  string
-						from  echo.Workload
+						from  echo.Instances
 						token string
 					}{
 						{
@@ -768,7 +765,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code: http.StatusOK,
 							body: "handled-by-egress-gateway",
 							host: "www.company.com",
-							from: a.WorkloadsOrFail(t)[0],
+							from: a,
 						},
 						{
 							name: "deny path to company.com",
@@ -776,7 +773,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code: http.StatusForbidden,
 							body: "RBAC: access denied",
 							host: "www.company.com",
-							from: a.WorkloadsOrFail(t)[0],
+							from: a,
 						},
 						{
 							name: "allow service account a to a-only.com over mTLS",
@@ -784,7 +781,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code: http.StatusOK,
 							body: "handled-by-egress-gateway",
 							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
-							from: a.WorkloadsOrFail(t)[0],
+							from: a,
 						},
 						{
 							name: "deny service account b to a-only.com over mTLS",
@@ -792,7 +789,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code: http.StatusForbidden,
 							body: "RBAC: access denied",
 							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
-							from: c.WorkloadsOrFail(t)[0],
+							from: c,
 						},
 						{
 							name:  "allow a with JWT to jwt-only.com over mTLS",
@@ -800,7 +797,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code:  http.StatusOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
-							from:  a.WorkloadsOrFail(t)[0],
+							from:  a,
 							token: jwt.TokenIssuer1,
 						},
 						{
@@ -809,7 +806,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code:  http.StatusOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
-							from:  c.WorkloadsOrFail(t)[0],
+							from:  c,
 							token: jwt.TokenIssuer1,
 						},
 						{
@@ -818,7 +815,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code:  http.StatusForbidden,
 							body:  "RBAC: access denied",
 							host:  "jwt-only.com",
-							from:  c.WorkloadsOrFail(t)[0],
+							from:  c,
 							token: jwt.TokenIssuer2,
 						},
 						{
@@ -827,7 +824,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code:  http.StatusOK,
 							body:  "handled-by-egress-gateway",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
-							from:  a.WorkloadsOrFail(t)[0],
+							from:  a,
 							token: jwt.TokenIssuer1,
 						},
 						{
@@ -836,7 +833,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code:  http.StatusForbidden,
 							body:  "RBAC: access denied",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
-							from:  c.WorkloadsOrFail(t)[0],
+							from:  c,
 							token: jwt.TokenIssuer1,
 						},
 						{
@@ -845,25 +842,26 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							code:  http.StatusForbidden,
 							body:  "RBAC: access denied",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
-							from:  a.WorkloadsOrFail(t)[0],
+							from:  a,
 							token: jwt.TokenIssuer2,
 						},
 					}
 
 					for _, tc := range cases {
-						request := &epb.ForwardEchoRequest{
-							// Use a fake IP to make sure the request is handled by our test.
-							Url:     fmt.Sprintf("http://10.4.4.4%s", tc.path),
-							Count:   1,
-							Headers: echoCommon.HTTPToProtoHeaders(headers.New().WithHost(tc.host).WithAuthz(tc.token).Build()),
-						}
 						t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-							retry.UntilSuccessOrFail(t, func() error {
-								rs, err := tc.from.ForwardEcho(context.TODO(), request)
-								if err != nil {
-									return err
-								}
-								return check.And(
+							tc.from[0].CallOrFail(t, echo.CallOptions{
+								Port: echo.Port{
+									Protocol:    protocol.HTTP,
+									ServicePort: 80,
+								},
+								Timeout: time.Second,
+								// Use a fake IP to make sure the request is handled by our test.
+								Address: "10.4.4.4",
+								HTTP: echo.HTTP{
+									Headers: headers.New().WithHost(tc.host).WithAuthz(tc.token).Build(),
+									Path:    tc.path,
+								},
+								Check: check.And(
 									check.NoError(),
 									check.Status(tc.code),
 									check.Each(func(r echoClient.Response) error {
@@ -871,12 +869,8 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 											return fmt.Errorf("want %q in body but not found: %s", tc.body, r.RawContent)
 										}
 										return nil
-									})).Check(echo.CallResult{
-									From:      nil, // TODO(nmittler): consider making workload implement Caller interface.
-									Opts:      echo.CallOptions{},
-									Responses: rs,
-								}, err)
-							}, echo.DefaultCallRetryOptions()...)
+									})),
+							})
 						})
 					}
 				})
