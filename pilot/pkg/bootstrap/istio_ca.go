@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -266,21 +265,6 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 	return nil
 }
 
-// isValidCACertsFile As we are watching entire directory, but interested
-// in only 'ca-key.pem', 'ca-cert.pem', 'root-cert.pem' and 'cert-chain.pem'.
-// Events on other files are ignored.
-func isValidCACertsFile(path string) bool {
-	_, file := filepath.Split(path)
-
-	for _, name := range []string{ca.CACertFile, ca.CAPrivateKeyFile, ca.RootCertFile, ca.CertChainFile} {
-		if file == name {
-			return true
-		}
-	}
-
-	return false
-}
-
 // handleEvent handles the events on cacerts related files.
 // If create/write(modified) event occurs, then it verifies that
 // newly introduced cacerts are intermediate CA which is generated
@@ -338,8 +322,7 @@ func (s *Server) handleCACertsFileWatch() {
 			}
 
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-				valid := isValidCACertsFile(event.Name)
-				if valid && timerC == nil {
+				if timerC == nil {
 					timerC = time.After(100 * time.Millisecond)
 				}
 			}
