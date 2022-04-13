@@ -1303,10 +1303,8 @@ func defaultUpstreamCommonTLSContext() *auth.CommonTlsContext {
 // or those whose label value does not match "istio"
 func defaultTransportSocketMatch() *cluster.Cluster_TransportSocketMatch {
 	return &cluster.Cluster_TransportSocketMatch{
-		Name:  "tlsMode-disabled",
-		Match: &structpb.Struct{},
-		TransportSocket: &core.TransportSocket{
-			Name: util.EnvoyRawBufferSocketName,
-		},
+		Name:            "tlsMode-disabled",
+		Match:           &structpb.Struct{},
+		TransportSocket: xdsfilters.RawBufferTransportSocket,
 	}
 }
