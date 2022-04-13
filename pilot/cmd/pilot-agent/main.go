@@ -264,9 +264,6 @@ func initProxy(args []string) (*model.Proxy, error) {
 		proxy.IPAddresses = []string{podIP.String()}
 	}
 
-	// After IP addresses are set, let us discover IPMode.
-	proxy.DiscoverIPMode()
-
 	// Obtain all the IPs from the node
 	if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {
 		if len(proxy.IPAddresses) == 1 {
@@ -286,6 +283,9 @@ func initProxy(args []string) (*model.Proxy, error) {
 	if len(proxy.IPAddresses) == 0 {
 		proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
 	}
+
+	// After IP addresses are set, let us discover IPMode.
+	proxy.DiscoverIPMode()
 
 	// Extract pod variables.
 	podName := options.PodNameVar.Get()
