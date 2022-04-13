@@ -196,7 +196,7 @@ type ADSC struct {
 	Mesh *v1alpha1.MeshConfig
 
 	// Retrieved configurations can be stored using the common istio model interface.
-	Store model.IstioConfigStore
+	Store model.ConfigStore
 
 	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
 	Registry *memory.ServiceDiscovery

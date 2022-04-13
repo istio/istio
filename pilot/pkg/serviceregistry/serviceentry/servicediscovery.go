@@ -78,7 +78,7 @@ type configKey struct {
 type Controller struct {
 	XdsUpdater model.XDSUpdater
 
-	store     model.IstioConfigStore
+	store     model.ConfigStore
 	clusterID cluster.ID
 
 	// This lock is to make multi ops on the below stores. For example, in some case,
@@ -121,7 +121,7 @@ func WithNetworkIDCb(cb func(endpointIP string, labels labels.Instance) network.
 }
 
 // NewController creates a new ServiceEntry discovery service.
-func NewController(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater,
+func NewController(configController model.ConfigStoreCache, store model.ConfigStore, xdsUpdater model.XDSUpdater,
 	options ...Option) *Controller {
 	s := newController(store, xdsUpdater, options...)
 	if configController != nil {
@@ -133,7 +133,7 @@ func NewController(configController model.ConfigStoreCache, store model.IstioCon
 }
 
 // NewWorkloadEntryController creates a new WorkloadEntry discovery service.
-func NewWorkloadEntryController(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater,
+func NewWorkloadEntryController(configController model.ConfigStoreCache, store model.ConfigStore, xdsUpdater model.XDSUpdater,
 	options ...Option) *Controller {
 	s := newController(store, xdsUpdater, options...)
 	// Disable service entry processing for workload entry controller.
@@ -149,7 +149,7 @@ func NewWorkloadEntryController(configController model.ConfigStoreCache, store m
 	return s
 }
 
-func newController(store model.IstioConfigStore, xdsUpdater model.XDSUpdater, options ...Option) *Controller {
+func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options ...Option) *Controller {
 	s := &Controller{
 		XdsUpdater: xdsUpdater,
 		store:      store,
