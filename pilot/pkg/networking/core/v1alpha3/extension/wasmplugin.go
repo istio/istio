@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/sets"
 
 	// include for registering wasm logging scope
@@ -97,7 +97,7 @@ func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
 			newHTTPFilters = append(newHTTPFilters, httpFilter)
-		case constants.StatsFilterName:
+		case xds.StatsFilterName:
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_STATS)
@@ -132,7 +132,7 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
-				TypeUrls:     []string{constants.WasmHTTPFilterType},
+				TypeUrls:     []string{xds.WasmHTTPFilterType},
 			},
 		},
 	}

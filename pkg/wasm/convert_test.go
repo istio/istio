@@ -34,7 +34,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/xds"
 )
 
 type mockCache struct {
@@ -193,7 +193,7 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 		Name: name,
 		TypedConfig: util.MessageToAny(
 			&udpa.TypedStruct{
-				TypeUrl: constants.WasmHTTPFilterType,
+				TypeUrl: xds.WasmHTTPFilterType,
 				Value:   ws,
 			},
 		),

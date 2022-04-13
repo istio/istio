@@ -34,9 +34,9 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
@@ -713,7 +713,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 
 			f := &hcm.HttpFilter{
-				Name:       constants.StatsFilterName,
+				Name:       xds.StatsFilterName,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
@@ -731,7 +731,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 
 			f := &hcm.HttpFilter{
-				Name:       constants.StackdriverFilterName,
+				Name:       xds.StackdriverFilterName,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
@@ -762,7 +762,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 
 			f := &listener.Filter{
-				Name:       constants.StatsFilterName,
+				Name:       xds.StatsFilterName,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
@@ -780,7 +780,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 
 			f := &listener.Filter{
-				Name:       constants.StackdriverFilterName,
+				Name:       xds.StackdriverFilterName,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)

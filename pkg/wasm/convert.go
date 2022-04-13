@@ -26,7 +26,7 @@ import (
 	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/xds"
 )
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
@@ -75,13 +75,13 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 
 	wasmHTTPFilterConfig := &wasm.Wasm{}
 	// Wasm filter can be configured using typed struct and Wasm filter type
-	if ec.GetTypedConfig() != nil && ec.GetTypedConfig().TypeUrl == constants.WasmHTTPFilterType {
+	if ec.GetTypedConfig() != nil && ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType {
 		err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig)
 		if err != nil {
 			wasmLog.Debugf("failed to unmarshal extension config resource into Wasm HTTP filter: %v", err)
 			return
 		}
-	} else if ec.GetTypedConfig() == nil || ec.GetTypedConfig().TypeUrl != constants.TypedStructType {
+	} else if ec.GetTypedConfig() == nil || ec.GetTypedConfig().TypeUrl != xds.TypedStructType {
 		wasmLog.Debugf("cannot find typed struct in %+v", ec)
 		return
 	} else {
@@ -92,7 +92,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 			return
 		}
 
-		if wasmStruct.TypeUrl != constants.WasmHTTPFilterType {
+		if wasmStruct.TypeUrl != xds.WasmHTTPFilterType {
 			wasmLog.Debugf("typed extension config %+v does not contain wasm http filter", wasmStruct)
 			return
 		}

@@ -43,8 +43,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
@@ -633,7 +633,7 @@ func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 	}
 
 	switch tce.TypedConfig.TypeUrl {
-	case constants.WasmHTTPFilterType:
+	case xds.WasmHTTPFilterType:
 		w := &wasm.Wasm{}
 		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
 			return nil, err
