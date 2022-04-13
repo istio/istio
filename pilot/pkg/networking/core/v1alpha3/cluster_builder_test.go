@@ -1087,7 +1087,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	cases := []struct {
 		name      string
 		mesh      *meshconfig.MeshConfig
-		labels    labels.Collection
+		labels    labels.Instance
 		instances []*model.ServiceInstance
 		expected  []*endpoint.LocalityLbEndpoints
 	}{

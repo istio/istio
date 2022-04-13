@@ -20,7 +20,7 @@ import (
 )
 
 // getSubSetLabels returns the labels associated with a subset of a given service.
-func getSubSetLabels(dr *networkingapi.DestinationRule, subsetName string) labels.Collection {
+func getSubSetLabels(dr *networkingapi.DestinationRule, subsetName string) labels.Instance {
 	// empty subset
 	if subsetName == "" {
 		return nil
@@ -35,7 +35,7 @@ func getSubSetLabels(dr *networkingapi.DestinationRule, subsetName string) label
 			if len(subset.Labels) == 0 {
 				return nil
 			}
-			return []labels.Instance{subset.Labels}
+			return subset.Labels
 		}
 	}
 

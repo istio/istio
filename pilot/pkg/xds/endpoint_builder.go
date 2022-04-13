@@ -296,7 +296,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				continue
 			}
 			// Port labels
-			if !epLabels.HasSubsetOf(ep.Labels) {
+			if !epLabels.SubsetOf(ep.Labels) {
 				continue
 			}
 

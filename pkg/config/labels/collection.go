@@ -17,21 +17,3 @@ package labels
 // Collection is a collection of labels used for comparing labels against a
 // collection of labels
 type Collection []Instance
-
-// HasSubsetOf returns true if the input labels are a superset of one labels in a
-// collection or if the tag collection is empty
-func (c Collection) HasSubsetOf(that Instance) bool {
-	if len(c) == 0 {
-		return true
-	}
-	// prevent panic when that is nil
-	if len(that) == 0 {
-		return false
-	}
-	for _, this := range c {
-		if this.SubsetOf(that) {
-			return true
-		}
-	}
-	return false
-}

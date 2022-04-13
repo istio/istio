@@ -911,7 +911,7 @@ func (s *Controller) buildServiceInstances(
 	serviceInstancesByConfig := map[configKey][]*model.ServiceInstance{}
 	// for service entry with labels
 	if currentServiceEntry.WorkloadSelector != nil {
-		selector := workloadinstances.ByServiceSelector(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
+		selector := workloadinstances.ByServiceSelector(curr.Namespace, currentServiceEntry.WorkloadSelector.Labels)
 		workloadInstances := workloadinstances.FindAllInIndex(s.workloadInstances, selector)
 		for _, wi := range workloadInstances {
 			if wi.DNSServiceEntryOnly && currentServiceEntry.Resolution != networking.ServiceEntry_DNS &&

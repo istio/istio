@@ -189,7 +189,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	}
 	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
 		if len(subset.Labels) != 0 {
-			lbEndpoints = cb.buildLocalityLbEndpoints(proxyView, service, opts.port.Port, []labels.Instance{subset.Labels})
+			lbEndpoints = cb.buildLocalityLbEndpoints(proxyView, service, opts.port.Port, subset.Labels)
 		} else {
 			lbEndpoints = cb.buildLocalityLbEndpoints(proxyView, service, opts.port.Port, nil)
 		}
@@ -544,7 +544,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 }
 
 func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, service *model.Service,
-	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
+	port int, labels labels.Instance) []*endpoint.LocalityLbEndpoints {
 	if !(service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB) {
 		return nil
 	}
