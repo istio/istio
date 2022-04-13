@@ -24,10 +24,8 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
@@ -210,15 +208,6 @@ type ConfigStoreCache interface {
 // Istio configuration types
 type IstioConfigStore interface {
 	ConfigStore
-
-	// ServiceEntries lists all service entries
-	ServiceEntries() []config.Config
-
-	// Gateways lists all gateways bound to the specified workload labels
-	Gateways(workloadLabels labels.Collection) []config.Config
-
-	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
-	AuthorizationPolicies(namespace string) []config.Config
 }
 
 const (
@@ -419,29 +408,6 @@ func sortConfigByCreationTime(configs []config.Config) {
 		}
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	})
-}
-
-func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []config.Config {
-	configs, err := store.List(gvk.Gateway, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	sortConfigByCreationTime(configs)
-	out := make([]config.Config, 0)
-	for _, cfg := range configs {
-		gateway := cfg.Spec.(*networking.Gateway)
-		if gateway.GetSelector() == nil {
-			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, cfg)
-		} else {
-			gatewaySelector := labels.Instance(gateway.GetSelector())
-			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				out = append(out, cfg)
-			}
-		}
-	}
-	return out
 }
 
 // key creates a key from a reference's name and namespace.

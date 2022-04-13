@@ -408,7 +408,7 @@ func TestMirrorPercent(t *testing.T) {
 func TestSourceMatchHTTP(t *testing.T) {
 	type args struct {
 		match          *networking.HTTPMatchRequest
-		proxyLabels    labels.Collection
+		proxyLabels    labels.Instance
 		gatewayNames   map[string]bool
 		proxyNamespace string
 	}

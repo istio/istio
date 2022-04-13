@@ -1663,7 +1663,7 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 
 	// get service instances
 
-	instances := ctl.InstancesByPort(svcs[0], 8080, labels.Collection{})
+	instances := ctl.InstancesByPort(svcs[0], 8080, nil)
 
 	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
 
@@ -1695,7 +1695,7 @@ func TestExternalNameServiceInstances(t *testing.T) {
 			if len(converted) != 1 {
 				t.Fatalf("failed to get services (%v)s", converted)
 			}
-			instances := controller.InstancesByPort(converted[0], 1, labels.Collection{})
+			instances := controller.InstancesByPort(converted[0], 1, nil)
 			if len(instances) != 1 {
 				t.Fatalf("expected 1 instance, got %v", instances)
 			}
@@ -1804,7 +1804,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				if svcList[i].Resolution != exp.Resolution {
 					t.Fatalf("i=%v, Resolution=='%v', should be '%v'", i+1, svcList[i].Resolution, exp.Resolution)
 				}
-				instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, labels.Collection{})
+				instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, nil)
 				if len(instances) != 1 {
 					t.Fatalf("should be exactly 1 instance: len(instances) = %v", len(instances))
 				}
@@ -1824,7 +1824,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				t.Fatalf("Should have 0 services at this point")
 			}
 			for _, exp := range expectedSvcList {
-				instances := controller.InstancesByPort(exp, exp.Ports[0].Port, labels.Collection{})
+				instances := controller.InstancesByPort(exp, exp.Ports[0].Port, nil)
 				if len(instances) != 0 {
 					t.Fatalf("should be exactly 0 instance: len(instances) = %v", len(instances))
 				}
@@ -2517,9 +2517,9 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	if len(converted) != 1 {
 		t.Fatalf("failed to get services (%v), converted", converted)
 	}
-	instances := controller.InstancesByPort(converted[0], 8080, labels.Collection{{
+	instances := controller.InstancesByPort(converted[0], 8080, labels.Instance{
 		"app": "prod-app",
-	}})
+	})
 	var gotEndpointIPs []string
 	for _, instance := range instances {
 		gotEndpointIPs = append(gotEndpointIPs, instance.Endpoint.Address)

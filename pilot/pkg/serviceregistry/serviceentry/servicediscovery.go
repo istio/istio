@@ -485,8 +485,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	instancesDeleted := []*model.ServiceInstance{}
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		workloadLabels := labels.Collection{wi.Endpoint.Labels}
-		if se.WorkloadSelector == nil || !workloadLabels.IsSupersetOf(se.WorkloadSelector.Labels) {
+		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
 			// Not a match, skip this one
 			continue
 		}
@@ -586,13 +585,13 @@ func (s *Controller) GetService(hostname host.Name) *model.Service {
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
-func (s *Controller) InstancesByPort(svc *model.Service, port int, labels labels.Collection) []*model.ServiceInstance {
+func (s *Controller) InstancesByPort(svc *model.Service, port int, labels labels.Instance) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	s.mutex.RLock()
 	instanceLists := s.serviceInstances.getByKey(instancesKey{svc.Hostname, svc.Attributes.Namespace})
 	s.mutex.RUnlock()
 	for _, instance := range instanceLists {
-		if labels.HasSubsetOf(instance.Endpoint.Labels) &&
+		if labels.SubsetOf(instance.Endpoint.Labels) &&
 			portMatchSingle(instance, port) {
 			out = append(out, instance)
 		}
@@ -749,17 +748,16 @@ func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 	return out
 }
 
-func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
-	out := make(labels.Collection, 0)
+func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, ip := range proxy.IPAddresses {
 		instances := s.serviceInstances.getByIP(ip)
 		for _, instance := range instances {
-			out = append(out, instance.Endpoint.Labels)
+			return instance.Endpoint.Labels
 		}
 	}
-	return out
+	return nil
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
@@ -912,7 +910,7 @@ func (s *Controller) buildServiceInstances(
 	serviceInstancesByConfig := map[configKey][]*model.ServiceInstance{}
 	// for service entry with labels
 	if currentServiceEntry.WorkloadSelector != nil {
-		selector := workloadinstances.ByServiceSelector(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
+		selector := workloadinstances.ByServiceSelector(curr.Namespace, currentServiceEntry.WorkloadSelector.Labels)
 		workloadInstances := workloadinstances.FindAllInIndex(s.workloadInstances, selector)
 		for _, wi := range workloadInstances {
 			if wi.DNSServiceEntryOnly && currentServiceEntry.Resolution != networking.ServiceEntry_DNS &&

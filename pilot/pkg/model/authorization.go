@@ -72,7 +72,7 @@ type AuthorizationPoliciesResult struct {
 }
 
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workload labels.Collection) AuthorizationPoliciesResult {
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workload labels.Instance) AuthorizationPoliciesResult {
 	ret := AuthorizationPoliciesResult{}
 	if policy == nil {
 		return ret
@@ -91,7 +91,7 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string,
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-			if workload.IsSupersetOf(selector) {
+			if selector.SubsetOf(workload) {
 				switch config.Spec.GetAction() {
 				case authpb.AuthorizationPolicy_ALLOW:
 					ret.Allow = append(ret.Allow, config)

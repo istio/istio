@@ -44,10 +44,6 @@ const (
 	MTLSStrict
 )
 
-const (
-	ResourceSeparator = "~"
-)
-
 // String converts MutualTLSMode to human readable string for debugging.
 func (mode MutualTLSMode) String() string {
 	switch mode {
@@ -209,13 +205,13 @@ func (policy *AuthenticationPolicies) GetNamespaceMutualTLSMode(namespace string
 
 // GetJwtPoliciesForWorkload returns a list of JWT policies matching to labels.
 func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
-	workloadLabels labels.Collection) []*config.Config {
+	workloadLabels labels.Instance) []*config.Config {
 	return getConfigsForWorkload(policy.requestAuthentications, policy.rootNamespace, namespace, workloadLabels)
 }
 
 // GetPeerAuthenticationsForWorkload returns a list of peer authentication policies matching to labels.
 func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespace string,
-	workloadLabels labels.Collection) []*config.Config {
+	workloadLabels labels.Instance) []*config.Config {
 	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, namespace, workloadLabels)
 }
 
@@ -232,7 +228,7 @@ func (policy *AuthenticationPolicies) GetVersion() string {
 func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 	rootNamespace string,
 	namespace string,
-	workloadLabels labels.Collection) []*config.Config {
+	workloadLabels labels.Instance) []*config.Config {
 	configs := make([]*config.Config, 0)
 	lookupInNamespaces := []string{namespace}
 	if namespace != rootNamespace {
@@ -259,7 +255,7 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 					log.Warnf("Not support authentication type %q", cfg.GroupVersionKind)
 					continue
 				}
-				if workloadLabels.IsSupersetOf(selector) {
+				if selector.SubsetOf(workloadLabels) {
 					configs = append(configs, cfg)
 				}
 			}

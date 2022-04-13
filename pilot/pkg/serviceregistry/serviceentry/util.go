@@ -23,11 +23,10 @@ import (
 )
 
 func getWorkloadServiceEntries(ses []config.Config, wle *networking.WorkloadEntry) map[types.NamespacedName]*config.Config {
-	workloadLabels := labels.Collection{wle.Labels}
 	out := make(map[types.NamespacedName]*config.Config)
 	for i, cfg := range ses {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if se.WorkloadSelector != nil && workloadLabels.IsSupersetOf(se.WorkloadSelector.Labels) {
+		if se.WorkloadSelector != nil && labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wle.Labels) {
 			out[types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}] = &ses[i]
 		}
 	}

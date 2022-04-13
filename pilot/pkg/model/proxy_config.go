@@ -111,9 +111,8 @@ func (p *ProxyConfigs) mergedWorkloadConfig(namespace string, l map[string]strin
 		if len(pc.GetSelector().GetMatchLabels()) == 0 {
 			continue
 		}
-		match := labels.Collection{l}
 		selector := labels.Instance(pc.GetSelector().GetMatchLabels())
-		if match.IsSupersetOf(selector) {
+		if selector.SubsetOf(l) {
 			// return the first match. this is consistent since
 			// we sort the resources by creation time beforehand.
 			return toMeshConfigProxyConfig(pc)

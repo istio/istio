@@ -92,7 +92,7 @@ func TestAPIGen(t *testing.T) {
 			t.Fatal("Failed to receive lds", err)
 		}
 
-		ses := adscConn.Store.ServiceEntries()
+		ses, _ := adscConn.Store.List(gvk.ServiceEntry, "")
 		for _, se := range ses {
 			t.Log(se)
 		}
