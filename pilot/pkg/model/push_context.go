@@ -1795,7 +1795,7 @@ func (ps *PushContext) initTelemetry(env *Environment) (err error) {
 
 func (ps *PushContext) initProxyConfigs(env *Environment) error {
 	var err error
-	if ps.ProxyConfigs, err = GetProxyConfigs(env.IstioConfigStore, env.Mesh()); err != nil {
+	if ps.ProxyConfigs, err = GetProxyConfigs(env.ConfigStore, env.Mesh()); err != nil {
 		pclog.Errorf("failed to initialize proxy configs: %v", err)
 		return err
 	}

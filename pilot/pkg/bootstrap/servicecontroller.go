@@ -33,7 +33,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
 
 	s.serviceEntryController = serviceentry.NewController(
-		s.configController, s.environment.IstioConfigStore, s.XDSServer,
+		s.configController, s.environment.ConfigStore, s.XDSServer,
 		serviceentry.WithClusterID(s.clusterID),
 	)
 	serviceControllers.AddRegistry(s.serviceEntryController)

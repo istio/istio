@@ -698,8 +698,8 @@ func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *Auth
 		}
 	}
 	environment := &Environment{
-		IstioConfigStore: MakeIstioStore(configStore),
-		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
+		ConfigStore: MakeIstioStore(configStore),
+		Watcher:     mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
 	}
 	authnPolicy, err := initAuthenticationPolicies(environment)
 	if err != nil {
