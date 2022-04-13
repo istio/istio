@@ -41,6 +41,18 @@ spec:
       when:
         - key: remote.ip
           values: ["10.242.5.7", "10.124.99.0/24"]
+    - from:
+        - source:
+            ipBlocks: ["172.19.19.19"]
+      to:
+        - operation:
+            hosts: ["ipblocks.company.com"]
+    - from:
+        - source:
+            notIpBlocks: ["172.19.19.20"]
+      to:
+        - operation:
+            hosts: ["notipblocks.company.com"]
 ---
 
 # The following gateway allows request to "*.company.com"

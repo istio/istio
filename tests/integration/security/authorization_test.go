@@ -165,6 +165,8 @@ func TestAuthorization_JWT(t *testing.T) {
 						cases := []func(testContext framework.TestContext){
 							newTestCase(a[0], dst, "[NoJWT]", "", "/token1", false),
 							newTestCase(a[0], dst, "[NoJWT]", "", "/token2", false),
+							newTestCase(a[0], dst, "[Token3]", jwt.TokenIssuer1, "/token3", false),
+							newTestCase(a[0], dst, "[Token3]", jwt.TokenIssuer2, "/token3", true),
 							newTestCase(a[0], dst, "[Token1]", jwt.TokenIssuer1, "/token1", true),
 							newTestCase(a[0], dst, "[Token1]", jwt.TokenIssuer1, "/token2", false),
 							newTestCase(a[0], dst, "[Token2]", jwt.TokenIssuer2, "/token1", false),
@@ -452,6 +454,15 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				"vm":         vm[0].Config().Service,
 			}, "testdata/authz/v1beta1-negative-match.yaml.tmpl").ApplyOrFail(t)
 
+			type request struct {
+				method string // default value is GET if not specified
+				host   string // only set if not empty
+				port   string // default value is http if not specified
+			}
+			reqParam := request{method: "GET", port: "http"}
+			reqNotMethodParam := request{method: "PUT", port: "http"}
+			reqNotPortParam := request{method: "GET", port: "http-8091"}
+			reqNotHostParam := request{method: "GET", port: "http", host: "deny.com"}
 			for _, srcCluster := range t.Clusters() {
 				a := match.And(match.Cluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
 				bInNS2 := match.And(match.Cluster(srcCluster), match.Namespace(apps.Namespace2.Name())).GetMatches(apps.B)
@@ -460,16 +471,18 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				}
 
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
-					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
+					newTestCaseWithRequest := func(from echo.Instance, to echo.Target, path string, expectAllowed bool, request request) func(t framework.TestContext) {
 						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
 								To: to,
 								Port: echo.Port{
-									Name: "http",
+									Name: request.port,
 								},
 								HTTP: echo.HTTP{
-									Path: path,
+									Path:    path,
+									Method:  request.method,
+									Headers: headers.New().WithHost(request.host).Build(),
 								},
 								Count: callCount,
 							}
@@ -486,16 +499,19 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 							})
 						}
 					}
-
+					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
+						return newTestCaseWithRequest(from, to, path, expectAllowed, reqParam)
+					}
 					// a, b, c and d are in the same namespace and another b(bInNs2) is in a different namespace.
 					// a connects to b, c and d in ns1 with mTLS.
 					// bInNs2 connects to b and c with mTLS, to d with plain-text.
 					cases := []func(testContext framework.TestContext){
-						// Test the policy with overlapped `paths` and `not_paths` on b.
+						// Test the policy with overlapped `paths`, `not_paths` and `not_methods` on b.
 						// a and bInNs2 should have the same results:
 						// - path with prefix `/prefix` should be denied explicitly.
 						// - path `/prefix/allowlist` should be excluded from the deny.
 						// - path `/allow` should be allowed implicitly.
+						newTestCaseWithRequest(a[0], b, "/", false, reqNotMethodParam),
 						newTestCase(a[0], b, "/prefix", false),
 						newTestCase(a[0], b, "/prefix/other", false),
 						newTestCase(a[0], b, "/prefix/allowlist", true),
@@ -507,14 +523,18 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 
 						// Test the policy that denies other namespace on c.
 						// a should be allowed because it's from the same namespace.
+						// any request to path deny.com should be denied
 						// bInNs2 should be denied because it's from a different namespace.
 						newTestCase(a[0], c, "/", true),
+						newTestCaseWithRequest(a[0], c, "/", false, reqNotHostParam),
 						newTestCase(bInNS2[0], c, "/", false),
 
 						// Test the policy that denies plain-text traffic on d.
 						// a should be allowed because it's using mTLS.
+						// any request to port 8091 should be denied
 						// bInNs2 should be denied because it's using plain-text.
 						newTestCase(a[0], d, "/", true),
+						newTestCaseWithRequest(a[0], d, "/", false, reqNotPortParam),
 						newTestCase(bInNS2[0], d, "/", false),
 
 						// Test the policy with overlapped `paths` and `not_paths` on vm.
@@ -705,6 +725,20 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 							Path:     "/",
 							IP:       "10.4.5.6",
 							WantCode: http.StatusOK,
+						},
+						{
+							Name:     "allow 172.19.19.19",
+							Host:     "ipblocks.company.com",
+							Path:     "/",
+							IP:       "172.19.19.19",
+							WantCode: http.StatusOK,
+						},
+						{
+							Name:     "deny 172.19.19.20",
+							Host:     "notipblocks.company.com",
+							Path:     "/",
+							IP:       "172.19.19.20",
+							WantCode: http.StatusForbidden,
 						},
 					}
 
