@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -251,9 +250,7 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances := aggregateCtl.InstancesByPort(mock.HelloService,
-		80,
-		labels.Collection{})
+	instances := aggregateCtl.InstancesByPort(mock.HelloService, 80, nil)
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
@@ -267,9 +264,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances = aggregateCtl.InstancesByPort(mock.WorldService,
-		80,
-		labels.Collection{})
+	instances = aggregateCtl.InstancesByPort(mock.WorldService, 80, nil)
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
