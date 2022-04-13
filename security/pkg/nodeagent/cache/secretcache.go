@@ -260,11 +260,13 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		// if needed.
 		sc.outputMutex.Lock()
 		if resourceName == security.RootCertReqResourceName || resourceName == security.WorkloadKeyCertResourceName {
-			if err := nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, secret.PrivateKey,
-				secret.CertificateChain, secret.RootCert); err != nil {
-				cacheLog.Errorf("error when output the resource: %v", err)
-			} else {
-				resourceLog(resourceName).Debugf("output the resource to %v", sc.configOptions.OutputKeyCertToDir)
+			if sc.configOptions.OutputKeyCertToDir != "" {
+				if err := nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, secret.PrivateKey,
+					secret.CertificateChain, secret.RootCert); err != nil {
+					cacheLog.Errorf("error when output resource %s to %s: %v", resourceName, sc.configOptions.OutputKeyCertToDir, err)
+				} else {
+					resourceLog(resourceName).Debugf("output the resource to %v", sc.configOptions.OutputKeyCertToDir)
+				}
 			}
 		}
 		sc.outputMutex.Unlock()
@@ -308,15 +310,6 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 
 	if resourceName == security.RootCertReqResourceName {
 		ns.RootCert = sc.mergeTrustAnchorBytes(ns.RootCert)
-	} else {
-		// If periodic cert refresh resulted in discovery of a new root, trigger a ROOTCA request to refresh trust anchor
-		oldRoot := sc.cache.GetRoot()
-		if !bytes.Equal(oldRoot, ns.RootCert) {
-			cacheLog.Info("Root cert has changed, start rotating root cert")
-			// We store the oldRoot only for comparison and not for serving
-			sc.cache.SetRoot(ns.RootCert)
-			sc.OnSecretUpdate(security.RootCertReqResourceName)
-		}
 	}
 
 	return ns, nil
