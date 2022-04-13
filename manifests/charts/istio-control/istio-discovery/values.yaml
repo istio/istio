@@ -67,6 +67,10 @@ pilot:
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
 
+  # When running on EKS with a 3rd-party CNI provider this has to be set to
+  # allow webhook injection of the sidecar.
+  enableHostNetwork: false
+
 
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
@@ -116,8 +120,8 @@ sidecarInjectorWebhook:
   templates: {}
 
   # Default templates specifies a set of default templates that are used in sidecar injection.
-  # By default, a template `sidecar` is always provided, which contains the template of default sidecar. 
-  # To inject other additional templates, define it using the `templates` option, and add it to 
+  # By default, a template `sidecar` is always provided, which contains the template of default sidecar.
+  # To inject other additional templates, define it using the `templates` option, and add it to
   # the default templates list.
   # For example:
   #
