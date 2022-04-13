@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
 	oversion "istio.io/istio/operator/version"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -83,6 +84,8 @@ type ComponentMaps struct {
 	HelmSubdir string
 	// ToHelmValuesTreeRoot is the tree root in values YAML files for the component.
 	ToHelmValuesTreeRoot string
+	// HelmValuesType is the protobuf type for tree root in values YAML files for the component.
+	HelmValuesType proto.Message
 	// SkipReverseTranslate defines whether reverse translate of this component need to be skipped.
 	SkipReverseTranslate bool
 }
@@ -114,6 +117,7 @@ func NewTranslator() *Translator {
 			name.IstioBaseComponentName: {
 				HelmSubdir:           "base",
 				ToHelmValuesTreeRoot: "global",
+				HelmValuesType:       &iopv1alpha1.GlobalConfig{},
 				SkipReverseTranslate: true,
 			},
 			name.PilotComponentName: {
@@ -122,6 +126,7 @@ func NewTranslator() *Translator {
 				ContainerName:        "discovery",
 				HelmSubdir:           "istio-control/istio-discovery",
 				ToHelmValuesTreeRoot: "pilot",
+				HelmValuesType:       &iopv1alpha1.PilotConfig{},
 			},
 			name.IngressComponentName: {
 				ResourceType:         "Deployment",
@@ -129,6 +134,7 @@ func NewTranslator() *Translator {
 				ContainerName:        "istio-proxy",
 				HelmSubdir:           "gateways/istio-ingress",
 				ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
+				HelmValuesType:       &iopv1alpha1.IngressGatewayConfig{},
 			},
 			name.EgressComponentName: {
 				ResourceType:         "Deployment",
@@ -136,6 +142,7 @@ func NewTranslator() *Translator {
 				ContainerName:        "istio-proxy",
 				HelmSubdir:           "gateways/istio-egress",
 				ToHelmValuesTreeRoot: "gateways.istio-egressgateway",
+				HelmValuesType:       &iopv1alpha1.EgressGatewayConfig{},
 			},
 			name.CNIComponentName: {
 				ResourceType:         "DaemonSet",
@@ -143,10 +150,12 @@ func NewTranslator() *Translator {
 				ContainerName:        "install-cni",
 				HelmSubdir:           "istio-cni",
 				ToHelmValuesTreeRoot: "cni",
+				HelmValuesType:       &iopv1alpha1.CNIConfig{},
 			},
 			name.IstiodRemoteComponentName: {
 				HelmSubdir:           "istiod-remote",
 				ToHelmValuesTreeRoot: "global",
+				HelmValuesType:       &iopv1alpha1.GlobalConfig{},
 				SkipReverseTranslate: true,
 			},
 		},
@@ -679,9 +688,8 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 	}
 	sort.Strings(keys)
-	l := len(keys)
-	for i := l - 1; i >= 0; i-- {
-		cn := name.ComponentName(keys[i])
+	for _, key := range keys {
+		cn := name.ComponentName(key)
 		c := t.ComponentMaps[cn]
 		e, err := t.IsComponentEnabled(cn, iop)
 		if err != nil {
@@ -722,6 +730,10 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 				return err
 			}
 		}
+
+		if err := sanitizeHelmValues(root, c); err != nil {
+			return err
+		}
 	}
 
 	for cn, gns := range t.GlobalNamespaces {
@@ -734,6 +746,33 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 	}
 
+	return nil
+}
+
+func sanitizeHelmValues(root map[string]interface{}, c *ComponentMaps) error {
+	helmValuesType := c.HelmValuesType
+	if helmValuesType == nil {
+		return nil
+	}
+
+	helmValues, helmValuesIsMap := root[c.ToHelmValuesTreeRoot].(map[string]interface{})
+	if !helmValuesIsMap || len(helmValues) == 0 {
+		return nil
+	}
+
+	pb := helmValuesType.ProtoReflect().New().Interface()
+	b, err := json.Marshal(helmValues)
+	if err != nil {
+		return err
+	}
+	// drop unknown fields and write back to root
+	if err = protomarshal.UnmarshalAllowUnknown(b, pb); err != nil {
+		return err
+	}
+	if helmValues, err = protomarshal.ToJSONMap(pb); err != nil {
+		return err
+	}
+	root[c.ToHelmValuesTreeRoot] = helmValues
 	return nil
 }
 
