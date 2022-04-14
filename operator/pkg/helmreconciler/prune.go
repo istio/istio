@@ -133,7 +133,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 				fmt.Errorf("failed to check proxy infos: %v", err)
 		}
 		// TODO(richardwxn): add warning message together with the status
-		if len(pids) != 0 && pilotEnabled {
+		if len(pids) != 0 {
 			msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
 				strings.Join(pids, " "))
 			st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
