@@ -64,7 +64,7 @@ func getDefaultProxy() *model.Proxy {
 		ConfigNamespace: "not-default",
 	}
 
-	proxy.DiscoverIPVersions()
+	proxy.DiscoverIPMode()
 	return &proxy
 }
 

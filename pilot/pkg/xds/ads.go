@@ -580,7 +580,7 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	// add topology labels to proxy metadata labels
 	proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
-	proxy.DiscoverIPVersions()
+	proxy.DiscoverIPMode()
 
 	proxy.WatchedResources = map[string]*model.WatchedResource{}
 	// Based on node metadata and version, we can associate a different generator.

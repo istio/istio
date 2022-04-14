@@ -113,7 +113,7 @@ func (e *envoy) UpdateConfig(config []byte) error {
 
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	proxyLocalAddressType := "v4"
-	if network.IsIPv6Proxy(e.NodeIPs) {
+	if network.AllIPv6(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
 	}
 	startupArgs := []string{

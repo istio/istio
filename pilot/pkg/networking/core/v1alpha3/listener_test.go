@@ -76,7 +76,7 @@ func getProxy() *model.Proxy {
 		},
 		ConfigNamespace: "not-default",
 	}
-	pr.DiscoverIPVersions()
+	pr.DiscoverIPMode()
 	return pr
 }
 
@@ -813,7 +813,7 @@ func TestGetActualWildcardAndLocalHost(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt.proxy.DiscoverIPVersions()
+		tt.proxy.DiscoverIPMode()
 		wm, lh := getActualWildcardAndLocalHost(tt.proxy)
 		if wm != tt.expected[0] && lh != tt.expected[1] {
 			t.Errorf("Test %s failed, expected: %s / %s got: %s / %s", tt.name, tt.expected[0], tt.expected[1], wm, lh)
@@ -1125,7 +1125,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	oldestService := getOldestService(services...)
 	p := &fakePlugin{}
 	proxy := getProxy()
-	proxy.DiscoverIPVersions()
+	proxy.DiscoverIPMode()
 	listeners := buildOutboundListeners(t, p, getProxy(), nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
