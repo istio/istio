@@ -115,11 +115,6 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		return errStatus,
 			fmt.Errorf("failed to get enabled components: %v", err)
 	}
-	pids, err := proxy.GetIDsFromProxyInfo("", "", iopSpec.Revision, ns)
-	if err != nil {
-		return errStatus,
-			fmt.Errorf("failed to check proxy infos: %v", err)
-	}
 	pilotEnabled := false
 	// check wherther the istiod is enabled
 	for _, c := range enabledComponents {
@@ -128,14 +123,24 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 			break
 		}
 	}
-
-	// TODO(richardwxn): add warning message together with the status
-	if len(pids) != 0 && pilotEnabled {
-		msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
-			strings.Join(pids, " "))
-		st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
-		return st, nil
+	// If istiod is enabled, check if it has any proxies connected.
+	if pilotEnabled {
+		// TODO(ramaraochavali): Find a better alternative instead of using debug interface
+		// of istiod as it is typically not recommended in production environments.
+		pids, err := proxy.GetIDsFromProxyInfo("", "", iopSpec.Revision, ns)
+		if err != nil {
+			return errStatus,
+				fmt.Errorf("failed to check proxy infos: %v", err)
+		}
+		// TODO(richardwxn): add warning message together with the status
+		if len(pids) != 0 {
+			msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
+				strings.Join(pids, " "))
+			st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
+			return st, nil
+		}
 	}
+
 	var allUslist []*unstructured.UnstructuredList
 	for _, c := range enabledComponents {
 		uslist, err := h.GetPrunedResources(iopSpec.Revision, false, c)
