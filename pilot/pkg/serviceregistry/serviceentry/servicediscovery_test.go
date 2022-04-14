@@ -1486,10 +1486,11 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			},
 			wantServices: []*model.Service{
 				{
-					Hostname:             "foo.com",
-					Resolution:           model.ClientSideLB,
-					DefaultAddress:       "0.0.0.0",
-					AutoAllocatedAddress: "240.240.0.1",
+					Hostname:                 "foo.com",
+					Resolution:               model.ClientSideLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.0.1",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
 				},
 			},
 		},
@@ -1504,18 +1505,25 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			},
 			wantServices: []*model.Service{
 				{
-					Hostname:             "foo.com",
-					Resolution:           model.DNSLB,
-					DefaultAddress:       "0.0.0.0",
-					AutoAllocatedAddress: "240.240.0.1",
+					Hostname:                 "foo.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.0.1",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := autoAllocateIPs(tt.inServices); !reflect.DeepEqual(got, tt.wantServices) {
-				t.Errorf("autoAllocateIPs() = %v, want %v", got, tt.wantServices)
+			got := autoAllocateIPs(tt.inServices)
+			if got[0].AutoAllocatedIPv4Address != tt.wantServices[0].AutoAllocatedIPv4Address {
+				t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+					got[0].AutoAllocatedIPv4Address, tt.wantServices[0].AutoAllocatedIPv4Address)
+			}
+			if got[0].AutoAllocatedIPv6Address != tt.wantServices[0].AutoAllocatedIPv6Address {
+				t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+					got[0].AutoAllocatedIPv6Address, tt.wantServices[0].AutoAllocatedIPv6Address)
 			}
 		})
 	}
@@ -1550,19 +1558,19 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		"240.240.2.255": true,
 	}
 	expectedLastIP := "240.240.2.4"
-	if gotServices[len(gotServices)-1].AutoAllocatedAddress != expectedLastIP {
-		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedAddress)
+	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
+		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
 
 	gotIPMap := make(map[string]bool)
 	for _, svc := range gotServices {
-		if svc.AutoAllocatedAddress == "" || doNotWant[svc.AutoAllocatedAddress] {
-			t.Errorf("unexpected value for auto allocated IP address %s", svc.AutoAllocatedAddress)
+		if svc.AutoAllocatedIPv4Address == "" || doNotWant[svc.AutoAllocatedIPv4Address] {
+			t.Errorf("unexpected value for auto allocated IP address %s", svc.AutoAllocatedIPv4Address)
 		}
-		if gotIPMap[svc.AutoAllocatedAddress] {
-			t.Errorf("multiple allocations of same IP address to different services: %s", svc.AutoAllocatedAddress)
+		if gotIPMap[svc.AutoAllocatedIPv4Address] {
+			t.Errorf("multiple allocations of same IP address to different services: %s", svc.AutoAllocatedIPv4Address)
 		}
-		gotIPMap[svc.AutoAllocatedAddress] = true
+		gotIPMap[svc.AutoAllocatedIPv4Address] = true
 	}
 }
 
