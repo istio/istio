@@ -222,8 +222,7 @@ func (c *controller) shouldProcessIngressUpdate(ing *ingress.Ingress) (bool, err
 	return preProcessed, nil
 }
 
-func (c *controller) onEvent(key interface{}) error {
-	item := key.(types.NamespacedName)
+func (c *controller) onEvent(item types.NamespacedName) error {
 	event := model.EventUpdate
 	ing, err := c.ingressLister.Ingresses(item.Namespace).Get(item.Name)
 	if err != nil {
