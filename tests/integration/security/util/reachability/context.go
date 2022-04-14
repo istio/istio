@@ -169,6 +169,8 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 
 								// TODO(https://github.com/istio/istio/issues/37629) go back to converge
 								opts.Retry.Options = []retry.Option{retry.Converge(1)}
+								// TODO(https://github.com/istio/istio/issues/37629) go back to 5s
+								opts.Timeout = time.Second * 10
 
 								expectSuccess := c.ExpectSuccess(from, opts)
 								expectMTLS := c.ExpectMTLS(from, opts)
@@ -200,7 +202,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 										tpe)
 
 									t.NewSubTest(subTestName).
-										RunParallel(func(t framework.TestContext) {
+										Run(func(t framework.TestContext) {
 											// TODO: fix Multiversion related test in multicluster
 											if t.Clusters().IsMulticluster() && apps.Multiversion.ContainsTarget(to) {
 												t.Skip("https://github.com/istio/istio/issues/37307")
