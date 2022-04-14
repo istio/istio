@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue: 25652
+releaseNotes:
+- |
+  **Enabled** `VERIFY_CERTIFICATE_AT_CLIENT` by default. istio-proxy will automatically generate Server Name Indication and use the first detected Certificate Authority bundle. If undetected, no Certificate Authority bundle will be used by default.
