@@ -2564,6 +2564,86 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				nil,
 			},
 		},
+		{
+			name: "tls mode SIMPLE, CredentialName is set with proxy type Sidecar and destinationRule has workload Selector",
+			opts: &buildClusterOpts{
+				mutable:          newTestCluster(),
+				isDrWithSelector: true,
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				CredentialName:  credentialName,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+								},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
+								},
+							},
+						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
+			name: "tls mode MUTUAL, CredentialName is set with proxy type Sidecar and destinationRule has workload Selector",
+			opts: &buildClusterOpts{
+				mutable:          newTestCluster(),
+				isDrWithSelector: true,
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_MUTUAL,
+				CredentialName:  credentialName,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+							{
+								Name:      "kubernetes://" + credentialName,
+								SdsConfig: authn_model.SDSAdsConfig,
+							},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+								},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
+								},
+							},
+						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
