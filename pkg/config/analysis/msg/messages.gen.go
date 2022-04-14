@@ -200,6 +200,18 @@ var (
 	// EnvoyFilterUsesRelativeOperation defines a diag.MessageType for message "EnvoyFilterUsesRelativeOperation".
 	// Description: This envoy filter does not have a priority and has a relative patch operation set which can cause the envoyFilter not to be applied. Using the INSERT_FIRST option or setting the priority may help in ensuring the envoyFilter is applied correctly
 	EnvoyFilterUsesRelativeOperation = diag.NewMessageType(diag.Warning, "IST0151", "This envoy filter does not have a priority and has a relative patch operation set which can cause the envoyFilter not to be applied. Using the INSERT_FIRST option or setting the priority may help in ensuring the envoyFilter is applied correctly")
+
+	// EnvoyFilterUsesReplaceOperationIncorrectly defines a diag.MessageType for message "EnvoyFilterUsesReplaceOperationIncorrectly".
+	// Description: The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER
+	EnvoyFilterUsesReplaceOperationIncorrectly = diag.NewMessageType(diag.Error, "IST0152", "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER")
+
+	// EnvoyFilterUsesAddOperationIncorrectly defines a diag.MessageType for message "EnvoyFilterUsesAddOperationIncorrectly".
+	// Description: The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.
+	EnvoyFilterUsesAddOperationIncorrectly = diag.NewMessageType(diag.Error, "IST0153", "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.")
+
+	// EnvoyFilterUsesRemoveOperationIncorrectly defines a diag.MessageType for message "EnvoyFilterUsesRemoveOperationIncorrectly".
+	// Description: The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.
+	EnvoyFilterUsesRemoveOperationIncorrectly = diag.NewMessageType(diag.Error, "IST0154", "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.")
 )
 
 // All returns a list of all known message types.
@@ -253,6 +265,9 @@ func All() []*diag.MessageType {
 		JwtClaimBasedRoutingWithoutRequestAuthN,
 		ExternalNameServiceTypeInvalidPortName,
 		EnvoyFilterUsesRelativeOperation,
+		EnvoyFilterUsesReplaceOperationIncorrectly,
+		EnvoyFilterUsesAddOperationIncorrectly,
+		EnvoyFilterUsesRemoveOperationIncorrectly,
 	}
 }
 
@@ -730,6 +745,30 @@ func NewExternalNameServiceTypeInvalidPortName(r *resource.Instance) diag.Messag
 func NewEnvoyFilterUsesRelativeOperation(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		EnvoyFilterUsesRelativeOperation,
+		r,
+	)
+}
+
+// NewEnvoyFilterUsesReplaceOperationIncorrectly returns a new diag.Message based on EnvoyFilterUsesReplaceOperationIncorrectly.
+func NewEnvoyFilterUsesReplaceOperationIncorrectly(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		EnvoyFilterUsesReplaceOperationIncorrectly,
+		r,
+	)
+}
+
+// NewEnvoyFilterUsesAddOperationIncorrectly returns a new diag.Message based on EnvoyFilterUsesAddOperationIncorrectly.
+func NewEnvoyFilterUsesAddOperationIncorrectly(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		EnvoyFilterUsesAddOperationIncorrectly,
+		r,
+	)
+}
+
+// NewEnvoyFilterUsesRemoveOperationIncorrectly returns a new diag.Message based on EnvoyFilterUsesRemoveOperationIncorrectly.
+func NewEnvoyFilterUsesRemoveOperationIncorrectly(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		EnvoyFilterUsesRemoveOperationIncorrectly,
 		r,
 	)
 }
