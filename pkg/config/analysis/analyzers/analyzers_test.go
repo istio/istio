@@ -649,6 +649,42 @@ var testGrid = []testCase{
 			// Test no messages are received for absolute operation usage
 		},
 	},
+	{
+		name:       "EnvoyFilterUsesReplaceOperation",
+		inputFiles: []string{"testdata/envoy-filter-patch-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterUsesReplaceOperationIncorrectly, "EnvoyFilter bookinfo/test-reviews-lua-1"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-2"},
+		},
+	},
+	{
+		name:       "EnvoyFilterUsesAddOperation",
+		inputFiles: []string{"testdata/envoy-filter-add-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterUsesAddOperationIncorrectly, "EnvoyFilter bookinfo/test-auth-2"},
+			{msg.EnvoyFilterUsesAddOperationIncorrectly, "EnvoyFilter bookinfo/test-auth-3"},
+		},
+	},
+	{
+		name:       "EnvoyFilterUsesRemoveOperation",
+		inputFiles: []string{"testdata/envoy-filter-remove-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-remove-1"},
+			{msg.EnvoyFilterUsesRemoveOperationIncorrectly, "EnvoyFilter bookinfo/test-remove-2"},
+			{msg.EnvoyFilterUsesRemoveOperationIncorrectly, "EnvoyFilter bookinfo/test-remove-3"},
+		},
+	},
+	{
+		name:       "EnvoyFilterUsesMergeOperation",
+		inputFiles: []string{"testdata/envoy-filter-merge-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-merge-3"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing

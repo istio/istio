@@ -1,0 +1,66 @@
+# If the patch operation is REMOVE and the applyTo is set to ROUTE_CONFIGURATION or HTTP_ROUTE, then an error will occur 
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-remove-1
+  namespace: bookinfo
+spec:
+  workloadSelector:
+    labels:
+      app: mysvc
+  configPatches:
+  - applyTo: NETWORK_FILTER # http connection manager is a filter in Envoy
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          sni: app.example.com
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: REMOVE
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-remove-2
+  namespace: bookinfo
+spec:
+  workloadSelector:
+    labels:
+      app: mysvc
+  configPatches:
+  - applyTo: ROUTE_CONFIGURATION
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          sni: app.example.com
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: REMOVE
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-remove-3
+  namespace: bookinfo
+spec:
+  workloadSelector:
+    labels:
+      app: mysvc
+  configPatches:
+  - applyTo: HTTP_ROUTE
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          sni: app.example.com
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: REMOVE
+
