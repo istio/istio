@@ -1488,6 +1488,7 @@ data:
   values: |-
     {
       "global": {
+        "autoscalingv2API": true,
         "caAddress": "",
         "caName": "",
         "configCluster": false,
@@ -2986,7 +2987,7 @@ subjects:
     name: istiod
     namespace: istio-system
 ---
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod
@@ -3008,7 +3009,9 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: 80
+      target:
+        type: Utilization
+        averageUtilization: 80
 ---
 apiVersion: v1
 kind: Service

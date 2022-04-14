@@ -200,7 +200,7 @@ components:
 			translator := NewTranslator()
 			values := make(map[string]interface{})
 			_ = translator.translateDeprecatedAutoscalingFields(values, iop)
-			val, found, _ := tpath.GetFromStructPath(values, "values.global.autoscalingv2API")
+			val, found, _ := tpath.GetFromStructPath(values, "global.autoscalingv2API")
 			if tt.expectFound {
 				assert.Equal(t, found, true)
 				assert.Equal(t, val, false)

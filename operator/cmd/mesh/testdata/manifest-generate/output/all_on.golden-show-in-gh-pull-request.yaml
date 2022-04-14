@@ -1446,6 +1446,13 @@ spec:
                       type: string
                     type: object
                 type: object
+              workloadSelector:
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
             type: object
           status:
             type: object
@@ -2662,6 +2669,13 @@ spec:
                         description: Specifies a port to which the downstream connection
                           is tunneled.
                         type: integer
+                    type: object
+                type: object
+              workloadSelector:
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
                     type: object
                 type: object
               workloadSelector:
@@ -8200,6 +8214,7 @@ data:
   values: |-
     {
       "global": {
+        "autoscalingv2API": true,
         "caAddress": "",
         "caName": "",
         "configCluster": false,
@@ -10327,7 +10342,7 @@ subjects:
     name: istiod-service-account
     namespace: istio-system
 ---
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-egressgateway
@@ -10350,9 +10365,11 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: 80
+        target:
+          type: Utilization
+          averageUtilization: 80
 ---
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -10375,9 +10392,11 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: 80
+        target:
+          type: Utilization
+          averageUtilization: 80
 ---
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod
@@ -10399,7 +10418,9 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: 80
+      target:
+        type: Utilization
+        averageUtilization: 80
 ---
 apiVersion: v1
 kind: Service

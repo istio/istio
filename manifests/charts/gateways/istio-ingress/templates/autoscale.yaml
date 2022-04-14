@@ -1,6 +1,6 @@
 {{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 {{- if and $gateway.autoscaleEnabled $gateway.autoscaleMin $gateway.autoscaleMax }}
-{{- if .Values.global.autoscalingv2API }}
+{{- if or .Values.global.autoscalingv2API (semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion)}}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -34,11 +34,11 @@ metadata:
   name: {{ $gateway.name }}
   namespace: {{ .Release.Namespace }}
   labels:
-  {{ $gateway.labels | toYaml | indent 4 }}
-release: {{ .Release.Name }}
-istio.io/rev: {{ .Values.revision | default "default" }}
-install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
-operator.istio.io/component: "IngressGateways"
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "IngressGateways"
 spec:
   maxReplicas: {{ $gateway.autoscaleMax }}
   minReplicas: {{ $gateway.autoscaleMin }}

@@ -302,7 +302,21 @@ var componentToAutoScaleEnabledPath = map[name.ComponentName]string{
 }
 
 // checkDeprecatedHPAFields is a helper function to check for the deprecated fields usage in HorizontalPodAutoscalerSpec
-func checkDeprecatedHPAFields(hpaSpecs []*v1alpha1.HorizontalPodAutoscalerSpec) bool {
+func checkDeprecatedHPAFields(iop *v1alpha1.IstioOperatorSpec) bool {
+	hpaSpecs := []*v1alpha1.HorizontalPodAutoscalerSpec{}
+	if iop.GetComponents().GetPilot().GetK8S().GetHpaSpec() != nil {
+		hpaSpecs = append(hpaSpecs, iop.GetComponents().GetPilot().GetK8S().GetHpaSpec())
+	}
+	for _, gwSpec := range iop.GetComponents().GetIngressGateways() {
+		if gwSpec.Name == defaultIngressGWName && gwSpec.GetK8S().GetHpaSpec() != nil {
+			hpaSpecs = append(hpaSpecs, gwSpec.GetK8S().GetHpaSpec())
+		}
+	}
+	for _, gwSpec := range iop.GetComponents().GetEgressGateways() {
+		if gwSpec.Name == defaultEgressGWName && gwSpec.GetK8S().GetHpaSpec() != nil {
+			hpaSpecs = append(hpaSpecs, gwSpec.GetK8S().GetHpaSpec())
+		}
+	}
 	for _, hpaSpec := range hpaSpecs {
 		if hpaSpec.GetMetrics() != nil {
 			for _, me := range hpaSpec.GetMetrics() {
@@ -331,35 +345,12 @@ func checkDeprecatedHPAFields(hpaSpecs []*v1alpha1.HorizontalPodAutoscalerSpec) 
 // It only needs to run the logic for the first component because we are setting the values.global field instead of per component ones.
 // we do not set per component values because we may want to avoid mixture of v2 and v2beta1 autoscaling templates usage
 func (t *Translator) translateDeprecatedAutoscalingFields(values map[string]interface{}, iop *v1alpha1.IstioOperatorSpec) error {
-	if t.checkedDeprecatedAutoscalingFields {
-		return nil
-	}
-	defer func() {
-		t.checkedDeprecatedAutoscalingFields = true
-	}()
-	hpaSpecs := []*v1alpha1.HorizontalPodAutoscalerSpec{}
-	if iop.GetComponents().GetPilot().GetK8S().GetHpaSpec() != nil {
-		hpaSpecs = append(hpaSpecs, iop.GetComponents().GetPilot().GetK8S().GetHpaSpec())
-	}
-	for _, gwSpec := range iop.GetComponents().GetIngressGateways() {
-		if gwSpec.Name == defaultIngressGWName && gwSpec.GetK8S().GetHpaSpec() != nil {
-			hpaSpecs = append(hpaSpecs, gwSpec.GetK8S().GetHpaSpec())
-		}
-	}
-	for _, gwSpec := range iop.GetComponents().GetEgressGateways() {
-		if gwSpec.Name == defaultEgressGWName && gwSpec.GetK8S().GetHpaSpec() != nil {
-			hpaSpecs = append(hpaSpecs, gwSpec.GetK8S().GetHpaSpec())
-		}
-	}
-	if len(hpaSpecs) == 0 {
-		return nil
-	}
-
-	if checkDeprecatedHPAFields(hpaSpecs) {
-		path := util.PathFromString("values.global.autoscalingv2API")
+	if t.checkedDeprecatedAutoscalingFields || checkDeprecatedHPAFields(iop) {
+		path := util.PathFromString("global.autoscalingv2API")
 		if err := tpath.WriteNode(values, path, false); err != nil {
 			return fmt.Errorf("failed to set autoscalingv2API path: %v", err)
 		}
+		t.checkedDeprecatedAutoscalingFields = true
 	}
 	return nil
 }
@@ -516,7 +507,7 @@ func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
 }
 
 // ProtoToValues traverses the supplied IstioOperatorSpec and returns a values.yaml translation from it.
-func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) (string, error) {
+func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, error) {
 	root, err := t.ProtoToHelmValues2(ii)
 	if err != nil {
 		return "", err
@@ -550,7 +541,7 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	apiVals := make(map[string]interface{})
 
 	// First, translate the IstioOperator API to helm Values.
-	apiValsStr, err := t.ProtoToValues(iop, componentName)
+	apiValsStr, err := t.ProtoToValues(iop)
 	if err != nil {
 		return "", err
 	}

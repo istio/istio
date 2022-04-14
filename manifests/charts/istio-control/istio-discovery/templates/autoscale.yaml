@@ -1,5 +1,5 @@
 {{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
-{{- if .Values.global.autoscalingv2API }}
+{{- if or .Values.global.autoscalingv2API (semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion)}}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -27,7 +27,7 @@ spec:
         averageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
 ---
 {{- else }}
-apiVersion: autoscaling/v2beta2
+apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
