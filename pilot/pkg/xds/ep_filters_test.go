@@ -736,21 +736,21 @@ func environment(t test.Failer, c ...config.Config) *FakeDiscoveryServer {
 //  - 1 endpoints in network4
 //
 // All endpoints are part of service example.ns.svc.cluster.local on port 80 (http).
-func testShards() *EndpointShards {
-	shards := &EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{
+func testShards() *model.EndpointShards {
+	shards := &model.EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{
 		// network1 has one endpoint in each cluster
-		"cluster1a": {
+		{Cluster: "cluster1a"}: {
 			{Network: "network1", Address: "10.0.0.1"},
 		},
-		"cluster1b": {
+		{Cluster: "cluster1b"}: {
 			{Network: "network1", Address: "10.0.0.2"},
 		},
 
 		// network2 has an imbalance of endpoints between its clusters
-		"cluster2a": {
+		{Cluster: "cluster2a"}: {
 			{Network: "network2", Address: "20.0.0.1"},
 		},
-		"cluster2b": {
+		{Cluster: "cluster2b"}: {
 			{Network: "network2", Address: "20.0.0.2"},
 			{Network: "network2", Address: "20.0.0.3"},
 		},
@@ -759,12 +759,12 @@ func testShards() *EndpointShards {
 
 		// network4 has a single endpoint, but not gateway so it will always
 		// be considered directly reachable.
-		"cluster4": {
+		{Cluster: "cluster4"}: {
 			{Network: "network4", Address: "40.0.0.1"},
 		},
 	}}
 	// apply common properties
-	for clusterID, shard := range shards.Shards {
+	for sk, shard := range shards.Shards {
 		for i, ep := range shard {
 			ep.ServicePortName = "http"
 			ep.Namespace = "ns"
@@ -772,8 +772,8 @@ func testShards() *EndpointShards {
 			ep.EndpointPort = 8080
 			ep.TLSMode = "istio"
 			ep.Labels = map[string]string{"app": "example"}
-			ep.Locality.ClusterID = cluster.ID(clusterID)
-			shards.Shards[clusterID][i] = ep
+			ep.Locality.ClusterID = sk.Cluster
+			shards.Shards[sk][i] = ep
 		}
 	}
 	return shards

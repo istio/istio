@@ -577,9 +577,9 @@ func TestEndpointFlipFlops(t *testing.T) {
 		t.Fatalf("There should be no endpoints for outbound|8080||flipflop.com. Endpoints:\n%v", adscConn.EndpointsJSON())
 	}
 
-	// Validate that keys in service still exist in EndpointShardsByService - this prevents full push.
-	if len(s.Discovery.EndpointShardsByService["flipflop.com"]) == 0 {
-		t.Fatalf("Expected service key %s to be present in EndpointShardsByService. But missing %v", "flipflop.com", s.Discovery.EndpointShardsByService)
+	// Validate that keys in service still exist in EndpointIndex - this prevents full push.
+	if _, ok := s.Discovery.EndpointIndex.ShardsForService("flipflop.com", ""); !ok {
+		t.Fatalf("Expected service key %s to be present in EndpointIndex. But missing %v", "flipflop.com", s.Discovery.EndpointIndex.Shardz())
 	}
 
 	// Set the endpoints again and validate it does not trigger full push.
@@ -605,7 +605,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 	testEndpoints("10.10.1.1", "outbound|8080||flipflop.com", adscConn, t)
 }
 
-// Validate that deleting a service clears entries from EndpointShardsByService.
+// Validate that deleting a service clears entries from EndpointIndex.
 func TestDeleteService(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addEdsCluster(s, "removeservice.com", "http", "10.0.0.53", 8080)
@@ -617,11 +617,16 @@ func TestDeleteService(t *testing.T) {
 
 	s.Discovery.MemRegistry.RemoveService("removeservice.com")
 
-	if len(s.Discovery.EndpointShardsByService["removeservice.com"]) != 0 {
-		t.Fatalf("Expected service key %s to be deleted in EndpointShardsByService. But is still there %v",
-			"removeservice.com", s.Discovery.EndpointShardsByService)
+	if _, ok := s.Discovery.EndpointIndex.ShardsForService("removeservice.com", ""); ok {
+		t.Fatalf("Expected service key %s to be deleted in EndpointIndex. But is still there %v",
+			"removeservice.com", s.Discovery.EndpointIndex.Shardz())
 	}
 }
+
+var (
+	c1Key = model.ShardKey{Cluster: "c1"}
+	c2Key = model.ShardKey{Cluster: "c2"}
+)
 
 func TestUpdateServiceAccount(t *testing.T) {
 	cluster1Endppoints := []*model.IstioEndpoint{
@@ -637,19 +642,19 @@ func TestUpdateServiceAccount(t *testing.T) {
 	}{
 		{
 			name:      "added new endpoint",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa1"}),
 			expect:    false,
 		},
 		{
 			name:      "added new sa",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa2"}),
 			expect:    true,
 		},
 		{
 			name:     "updated endpoints address",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.5", ServiceAccount: "sa1"},
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
@@ -658,7 +663,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:     "deleted one endpoint with unique sa",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.1", ServiceAccount: "sa1"},
 			},
@@ -666,7 +671,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:     "deleted one endpoint with duplicate sa",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
 			},
@@ -674,7 +679,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:      "deleted endpoints",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: nil,
 			expect:    true,
 		},
@@ -683,10 +688,10 @@ func TestUpdateServiceAccount(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			s := new(xds.DiscoveryServer)
-			originalEndpointsShard := &xds.EndpointShards{
+			originalEndpointsShard := &model.EndpointShards{
 				Shards: map[model.ShardKey][]*model.IstioEndpoint{
-					"c1": cluster1Endppoints,
-					"c2": {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
+					c1Key: cluster1Endppoints,
+					c2Key: {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
 				},
 				ServiceAccounts: map[string]struct{}{
 					"sa1":    {},
@@ -708,21 +713,19 @@ func TestZeroEndpointShardSA(t *testing.T) {
 		{Address: "10.172.0.1", ServiceAccount: "sa1"},
 	}
 	s := new(xds.DiscoveryServer)
-	originalEndpointsShard := &xds.EndpointShards{
-		Shards: map[model.ShardKey][]*model.IstioEndpoint{
-			"c1": cluster1Endppoints,
-		},
-		ServiceAccounts: map[string]struct{}{
-			"sa1": {},
-		},
-	}
-	s.EndpointShardsByService = make(map[string]map[string]*xds.EndpointShards)
-	s.EndpointShardsByService["test"] = make(map[string]*xds.EndpointShards)
-	s.EndpointShardsByService["test"]["test"] = originalEndpointsShard
 	s.Cache = model.DisabledCache{}
-	s.EDSCacheUpdate("c1", "test", "test", []*model.IstioEndpoint{})
-	if len(s.EndpointShardsByService["test"]["test"].ServiceAccounts) != 0 {
-		t.Errorf("endpoint shard service accounts got %v want 0", len(s.EndpointShardsByService["test"]["test"].ServiceAccounts))
+	s.EndpointIndex = model.NewEndpointIndex()
+	originalEndpointsShard, _ := s.EndpointIndex.GetOrCreateEndpointShard("test", "test")
+	originalEndpointsShard.Shards = map[model.ShardKey][]*model.IstioEndpoint{
+		c1Key: cluster1Endppoints,
+	}
+	originalEndpointsShard.ServiceAccounts = map[string]struct{}{
+		"sa1": {},
+	}
+	s.EDSCacheUpdate(c1Key, "test", "test", []*model.IstioEndpoint{})
+	modifiedShard, _ := s.EndpointIndex.GetOrCreateEndpointShard("test", "test")
+	if len(modifiedShard.ServiceAccounts) != 0 {
+		t.Errorf("endpoint shard service accounts got %v want 0", len(modifiedShard.ServiceAccounts))
 	}
 }
 
