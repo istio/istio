@@ -143,8 +143,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 }
 
 // Reconcile takes in the name of a Gateway and ensures the cluster is in the desired state
-func (d *DeploymentController) Reconcile(key interface{}) error {
-	req := key.(types.NamespacedName)
+func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	log := log.WithLabels("gateway", req)
 
 	gw, err := d.gatewayLister.Gateways(req.Namespace).Get(req.Name)

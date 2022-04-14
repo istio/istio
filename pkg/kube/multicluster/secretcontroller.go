@@ -347,8 +347,7 @@ func (c *Controller) HasSynced() bool {
 	return synced
 }
 
-func (c *Controller) processItem(item interface{}) error {
-	key := item.(types.NamespacedName)
+func (c *Controller) processItem(key types.NamespacedName) error {
 	log.Infof("processing secret event for secret %s", key)
 	obj, exists, err := c.informer.GetIndexer().GetByKey(key.String())
 	if err != nil {

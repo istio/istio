@@ -100,8 +100,7 @@ func (p *defaultWatcher) notifyHandlers() {
 	}
 }
 
-func (p *defaultWatcher) setDefault(item interface{}) error {
-	key := item.(types.NamespacedName)
+func (p *defaultWatcher) setDefault(key types.NamespacedName) error {
 	revision := ""
 	wh, _, _ := p.webhookInformer.GetIndexer().GetByKey(key.Name)
 	if wh != nil {

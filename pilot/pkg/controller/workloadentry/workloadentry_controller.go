@@ -166,10 +166,10 @@ func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge t
 		}
 		c.queue = controllers.NewQueue("unregister_workloadentry",
 			controllers.WithMaxAttempts(maxRetries),
-			controllers.WithReconciler(c.unregisterWorkload))
+			controllers.WithGenericReconciler(c.unregisterWorkload))
 		c.healthCondition = controllers.NewQueue("healthcheck",
 			controllers.WithMaxAttempts(maxRetries),
-			controllers.WithReconciler(c.updateWorkloadEntryHealth))
+			controllers.WithGenericReconciler(c.updateWorkloadEntryHealth))
 		return c
 	}
 	return nil
