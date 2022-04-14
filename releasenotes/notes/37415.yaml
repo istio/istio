@@ -6,3 +6,4 @@ issue:
 releaseNotes:
 - |
   **Added** a new analyzer for envoy filter patch operations to address issue 37415
+  **Updated** a new analyzer for envoy filter patch operations to address issue 37415
