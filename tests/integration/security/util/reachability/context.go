@@ -200,7 +200,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 										tpe)
 
 									t.NewSubTest(subTestName).
-										RunParallel(func(t framework.TestContext) {
+										Run(func(t framework.TestContext) {
 											// TODO: fix Multiversion related test in multicluster
 											if t.Clusters().IsMulticluster() && apps.Multiversion.ContainsTarget(to) {
 												t.Skip("https://github.com/istio/istio/issues/37307")
