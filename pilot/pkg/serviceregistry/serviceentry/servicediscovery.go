@@ -860,10 +860,9 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			svc.AutoAllocatedIPv4Address = fmt.Sprintf("240.240.%d.%d", thirdOctet, fourthOctet)
 			// if the service of service entry has IPv6 address, then allocate the IPv4-Mapped IPv6 Address for it
 			if thirdOctet == 0 {
-				svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%s", strconv.FormatInt(int64(fourthOctet), 16))
+				svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x", fourthOctet)
 			} else {
-				svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%s%s",
-					strconv.FormatInt(int64(thirdOctet), 16), strconv.FormatInt(int64(fourthOctet), 16))
+				svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x%x", thirdOctet, fourthOctet)
 			}
 		}
 	}
