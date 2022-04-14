@@ -17,7 +17,6 @@ package ingress
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -125,10 +124,6 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 	return gatewayConfig
 }
 
-// prefixMatchRegex optionally matches "/..." at the end of a path.
-// regex taken from https://github.com/projectcontour/contour/blob/2b3376449bedfea7b8cea5fbade99fb64009c0f6/internal/envoy/v3/route.go#L59
-const prefixMatchRegex = `((\/).*)?`
-
 // ConvertIngressVirtualService converts from ingress spec to Istio VirtualServices
 func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, ingressByHost map[string]*config.Config, serviceLister listerv1.ServiceLister) {
 	// Ingress allows a single host - if missing '*' is assumed
@@ -165,22 +160,8 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 						MatchType: &networking.StringMatch_Exact{Exact: httpPath.Path},
 					}
 				case v1beta1.PathTypePrefix:
-					// From the spec: /foo/bar matches /foo/bar/baz, but does not match /foo/barbaz
-					// and if the prefix is /foo/bar/ we must match /foo/bar and /foo/bar. We cannot simply strip the
-					// trailing "/" and do a prefix match since we'll match unwanted path continuations and we cannot add
-					// a "/" if not present since we won't match the prefix without trailing "/". Must be smarter and
-					// use regex.
-					path := httpPath.Path
-					if path == "/" {
-						// Optimize common case of / to not needed regex
-						httpMatch.Uri = &networking.StringMatch{
-							MatchType: &networking.StringMatch_Prefix{Prefix: path},
-						}
-					} else {
-						path = strings.TrimSuffix(path, "/")
-						httpMatch.Uri = &networking.StringMatch{
-							MatchType: &networking.StringMatch_Regex{Regex: regexp.QuoteMeta(path) + prefixMatchRegex},
-						}
+					httpMatch.Uri = &networking.StringMatch{
+						MatchType: &networking.StringMatch_Prefix{Prefix: httpPath.Path},
 					}
 				default:
 					// Fallback to the legacy string matching
@@ -207,6 +188,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 				Name:             namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
 				Namespace:        ingress.Namespace,
 				Domain:           domainSuffix,
+				Annotations:      map[string]string{constants.InternalRouteSemantics: constants.RouteSemanticsIngress},
 			},
 			Spec: virtualService,
 		}
@@ -264,9 +246,6 @@ func getMatchURILength(match *networking.HTTPMatchRequest) (length int, exact bo
 		return len(uri.GetExact()), true
 	case *networking.StringMatch_Prefix:
 		return len(uri.GetPrefix()), false
-	case *networking.StringMatch_Regex:
-		// trim the regex suffix
-		return len(uri.GetRegex()) - len(prefixMatchRegex), false
 	}
 	// should not happen
 	return -1, false

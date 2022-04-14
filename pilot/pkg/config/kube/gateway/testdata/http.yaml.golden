@@ -42,8 +42,7 @@ spec:
         my-header:
           exact: some-value
       uri:
-        regex: /get((\/).*)?
-      name: default/http-0-PathPrefix
+        prefix: /get
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -76,8 +75,7 @@ spec:
         my-header:
           exact: some-value
       uri:
-        regex: /get((\/).*)?
-      name: default/http-0-PathPrefix
+        prefix: /get
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -101,8 +99,7 @@ spec:
   http:
   - match:
     - uri:
-        regex: /second((\/).*)?
-      name: default/http2-0-PathPrefix
+        prefix: /second
     route:
     - destination:
         host: httpbin-second.default.svc.domain.suffix
@@ -111,7 +108,6 @@ spec:
   - match:
     - uri:
         prefix: /
-      name: default/http2-1-PathPrefix
     route:
     - destination:
         host: httpbin-wildcard.default.svc.domain.suffix

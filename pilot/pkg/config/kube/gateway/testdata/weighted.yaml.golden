@@ -78,8 +78,7 @@ spec:
   http:
   - match:
     - uri:
-        regex: /weighted-100((\/).*)?
-      name: default/http-1-PathPrefix
+        prefix: /weighted-100
     route:
     - destination:
         host: foo-svc.default.svc.domain.suffix
@@ -91,8 +90,7 @@ spec:
             foo: bar
   - match:
     - uri:
-        regex: /get((\/).*)?
-      name: default/http-0-PathPrefix
+        prefix: /get
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
