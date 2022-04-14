@@ -297,7 +297,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 // the full push.
 func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	out, _ := json.MarshalIndent(s.EndpointIndex.Shardz, " ", " ")
+	out, _ := json.MarshalIndent(s.EndpointIndex.Shardz(), " ", " ")
 	_, _ = w.Write(out)
 }
 
