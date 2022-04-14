@@ -68,7 +68,7 @@ type ServiceDiscovery struct {
 	WantGetProxyServiceInstances []*model.ServiceInstance
 	InstancesError               error
 	Controller                   model.Controller
-	ClusterID                    string
+	ClusterID                    cluster.ID
 
 	// Used by GetProxyWorkloadLabels
 	ip2workloadLabels map[string]labels.Instance
@@ -99,7 +99,7 @@ func NewServiceDiscovery(services ...*model.Service) *ServiceDiscovery {
 }
 
 func (sd *ServiceDiscovery) shardKey() model.ShardKey {
-	return model.NewShardKey(cluster.ID(sd.ClusterID), provider.Mock)
+	return model.ShardKey{Cluster: sd.ClusterID, Provider: provider.Mock}
 }
 
 func (sd *ServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
