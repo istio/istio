@@ -53,6 +53,18 @@ func (s *EnvoyPatchAnalyzer) Analyze(c analysis.Context) {
 	})
 }
 
+func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, priority int32) {
+	if priority == 0 {
+		message := msg.NewEnvoyFilterUsesRelativeOperation(r)
+
+		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.EnvoyFilterConfigPath, index)); ok {
+			message.Line = line
+		}
+		c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
+
+	}
+}
+
 func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analysis.Context, patchFilterNames []string) []string {
 	ef := r.Message.(*network.EnvoyFilter)
 	for index, patch := range ef.ConfigPatches {
@@ -86,15 +98,9 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 				}
 
 				c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
-			} else if ef.Priority == 0 {
-				// Provide a warning indicating that no priority was set and a relative operation was used
-				message := msg.NewEnvoyFilterUsesRelativeOperation(r)
-
-				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.EnvoyFilterConfigPath, index)); ok {
-					message.Line = line
-				}
-
-				c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
+			} else {
+				// A relative operation (REMOVE) was used so check if priority is set and if not set provide a warning
+				relativeOperationMsg(r, c, index, ef.Priority)
 			}
 		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_REPLACE {
 			// the REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER.
@@ -115,50 +121,27 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 						break
 					}
 				}
-				if count > 0 && ef.Priority == 0 {
-					// there is more than one envoy filter using the same name with the REPLACE operation
-					// provide a warning indicating that no priority was set and a relative operation was used
-					message := msg.NewEnvoyFilterUsesRelativeOperation(r)
-
-					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.EnvoyFilterConfigPath, index)); ok {
-						message.Line = line
-					}
-					c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
+				if count > 0 {
+					// There is more than one envoy filter using the same name with the REPLACE operation
+					// Also a relative operation (REPLACE) was used so check if priority is set and if not set provide a warning
+					relativeOperationMsg(r, c, index, ef.Priority)
 				}
 			}
-		} else if ef.Priority == 0 {
-			if patch.Patch.Operation == network.EnvoyFilter_Patch_INSERT_BEFORE || patch.Patch.Operation == network.EnvoyFilter_Patch_INSERT_AFTER {
-				// indicate that this envoy filter does not have a priority and has a relative patch
-				// operation set which can cause issues. Indicate a warning to the use to use a
-				// priority to ensure its placed after something or use the INSERT_FIRST option to
-				//  ensure its always done first
-				message := msg.NewEnvoyFilterUsesRelativeOperation(r)
-
-				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.EnvoyFilterConfigPath, index)); ok {
-					message.Line = line
+		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_INSERT_BEFORE || patch.Patch.Operation == network.EnvoyFilter_Patch_INSERT_AFTER {
+			// Also a relative operation (INSERT_BEFORE or INSERT_AFTER) was used so check if priority is set and if not set provide a warning
+			relativeOperationMsg(r, c, index, ef.Priority)
+		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_MERGE {
+			count := 0
+			for _, name := range patchFilterNames {
+				if instanceName.String() == name {
+					count++
+					break
 				}
-
-				c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
-			} else if patch.Patch.Operation == network.EnvoyFilter_Patch_MERGE {
-				count := 0
-				for _, name := range patchFilterNames {
-					if instanceName.String() == name {
-						count++
-						break
-					}
-				}
-				if count > 0 && ef.Priority == 0 {
-					// there is more than one envoy filter using the same name with the REPLACE operation
-					// provide a warning indicating that no priority was set and a relative operation was used
-
-					message := msg.NewEnvoyFilterUsesRelativeOperation(r)
-
-					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.EnvoyFilterConfigPath, index)); ok {
-						message.Line = line
-					}
-
-					c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
-				}
+			}
+			if count > 0 {
+				// there is more than one envoy filter using the same name with the REPLACE relative operation
+				// provide a warning if no priority was set
+				relativeOperationMsg(r, c, index, ef.Priority)
 			}
 		}
 		// append the patchValueStr to the slice for next iteration
