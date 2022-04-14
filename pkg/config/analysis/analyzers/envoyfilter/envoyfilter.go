@@ -96,7 +96,6 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 
 				c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
 			}
-
 		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_REPLACE {
 			// the REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER.
 			if patch.ApplyTo != network.EnvoyFilter_NETWORK_FILTER && patch.ApplyTo != network.EnvoyFilter_HTTP_FILTER {
@@ -160,12 +159,10 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 
 					c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
 				}
-
 			}
 		}
 		// append the patchValueStr to the slice for next iteration
 		patchFilterNames = append(patchFilterNames, instanceName.String())
-
 	}
 	return patchFilterNames
 }
