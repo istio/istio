@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -161,6 +162,114 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(2))
 		g.Expect(routes[0].Name).To(gomega.Equal("route.non-catch-all"))
 		g.Expect(routes[1].Name).To(gomega.Equal("route.catch-all"))
+	})
+
+	t.Run("for internally generated virtual service with ingress semantics (istio version<1.14)", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		vs := virtualServiceWithCatchAllRoute
+		if vs.Annotations == nil {
+			vs.Annotations = make(map[string]string)
+		}
+		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsIngress
+
+		proxy := node(cg)
+		proxy.IstioVersion = &model.IstioVersion{
+			Major: 1,
+			Minor: 13,
+		}
+		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, vs,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: util.RegexEngine,
+				Regex:      `/route/v1((\/).*)?`,
+			},
+		}))
+		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
+			Prefix: "/",
+		}))
+	})
+
+	t.Run("for internally generated virtual service with gateway semantics (istio version<1.14)", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		vs := virtualServiceWithCatchAllRoute
+		if vs.Annotations == nil {
+			vs.Annotations = make(map[string]string)
+		}
+		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
+
+		proxy := node(cg)
+		proxy.IstioVersion = &model.IstioVersion{
+			Major: 1,
+			Minor: 13,
+		}
+		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, vs,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: util.RegexEngine,
+				Regex:      `/route/v1((\/).*)?`,
+			},
+		}))
+		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
+			Prefix: "/",
+		}))
+	})
+
+	t.Run("for internally generated virtual service with ingress semantics (istio version>=1.14)", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		vs := virtualServiceWithCatchAllRoute
+		if vs.Annotations == nil {
+			vs.Annotations = make(map[string]string)
+		}
+		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsIngress
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), vs,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_PathSeparatedPrefix{
+			PathSeparatedPrefix: "/route/v1",
+		}))
+		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
+			Prefix: "/",
+		}))
+	})
+
+	t.Run("for internally generated virtual service with gateway semantics (istio version>=1.14)", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		vs := virtualServiceWithCatchAllRoute
+		if vs.Annotations == nil {
+			vs.Annotations = make(map[string]string)
+		}
+		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), vs,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_PathSeparatedPrefix{
+			PathSeparatedPrefix: "/route/v1",
+		}))
+		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
+			Prefix: "/",
+		}))
 	})
 
 	t.Run("for virtual service with top level catch all route", func(t *testing.T) {

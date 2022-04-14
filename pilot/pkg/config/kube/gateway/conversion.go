@@ -16,7 +16,6 @@ package gateway
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -251,8 +250,6 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 				return
 			}
 			vs.Match = append(vs.Match, &istio.HTTPMatchRequest{
-				// the name is a hack to fetch the original path type
-				Name:        generateMatchName(obj, i, *match.Path.Type),
 				Uri:         uri,
 				Headers:     headers,
 				QueryParams: qp,
@@ -376,19 +373,6 @@ func routeMeta(obj config.Config) map[string]string {
 	return m
 }
 
-// generateMatchName returns the generated HTTPMatchRequest name including the original path type
-// e.g.:
-// "default/foo-0-PathPrefix"
-// "default/foo-1-RegularExpression"
-func generateMatchName(httpRoute config.Config, ruleIdx int, typ k8s.PathMatchType) string {
-	return fmt.Sprintf("%s/%s-%d-%s", httpRoute.Namespace, httpRoute.Name, ruleIdx, string(typ))
-}
-
-func getOriginalPathType(match *istio.HTTPMatchRequest) k8s.PathMatchType {
-	i := strings.LastIndexByte(match.Name, '-')
-	return k8s.PathMatchType(match.Name[i+1:])
-}
-
 // sortHTTPRoutes sorts generated vs routes to meet gateway-api requirements
 // see https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.HTTPRouteRule
 func sortHTTPRoutes(routes []*istio.HTTPRoute) {
@@ -415,16 +399,12 @@ func getURILength(match *istio.HTTPMatchRequest) int {
 	if match.Uri == nil {
 		return 0
 	}
-	switch getOriginalPathType(match) {
-	case k8s.PathMatchPathPrefix:
-		if match.Uri.GetPrefix() == "/" {
-			return 1
-		}
-		// trim the regex suffix
-		return len(match.Uri.GetRegex()) - len(prefixMatchRegex)
-	case k8s.PathMatchExact:
+	switch match.Uri.MatchType.(type) {
+	case *istio.StringMatch_Prefix:
+		return len(match.Uri.GetPrefix())
+	case *istio.StringMatch_Exact:
 		return len(match.Uri.GetExact())
-	case k8s.PathMatchRegularExpression:
+	case *istio.StringMatch_Regex:
 		return len(match.Uri.GetRegex())
 	}
 	// should not happen
@@ -1030,10 +1010,6 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 	return res, nil
 }
 
-// prefixMatchRegex optionally matches "/..." at the end of a path.
-// regex taken from https://github.com/projectcontour/contour/blob/2b3376449bedfea7b8cea5fbade99fb64009c0f6/internal/envoy/v3/route.go#L59
-const prefixMatchRegex = `((\/).*)?`
-
 func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError) {
 	tp := k8s.PathMatchPathPrefix
 	if match.Path.Type != nil {
@@ -1045,16 +1021,8 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 	}
 	switch tp {
 	case k8s.PathMatchPathPrefix:
-		path := *match.Path.Value
-		if path == "/" {
-			// Optimize common case of / to not needed regex
-			return &istio.StringMatch{
-				MatchType: &istio.StringMatch_Prefix{Prefix: path},
-			}, nil
-		}
-		path = strings.TrimSuffix(path, "/")
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(path) + prefixMatchRegex},
+			MatchType: &istio.StringMatch_Prefix{Prefix: dest},
 		}, nil
 	case k8s.PathMatchExact:
 		return &istio.StringMatch{
