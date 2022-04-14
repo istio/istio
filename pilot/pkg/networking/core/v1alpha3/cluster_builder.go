@@ -214,6 +214,11 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 
 	// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
 	opts.policy = MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
+
+	if destRule != nil {
+		destinationRule := CastDestinationRule(destRule)
+		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
+	}
 	// Apply traffic policy for the subset cluster.
 	cb.applyTrafficPolicy(opts)
 
@@ -253,6 +258,10 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
+	}
+
+	if destRule != nil {
+		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 	}
 	// Apply traffic policy for the main default cluster.
 	cb.applyTrafficPolicy(opts)
@@ -521,6 +530,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	cfg := proxy.SidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, instance.Service.Hostname)
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
+		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 		if destinationRule.TrafficPolicy != nil {
 			opts.policy = MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.ServicePort)
 			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
@@ -983,16 +993,18 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 }
 
 func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*auth.UpstreamTlsContext, error) {
-	c := opts.mutable
-
 	// Hack to avoid egress sds cluster config generation for sidecar when
-	// CredentialName is set in DestinationRule
-	if tls.CredentialName != "" && cb.sidecarProxy() {
+	// CredentialName is set in DestinationRule without a workloadSelector.
+	// We do not want to support CredentialName setting in non workloadSelector based DestinationRules, because
+	// that would result in the CredentialName being supplied to all the sidecars which the DestinationRule is scoped to,
+	// resulting in delayed startup of sidecars who do not have access to the credentials.
+	if tls.CredentialName != "" && cb.sidecarProxy() && !opts.isDrWithSelector {
 		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
 			return nil, nil
 		}
 	}
 
+	c := opts.mutable
 	var tlsContext *auth.UpstreamTlsContext
 
 	switch tls.Mode {

@@ -60,10 +60,7 @@ func (sr SecretResource) Cacheable() bool {
 	return true
 }
 
-func sdsNeedsPush(proxy *model.Proxy, updates model.XdsUpdates) bool {
-	if proxy.Type != model.Router {
-		return false
-	}
+func sdsNeedsPush(updates model.XdsUpdates) bool {
 	if len(updates) == 0 {
 		return true
 	}
@@ -94,7 +91,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		log.Warnf("proxy %s is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	if req == nil || !sdsNeedsPush(proxy, req.ConfigsUpdated) {
+	if req == nil || !sdsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var updatedSecrets map[model.ConfigKey]struct{}

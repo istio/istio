@@ -594,6 +594,8 @@ type buildClusterOpts struct {
 	serviceMTLSMode model.MutualTLSMode
 	// Indicates the service registry of the cluster being built.
 	serviceRegistry provider.ID
+	// Indicates if the destionationRule has a workloadSelector
+	isDrWithSelector bool
 }
 
 type upgradeTuple struct {
