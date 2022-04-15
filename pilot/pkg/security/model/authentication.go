@@ -20,6 +20,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"k8s.io/utils/lru"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -72,6 +73,9 @@ var SDSAdsConfig = &core.ConfigSource{
 	ResourceApiVersion: core.ApiVersion_V3,
 }
 
+// Holds frequently used secret config to avoid excessive memory allocations.
+var sdsSecretConfigCache = lru.New(100)
+
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
 // from certificates referenced by credentialName in DestinationRule or Gateway.
 // Currently this is served by a local SDS server, but in the future replaced by
@@ -93,72 +97,27 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 	}
 }
 
-// Preconfigured SDS configs to avoid excessive memory allocations
-var (
-	defaultSDSConfig = &tls.SdsSecretConfig{
-		Name: SDSDefaultResourceName,
-		SdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType:                   core.ApiConfigSource_GRPC,
-					SetNodeOnFirstMessageOnly: true,
-					TransportApiVersion:       core.ApiVersion_V3,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
-							},
-						},
-					},
-				},
-			},
-			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: durationpb.New(time.Second * 0),
-		},
-	}
-	rootSDSConfig = &tls.SdsSecretConfig{
-		Name: SDSRootResourceName,
-		SdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType:                   core.ApiConfigSource_GRPC,
-					SetNodeOnFirstMessageOnly: true,
-					TransportApiVersion:       core.ApiVersion_V3,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
-							},
-						},
-					},
-				},
-			},
-			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: durationpb.New(time.Second * 0),
-		},
-	}
-)
-
 // ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
 func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
-
-	if name == SDSDefaultResourceName {
-		return defaultSDSConfig
+	if config, exists := sdsSecretConfigCache.Get(name); exists {
+		return config.(*tls.SdsSecretConfig)
 	}
-	if name == SDSRootResourceName {
-		return rootSDSConfig
-	}
+	config := sdsSecretConfig(name)
+	sdsSecretConfigCache.Add(name, config)
+	return config
+}
 
-	cfg := &tls.SdsSecretConfig{
+func sdsSecretConfig(name string) *tls.SdsSecretConfig {
+	return &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{
-					SetNodeOnFirstMessageOnly: true,
 					ApiType:                   core.ApiConfigSource_GRPC,
+					SetNodeOnFirstMessageOnly: true,
 					TransportApiVersion:       core.ApiVersion_V3,
 					GrpcServices: []*core.GrpcService{
 						{
@@ -169,11 +128,10 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 					},
 				},
 			},
-			ResourceApiVersion: core.ApiVersion_V3,
+			ResourceApiVersion:  core.ApiVersion_V3,
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
-
-	return cfg
 }
 
 func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {

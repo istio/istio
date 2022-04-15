@@ -2061,7 +2061,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
-										ResourceApiVersion: core.ApiVersion_V3,
+										ResourceApiVersion:  core.ApiVersion_V3,
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 									},
 								},
 							},
@@ -2112,62 +2113,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
-										ResourceApiVersion: core.ApiVersion_V3,
+										ResourceApiVersion:  core.ApiVersion_V3,
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 									},
 								},
 							},
 						},
 						AlpnProtocols: util.ALPNH2Only,
-					},
-					Sni: "some-sni.com",
-				},
-				err: nil,
-			},
-		},
-		{
-			name: "tls mode SIMPLE, with certs specified in tls",
-			opts: &buildClusterOpts{
-				mutable: newTestCluster(),
-			},
-			tls: &networking.ClientTLSSettings{
-				Mode:            networking.ClientTLSSettings_SIMPLE,
-				CaCertificates:  rootCert,
-				SubjectAltNames: []string{"SAN"},
-				Sni:             "some-sni.com",
-			},
-			result: expectedResult{
-				tlsContext: &tls.UpstreamTlsContext{
-					CommonTlsContext: &tls.CommonTlsContext{
-						TlsParams: &tls.TlsParameters{
-							// if not specified, envoy use TLSv1_2 as default for client.
-							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
-							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-						},
-						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
-							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
-								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
-									Name: fmt.Sprintf("file-root:%s", rootCert),
-									SdsConfig: &core.ConfigSource{
-										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:                   core.ApiConfigSource_GRPC,
-												SetNodeOnFirstMessageOnly: true,
-												TransportApiVersion:       core.ApiVersion_V3,
-												GrpcServices: []*core.GrpcService{
-													{
-														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
-														},
-													},
-												},
-											},
-										},
-										ResourceApiVersion: core.ApiVersion_V3,
-									},
-								},
-							},
-						},
 					},
 					Sni: "some-sni.com",
 				},
@@ -2214,7 +2166,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
-										ResourceApiVersion: core.ApiVersion_V3,
+										ResourceApiVersion:  core.ApiVersion_V3,
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 									},
 								},
 							},
@@ -2293,7 +2246,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
-									ResourceApiVersion: core.ApiVersion_V3,
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 								},
 							},
 						},
@@ -2343,7 +2297,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
-									ResourceApiVersion: core.ApiVersion_V3,
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 								},
 							},
 						},
@@ -2367,7 +2322,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
-										ResourceApiVersion: core.ApiVersion_V3,
+										ResourceApiVersion:  core.ApiVersion_V3,
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 									},
 								},
 							},
