@@ -1230,7 +1230,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							{
 								Name: "file-cert:/etc/cert/example.crt~/etc/cert/example.key",
 								SdsConfig: &core.ConfigSource{
-									ResourceApiVersion: core.ApiVersion_V3,
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
