@@ -16,6 +16,7 @@ package extension
 
 import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	composite_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/composite/v3"
 	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -35,8 +36,9 @@ import (
 )
 
 const (
-	wasmFilterType  = "envoy.extensions.filters.http.wasm.v3.Wasm"
-	statsFilterName = "istio.stats"
+	compositeFilterType = "envoy.extensions.filters.http.composite.v3.Composite"
+	wasmFilterType      = "envoy.extensions.filters.http.wasm.v3.Wasm"
+	statsFilterName     = "istio.stats"
 )
 
 var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
@@ -131,12 +133,18 @@ func popAppend(list []*hcm_filter.HttpFilter,
 }
 
 func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilter {
+	defaultConfig, _ := anypb.New(&composite_v3.Composite{})
 	return &hcm_filter.HttpFilter{
 		Name: wasmPlugin.ResourceName,
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
-				ConfigSource: defaultConfigSource,
-				TypeUrls:     []string{"type.googleapis.com/" + wasmFilterType},
+				ConfigSource:                     defaultConfigSource,
+				ApplyDefaultConfigWithoutWarming: true,
+				DefaultConfig:                    defaultConfig,
+				TypeUrls: []string{
+					"type.googleapis.com/" + wasmFilterType,
+					"type.googleapis.com/" + compositeFilterType,
+				},
 			},
 		},
 	}
