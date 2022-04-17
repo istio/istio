@@ -610,7 +610,7 @@ func (s *Controller) ResyncEDS() {
 	s.edsUpdate(allInstances)
 }
 
-// edsUpdate triggers an EDS push serially such that we can prevent allinstances
+// edsUpdate triggers an EDS push serially such that we can prevent all instances
 // got at t1 can accidentally override that got at t2 if multiple threads are
 // running this function. Queueing ensures latest updated wins.
 func (s *Controller) edsUpdate(instances []*model.ServiceInstance) {
