@@ -90,24 +90,11 @@ func indexConfig(configIndex map[ConfigKey]sets.Set, k string, entry XdsCacheEnt
 	}
 }
 
-func indexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, entry XdsCacheEntry) {
-	for _, t := range entry.DependentTypes() {
-		if typeIndex[t] == nil {
-			typeIndex[t] = sets.New()
-		}
-		typeIndex[t].Insert(k)
-	}
-}
-
 // XdsCacheEntry interface defines functions that should be implemented by
 // resources that can be cached.
 type XdsCacheEntry interface {
 	// Key is the key to be used in cache.
 	Key() string
-	// DependentTypes are config types that this cache key is dependant on.
-	// Whenever any configs of this type changes, we should invalidate this cache entry.
-	// Note: DependentConfigs should be preferred wherever possible.
-	DependentTypes() []config.GroupVersionKind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
 	DependentConfigs() []ConfigKey
@@ -240,7 +227,6 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	l.store.Add(k, toWrite)
 	l.token = token
 	indexConfig(l.configIndex, k, entry)
-	indexType(l.typesIndex, k, entry)
 	size(l.store.Len())
 }
 

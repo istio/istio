@@ -97,10 +97,6 @@ func (r *Cache) DependentConfigs() []model.ConfigKey {
 	return configs
 }
 
-func (r *Cache) DependentTypes() []config.GroupVersionKind {
-	return nil
-}
-
 func (r *Cache) Key() string {
 	params := []string{
 		r.RouteName, r.ProxyVersion, r.ClusterID, r.DNSDomain,

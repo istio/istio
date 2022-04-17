@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -46,11 +45,6 @@ type SecretResource struct {
 }
 
 var _ model.XdsCacheEntry = SecretResource{}
-
-// DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
-func (sr SecretResource) DependentTypes() []config.GroupVersionKind {
-	return nil
-}
 
 func (sr SecretResource) DependentConfigs() []model.ConfigKey {
 	return relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})

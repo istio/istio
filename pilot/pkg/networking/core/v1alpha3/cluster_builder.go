@@ -474,10 +474,6 @@ func (t clusterCache) DependentConfigs() []model.ConfigKey {
 	return configs
 }
 
-func (t *clusterCache) DependentTypes() []config.GroupVersionKind {
-	return nil
-}
-
 func (t clusterCache) Cacheable() bool {
 	return true
 }
