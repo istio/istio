@@ -25,7 +25,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
@@ -132,7 +131,6 @@ func NewXdsCache() XdsCache {
 		enableAssertions: features.EnableUnsafeAssertions,
 		store:            newLru(),
 		configIndex:      map[ConfigKey]sets.Set{},
-		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 	}
 }
 
@@ -142,7 +140,6 @@ func NewLenientXdsCache() XdsCache {
 		enableAssertions: false,
 		store:            newLru(),
 		configIndex:      map[ConfigKey]sets.Set{},
-		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 	}
 }
 
@@ -154,7 +151,6 @@ type lruCache struct {
 	token       CacheToken
 	mu          sync.RWMutex
 	configIndex map[ConfigKey]sets.Set
-	typesIndex  map[config.GroupVersionKind]sets.Set
 }
 
 var _ XdsCache = &lruCache{}
@@ -266,11 +262,6 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 		for key := range referenced {
 			l.store.Remove(key)
 		}
-		tReferenced := l.typesIndex[ckey.Kind]
-		delete(l.typesIndex, ckey.Kind)
-		for key := range tReferenced {
-			l.store.Remove(key)
-		}
 	}
 	size(l.store.Len())
 }
@@ -281,7 +272,6 @@ func (l *lruCache) ClearAll() {
 	l.token = CacheToken(time.Now().UnixNano())
 	l.store.Purge()
 	l.configIndex = map[ConfigKey]sets.Set{}
-	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
 	size(l.store.Len())
 }
 
