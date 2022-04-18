@@ -40,7 +40,6 @@ var skippedLdsConfigs = map[model.NodeType]map[config.GroupVersionKind]struct{}{
 	},
 	model.SidecarProxy: {
 		gvk.Gateway:         {},
-		gvk.DestinationRule: {},
 		gvk.WorkloadGroup:   {},
 		gvk.WorkloadEntry:   {},
 		gvk.Secret:          {},
