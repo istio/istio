@@ -170,12 +170,6 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
 	return configs
 }
 
-var edsDependentTypes = []config.GroupVersionKind{gvk.PeerAuthentication}
-
-func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
-	return edsDependentTypes
-}
-
 // TODO(lambdai): Receive port value(15009 by default), builder to cover wide cases.
 type EndpointTunnelApplier interface {
 	// Mutate LbEndpoint in place. Return non-nil on failure.
