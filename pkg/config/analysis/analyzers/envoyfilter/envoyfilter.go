@@ -45,10 +45,8 @@ func (*EnvoyPatchAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (s *EnvoyPatchAnalyzer) Analyze(c analysis.Context) {
-	patchFilterNames := make([]string, 1)
 	c.ForEach(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
-		names := s.analyzeEnvoyFilterPatch(r, c, patchFilterNames)
-		patchFilterNames = names
+		s.analyzeEnvoyFilterPatch(r, c)
 		return true
 	})
 }
@@ -65,13 +63,9 @@ func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, p
 	}
 }
 
-func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analysis.Context, patchFilterNames []string) []string {
+func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analysis.Context) {
 	ef := r.Message.(*network.EnvoyFilter)
 	for index, patch := range ef.ConfigPatches {
-		// collect filter names to figure out if the order is correct
-		tmpValue := patch.Patch.Value.GetFields()
-		instanceName := tmpValue["name"]
-
 		// check each operation type
 		if patch.Patch.Operation == network.EnvoyFilter_Patch_ADD {
 			// the ADD operation is an absolute operation but provide a warning
@@ -114,38 +108,17 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 
 				c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
 			} else {
-				count := 0
-				for _, name := range patchFilterNames {
-					if instanceName.String() == name {
-						count++
-						break
-					}
-				}
-				if count > 0 {
-					// There is more than one envoy filter using the same name with the REPLACE operation
-					// Also a relative operation (REPLACE) was used so check if priority is set and if not set provide a warning
-					relativeOperationMsg(r, c, index, ef.Priority)
-				}
+				// A relative operation (REPLACE) was used so check if priority is set and if not set provide a warning
+				relativeOperationMsg(r, c, index, ef.Priority)
 			}
 		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_INSERT_BEFORE || patch.Patch.Operation == network.EnvoyFilter_Patch_INSERT_AFTER {
 			// Also a relative operation (INSERT_BEFORE or INSERT_AFTER) was used so check if priority is set and if not set provide a warning
 			relativeOperationMsg(r, c, index, ef.Priority)
 		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_MERGE {
-			count := 0
-			for _, name := range patchFilterNames {
-				if instanceName.String() == name {
-					count++
-					break
-				}
-			}
-			if count > 0 {
-				// there is more than one envoy filter using the same name with the REPLACE relative operation
-				// provide a warning if no priority was set
-				relativeOperationMsg(r, c, index, ef.Priority)
-			}
+			// A relative operation (MERGE) was used so check if priority is set and if not set provide a warning
+			relativeOperationMsg(r, c, index, ef.Priority)
 		}
 		// append the patchValueStr to the slice for next iteration
-		patchFilterNames = append(patchFilterNames, instanceName.String())
 	}
-	return patchFilterNames
+	return
 }

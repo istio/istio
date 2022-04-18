@@ -682,6 +682,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/envoy-filter-merge-operation.yaml"},
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
 		expected: []message{
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-merge-1"},
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-merge-3"},
 		},
 	},
