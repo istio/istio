@@ -38,14 +38,13 @@ func createElection(t *testing.T,
 	watcher revisions.DefaultWatcher,
 	prioritized, expectLeader bool,
 	client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
-	return createElectionMulticluster(t, name, revision, false, watcher, nil, prioritized, expectLeader, client, fns...)
+	return createElectionMulticluster(t, name, revision, false, watcher, prioritized, expectLeader, client, fns...)
 }
 
 func createElectionMulticluster(t *testing.T,
 	name, revision string,
 	remote bool,
 	watcher revisions.DefaultWatcher,
-	cmpFunction LeaderComparison,
 	prioritized, expectLeader bool,
 	client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
 	t.Helper()
@@ -57,7 +56,6 @@ func createElectionMulticluster(t *testing.T,
 		revision:       revision,
 		remote:         remote,
 		prioritized:    prioritized,
-		cmpFunction:    cmpFunction,
 		defaultWatcher: watcher,
 		ttl:            time.Second,
 		cycle:          atomic.NewInt32(0),
@@ -136,6 +134,7 @@ func TestPrioritizedLeaderElection(t *testing.T) {
 	// Test that "red" doesn't steal lock if "prioritized" is disabled
 	_, stop7 := createElection(t, "pod5", "red", watcher, false, false, client)
 	close(stop6)
+
 	close(stop7)
 }
 
@@ -143,11 +142,29 @@ func TestMulticlusterLeaderElection(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	watcher := &fakeDefaultWatcher{}
 	// First remote pod becomes the leader
-	_, stop := createElectionMulticluster(t, "pod1", "", true, watcher, nil, false, true, client)
+	_, stop := createElectionMulticluster(t, "pod1", "", true, watcher, false, true, client)
 	// A new local pod cannot become leader
-	_, stop2 := createElectionMulticluster(t, "pod2", "", false, watcher, nil, false, false, client)
+	_, stop2 := createElectionMulticluster(t, "pod2", "", false, watcher, false, false, client)
 	// A new remote pod cannot become leader
-	_, stop3 := createElectionMulticluster(t, "pod3", "", true, watcher, nil, false, false, client)
+	_, stop3 := createElectionMulticluster(t, "pod3", "", true, watcher, false, false, client)
+	close(stop3)
+	close(stop2)
+	close(stop)
+}
+
+func TestPrioritizedMulticlusterLeaderElection(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	watcher := &fakeDefaultWatcher{defaultRevision: "red"}
+
+	// First pod, revision "green" becomes the remote leader
+	_, stop := createElectionMulticluster(t, "pod1", "green", true, watcher, true, true, client)
+	// Second pod, revision "red", steals the leader lock from "green" since it is the default revision
+	_, stop2 := createElectionMulticluster(t, "pod2", "red", true, watcher, true, true, client)
+	// Third pod with revision "red" comes in and can take the lock since it is a local revision "red"
+	_, stop3 := createElectionMulticluster(t, "pod3", "red", false, watcher, true, true, client)
+	// Fourth pod with revision "red" cannot take the lock since it is remote
+	_, stop4 := createElectionMulticluster(t, "pod4", "red", true, watcher, true, false, client)
+	close(stop4)
 	close(stop3)
 	close(stop2)
 	close(stop)
@@ -161,89 +178,68 @@ func SimpleRevisionComparison(currentLeaderRevision string, l *LeaderElection) b
 		defaultRevision != "" && defaultRevision == l.revision
 }
 
-func TestPrioritizedMulticlusterLeaderElection(t *testing.T) {
-	// This test runs pairs of leaders in all combinations of remote/local, default/non-default revisions,
-	// default/default revisions, non-default/non-default revisions, and tests new/old cmp function interoperablilty.
-	// The tests confirm the election results in the expected leader in all cases and that and that lock steal-back
-	// never happens after a leader changes.
-	const (
-		remote bool = true
-		local  bool = false
-	)
-	client := fake.NewSimpleClientset()
-	watcher := &fakeDefaultWatcher{defaultRevision: "def"}
+type instance struct {
+	revision string
+	remote   bool
+	comp     string
+}
 
-	leaderTests := []struct {
-		revision1   string           // revision of first leader pod
-		remote1     bool             // true if first leader is remote
-		revision2   string           // revision of second leader pod
-		remote2     bool             // true second leader is remote
-		cmpFunction LeaderComparison // leader comparison function for second leader
-		shouldSteal bool             // true if second leader should steal from first
-	}{
-		{"def", local, "def", local, LocationPrioritizedComparison, false},
-		{"def", local, "def", local, SimpleRevisionComparison, false},
-		{"def", local, "def", remote, LocationPrioritizedComparison, false},
-		{"def", local, "def", remote, SimpleRevisionComparison, false},
-		{"def", local, "ndef1", local, LocationPrioritizedComparison, false},
-		{"def", local, "ndef1", local, SimpleRevisionComparison, false},
-		{"def", local, "ndef1", remote, LocationPrioritizedComparison, false},
-		{"def", local, "ndef1", remote, SimpleRevisionComparison, false},
-		{"def", local, "", local, nil, false},
-		{"def", local, "", remote, nil, false},
-
-		{"def", remote, "def", local, LocationPrioritizedComparison, true},
-		{"def", remote, "def", local, SimpleRevisionComparison, true},
-		{"def", remote, "def", remote, LocationPrioritizedComparison, false},
-		{"def", remote, "def", remote, SimpleRevisionComparison, true}, // Old code doesn't recognize new remote key
-		{"def", remote, "ndef1", local, LocationPrioritizedComparison, false},
-		{"def", remote, "ndef1", local, SimpleRevisionComparison, false},
-		{"def", remote, "ndef1", remote, LocationPrioritizedComparison, false},
-		{"def", remote, "ndef1", remote, SimpleRevisionComparison, false},
-		{"def", remote, "", local, nil, false},
-		{"def", remote, "", remote, nil, false},
-
-		{"ndef1", local, "def", local, LocationPrioritizedComparison, true},
-		{"ndef1", local, "def", local, SimpleRevisionComparison, true},
-		{"ndef1", local, "def", remote, LocationPrioritizedComparison, true},
-		{"ndef1", local, "def", remote, SimpleRevisionComparison, true},
-		{"ndef1", local, "ndef1", local, LocationPrioritizedComparison, false},
-		{"ndef1", local, "ndef1", local, SimpleRevisionComparison, false},
-		{"ndef1", local, "ndef1", remote, LocationPrioritizedComparison, false},
-		{"ndef1", local, "ndef1", remote, SimpleRevisionComparison, false},
-		{"ndef1", local, "ndef2", local, LocationPrioritizedComparison, false},
-		{"ndef1", local, "ndef2", local, SimpleRevisionComparison, false},
-		{"ndef1", local, "ndef2", remote, LocationPrioritizedComparison, false},
-		{"ndef1", local, "ndef2", remote, SimpleRevisionComparison, false},
-		{"ndef1", local, "", local, nil, false},
-		{"ndef1", local, "", remote, nil, false},
-
-		{"ndef1", remote, "def", local, LocationPrioritizedComparison, true},
-		{"ndef1", remote, "def", local, SimpleRevisionComparison, true},
-		{"ndef1", remote, "def", remote, LocationPrioritizedComparison, true},
-		{"ndef1", remote, "def", remote, SimpleRevisionComparison, true},
-		{"ndef1", remote, "ndef1", local, LocationPrioritizedComparison, true},
-		{"ndef1", remote, "ndef1", local, SimpleRevisionComparison, false}, // Old code doesn't prioritize location
-		{"ndef1", remote, "ndef1", remote, LocationPrioritizedComparison, false},
-		{"ndef1", remote, "ndef1", remote, SimpleRevisionComparison, false},
-		{"ndef1", remote, "ndef2", local, LocationPrioritizedComparison, false},
-		{"ndef1", remote, "ndef2", local, SimpleRevisionComparison, false},
-		{"ndef1", remote, "ndef2", remote, LocationPrioritizedComparison, false},
-		{"ndef1", remote, "ndef2", remote, SimpleRevisionComparison, false},
-		{"ndef1", remote, "", local, nil, false},
-		{"ndef1", remote, "", remote, nil, false},
+func (i instance) GetComp() LeaderComparison {
+	switch i.comp {
+	case "location":
+		return LocationPrioritizedComparison
+	case "simple":
+		return SimpleRevisionComparison
+	default:
+		panic("unknown comparison type")
 	}
+}
 
-	for _, test := range leaderTests {
-		_, stop := createElectionMulticluster(t, "pod1", test.revision1, test.remote1, watcher, nil, true, true, client)
-		_, stop2 := createElectionMulticluster(t, "pod2", test.revision2, test.remote2, watcher, test.cmpFunction, test.cmpFunction != nil, test.shouldSteal, client)
-		if test.shouldSteal {
-			// Make sure there's no steal-back
-			_, stop3 := createElectionMulticluster(t, "pod1", test.revision1, test.remote1, watcher, nil, true, false, client)
-			close(stop3)
+// TestPrioritizationCycles
+func TestPrioritizationCycles(t *testing.T) {
+	cases := []instance{}
+	for _, rev := range []string{"", "default", "not-default"} {
+		for _, loc := range []bool{false, true} {
+			for _, comp := range []string{"location", "simple"} {
+				cases = append(cases, instance{
+					revision: rev,
+					remote:   loc,
+					comp:     comp,
+				})
+			}
 		}
-		close(stop2)
-		close(stop)
+	}
+	for _, start := range cases {
+		t.Run(fmt.Sprint(start), func(t *testing.T) {
+			checkCycles(t, start, cases, nil)
+		})
+	}
+}
+
+func alreadyHit(cur instance, chain []instance) bool {
+	for _, cc := range chain {
+		if cur == cc {
+			return true
+		}
+	}
+	return false
+}
+
+func checkCycles(t *testing.T, start instance, cases []instance, chain []instance) {
+	if alreadyHit(start, chain) {
+		t.Fatalf("cycle on leader election: cur %v, chain %v", start, chain)
+	}
+	for _, nextHop := range cases {
+		next := LeaderElection{
+			remote:         nextHop.remote,
+			defaultWatcher: &fakeDefaultWatcher{defaultRevision: "default"},
+			revision:       nextHop.revision,
+		}
+		if nextHop.GetComp()(start.revision, &next) {
+			nc := append([]instance{}, chain...)
+			nc = append(nc, start)
+			checkCycles(t, nextHop, cases, nc)
+		}
 	}
 }
 

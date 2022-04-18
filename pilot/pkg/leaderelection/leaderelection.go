@@ -68,7 +68,6 @@ type LeaderElection struct {
 	revision       string
 	remote         bool
 	prioritized    bool
-	cmpFunction    LeaderComparison
 	defaultWatcher revisions.DefaultWatcher
 
 	// Records which "cycle" the election is on. This is incremented each time an election is won and then lost
@@ -155,11 +154,8 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 
 	if l.prioritized {
 		// Function to use to decide whether this leader should steal the existing lock.
-		if l.cmpFunction == nil {
-			l.cmpFunction = LocationPrioritizedComparison
-		}
 		config.KeyComparison = func(leaderKey string) bool {
-			return l.cmpFunction(leaderKey, l)
+			return LocationPrioritizedComparison(leaderKey, l)
 		}
 	}
 
