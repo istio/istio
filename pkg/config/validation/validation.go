@@ -3130,6 +3130,15 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				ValidatePortName(port.Name),
 				ValidateProtocol(port.Protocol),
 				ValidatePort(int(port.Number)))
+
+			if portProto := protocol.Parse(port.Protocol); portProto.IsHTTPS() || portProto.IsTLS() {
+				for _, host := range serviceEntry.Hosts {
+					parts := strings.SplitN(host, ".", 2)
+					if strings.Contains(parts[0], "*") && len(parts[0]) != 1 {
+						errs = appendValidation(errs, fmt.Errorf("partial wildcard %q is not supported in server_names in envoy for protocol %s", host, portProto.String()))
+					}
+				}
+			}
 		}
 
 		switch serviceEntry.Resolution {

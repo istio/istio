@@ -4120,7 +4120,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "discovery type DNS, one host set with IP address and https port",
 			in: &networking.ServiceEntry{
@@ -4136,7 +4135,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid:   true,
 			warning: false,
 		},
-
 		{
 			name: "discovery type DNS, multi hosts set with IP address and https port",
 			in: &networking.ServiceEntry{
@@ -4152,7 +4150,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid:   true,
 			warning: true,
 		},
-
 		{
 			name: "discovery type DNS, IP address set",
 			in: &networking.ServiceEntry{
@@ -4171,7 +4168,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid:   true,
 			warning: false,
 		},
-
 		{
 			name: "discovery type DNS, IP in endpoints", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
@@ -4187,7 +4183,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "empty hosts", in: &networking.ServiceEntry{
 				Ports: []*networking.Port{
@@ -4200,7 +4195,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "bad hosts", in: &networking.ServiceEntry{
 				Hosts: []string{"-"},
@@ -4255,7 +4249,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "discovery type DNS, non-FQDN endpoint", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
@@ -4271,7 +4264,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "discovery type DNS, non-FQDN host", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
@@ -4284,7 +4276,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "discovery type DNS, no endpoints", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
@@ -4297,7 +4288,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "discovery type DNS, unix endpoint", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
@@ -4311,7 +4301,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "discovery type none", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
@@ -4323,7 +4312,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "discovery type none, endpoints provided", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
@@ -4338,7 +4326,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "discovery type none, cidr addresses", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
@@ -4351,7 +4338,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "discovery type static, cidr addresses with endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
@@ -4368,7 +4354,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "discovery type static", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
@@ -4385,7 +4370,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "discovery type static, FQDN in endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
@@ -4402,7 +4386,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "discovery type static, missing endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
@@ -4415,7 +4398,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "discovery type static, bad endpoint port name", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
@@ -4432,7 +4414,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "discovery type none, conflicting port names", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
@@ -4444,7 +4425,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "discovery type none, conflicting port numbers", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
@@ -4456,7 +4436,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "unix socket", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
@@ -4470,7 +4449,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "unix socket, relative path", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
@@ -4484,7 +4462,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "unix socket, endpoint ports", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
@@ -4498,7 +4475,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "unix socket, multiple service ports", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
@@ -4585,6 +4561,24 @@ func TestValidateServiceEntries(t *testing.T) {
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "partial wildcard for tls port", in: &networking.ServiceEntry{
+				Hosts: []string{"bar.com", "*google.com"},
+				Ports: []*networking.Port{
+					{Number: 443, Protocol: "tls", Name: "tls-invalid1"},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "partial wildcard for https", in: &networking.ServiceEntry{
+				Hosts: []string{"bar.com", "*google.com"},
+				Ports: []*networking.Port{
+					{Number: 443, Protocol: "https", Name: "https-invalid1"},
 				},
 			},
 			valid: false,
