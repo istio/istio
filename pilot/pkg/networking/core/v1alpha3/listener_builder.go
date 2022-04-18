@@ -523,7 +523,6 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 	if node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
-	idleTimeoutDuration, _ := time.ParseDuration(node.Metadata.IdleTimeout)
 
 	var filters []*listener.Filter
 	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
@@ -533,7 +532,6 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
 			StatPrefix:       util.BlackHoleCluster,
 			ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-			IdleTimeout:      durationpb.New(idleTimeoutDuration),
 		})},
 	})
 	// Setup enough slots for common max size (permissive mode is 5 filter chains). This is not
