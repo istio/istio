@@ -129,6 +129,8 @@ func TestGetOrUpdatePublicKey(t *testing.T) {
 
 func TestGetPublicKeyReorderedKey(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
+	defer r.Close()
+
 	ms, err := test.StartNewServer()
 	defer ms.Stop()
 	if err != nil {
@@ -165,7 +167,7 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 						return nil
 					}
 				}
-				return fmt.Errorf("failed to update the cache the public key")
+				return fmt.Errorf("failed to update the cache with public key")
 			})
 		}
 		if c.expectedJwtPubkey != pk {
@@ -174,10 +176,9 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 		r.refresh()
 	}
 	// Verify refresh job key changed count is one.
-	if got, want := r.refreshJobKeyChangedCount, uint64(1); got != want {
+	if got, want := atomic.LoadUint64(&r.refreshJobKeyChangedCount), uint64(1); got != want {
 		t.Errorf("JWKs Resolver Refreshed Key Count => expected %d but got %d", want, got)
 	}
-	r.Close()
 }
 
 func TestGetPublicKeyUsingTLS(t *testing.T) {
