@@ -34,6 +34,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -2979,6 +2980,7 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 		listenerOpts *buildListenerOpts
 		node         *model.Proxy
 		hostname     string
+		idleTimeout  *durationpb.Duration
 	}{
 		{
 			name:     "Registry_Only",
@@ -3014,6 +3016,46 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 			},
 			hostname: util.PassthroughCluster,
 		},
+		{
+			name:     "idle_timeout",
+			listener: &listener.Listener{},
+			listenerOpts: &buildListenerOpts{
+				push: push,
+			},
+			node: &model.Proxy{
+				ID: "foo.bar",
+				Metadata: &model.NodeMetadata{
+					IdleTimeout: "15s",
+				},
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+					},
+				},
+			},
+			hostname:    util.PassthroughCluster,
+			idleTimeout: durationpb.New(15 * time.Second),
+		},
+		{
+			name:     "invalid_idle_timeout",
+			listener: &listener.Listener{},
+			listenerOpts: &buildListenerOpts{
+				push: push,
+			},
+			node: &model.Proxy{
+				ID: "foo.bar",
+				Metadata: &model.NodeMetadata{
+					IdleTimeout: "s15s",
+				},
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+					},
+				},
+			},
+			hostname:    util.PassthroughCluster,
+			idleTimeout: durationpb.New(0 * time.Second),
+		},
 	}
 	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
 	for idx := range tests {
@@ -3035,6 +3077,9 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 			}
 			if tcpProxy.GetCluster() != tests[idx].hostname {
 				t.Errorf("Expected cluster %s but got %s\n", tests[idx].hostname, tcpProxy.GetCluster())
+			}
+			if tests[idx].idleTimeout != nil && !reflect.DeepEqual(tcpProxy.IdleTimeout, tests[idx].idleTimeout) {
+				t.Errorf("Expected IdleTimeout %s but got %s\n", tests[idx].idleTimeout, tcpProxy.IdleTimeout)
 			}
 		})
 	}

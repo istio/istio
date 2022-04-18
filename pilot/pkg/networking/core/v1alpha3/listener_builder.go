@@ -715,7 +715,10 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	} else {
 		egressCluster = util.BlackHoleCluster
 	}
-	idleTimeoutDuration, _ := time.ParseDuration(node.Metadata.IdleTimeout)
+	idleTimeoutDuration, err := time.ParseDuration(node.Metadata.IdleTimeout)
+	if err != nil {
+		idleTimeoutDuration = 0
+	}
 
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       egressCluster,
