@@ -320,6 +320,22 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTempla
 			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-sidecar-injector configmap exists",
 			injectConfigMapName, istioNamespace, err)
 	}
+	// Check if revision matches metadata in configmap
+	configMapRevision := meshConfigMap.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
+	if configMapRevision != revision {
+		// Check if revision is "", if so, let's show "default"
+		providedRevision := revision
+		if providedRevision == "" {
+			providedRevision = "default"
+		}
+		return nil, fmt.Errorf(
+			"revision in injection configmap %q from namespace %q defines revision as %s, but expecting %s. Check injection configmap or use --revision flag.",
+			injectConfigMapName,
+			istioNamespace,
+			configMapRevision,
+			providedRevision,
+		)
+	}
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a
 	// key
