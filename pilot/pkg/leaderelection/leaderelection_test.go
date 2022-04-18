@@ -186,12 +186,16 @@ type instance struct {
 	comp     string
 }
 
-func (i instance) GetComp() LeaderComparison {
+func (i instance) GetComp() (LeaderComparison, string) {
+	key := i.revision
 	switch i.comp {
 	case "location":
-		return LocationPrioritizedComparison
+		if i.remote {
+			key = remoteIstiodPrefix + key
+		}
+		return LocationPrioritizedComparison, key
 	case "simple":
-		return SimpleRevisionComparison
+		return SimpleRevisionComparison, key
 	default:
 		panic("unknown comparison type")
 	}
@@ -211,6 +215,7 @@ func TestPrioritizationCycles(t *testing.T) {
 			}
 		}
 	}
+
 	for _, start := range cases {
 		t.Run(fmt.Sprint(start), func(t *testing.T) {
 			checkCycles(t, start, cases, nil)
@@ -237,7 +242,8 @@ func checkCycles(t *testing.T, start instance, cases []instance, chain []instanc
 			defaultWatcher: &fakeDefaultWatcher{defaultRevision: "default"},
 			revision:       nextHop.revision,
 		}
-		if nextHop.GetComp()(start.revision, &next) {
+		cmpFunc, key := start.GetComp()
+		if cmpFunc(key, &next) {
 			nc := append([]instance{}, chain...)
 			nc = append(nc, start)
 			checkCycles(t, nextHop, cases, nc)
