@@ -1681,6 +1681,8 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 			for _, e := range rule.ExportTo {
 				exportToMap[visibility.Instance(e)] = true
 			}
+		} else {
+			exportToMap[visibility.Private] = true
 		}
 
 		// add only if the dest rule is exported with . or * or explicit exportTo containing this namespace
@@ -1701,14 +1703,9 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 		isPrivateOnly := false
 		// No exportTo in destinationRule. Use the global default
 		// We only honor . and *
-		if len(rule.ExportTo) == 0 && ps.exportToDefaults.destinationRule[visibility.Private] {
+		if len(exportToMap) == 0 && ps.exportToDefaults.destinationRule[visibility.Private] {
 			isPrivateOnly = true
-		} else if len(rule.ExportTo) == 1 && (exportToMap[visibility.Private]) {
-			isPrivateOnly = true
-		}
-
-		// If destination rule has a workloadSelector set, visibility should be private.
-		if rule.GetWorkloadSelector() != nil {
+		} else if len(exportToMap) == 1 && (exportToMap[visibility.Private] || exportToMap[visibility.Instance(configs[i].Namespace)]) {
 			isPrivateOnly = true
 		}
 
