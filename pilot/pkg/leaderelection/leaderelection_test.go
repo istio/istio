@@ -178,6 +178,8 @@ func SimpleRevisionComparison(currentLeaderRevision string, l *LeaderElection) b
 		defaultRevision != "" && defaultRevision == l.revision
 }
 
+type LeaderComparison func(string, *LeaderElection) bool
+
 type instance struct {
 	revision string
 	remote   bool

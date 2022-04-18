@@ -55,8 +55,6 @@ const (
 // Leader election key prefix for remote istiod managed clusters
 const remoteIstiodPrefix = "^"
 
-type LeaderComparison func(string, *LeaderElection) bool
-
 type LeaderElection struct {
 	namespace string
 	name      string
