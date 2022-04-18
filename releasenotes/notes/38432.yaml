@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 38432
+
+releaseNotes:
+- |
+  **Added** validation to ServiceEntry to prevent partial wildcards for protocol TLS and HTTPS since envoy does not allow them as server_names.
