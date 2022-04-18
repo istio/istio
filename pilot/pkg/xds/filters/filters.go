@@ -45,9 +45,7 @@ const (
 	TLSTransportProtocol       = "tls"
 	RawBufferTransportProtocol = "raw_buffer"
 
-	MxFilterName          = "istio.metadata_exchange"
-	StatsFilterName       = "istio.stats"
-	StackdriverFilterName = "istio.stackdriver"
+	MxFilterName = "istio.metadata_exchange"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
