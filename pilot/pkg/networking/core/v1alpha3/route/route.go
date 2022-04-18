@@ -828,7 +828,7 @@ func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 				} else {
 					// For older versions, we have to use the regex hack.
 					// From the spec: /foo/bar matches /foo/bar/baz, but does not match /foo/barbaz
-					// and if the prefix is /foo/bar/ we must match /foo/bar and /foo/bar. We cannot simply strip the
+					// and if the prefix is /foo/bar/ we must match /foo/bar and /foo/bar/baz. We cannot simply strip the
 					// trailing "/" and do a prefix match since we'll match unwanted continuations and we cannot add
 					// a "/" if not present since we won't match the prefix without trailing "/". Must be smarter and
 					// use regex.
