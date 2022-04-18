@@ -120,5 +120,4 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 		}
 		// append the patchValueStr to the slice for next iteration
 	}
-	return
 }
