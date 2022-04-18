@@ -105,9 +105,9 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 		c := c
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		t.NewSubTest(testName).Run(func(t framework.TestContext) {
-			if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
-				t.Skip("https://github.com/istio/istio/issues/37307")
-			}
+			// if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
+			// 	t.Skip("https://github.com/istio/istio/issues/37307")
+			// }
 
 			// Apply the policy.
 			cfg := t.ConfigIstio().File(c.Namespace.Name(), filepath.Join("./testdata", c.ConfigFile))
