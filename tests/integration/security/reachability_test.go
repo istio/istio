@@ -84,12 +84,12 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS:    mtlsOnExpect,
 				},
 				{
-					ConfigFile:             "beta-mtls-off.yaml",
-					Namespace:              systemNM,
-					Include:                Always,
-					ExpectSuccess:          Always,
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ConfigFile:    "beta-mtls-off.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+					// SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "beta-mtls-automtls-workload.yaml",
@@ -112,15 +112,15 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS: func(from echo.Instance, opts echo.CallOptions) bool {
 						return apps.B.Contains(from) && opts.Port.Name != "http" && !apps.A.ContainsTarget(opts.To)
 					},
-					SkippedForMulticluster: true,
+					// SkippedForMulticluster: true,
 				},
 				{
-					ConfigFile:             "plaintext-to-permissive.yaml",
-					Namespace:              systemNM,
-					Include:                Always,
-					ExpectSuccess:          Always,
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ConfigFile:    "plaintext-to-permissive.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+					// SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "beta-per-port-mtls.yaml",
@@ -132,8 +132,8 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(_ echo.Instance, opts echo.CallOptions) bool {
 						return opts.Port.Name != "http"
 					},
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ExpectMTLS: Never,
+					// SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "beta-mtls-automtls.yaml",
@@ -189,7 +189,7 @@ func TestReachability(t *testing.T) {
 					},
 					// Since we are doing passthrough, only single cluster is relevant here, as we
 					// are bypassing any Istio cluster load balancing
-					SkippedForMulticluster: true,
+					// SkippedForMulticluster: true,
 				},
 				// --------start of auto mtls partial test cases ---------------
 				// The follow three consecutive test together ensures the auto mtls works as intended
