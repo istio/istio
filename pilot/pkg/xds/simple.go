@@ -58,7 +58,7 @@ type SimpleServer struct {
 	// which needs to happen before serving requests.
 	syncCh chan string
 
-	ConfigStoreCache model.ConfigStoreCache
+	ConfigStoreCache model.ConfigStoreController
 }
 
 // Creates an basic, functional discovery server, using the same code as Istiod, but
@@ -118,7 +118,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	go configController.Run(stop)
 
 	// configStoreCache - with HasSync interface
-	aggregateConfigController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
+	aggregateConfigController, err := configaggregate.MakeCache([]model.ConfigStoreController{
 		configController,
 	})
 	if err != nil {
