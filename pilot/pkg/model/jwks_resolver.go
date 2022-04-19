@@ -434,6 +434,7 @@ func (r *JwksResolver) refresh() bool {
 					atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
 					return
 				}
+				r.keyEntries.Delete(k)
 				k.jwksURI = jwksURI
 			}
 
