@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"sort"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -714,10 +715,15 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	} else {
 		egressCluster = util.BlackHoleCluster
 	}
+	idleTimeoutDuration, err := time.ParseDuration(node.Metadata.IdleTimeout)
+	if err != nil {
+		idleTimeoutDuration = 0
+	}
 
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       egressCluster,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
+		IdleTimeout:      durationpb.New(idleTimeoutDuration),
 	}
 	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound)
 	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy)
