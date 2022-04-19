@@ -317,24 +317,8 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTempla
 	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
-			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-sidecar-injector configmap exists",
+			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace>` and ensure istio-sidecar-injector configmap exists",
 			injectConfigMapName, istioNamespace, err)
-	}
-	// Check if revision matches metadata in configmap
-	configMapRevision := meshConfigMap.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
-	if configMapRevision != revision {
-		// Check if revision is "", if so, let's show "default"
-		providedRevision := revision
-		if providedRevision == "" {
-			providedRevision = "default"
-		}
-		return nil, fmt.Errorf(
-			"revision in injection configmap %q from namespace %q defines revision as %s, but expecting %s. Check injection configmap or use --revision flag.",
-			injectConfigMapName,
-			istioNamespace,
-			configMapRevision,
-			providedRevision,
-		)
 	}
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a
@@ -609,6 +593,9 @@ It's best to do kube-inject when the resource is initially created.
 			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev, injectorAddress)
 			if err != nil {
 				return err
+			}
+			if injector.client == nil && meshConfig == nil {
+				return fmt.Errorf("failed to get injection config from mutatingWebhookConfigurations and injection configmap - check injection configmap or pass --revision flag")
 			}
 			var warnings []string
 			templs, err := inject.ParseTemplates(sidecarTemplate)
