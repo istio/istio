@@ -342,7 +342,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	}
 }
 
-func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
+func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreController, error) {
 	return crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions.DomainSuffix)
 }
 

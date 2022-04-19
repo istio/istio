@@ -54,7 +54,7 @@ type IstiodAnalyzer struct {
 	// internalStore stores synthetic configs for analysis (mesh config, etc)
 	internalStore model.ConfigStore
 	// stores contains all the (non file) config sources to analyze
-	stores []model.ConfigStoreCache
+	stores []model.ConfigStoreController
 	// fileSource contains all file bases sources
 	fileSource *file.KubeSource
 
@@ -62,7 +62,7 @@ type IstiodAnalyzer struct {
 	namespace      resource.Namespace
 	istioNamespace resource.Namespace
 
-	initializedStore model.ConfigStoreCache
+	initializedStore model.ConfigStoreController
 
 	// List of code and resource suppressions to exclude messages on
 	suppressions []AnalysisSuppression
@@ -299,7 +299,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 // AddSource adds a source based on user supplied configstore to the current IstiodAnalyzer
 // Assumes that the source has same or subset of resource types that this analyzer is configured with.
 // This can be used by external users who import the analyzer as a module within their own controllers.
-func (sa *IstiodAnalyzer) AddSource(src model.ConfigStoreCache) {
+func (sa *IstiodAnalyzer) AddSource(src model.ConfigStoreController) {
 	sa.stores = append(sa.stores, src)
 }
 

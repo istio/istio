@@ -71,11 +71,11 @@ type TestOptions struct {
 	// Additional service registries to use. A ServiceEntry and memory registry will always be created.
 	ServiceRegistries []serviceregistry.Instance
 
-	// Additional ConfigStoreCache to use
-	ConfigStoreCaches []model.ConfigStoreCache
+	// Additional ConfigStoreController to use
+	ConfigStoreCaches []model.ConfigStoreController
 
-	// CreateConfigStore defines a function that, given a ConfigStoreCache, returns another ConfigStoreCache to use
-	CreateConfigStore func(c model.ConfigStoreCache) model.ConfigStoreCache
+	// CreateConfigStore defines a function that, given a ConfigStoreController, returns another ConfigStoreController to use
+	CreateConfigStore func(c model.ConfigStoreController) model.ConfigStoreController
 
 	// ConfigGen plugins to use. If not set, all default plugins will be used
 	Plugins []plugin.Plugin
@@ -93,7 +93,7 @@ type TestOptions struct {
 type ConfigGenTest struct {
 	t                    test.Failer
 	pushContextLock      *sync.RWMutex
-	store                model.ConfigStoreCache
+	store                model.ConfigStoreController
 	env                  *model.Environment
 	ConfigGen            *ConfigGeneratorImpl
 	MemRegistry          *memregistry.ServiceDiscovery
@@ -114,7 +114,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	configStore := memory.MakeSkipValidation(collections.PilotGatewayAPI)
 
 	cc := memory.NewSyncController(configStore)
-	controllers := []model.ConfigStoreCache{cc}
+	controllers := []model.ConfigStoreController{cc}
 	if opts.CreateConfigStore != nil {
 		controllers = append(controllers, opts.CreateConfigStore(cc))
 	}
@@ -312,7 +312,7 @@ func (f *ConfigGenTest) Env() *model.Environment {
 	return f.env
 }
 
-func (f *ConfigGenTest) Store() model.ConfigStoreCache {
+func (f *ConfigGenTest) Store() model.ConfigStoreController {
 	return f.store
 }
 

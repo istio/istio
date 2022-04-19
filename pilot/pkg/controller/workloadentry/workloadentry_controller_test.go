@@ -308,7 +308,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 	assert.Equal(t, got, &want)
 }
 
-func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreCache) {
+func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreController) {
 	store := memory.NewController(memory.Make(collections.All))
 	c1 := NewController(store, "pilot-1", keepalive.Infinity)
 	c2 := NewController(store, "pilot-2", keepalive.Infinity)
@@ -316,7 +316,7 @@ func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreCache) {
 	return c1, c2, store
 }
 
-func checkNoEntry(store model.ConfigStoreCache, wg config.Config, proxy *model.Proxy) error {
+func checkNoEntry(store model.ConfigStoreController, wg config.Config, proxy *model.Proxy) error {
 	name := wg.Name + "-" + proxy.IPAddresses[0]
 	if proxy.Metadata.Network != "" {
 		name += "-" + string(proxy.Metadata.Network)
@@ -330,7 +330,7 @@ func checkNoEntry(store model.ConfigStoreCache, wg config.Config, proxy *model.P
 }
 
 func checkEntry(
-	store model.ConfigStoreCache,
+	store model.ConfigStore,
 	wg config.Config,
 	proxy *model.Proxy,
 	node *core.Node,
@@ -410,7 +410,7 @@ func checkEntry(
 
 func checkEntryOrFail(
 	t test.Failer,
-	store model.ConfigStoreCache,
+	store model.ConfigStoreController,
 	wg config.Config,
 	proxy *model.Proxy,
 	node *core.Node,
@@ -421,7 +421,7 @@ func checkEntryOrFail(
 	}
 }
 
-func checkEntryHealth(store model.ConfigStoreCache, proxy *model.Proxy, healthy bool) (err error) {
+func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, healthy bool) (err error) {
 	name := proxy.AutoregisteredWorkloadEntryName
 	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
 	if cfg == nil || cfg.Status == nil {
@@ -454,7 +454,7 @@ func checkEntryHealth(store model.ConfigStoreCache, proxy *model.Proxy, healthy 
 	return
 }
 
-func checkHealthOrFail(t test.Failer, store model.ConfigStoreCache, proxy *model.Proxy, healthy bool) {
+func checkHealthOrFail(t test.Failer, store model.ConfigStoreController, proxy *model.Proxy, healthy bool) {
 	err := wait.Poll(100*time.Millisecond, 1*time.Second, func() (done bool, err error) {
 		err2 := checkEntryHealth(store, proxy, healthy)
 		if err2 != nil {
@@ -490,7 +490,7 @@ func fakeNode(r, z, sz string) *core.Node {
 }
 
 // createOrFail wraps config creation with convience for failing tests
-func createOrFail(t test.Failer, store model.ConfigStoreCache, cfg config.Config) {
+func createOrFail(t test.Failer, store model.ConfigStoreController, cfg config.Config) {
 	if _, err := store.Create(cfg); err != nil {
 		t.Fatalf("failed creating %s/%s: %v", cfg.Namespace, cfg.Name, err)
 	}

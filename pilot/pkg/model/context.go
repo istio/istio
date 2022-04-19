@@ -1091,7 +1091,7 @@ func (node *Proxy) IsProxylessGrpc() bool {
 }
 
 type GatewayController interface {
-	ConfigStoreCache
+	ConfigStoreController
 	// Recompute updates the internal state of the gateway controller for a given input. This should be
 	// called before any List/Get calls if the state has changed
 	Recompute(GatewayContext) error

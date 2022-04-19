@@ -100,9 +100,9 @@ type Client struct {
 	crdMetadataInformer cache.SharedIndexInformer
 }
 
-var _ model.ConfigStoreCache = &Client{}
+var _ model.ConfigStoreController = &Client{}
 
-func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {
+func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreController, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI
@@ -144,7 +144,7 @@ func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	}
 }
 
-func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
+func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreController, error) {
 	schemasByCRDName := map[string]collection.Schema{}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."

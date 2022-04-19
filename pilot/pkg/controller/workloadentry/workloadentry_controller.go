@@ -120,7 +120,7 @@ type Controller struct {
 	// TODO move WorkloadEntry related tasks into their own object and give InternalGen a reference.
 	// store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
 	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
-	store model.ConfigStoreCache
+	store model.ConfigStoreController
 
 	// Note: unregister is to update the workload entry status: like setting `DisconnectedAtAnnotation`
 	// and make the workload entry enqueue `cleanupQueue`
@@ -149,7 +149,7 @@ type Controller struct {
 type HealthStatus = v1alpha1.IstioCondition
 
 // NewController create a controller which manages workload lifecycle and health status.
-func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge time.Duration) *Controller {
+func NewController(store model.ConfigStoreController, instanceID string, maxConnAge time.Duration) *Controller {
 	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
 		maxConnAge := maxConnAge + maxConnAge/2
 		// if overflow, set it to max int64

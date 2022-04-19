@@ -220,8 +220,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
 		PushContextLock:     &s.updateMutex,
-		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
-		CreateConfigStore: func(c model.ConfigStoreCache) model.ConfigStoreCache {
+		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
+		CreateConfigStore: func(c model.ConfigStoreController) model.ConfigStoreController {
 			g := gateway.NewController(defaultKubeClient, c, kube.Options{
 				DomainSuffix: "cluster.local",
 			})

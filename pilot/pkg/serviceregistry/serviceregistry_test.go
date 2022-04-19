@@ -56,7 +56,7 @@ import (
 func setupTest(t *testing.T) (
 	*kubecontroller.Controller,
 	*serviceentry.Controller,
-	model.ConfigStoreCache,
+	model.ConfigStoreController,
 	kubernetes.Interface,
 	*xds.FakeXdsUpdater) {
 	t.Helper()

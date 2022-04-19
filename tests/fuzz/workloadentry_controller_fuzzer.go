@@ -109,7 +109,7 @@ func FuzzWE(data []byte) int {
 }
 
 // Helper function to create a store.
-func createStore(store model.ConfigStoreCache, cfg config.Config) error {
+func createStore(store model.ConfigStoreController, cfg config.Config) error {
 	if _, err := store.Create(cfg); err != nil {
 		return err
 	}
