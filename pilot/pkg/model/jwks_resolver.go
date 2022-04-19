@@ -232,9 +232,6 @@ func (r *JwksResolver) GetOrUpdatePublicKey(issuer string, jwksURI string) strin
 		// Update cached key's last used time.
 		e.lastUsedTime = now
 		r.keyEntries.Store(key, e)
-		if e.pubKey == "" {
-			return e.pubKey
-		}
 		return e.pubKey
 	}
 	r.keyEntries.Store(key, jwtPubKeyEntry{
