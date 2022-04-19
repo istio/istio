@@ -152,9 +152,7 @@ func TestInboundListenerConfig(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForOutbound
-	features.EnableProtocolSniffingForOutbound = true
-	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
+	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -165,9 +163,7 @@ func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_WellKnowPorts(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForOutbound
-	features.EnableProtocolSniffingForOutbound = true
-	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
+	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -180,9 +176,7 @@ func TestOutboundListenerConflict_WellKnowPorts(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForOutbound
-	features.EnableProtocolSniffingForOutbound = true
-	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
+	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -193,9 +187,7 @@ func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForOutbound
-	features.EnableProtocolSniffingForOutbound = true
-	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
+	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -206,9 +198,7 @@ func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForOutbound
-	features.EnableProtocolSniffingForOutbound = true
-	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
+	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	// The oldest service port is Auto.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -219,9 +209,7 @@ func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) {
 }
 
 func TestOutboundListenerRoute(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForOutbound
-	features.EnableProtocolSniffingForOutbound = true
-	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
+	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	testOutboundListenerRoute(t,
 		buildService("test1.com", "1.2.3.4", "unknown", tnow.Add(1*time.Second)),
@@ -580,9 +568,7 @@ func TestInboundListenerConfig_HTTP10(t *testing.T) {
 }
 
 func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForOutbound
-	features.EnableProtocolSniffingForOutbound = false
-	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
+	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, false)
 
 	// Add a service and verify it's config
 	services := []*model.Service{
@@ -1036,9 +1022,7 @@ func testPrivilegedPorts(t *testing.T, buildListeners func(t *testing.T, proxy *
 func testOutboundListenerConflictWithSniffingDisabled(t *testing.T, services ...*model.Service) {
 	t.Helper()
 
-	defaultValue := features.EnableProtocolSniffingForOutbound
-	features.EnableProtocolSniffingForOutbound = false
-	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
+	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, false)
 
 	oldestService := getOldestService(services...)
 
@@ -1474,9 +1458,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	}
 
 	// enable mysql filter that is used here
-	defaultValue := features.EnableMysqlFilter
-	features.EnableMysqlFilter = true
-	defer func() { features.EnableMysqlFilter = defaultValue }()
+	test.SetBoolForTest(t, &features.EnableMysqlFilter, true)
 
 	listeners := buildOutboundListeners(t, p, getProxy(), sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
@@ -1671,9 +1653,7 @@ func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, ser
 	}
 
 	// enable mysql filter that is used here
-	defaultValue := features.EnableMysqlFilter
-	features.EnableMysqlFilter = true
-	defer func() { features.EnableMysqlFilter = defaultValue }()
+	test.SetBoolForTest(t, &features.EnableMysqlFilter, true)
 
 	listeners := buildOutboundListeners(t, p, getProxy(), sidecarConfig, nil, services...)
 	if len(listeners) != 1 {
@@ -1710,9 +1690,7 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 	}
 
 	// enable use remote address to true
-	defaultValue := features.UseRemoteAddress
-	features.UseRemoteAddress = true
-	defer func() { features.UseRemoteAddress = defaultValue }()
+	test.SetBoolForTest(t, &features.UseRemoteAddress, true)
 
 	listeners := buildOutboundListeners(t, p, getProxy(), sidecarConfig, nil, services...)
 
@@ -2425,40 +2403,35 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	for _, tc := range customTagsTest {
-		featuresSet := false
-		capturedSamplingValue := features.TraceSampling
-		if tc.envPilotSampling != 0.0 {
-			features.TraceSampling = tc.envPilotSampling
-			featuresSet = true
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.envPilotSampling != 0.0 {
+				test.SetFloatForTest(t, &features.TraceSampling, tc.envPilotSampling)
+			}
 
-		features.EnableIstioTags = !tc.disableIstioTags
+			test.SetBoolForTest(t, &features.EnableIstioTags, !tc.disableIstioTags)
 
-		env := buildListenerEnv(nil)
-		if err := env.PushContext.InitContext(env, nil, nil); err != nil {
-			t.Fatalf("error in initializing push context: %s", err)
-		}
+			env := buildListenerEnv(nil)
+			if err := env.PushContext.InitContext(env, nil, nil); err != nil {
+				t.Fatalf("error in initializing push context: %s", err)
+			}
 
-		tc.tproxy.ServiceInstances = nil
-		env.Mesh().ProxyHttpPort = 15007
-		env.Mesh().EnableTracing = true
-		env.Mesh().DefaultConfig = &meshconfig.ProxyConfig{
-			Tracing: &meshconfig.Tracing{
-				CustomTags:       tc.in.CustomTags,
-				MaxPathTagLength: tc.in.MaxPathTagLength,
-				Sampling:         tc.in.Sampling,
-			},
-		}
+			tc.tproxy.ServiceInstances = nil
+			env.Mesh().ProxyHttpPort = 15007
+			env.Mesh().EnableTracing = true
+			env.Mesh().DefaultConfig = &meshconfig.ProxyConfig{
+				Tracing: &meshconfig.Tracing{
+					CustomTags:       tc.in.CustomTags,
+					MaxPathTagLength: tc.in.MaxPathTagLength,
+					Sampling:         tc.in.Sampling,
+				},
+			}
 
-		tc.tproxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-		httpProxy := configgen.buildHTTPProxy(tc.tproxy, env.PushContext)
+			tc.tproxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+			httpProxy := configgen.buildHTTPProxy(tc.tproxy, env.PushContext)
 
-		f := httpProxy.FilterChains[0].Filters[0]
-		verifyHTTPConnectionManagerFilter(t, f, tc.out, tc.name)
-
-		if featuresSet {
-			features.TraceSampling = capturedSamplingValue
-		}
+			f := httpProxy.FilterChains[0].Filters[0]
+			verifyHTTPConnectionManagerFilter(t, f, tc.out, tc.name)
+		})
 	}
 }
 
