@@ -579,18 +579,18 @@ func verifyKeyRefresh(t *testing.T, r *JwksResolver, ms *test.MockOpenIDDiscover
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	r.GetOrUpdatePublicKey("", mockCertURL)
 	key := jwtKey{issuer: "", jwksURI: mockCertURL}
+	var pk string
 	retry.UntilSuccessOrFail(t, func() error {
 		// Make sure refresh job has run and detect change or refresh happened.
 		if val, found := r.keyEntries.Load(key); found {
 			e := val.(jwtPubKeyEntry)
 			if e.pubKey != "" {
+				pk = e.pubKey
 				return nil
 			}
 		}
 		return fmt.Errorf("failed to update the cache with public key")
 	})
-
-	pk := r.GetOrUpdatePublicKey("", mockCertURL)
 	// Mock server returns JwtPubKey1 for first call.
 	if test.JwtPubKey1 != pk {
 		t.Fatalf("GetOrUpdatePublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
