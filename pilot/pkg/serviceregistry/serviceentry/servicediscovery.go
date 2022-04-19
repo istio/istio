@@ -59,17 +59,17 @@ func makeInstanceKey(i *model.ServiceInstance) instancesKey {
 	return instancesKey{i.Service.Hostname, i.Service.Attributes.Namespace}
 }
 
-type externalConfigType int
+type configType int
 
 const (
-	serviceEntryConfigType externalConfigType = iota
+	serviceEntryConfigType configType = iota
 	workloadEntryConfigType
 	podConfigType
 )
 
 // configKey unique identifies a config object managed by this registry (ServiceEntry and WorkloadEntry)
 type configKey struct {
-	kind      externalConfigType
+	kind      configType
 	name      string
 	namespace string
 }
@@ -91,8 +91,8 @@ type Controller struct {
 	workloadInstances workloadinstances.Index
 	services          serviceStore
 
-	// to make sure the eds update run in serial to prevent stale ones can override new ones
-	// There are multiple threads calling edsUpdate.
+	// To make sure the eds update run in serial to prevent stale ones can override new ones
+	// when edsUpdate is called concurrently.
 	// If all share one lock, then all the threads can have an obvious performance downgrade.
 	edsQueue queue.Instance
 
@@ -101,7 +101,8 @@ type Controller struct {
 	// callback function used to get the networkID according to workload ip and labels.
 	networkIDCallback func(IP string, labels labels.Instance) network.ID
 
-	processServiceEntry bool
+	// Indicates whether this controller is for workload entries.
+	workloadEntryController bool
 
 	model.NetworkGatewaysHandler
 }
@@ -137,7 +138,7 @@ func NewWorkloadEntryController(configController model.ConfigStoreCache, store m
 	options ...Option) *Controller {
 	s := newController(store, xdsUpdater, options...)
 	// Disable service entry processing for workload entry controller.
-	s.processServiceEntry = false
+	s.workloadEntryController = true
 	for _, o := range options {
 		o(s)
 	}
@@ -162,8 +163,7 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options
 		services: serviceStore{
 			servicesBySE: map[types.NamespacedName][]*model.Service{},
 		},
-		edsQueue:            queue.NewQueue(time.Second),
-		processServiceEntry: true,
+		edsQueue: queue.NewQueue(time.Second),
 	}
 	for _, o := range options {
 		o(s)
@@ -569,7 +569,7 @@ func (s *Controller) Services() []*model.Service {
 // GetService retrieves a service by host name if it exists.
 // NOTE: The service entry implementation is used only for tests.
 func (s *Controller) GetService(hostname host.Name) *model.Service {
-	if !s.processServiceEntry {
+	if s.workloadEntryController {
 		return nil
 	}
 	// TODO(@hzxuzhonghu): only get the specific service instead of converting all the serviceEntries
