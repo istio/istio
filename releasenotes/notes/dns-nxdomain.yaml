@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 35603
+releaseNotes:
+- |
+  **Fixed** an issue with `DNS` type `ServiceEntry`s causing excessive DNS requests when the DNS lookup fails.
