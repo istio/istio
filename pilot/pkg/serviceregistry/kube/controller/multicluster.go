@@ -313,7 +313,7 @@ func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 	return nil
 }
 
-func createConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreCache, error) {
+func createConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreController, error) {
 	log.Infof("Creating WorkloadEntry only config store for %s", opts.ClusterID)
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
 		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
