@@ -379,11 +379,7 @@ copy-templates:
 
 	# copy istio-discovery values, but apply some local customizations
 	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
-	yq w manifests/charts/istiod-remote/values.yaml telemetry.enabled false -i
-	yq w manifests/charts/istiod-remote/values.yaml global.externalIstiod true -i
-	yq w manifests/charts/istiod-remote/values.yaml global.omitSidecarInjectorConfigMap true -i
-	yq w manifests/charts/istiod-remote/values.yaml pilot.configMap false -i
-
+	yq -i '.telemetry.enabled=false | .global.externalIstiod=true | .global.omitSidecarInjectorConfigMap=true | .pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
 # Generate kustomize templates.
 gen-kustomize:
 	helm3 template istio --namespace istio-system --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
