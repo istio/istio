@@ -344,9 +344,9 @@ func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.deny-action").
 		Run(func(t framework.TestContext) {
-			// if t.Clusters().IsMulticluster() {
-			// 	t.Skip("https://github.com/istio/istio/issues/37307")
-			// }
+			if t.Clusters().IsMulticluster() {
+				t.Skip("https://github.com/istio/istio/issues/37307")
+			}
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
 			b := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B)
