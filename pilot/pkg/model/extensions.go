@@ -40,6 +40,8 @@ const (
 
 	// name of environment variable at Wasm VM, which will carry the Wasm image pull secret.
 	WasmSecretEnv = "ISTIO_META_WASM_IMAGE_PULL_SECRET"
+	// name of environment variable at Wasm VM, which will carry the Wasm image pull policy.
+	WasmPolicyEnv = "ISTIO_META_WASM_IMAGE_PULL_POLICY"
 )
 
 type WasmPluginWrapper struct {
@@ -91,7 +93,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 			Name:          plugin.Namespace + "." + plugin.Name,
 			RootId:        wasmPlugin.PluginName,
 			Configuration: cfg,
-			Vm:            buildVMConfig(datasource, wasmPlugin.VmConfig, wasmPlugin.ImagePullSecret),
+			Vm:            buildVMConfig(datasource, wasmPlugin.VmConfig, wasmPlugin.ImagePullSecret, wasmPlugin.ImagePullPolicy),
 		},
 	}
 	if err != nil {
@@ -159,7 +161,7 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3
 	}
 }
 
-func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmConfig, secretName string) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
+func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmConfig, secretName string, policy extensions.PullPolicy) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
 	cfg := &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 		VmConfig: &envoyExtensionsWasmV3.VmConfig{
 			Runtime: defaultRuntime,
@@ -172,6 +174,10 @@ func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmCon
 
 	if secretName != "" {
 		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmSecretEnv] = secretName
+	}
+
+	if policy != extensions.PullPolicy_UNSPECIFIED_POLICY {
+		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmPolicyEnv] = policy.String()
 	}
 
 	if vm != nil && len(vm.Env) != 0 {
