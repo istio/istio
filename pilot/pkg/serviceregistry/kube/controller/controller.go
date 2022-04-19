@@ -109,7 +109,6 @@ type Options struct {
 	// MeshServiceController is a mesh-wide service Controller.
 	MeshServiceController *aggregate.Controller
 
-	ResyncPeriod time.Duration
 	DomainSuffix string
 
 	// ClusterID identifies the remote cluster in a multicluster env.
