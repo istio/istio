@@ -595,7 +595,10 @@ It's best to do kube-inject when the resource is initially created.
 				return err
 			}
 			if injector.client == nil && meshConfig == nil {
-				return fmt.Errorf("failed to get injection config from mutatingWebhookConfigurations and injection configmap - check injection configmap or pass --revision flag")
+				return fmt.Errorf(
+					"failed to get injection config from mutatingWebhookConfigurations and injection configmap - " +
+						"check injection configmap or pass --revision flag",
+				)
 			}
 			var warnings []string
 			templs, err := inject.ParseTemplates(sidecarTemplate)
