@@ -201,7 +201,6 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		MeshWatcher:               opts.MeshWatcher,
 		EndpointMode:              opts.Mode,
 		ClusterID:                 opts.ClusterID,
-		SyncInterval:              time.Microsecond,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,
 	}

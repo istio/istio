@@ -78,7 +78,6 @@ type Multicluster struct {
 
 	// secretNamespace where we get cluster-access secrets
 	secretNamespace string
-	syncInterval    time.Duration
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -105,7 +104,6 @@ func NewMulticluster(
 		remoteKubeControllers:  remoteKubeController,
 		clusterLocal:           clusterLocal,
 		secretNamespace:        secretNamespace,
-		syncInterval:           opts.GetSyncInterval(),
 		client:                 kc,
 		s:                      s,
 	}
