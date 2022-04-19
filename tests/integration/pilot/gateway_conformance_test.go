@@ -84,13 +84,19 @@ func TestGatewayConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			csuite := suite.New(suite.Options{
+			opts := suite.Options{
 				Client:           c,
 				GatewayClassName: "istio",
 				Debug:            scopes.Framework.DebugEnabled(),
 				Cleanup:          gatewayConformanceInputs.Cleanup,
 				RoundTripper:     nil,
-			})
+			}
+			if rev := ctx.Settings().Revision; rev != "" {
+				opts.NamespaceLabels = map[string]string{
+					"istio.io/rev": rev,
+				}
+			}
+			csuite := suite.New(opts)
 			csuite.Setup(t)
 
 			for _, ct := range tests.ConformanceTests {
