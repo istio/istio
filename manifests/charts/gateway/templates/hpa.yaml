@@ -1,4 +1,5 @@
 {{- if .Values.autoscaling.enabled }}
+{{- if (semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion)}}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -23,5 +24,4 @@ spec:
         target:
           averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
           type: Utilization
-    {{- end }}
 {{- end }}
