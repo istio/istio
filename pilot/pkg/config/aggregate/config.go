@@ -60,7 +60,7 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 
 // MakeWriteableCache creates an aggregate config store cache from several config store caches. An additional
 // `writer` config store is passed, which may or may not be part of `caches`.
-func MakeWriteableCache(caches []model.ConfigStoreCache, writer model.ConfigStore) (model.ConfigStoreCache, error) {
+func MakeWriteableCache(caches []model.ConfigStoreController, writer model.ConfigStore) (model.ConfigStoreController, error) {
 	stores := make([]model.ConfigStore, 0, len(caches))
 	for _, cache := range caches {
 		stores = append(stores, cache)
@@ -77,7 +77,7 @@ func MakeWriteableCache(caches []model.ConfigStoreCache, writer model.ConfigStor
 
 // MakeCache creates an aggregate config store cache from several config store
 // caches.
-func MakeCache(caches []model.ConfigStoreCache) (model.ConfigStoreCache, error) {
+func MakeCache(caches []model.ConfigStoreController) (model.ConfigStoreController, error) {
 	return MakeWriteableCache(caches, nil)
 }
 
@@ -169,7 +169,7 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 
 type storeCache struct {
 	model.ConfigStore
-	caches []model.ConfigStoreCache
+	caches []model.ConfigStoreController
 }
 
 func (cr *storeCache) HasSynced() bool {

@@ -176,8 +176,8 @@ type ConfigStore interface {
 
 type EventHandler = func(config.Config, config.Config, Event)
 
-// ConfigStoreCache is a local fully-replicated cache of the config store.  The
-// cache actively synchronizes its local state with the remote store and
+// ConfigStoreController is a local fully-replicated cache of the config store with additional handlers.  The
+// controller actively synchronizes its local state with the remote store and
 // provides a notification mechanism to receive update events. As such, the
 // notification handlers must be registered prior to calling _Run_, and the
 // cache requires initial synchronization grace period after calling  _Run_.
@@ -189,7 +189,7 @@ type EventHandler = func(config.Config, config.Config, Event)
 // Handlers execute on the single worker queue in the order they are appended.
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be registered before starting the cache controller.
-type ConfigStoreCache interface {
+type ConfigStoreController interface {
 	ConfigStore
 
 	// RegisterEventHandler adds a handler to receive config update events for a
@@ -371,7 +371,7 @@ type istioConfigStore struct {
 }
 
 // MakeIstioStore creates a wrapper around a store.
-// In pilot it is initialized with a ConfigStoreCache, tests only use
+// In pilot it is initialized with a ConfigStoreController, tests only use
 // a regular ConfigStore.
 func MakeIstioStore(store ConfigStore) ConfigStore {
 	return &istioConfigStore{store}
