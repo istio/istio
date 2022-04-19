@@ -505,7 +505,7 @@ func (a *Agent) initSdsServer() error {
 
 	pkpConf := a.proxyConfig.GetPrivateKeyProvider()
 	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache, pkpConf)
-	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
+	a.secretCache.RegisterSecretHandler(a.sdsServer.OnSecretUpdate)
 
 	return nil
 }

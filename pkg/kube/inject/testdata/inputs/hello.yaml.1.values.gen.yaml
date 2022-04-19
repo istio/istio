@@ -125,10 +125,6 @@
     "enableNamespacesByDefault": false,
     "injectedAnnotations": {},
     "neverInjectSelector": [],
-    "objectSelector": {
-      "autoInject": true,
-      "enabled": true
-    },
     "rewriteAppHTTPProbe": true,
     "templates": {}
   }

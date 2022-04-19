@@ -34,6 +34,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -76,7 +77,7 @@ func getProxy() *model.Proxy {
 		},
 		ConfigNamespace: "not-default",
 	}
-	pr.DiscoverIPVersions()
+	pr.DiscoverIPMode()
 	return pr
 }
 
@@ -813,7 +814,7 @@ func TestGetActualWildcardAndLocalHost(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt.proxy.DiscoverIPVersions()
+		tt.proxy.DiscoverIPMode()
 		wm, lh := getActualWildcardAndLocalHost(tt.proxy)
 		if wm != tt.expected[0] && lh != tt.expected[1] {
 			t.Errorf("Test %s failed, expected: %s / %s got: %s / %s", tt.name, tt.expected[0], tt.expected[1], wm, lh)
@@ -1125,7 +1126,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	oldestService := getOldestService(services...)
 	p := &fakePlugin{}
 	proxy := getProxy()
-	proxy.DiscoverIPVersions()
+	proxy.DiscoverIPMode()
 	listeners := buildOutboundListeners(t, p, getProxy(), nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
@@ -1932,7 +1933,6 @@ func TestListenerAccessLogs(t *testing.T) {
 	env.Mesh().AccessLogFile = "foo"
 	listeners := buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
-
 		if l.AccessLog == nil {
 			t.Fatalf("expected access log configuration for %v", l)
 		}
@@ -2649,7 +2649,7 @@ func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *listener.Listener) 
 	}
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	actual := cfg.Fields["normalize_path"].GetBoolValue()
-	if actual != true {
+	if !actual {
 		t.Errorf("expected HTTP listener with normalize_path set to true, found false")
 	}
 }
@@ -2796,7 +2796,7 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istio
 }
 
 func (p *fakePlugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
-	var port uint32 = 0
+	var port uint32
 	if !passthrough {
 		port = in.ServiceInstance.Endpoint.EndpointPort
 	}
@@ -2962,7 +2962,7 @@ func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServ
 	env := model.Environment{
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		ConfigStore:      configStore,
 		Watcher:          mesh.NewFixedWatcher(m),
 	}
 	env.Init()
@@ -2980,6 +2980,7 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 		listenerOpts *buildListenerOpts
 		node         *model.Proxy
 		hostname     string
+		idleTimeout  *durationpb.Duration
 	}{
 		{
 			name:     "Registry_Only",
@@ -3015,6 +3016,46 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 			},
 			hostname: util.PassthroughCluster,
 		},
+		{
+			name:     "idle_timeout",
+			listener: &listener.Listener{},
+			listenerOpts: &buildListenerOpts{
+				push: push,
+			},
+			node: &model.Proxy{
+				ID: "foo.bar",
+				Metadata: &model.NodeMetadata{
+					IdleTimeout: "15s",
+				},
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+					},
+				},
+			},
+			hostname:    util.PassthroughCluster,
+			idleTimeout: durationpb.New(15 * time.Second),
+		},
+		{
+			name:     "invalid_idle_timeout",
+			listener: &listener.Listener{},
+			listenerOpts: &buildListenerOpts{
+				push: push,
+			},
+			node: &model.Proxy{
+				ID: "foo.bar",
+				Metadata: &model.NodeMetadata{
+					IdleTimeout: "s15s",
+				},
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+					},
+				},
+			},
+			hostname:    util.PassthroughCluster,
+			idleTimeout: durationpb.New(0 * time.Second),
+		},
 	}
 	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
 	for idx := range tests {
@@ -3036,6 +3077,9 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 			}
 			if tcpProxy.GetCluster() != tests[idx].hostname {
 				t.Errorf("Expected cluster %s but got %s\n", tests[idx].hostname, tcpProxy.GetCluster())
+			}
+			if tests[idx].idleTimeout != nil && !reflect.DeepEqual(tcpProxy.IdleTimeout, tests[idx].idleTimeout) {
+				t.Errorf("Expected IdleTimeout %s but got %s\n", tests[idx].idleTimeout, tcpProxy.IdleTimeout)
 			}
 		})
 	}

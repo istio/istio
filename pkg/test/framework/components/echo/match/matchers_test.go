@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
@@ -96,6 +95,11 @@ var _ echo.Instance = fakeInstance{}
 // fakeInstance wraps echo.Config for test-framework internals tests where we don't actually make calls
 type fakeInstance echo.Config
 
+func (f fakeInstance) WithWorkloads(wl ...echo.Workload) echo.Instance {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (f fakeInstance) Instances() echo.Instances {
 	return echo.Instances{f}
 }
@@ -142,11 +146,11 @@ func (f fakeInstance) Clusters() cluster.Clusters {
 	panic("implement me")
 }
 
-func (f fakeInstance) Call(echo.CallOptions) (echoClient.Responses, error) {
+func (f fakeInstance) Call(echo.CallOptions) (echo.CallResult, error) {
 	panic("implement me")
 }
 
-func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echoClient.Responses {
+func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echo.CallResult {
 	panic("implement me")
 }
 

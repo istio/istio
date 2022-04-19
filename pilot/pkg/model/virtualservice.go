@@ -526,6 +526,13 @@ func isRootVs(vs *networking.VirtualService) bool {
 	return false
 }
 
+// UseIngressSemantics determines which logic we should use for VirtualService
+// This allows ingress and VS to both be represented by VirtualService, but have different
+// semantics.
+func UseIngressSemantics(cfg config.Config) bool {
+	return cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsIngress
+}
+
 // UseGatewaySemantics determines which logic we should use for VirtualService
 // This allows gateway-api and VS to both be represented by VirtualService, but have different
 // semantics.

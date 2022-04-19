@@ -21,7 +21,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap/platform"
 	istioagent "istio.io/istio/pkg/istio-agent"
 )
@@ -30,13 +29,12 @@ import (
 const xdsHeaderPrefix = "XDS_HEADER_"
 
 func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
-	proxy.DiscoverIPVersions()
 	o := &istioagent.AgentOptions{
 		XDSRootCerts:                xdsRootCA,
 		CARootCerts:                 caRootCA,
 		XDSHeaders:                  map[string]string{},
 		XdsUdsPath:                  filepath.Join(cfg.ConfigPath, "XDS"),
-		IsIPv6:                      network.IsIPv6Proxy(proxy.IPAddresses),
+		IsIPv6:                      proxy.IsIPv6(),
 		ProxyType:                   proxy.Type,
 		EnableDynamicProxyConfig:    enableProxyConfigXdsEnv,
 		EnableDynamicBootstrap:      enableBootstrapXdsEnv,

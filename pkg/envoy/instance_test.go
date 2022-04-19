@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
-var envoyLogFormat = envoy.LogFormat("[ENVOY][%Y-%m-%d %T.%e][%t][%l][%n]")
+var envoyLogFormat = envoy.LogFormat("[ENVOY][%Y-%m-%d %T.%e][%t][%l][%n] %v")
 
 func TestNewWithoutConfigShouldFail(t *testing.T) {
 	g := NewWithT(t)

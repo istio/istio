@@ -39,10 +39,11 @@ func init() {
 }
 
 type instance struct {
-	id        resource.ID
-	config    echo.Config
-	address   string
-	workloads echo.Workloads
+	id             resource.ID
+	config         echo.Config
+	address        string
+	workloads      echo.Workloads
+	workloadFilter []echo.Workload
 }
 
 func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, error) {
@@ -128,8 +129,27 @@ func (i *instance) Addresses() []string {
 	return []string{i.address}
 }
 
+func (i *instance) WithWorkloads(wls ...echo.Workload) echo.Instance {
+	n := *i
+	i.workloadFilter = wls
+	return &n
+}
+
 func (i *instance) Workloads() (echo.Workloads, error) {
-	return i.workloads, nil
+	final := []echo.Workload{}
+	for _, wl := range i.workloads {
+		filtered := false
+		for _, filter := range i.workloadFilter {
+			if wl.Address() != filter.Address() {
+				filtered = true
+				break
+			}
+		}
+		if !filtered {
+			final = append(final, wl)
+		}
+	}
+	return final, nil
 }
 
 func (i *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
@@ -161,14 +181,18 @@ func (i *instance) Instances() echo.Instances {
 }
 
 func (i *instance) defaultClient() (*echoClient.Client, error) {
-	return i.workloads[0].(*workload).Client, nil
+	wl, err := i.Workloads()
+	if err != nil {
+		return nil, err
+	}
+	return wl[0].(*workload).Client, nil
 }
 
-func (i *instance) Call(opts echo.CallOptions) (echoClient.Responses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts)
+func (i *instance) Call(opts echo.CallOptions) (echo.CallResult, error) {
+	return common.ForwardEcho(i.Config().Service, i, opts, i.defaultClient)
 }
 
-func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echoClient.Responses {
+func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echo.CallResult {
 	t.Helper()
 	res, err := i.Call(opts)
 	if err != nil {

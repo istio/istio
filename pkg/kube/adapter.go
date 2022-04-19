@@ -42,7 +42,7 @@ type AdmissionReview struct {
 	// TypeMeta describes an individual object in an API response or request
 	// with strings representing the type of the object and its API schema version.
 	// Structures that are versioned or persisted should inline TypeMeta.
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta
 
 	// Request describes the attributes for the admission request.
 	Request *AdmissionRequest `json:"request,omitempty"`

@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
@@ -293,7 +294,6 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	}
 
 	namespace := proxy.ConfigNamespace
-	workload := labels.Collection{proxy.Metadata.Labels}
 	// Order here matters. The latter elements will override the first elements
 	ms := []*tpb.Metrics{}
 	ls := []*tpb.AccessLogging{}
@@ -325,7 +325,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 			continue
 		}
 		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-		if workload.IsSupersetOf(selector) {
+		if selector.SubsetOf(proxy.Metadata.Labels) {
 			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
 			ls = append(ls, spec.GetAccessLogging()...)
@@ -681,11 +681,6 @@ func getMatches(match *tpb.MetricSelector) []string {
 	}
 }
 
-const (
-	statsFilterName       = "istio.stats"
-	stackdriverFilterName = "istio.stackdriver"
-)
-
 func statsRootIDForClass(class networking.ListenerClass) string {
 	switch class {
 	case networking.ListenerClassSidecarInbound:
@@ -718,7 +713,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 
 			f := &hcm.HttpFilter{
-				Name:       statsFilterName,
+				Name:       xds.StatsFilterName,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
@@ -736,7 +731,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 
 			f := &hcm.HttpFilter{
-				Name:       stackdriverFilterName,
+				Name:       xds.StackdriverFilterName,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
@@ -767,7 +762,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 
 			f := &listener.Filter{
-				Name:       statsFilterName,
+				Name:       xds.StatsFilterName,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
@@ -785,7 +780,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 
 			f := &listener.Filter{
-				Name:       stackdriverFilterName,
+				Name:       xds.StackdriverFilterName,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)

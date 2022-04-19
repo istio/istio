@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func createConfigs(configs []*config.Config, store model.IstioConfigStore, t testing.TB) {
+func createConfigs(configs []*config.Config, store model.ConfigStore, t testing.TB) {
 	t.Helper()
 	for _, cfg := range configs {
 		_, err := store.Create(*cfg)
@@ -55,14 +55,14 @@ func createConfigs(configs []*config.Config, store model.IstioConfigStore, t tes
 	}
 }
 
-func callInstanceHandlers(instances []*model.WorkloadInstance, sd *ServiceEntryStore, ev model.Event, t testing.TB) {
+func callInstanceHandlers(instances []*model.WorkloadInstance, sd *Controller, ev model.Event, t testing.TB) {
 	t.Helper()
 	for _, instance := range instances {
 		sd.WorkloadInstanceHandler(instance, ev)
 	}
 }
 
-func deleteConfigs(configs []*config.Config, store model.IstioConfigStore, t testing.TB) {
+func deleteConfigs(configs []*config.Config, store model.ConfigStore, t testing.TB) {
 	t.Helper()
 	for _, cfg := range configs {
 		err := store.Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace, nil)
@@ -137,13 +137,13 @@ func waitForEvent(t testing.TB, ch chan Event) Event {
 	}
 }
 
-func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
-	return initServiceDiscoveryWithOpts()
+func initServiceDiscovery() (model.ConfigStore, *Controller, chan Event, func()) {
+	return initServiceDiscoveryWithOpts(false)
 }
 
 // initServiceDiscoveryWithoutEvents initializes a test setup with no events. This avoids excessive attempts to push
 // EDS updates to a full queue
-func initServiceDiscoveryWithoutEvents(t test.Failer) (model.IstioConfigStore, *ServiceEntryStore) {
+func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Controller) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
@@ -165,14 +165,14 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.IstioConfigStore, *
 	}()
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater)
+	serviceController := NewController(configController, istioStore, xdsUpdater)
 	t.Cleanup(func() {
 		close(stop)
 	})
 	return istioStore, serviceController
 }
 
-func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
+func initServiceDiscoveryWithOpts(workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, chan Event, func()) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
@@ -185,9 +185,14 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 	}
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater, opts...)
-	go serviceController.Run(stop)
-	return istioStore, serviceController, eventch, func() {
+	var controller *Controller
+	if !workloadOnly {
+		controller = NewController(configController, istioStore, xdsUpdater, opts...)
+	} else {
+		controller = NewWorkloadEntryController(configController, istioStore, xdsUpdater, opts...)
+	}
+	go controller.Run(stop)
+	return istioStore, controller, eventch, func() {
 		close(stop)
 	}
 }
@@ -1044,7 +1049,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 	})
 }
 
-func expectProxyInstances(t testing.TB, sd *ServiceEntryStore, expected []*model.ServiceInstance, ip string) {
+func expectProxyInstances(t testing.TB, sd *Controller, expected []*model.ServiceInstance, ip string) {
 	t.Helper()
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
@@ -1099,7 +1104,7 @@ func expectEvents(t testing.TB, ch chan Event, events ...Event) {
 	}
 }
 
-func expectServiceInstances(t testing.TB, sd *ServiceEntryStore, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
+func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
 	t.Helper()
 	svcs := convertServices(*cfg)
 	if len(svcs) != len(expected) {
@@ -1481,10 +1486,11 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			},
 			wantServices: []*model.Service{
 				{
-					Hostname:             "foo.com",
-					Resolution:           model.ClientSideLB,
-					DefaultAddress:       "0.0.0.0",
-					AutoAllocatedAddress: "240.240.0.1",
+					Hostname:                 "foo.com",
+					Resolution:               model.ClientSideLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.0.1",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
 				},
 			},
 		},
@@ -1499,18 +1505,25 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			},
 			wantServices: []*model.Service{
 				{
-					Hostname:             "foo.com",
-					Resolution:           model.DNSLB,
-					DefaultAddress:       "0.0.0.0",
-					AutoAllocatedAddress: "240.240.0.1",
+					Hostname:                 "foo.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.0.1",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := autoAllocateIPs(tt.inServices); !reflect.DeepEqual(got, tt.wantServices) {
-				t.Errorf("autoAllocateIPs() = %v, want %v", got, tt.wantServices)
+			got := autoAllocateIPs(tt.inServices)
+			if got[0].AutoAllocatedIPv4Address != tt.wantServices[0].AutoAllocatedIPv4Address {
+				t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+					got[0].AutoAllocatedIPv4Address, tt.wantServices[0].AutoAllocatedIPv4Address)
+			}
+			if got[0].AutoAllocatedIPv6Address != tt.wantServices[0].AutoAllocatedIPv6Address {
+				t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+					got[0].AutoAllocatedIPv6Address, tt.wantServices[0].AutoAllocatedIPv6Address)
 			}
 		})
 	}
@@ -1545,24 +1558,24 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		"240.240.2.255": true,
 	}
 	expectedLastIP := "240.240.2.4"
-	if gotServices[len(gotServices)-1].AutoAllocatedAddress != expectedLastIP {
-		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedAddress)
+	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
+		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
 
 	gotIPMap := make(map[string]bool)
 	for _, svc := range gotServices {
-		if svc.AutoAllocatedAddress == "" || doNotWant[svc.AutoAllocatedAddress] {
-			t.Errorf("unexpected value for auto allocated IP address %s", svc.AutoAllocatedAddress)
+		if svc.AutoAllocatedIPv4Address == "" || doNotWant[svc.AutoAllocatedIPv4Address] {
+			t.Errorf("unexpected value for auto allocated IP address %s", svc.AutoAllocatedIPv4Address)
 		}
-		if gotIPMap[svc.AutoAllocatedAddress] {
-			t.Errorf("multiple allocations of same IP address to different services: %s", svc.AutoAllocatedAddress)
+		if gotIPMap[svc.AutoAllocatedIPv4Address] {
+			t.Errorf("multiple allocations of same IP address to different services: %s", svc.AutoAllocatedIPv4Address)
 		}
-		gotIPMap[svc.AutoAllocatedAddress] = true
+		gotIPMap[svc.AutoAllocatedIPv4Address] = true
 	}
 }
 
 func TestWorkloadEntryOnlyMode(t *testing.T) {
-	store, registry, _, cleanup := initServiceDiscoveryWithOpts(DisableServiceEntryProcessing())
+	store, registry, _, cleanup := initServiceDiscoveryWithOpts(true)
 	defer cleanup()
 	createConfigs([]*config.Config{httpStatic}, store, t)
 	svcs := registry.Services()

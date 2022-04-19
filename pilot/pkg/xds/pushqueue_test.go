@@ -202,7 +202,7 @@ func TestProxyQueue(t *testing.T) {
 		if !reflect.DeepEqual(model.ConfigsOfKind(info.ConfigsUpdated, gvk.ServiceEntry), expectedEds) {
 			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, model.ConfigsOfKind(info.ConfigsUpdated, gvk.ServiceEntry))
 		}
-		if info.Full != false {
+		if info.Full {
 			t.Errorf("Expected full to be false, got true")
 		}
 	})

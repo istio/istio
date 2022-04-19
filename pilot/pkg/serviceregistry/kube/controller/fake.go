@@ -109,7 +109,7 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, _ string,
 
 func (fx *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
 	select {
-	case fx.Events <- FakeXdsEvent{Type: "removeShard", ID: string(shardKey)}:
+	case fx.Events <- FakeXdsEvent{Type: "removeShard", ID: shardKey.String()}:
 	default:
 	}
 }

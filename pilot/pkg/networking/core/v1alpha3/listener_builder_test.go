@@ -64,7 +64,7 @@ func getDefaultProxy() *model.Proxy {
 		ConfigNamespace: "not-default",
 	}
 
-	proxy.DiscoverIPVersions()
+	proxy.DiscoverIPMode()
 	return &proxy
 }
 
@@ -802,7 +802,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 					t.Fatalf("expected certificate httpbin.pem, actual %s",
 						commonTLSContext.TlsCertificates[0].CertificateChain.String())
 				}
-				if tlsContext.RequireClientCertificate.Value == true {
+				if tlsContext.RequireClientCertificate.Value {
 					t.Fatalf("expected RequireClientCertificate to be false")
 				}
 			},

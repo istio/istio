@@ -40,10 +40,10 @@ import (
 // TODO: we can also add a special marker in the header)
 type APIGenerator struct {
 	// ConfigStore interface for listing istio api resources.
-	store model.IstioConfigStore `json:"-"`
+	store model.ConfigStore
 }
 
-func NewGenerator(store model.IstioConfigStore) *APIGenerator {
+func NewGenerator(store model.ConfigStore) *APIGenerator {
 	return &APIGenerator{
 		store: store,
 	}

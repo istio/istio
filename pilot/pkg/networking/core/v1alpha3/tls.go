@@ -30,7 +30,7 @@ import (
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int, proxyNamespace string) bool {
+func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Instance, gateways map[string]bool, port int, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -40,7 +40,7 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection,
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := proxyLabels.IsSupersetOf(match.SourceLabels)
+	labelMatch := labels.Instance(match.SourceLabels).SubsetOf(proxyLabels)
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
@@ -52,7 +52,7 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection,
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int, proxyNamespace string) bool {
+func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Instance, gateways map[string]bool, port int, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -62,7 +62,7 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, 
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := proxyLabels.IsSupersetOf(match.SourceLabels)
+	labelMatch := labels.Instance(match.SourceLabels).SubsetOf(proxyLabels)
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
@@ -127,12 +127,15 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tls := range virtualService.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port, node.Metadata.Namespace) {
+				if matchTLS(match, node.Metadata.Labels, gateways, listenPort.Port, node.Metadata.Namespace) {
 					// Use the service's CIDRs.
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
 					// destinationCIDR will be empty for services with VIPs
-					destinationCIDRs := []string{destinationCIDR}
+					var destinationCIDRs []string
+					if destinationCIDR != "" {
+						destinationCIDRs = []string{destinationCIDR}
+					}
 					// Only set CIDR match if the listener is bound to an IP.
 					// If its bound to a unix domain socket, then ignore the CIDR matches
 					// Unix domain socket bound ports have Port value set to 0
@@ -223,7 +226,10 @@ TcpLoop:
 	for _, cfg := range configs {
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tcp := range virtualService.Tcp {
-			destinationCIDRs := []string{destinationCIDR}
+			var destinationCIDRs []string
+			if destinationCIDR != "" {
+				destinationCIDRs = []string{destinationCIDR}
+			}
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
@@ -241,7 +247,7 @@ TcpLoop:
 			virtualServiceDestinationSubnets := make([]string, 0)
 
 			for _, match := range tcp.Match {
-				if matchTCP(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port, node.Metadata.Namespace) {
+				if matchTCP(match, node.Metadata.Labels, gateways, listenPort.Port, node.Metadata.Namespace) {
 					// Scan all the match blocks
 					// if we find any match block without a runtime destination subnet match
 					// i.e. match any destination address, then we treat it as the terminal match/catch all match
@@ -257,9 +263,8 @@ TcpLoop:
 						})
 						defaultRouteAdded = true
 						break TcpLoop
-					} else {
-						virtualServiceDestinationSubnets = append(virtualServiceDestinationSubnets, match.DestinationSubnets...)
 					}
+					virtualServiceDestinationSubnets = append(virtualServiceDestinationSubnets, match.DestinationSubnets...)
 				}
 			}
 

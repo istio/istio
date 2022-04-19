@@ -80,7 +80,7 @@ func (s *TestServer) Connect() *xds.AdsTest {
 func (s *TestServer) UpdateSecret(name string, secret *ca2.SecretItem) {
 	s.t.Helper()
 	s.store.Set(name, secret)
-	s.server.UpdateCallback(name)
+	s.server.OnSecretUpdate(name)
 }
 
 type Expectation struct {

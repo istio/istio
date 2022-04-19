@@ -15,7 +15,7 @@
 package namespace
 
 var (
-	chck Static   = ""
+	chck Static
 	_    Instance = &chck
 )
 

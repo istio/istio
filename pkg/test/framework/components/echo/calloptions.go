@@ -23,7 +23,6 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/util/retry"
@@ -98,8 +97,14 @@ type Target interface {
 
 // CallOptions defines options for calling a Endpoint.
 type CallOptions struct {
-	// To is the Target to be called. Required.
+	// To is the Target to be called.
 	To Target
+
+	// ToWorkload will call a specific workload in this instance, rather than the Service.
+	// If there are multiple workloads in the Instance, the first is used.
+	// Can be used with `ToWorkload: to.WithWorkloads(someWl)` to send to a specific workload.
+	// When using the Port field, the ServicePort should be used.
+	ToWorkload Instance
 
 	// Port to be used for the call. Ignored if Scheme == DNS. If the Port.ServicePort is set,
 	// either Port.Protocol or Scheme must also be set. If Port.ServicePort is not set,
@@ -138,7 +143,7 @@ type CallOptions struct {
 
 	// Check the server responses. If none is provided, only the number of responses received
 	// will be checked.
-	Check check.Checker
+	Check Checker
 }
 
 // GetHost returns the best default host for the call. Returns the first host defined from the following
@@ -209,19 +214,28 @@ func (o *CallOptions) FillDefaults() error {
 
 	// If no Check was specified, assume no error.
 	if o.Check == nil {
-		o.Check = check.None()
+		o.Check = NoChecker()
 	}
 	return nil
 }
 
 func (o *CallOptions) fillAddress() error {
 	if o.Address == "" {
-		if o.To == nil {
-			return errors.New("if address is not set, then To must be set")
+		if o.To != nil {
+			// No host specified, use the fully qualified domain name for the service.
+			o.Address = o.To.Config().ClusterLocalFQDN()
+			return nil
+		}
+		if o.ToWorkload != nil {
+			wl, err := o.ToWorkload.Workloads()
+			if err != nil {
+				return err
+			}
+			o.Address = wl[0].Address()
+			return nil
 		}
 
-		// No host specified, use the fully qualified domain name for the service.
-		o.Address = o.To.Config().ClusterLocalFQDN()
+		return errors.New("if address is not set, then To must be set")
 	}
 	return nil
 }
@@ -242,33 +256,57 @@ func (o *CallOptions) fillPort() error {
 	}
 
 	if o.To != nil {
-		servicePorts := o.To.Config().Ports.GetServicePorts()
-
-		if o.Port.Name != "" {
-			// Look up the port by name.
-			p, found := servicePorts.ForName(o.Port.Name)
-			if !found {
-				return fmt.Errorf("callOptions: no port named %s available in To Instance", o.Port.Name)
-			}
-			o.Port = p
-			return nil
+		return o.fillPort2(o.To)
+	} else if o.ToWorkload != nil {
+		err := o.fillPort2(o.ToWorkload)
+		if err != nil {
+			return err
 		}
-
-		if o.Port.Protocol != "" {
-			// Look up the port by protocol.
-			p, found := servicePorts.ForProtocol(o.Port.Protocol)
-			if !found {
-				return fmt.Errorf("callOptions: no port for protocol %s available in To Instance", o.Port.Protocol)
-			}
-			o.Port = p
-			return nil
-		}
+		// Set the ServicePort to workload port since we are not reaching it through the Service
+		p := o.Port
+		p.ServicePort = p.WorkloadPort
+		o.Port = p
 	}
 
 	if o.Port.ServicePort <= 0 || (o.Port.Protocol == "" && o.Scheme == "") || o.Address == "" {
 		return fmt.Errorf("if target is not set, then port.servicePort, port.protocol or schema, and address must be set")
 	}
 
+	return nil
+}
+
+func (o *CallOptions) fillPort2(target Target) error {
+	servicePorts := target.Config().Ports.GetServicePorts()
+
+	if o.Port.Name != "" {
+		// Look up the port by name.
+		p, found := servicePorts.ForName(o.Port.Name)
+		if !found {
+			return fmt.Errorf("callOptions: no port named %s available in To Instance", o.Port.Name)
+		}
+		o.Port = p
+		return nil
+	}
+
+	if o.Port.Protocol != "" {
+		// Look up the port by protocol.
+		p, found := servicePorts.ForProtocol(o.Port.Protocol)
+		if !found {
+			return fmt.Errorf("callOptions: no port for protocol %s available in To Instance", o.Port.Protocol)
+		}
+		o.Port = p
+		return nil
+	}
+
+	if o.Port.ServicePort != 0 {
+		// We just have a single port number, populate the rest of the fields
+		p, found := servicePorts.ForServicePort(o.Port.ServicePort)
+		if !found {
+			return fmt.Errorf("callOptions: no port %d available in To Instance", o.Port.ServicePort)
+		}
+		o.Port = p
+		return nil
+	}
 	return nil
 }
 
@@ -284,6 +322,9 @@ func (o *CallOptions) fillScheme() error {
 }
 
 func (o *CallOptions) fillHeaders() {
+	if o.ToWorkload != nil {
+		return
+	}
 	// Initialize the headers and add a default Host header if none provided.
 	if o.HTTP.Headers == nil {
 		o.HTTP.Headers = make(http.Header)

@@ -97,7 +97,7 @@ type ConfigGenTest struct {
 	env                  *model.Environment
 	ConfigGen            *ConfigGeneratorImpl
 	MemRegistry          *memregistry.ServiceDiscovery
-	ServiceEntryRegistry *serviceentry.ServiceEntryStore
+	ServiceEntryRegistry *serviceentry.Controller
 	Registry             model.Controller
 	initialConfigs       []config.Config
 	stop                 chan struct{}
@@ -127,7 +127,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
-	se := serviceentry.NewServiceDiscovery(
+	se := serviceentry.NewController(
 		configController, model.MakeIstioStore(configStore),
 		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
@@ -137,7 +137,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		msd.AddInstance(instance.Service.Hostname, instance)
 	}
 	msd.AddGateways(opts.Gateways...)
-	msd.ClusterID = string(provider.Mock)
+	msd.ClusterID = cluster2.ID(provider.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
 		ClusterID:        cluster2.ID(provider.Mock),
 		ProviderID:       provider.Mock,
@@ -154,7 +154,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
 	env.ServiceDiscovery = serviceDiscovery
-	env.IstioConfigStore = model.MakeIstioStore(configController)
+	env.ConfigStore = model.MakeIstioStore(configController)
 	env.NetworksWatcher = opts.NetworksWatcher
 	env.Init()
 
@@ -244,7 +244,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	p.SetSidecarScope(pc)
 	p.SetServiceInstances(f.env.ServiceDiscovery)
 	p.SetGatewaysForProxy(pc)
-	p.DiscoverIPVersions()
+	p.DiscoverIPMode()
 	return p
 }
 

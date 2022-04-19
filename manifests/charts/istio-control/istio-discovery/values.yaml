@@ -94,12 +94,6 @@ sidecarInjectorWebhook:
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
 
-  # Enable objectSelector to filter out pods with no need for sidecar before calling istiod.
-  # It is enabled by default as the minimum supported Kubernetes version is 1.15+
-  objectSelector:
-    enabled: true
-    autoInject: true
-
   rewriteAppHTTPProbe: true
 
   # Templates defines a set of custom injection templates that can be used. For example, defining:

@@ -89,7 +89,7 @@ func verifyRootCertAndPrivateKey(t *testing.T, shouldMatch bool, itemA, itemB ro
 	// Root cert rotation does not change root private key. Root private key should
 	// remain the same.
 	isMatched = bytes.Equal(itemA.caSecret.Data[CAPrivateKeyFile], itemB.caSecret.Data[CAPrivateKeyFile])
-	if isMatched != true {
+	if !isMatched {
 		t.Errorf("Root private key should not change. Want %v got %v", shouldMatch, isMatched)
 	}
 }
