@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/tools/istio-iptables/pkg/capture"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -78,16 +79,19 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		if cfg.RunValidation {
-			hostIP, err := getLocalIP()
+			hostIPs, err := getLocalIP()
 			if err != nil {
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
 			}
-			validator := validation.NewValidator(cfg, hostIP)
 
-			if err := validator.Run(); err != nil {
-				handleErrorWithCode(err, constants.ValidationErrorCode)
+			for _, hostIP := range hostIPs {
+				validator := validation.NewValidator(cfg, hostIP)
+				if err := validator.Run(); err != nil {
+					handleErrorWithCode(err, constants.ValidationErrorCode)
+				}
 			}
+
 		}
 	},
 }
@@ -162,11 +166,18 @@ func constructConfig() *config.Config {
 	}
 
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	podIP, err := getLocalIP()
+	podIPs, err := getLocalIP()
 	if err != nil {
 		panic(err)
 	}
-	cfg.EnableInboundIPv6 = podIP.To4() == nil
+
+	var arrPodIPs []string
+	for _, podIP := range podIPs {
+		arrPodIPs = append(arrPodIPs, podIP.String())
+	}
+	if networkutil.AllIPv6(arrPodIPs) {
+		cfg.EnableInboundIPv6 = true
+	}
 
 	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
 	// case where reading /etc/resolv.conf could fail.
@@ -183,18 +194,22 @@ func constructConfig() *config.Config {
 }
 
 // getLocalIP returns the local IP address
-func getLocalIP() (net.IP, error) {
+func getLocalIP() ([]net.IP, error) {
 	addrs, err := LocalIPAddrs()
 	if err != nil {
 		return nil, err
 	}
 
+	var netip []net.IP
 	for _, a := range addrs {
 		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() {
-			return ipnet.IP, nil
+			netip = append(netip, ipnet.IP)
 		}
 	}
-	return nil, fmt.Errorf("no valid local IP address found")
+	if len(netip) != 0 {
+		return netip, nil
+	}
+	return netip, fmt.Errorf("no valid local IP address found")
 }
 
 func handleError(err error) {
