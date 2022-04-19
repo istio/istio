@@ -140,9 +140,6 @@ type Options struct {
 	// Maximum burst for throttle when communicating with the kubernetes API
 	KubernetesAPIBurst int
 
-	// Duration to wait for cache syncs
-	SyncInterval time.Duration
-
 	// SyncTimeout, if set, causes HasSynced to be returned when marked true.
 	SyncTimeout *atomic.Bool
 
@@ -150,14 +147,7 @@ type Options struct {
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 }
 
-func (o Options) GetSyncInterval() time.Duration {
-	if o.SyncInterval != 0 {
-		return o.SyncInterval
-	}
-	return time.Millisecond * 100
-}
-
-// EnableEndpointSliceController determines whether to use Endpoints or EndpointSlice based on the
+// DetectEndpointMode determines whether to use Endpoints or EndpointSlice based on the
 // feature flag and/or Kubernetes version
 func DetectEndpointMode(kubeClient kubelib.Client) EndpointMode {
 	useEndpointslice, ok := features.EnableEndpointSliceController()
@@ -837,7 +827,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	}
 	c.informerInit.Store(true)
 
-	kubelib.WaitForCacheSyncInterval(stop, c.opts.GetSyncInterval(), c.informersSynced)
+	cache.WaitForCacheSync(stop, c.informersSynced)
 	// after informer caches sync the first time, process resources in order
 	if err := c.SyncAll(); err != nil {
 		log.Errorf("one or more errors force-syncing resources: %v", err)

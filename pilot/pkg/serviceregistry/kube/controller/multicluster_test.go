@@ -103,7 +103,6 @@ func Test_KubeSecretController(t *testing.T) {
 			ClusterID:             "cluster-1",
 			DomainSuffix:          DomainSuffix,
 			ResyncPeriod:          ResyncPeriod,
-			SyncInterval:          time.Microsecond,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
 		}, nil, nil, "default", false, nil, s)
@@ -164,7 +163,6 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 			ClusterID:             "cluster-1",
 			DomainSuffix:          DomainSuffix,
 			ResyncPeriod:          ResyncPeriod,
-			SyncInterval:          time.Microsecond,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
 		}, nil, certWatcher, "default", false, nil, s)
