@@ -19,6 +19,7 @@ package security
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
@@ -1417,13 +1419,14 @@ func TestAuthorization_Custom(t *testing.T) {
 				Prefix: "v1beta1-custom",
 				Inject: true,
 			})
-			args := map[string]string{
-				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
+
+			customAuthzYAML, err := readCustomAuthzYAML(t)
+			if err != nil {
+				t.Fatal(err)
 			}
 
 			// Deploy and wait for the ext-authz server to be ready.
-			t.ConfigIstio().EvalFile(ns.Name(), args, "../../../samples/extauthz/ext-authz.yaml").ApplyOrFail(t)
+			t.ConfigIstio().YAML(ns.Name(), customAuthzYAML).ApplyOrFail(t)
 			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns.Name(), "ext-authz"); err != nil {
 				t.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
@@ -1463,7 +1466,10 @@ extensionProviders:
     service: ext-authz-grpc.local
     port: 9000`, extService, extServiceWithNs))
 
-			t.ConfigIstio().EvalFile("", args, "testdata/authz/v1beta1-custom.yaml.tmpl").ApplyOrFail(t)
+			t.ConfigIstio().EvalFile("", map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
+			}, "testdata/authz/v1beta1-custom.yaml.tmpl").ApplyOrFail(t)
 			ports := []echo.Port{
 				{
 					Name:         "tcp-8092",
@@ -1642,6 +1648,29 @@ extensionProviders:
 				}
 			})
 		})
+}
+
+func readCustomAuthzYAML(ctx resource.Context) (string, error) {
+	// Read the samples file.
+	filePath := fmt.Sprintf("%s/samples/extauthz/ext-authz.yaml", env.IstioSrc)
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	yamlText := string(data)
+
+	// Replace the image.
+	s := ctx.Settings().Image
+	oldImage := "gcr.io/istio-testing/ext-authz:latest"
+	newImage := fmt.Sprintf("%s/ext-authz:%s", s.Hub, strings.TrimSuffix(s.Tag, "-distroless"))
+	yamlText = strings.ReplaceAll(yamlText, oldImage, newImage)
+
+	// Replace the image pull policy
+	oldPolicy := "IfNotPresent"
+	newPolicy := s.PullPolicy
+	yamlText = strings.ReplaceAll(yamlText, oldPolicy, newPolicy)
+
+	return yamlText, nil
 }
 
 type rbacTestName string

@@ -22,8 +22,8 @@ import (
 
 	authv2 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
-	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -44,7 +44,7 @@ func TestExtAuthz(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	grpcV3Client := authv3.NewAuthorizationClient(conn)
 	grpcV2Client := authv2.NewAuthorizationClient(conn)
 
@@ -69,25 +69,25 @@ func TestExtAuthz(t *testing.T) {
 			name:     "GRPCv3-allow",
 			isGRPCV3: true,
 			header:   "allow",
-			want:     int(rpc.OK),
+			want:     int(codes.OK),
 		},
 		{
 			name:     "GRPCv3-deny",
 			isGRPCV3: true,
 			header:   "deny",
-			want:     int(rpc.PERMISSION_DENIED),
+			want:     int(codes.PermissionDenied),
 		},
 		{
 			name:     "GRPCv2-allow",
 			isGRPCV2: true,
 			header:   "allow",
-			want:     int(rpc.OK),
+			want:     int(codes.OK),
 		},
 		{
 			name:     "GRPCv2-deny",
 			isGRPCV2: true,
 			header:   "deny",
-			want:     int(rpc.PERMISSION_DENIED),
+			want:     int(codes.PermissionDenied),
 		},
 	}
 	for _, tc := range cases {
