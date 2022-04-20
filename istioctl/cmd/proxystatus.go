@@ -37,9 +37,7 @@ type statusArguments struct {
 	output string
 }
 
-var (
-	statusArgs = statusArguments{}
-)
+var statusArgs = statusArguments{}
 
 func statusCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
