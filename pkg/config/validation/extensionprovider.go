@@ -167,16 +167,29 @@ func validateExtensionProviderTracingSkyWalking(config *meshconfig.MeshConfig_Ex
 	return
 }
 
-func validateExtensionProviderMetricsPrometheus(prometheus *meshconfig.MeshConfig_ExtensionProvider_PrometheusMetricsProvider) error {
+func validateExtensionProviderMetricsPrometheus(_ *meshconfig.MeshConfig_ExtensionProvider_PrometheusMetricsProvider) error {
 	return nil
 }
 
-func validateExtensionProviderStackdriver(stackdriver *meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider) error {
+func validateExtensionProviderStackdriver(_ *meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider) error {
 	return nil
 }
 
-func validateExtensionProviderEnvoyFileAccessLog(log *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider) error {
+func validateExtensionProviderEnvoyFileAccessLog(_ *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider) error {
 	return nil
+}
+
+func ValidateExtensionProviderEnvoyOtelAls(provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider) (errs error) {
+	if provider == nil {
+		return fmt.Errorf("nil EnvoyOpenTelemetryLogProvider")
+	}
+	if err := ValidatePort(int(provider.Port)); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	if err := validateExtensionProviderService(provider.Service); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	return
 }
 
 func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
@@ -214,6 +227,8 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderStackdriver(provider.Stackdriver))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyFileAccessLog(provider.EnvoyFileAccessLog))
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
+			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyOtelAls(provider.EnvoyOtelAls))
 		default:
 			currentErrs = appendErrors(currentErrs, fmt.Errorf("unsupported provider: %v of type %T", provider, provider))
 		}
