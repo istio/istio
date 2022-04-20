@@ -54,7 +54,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	scopes.Framework.Info("=== BEGIN: Deploy GCE Metadata Server ===")
 	defer func() {
 		if err != nil {
-			err = fmt.Errorf("gcemetadata deployment failed: %v", err) // nolint:golint
+			err = fmt.Errorf("gcemetadata deployment failed: %v", err)
 			scopes.Framework.Infof("=== FAILED: Deploy GCE Metadata Server ===")
 			_ = c.Close()
 		} else {

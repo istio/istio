@@ -18,7 +18,6 @@
 // The fuzzers can be moved to other files without anything
 // breaking on the OSS-fuzz side.
 
-// nolint: golint
 package fuzz
 
 import (

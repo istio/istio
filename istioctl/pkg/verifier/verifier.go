@@ -143,8 +143,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 			// - the user followed our remote control plane instructions
 			// - helm was used
 			// - user did `istioctl manifest generate | kubectl apply ...`
-			// nolint: golint,stylecheck
-			return fmt.Errorf("Istio present but verify-install needs an IstioOperator or manifest for comparison. Supply flag --filename <yaml>")
+			return fmt.Errorf("Istio present but verify-install needs an IstioOperator or manifest for comparison. Supply flag --filename <yaml>") // nolint: stylecheck
 		}
 		return fmt.Errorf("could not load IstioOperator from cluster: %v. Use --filename", err)
 	}
@@ -406,7 +405,7 @@ func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.Mutatin
 		return hookmatch, nil
 	}
 
-	return nil, fmt.Errorf("Istio injector revision %q not found", revision) // nolint: golint,stylecheck
+	return nil, fmt.Errorf("Istio injector revision %q not found", revision) // nolint: stylecheck
 }
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
