@@ -33,10 +33,10 @@ import (
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	typev2 "github.com/envoyproxy/go-control-plane/envoy/type"
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -51,10 +51,11 @@ const (
 )
 
 var (
-	serviceAccount = flag.String("allow_service_account", "a", "allowed service account, matched against the service account in the source principal from the client certificate")
-	httpPort       = flag.String("http", "8000", "HTTP server port")
-	grpcPort       = flag.String("grpc", "9000", "gRPC server port")
-	denyBody       = fmt.Sprintf("denied by ext_authz for not found header `%s: %s` in the request", checkHeader, allowedValue)
+	serviceAccount = flag.String("allow_service_account", "a",
+		"allowed service account, matched against the service account in the source principal from the client certificate")
+	httpPort = flag.String("http", "8000", "HTTP server port")
+	grpcPort = flag.String("grpc", "9000", "gRPC server port")
+	denyBody = fmt.Sprintf("denied by ext_authz for not found header `%s: %s` in the request", checkHeader, allowedValue)
 )
 
 type (
@@ -73,44 +74,46 @@ type ExtAuthzServer struct {
 	grpcPort chan int
 }
 
-// Check implements gRPC v2 check request.
-func (s *extAuthzServerV2) Check(ctx context.Context, request *authv2.CheckRequest) (*authv2.CheckResponse, error) {
-	l := fmt.Sprintf("%s%s, attributes: %v\n",
-		request.GetAttributes().GetRequest().GetHttp().GetHost(),
-		request.GetAttributes().GetRequest().GetHttp().GetPath(),
+func (s *extAuthzServerV2) logRequest(allow string, request *authv2.CheckRequest) {
+	httpAttrs := request.GetAttributes().GetRequest().GetHttp()
+	log.Printf("[gRPCv2][%s]: %s%s, attributes: %v\n", allow, httpAttrs.GetHost(),
+		httpAttrs.GetPath(),
 		request.GetAttributes())
-	if allowedValue == request.GetAttributes().GetRequest().GetHttp().GetHeaders()[checkHeader] || (request.GetAttributes().Source != nil && strings.HasSuffix(request.GetAttributes().Source.Principal, "/sa/"+*serviceAccount)) {
-		log.Printf("[gRPCv2][allowed]: %s", l)
-		return &authv2.CheckResponse{
-			HttpResponse: &authv2.CheckResponse_OkResponse{
-				OkResponse: &authv2.OkHttpResponse{
-					Headers: []*corev2.HeaderValueOption{
-						{
-							Header: &corev2.HeaderValue{
-								Key:   resultHeader,
-								Value: resultAllowed,
-							},
+}
+
+func (s *extAuthzServerV2) allow(request *authv2.CheckRequest) *authv2.CheckResponse {
+	s.logRequest("allowed", request)
+	return &authv2.CheckResponse{
+		HttpResponse: &authv2.CheckResponse_OkResponse{
+			OkResponse: &authv2.OkHttpResponse{
+				Headers: []*corev2.HeaderValueOption{
+					{
+						Header: &corev2.HeaderValue{
+							Key:   resultHeader,
+							Value: resultAllowed,
 						},
-						{
-							Header: &corev2.HeaderValue{
-								Key:   receivedHeader,
-								Value: request.GetAttributes().String(),
-							},
+					},
+					{
+						Header: &corev2.HeaderValue{
+							Key:   receivedHeader,
+							Value: request.GetAttributes().String(),
 						},
-						{
-							Header: &corev2.HeaderValue{
-								Key:   overrideHeader,
-								Value: overrideGRPCValue,
-							},
+					},
+					{
+						Header: &corev2.HeaderValue{
+							Key:   overrideHeader,
+							Value: overrideGRPCValue,
 						},
 					},
 				},
 			},
-			Status: &status.Status{Code: int32(rpc.OK)},
-		}, nil
+		},
+		Status: &status.Status{Code: int32(codes.OK)},
 	}
+}
 
-	log.Printf("[gRPCv2][denied]: %s", l)
+func (s *extAuthzServerV2) deny(request *authv2.CheckRequest) *authv2.CheckResponse {
+	s.logRequest("denied", request)
 	return &authv2.CheckResponse{
 		HttpResponse: &authv2.CheckResponse_DeniedResponse{
 			DeniedResponse: &authv2.DeniedHttpResponse{
@@ -138,48 +141,70 @@ func (s *extAuthzServerV2) Check(ctx context.Context, request *authv2.CheckReque
 				},
 			},
 		},
-		Status: &status.Status{Code: int32(rpc.PERMISSION_DENIED)},
-	}, nil
+		Status: &status.Status{Code: int32(codes.PermissionDenied)},
+	}
 }
 
-// Check implements gRPC v3 check request.
-func (s *extAuthzServerV3) Check(ctx context.Context, request *authv3.CheckRequest) (*authv3.CheckResponse, error) {
-	l := fmt.Sprintf("%s%s, attributes: %v\n",
-		request.GetAttributes().GetRequest().GetHttp().GetHost(),
-		request.GetAttributes().GetRequest().GetHttp().GetPath(),
+// Check implements gRPC v2 check request.
+func (s *extAuthzServerV2) Check(_ context.Context, request *authv2.CheckRequest) (*authv2.CheckResponse, error) {
+	attrs := request.GetAttributes()
+
+	// Determine whether to allow or deny the request.
+	allow := false
+	checkHeaderValue, contains := attrs.GetRequest().GetHttp().GetHeaders()[checkHeader]
+	if contains {
+		allow = checkHeaderValue == allowedValue
+	} else {
+		allow = attrs.Source != nil && strings.HasSuffix(attrs.Source.Principal, "/sa/"+*serviceAccount)
+	}
+
+	if allow {
+		return s.allow(request), nil
+	}
+
+	return s.deny(request), nil
+}
+
+func (s *extAuthzServerV3) logRequest(allow string, request *authv3.CheckRequest) {
+	httpAttrs := request.GetAttributes().GetRequest().GetHttp()
+	log.Printf("[gRPCv3][%s]: %s%s, attributes: %v\n", allow, httpAttrs.GetHost(),
+		httpAttrs.GetPath(),
 		request.GetAttributes())
-	if allowedValue == request.GetAttributes().GetRequest().GetHttp().GetHeaders()[checkHeader] || (request.GetAttributes().Source != nil && strings.HasSuffix(request.GetAttributes().Source.Principal, "/sa/"+*serviceAccount)) {
-		log.Printf("[gRPCv3][allowed]: %s", l)
-		return &authv3.CheckResponse{
-			HttpResponse: &authv3.CheckResponse_OkResponse{
-				OkResponse: &authv3.OkHttpResponse{
-					Headers: []*corev3.HeaderValueOption{
-						{
-							Header: &corev3.HeaderValue{
-								Key:   resultHeader,
-								Value: resultAllowed,
-							},
+}
+
+func (s *extAuthzServerV3) allow(request *authv3.CheckRequest) *authv3.CheckResponse {
+	s.logRequest("allowed", request)
+	return &authv3.CheckResponse{
+		HttpResponse: &authv3.CheckResponse_OkResponse{
+			OkResponse: &authv3.OkHttpResponse{
+				Headers: []*corev3.HeaderValueOption{
+					{
+						Header: &corev3.HeaderValue{
+							Key:   resultHeader,
+							Value: resultAllowed,
 						},
-						{
-							Header: &corev3.HeaderValue{
-								Key:   receivedHeader,
-								Value: request.GetAttributes().String(),
-							},
+					},
+					{
+						Header: &corev3.HeaderValue{
+							Key:   receivedHeader,
+							Value: request.GetAttributes().String(),
 						},
-						{
-							Header: &corev3.HeaderValue{
-								Key:   overrideHeader,
-								Value: overrideGRPCValue,
-							},
+					},
+					{
+						Header: &corev3.HeaderValue{
+							Key:   overrideHeader,
+							Value: overrideGRPCValue,
 						},
 					},
 				},
 			},
-			Status: &status.Status{Code: int32(rpc.OK)},
-		}, nil
+		},
+		Status: &status.Status{Code: int32(codes.OK)},
 	}
+}
 
-	log.Printf("[gRPCv3][denied]: %s", l)
+func (s *extAuthzServerV3) deny(request *authv3.CheckRequest) *authv3.CheckResponse {
+	s.logRequest("denied", request)
 	return &authv3.CheckResponse{
 		HttpResponse: &authv3.CheckResponse_DeniedResponse{
 			DeniedResponse: &authv3.DeniedHttpResponse{
@@ -207,8 +232,28 @@ func (s *extAuthzServerV3) Check(ctx context.Context, request *authv3.CheckReque
 				},
 			},
 		},
-		Status: &status.Status{Code: int32(rpc.PERMISSION_DENIED)},
-	}, nil
+		Status: &status.Status{Code: int32(codes.PermissionDenied)},
+	}
+}
+
+// Check implements gRPC v3 check request.
+func (s *extAuthzServerV3) Check(_ context.Context, request *authv3.CheckRequest) (*authv3.CheckResponse, error) {
+	attrs := request.GetAttributes()
+
+	// Determine whether to allow or deny the request.
+	allow := false
+	checkHeaderValue, contains := attrs.GetRequest().GetHttp().GetHeaders()[checkHeader]
+	if contains {
+		allow = checkHeaderValue == allowedValue
+	} else {
+		allow = attrs.Source != nil && strings.HasSuffix(attrs.Source.Principal, "/sa/"+*serviceAccount)
+	}
+
+	if allow {
+		return s.allow(request), nil
+	}
+
+	return s.deny(request), nil
 }
 
 // ServeHTTP implements the HTTP check request.
@@ -230,7 +275,7 @@ func (s *ExtAuthzServer) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.Header().Set(overrideHeader, request.Header.Get(overrideHeader))
 		response.Header().Set(receivedHeader, l)
 		response.WriteHeader(http.StatusForbidden)
-		response.Write([]byte(denyBody))
+		_, _ = response.Write([]byte(denyBody))
 	}
 }
 

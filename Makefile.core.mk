@@ -254,6 +254,7 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
+  ./samples/extauthz/cmd/extauthz \
   ./operator/cmd/operator \
   ./cni/cmd/istio-cni \
   ./cni/cmd/istio-cni-taint \

@@ -75,6 +75,12 @@ images:
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
 
+# Sample authz server
+- name: ext-authz
+  dockerfile: samples/extauthz/docker/Dockerfile
+  targets:
+    - ${TARGET_OUT_LINUX}/extauthz
+
 # TODO(https://github.com/istio/istio/issues/38224)
 #- name: app_sidecar_rockylinux_8
 #  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
