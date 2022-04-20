@@ -85,8 +85,8 @@ var rootCmd = &cobra.Command{
 				panic(err)
 			}
 
-			for _, hostIP := range hostIPs {
-				validator := validation.NewValidator(cfg, hostIP)
+			if len(hostIPs) > 0 {
+				validator := validation.NewValidator(cfg, hostIPs[0])
 				if err := validator.Run(); err != nil {
 					handleErrorWithCode(err, constants.ValidationErrorCode)
 				}
@@ -175,6 +175,7 @@ func constructConfig() *config.Config {
 	for _, podIP := range podIPs {
 		arrPodIPs = append(arrPodIPs, podIP.String())
 	}
+	// TODO(zhlsunshine): this assertion logic should be changed if Istio dual-stack is ready
 	if networkutil.AllIPv6(arrPodIPs) {
 		cfg.EnableInboundIPv6 = true
 	}
