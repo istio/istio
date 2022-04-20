@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -29,6 +30,7 @@ import (
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -575,7 +577,26 @@ func (a *Agent) Check() (err error) {
 
 func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	if a.localDNSServer != nil {
-		return a.localDNSServer.NameTable()
+		nt := a.localDNSServer.NameTable()
+		nt = proto.Clone(nt).(*dnsProto.NameTable)
+		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []net.IP, ipv6 []net.IP, _ []string) {
+			for host := range althosts {
+				if _, exists := nt.Table[host]; !exists {
+					adresses := make([]string, len(ipv4)+len(ipv6))
+					for _, ip := range ipv4 {
+						adresses = append(adresses, ip.String())
+					}
+					for _, ip := range ipv6 {
+						adresses = append(adresses, ip.String())
+					}
+					nt.Table[host] = &dnsProto.NameTable_NameInfo{
+						Ips:      adresses,
+						Registry: "Kubernetes",
+					}
+				}
+			}
+		})
+		return nt
 	}
 	return nil
 }

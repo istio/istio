@@ -188,6 +188,16 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 		name6:    map[string][]dns.RR{},
 		cname:    map[string][]dns.RR{},
 	}
+	h.BuildAlternateHosts(nt, lookupTable.buildDNSAnswers)
+	h.lookupTable.Store(lookupTable)
+	h.nameTable.Store(nt)
+	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
+}
+
+// BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
+// calls the passed in function with the built alternate hosts.
+func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
+	apply func(map[string]struct{}, []net.IP, []net.IP, []string)) {
 	for hostname, ni := range nt.Table {
 		// Given a host
 		// if its a non-k8s host, store the host+. as the key with the pre-computed DNS RR records
@@ -207,11 +217,8 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 			// malformed ips
 			continue
 		}
-		lookupTable.buildDNSAnswers(altHosts, ipv4, ipv6, h.searchNamespaces)
+		apply(altHosts, ipv4, ipv6, h.searchNamespaces)
 	}
-	h.lookupTable.Store(lookupTable)
-	h.nameTable.Store(nt)
-	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
 // upstrem sends the requeset to the upstream server, with associated logs and metrics
