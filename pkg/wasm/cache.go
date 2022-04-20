@@ -30,6 +30,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
@@ -52,7 +53,7 @@ const (
 
 // Cache models a Wasm module cache.
 type Cache interface {
-	Get(url, checksum string, timeout time.Duration, pullSecret []byte) (string, error)
+	Get(url, checksum string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error)
 	Cleanup()
 }
 
@@ -134,8 +135,22 @@ func urlAsResourceName(fullURLStr string) string {
 	return fullURLStr
 }
 
+func needToUseCache(pullPolicy extensions.PullPolicy, u *url.URL) bool {
+	if u.Scheme == "oci" {
+		switch pullPolicy {
+		case extensions.PullPolicy_Always:
+			return false
+		case extensions.PullPolicy_IfNotPresent:
+			return true
+		default:
+			return !strings.HasSuffix(u.Path, ":latest")
+		}
+	}
+	return true
+}
+
 // Get returns path the local Wasm module file.
-func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration, pullSecret []byte) (string, error) {
+func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -145,16 +160,18 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		},
 	}
 
-	// First check if the cache entry is already downloaded.
-	if modulePath := c.getEntry(key); modulePath != "" {
-		return modulePath, nil
-	}
-
-	// If not, fetch images.
 	u, err := url.Parse(downloadURL)
 	if err != nil {
 		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s", downloadURL)
 	}
+
+	// First check if the cache entry is already downloaded and policy does not require to pull always.
+	if needToUseCache(pullPolicy, u) {
+		if modulePath := c.getEntry(key); modulePath != "" {
+			return modulePath, nil
+		}
+	}
+	// If not, fetch images.
 
 	// Byte array of Wasm binary.
 	var b []byte
