@@ -84,9 +84,22 @@ var rootCmd = &cobra.Command{
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
 			}
-
-			if len(hostIPs) > 0 {
-				validator := validation.NewValidator(cfg, hostIPs[0])
+			var checkIPv4, checkIPv6 bool
+			for _, hostIP := range hostIPs {
+				// it's unnecessary to check all IP, only one of IPv4 and IPv6 should be validated
+				// if it's dual-stack cluster
+				if checkIPv4 && checkIPv6 {
+					break
+				}
+				if checkIPv4 || checkIPv6 {
+					continue
+				}
+				if hostIP.To4() != nil {
+					checkIPv4 = true
+				} else {
+					checkIPv6 = true
+				}
+				validator := validation.NewValidator(cfg, hostIP)
 				if err := validator.Run(); err != nil {
 					handleErrorWithCode(err, constants.ValidationErrorCode)
 				}
