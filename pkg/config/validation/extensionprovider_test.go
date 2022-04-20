@@ -289,3 +289,60 @@ func TestValidateExtensionProviderTracingOpenCensusAgent(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateExtensionProviderEnvoyOtelAls(t *testing.T) {
+	cases := []struct {
+		name     string
+		provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider
+		valid    bool
+	}{
+		{
+			name: "otel normal",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+				Service: "otel.istio-syste.svc",
+				Port:    4000,
+			},
+			valid: true,
+		},
+		{
+			name: "otel service with namespace",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+				Service: "namespace/otel.istio-syste.svc",
+				Port:    4000,
+			},
+			valid: true,
+		},
+		{
+			name: "otel service with invalid namespace",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+				Service: "name/space/otel.istio-syste.svc",
+				Port:    4000,
+			},
+			valid: false,
+		},
+		{
+			name: "otel service with port",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+				Service: "otel.istio-syste.svc:4000",
+				Port:    4000,
+			},
+			valid: false,
+		},
+		{
+			name: "otel missing port",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+				Service: "otel.istio-syste.svc",
+			},
+			valid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateExtensionProviderEnvoyOtelAls(c.provider)
+			valid := err == nil
+			if valid != c.valid {
+				t.Errorf("Expected valid=%v, got valid=%v for %v", c.valid, valid, c.provider)
+			}
+		})
+	}
+}
