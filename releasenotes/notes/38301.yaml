@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 38301
+
+releaseNotes:
+- |
+  **Added** `istioctl proxy-status` now supports `-o json`, which outputs proxy
+  information as json
