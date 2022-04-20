@@ -120,8 +120,8 @@ type Server struct {
 
 	multiclusterController *multicluster.Controller
 
-	configController       model.ConfigStoreCache
-	ConfigStores           []model.ConfigStoreCache
+	configController       model.ConfigStoreController
+	ConfigStores           []model.ConfigStoreController
 	serviceEntryController *serviceentry.Controller
 
 	httpServer       *http.Server // debug, monitoring and readiness Server.
@@ -182,7 +182,7 @@ type Server struct {
 	statusReporter *distribution.Reporter
 	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
-	RWConfigStore model.ConfigStoreCache
+	RWConfigStore model.ConfigStoreController
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -642,7 +642,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 	return nil
 }
 
-// initDiscoveryService intializes discovery server on plain text port.
+// initDiscoveryService initializes discovery server on plain text port.
 func (s *Server) initDiscoveryService(args *PilotArgs) {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
