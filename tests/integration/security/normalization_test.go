@@ -224,7 +224,7 @@ func TestNormalization(t *testing.T) {
 			}
 			for _, tt := range cases {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
-					istio.PatchMeshConfig(t, ist.Settings().SystemNamespace, t.Clusters(), fmt.Sprintf(`
+					istio.PatchMeshConfigOrFail(t, ist.Settings().SystemNamespace, t.Clusters(), fmt.Sprintf(`
 pathNormalization:
   normalization: %v`, tt.ntype.String()))
 					for _, c := range apps.A {
