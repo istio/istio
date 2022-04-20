@@ -70,8 +70,8 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		iptConfigurator := capture.NewIptablesConfigurator(cfg, ext)
 		if !cfg.SkipRuleApply {
+			iptConfigurator := capture.NewIptablesConfigurator(cfg, ext)
 			iptConfigurator.Run()
 			if err := capture.ConfigureRoutes(cfg, ext); err != nil {
 				log.Errorf("failed to configure routes: ")
