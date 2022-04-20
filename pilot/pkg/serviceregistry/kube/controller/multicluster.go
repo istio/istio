@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/kubernetes"
@@ -183,7 +182,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 		m.serviceEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 	} else if features.WorkloadEntryCrossCluster {
 		// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
-		if configStore, err := createConfigStore(client, m.revision, options); err == nil {
+		if configStore, err := createWleConfigStore(client, m.revision, options); err == nil {
 			m.remoteKubeControllers[cluster.ID].workloadEntryController = serviceentry.NewWorkloadEntryController(
 				configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
 				serviceentry.WithClusterID(cluster.ID),
@@ -311,12 +310,10 @@ func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 	return nil
 }
 
-func createConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreController, error) {
+func createWleConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreController, error) {
 	log.Infof("Creating WorkloadEntry only config store for %s", opts.ClusterID)
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
 		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
 		Build()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return crdclient.NewForSchemas(ctx, client, revision, opts.DomainSuffix, workloadEntriesSchemas)
+	return crdclient.NewForSchemas(client, revision, opts.DomainSuffix, workloadEntriesSchemas)
 }

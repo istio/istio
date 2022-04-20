@@ -166,7 +166,6 @@ type FileCert struct {
 }
 
 // NewSecretManagerClient creates a new SecretManagerClient.
-// Only ever used for secretcache_test.go? Everywhere else it is made directly
 func NewSecretManagerClient(caClient security.Client, options *security.Options) (*SecretManagerClient, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
