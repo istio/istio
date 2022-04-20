@@ -45,15 +45,36 @@ func (*EnvoyPatchAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (s *EnvoyPatchAnalyzer) Analyze(c analysis.Context) {
+	// hold the filter names that have a proxyVersion set
+	patchFilterNames := make([]string, 1)
 	c.ForEach(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
-		s.analyzeEnvoyFilterPatch(r, c)
+		names := s.analyzeEnvoyFilterPatch(r, c, patchFilterNames)
+		patchFilterNames = names
 		return true
 	})
 }
 
-func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, priority int32) {
+func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, priority int32, patchFilterNames []string, instanceName string) {
 	if priority == 0 {
+		// there is more than one envoy filter that uses the same name where the proxy version
+		// is set and the priorty is not set and a relative operator is used.  Issue a warning
 		message := msg.NewEnvoyFilterUsesRelativeOperation(r)
+
+		// if the proxyVersion is set choose that error message over the relative operation message as
+		// the proxyVersion error message also indicates that the proxyVersion is set
+		count := 0
+		for _, name := range patchFilterNames {
+			if instanceName == name {
+				count++
+				break
+			}
+		}
+
+		if count > 0 {
+			// there is more than one envoy filter that uses the same name where the proxy version
+			// is set and the priorty is not set and a relative operator is used.  Issue a warning
+			message = msg.NewEnvoyFilterUsesRelativeOperationWithProxyVersion(r)
+		}
 
 		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.EnvoyFilterConfigPath, index)); ok {
 			message.Line = line
@@ -63,9 +84,19 @@ func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, p
 	}
 }
 
-func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analysis.Context) {
+func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analysis.Context, patchFilterNames []string) []string {
 	ef := r.Message.(*network.EnvoyFilter)
 	for index, patch := range ef.ConfigPatches {
+		// collect filter names to figure out if the order is correct
+		tmpValue := patch.Patch.Value.GetFields()
+		tmpName := tmpValue["name"]
+		instanceName := ""
+		if tmpName != nil {
+			instanceName = tmpValue["name"].String()
+		} else {
+			instanceName = patch.Match.GetListener().FilterChain.Filter.Name
+		}
+
 		// check each operation type
 		if patch.Patch.Operation == network.EnvoyFilter_Patch_ADD {
 			// the ADD operation is an absolute operation but provide a warning
@@ -94,7 +125,7 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 				c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
 			} else {
 				// A relative operation (REMOVE) was used so check if priority is set and if not set provide a warning
-				relativeOperationMsg(r, c, index, ef.Priority)
+				relativeOperationMsg(r, c, index, ef.Priority, patchFilterNames, instanceName)
 			}
 		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_REPLACE {
 			// the REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER.
@@ -109,15 +140,24 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 				c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
 			} else {
 				// A relative operation (REPLACE) was used so check if priority is set and if not set provide a warning
-				relativeOperationMsg(r, c, index, ef.Priority)
+				relativeOperationMsg(r, c, index, ef.Priority, patchFilterNames, instanceName)
 			}
 		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_INSERT_BEFORE || patch.Patch.Operation == network.EnvoyFilter_Patch_INSERT_AFTER {
 			// Also a relative operation (INSERT_BEFORE or INSERT_AFTER) was used so check if priority is set and if not set provide a warning
-			relativeOperationMsg(r, c, index, ef.Priority)
+			relativeOperationMsg(r, c, index, ef.Priority, patchFilterNames, instanceName)
 		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_MERGE {
 			// A relative operation (MERGE) was used so check if priority is set and if not set provide a warning
-			relativeOperationMsg(r, c, index, ef.Priority)
+			relativeOperationMsg(r, c, index, ef.Priority, patchFilterNames, instanceName)
 		}
-		// append the patchValueStr to the slice for next iteration
+		// append the patchValueStr to the slice for next iteration if the proxyVersion is set
+		if patch.GetMatch() != nil {
+			if patch.Match.GetProxy() != nil {
+				if len(patch.Match.Proxy.ProxyVersion) != 0 {
+					patchFilterNames = append(patchFilterNames, instanceName)
+				}
+			}
+		}
+
 	}
+	return patchFilterNames
 }

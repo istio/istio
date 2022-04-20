@@ -7,7 +7,7 @@ metadata:
 spec:
   workloadSelector:
     labels:
-      app: mysvc
+      app: mysvc1
   configPatches:
   - applyTo: NETWORK_FILTER # http connection manager is a filter in Envoy
     match:
@@ -16,7 +16,7 @@ spec:
         filterChain:
           sni: app.example.com
           filter:
-            name: "envoy.filters.network.http_connection_manager"
+            name: "envoy.filters.network.http_connection_manager.InternalAddressConfig"
     patch:
       operation: REMOVE
 
@@ -29,7 +29,7 @@ metadata:
 spec:
   workloadSelector:
     labels:
-      app: mysvc
+      app: mysvc2
   configPatches:
   - applyTo: ROUTE_CONFIGURATION
     match:
@@ -38,7 +38,7 @@ spec:
         filterChain:
           sni: app.example.com
           filter:
-            name: "envoy.filters.network.http_connection_manager"
+            name: "envoy.filters.network.http_connection_manager.InternalAddressConfig"
     patch:
       operation: REMOVE
 
@@ -51,7 +51,7 @@ metadata:
 spec:
   workloadSelector:
     labels:
-      app: mysvc
+      app: mysvc3
   configPatches:
   - applyTo: HTTP_ROUTE
     match:
@@ -60,7 +60,7 @@ spec:
         filterChain:
           sni: app.example.com
           filter:
-            name: "envoy.filters.network.http_connection_manager"
+            name: "envoy.filters.network.http_connection_manager.InternalAddressConfig"
     patch:
       operation: REMOVE
 

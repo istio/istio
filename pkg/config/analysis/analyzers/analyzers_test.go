@@ -639,6 +639,8 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-1"},
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-2"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-3"},
+			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-reviews-lua-4"},
 		},
 	},
 	{
@@ -651,11 +653,13 @@ var testGrid = []testCase{
 	},
 	{
 		name:       "EnvoyFilterUsesReplaceOperation",
-		inputFiles: []string{"testdata/envoy-filter-patch-operation.yaml"},
+		inputFiles: []string{"testdata/envoy-filter-replace-operation.yaml"},
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
 		expected: []message{
 			{msg.EnvoyFilterUsesReplaceOperationIncorrectly, "EnvoyFilter bookinfo/test-reviews-lua-1"},
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-2"},
+			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-reviews-lua-4"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-4"},
 		},
 	},
 	{
@@ -684,6 +688,7 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-merge-1"},
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-merge-3"},
+			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-merge-4"},
 		},
 	},
 }

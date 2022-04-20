@@ -212,6 +212,10 @@ var (
 	// EnvoyFilterUsesRemoveOperationIncorrectly defines a diag.MessageType for message "EnvoyFilterUsesRemoveOperationIncorrectly".
 	// Description: The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.
 	EnvoyFilterUsesRemoveOperationIncorrectly = diag.NewMessageType(diag.Error, "IST0154", "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.")
+
+	// EnvoyFilterUsesRelativeOperationWithProxyVersion defines a diag.MessageType for message "EnvoyFilterUsesRelativeOperationWithProxyVersion".
+	// Description: This envoy filter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the envoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the envoyFilter is applied correctly
+	EnvoyFilterUsesRelativeOperationWithProxyVersion = diag.NewMessageType(diag.Warning, "IST0155", "This envoy filter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the envoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the envoyFilter is applied correctly")
 )
 
 // All returns a list of all known message types.
@@ -268,6 +272,7 @@ func All() []*diag.MessageType {
 		EnvoyFilterUsesReplaceOperationIncorrectly,
 		EnvoyFilterUsesAddOperationIncorrectly,
 		EnvoyFilterUsesRemoveOperationIncorrectly,
+		EnvoyFilterUsesRelativeOperationWithProxyVersion,
 	}
 }
 
@@ -769,6 +774,14 @@ func NewEnvoyFilterUsesAddOperationIncorrectly(r *resource.Instance) diag.Messag
 func NewEnvoyFilterUsesRemoveOperationIncorrectly(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		EnvoyFilterUsesRemoveOperationIncorrectly,
+		r,
+	)
+}
+
+// NewEnvoyFilterUsesRelativeOperationWithProxyVersion returns a new diag.Message based on EnvoyFilterUsesRelativeOperationWithProxyVersion.
+func NewEnvoyFilterUsesRelativeOperationWithProxyVersion(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		EnvoyFilterUsesRelativeOperationWithProxyVersion,
 		r,
 	)
 }
