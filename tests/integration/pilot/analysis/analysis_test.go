@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -47,6 +48,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
 		RequiresLocalControlPlane().
+		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix:   "default",
