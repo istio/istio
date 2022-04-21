@@ -521,6 +521,12 @@ data:
               value: "{{ $value }}"
             {{- end }}
             {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
+            {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/preStopSleep`) }}
+            lifecycle:
+              preStop:
+                exec:
+                  command: ["/bin/sleep", "{{ annotation .ObjectMeta `sidecar.istio.io/preStopSleep` '5' }}"]
+            {{- end }}
             {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
             readinessProbe:
               httpGet:

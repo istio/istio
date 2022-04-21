@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** Add a 5 seconds sleep by default on the istio-proxy to let the main container handle the last requests. The default value can be overwritten with an annotation on the pods.
