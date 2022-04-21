@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 export VERSION ?= 1.14-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2022-03-30T19-01-25
+BASE_VERSION ?= master-2022-04-12T19-01-34
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -254,6 +254,7 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
+  ./samples/extauthz/cmd/extauthz \
   ./operator/cmd/operator \
   ./cni/cmd/istio-cni \
   ./cni/cmd/istio-cni-taint \
@@ -379,11 +380,7 @@ copy-templates:
 
 	# copy istio-discovery values, but apply some local customizations
 	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
-	yq w manifests/charts/istiod-remote/values.yaml telemetry.enabled false -i
-	yq w manifests/charts/istiod-remote/values.yaml global.externalIstiod true -i
-	yq w manifests/charts/istiod-remote/values.yaml global.omitSidecarInjectorConfigMap true -i
-	yq w manifests/charts/istiod-remote/values.yaml pilot.configMap false -i
-
+	yq -i '.telemetry.enabled=false | .global.externalIstiod=true | .global.omitSidecarInjectorConfigMap=true | .pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
 # Generate kustomize templates.
 gen-kustomize:
 	helm3 template istio --namespace istio-system --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
@@ -442,7 +439,15 @@ istioctl-install-container: istioctl
 
 .PHONY: test
 
+# This target sets JUNIT_REPORT to the location of the  go-junit-report binary.
+# This binary is provided in the build container. If it is not found, the build
+# container is not being used, so ask the user to install go-junit-report.
 JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
+
+${ISTIO_BIN}/go-junit-report:
+	@echo "go-junit-report was not found in the build environment."
+	@echo "Please install go-junit-report (ex. go install github.com/jstemmer/go-junit-report@latest)"
+	@exit 1
 
 # This is just an alias for racetest now
 test: racetest ## Runs all unit tests

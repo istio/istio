@@ -26,10 +26,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -64,7 +64,7 @@ func TestClusterLocal(t *testing.T) {
 				{
 					"MeshConfig.serviceSettings",
 					func(t framework.TestContext) {
-						istio.PatchMeshConfig(t, i.Settings().SystemNamespace, to.Clusters(), fmt.Sprintf(`
+						istio.PatchMeshConfigOrFail(t, i.Settings().SystemNamespace, to.Clusters(), fmt.Sprintf(`
 serviceSettings: 
 - settings:
     clusterLocal: true
@@ -129,7 +129,7 @@ spec:
 								},
 								Check: check.And(
 									check.OK(),
-									check.ReachedClusters(cluster.Clusters{source.Config().Cluster}),
+									check.ReachedClusters(t.AllClusters(), cluster.Clusters{source.Config().Cluster}),
 								),
 								Retry: echo.Retry{
 									Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
@@ -153,7 +153,7 @@ spec:
 							},
 							Check: check.And(
 								check.OK(),
-								check.ReachedClusters(to.Clusters()),
+								check.ReachedTargetClusters(t.AllClusters()),
 							),
 							Retry: echo.Retry{
 								Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},

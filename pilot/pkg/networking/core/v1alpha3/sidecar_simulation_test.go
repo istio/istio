@@ -392,9 +392,7 @@ func TestInboundClusters(t *testing.T) {
 			name += "-disableinbound"
 		}
 		t.Run(name, func(t *testing.T) {
-			old := features.EnableInboundPassthrough
-			defer func() { features.EnableInboundPassthrough = old }()
-			features.EnableInboundPassthrough = !tt.disableInboundPassthrough
+			test.SetBoolForTest(t, &features.EnableInboundPassthrough, !tt.disableInboundPassthrough)
 			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services:  tt.services,
 				Instances: tt.instances,
@@ -1395,7 +1393,7 @@ spec:
 		if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:httpbin.pem~httpbinkey.pem" {
 			return fmt.Errorf("expected certificate httpbin.pem, actual %s", commonTLSContext.TlsCertificates[0].CertificateChain.String())
 		}
-		if tlsContext.RequireClientCertificate.Value == true {
+		if tlsContext.RequireClientCertificate.Value {
 			return fmt.Errorf("expected RequireClientCertificate to be false")
 		}
 		return nil
@@ -1568,7 +1566,7 @@ spec:
 		},
 	}
 	proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
-	features.EnableTLSOnSidecarIngress = true
+	test.SetBoolForTest(t, &features.EnableTLSOnSidecarIngress, true)
 	for _, tt := range cases {
 		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
 			name:   tt.name,

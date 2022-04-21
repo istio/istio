@@ -43,7 +43,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 	cases := []struct {
 		name                   string
 		workloadNamespace      string
-		workloadLabels         labels.Collection
+		workloadLabels         labels.Instance
 		wantRequestAuthn       []*config.Config
 		wantPeerAuthn          []*config.Config
 		wantNamespaceMutualTLS MutualTLSMode
@@ -51,7 +51,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 		{
 			name:              "Empty workload labels in foo",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{},
+			workloadLabels:    nil,
 			wantRequestAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -103,7 +103,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 		{
 			name:              "Empty workload labels in bar",
 			workloadNamespace: "bar",
-			workloadLabels:    labels.Collection{},
+			workloadLabels:    nil,
 			wantRequestAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -142,7 +142,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 		{
 			name:              "Empty workload labels in baz",
 			workloadNamespace: "baz",
-			workloadLabels:    labels.Collection{},
+			workloadLabels:    nil,
 			wantRequestAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -173,7 +173,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 		{
 			name:              "Match workload labels in foo",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1", "other": "labels"}},
+			workloadLabels:    labels.Instance{"app": "httpbin", "version": "v1", "other": "labels"},
 			wantRequestAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -272,7 +272,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 		{
 			name:              "Match workload labels in bar",
 			workloadNamespace: "bar",
-			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1"}},
+			workloadLabels:    labels.Instance{"app": "httpbin", "version": "v1"},
 			wantRequestAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -325,7 +325,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 		{
 			name:              "Paritial match workload labels in foo",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{{"app": "httpbin"}},
+			workloadLabels:    labels.Instance{"app": "httpbin"},
 			wantRequestAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -411,14 +411,14 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 	cases := []struct {
 		name                   string
 		workloadNamespace      string
-		workloadLabels         labels.Collection
+		workloadLabels         labels.Instance
 		wantPeerAuthn          []*config.Config
 		wantNamespaceMutualTLS MutualTLSMode
 	}{
 		{
 			name:              "Empty workload labels in foo",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{},
+			workloadLabels:    nil,
 			wantPeerAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -439,21 +439,21 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 		{
 			name:                   "Empty workload labels in bar",
 			workloadNamespace:      "bar",
-			workloadLabels:         labels.Collection{},
+			workloadLabels:         nil,
 			wantPeerAuthn:          []*config.Config{},
 			wantNamespaceMutualTLS: MTLSUnknown,
 		},
 		{
 			name:                   "Empty workload labels in baz",
 			workloadNamespace:      "baz",
-			workloadLabels:         labels.Collection{},
+			workloadLabels:         nil,
 			wantPeerAuthn:          []*config.Config{},
 			wantNamespaceMutualTLS: MTLSUnknown,
 		},
 		{
 			name:              "Match workload labels in foo",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1", "other": "labels"}},
+			workloadLabels:    labels.Instance{"app": "httpbin", "version": "v1", "other": "labels"},
 			wantPeerAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -492,14 +492,14 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 		{
 			name:                   "Match workload labels in bar",
 			workloadNamespace:      "bar",
-			workloadLabels:         labels.Collection{{"app": "httpbin", "version": "v1"}},
+			workloadLabels:         labels.Instance{"app": "httpbin", "version": "v1"},
 			wantPeerAuthn:          []*config.Config{},
 			wantNamespaceMutualTLS: MTLSUnknown,
 		},
 		{
 			name:              "Paritial match workload labels in foo",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{{"app": "httpbin"}},
+			workloadLabels:    labels.Instance{"app": "httpbin"},
 			wantPeerAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -543,13 +543,13 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 	cases := []struct {
 		name              string
 		workloadNamespace string
-		workloadLabels    labels.Collection
+		workloadLabels    labels.Instance
 		wantRequestAuthn  []*config.Config
 	}{
 		{
 			name:              "single hit",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{},
+			workloadLabels:    nil,
 			wantRequestAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -570,7 +570,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 		{
 			name:              "double hit",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{{"app": "httpbin"}},
+			workloadLabels:    labels.Instance{"app": "httpbin"},
 			wantRequestAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -613,7 +613,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 		{
 			name:              "tripple hit",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1"}},
+			workloadLabels:    labels.Instance{"app": "httpbin", "version": "v1"},
 			wantRequestAuthn: []*config.Config{
 				{
 					Meta: config.Meta{
@@ -698,8 +698,8 @@ func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *Auth
 		}
 	}
 	environment := &Environment{
-		IstioConfigStore: MakeIstioStore(configStore),
-		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
+		ConfigStore: MakeIstioStore(configStore),
+		Watcher:     mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
 	}
 	authnPolicy, err := initAuthenticationPolicies(environment)
 	if err != nil {

@@ -53,8 +53,8 @@ type TrustBundle struct {
 }
 
 var (
-	trustBundleLog               = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs", 0)
-	remoteTimeout  time.Duration = 10 * time.Second
+	trustBundleLog = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs", 0)
+	remoteTimeout  = 10 * time.Second
 )
 
 const (

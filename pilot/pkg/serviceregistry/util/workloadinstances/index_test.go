@@ -181,8 +181,7 @@ func TestIndex_FindAll(t *testing.T) {
 	index.Insert(wi4)
 
 	// test search by service selector
-	actual := FindAllInIndex(index, ByServiceSelector(selector.Namespace, labels.Collection{{"app": "wle"}}))
-
+	actual := FindAllInIndex(index, ByServiceSelector(selector.Namespace, labels.Instance{"app": "wle"}))
 	want := []*model.WorkloadInstance{wi1, wi2}
 
 	if diff := cmp.Diff(len(want), len(actual)); diff != "" {

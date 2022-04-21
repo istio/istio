@@ -38,6 +38,15 @@ func createElection(t *testing.T,
 	watcher revisions.DefaultWatcher,
 	prioritized, expectLeader bool,
 	client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
+	return createElectionMulticluster(t, name, revision, false, watcher, prioritized, expectLeader, client, fns...)
+}
+
+func createElectionMulticluster(t *testing.T,
+	name, revision string,
+	remote bool,
+	watcher revisions.DefaultWatcher,
+	prioritized, expectLeader bool,
+	client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
 	t.Helper()
 	l := &LeaderElection{
 		namespace:      "ns",
@@ -45,6 +54,7 @@ func createElection(t *testing.T,
 		electionID:     testLock,
 		client:         client,
 		revision:       revision,
+		remote:         remote,
 		prioritized:    prioritized,
 		defaultWatcher: watcher,
 		ttl:            time.Second,
@@ -124,7 +134,121 @@ func TestPrioritizedLeaderElection(t *testing.T) {
 	// Test that "red" doesn't steal lock if "prioritized" is disabled
 	_, stop7 := createElection(t, "pod5", "red", watcher, false, false, client)
 	close(stop6)
+
 	close(stop7)
+}
+
+func TestMulticlusterLeaderElection(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	watcher := &fakeDefaultWatcher{}
+	// First remote pod becomes the leader
+	_, stop := createElectionMulticluster(t, "pod1", "", true, watcher, false, true, client)
+	// A new local pod cannot become leader
+	_, stop2 := createElectionMulticluster(t, "pod2", "", false, watcher, false, false, client)
+	// A new remote pod cannot become leader
+	_, stop3 := createElectionMulticluster(t, "pod3", "", true, watcher, false, false, client)
+	close(stop3)
+	close(stop2)
+	close(stop)
+}
+
+func TestPrioritizedMulticlusterLeaderElection(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	watcher := &fakeDefaultWatcher{defaultRevision: "red"}
+
+	// First pod, revision "green" becomes the remote leader
+	_, stop := createElectionMulticluster(t, "pod1", "green", true, watcher, true, true, client)
+	// Second pod, revision "red", steals the leader lock from "green" since it is the default revision
+	_, stop2 := createElectionMulticluster(t, "pod2", "red", true, watcher, true, true, client)
+	// Third pod with revision "red" comes in and can take the lock since it is a local revision "red"
+	_, stop3 := createElectionMulticluster(t, "pod3", "red", false, watcher, true, true, client)
+	// Fourth pod with revision "red" cannot take the lock since it is remote
+	_, stop4 := createElectionMulticluster(t, "pod4", "red", true, watcher, true, false, client)
+	close(stop4)
+	close(stop3)
+	close(stop2)
+	close(stop)
+}
+
+func SimpleRevisionComparison(currentLeaderRevision string, l *LeaderElection) bool {
+	// Old key comparison impl for interoperablilty testing
+	defaultRevision := l.defaultWatcher.GetDefault()
+	return l.revision != currentLeaderRevision &&
+		// empty default revision indicates that there is no default set
+		defaultRevision != "" && defaultRevision == l.revision
+}
+
+type LeaderComparison func(string, *LeaderElection) bool
+
+type instance struct {
+	revision string
+	remote   bool
+	comp     string
+}
+
+func (i instance) GetComp() (LeaderComparison, string) {
+	key := i.revision
+	switch i.comp {
+	case "location":
+		if i.remote {
+			key = remoteIstiodPrefix + key
+		}
+		return LocationPrioritizedComparison, key
+	case "simple":
+		return SimpleRevisionComparison, key
+	default:
+		panic("unknown comparison type")
+	}
+}
+
+// TestPrioritizationCycles
+func TestPrioritizationCycles(t *testing.T) {
+	cases := []instance{}
+	for _, rev := range []string{"", "default", "not-default"} {
+		for _, loc := range []bool{false, true} {
+			for _, comp := range []string{"location", "simple"} {
+				cases = append(cases, instance{
+					revision: rev,
+					remote:   loc,
+					comp:     comp,
+				})
+			}
+		}
+	}
+
+	for _, start := range cases {
+		t.Run(fmt.Sprint(start), func(t *testing.T) {
+			checkCycles(t, start, cases, nil)
+		})
+	}
+}
+
+func alreadyHit(cur instance, chain []instance) bool {
+	for _, cc := range chain {
+		if cur == cc {
+			return true
+		}
+	}
+	return false
+}
+
+func checkCycles(t *testing.T, start instance, cases []instance, chain []instance) {
+	if alreadyHit(start, chain) {
+		t.Fatalf("cycle on leader election: cur %v, chain %v", start, chain)
+	}
+	for _, nextHop := range cases {
+		next := LeaderElection{
+			remote:         nextHop.remote,
+			defaultWatcher: &fakeDefaultWatcher{defaultRevision: "default"},
+			revision:       nextHop.revision,
+		}
+		cmpFunc, key := start.GetComp()
+		if cmpFunc(key, &next) {
+			nc := append([]instance{}, chain...)
+			nc = append(nc, start)
+			checkCycles(t, nextHop, cases, nc)
+		}
+	}
 }
 
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {

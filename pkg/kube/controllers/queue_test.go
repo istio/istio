@@ -25,7 +25,7 @@ import (
 
 func TestQueue(t *testing.T) {
 	handles := atomic.NewInt32(0)
-	q := NewQueue("custom", WithReconciler(func(name types.NamespacedName) error {
+	q := NewQueue("custom", WithReconciler(func(key types.NamespacedName) error {
 		handles.Inc()
 		return nil
 	}))

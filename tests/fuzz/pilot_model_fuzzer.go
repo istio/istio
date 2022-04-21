@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package fuzz
 
 import (
@@ -193,7 +192,7 @@ func FuzzInitContext(data []byte) int {
 	env := &model.Environment{}
 	store := model.NewFakeStore()
 
-	env.IstioConfigStore = model.MakeIstioStore(store)
+	env.ConfigStore = model.MakeIstioStore(store)
 	sd := memory.NewServiceDiscovery(services...)
 	sd.WantGetProxyServiceInstances = serviceInstances
 	env.ServiceDiscovery = sd

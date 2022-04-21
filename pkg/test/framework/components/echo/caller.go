@@ -19,10 +19,17 @@ import (
 	"istio.io/istio/pkg/test/echo"
 )
 
+// CallResult the result of a call operation.
+type CallResult struct {
+	From      Caller
+	Opts      CallOptions
+	Responses echo.Responses
+}
+
 type Caller interface {
 	// Call from this Instance to a target Instance.
-	Call(options CallOptions) (echo.Responses, error)
-	CallOrFail(t test.Failer, options CallOptions) echo.Responses
+	Call(options CallOptions) (CallResult, error)
+	CallOrFail(t test.Failer, options CallOptions) CallResult
 }
 
 type Callers []Caller

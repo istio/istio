@@ -80,9 +80,10 @@ type Service struct {
 	// Do not access directly. Use GetAddressForProxy
 	DefaultAddress string `json:"defaultAddress,omitempty"`
 
-	// AutoAllocatedAddress specifies the automatically allocated
-	// IPv4 address out of the reserved Class E subnet
-	// (240.240.0.0/16) for service entries with non-wildcard
+	// AutoAllocatedIPv4Address and AutoAllocatedIPv6Address specifies
+	// the automatically allocated IPv4/IPv6 address out of the reserved
+	// Class E subnet (240.240.0.0/16) or reserved Benchmarking IP range
+	// (2001:2::/48) in RFC5180.for service entries with non-wildcard
 	// hostnames. The IPs assigned to services are not
 	// synchronized across istiod replicas as the DNS resolution
 	// for these service entries happens completely inside a pod
@@ -90,7 +91,8 @@ type Service struct {
 	// to allocate IPs is pretty deterministic that at stable state, two
 	// istiods will allocate the exact same set of IPs for a given set of
 	// service entries.
-	AutoAllocatedAddress string `json:"autoAllocatedAddress,omitempty"`
+	AutoAllocatedIPv4Address string `json:"autoAllocatedIPv4Address,omitempty"`
+	AutoAllocatedIPv6Address string `json:"autoAllocatedIPv6Address,omitempty"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
@@ -605,7 +607,7 @@ type ServiceDiscovery interface {
 	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
 	// EDS calls it for building the endpoints result.
 	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(svc *Service, servicePort int, labels labels.Collection) []*ServiceInstance
+	InstancesByPort(svc *Service, servicePort int, labels labels.Instance) []*ServiceInstance
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -625,7 +627,7 @@ type ServiceDiscovery interface {
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) []*ServiceInstance
-	GetProxyWorkloadLabels(*Proxy) labels.Collection
+	GetProxyWorkloadLabels(*Proxy) labels.Instance
 
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
@@ -769,9 +771,13 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 			}
 		}
 
-		if node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate &&
-			s.DefaultAddress == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
-			return s.AutoAllocatedAddress
+		if node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate && s.DefaultAddress == constants.UnspecifiedIP {
+			if node.SupportsIPv4() && s.AutoAllocatedIPv4Address != "" {
+				return s.AutoAllocatedIPv4Address
+			}
+			if node.SupportsIPv6() && s.AutoAllocatedIPv6Address != "" {
+				return s.AutoAllocatedIPv6Address
+			}
 		}
 	}
 
@@ -810,7 +816,7 @@ func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) [
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	for _, port := range ports {
-		svcInstances := discovery.InstancesByPort(svc, port, labels.Collection{})
+		svcInstances := discovery.InstancesByPort(svc, port, nil)
 		instances = append(instances, svcInstances...)
 	}
 

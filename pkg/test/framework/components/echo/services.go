@@ -53,6 +53,14 @@ func (d Services) Instances() Instances {
 	return out
 }
 
+func (d Services) Callers() Callers {
+	var out Callers
+	for _, s := range d {
+		out = append(out, s[0])
+	}
+	return out
+}
+
 func (d Services) MatchFQDNs(fqdns ...string) Services {
 	match := map[string]bool{}
 	for _, fqdn := range fqdns {

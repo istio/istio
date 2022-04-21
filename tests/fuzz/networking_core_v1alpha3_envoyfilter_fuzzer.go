@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package envoyfilter
 
 import (
@@ -54,10 +53,13 @@ func InternalFuzzApplyClusterMerge(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if !proxyValid(proxy) {
+		return 0
+	}
 
 	// crete mesh config
-	testMesh := meshconfig.MeshConfig{}
-	err = f.GenerateStruct(&testMesh)
+	testMesh := &meshconfig.MeshConfig{}
+	err = f.GenerateStruct(testMesh)
 	if err != nil {
 		return 0
 	}

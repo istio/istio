@@ -74,11 +74,6 @@ sidecarInjectorWebhook:
   # with the exception of namespaces with "istio-injection:disabled" annotation
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
-  # Enable objectSelector to filter out pods with no need for sidecar before calling istiod.
-  # It is enabled by default as the minimum supported Kubernetes version is 1.15+
-  objectSelector:
-    enabled: true
-    autoInject: true
   rewriteAppHTTPProbe: true
   # Templates defines a set of custom injection templates that can be used. For example, defining:
   #
@@ -182,9 +177,9 @@ meshConfig:
   # It is not clear if user should normally need to configure - the metadata is typically
   # used as an escape and to control testing and rollout, but it is not intended as a long-term
   # stable API.
-# What we may configure in mesh config is the ".global" - and use of other suffixes.
-# No hurry to do this in 1.6, we're trying to prove the code.
 
+  # What we may configure in mesh config is the ".global" - and use of other suffixes.
+  # No hurry to do this in 1.6, we're trying to prove the code.
 global:
   # Used to locate istiod.
   istioNamespace: istio-system
@@ -201,10 +196,10 @@ global:
   defaultResources:
     requests:
       cpu: 10m
-      #   memory: 128Mi
-      # limits:
-      #   cpu: 100m
-      #   memory: 128Mi
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Dev builds from prow are on gcr.io

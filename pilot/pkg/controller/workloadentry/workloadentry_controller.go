@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
@@ -30,9 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -42,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/queue"
 	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -101,8 +98,6 @@ const (
 	//
 	// 5ms, 10ms, 20ms, 40ms, 80ms, 160ms, 320ms, 640ms, 1.3s, 2.6s, 5.1s, 10.2s, 20.4s, 41s, 82s
 	maxRetries = 15
-
-	workerNum = 5
 )
 
 type HealthEvent struct {
@@ -118,11 +113,6 @@ type HealthCondition struct {
 	condition *v1alpha1.IstioCondition
 }
 
-var keyFunc = func(obj interface{}) (string, error) {
-	condition := obj.(HealthCondition)
-	return makeProxyKey(condition.proxy), nil
-}
-
 var log = istiolog.RegisterScope("wle", "wle controller debugging", 0)
 
 type Controller struct {
@@ -130,14 +120,14 @@ type Controller struct {
 	// TODO move WorkloadEntry related tasks into their own object and give InternalGen a reference.
 	// store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
 	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
-	store model.ConfigStoreCache
+	store model.ConfigStoreController
 
 	// Note: unregister is to update the workload entry status: like setting `DisconnectedAtAnnotation`
 	// and make the workload entry enqueue `cleanupQueue`
 	// cleanup is to delete the workload entry
 
 	// queue contains workloadEntry that need to be unregistered
-	queue workqueue.RateLimitingInterface
+	queue controllers.Queue
 	// cleanupLimit rate limit's auto registered WorkloadEntry cleanup calls to k8s
 	cleanupLimit *rate.Limiter
 	// cleanupQueue delays the cleanup of auto registered WorkloadEntries to allow for grace period
@@ -153,29 +143,34 @@ type Controller struct {
 	maxConnectionAge time.Duration
 
 	// healthCondition is a fifo queue used for updating health check status
-	healthCondition cache.Queue
+	healthCondition controllers.Queue
 }
 
 type HealthStatus = v1alpha1.IstioCondition
 
 // NewController create a controller which manages workload lifecycle and health status.
-func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge time.Duration) *Controller {
+func NewController(store model.ConfigStoreController, instanceID string, maxConnAge time.Duration) *Controller {
 	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
 		maxConnAge := maxConnAge + maxConnAge/2
 		// if overflow, set it to max int64
 		if maxConnAge < 0 {
 			maxConnAge = time.Duration(math.MaxInt64)
 		}
-		return &Controller{
+		c := &Controller{
 			instanceID:       instanceID,
 			store:            store,
 			cleanupLimit:     rate.NewLimiter(rate.Limit(20), 1),
 			cleanupQueue:     queue.NewDelayed(),
-			queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 			adsConnections:   map[string]uint8{},
 			maxConnectionAge: maxConnAge,
-			healthCondition:  cache.NewFIFO(keyFunc),
 		}
+		c.queue = controllers.NewQueue("unregister_workloadentry",
+			controllers.WithMaxAttempts(maxRetries),
+			controllers.WithGenericReconciler(c.unregisterWorkload))
+		c.healthCondition = controllers.NewQueue("healthcheck",
+			controllers.WithMaxAttempts(maxRetries),
+			controllers.WithGenericReconciler(c.updateWorkloadEntryHealth))
+		return c
 	}
 	return nil
 }
@@ -189,38 +184,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		go c.cleanupQueue.Run(stop)
 	}
 
-	for i := 0; i < workerNum; i++ {
-		go wait.Until(c.worker, time.Second, stop)
-	}
-
-	// start a new go routine updating health status
-	go func() {
-		b := backoff.NewExponentialBackOff()
-		for {
-			obj, err := c.healthCondition.Pop(c.updateWorkloadEntryHealth)
-			if err != nil {
-				if err == cache.ErrFIFOClosed {
-					return
-				}
-				log.Errorf(err)
-				next := b.NextBackOff()
-				time.AfterFunc(next, func() {
-					_ = c.healthCondition.AddIfNotPresent(obj)
-				})
-			} else {
-				b.Reset()
-			}
-		}
-	}()
-
+	go c.queue.Run(stop)
+	go c.healthCondition.Run(stop)
 	<-stop
-	c.queue.ShutDown()
-	c.healthCondition.Close()
-}
-
-func (c *Controller) worker() {
-	for c.processNextWorkItem() {
-	}
 }
 
 // workItem contains the state of a "disconnect" event used to unregister a workload.
@@ -229,23 +195,6 @@ type workItem struct {
 	proxy       *model.Proxy
 	disConTime  time.Time
 	origConTime time.Time
-}
-
-func (c *Controller) processNextWorkItem() bool {
-	item, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	defer c.queue.Done(item)
-
-	workItem, ok := item.(*workItem)
-	if !ok {
-		return true
-	}
-
-	err := c.unregisterWorkload(workItem.entryName, workItem.proxy, workItem.disConTime, workItem.origConTime)
-	c.handleErr(err, item)
-	return true
 }
 
 func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
@@ -341,30 +290,36 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	delete(c.adsConnections, makeProxyKey(proxy))
 	c.mutex.Unlock()
 
-	disconTime := time.Now()
-	if err := c.unregisterWorkload(entryName, proxy, disconTime, origConnect); err != nil {
+	workload := &workItem{
+		entryName:   entryName,
+		proxy:       proxy,
+		disConTime:  time.Now(),
+		origConTime: origConnect,
+	}
+	if err := c.unregisterWorkload(workload); err != nil {
 		log.Errorf(err)
-		c.queue.AddRateLimited(&workItem{
-			entryName:   entryName,
-			proxy:       proxy,
-			disConTime:  disconTime,
-			origConTime: origConnect,
-		})
+		c.queue.Add(workload)
 	}
 }
 
-func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time) error {
+func (c *Controller) unregisterWorkload(item interface{}) error {
+	workItem, ok := item.(*workItem)
+	if !ok {
+		return nil
+	}
+
 	// unset controller, set disconnect time
-	cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	cfg := c.store.Get(gvk.WorkloadEntry, workItem.entryName, workItem.proxy.Metadata.Namespace)
 	if cfg == nil {
 		// return error and backoff retry to prevent workloadentry leak
 		// TODO(@hzxuzhonghu): update the Get interface, fallback to calling apiserver.
-		return fmt.Errorf("workloadentry %s/%s is not found, maybe deleted or because of propagate latency", proxy.Metadata.Namespace, entryName)
+		return fmt.Errorf("workloadentry %s/%s is not found, maybe deleted or because of propagate latency",
+			workItem.proxy.Metadata.Namespace, workItem.entryName)
 	}
 
 	// only queue a delete if this disconnect event is associated with the last connect event written to the worload entry
 	if mostRecentConn, err := time.Parse(timeFormat, cfg.Annotations[ConnectedAtAnnotation]); err == nil {
-		if mostRecentConn.After(origConnTime) {
+		if mostRecentConn.After(workItem.origConTime) {
 			// this disconnect event wasn't processed until after we successfully reconnected
 			return nil
 		}
@@ -377,25 +332,25 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 	conTime, _ := time.Parse(timeFormat, cfg.Annotations[ConnectedAtAnnotation])
 	// The wle has reconnected to this istiod,
 	// this may happen when the unregister fails retry
-	if disconTime.Before(conTime) {
+	if workItem.disConTime.Before(conTime) {
 		return nil
 	}
 
 	wle := cfg.DeepCopy()
 	delete(wle.Annotations, ConnectedAtAnnotation)
-	wle.Annotations[DisconnectedAtAnnotation] = disconTime.Format(timeFormat)
+	wle.Annotations[DisconnectedAtAnnotation] = workItem.disConTime.Format(timeFormat)
 	// use update instead of patch to prevent race condition
 	if _, err := c.store.Update(wle); err != nil {
 		autoRegistrationErrors.Increment()
-		return fmt.Errorf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
+		return fmt.Errorf("disconnect: failed updating WorkloadEntry %s/%s: %v", workItem.proxy.Metadata.Namespace, workItem.entryName, err)
 	}
 
 	autoRegistrationUnregistrations.Increment()
 
 	// after grace period, check if the workload ever reconnected
-	ns := proxy.Metadata.Namespace
+	ns := workItem.proxy.Metadata.Namespace
 	c.cleanupQueue.PushDelayed(func() error {
-		wle := c.store.Get(gvk.WorkloadEntry, entryName, ns)
+		wle := c.store.Get(gvk.WorkloadEntry, workItem.entryName, ns)
 		if wle == nil {
 			return nil
 		}
@@ -419,7 +374,7 @@ func (c *Controller) QueueWorkloadEntryHealth(proxy *model.Proxy, event HealthEv
 	}
 
 	condition := transformHealthEvent(proxy, entryName, event)
-	_ = c.healthCondition.Add(condition)
+	c.healthCondition.Add(condition)
 }
 
 // updateWorkloadEntryHealth updates the associated WorkloadEntries health status
@@ -653,22 +608,6 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 		// TODO status fields used for garbage collection
 		Status: nil,
 	}
-}
-
-func (c *Controller) handleErr(err error, key interface{}) {
-	if err == nil {
-		c.queue.Forget(key)
-		return
-	}
-
-	if c.queue.NumRequeues(key) < maxRetries {
-		log.Debugf(err)
-		c.queue.AddRateLimited(key)
-		return
-	}
-
-	c.queue.Forget(key)
-	log.Errorf(err)
 }
 
 func makeProxyKey(proxy *model.Proxy) string {

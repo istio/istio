@@ -136,7 +136,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	s.configController = aggregateConfigController
 
 	// Create the config store.
-	s.environment.IstioConfigStore = model.MakeIstioStore(s.configController)
+	s.environment.ConfigStore = model.MakeIstioStore(s.configController)
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -342,7 +342,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	}
 }
 
-func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
+func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreController, error) {
 	return crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions.DomainSuffix)
 }
 

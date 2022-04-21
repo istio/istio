@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package v1alpha3
 
 import (
@@ -43,7 +42,7 @@ func ValidateTestOptions(to TestOptions) error {
 	}
 	for _, csc := range to.ConfigStoreCaches {
 		if csc == nil {
-			return errors.New("a ConfigStoreCache was nil")
+			return errors.New("a ConfigStoreController was nil")
 		}
 	}
 	for _, sr := range to.ServiceRegistries {
@@ -121,8 +120,8 @@ func InternalFuzzbuildSidecarOutboundHTTPRouteConfig(data []byte) int {
 
 func InternalFuzzbuildSidecarInboundListeners(data []byte) int {
 	f := fuzz.NewConsumer(data)
-	proxy := model.Proxy{}
-	err := f.GenerateStruct(&proxy)
+	proxy := &model.Proxy{}
+	err := f.GenerateStruct(proxy)
 	if err != nil {
 		return 0
 	}
@@ -183,7 +182,7 @@ func InternalFuzzbuildSidecarInboundListeners(data []byte) int {
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 
 	fmt.Println("Calling our target:")
-	listeners := cg.buildSidecarInboundListeners(&proxy, env.PushContext)
+	listeners := cg.buildSidecarInboundListeners(proxy, env.PushContext)
 	_ = listeners
 	return 1
 }

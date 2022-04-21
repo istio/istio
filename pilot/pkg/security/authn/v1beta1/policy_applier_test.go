@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	protovalue "istio.io/istio/pkg/proto"
+	istiotest "istio.io/istio/pkg/test"
 )
 
 func TestJwtFilter(t *testing.T) {
@@ -703,9 +704,7 @@ func TestJwtFilter(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			defaultValue := features.EnableRemoteJwks
-			features.EnableRemoteJwks = c.enableRemoteJwks
-			defer func() { features.EnableRemoteJwks = defaultValue }()
+			istiotest.SetBoolForTest(t, &features.EnableRemoteJwks, c.enableRemoteJwks)
 			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
@@ -1334,6 +1333,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 			TlsParams: &tls.TlsParameters{
 				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+				TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 				CipherSuites: []string{
 					"ECDHE-ECDSA-AES256-GCM-SHA384",
 					"ECDHE-RSA-AES256-GCM-SHA384",

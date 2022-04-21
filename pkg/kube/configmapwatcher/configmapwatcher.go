@@ -86,7 +86,7 @@ func (c *Controller) HasSynced() bool {
 	return c.queue.HasSynced()
 }
 
-func (c *Controller) processItem(types.NamespacedName) error {
+func (c *Controller) processItem(name types.NamespacedName) error {
 	cm, err := c.informer.Lister().ConfigMaps(c.configMapNamespace).Get(c.configMapName)
 	if err != nil {
 		if !errors.IsNotFound(err) {

@@ -62,7 +62,7 @@ func (c *ClassController) Run(stop <-chan struct{}) {
 	c.queue.Run(stop)
 }
 
-func (c *ClassController) Reconcile(_ types.NamespacedName) error {
+func (c *ClassController) Reconcile(name types.NamespacedName) error {
 	_, err := c.classes.Get(DefaultClassName)
 	if err := controllers.IgnoreNotFound(err); err != nil {
 		log.Errorf("unable to fetch GatewayClass: %v", err)

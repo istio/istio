@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 var _ resource.ConfigManager = &configManager{}
@@ -184,9 +185,28 @@ type configImpl struct {
 	yamlText map[string][]string
 }
 
+func (c *configImpl) Copy() resource.Config {
+	yamlText := make(map[string][]string, len(c.yamlText))
+	for k, v := range c.yamlText {
+		yamlText[k] = append([]string{}, v...)
+	}
+	return &configImpl{
+		configManager: c.configManager,
+		yamlText:      yamlText,
+	}
+}
+
 func (c *configImpl) YAML(ns string, yamlText ...string) resource.Config {
-	c.yamlText[ns] = append(c.yamlText[ns], yamlText...)
+	c.yamlText[ns] = append(c.yamlText[ns], splitYAML(yamlText...)...)
 	return c
+}
+
+func splitYAML(yamlText ...string) []string {
+	var out []string
+	for _, doc := range yamlText {
+		out = append(out, yml.SplitString(doc)...)
+	}
+	return out
 }
 
 func (c *configImpl) File(ns string, paths ...string) resource.Config {

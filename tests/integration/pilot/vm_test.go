@@ -30,9 +30,9 @@ import (
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
@@ -80,7 +80,7 @@ func TestVmOSPost(t *testing.T) {
 			for i, image := range images {
 				i, image := i, image
 				t.NewSubTest(image).RunParallel(func(t framework.TestContext) {
-					for _, tt := range common.VMTestCases(echo.Instances{instances[i]}, &apps) {
+					for _, tt := range common.VMTestCases(t, echo.Instances{instances[i]}, &apps) {
 						tt.Run(t, apps.Namespace.Name())
 					}
 				})
@@ -112,7 +112,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				}).BuildOrFail(t)
 			t.NewSubTest("initial registration").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
-					res, err := client.Call(echo.CallOptions{
+					result, err := client.Call(echo.CallOptions{
 						To:   autoVM,
 						Port: autoVM.Config().Ports[0],
 						Retry: echo.Retry{
@@ -121,7 +121,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 					})
 					return check.And(
 						check.NoError(),
-						check.OK()).Check(res, err)
+						check.OK()).Check(result, err)
 				}, retry.Timeout(15*time.Second))
 			})
 			t.NewSubTest("reconnect reuses WorkloadEntry").Run(func(t framework.TestContext) {

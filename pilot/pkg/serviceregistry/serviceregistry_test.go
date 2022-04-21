@@ -50,13 +50,14 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubeclient "istio.io/istio/pkg/kube"
+	istiotest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func setupTest(t *testing.T) (
 	*kubecontroller.Controller,
-	*serviceentry.ServiceEntryStore,
-	model.ConfigStoreCache,
+	*serviceentry.Controller,
+	model.ConfigStoreController,
 	kubernetes.Interface,
 	*xds.FakeXdsUpdater) {
 	t.Helper()
@@ -86,7 +87,7 @@ func setupTest(t *testing.T) (
 	go configController.Run(stop)
 
 	istioStore := model.MakeIstioStore(configController)
-	se := serviceentry.NewServiceDiscovery(configController, istioStore, xdsUpdater)
+	se := serviceentry.NewController(configController, istioStore, xdsUpdater)
 	client.RunAndWait(stop)
 
 	kc.AppendWorkloadHandler(se.WorkloadInstanceHandler)
@@ -101,7 +102,7 @@ func setupTest(t *testing.T) (
 // TestWorkloadInstances is effectively an integration test of composing the Kubernetes service registry with the
 // external service registry, which have cross-references by workload instances.
 func TestWorkloadInstances(t *testing.T) {
-	features.WorkloadEntryHealthChecks = true
+	istiotest.SetBoolForTest(t, &features.WorkloadEntryHealthChecks, true)
 	port := &networking.Port{
 		Name:     "http",
 		Number:   80,
