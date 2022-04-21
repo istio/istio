@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -75,6 +76,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.MeshWatcher = s.environment.Watcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
+	args.RegistryOptions.KubeOptions.SyncTimeout = features.RemoteClusterTimeout
 
 	s.multiclusterController.AddHandler(kubecontroller.NewMulticluster(args.PodName,
 		s.kubeClient,

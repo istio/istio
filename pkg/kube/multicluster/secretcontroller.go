@@ -89,8 +89,8 @@ type Controller struct {
 
 	handlers []ClusterHandler
 
-	once              sync.Once
-	remoteSyncTimeout atomic.Bool
+	once         sync.Once
+	syncInterval time.Duration
 }
 
 // NewController returns a new secret controller
@@ -149,11 +149,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 			return
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
-		if features.RemoteClusterTimeout != 0 {
-			time.AfterFunc(features.RemoteClusterTimeout, func() {
-				c.remoteSyncTimeout.Store(true)
-			})
-		}
 		c.queue.Run(stopCh)
 	}()
 	return nil
@@ -194,14 +189,6 @@ func (c *Controller) HasSynced() bool {
 	if synced {
 		return true
 	}
-	if c.remoteSyncTimeout.Load() {
-		c.once.Do(func() {
-			log.Errorf("remote clusters failed to sync after %v", features.RemoteClusterTimeout)
-			timeouts.Increment()
-		})
-		return true
-	}
-
 	return synced
 }
 
@@ -320,9 +307,9 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 		Client: clients,
 		stop:   make(chan struct{}),
 		// for use inside the package, to close on cleanup
-		initialSync:   atomic.NewBool(false),
-		SyncTimeout:   &c.remoteSyncTimeout,
-		kubeConfigSha: sha256.Sum256(kubeConfig),
+		initialSync:        atomic.NewBool(false),
+		initialSyncTimeout: atomic.NewBool(false),
+		kubeConfigSha:      sha256.Sum256(kubeConfig),
 	}, nil
 }
 
@@ -440,12 +427,11 @@ func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	for secretName, clusters := range c.cs.All() {
 		for clusterID, c := range clusters {
 			syncStatus := "syncing"
-			if c.HasSynced() {
-				syncStatus = "synced"
-			} else if c.SyncDidTimeout() {
+			if c.SyncDidTimeout() {
 				syncStatus = "timeout"
+			} else if c.HasSynced() {
+				syncStatus = "synced"
 			}
-
 			out = append(out, cluster.DebugInfo{
 				ID:         clusterID,
 				SecretName: secretName,
