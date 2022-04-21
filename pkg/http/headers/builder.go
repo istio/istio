@@ -30,6 +30,11 @@ func New() *Builder {
 	}
 }
 
+// Get returns the current value for the key.
+func (b *Builder) Get(key string) string {
+	return b.headers.Get(key)
+}
+
 // With sets the given header value.
 func (b *Builder) With(key, value string) *Builder {
 	b.headers.Set(key, value)
@@ -55,5 +60,19 @@ func (b *Builder) WithXForwardedFor(ip string) *Builder {
 }
 
 func (b *Builder) Build() http.Header {
+	if b == nil {
+		return nil
+	}
+
 	return b.headers
+}
+
+func (b *Builder) BuildTo(out http.Header) {
+	if b == nil {
+		return
+	}
+
+	for k, v := range b.headers {
+		out[k] = v
+	}
 }

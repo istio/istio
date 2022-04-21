@@ -58,6 +58,9 @@ type Config interface {
 	// ConfigFactory for appending to this Config
 	ConfigFactory
 
+	// Copy this Config
+	Copy() Config
+
 	// Apply this config to all clusters within the ConfigManager
 	Apply(opts ...ConfigOption) error
 	ApplyOrFail(t test.Failer, opts ...ConfigOption)

@@ -177,7 +177,7 @@ func (i *operatorComponent) isExternalControlPlane() bool {
 	return false
 }
 
-func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Clusters, patch string) {
+func PatchMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, patch string) error {
 	errG := multierror.Group{}
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
@@ -240,7 +240,12 @@ func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Cluste
 			scopes.Framework.Errorf("failed cleaning up cluster-local config: %v", err)
 		}
 	})
-	if err := errG.Wait().ErrorOrNil(); err != nil {
+	return errG.Wait().ErrorOrNil()
+}
+
+func PatchMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters, patch string) {
+	t.Helper()
+	if err := PatchMeshConfig(t, ns, clusters, patch); err != nil {
 		t.Fatal(err)
 	}
 }

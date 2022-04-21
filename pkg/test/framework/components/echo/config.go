@@ -150,12 +150,25 @@ type Config struct {
 	IPFamilyPolicy string
 }
 
+// NamespaceName returns the string name of the namespace.
+func (c Config) NamespaceName() string {
+	if c.Namespace != nil {
+		return c.Namespace.Name()
+	}
+	return ""
+}
+
 // NamespacedName returns the namespaced name for the service.
 func (c Config) NamespacedName() NamespacedName {
 	return NamespacedName{
 		Name:      c.Service,
 		Namespace: c.Namespace,
 	}
+}
+
+// ServiceAccountString returns the service account string for this service.
+func (c Config) ServiceAccountString() string {
+	return "cluster.local/ns/" + c.NamespaceName() + "/sa/" + c.Service
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).

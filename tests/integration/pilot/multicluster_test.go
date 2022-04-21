@@ -64,7 +64,7 @@ func TestClusterLocal(t *testing.T) {
 				{
 					"MeshConfig.serviceSettings",
 					func(t framework.TestContext) {
-						istio.PatchMeshConfig(t, i.Settings().SystemNamespace, to.Clusters(), fmt.Sprintf(`
+						istio.PatchMeshConfigOrFail(t, i.Settings().SystemNamespace, to.Clusters(), fmt.Sprintf(`
 serviceSettings: 
 - settings:
     clusterLocal: true
@@ -153,7 +153,7 @@ spec:
 							},
 							Check: check.And(
 								check.OK(),
-								check.ReachedClusters(t.AllClusters(), to.Clusters()),
+								check.ReachedTargetClusters(t.AllClusters()),
 							),
 							Retry: echo.Retry{
 								Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},

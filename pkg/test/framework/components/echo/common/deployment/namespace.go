@@ -224,11 +224,12 @@ spec:
 `)
 
 	// Create a ServiceEntry to allow apps in this namespace to talk to the external service.
-	cfg.Eval(ns.Name(), map[string]interface{}{
-		"Namespace": d.External.Namespace.Name(),
-		"Hostname":  externalHostname,
-		"Ports":     serviceEntryPorts(),
-	}, `apiVersion: networking.istio.io/v1alpha3
+	if d.External.Namespace != nil {
+		cfg.Eval(ns.Name(), map[string]interface{}{
+			"Namespace": d.External.Namespace.Name(),
+			"Hostname":  externalHostname,
+			"Ports":     serviceEntryPorts(),
+		}, `apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-service
@@ -254,6 +255,7 @@ spec:
     protocol: "{{$p.Protocol}}"
 {{- end }}
 `)
+	}
 
 	return cfg.Apply(resource.NoCleanup)
 }

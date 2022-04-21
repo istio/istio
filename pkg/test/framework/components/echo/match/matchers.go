@@ -17,6 +17,7 @@ package match
 import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
 // Any doesn't filter out any echos.
@@ -77,9 +78,14 @@ func AnyServiceName(expected echo.NamespacedNames) Matcher {
 }
 
 // Namespace matches instances within the given namespace name.
-func Namespace(namespace string) Matcher {
+func Namespace(n namespace.Instance) Matcher {
+	return NamespaceName(n.Name())
+}
+
+// NamespaceName matches instances within the given namespace name.
+func NamespaceName(ns string) Matcher {
 	return func(i echo.Instance) bool {
-		return i.Config().Namespace.Name() == namespace
+		return i.Config().Namespace.Name() == ns
 	}
 }
 

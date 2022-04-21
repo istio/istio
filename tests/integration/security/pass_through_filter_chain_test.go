@@ -620,7 +620,7 @@ spec:
 						To(
 							echotest.SingleSimplePodServiceAndAllSpecial(),
 							echotest.FilterMatch(match.And(
-								match.Namespace(ns.Name()),
+								match.Namespace(ns),
 								match.NotHeadless,
 								match.NotNaked,
 								match.NotExternal,
