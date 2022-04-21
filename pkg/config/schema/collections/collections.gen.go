@@ -329,7 +329,7 @@ var (
 			Proto:         "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration",
 			ReflectType:   reflect.TypeOf(&k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration{}).Elem(),
 			ProtoPackage:  "k8s.io/api/admissionregistration/v1",
-			ClusterScoped: false,
+			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()

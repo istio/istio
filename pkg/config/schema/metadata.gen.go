@@ -332,6 +332,7 @@ resources:
     plural: "mutatingwebhookconfigurations"
     group: "admissionregistration.k8s.io"
     version: "v1"
+    clusterScoped: true
     proto: "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration"
     protoPackage: "k8s.io/api/admissionregistration/v1"
 
