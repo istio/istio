@@ -954,9 +954,12 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	// Append custom hostname if there is any
 	customHost := features.IstiodServiceCustomHost
 	s.dnsNames = []string{host}
-	if customHost != "" && customHost != host {
-		log.Infof("Adding custom hostname %s", customHost)
-		s.dnsNames = append(s.dnsNames, customHost)
+	cHosts := strings.Split(customHost, ",")
+	for _, cHost := range cHosts {
+		if cHost != "" && cHost != host {
+			log.Infof("Adding custom hostname %s", cHost)
+			s.dnsNames = append(s.dnsNames, cHost)
+		}
 	}
 
 	// The first is the recommended one, also used by Apiserver for webhooks.
@@ -970,10 +973,15 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 	for _, altName := range knownHosts {
 		name := fmt.Sprintf("%v.%v.svc", altName, args.Namespace)
-		if name == host || name == customHost {
-			continue
+		exist := false
+		for _, cHost := range cHosts {
+			if name == host || name == cHost {
+				exist = true
+			}
 		}
-		s.dnsNames = append(s.dnsNames, name)
+		if !exist {
+			s.dnsNames = append(s.dnsNames, name)
+		}
 	}
 
 	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
