@@ -12,7 +12,7 @@ FROM gcr.io/istio-release/base:${BASE_VERSION} as debug
 # It is built on the base distroless image, with iptables binary and libraries added
 # The source can be found at https://github.com/istio/distroless/tree/iptables
 # This version is from commit 6faf2f9348d382c6a95bbc3171b89406103cb0ad.
-FROM gcr.io/istio-release/iptables@sha256:a5d55f7cd308eeb1c0f58271bfbfec260c922d16a56ad34e3a6b5f1bf8ef80a2 as distroless
+FROM gcr.io/istio-release/iptables@sha256:64ba191166d2c3f87815148cc1a9f530b770e0dfe81acb164ab79cbb31da582c as distroless
 
 # This will build the final image based on either debug or distroless from above
 # hadolint ignore=DL3006

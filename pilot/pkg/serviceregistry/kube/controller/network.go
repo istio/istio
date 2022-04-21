@@ -20,7 +20,6 @@ import (
 
 	"github.com/yl2chen/cidranger"
 
-	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
@@ -246,12 +245,12 @@ func (c *Controller) getGatewayDetails(svc *model.Service) []model.NetworkGatewa
 	// label based gateways
 	// TODO label based gateways could support being the gateway for multiple networks
 	if nw := svc.Attributes.Labels[label.TopologyNetwork.Name]; nw != "" {
-		if gwPortStr := svc.Attributes.Labels[annotation.NetworkingGatewayPort.Name]; gwPortStr != "" {
+		if gwPortStr := svc.Attributes.Labels[label.NetworkingGatewayPort.Name]; gwPortStr != "" {
 			if gwPort, err := strconv.Atoi(gwPortStr); err == nil {
 				return []model.NetworkGateway{{Port: uint32(gwPort), Network: network.ID(nw)}}
 			}
 			log.Warnf("could not parse %q for %s on %s/%s; defaulting to %d",
-				gwPortStr, annotation.NetworkingGatewayPort.Name, svc.Attributes.Namespace, svc.Attributes.Name, DefaultNetworkGatewayPort)
+				gwPortStr, label.NetworkingGatewayPort.Name, svc.Attributes.Namespace, svc.Attributes.Name, DefaultNetworkGatewayPort)
 		}
 		return []model.NetworkGateway{{Port: DefaultNetworkGatewayPort, Network: network.ID(nw)}}
 	}
