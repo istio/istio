@@ -89,17 +89,19 @@ type Controller struct {
 
 	handlers []ClusterHandler
 
-	once              sync.Once
-	syncInterval      time.Duration
-	remoteSyncTimeout atomic.Bool
+	once               sync.Once
+	syncInterval       time.Duration
+	syncTimeout        atomic.Bool
+	clusterSyncTimeout time.Duration
 }
 
 // Cluster defines cluster struct
 type Cluster struct {
 	// ID of the cluster.
 	ID cluster.ID
-	// SyncTimeout is marked after features.RemoteClusterTimeout.
-	SyncTimeout *atomic.Bool
+	// SyncCtx is a context with timeout features.RemoteClusterTimeout.
+	SyncCtx context.Context
+	ctx     context.Context
 	// Client for accessing the cluster.
 	Client kube.Client
 
@@ -129,11 +131,31 @@ func (r *Cluster) Run() {
 }
 
 func (r *Cluster) HasSynced() bool {
-	return r.initialSync.Load() || r.SyncTimeout.Load()
+	if r.initialSync.Load() {
+		return true
+	}
+	if r.SyncCtx != nil {
+		select {
+		case <-r.SyncCtx.Done():
+			return true
+		default:
+			return false
+		}
+	}
+	return false
 }
 
 func (r *Cluster) SyncDidTimeout() bool {
-	return r.SyncTimeout.Load() && !r.HasSynced()
+	var timeout bool
+	if r.SyncCtx != nil {
+		select {
+		case <-r.SyncCtx.Done():
+			timeout = true
+		default:
+			timeout = false
+		}
+	}
+	return timeout && !r.initialSync.Load()
 }
 
 // ClusterStore is a collection of clusters
@@ -265,6 +287,7 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 		cs:                 newClustersStore(),
 		informer:           secretsInformer,
 		syncInterval:       100 * time.Millisecond,
+		clusterSyncTimeout: features.RemoteClusterTimeout,
 	}
 	controller.queue = controllers.NewQueue("multicluster secret", controllers.WithReconciler(controller.processItem))
 
@@ -274,7 +297,7 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 
 // Run starts the controller until it receives a message over stopCh
 func (c *Controller) Run(stopCh <-chan struct{}) error {
-	// run handlers for the local cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
+	// run handlers for the local cluster; do not store this *Cluster in the ClusterStore or give it a SyncCtx
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
 	localCluster := &Cluster{Client: c.localClusterClient, ID: c.localClusterID}
 	if err := c.handleAdd(localCluster, stopCh); err != nil {
@@ -285,7 +308,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		log.Info("Starting multicluster remote secrets controller")
 
 		go c.informer.Run(stopCh)
-
 		if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
 			log.Error("Failed to sync multicluster remote secrets controller cache")
 			return
@@ -293,7 +315,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
 		if features.RemoteClusterTimeout != 0 {
 			time.AfterFunc(features.RemoteClusterTimeout, func() {
-				c.remoteSyncTimeout.Store(true)
+				c.syncTimeout.Store(true)
 			})
 		}
 		c.queue.Run(stopCh)
@@ -336,7 +358,7 @@ func (c *Controller) HasSynced() bool {
 	if synced {
 		return true
 	}
-	if c.remoteSyncTimeout.Load() {
+	if c.syncTimeout.Load() {
 		c.once.Do(func() {
 			log.Errorf("remote clusters failed to sync after %v", features.RemoteClusterTimeout)
 			timeouts.Increment()
@@ -457,15 +479,19 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 	if err != nil {
 		return nil, err
 	}
-	return &Cluster{
+	remoteCluster := &Cluster{
 		ID:     cluster.ID(clusterID),
 		Client: clients,
 		stop:   make(chan struct{}),
 		// for use inside the package, to close on cleanup
-		initialSync:   atomic.NewBool(false),
-		SyncTimeout:   &c.remoteSyncTimeout,
+		initialSync: atomic.NewBool(false),
+
 		kubeConfigSha: sha256.Sum256(kubeConfig),
-	}, nil
+	}
+	if c.clusterSyncTimeout != 0 {
+		remoteCluster.SyncCtx, _ = context.WithTimeout(context.Background(), c.clusterSyncTimeout)
+	}
+	return remoteCluster, nil
 }
 
 func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
@@ -582,10 +608,10 @@ func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	for secretName, clusters := range c.cs.All() {
 		for clusterID, c := range clusters {
 			syncStatus := "syncing"
-			if c.HasSynced() {
-				syncStatus = "synced"
-			} else if c.SyncDidTimeout() {
+			if c.SyncDidTimeout() {
 				syncStatus = "timeout"
+			} else if c.HasSynced() {
+				syncStatus = "synced"
 			}
 
 			out = append(out, cluster.DebugInfo{

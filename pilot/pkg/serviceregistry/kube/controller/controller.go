@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sort"
@@ -139,8 +140,8 @@ type Options struct {
 	// Maximum burst for throttle when communicating with the kubernetes API
 	KubernetesAPIBurst int
 
-	// SyncTimeout, if set, causes HasSynced to be returned when marked true.
-	SyncTimeout *atomic.Bool
+	// SyncCtx, if set, causes HasSynced to be returned when context done.
+	SyncCtx context.Context
 
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
@@ -719,7 +720,18 @@ func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj interfa
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	return (c.opts.SyncTimeout != nil && c.opts.SyncTimeout.Load()) || c.initialSync.Load()
+	if c.initialSync.Load() {
+		return true
+	}
+	if c.opts.SyncCtx != nil {
+		select {
+		case <-c.opts.SyncCtx.Done():
+			return true
+		default:
+			return false
+		}
+	}
+	return false
 }
 
 func (c *Controller) informersSynced() bool {

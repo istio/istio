@@ -156,7 +156,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	options := m.opts
 	options.ClusterID = cluster.ID
 	// the aggregate registry's HasSynced will use the k8s controller's HasSynced, so we reference the same timeout
-	options.SyncTimeout = cluster.SyncTimeout
+	options.SyncCtx = cluster.SyncCtx
 	// different clusters may have different k8s version, re-apply conditional default
 	options.EndpointMode = DetectEndpointMode(client)
 
