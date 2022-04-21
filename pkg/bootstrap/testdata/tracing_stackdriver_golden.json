@@ -10,7 +10,7 @@
       "layers": [
           {
             "name": "global config",
-            "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":"true","envoy.reloadable_features.no_extension_lookup_by_name":"false","envoy.reloadable_features.http_reject_path_with_fragment":"false","envoy.reloadable_features.require_strict_1xx_and_204_response_headers":"false","overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
+            "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":"true","envoy.reloadable_features.http_reject_path_with_fragment":"false","envoy.reloadable_features.no_extension_lookup_by_name":"false","envoy.reloadable_features.require_strict_1xx_and_204_response_headers":"false","overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
           },
           {
               "name": "admin",
@@ -396,8 +396,8 @@
           }
         }
       }
-
-
+      
+      
     ],
     "listeners":[
       {
@@ -508,7 +508,7 @@
       "@type": "type.googleapis.com/envoy.config.trace.v3.OpenCensusConfig",
       "stackdriver_exporter_enabled": true,
       "stackdriver_project_id": "my-sd-project",
-
+      
       "stackdriver_grpc_service": {
         "google_grpc": {
           "target_uri": "cloudtrace.googleapis.com",
@@ -526,15 +526,15 @@
           }]
         },
         "initial_metadata": [
-
+        
           {
             "key": "x-goog-user-project",
             "value": "my-sd-project"
           }
-
+        
         ]
       },
-
+      
       "stdout_exporter_enabled": true,
       "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
       "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
@@ -549,14 +549,14 @@
        }
      }
   }}
-
-
-
+  
+  
+  
   ,
   "cluster_manager": {
     "outlier_detection": {
       "event_log_path": "/dev/stdout"
     }
   }
-
+  
 }

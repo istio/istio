@@ -892,6 +892,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				// Append any deprecation notices
 				if obj != nil {
 					errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
+					errs = appendValidation(errs, validateMissingTypedConfigFilterTypes(obj))
 				}
 			}
 		}
@@ -947,6 +948,43 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 	return deprecatedTypes, topError
 }
 
+// recurseMissingTypedConfig checks that configured filters do not rely on `name` and elide `typed_config`.
+// This is temporarily enabled in Envoy by the envoy.reloadable_features.no_extension_lookup_by_name flag, but in the future will be removed.
+func recurseMissingTypedConfig(message protoreflect.Message) []string {
+	var deprecatedTypes []string
+	if message == nil {
+		return nil
+	}
+	// First, iterate over the fields to find the 'name' field to help with reporting errors.
+	var name string
+	for i := 0; i < message.Type().Descriptor().Fields().Len(); i++ {
+		field := message.Type().Descriptor().Fields().Get(i)
+		if field.JSONName() == "name" {
+			name = fmt.Sprintf("%v", message.Get(field).Interface())
+		}
+	}
+
+	// Now go through fields again
+	for i := 0; i < message.Type().Descriptor().Fields().Len(); i++ {
+		field := message.Type().Descriptor().Fields().Get(i)
+		set := message.Has(field)
+		// If it has a typedConfig field, it must be set.
+		// Note: it is possible there is some API that has typedConfig but has a non-deprecated alternative,
+		// but I couldn't find any. Worst case, this is a warning, not an error, so a false positive is not so bad.
+		if field.JSONName() == "typedConfig" && !set {
+			deprecatedTypes = append(deprecatedTypes, name)
+		}
+		if set {
+			// If the field was set and is a message, recurse into it to check children
+			m, isMessage := message.Get(field).Interface().(protoreflect.Message)
+			if isMessage {
+				deprecatedTypes = append(deprecatedTypes, recurseMissingTypedConfig(m)...)
+			}
+		}
+	}
+	return deprecatedTypes
+}
+
 func validateDeprecatedFilterTypes(obj proto.Message) error {
 	deprecated, err := recurseDeprecatedTypes(obj.ProtoReflect())
 	if err != nil {
@@ -954,6 +992,14 @@ func validateDeprecatedFilterTypes(obj proto.Message) error {
 	}
 	if len(deprecated) > 0 {
 		return WrapWarning(fmt.Errorf("using deprecated type_url(s); %v", strings.Join(deprecated, ", ")))
+	}
+	return nil
+}
+
+func validateMissingTypedConfigFilterTypes(obj proto.Message) error {
+	missing := recurseMissingTypedConfig(obj.ProtoReflect())
+	if len(missing) > 0 {
+		return WrapWarning(fmt.Errorf("using deprecated types by name without typed_config; %v", strings.Join(missing, ", ")))
 	}
 	return nil
 }

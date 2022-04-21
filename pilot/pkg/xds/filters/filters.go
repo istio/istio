@@ -16,7 +16,9 @@ package filters
 
 import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
@@ -28,6 +30,8 @@ import (
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
+	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -51,6 +55,18 @@ const (
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
 // This should not be used for filters that will be mutated
 var (
+	RetryPreviousHosts = &route.RetryPolicy_RetryHostPredicate{
+		Name: "envoy.retry_host_predicates.previous_hosts",
+		ConfigType: &route.RetryPolicy_RetryHostPredicate_TypedConfig{
+			TypedConfig: util.MessageToAny(&previoushost.PreviousHostsPredicate{}),
+		},
+	}
+	RawBufferTransportSocket = &core.TransportSocket{
+		Name: util.EnvoyRawBufferSocketName,
+		ConfigType: &core.TransportSocket_TypedConfig{
+			TypedConfig: util.MessageToAny(&rawbuffer.RawBuffer{}),
+		},
+	}
 	Cors = &hcm.HttpFilter{
 		Name: wellknown.CORS,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
