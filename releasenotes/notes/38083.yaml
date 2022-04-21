@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 38083
+releaseNotes:
+  - |
+    **Fixed** nil pointer dereference panic when using kube-inject when not passing a needed revision but also passing injectConfigMapName.
