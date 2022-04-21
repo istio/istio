@@ -20,7 +20,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -89,7 +88,6 @@ type Controller struct {
 
 	handlers []ClusterHandler
 
-	once         sync.Once
 	syncInterval time.Duration
 }
 
