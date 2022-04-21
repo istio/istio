@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -1162,11 +1163,7 @@ func scopeToSidecar(scope *SidecarScope) string {
 }
 
 func TestSetDestinationRuleInheritance(t *testing.T) {
-	features.EnableDestinationRuleInheritance = true
-	defer func() {
-		features.EnableDestinationRuleInheritance = false
-	}()
-
+	test.SetBoolForTest(t, &features.EnableDestinationRuleInheritance, true)
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	testhost := "httpbin.org"

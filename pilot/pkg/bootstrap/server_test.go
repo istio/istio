@@ -34,6 +34,7 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
@@ -116,12 +117,8 @@ func TestNewServerCertInit(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			originalCert, originalCA := features.PilotCertProvider, features.EnableCAServer
-			features.PilotCertProvider, features.EnableCAServer = c.certProvider, c.enableCA
-			t.Cleanup(func() {
-				features.PilotCertProvider, features.EnableCAServer = originalCert, originalCA
-			})
-			features.EnableCAServer = c.enableCA
+			test.SetStringForTest(t, &features.PilotCertProvider, c.certProvider)
+			test.SetBoolForTest(t, &features.EnableCAServer, c.enableCA)
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{

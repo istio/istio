@@ -31,7 +31,7 @@ import (
 )
 
 func NewDeltaAdsTest(t test.Failer, conn *grpc.ClientConn) *DeltaAdsTest {
-	features.DeltaXds = true
+	test.SetBoolForTest(t, &features.DeltaXds, true)
 	return NewDeltaXdsTest(t, conn, func(conn *grpc.ClientConn) (DeltaDiscoveryClient, error) {
 		xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
 		return xds.DeltaAggregatedResources(context.Background())

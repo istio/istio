@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -2647,11 +2648,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			old := features.VerifyCertAtClient
-			defer func() {
-				features.VerifyCertAtClient = old
-			}()
-			features.VerifyCertAtClient = tc.enableVerifyCertAtClient
+			test.SetBoolForTest(t, &features.VerifyCertAtClient, tc.enableVerifyCertAtClient)
 			var proxy *model.Proxy
 			if tc.router {
 				proxy = newGatewayProxy()
@@ -3217,11 +3214,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			old := features.VerifyCertAtClient
-			defer func() {
-				features.VerifyCertAtClient = old
-			}()
-			features.VerifyCertAtClient = tt.enableVerifyCertAtClient
+			test.SetBoolForTest(t, &features.VerifyCertAtClient, tt.enableVerifyCertAtClient)
 			instances := []*model.ServiceInstance{
 				{
 					Service:     tt.service,

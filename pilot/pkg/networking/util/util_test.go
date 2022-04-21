@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/test"
 )
 
 var testCla = &endpoint.ClusterLoadAssignment{
@@ -1067,7 +1068,7 @@ func TestCidrRangeSliceEqual(t *testing.T) {
 }
 
 func TestEndpointMetadata(t *testing.T) {
-	features.EndpointTelemetryLabel = true
+	test.SetBoolForTest(t, &features.EndpointTelemetryLabel, true)
 	cases := []struct {
 		name         string
 		network      network.ID

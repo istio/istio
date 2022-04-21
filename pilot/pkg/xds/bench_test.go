@@ -138,11 +138,7 @@ func configureBenchmark(t test.Failer) {
 		}
 		s.SetOutputLevel(istiolog.NoneLevel)
 	}
-	ov := features.EnableXDSCaching
-	features.EnableXDSCaching = false
-	t.Cleanup(func() {
-		features.EnableXDSCaching = ov
-	})
+	test.SetBoolForTest(t, &features.EnableXDSCaching, false)
 }
 
 func BenchmarkInitPushContext(b *testing.B) {

@@ -37,7 +37,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -53,11 +52,6 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 )
-
-func init() {
-	features.WorkloadEntryHealthChecks = true
-	features.WorkloadEntryAutoRegistration = true
-}
 
 // TestXdsLeak is a regression test for https://github.com/istio/istio/issues/34097
 func TestXdsLeak(t *testing.T) {

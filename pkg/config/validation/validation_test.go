@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -2115,10 +2116,7 @@ func TestValidateHTTPRedirect(t *testing.T) {
 }
 
 func TestValidateDestinationWithInheritance(t *testing.T) {
-	features.EnableDestinationRuleInheritance = true
-	defer func() {
-		features.EnableDestinationRuleInheritance = false
-	}()
+	test.SetBoolForTest(t, &features.EnableDestinationRuleInheritance, true)
 	cases := []struct {
 		name  string
 		in    proto.Message
