@@ -1,3 +1,3 @@
 # istio-static image is prebuilt with 1337:1337.
 # https://github.com/istio/distroless/tree/iptables/istio
-FROM gcr.io/istio-release/distroless/istio-static@sha256:6330bd7b07d70fe4277af99c6bba96236ae3f415417b13a4563f29bcf6208062 as distroless_source
+FROM gcr.io/istio-release/distroless/istio-static@sha256:d6fa9db9548b5772860fecddb11d84f9ebd7e0321c0cb3c02870402680cc315f as distroless_source
