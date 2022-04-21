@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
@@ -136,13 +135,10 @@ func TestDeleteImportedService(t *testing.T) {
 			c1, ic := newTestServiceImportCache(t, mode)
 
 			// Create and run another controller.
-			c2, _ := NewFakeControllerWithOptions(FakeControllerOptions{
-				Stop:      c1.stop,
+			c2, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 				ClusterID: "test-cluster2",
 				Mode:      mode,
 			})
-			go c2.Run(c2.stop)
-			cache.WaitForCacheSync(c2.stop, c2.HasSynced)
 
 			c1.opts.MeshServiceController.AddRegistryAndRun(c2, c2.stop)
 
@@ -207,19 +203,14 @@ func TestUpdateServiceImportVIPs(t *testing.T) {
 }
 
 func newTestServiceImportCache(t test.Failer, mode EndpointMode) (c *FakeController, ic *serviceImportCacheImpl) {
-	stopCh := make(chan struct{})
 	test.SetBoolForTest(t, &features.EnableMCSHost, true)
 	t.Cleanup(func() {
-		close(stopCh)
 	})
 
-	c, _ = NewFakeControllerWithOptions(FakeControllerOptions{
-		Stop:      stopCh,
+	c, _ = NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: serviceImportCluster,
 		Mode:      mode,
 	})
-	go c.Run(c.stop)
-	cache.WaitForCacheSync(c.stop, c.HasSynced)
 
 	ic = c.imports.(*serviceImportCacheImpl)
 	return

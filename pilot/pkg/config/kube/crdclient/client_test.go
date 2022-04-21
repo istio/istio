@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	metadatafake "k8s.io/client-go/metadata/fake"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -51,7 +50,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCont
 	}
 	go config.Run(stop)
 	fake.RunAndWait(stop)
-	cache.WaitForCacheSync(stop, config.HasSynced)
+	kube.WaitForCacheSync(stop, config.HasSynced)
 	t.Cleanup(func() {
 		close(stop)
 	})
