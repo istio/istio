@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
 )
 
 func TestModelProtocolToListenerProtocol(t *testing.T) {
@@ -108,14 +109,8 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defaultValue := features.EnableProtocolSniffingForOutbound
-			features.EnableProtocolSniffingForOutbound = tt.sniffingEnabledForOutbound
-			defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
-
-			defaultInboundValue := features.EnableProtocolSniffingForInbound
-			features.EnableProtocolSniffingForInbound = tt.sniffingEnabledForInbound
-			defer func() { features.EnableProtocolSniffingForInbound = defaultInboundValue }()
-
+			test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, tt.sniffingEnabledForOutbound)
+			test.SetBoolForTest(t, &features.EnableProtocolSniffingForInbound, tt.sniffingEnabledForInbound)
 			if got := ModelProtocolToListenerProtocol(tt.protocol, tt.direction); got != tt.want {
 				t.Errorf("ModelProtocolToListenerProtocol() = %v, want %v", got, tt.want)
 			}
