@@ -262,9 +262,13 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
+	sa.AddRunningKubeSourceWithRevision(c, "default")
+}
+
+func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
 	// TODO: are either of these string constants intended to vary?
 	// This gets us only istio/ ones
-	store, err := crdclient.NewForSchemas(context.Background(), c, "default",
+	store, err := crdclient.NewForSchemas(context.Background(), c, revision,
 		"cluster.local", sa.kubeResources.Intersect(collections.PilotGatewayAPI))
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
 	if err != nil {
@@ -282,7 +286,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 		return
 	}
 
-	store, err = arbitraryclient.NewForSchemas(context.Background(), c, "default",
+	store, err = arbitraryclient.NewForSchemas(context.Background(), c, revision,
 		"cluster.local", sa.kubeResources.Remove(collections.PilotGatewayAPI.All()...))
 	if err != nil {
 		scope.Analysis.Errorf("error adding kube arbitraryclient: %v", err)
