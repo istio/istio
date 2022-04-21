@@ -102,7 +102,9 @@ func (o *ImageFetcher) Fetch(url, expManifestDigest string) (ret []byte, actualD
 	if err != nil && strings.Contains(err.Error(), "server gave HTTP response") {
 		wasmLog.Infof("fetch with plain text from %s", url)
 		ref, err = name.ParseReference(url, name.Insecure)
-		desc, err = remote.Get(ref, o.fetchOpts...)
+		if err == nil {
+			desc, err = remote.Get(ref, o.fetchOpts...)
+		}
 	}
 
 	if err != nil {
