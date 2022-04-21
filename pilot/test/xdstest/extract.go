@@ -236,6 +236,26 @@ func ExtractHTTPConnectionManager(t test.Failer, fcs *listener.FilterChain) *hcm
 	return nil
 }
 
+func ExtractFilterNames(t test.Failer, fcs *listener.FilterChain) ([]string, []string) {
+	nwFilters := []string{}
+	httpFilters := []string{}
+	for _, fc := range fcs.Filters {
+		if fc.Name == wellknown.HTTPConnectionManager {
+			h := &hcm.HttpConnectionManager{}
+			if fc.GetTypedConfig() != nil {
+				if err := fc.GetTypedConfig().UnmarshalTo(h); err != nil {
+					t.Fatalf("failed to unmarshal hcm: %v", err)
+				}
+			}
+			for _, hf := range h.HttpFilters {
+				httpFilters = append(httpFilters, hf.Name)
+			}
+		}
+		nwFilters = append(nwFilters, fc.Name)
+	}
+	return nwFilters, httpFilters
+}
+
 func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]string {
 	got := map[string][]string{}
 	for _, cla := range cla {

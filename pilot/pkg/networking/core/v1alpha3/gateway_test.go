@@ -2511,3 +2511,115 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		t.Errorf("The value of hostname %s mapping must be exist and it should be nil.", bazHostName)
 	}
 }
+
+func TestBuildGatewayListenersFilters(t *testing.T) {
+	cases := []struct {
+		name                   string
+		node                   *pilot_model.Proxy
+		gateways               []config.Config
+		virtualServices        []config.Config
+		expectedHttpFilters    []string
+		expectedNetworkFilters []string
+	}{
+		{
+			"http",
+			&pilot_model.Proxy{Type: pilot_model.Router},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+							},
+						},
+					},
+				},
+			},
+			nil,
+			[]string{"istio.metadata_exchange", "istio.alpn", "envoy.filters.http.fault", "envoy.filters.http.cors", "envoy.filters.http.router"},
+			[]string{"envoy.filters.network.http_connection_manager"},
+		},
+		{
+			"gateway with passthrough",
+			&pilot_model.Proxy{Type: pilot_model.Router},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: "passthrough-gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 9443, Protocol: "TLS"},
+								Hosts: []string{"barone.example.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/passthrough-gateway"},
+						Hosts:    []string{"barone.example.com"},
+						Tls: []*networking.TLSRoute{
+							{
+								Match: []*networking.TLSMatchAttributes{
+									{
+										Port:     9443,
+										SniHosts: []string{"barone.example.com"},
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "foo.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			[]string{},
+			[]string{"envoy.filters.network.tcp_proxy", "istio.metadata_exchange"},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			Configs := make([]config.Config, 0)
+			Configs = append(Configs, tt.gateways...)
+			Configs = append(Configs, tt.virtualServices...)
+			cg := NewConfigGenTest(t, TestOptions{
+				Configs: Configs,
+			})
+			cg.MemRegistry.WantGetProxyServiceInstances = tt.node.ServiceInstances
+			proxy := cg.SetupProxy(&proxyGateway)
+			if tt.node.Metadata != nil {
+				proxy.Metadata = tt.node.Metadata
+			} else {
+				proxy.Metadata = &proxyGatewayMetadata
+			}
+
+			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
+			for _, listener := range builder.gatewayListeners {
+				for _, fc := range listener.GetFilterChains() {
+					gotNWFilters, gotHttpFilters := xdstest.ExtractFilterNames(t, fc)
+
+					sort.Strings(gotHttpFilters)
+					sort.Strings(gotNWFilters)
+					sort.Strings(tt.expectedHttpFilters)
+					sort.Strings(tt.expectedNetworkFilters)
+					if !reflect.DeepEqual(gotHttpFilters, tt.expectedHttpFilters) {
+						t.Fatalf("Expected httpfilters: %v, got: %v", tt.expectedHttpFilters, gotHttpFilters)
+					}
+					if !reflect.DeepEqual(gotNWFilters, tt.expectedNetworkFilters) {
+						t.Fatalf("Expected network filters: %v, got: %v", tt.expectedNetworkFilters, gotNWFilters)
+					}
+				}
+			}
+		})
+	}
+}
