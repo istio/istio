@@ -93,150 +93,6 @@ type Controller struct {
 	remoteSyncTimeout atomic.Bool
 }
 
-// Cluster defines cluster struct
-type Cluster struct {
-	// ID of the cluster.
-	ID cluster.ID
-	// SyncTimeout is marked after features.RemoteClusterTimeout.
-	SyncTimeout *atomic.Bool
-	// Client for accessing the cluster.
-	Client kube.Client
-
-	kubeConfigSha [sha256.Size]byte
-
-	stop chan struct{}
-	// initialSync is marked when RunAndWait completes
-	initialSync *atomic.Bool
-}
-
-// Stop channel which is closed when the cluster is removed or the Controller that created the client is stopped.
-// Client.RunAndWait is called using this channel.
-func (r *Cluster) Stop() <-chan struct{} {
-	return r.stop
-}
-
-func (c *Controller) AddHandler(h ClusterHandler) {
-	log.Infof("handling remote clusters in %T", h)
-	c.handlers = append(c.handlers, h)
-}
-
-// Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
-// This should be called after each of the handlers have registered informers, and should be run in a goroutine.
-func (r *Cluster) Run() {
-	r.Client.RunAndWait(r.Stop())
-	r.initialSync.Store(true)
-}
-
-func (r *Cluster) HasSynced() bool {
-	return r.initialSync.Load() || r.SyncTimeout.Load()
-}
-
-func (r *Cluster) SyncDidTimeout() bool {
-	return r.SyncTimeout.Load() && !r.HasSynced()
-}
-
-// ClusterStore is a collection of clusters
-type ClusterStore struct {
-	sync.RWMutex
-	// keyed by secret key(ns/name)->clusterID
-	remoteClusters map[string]map[cluster.ID]*Cluster
-	clusters       sets.Set
-}
-
-// newClustersStore initializes data struct to store clusters information
-func newClustersStore() *ClusterStore {
-	return &ClusterStore{
-		remoteClusters: make(map[string]map[cluster.ID]*Cluster),
-		clusters:       sets.New(),
-	}
-}
-
-func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Cluster) {
-	c.Lock()
-	defer c.Unlock()
-	if _, ok := c.remoteClusters[secretKey]; !ok {
-		c.remoteClusters[secretKey] = make(map[cluster.ID]*Cluster)
-	}
-	c.remoteClusters[secretKey][clusterID] = value
-	c.clusters.Insert(string(clusterID))
-}
-
-func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
-	c.Lock()
-	defer c.Unlock()
-	delete(c.remoteClusters[secretKey], clusterID)
-	c.clusters.Delete(string(clusterID))
-	if len(c.remoteClusters[secretKey]) == 0 {
-		delete(c.remoteClusters, secretKey)
-	}
-}
-
-func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
-	c.RLock()
-	defer c.RUnlock()
-	if _, ok := c.remoteClusters[secretKey]; !ok {
-		return nil
-	}
-	return c.remoteClusters[secretKey][clusterID]
-}
-
-func (c *ClusterStore) Contains(clusterID cluster.ID) bool {
-	c.RLock()
-	defer c.RUnlock()
-	return c.clusters.Contains(string(clusterID))
-}
-
-func (c *ClusterStore) GetByID(clusterID cluster.ID) *Cluster {
-	c.RLock()
-	defer c.RUnlock()
-	for _, clusters := range c.remoteClusters {
-		c, ok := clusters[clusterID]
-		if ok {
-			return c
-		}
-	}
-	return nil
-}
-
-// All returns a copy of the current remote clusters.
-func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
-	if c == nil {
-		return nil
-	}
-	c.RLock()
-	defer c.RUnlock()
-	out := make(map[string]map[cluster.ID]*Cluster, len(c.remoteClusters))
-	for secret, clusters := range c.remoteClusters {
-		out[secret] = make(map[cluster.ID]*Cluster, len(clusters))
-		for cid, c := range clusters {
-			outCluster := *c
-			out[secret][cid] = &outCluster
-		}
-	}
-	return out
-}
-
-// GetExistingClustersFor return existing clusters registered for the given secret
-func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
-	c.RLock()
-	defer c.RUnlock()
-	out := make([]*Cluster, 0, len(c.remoteClusters[secretKey]))
-	for _, cluster := range c.remoteClusters[secretKey] {
-		out = append(out, cluster)
-	}
-	return out
-}
-
-func (c *ClusterStore) Len() int {
-	c.Lock()
-	defer c.Unlock()
-	out := 0
-	for _, clusterMap := range c.remoteClusters {
-		out += len(clusterMap)
-	}
-	return out
-}
-
 // NewController returns a new secret controller
 func NewController(kubeclientset kube.Client, namespace string, localClusterID cluster.ID) *Controller {
 	secretsInformer := cache.NewSharedIndexInformer(
@@ -268,6 +124,10 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 
 	secretsInformer.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
 	return controller
+}
+
+func (c *Controller) AddHandler(h ClusterHandler) {
+	c.handlers = append(c.handlers, h)
 }
 
 // Run starts the controller until it receives a message over stopCh
