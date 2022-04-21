@@ -549,8 +549,8 @@ func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error)
 	return true, nil
 }
 
-func (r *JwksResolver) CheckPubKeyExistInCache(issuer string, jwksUri string) bool {
-	key := jwtKey{issuer: issuer, jwksURI: jwksUri}
+func (r *JwksResolver) CheckPubKeyExistInCache(issuer string, jwksURI string) bool {
+	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
 	if val, found := r.keyEntries.Load(key); found {
 		e := val.(jwtPubKeyEntry)
 		r.keyEntries.Store(key, e)

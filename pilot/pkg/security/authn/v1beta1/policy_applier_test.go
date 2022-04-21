@@ -2143,7 +2143,8 @@ func TestGetMutualTLSMode(t *testing.T) {
 
 func retryToCheckCache(attempts int, sleep time.Duration, fn func() bool) bool {
 	if presentInCache := fn(); !presentInCache {
-		if attempts--; attempts > 0 {
+		attempts--
+		if attempts > 0 {
 			time.Sleep(sleep)
 			return retryToCheckCache(attempts, sleep, fn)
 		}
