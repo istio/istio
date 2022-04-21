@@ -201,7 +201,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			requestTimeout:       0, // Cause timeout immediately.
-			wantErrorMsgPrefix:   fmt.Sprintf("could not fetch Wasm OCI image: could not fetch image: Get \"https://%s/v2/\"", ou.Host),
+			wantErrorMsgPrefix:   fmt.Sprintf("could not fetch Wasm OCI image: could not fetch manifest: Get \"https://%s/v2/\"", ou.Host),
 		},
 		{
 			name:                 "fetch oci with wrong digest",
