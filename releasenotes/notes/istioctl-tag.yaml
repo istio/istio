@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix 
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** a bug when tagging a control plane with istioctl, it's not properly seeing the control plane service in it's check.
