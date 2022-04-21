@@ -20,6 +20,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
 )
 
 func TestIsTLSServer(t *testing.T) {
@@ -212,7 +213,7 @@ func TestIsEligibleForHTTP3Upgrade(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			features.EnableQUICListeners = tc.enableQUICListeners
+			test.SetBoolForTest(t, &features.EnableQUICListeners, tc.enableQUICListeners)
 			actual := IsEligibleForHTTP3Upgrade(tc.server)
 			if actual != tc.expected {
 				t.Errorf("IsEligibleForHTTP3Upgrade(%s) => %t, want %t",

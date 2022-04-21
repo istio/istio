@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -135,14 +136,8 @@ func Test_KubeSecretController(t *testing.T) {
 }
 
 func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
-	externalIstiod := features.ExternalIstiod
-	webhookName := features.InjectionWebhookConfigName
-	features.ExternalIstiod = true
-	features.InjectionWebhookConfigName = ""
-	defer func() {
-		features.ExternalIstiod = externalIstiod
-		features.InjectionWebhookConfigName = webhookName
-	}()
+	test.SetBoolForTest(t, &features.ExternalIstiod, true)
+	test.SetStringForTest(t, &features.InjectionWebhookConfigName, "")
 	clientset := kube.NewFakeClient()
 	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
