@@ -30,6 +30,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
@@ -121,6 +122,12 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, applier authn.PolicyApplier) []*listener.FilterChain {
 	mode := applier.GetMutualTLSModeForPort(si.Endpoint.EndpointPort)
 
+	// auto-mtls label is set - clients will attempt to connect using mtls, and
+	// gRPC doesn't support permissive.
+	if node.Metadata.Labels[label.SecurityTlsMode.Name] == "istio" && mode == model.MTLSPermissive {
+		mode = model.MTLSStrict
+	}
+
 	var tlsContext *tls.DownstreamTlsContext
 	if mode != model.MTLSDisable && mode != model.MTLSUnknown {
 		tlsContext = &tls.DownstreamTlsContext{
@@ -139,7 +146,8 @@ func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *mo
 	if mode == model.MTLSPermissive {
 		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
 		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
-		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
+		// No need to warn on each push - the behavior is still consistent with auto-mtls, which is the
+		// replacement for permissive.
 		mode = model.MTLSDisable
 	}
 
