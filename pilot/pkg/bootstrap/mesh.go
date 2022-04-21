@@ -62,7 +62,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	if _, err = os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
 		s.environment.Watcher, err = mesh.NewFileWatcher(fileWatcher, args.MeshConfigFile, multiWatch)
 		if err == nil {
-			if multiWatch {
+			if multiWatch && s.kubeClient != nil {
 				kubemesh.AddUserMeshConfig(
 					s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
 			} else {
