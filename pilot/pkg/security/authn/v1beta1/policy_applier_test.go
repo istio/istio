@@ -703,23 +703,7 @@ func TestJwtFilter(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-<<<<<<< HEAD
 			istiotest.SetBoolForTest(t, &features.EnableRemoteJwks, c.enableRemoteJwks)
-			push := model.NewPushContext()
-			push.JwtKeyResolver = model.NewJwksResolver(
-				model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-				model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
-			defer push.JwtKeyResolver.Close()
-
-			push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
-			push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
-				Hostname: "jwt-token-issuer.mesh.svc.cluster.local",
-			}
-=======
->>>>>>> ccb21951aa (resolved the PR comments)
-			defaultValue := features.EnableRemoteJwks
-			features.EnableRemoteJwks = c.enableRemoteJwks
-			defer func() { features.EnableRemoteJwks = defaultValue }()
 			NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter()
 			for _, config := range c.in {
 				for _, jwtRule := range config.Spec.(*v1beta1.RequestAuthentication).JwtRules {
@@ -728,8 +712,8 @@ func TestJwtFilter(t *testing.T) {
 					})
 				}
 			}
-			got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter()
-			if !reflect.DeepEqual(c.expected, got) {
+
+			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
