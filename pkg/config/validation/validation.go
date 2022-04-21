@@ -524,6 +524,12 @@ func validateServer(server *networking.Server) (v Validation) {
 				v = appendValidation(v, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
 			}
 		}
+
+		if p.IsTLS() {
+			for _, host := range server.Hosts {
+				v = appendValidation(v, ValidatePartialWildCard(host, p))
+			}
+		}
 	}
 	return v
 }
@@ -2532,6 +2538,10 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 		}
 	}
 
+	for _, host := range match.SniHosts {
+		errs = appendValidation(errs, ValidatePartialWildCard(host, protocol.Instance("TLS")))
+	}
+
 	for _, destinationSubnet := range match.DestinationSubnets {
 		errs = appendValidation(errs, ValidateIPSubnet(destinationSubnet))
 	}
@@ -3131,12 +3141,9 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				ValidateProtocol(port.Protocol),
 				ValidatePort(int(port.Number)))
 
-			if portProto := protocol.Parse(port.Protocol); portProto.IsHTTPS() || portProto.IsTLS() {
+			if portProto := protocol.Parse(port.Protocol); portProto.IsTLS() {
 				for _, host := range serviceEntry.Hosts {
-					parts := strings.SplitN(host, ".", 2)
-					if strings.Contains(parts[0], "*") && len(parts[0]) != 1 {
-						errs = appendValidation(errs, fmt.Errorf("partial wildcard %q is not supported in server_names in envoy for protocol %s", host, portProto.String()))
-					}
+					errs = appendValidation(errs, ValidatePartialWildCard(host, portProto))
 				}
 			}
 		}
@@ -3242,6 +3249,14 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 func ValidatePortName(name string) error {
 	if !labels.IsDNS1123Label(name) {
 		return fmt.Errorf("invalid port name: %s", name)
+	}
+	return nil
+}
+
+func ValidatePartialWildCard(host string, portProto protocol.Instance) error {
+	parts := strings.SplitN(host, ".", 2)
+	if strings.Contains(parts[0], "*") && len(parts[0]) != 1 {
+		return fmt.Errorf("partial wildcard %q not allowed for protocol %s", host, portProto.String())
 	}
 	return nil
 }

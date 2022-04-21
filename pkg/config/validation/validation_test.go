@@ -1017,6 +1017,19 @@ func TestValidateGateway(t *testing.T) {
 			},
 			"", "tls.httpsRedirect should only be used with http servers",
 		},
+		{
+			"invalid partial wildcard for protocol TLS",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"*bar.com"},
+						Port:  &networking.Port{Name: "tls", Number: 443, Protocol: "tls"},
+						Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+					},
+				},
+			},
+			"partial wildcard \"*bar.com\" not allowed for protocol TLS", "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2912,6 +2925,20 @@ func TestValidateVirtualService(t *testing.T) {
 					{
 						Port:     999,
 						SniHosts: []string{"foo.*.com"},
+					},
+				},
+			}},
+		}, valid: false, warning: false},
+		{name: "partial wildcard as sni host", in: &networking.VirtualService{
+			Hosts: []string{"*foo.bar"},
+			Tls: []*networking.TLSRoute{{
+				Route: []*networking.RouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				Match: []*networking.TLSMatchAttributes{
+					{
+						Port:     999,
+						SniHosts: []string{"*foo.bar"},
 					},
 				},
 			}},
