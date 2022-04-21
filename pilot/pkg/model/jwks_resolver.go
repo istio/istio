@@ -434,12 +434,14 @@ func (r *JwksResolver) refresh() bool {
 				r.keyEntries.Delete(k)
 				k.jwksURI = jwksURI
 			}
-
 			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
 			if err != nil {
 				hasErrors = true
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
 				atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
+				if oldPubKey == "" {
+					r.keyEntries.Delete(k)
+				}
 				return
 			}
 			newPubKey := string(resp)
@@ -545,4 +547,16 @@ func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error)
 	// If we aren't able to compare using keys, we should return true
 	// since we already checked exact equality of the responses
 	return true, nil
+}
+
+func (r *JwksResolver) CheckPubKeyExistInCache(issuer string, jwksUri string) bool {
+	key := jwtKey{issuer: issuer, jwksURI: jwksUri}
+	if val, found := r.keyEntries.Load(key); found {
+		e := val.(jwtPubKeyEntry)
+		r.keyEntries.Store(key, e)
+		if e.pubKey != "" {
+			return true
+		}
+	}
+	return false
 }

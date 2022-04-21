@@ -128,7 +128,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: model.CreateFakeJwks(jwksURI),
+												InlineString: test.JwtPubKey1,
 											},
 										},
 									},
@@ -269,7 +269,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: model.CreateFakeJwks(jwksURI),
+												InlineString: test.JwtPubKey2,
 											},
 										},
 									},
@@ -405,7 +405,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: model.CreateFakeJwks(jwksURI),
+												InlineString: test.JwtPubKey2,
 											},
 										},
 									},
@@ -607,7 +607,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: model.CreateFakeJwks(jwksURI),
+												InlineString: test.JwtPubKey2,
 											},
 										},
 									},
@@ -676,7 +676,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: model.CreateFakeJwks(jwksURI),
+												InlineString: test.JwtPubKey2,
 											},
 										},
 									},
@@ -720,7 +720,16 @@ func TestJwtFilter(t *testing.T) {
 			defaultValue := features.EnableRemoteJwks
 			features.EnableRemoteJwks = c.enableRemoteJwks
 			defer func() { features.EnableRemoteJwks = defaultValue }()
-			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
+			NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter()
+			for _, config := range c.in {
+				for _, jwtRule := range config.Spec.(*v1beta1.RequestAuthentication).JwtRules {
+					retryToCheckCache(5, 20*time.Millisecond, func() bool {
+						return push.JwtKeyResolver.CheckPubKeyExistInCache(jwtRule.Issuer, jwtRule.JwksUri)
+					})
+				}
+			}
+			got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter()
+			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -789,7 +798,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: model.CreateFakeJwks(jwksURI),
+									InlineString: test.JwtPubKey1,
 								},
 							},
 						},
@@ -892,7 +901,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: model.CreateFakeJwks(jwksURI),
+									InlineString: test.JwtPubKey1,
 								},
 							},
 						},
@@ -1034,6 +1043,12 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			convertToEnvoyJwtConfig(c.in, push)
+			for _, config := range c.in {
+				retryToCheckCache(5, 20*time.Millisecond, func() bool {
+					return push.JwtKeyResolver.CheckPubKeyExistInCache(config.Issuer, config.JwksUri)
+				})
+			}
 			if got := convertToEnvoyJwtConfig(c.in, push); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
@@ -2124,4 +2139,15 @@ func TestGetMutualTLSMode(t *testing.T) {
 			}
 		})
 	}
+}
+
+func retryToCheckCache(attempts int, sleep time.Duration, fn func() bool) bool {
+	if presentInCache := fn(); !presentInCache {
+		if attempts--; attempts > 0 {
+			time.Sleep(sleep)
+			return retryToCheckCache(attempts, sleep, fn)
+		}
+		return false
+	}
+	return true
 }
