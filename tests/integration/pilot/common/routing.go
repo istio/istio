@@ -2681,7 +2681,7 @@ func VMTestCases(t framework.TestContext, vms echo.Instances, apps *deployment.S
 		checker := check.OK()
 		if !match.Headless.Any(c.to) {
 			// headless load-balancing can be inconsistent
-			checker = check.And(checker, check.ReachedClusters(t.AllClusters(), c.to.Clusters()))
+			checker = check.And(checker, check.ReachedTargetClusters(t.AllClusters()))
 		}
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),

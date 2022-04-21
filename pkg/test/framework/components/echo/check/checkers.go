@@ -23,6 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/protocol"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -155,10 +156,32 @@ func Status(expected int) echo.Checker {
 	}
 	return Each(func(r echoClient.Response) error {
 		if r.Code != expectedStr {
-			return fmt.Errorf("expected response code `%s`, got %q", expectedStr, r.Code)
+			return fmt.Errorf("expected response code `%s`, got %q. Response: %s", expectedStr, r.Code, r)
 		}
 		return nil
 	})
+}
+
+// BodyContains checks that the response body contains the given string.
+func BodyContains(expected string) echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if !strings.Contains(r.RawContent, expected) {
+			return fmt.Errorf("want %q in body but not found: %s", expected, r.RawContent)
+		}
+		return nil
+	})
+}
+
+// Forbidden checks that the response indicates that the request was rejected by RBAC.
+func Forbidden(p protocol.Instance) echo.Checker {
+	switch {
+	case p.IsGRPC():
+		return ErrorContains("rpc error: code = PermissionDenied")
+	case p.IsTCP():
+		return ErrorContains("EOF")
+	default:
+		return NoErrorAndStatus(http.StatusForbidden)
+	}
 }
 
 // TooManyRequests checks that at least one message receives a StatusTooManyRequests status code.
@@ -296,6 +319,15 @@ func URL(expected string) echo.Checker {
 	})
 }
 
+// ReachedTargetClusters is similar to ReachedClusters, except that the set of expected clusters is
+// retrieved from the Target of the request.
+func ReachedTargetClusters(allClusters cluster.Clusters) echo.Checker {
+	return func(result echo.CallResult, err error) error {
+		expectedByNetwork := result.Opts.To.Clusters().ByNetwork()
+		return checkReachedClusters(result, allClusters, expectedByNetwork)
+	}
+}
+
 // ReachedClusters returns an error if requests did not load balance as expected.
 //
 // For cases where all clusters are on the same network, verifies that each of the expected clusters was reached.
@@ -305,81 +337,84 @@ func URL(expected string) echo.Checker {
 // client were reached.
 func ReachedClusters(allClusters cluster.Clusters, expectedClusters cluster.Clusters) echo.Checker {
 	expectedByNetwork := expectedClusters.ByNetwork()
-	return And(
-		reachedNetworks(allClusters, expectedByNetwork),
-		reachedClustersInNetwork(allClusters, expectedByNetwork))
-}
-
-func reachedNetworks(allClusters cluster.Clusters, expectedByNetwork cluster.ClustersByNetwork) echo.Checker {
-	return func(result echo.CallResult, _ error) error {
-		// Gather the networks that were reached.
-		networkHits := make(map[string]int)
-		for _, rr := range result.Responses {
-			c := allClusters.GetByName(rr.Cluster)
-			if c != nil {
-				networkHits[c.NetworkName()]++
-			}
-		}
-
-		// Verify that all expected networks were reached.
-		for network := range expectedByNetwork {
-			if networkHits[network] == 0 {
-				return fmt.Errorf("did not reach network %v, got %v", network, networkHits)
-			}
-		}
-
-		// Verify that no unexpected networks were reached.
-		for network := range networkHits {
-			if expectedByNetwork[network] == nil {
-				return fmt.Errorf("reached network not in %v, got %v", expectedByNetwork.Networks(), networkHits)
-			}
-		}
-		return nil
+	return func(result echo.CallResult, err error) error {
+		return checkReachedClusters(result, allClusters, expectedByNetwork)
 	}
 }
 
-func reachedClustersInNetwork(allClusters cluster.Clusters, expectedByNetwork cluster.ClustersByNetwork) echo.Checker {
-	return func(result echo.CallResult, _ error) error {
-		// Determine the source network of the caller.
-		var sourceNetwork string
-		switch from := result.From.(type) {
-		case echo.Instance:
-			sourceNetwork = from.Config().Cluster.NetworkName()
-		case ingress.Instance:
-			sourceNetwork = from.Cluster().NetworkName()
-		default:
-			// Unable to determine the source network of the caller. Skip this check.
-			return nil
+func checkReachedClusters(result echo.CallResult, allClusters cluster.Clusters, expectedByNetwork cluster.ClustersByNetwork) error {
+	if err := checkReachedNetworks(result, allClusters, expectedByNetwork); err != nil {
+		return err
+	}
+	return checkReachedClustersInNetwork(result, allClusters, expectedByNetwork)
+}
+
+func checkReachedNetworks(result echo.CallResult, allClusters cluster.Clusters, expectedByNetwork cluster.ClustersByNetwork) error {
+	// Gather the networks that were reached.
+	networkHits := make(map[string]int)
+	for _, rr := range result.Responses {
+		c := allClusters.GetByName(rr.Cluster)
+		if c != nil {
+			networkHits[c.NetworkName()]++
 		}
+	}
 
-		// Lookup only the expected clusters in the same network as the caller.
-		expectedClustersInSourceNetwork := expectedByNetwork[sourceNetwork]
-
-		clusterHits := make(map[string]int)
-		for _, rr := range result.Responses {
-			clusterHits[rr.Cluster]++
+	// Verify that all expected networks were reached.
+	for network := range expectedByNetwork {
+		if networkHits[network] == 0 {
+			return fmt.Errorf("did not reach network %v, got %v", network, networkHits)
 		}
+	}
 
-		for _, c := range expectedClustersInSourceNetwork {
-			if clusterHits[c.Name()] == 0 {
-				return fmt.Errorf("did not reach all of %v in source network %v, got %v",
-					expectedClustersInSourceNetwork, sourceNetwork, clusterHits)
-			}
+	// Verify that no unexpected networks were reached.
+	for network := range networkHits {
+		if expectedByNetwork[network] == nil {
+			return fmt.Errorf("reached network not in %v, got %v", expectedByNetwork.Networks(), networkHits)
 		}
+	}
+	return nil
+}
 
-		// Verify that no unexpected clusters were reached.
-		for clusterName := range clusterHits {
-			reachedCluster := allClusters.GetByName(clusterName)
-			if reachedCluster == nil || reachedCluster.NetworkName() != sourceNetwork {
-				// Ignore clusters on a different network from the source.
-				continue
-			}
-
-			if expectedClustersInSourceNetwork.GetByName(clusterName) == nil {
-				return fmt.Errorf("reached cluster %v in source network %v not in %v, got %v",
-					clusterName, sourceNetwork, expectedClustersInSourceNetwork, clusterHits)
-			}
-		}
+func checkReachedClustersInNetwork(result echo.CallResult, allClusters cluster.Clusters, expectedByNetwork cluster.ClustersByNetwork) error {
+	// Determine the source network of the caller.
+	var sourceNetwork string
+	switch from := result.From.(type) {
+	case echo.Instance:
+		sourceNetwork = from.Config().Cluster.NetworkName()
+	case ingress.Instance:
+		sourceNetwork = from.Cluster().NetworkName()
+	default:
+		// Unable to determine the source network of the caller. Skip this check.
 		return nil
 	}
+
+	// Lookup only the expected clusters in the same network as the caller.
+	expectedClustersInSourceNetwork := expectedByNetwork[sourceNetwork]
+
+	clusterHits := make(map[string]int)
+	for _, rr := range result.Responses {
+		clusterHits[rr.Cluster]++
+	}
+
+	for _, c := range expectedClustersInSourceNetwork {
+		if clusterHits[c.Name()] == 0 {
+			return fmt.Errorf("did not reach all of %v in source network %v, got %v",
+				expectedClustersInSourceNetwork, sourceNetwork, clusterHits)
+		}
+	}
+
+	// Verify that no unexpected clusters were reached.
+	for clusterName := range clusterHits {
+		reachedCluster := allClusters.GetByName(clusterName)
+		if reachedCluster == nil || reachedCluster.NetworkName() != sourceNetwork {
+			// Ignore clusters on a different network from the source.
+			continue
+		}
+
+		if expectedClustersInSourceNetwork.GetByName(clusterName) == nil {
+			return fmt.Errorf("reached cluster %v in source network %v not in %v, got %v",
+				clusterName, sourceNetwork, expectedClustersInSourceNetwork, clusterHits)
+		}
+	}
+	return nil
 }
