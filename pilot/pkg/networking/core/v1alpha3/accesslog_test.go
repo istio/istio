@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -103,16 +104,13 @@ func TestListenerAccessLog(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// Update MeshConfig
-			env := buildListenerEnv(nil)
-			env.Mesh().AccessLogFile = "foo"
-			env.Mesh().AccessLogEncoding = tc.encoding
-			env.Mesh().AccessLogFormat = tc.format
-
-			// Trigger MeshConfig change and validate that access log is recomputed.
+			m := mesh.DefaultMeshConfig()
+			m.AccessLogFile = "foo"
+			m.AccessLogEncoding = tc.encoding
+			m.AccessLogFormat = tc.format
+			listeners := buildListeners(t, TestOptions{MeshConfig: m}, nil)
 			accessLogBuilder.reset()
-
 			// Validate that access log filter uses the new format.
-			listeners := buildAllListeners(&fakePlugin{}, env, getProxy())
 			for _, l := range listeners {
 				if l.AccessLog[0].Filter == nil {
 					t.Fatal("expected filter config in listener access log configuration")

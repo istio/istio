@@ -40,83 +40,14 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
-type LdsEnv struct {
-	configgen *ConfigGeneratorImpl
-}
-
-func getDefaultLdsEnv() *LdsEnv {
-	listenerEnv := LdsEnv{
-		configgen: NewConfigGenerator([]plugin.Plugin{&fakePlugin{}}, &model.DisabledCache{}),
-	}
-	return &listenerEnv
-}
-
-func getDefaultProxy() *model.Proxy {
-	proxy := model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{"1.1.1.1"},
-		ID:          "v0.default",
-		DNSDomain:   "default.example.org",
-		Metadata: &model.NodeMetadata{
-			IstioVersion: "1.4",
-			Namespace:    "not-default",
-		},
-		IstioVersion:    model.ParseIstioVersion("1.4"),
-		ConfigNamespace: "not-default",
-	}
-
-	proxy.DiscoverIPMode()
-	return &proxy
-}
-
-func setNilSidecarOnProxy(proxy *model.Proxy, pushContext *model.PushContext) {
-	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(pushContext, "not-default")
-}
-
 func TestVirtualListenerBuilder(t *testing.T) {
-	// prepare
-	t.Helper()
-	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
-	services := []*model.Service{service}
+	cg := NewConfigGenTest(t, TestOptions{Services: testServices})
+	proxy := cg.SetupProxy(nil)
 
-	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
-		t.Fatalf("init push context error: %s", err.Error())
+	vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, cg.Listeners(proxy))
+	if vo == nil {
+		t.Fatalf("didn't find virtual outbound listener")
 	}
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
-			Service: s,
-			Endpoint: &model.IstioEndpoint{
-				EndpointPort: 8080,
-			},
-			ServicePort: s.Ports[0],
-		}
-	}
-	proxy := getDefaultProxy()
-	proxy.ServiceInstances = instances
-	setNilSidecarOnProxy(proxy, env.PushContext)
-
-	builder := NewListenerBuilder(proxy, env.PushContext)
-	listeners := builder.
-		buildVirtualOutboundListener(ldsEnv.configgen).
-		getListeners()
-
-	// virtual outbound listener
-	if len(listeners) != 1 {
-		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-	}
-
-	if !strings.HasPrefix(listeners[0].Name, model.VirtualOutboundListenerName) {
-		t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
-	} else {
-		t.Logf("found virtual listener: %s", listeners[0].Name)
-	}
-}
-
-func setInboundCaptureAllOnThisNode(proxy *model.Proxy, mode model.TrafficInterceptionMode) {
-	proxy.Metadata.InterceptionMode = mode
 }
 
 var (
@@ -127,38 +58,26 @@ var (
 	}
 )
 
-func prepareListeners(t *testing.T, services []*model.Service, mode model.TrafficInterceptionMode, exactBalance bool) []*listener.Listener {
-	// prepare
-	ldsEnv := getDefaultLdsEnv()
-
-	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
-		t.Fatalf("init push context error: %s", err.Error())
+func buildListeners(t *testing.T, o TestOptions, p *model.Proxy) []*listener.Listener {
+	if o.Plugins == nil {
+		o.Plugins = []plugin.Plugin{&fakePlugin{}}
 	}
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
+	cg := NewConfigGenTest(t, o)
+	// Hack up some instances for each Service
+	for _, s := range o.Services {
+		i := &model.ServiceInstance{
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
+				Address:      "1.1.1.1",
 				EndpointPort: 8080,
 			},
 			ServicePort: s.Ports[0],
 		}
+		cg.MemRegistry.AddInstance(s.Hostname, i)
 	}
-
-	proxy := getDefaultProxy()
-	proxy.ServiceInstances = instances
-	proxy.Metadata.InboundListenerExactBalance = model.StringBool(exactBalance)
-	proxy.Metadata.OutboundListenerExactBalance = model.StringBool(exactBalance)
-	setInboundCaptureAllOnThisNode(proxy, mode)
-	setNilSidecarOnProxy(proxy, env.PushContext)
-
-	builder := NewListenerBuilder(proxy, env.PushContext)
-	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
-		buildHTTPProxyListener(ldsEnv.configgen).
-		buildVirtualOutboundListener(ldsEnv.configgen).
-		buildVirtualInboundListener(ldsEnv.configgen).
-		getListeners()
+	l := cg.Listeners(cg.SetupProxy(p))
+	xdstest.ValidateListeners(t, l)
+	return l
 }
 
 func TestVirtualInboundListenerBuilder(t *testing.T) {
@@ -174,31 +93,24 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		// prepare
-		t.Helper()
-		listeners := prepareListeners(t, testServices, model.InterceptionRedirect, tt.useExactBalance)
-		// virtual inbound and outbound listener
-		if len(listeners) != 2 {
-			t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+		proxy := &model.Proxy{
+			Metadata: &model.NodeMetadata{
+				InboundListenerExactBalance:  model.StringBool(tt.useExactBalance),
+				OutboundListenerExactBalance: model.StringBool(tt.useExactBalance),
+			},
 		}
-
-		if !strings.HasPrefix(listeners[0].Name, model.VirtualOutboundListenerName) {
+		listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
+		if vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners); vo == nil {
 			t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
-		} else {
-			t.Logf("found virtual listener: %s", listeners[0].Name)
 		}
-
-		if !strings.HasPrefix(listeners[1].Name, model.VirtualInboundListenerName) {
-			t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
-		} else {
-			t.Logf("found virtual inbound listener: %s", listeners[1].Name)
+		vi := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+		if vi == nil {
+			t.Fatalf("expect virtual inbound listener, found %s", listeners[0].Name)
 		}
-
-		l := listeners[1]
 
 		byListenerName := map[string]int{}
 
-		for _, fc := range l.FilterChains {
+		for _, fc := range vi.FilterChains {
 			byListenerName[fc.Name]++
 		}
 
@@ -209,17 +121,14 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 			if k == model.VirtualInboundCatchAllHTTPFilterChainName && v != 2 {
 				t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
 			}
-			if k == listeners[0].Name && v != len(listeners[0].FilterChains) {
-				t.Fatalf("expect virtual listener has %d filter chains from listener %s, found %d", len(listeners[0].FilterChains), l.Name, v)
-			}
 		}
 
 		if tt.useExactBalance {
-			if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
+			if vi.ConnectionBalanceConfig == nil || vi.ConnectionBalanceConfig.GetExactBalance() == nil {
 				t.Fatal("expected virtual listener to have connection balance config set to exact_balance")
 			}
 		} else {
-			if l.ConnectionBalanceConfig != nil {
+			if vi.ConnectionBalanceConfig != nil {
 				t.Fatal("expected virtual listener to not have connection balance config set")
 			}
 		}
@@ -227,15 +136,11 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 }
 
 func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
-	// prepare
-	t.Helper()
-	listeners := prepareListeners(t, testServices, model.InterceptionRedirect, true)
-	// virtual inbound and outbound listener
-	if len(listeners) != 2 {
-		t.Fatalf("expect %d listeners, found %d", 2, len(listeners))
+	listeners := buildListeners(t, TestOptions{Services: testServices}, nil)
+	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+	if l == nil {
+		t.Fatalf("failed to find virtual inbound listener")
 	}
-
-	l := listeners[1]
 	sawFakePluginFilter := false
 	sawIpv4PassthroughCluster := 0
 	sawIpv6PassthroughCluster := false
@@ -312,23 +217,16 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 }
 
 func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
-	// prepare
-	t.Helper()
-	listeners := prepareListeners(t, testServices, model.InterceptionTproxy, false)
-
-	if len(listeners) != 2 {
-		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	proxy := &model.Proxy{
+		Metadata: &model.NodeMetadata{InterceptionMode: model.InterceptionTproxy},
 	}
-	l := listeners[1]
-	originalSrcFilterFound := false
-	for _, lf := range l.ListenerFilters {
-		if lf.Name == wellknown.OriginalSource {
-			originalSrcFilterFound = true
-			break
-		}
+	listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
+	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+	if l == nil {
+		t.Fatalf("failed to find virtual inbound listener")
 	}
-	if !originalSrcFilterFound {
-		t.Fatalf("listener filter %s expected", wellknown.OriginalSource)
+	if _, f := xdstest.ExtractListenerFilters(l)[wellknown.OriginalSource]; !f {
+		t.Fatalf("missing %v filter", wellknown.OriginalSource)
 	}
 }
 
@@ -336,14 +234,17 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 // exact_balance for the virtualInbound listener as QUIC uses UDP
 // and this works only over TCP
 func TestSidecarInboundListenerWithQUICAndExactBalance(t *testing.T) {
-	// prepare
-	t.Helper()
-	listeners := prepareListeners(t, testServicesWithQUIC, model.InterceptionTproxy, true)
-
-	if len(listeners) != 2 {
-		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	proxy := &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			InboundListenerExactBalance:  true,
+			OutboundListenerExactBalance: true,
+		},
 	}
-	l := listeners[1]
+	listeners := buildListeners(t, TestOptions{Services: testServicesWithQUIC}, proxy)
+	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+	if l == nil {
+		t.Fatalf("failed to find virtual inbound listener")
+	}
 	if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
 		t.Fatal("expected listener to have exact_balance set, but was empty")
 	}
