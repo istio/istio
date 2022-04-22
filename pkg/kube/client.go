@@ -143,9 +143,6 @@ type Client interface {
 
 	// GetKubernetesVersion returns the Kubernetes server version
 	GetKubernetesVersion() (*kubeVersion.Info, error)
-
-	// WaitForCacheSync waits for
-	// WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...func() bool)
 }
 
 // ExtendedClient is an extended client with additional helpers/functionality for Istioctl and testing.
