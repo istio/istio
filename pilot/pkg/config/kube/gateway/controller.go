@@ -279,7 +279,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			gcc.Run(stop)
 		}
 	}()
-	cache.WaitForCacheSync(stop, c.namespaceInformer.HasSynced)
+	kube.WaitForCacheSync(stop, c.namespaceInformer.HasSynced)
 }
 
 func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {

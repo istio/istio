@@ -90,7 +90,6 @@ type Controller struct {
 	handlers []ClusterHandler
 
 	once              sync.Once
-	syncInterval      time.Duration
 	remoteSyncTimeout atomic.Bool
 }
 
@@ -264,7 +263,6 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 		localClusterClient: kubeclientset,
 		cs:                 newClustersStore(),
 		informer:           secretsInformer,
-		syncInterval:       100 * time.Millisecond,
 	}
 	controller.queue = controllers.NewQueue("multicluster secret", controllers.WithReconciler(controller.processItem))
 
@@ -286,7 +284,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 
 		go c.informer.Run(stopCh)
 
-		if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
+		if !kube.WaitForCacheSync(stopCh, c.informer.HasSynced) {
 			log.Error("Failed to sync multicluster remote secrets controller cache")
 			return
 		}

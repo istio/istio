@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
@@ -58,7 +57,7 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiW
 	go c.Run(stop)
 
 	// Ensure the ConfigMap is initially loaded if present.
-	if !cache.WaitForCacheSync(stop, c.HasSynced) {
+	if !kube.WaitForCacheSync(stop, c.HasSynced) {
 		log.Error("failed to wait for cache sync")
 	}
 	return w
@@ -71,7 +70,7 @@ func AddUserMeshConfig(client kube.Client, watcher mesh.Watcher, namespace, key,
 	})
 
 	go c.Run(stop)
-	if !cache.WaitForCacheSync(stop, c.HasSynced) {
+	if !kube.WaitForCacheSync(stop, c.HasSynced) {
 		log.Error("failed to wait for cache sync")
 	}
 }

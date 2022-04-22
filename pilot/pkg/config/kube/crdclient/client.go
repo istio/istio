@@ -225,7 +225,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
 	scope.Info("Starting Pilot K8S CRD controller")
 
-	if !cache.WaitForCacheSync(stop, cl.informerSynced) {
+	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
 		scope.Error("Failed to sync Pilot K8S CRD controller cache")
 		return
 	}

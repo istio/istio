@@ -16,7 +16,6 @@ package revisions
 
 import (
 	"sync"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -67,7 +66,7 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 }
 
 func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
-	if !kube.WaitForCacheSyncInterval(stopCh, time.Second, p.webhookInformer.HasSynced) {
+	if !kube.WaitForCacheSync(stopCh, p.webhookInformer.HasSynced) {
 		log.Errorf("failed to sync default watcher")
 		return
 	}

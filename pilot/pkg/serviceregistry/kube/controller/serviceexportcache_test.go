@@ -24,7 +24,6 @@ import (
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
@@ -134,20 +133,13 @@ func newServiceExport() *unstructured.Unstructured {
 func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, endpointMode EndpointMode) (ec *serviceExportCacheImpl) {
 	t.Helper()
 
-	stopCh := make(chan struct{})
 	istiotest.SetBoolForTest(t, &features.EnableMCSServiceDiscovery, true)
 	istiotest.SetBoolForTest(t, &features.EnableMCSClusterLocal, clusterLocalMode == alwaysClusterLocal)
-	t.Cleanup(func() {
-		close(stopCh)
-	})
 
-	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{
-		Stop:      stopCh,
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: testCluster,
 		Mode:      endpointMode,
 	})
-	go c.Run(c.stop)
-	cache.WaitForCacheSync(c.stop, c.HasSynced)
 
 	// Create the test service and endpoints.
 	createService(c, serviceExportName, serviceExportNamespace, map[string]string{},

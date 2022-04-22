@@ -26,6 +26,8 @@ import (
 	client "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	"istio.io/istio/pkg/kube"
 )
 
 type Controller struct {
@@ -95,7 +97,7 @@ func (rc *Controller) mayAddToWorkQueue(obj interface{}) {
 
 func (rc *Controller) Run(stopCh <-chan struct{}) {
 	go rc.podController.Run(stopCh)
-	if !cache.WaitForCacheSync(stopCh, rc.podController.HasSynced) {
+	if !kube.WaitForCacheSync(stopCh, rc.podController.HasSynced) {
 		repairLog.Error("timed out waiting for pod caches to sync")
 		return
 	}

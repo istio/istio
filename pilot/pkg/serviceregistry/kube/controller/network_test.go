@@ -35,11 +35,7 @@ import (
 
 func TestNetworkUpdateTriggers(t *testing.T) {
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
-	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{ClusterID: "Kubernetes", NetworksWatcher: meshNetworks, DomainSuffix: "cluster.local"})
-	defer close(c.stop)
-	go func() {
-		c.Run(c.stop)
-	}()
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{ClusterID: "Kubernetes", NetworksWatcher: meshNetworks, DomainSuffix: "cluster.local"})
 
 	if len(c.NetworkGateways()) != 0 {
 		t.Fatal("did not expect any gateways yet")
@@ -76,7 +72,7 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 				return fmt.Errorf("expected %d gateways but got %d", expectedGws, n)
 			}
 			return nil
-		}, retry.Timeout(5*time.Second), retry.Delay(500*time.Millisecond))
+		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
 	}
 
 	t.Run("add meshnetworks", func(t *testing.T) {

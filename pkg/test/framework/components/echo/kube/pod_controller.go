@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/pkg/log"
@@ -98,7 +99,7 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 
 func (c *podController) Run(stop <-chan struct{}) {
 	go c.informer.Run(stop)
-	cache.WaitForCacheSync(stop, c.HasSynced)
+	kube.WaitForCacheSync(stop, c.HasSynced)
 	go c.q.Run(stop)
 }
 

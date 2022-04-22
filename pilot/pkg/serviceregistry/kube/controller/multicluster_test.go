@@ -21,7 +21,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -82,7 +81,7 @@ func initController(client kube.ExtendedClient, ns string, stop <-chan struct{},
 	sc := multicluster.NewController(client, ns, "cluster-1")
 	sc.AddHandler(mc)
 	_ = sc.Run(stop)
-	cache.WaitForCacheSync(stop, sc.HasSynced)
+	kube.WaitForCacheSync(stop, sc.HasSynced)
 }
 
 func Test_KubeSecretController(t *testing.T) {
