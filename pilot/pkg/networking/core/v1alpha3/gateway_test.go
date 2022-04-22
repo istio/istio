@@ -1871,6 +1871,31 @@ func TestBuildGatewayListeners(t *testing.T) {
 			[]string{"0.0.0.0_8080"},
 		},
 		{
+			"privileged port on privileged pod when empty env var is set",
+			&pilot_model.Proxy{
+				Metadata: &pilot_model.NodeMetadata{
+					UnprivilegedPod: "",
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+							},
+							{
+								Port: &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+							},
+						},
+					},
+				},
+			},
+			nil,
+			[]string{"0.0.0.0_80", "0.0.0.0_8080"},
+		},
+		{
 			"privileged port on privileged pod",
 			&pilot_model.Proxy{},
 			[]config.Config{
