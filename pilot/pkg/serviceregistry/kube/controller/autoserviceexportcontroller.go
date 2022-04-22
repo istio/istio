@@ -106,7 +106,7 @@ func (c *autoServiceExportController) onServiceAdd(obj interface{}) {
 }
 
 func (c *autoServiceExportController) Run(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced) {
+	if !kube.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced) {
 		log.Errorf("%s failed to sync cache", c.logPrefix())
 		return
 	}

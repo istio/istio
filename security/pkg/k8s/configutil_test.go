@@ -30,9 +30,9 @@ import (
 	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -303,6 +303,6 @@ func createFakeLister(kubeClient *fake.Clientset) informersv1.ConfigMapInformer 
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Second)
 	configmapInformer := informerFactory.Core().V1().ConfigMaps().Informer()
 	go configmapInformer.Run(ctx.Done())
-	cache.WaitForCacheSync(ctx.Done(), configmapInformer.HasSynced)
+	kube.WaitForCacheSync(ctx.Done(), configmapInformer.HasSynced)
 	return informerFactory.Core().V1().ConfigMaps()
 }
