@@ -69,7 +69,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		opt.TokenExchanger = fakePlugin
 	}
 
-	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{})
+	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{WorkloadRSAKeySize: 2048})
 	gotSecret, err := sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
@@ -151,7 +151,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	u := NewUpdateTracker(t)
-	sc := createCache(t, fakeCACli, u.Callback, security.Options{})
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{WorkloadRSAKeySize: 2048})
 
 	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
@@ -563,7 +563,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	}
 	u := NewUpdateTracker(t)
 
-	sc := createCache(t, fakeCACli, u.Callback, security.Options{})
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{WorkloadRSAKeySize: 2048})
 	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
 		t.Errorf("failed to generate certificate for trustAnchor test case")
@@ -677,7 +677,7 @@ func TestOSCACertGenerateSecretEmpty(t *testing.T) {
 	fakePlugin := mock.NewMockTokenExchangeServer(nil)
 	opt.TokenExchanger = fakePlugin
 
-	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{})
+	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{WorkloadRSAKeySize: 2048})
 	certPath := security.GetOSRootFilePath()
 	expected, err := sc.GenerateSecret("file-root:" + certPath)
 	if err != nil {
