@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
@@ -180,7 +179,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}
-		k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
+		k8s, _ := kube.NewFakeControllerWithOptions(t, kube.FakeControllerOptions{
 			ServiceHandler:  serviceHandler,
 			Client:          client,
 			ClusterID:       k8sCluster,
@@ -320,7 +319,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cg.ServiceEntryRegistry.XdsUpdater = s
 	// Now that handlers are added, get everything started
 	cg.Run()
-	cache.WaitForCacheSync(stop,
+	kubelib.WaitForCacheSync(stop,
 		cg.Registry.HasSynced,
 		cg.Store().HasSynced)
 	cg.ServiceEntryRegistry.ResyncEDS()

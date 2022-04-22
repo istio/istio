@@ -218,7 +218,7 @@ func newController(
 func (c *Controller) Run(stop <-chan struct{}) {
 	defer c.queue.ShutDown()
 	go c.webhookInformer.Run(stop)
-	if !cache.WaitForCacheSync(stop, c.webhookInformer.HasSynced) {
+	if !kube.WaitForCacheSync(stop, c.webhookInformer.HasSynced) {
 		return
 	}
 	go c.startCaBundleWatcher(stop)

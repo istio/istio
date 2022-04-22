@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
@@ -109,10 +108,7 @@ func TestPodCache(t *testing.T) {
 }
 
 func TestHostNetworkPod(t *testing.T) {
-	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
-	go c.Run(c.stop)
-	cache.WaitForCacheSync(c.stop, c.HasSynced)
-	defer c.Stop()
+	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
 	initTestEnv(t, c.client, fx)
 	createPod := func(ip, name string) {
 		addPods(t, c, fx, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
@@ -136,10 +132,7 @@ func TestHostNetworkPod(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/20676
 func TestIPReuse(t *testing.T) {
-	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
-	go c.Run(c.stop)
-	cache.WaitForCacheSync(c.stop, c.HasSynced)
-	defer c.Stop()
+	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
 	initTestEnv(t, c.client, fx)
 
 	createPod := func(ip, name string) {
@@ -205,13 +198,10 @@ func waitForNode(c *FakeController, name string) error {
 }
 
 func testPodCache(t *testing.T) {
-	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{
+	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		Mode:              EndpointsOnly,
 		WatchedNamespaces: "nsa,nsb",
 	})
-	go c.Run(c.stop)
-	cache.WaitForCacheSync(c.stop, c.HasSynced)
-	defer c.Stop()
 
 	initTestEnv(t, c.client, fx)
 
@@ -258,10 +248,7 @@ func testPodCache(t *testing.T) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
-	go c.Run(c.stop)
-	cache.WaitForCacheSync(c.stop, c.HasSynced)
-	defer c.Stop()
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
 
 	ns := "default"
 	podCache := c.pods

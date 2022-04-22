@@ -826,7 +826,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	}
 	c.informerInit.Store(true)
 
-	cache.WaitForCacheSync(stop, c.informersSynced)
+	kubelib.WaitForCacheSync(stop, c.informersSynced)
 	// after informer caches sync the first time, process resources in order
 	if err := c.SyncAll(); err != nil {
 		log.Errorf("one or more errors force-syncing resources: %v", err)

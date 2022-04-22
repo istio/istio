@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -42,6 +41,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube"
 )
 
 func TestGoldenConversion(t *testing.T) {
@@ -504,6 +504,6 @@ func createFakeLister(ctx context.Context, objects ...runtime.Object) listerv1.S
 	informerFactory := informers.NewSharedInformerFactory(client, time.Hour)
 	svcInformer := informerFactory.Core().V1().Services().Informer()
 	go svcInformer.Run(ctx.Done())
-	cache.WaitForCacheSync(ctx.Done(), svcInformer.HasSynced)
+	kube.WaitForCacheSync(ctx.Done(), svcInformer.HasSynced)
 	return informerFactory.Core().V1().Services().Lister()
 }
