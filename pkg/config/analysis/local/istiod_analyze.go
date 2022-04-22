@@ -127,8 +127,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(store.Schemas())
 
-	cache.WaitForCacheSync(cancel,
-		store.HasSynced)
+	kubelib.WaitForCacheSync(cancel, store.HasSynced)
 
 	ctx := NewContext(store, cancel, sa.collectionReporter)
 
