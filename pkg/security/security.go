@@ -145,6 +145,9 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
+	// WorkloadRSAKeySize is the size of a private key for a workload certificate.
+	WorkloadRSAKeySize int
+
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
 
