@@ -73,7 +73,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		// Skip ports we cannot bind to. Note that MergeGateways will already translate Service port to
 		// targetPort, which handles the common case of exposing ports like 80 and 443 but listening on
 		// higher numbered ports.
-		if builder.node.Metadata.UnprivilegedPod != "" && port.Number < 1024 {
+		if builder.node.IsUnprivileged() && port.Number < 1024 {
 			log.Warnf("buildGatewayListeners: skipping privileged gateway port %d for node %s as it is an unprivileged pod",
 				port.Number, builder.node.ID)
 			continue
