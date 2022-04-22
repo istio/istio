@@ -120,8 +120,8 @@ type Server struct {
 
 	multiclusterController *multicluster.Controller
 
-	configController       model.ConfigStoreCache
-	ConfigStores           []model.ConfigStoreCache
+	configController       model.ConfigStoreController
+	ConfigStores           []model.ConfigStoreController
 	serviceEntryController *serviceentry.Controller
 
 	httpServer       *http.Server // debug, monitoring and readiness Server.
@@ -182,7 +182,7 @@ type Server struct {
 	statusReporter *distribution.Reporter
 	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
-	RWConfigStore model.ConfigStoreCache
+	RWConfigStore model.ConfigStoreController
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -642,7 +642,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 	return nil
 }
 
-// initDiscoveryService intializes discovery server on plain text port.
+// initDiscoveryService initializes discovery server on plain text port.
 func (s *Server) initDiscoveryService(args *PilotArgs) {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
@@ -954,9 +954,12 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	// Append custom hostname if there is any
 	customHost := features.IstiodServiceCustomHost
 	s.dnsNames = []string{host}
-	if customHost != "" && customHost != host {
-		log.Infof("Adding custom hostname %s", customHost)
-		s.dnsNames = append(s.dnsNames, customHost)
+	cHosts := strings.Split(customHost, ",")
+	for _, cHost := range cHosts {
+		if cHost != "" && cHost != host {
+			log.Infof("Adding custom hostname %s", cHost)
+			s.dnsNames = append(s.dnsNames, cHost)
+		}
 	}
 
 	// The first is the recommended one, also used by Apiserver for webhooks.
@@ -970,10 +973,15 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 	for _, altName := range knownHosts {
 		name := fmt.Sprintf("%v.%v.svc", altName, args.Namespace)
-		if name == host || name == customHost {
-			continue
+		exist := false
+		for _, cHost := range cHosts {
+			if name == host || name == cHost {
+				exist = true
+			}
 		}
-		s.dnsNames = append(s.dnsNames, name)
+		if !exist {
+			s.dnsNames = append(s.dnsNames, name)
+		}
 	}
 
 	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {

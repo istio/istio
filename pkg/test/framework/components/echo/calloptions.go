@@ -23,6 +23,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/http/headers"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/util/retry"
@@ -217,6 +218,14 @@ func (o *CallOptions) FillDefaults() error {
 		o.Check = NoChecker()
 	}
 	return nil
+}
+
+// FillDefaultsOrFail calls FillDefaults and fails if an error occurs.
+func (o *CallOptions) FillDefaultsOrFail(t test.Failer) {
+	t.Helper()
+	if err := o.FillDefaults(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (o *CallOptions) fillAddress() error {

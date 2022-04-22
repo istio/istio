@@ -24,7 +24,6 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	annotation "istio.io/api/annotation"
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -1436,7 +1435,7 @@ func isAutoPassthrough(obj config.Config, l k8s.Listener) bool {
 	}
 	expectedPort := "15443"
 
-	if port, f := obj.Labels[annotation.NetworkingGatewayPort.Name]; f {
+	if port, f := obj.Labels[label.NetworkingGatewayPort.Name]; f {
 		expectedPort = port
 	}
 	return fmt.Sprint(l.Port) == expectedPort

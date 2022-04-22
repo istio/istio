@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 )
 
 type LdsEnv struct {
@@ -901,7 +902,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 			proxy := cg.SetupProxy(nil)
 			proxy.Metadata = &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}
 			proxy.SidecarScope = tt.sidecarScope
-			features.EnableTLSOnSidecarIngress = true
+			test.SetBoolForTest(t, &features.EnableTLSOnSidecarIngress, true)
 			listeners := cg.Listeners(proxy)
 			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
 			filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)

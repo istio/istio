@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/test"
 )
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
@@ -1747,15 +1748,10 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 	}
 
-	StripHostPort := []bool{false, true}
-	oldValue := features.StripHostPort
-	t.Cleanup(func() {
-		features.StripHostPort = oldValue
-	})
-	for _, value := range StripHostPort {
-		features.StripHostPort = value
+	for _, value := range []bool{false, true} {
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
+				test.SetBoolForTest(t, &features.StripHostPort, value)
 				cfgs := tt.gateways
 				cfgs = append(cfgs, tt.virtualServices...)
 				cg := NewConfigGenTest(t, TestOptions{

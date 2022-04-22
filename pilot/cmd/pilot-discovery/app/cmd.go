@@ -141,8 +141,6 @@ func addFlags(c *cobra.Command) {
 	// RegistryOptions Controller options
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.FileDir, "configDir", "",
 		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
-	c.PersistentFlags().DurationVar(&serverArgs.RegistryOptions.KubeOptions.ResyncPeriod, "resync", 60*time.Second,
-		"Controller resync interval")
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.DomainSuffix, "domain", constants.DefaultKubernetesDomain,
 		"DNS domain suffix")
 	c.PersistentFlags().StringVar((*string)(&serverArgs.RegistryOptions.KubeOptions.ClusterID), "clusterID", features.ClusterName,
