@@ -350,6 +350,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 		}
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
+			close(remoteCluster.stop)
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
 			continue
 		}
@@ -425,7 +426,9 @@ func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	for secretName, clusters := range c.cs.All() {
 		for clusterID, c := range clusters {
 			syncStatus := "syncing"
-			if c.SyncDidTimeout() {
+			if c.Closed() {
+				syncStatus = "closed"
+			} else if c.SyncDidTimeout() {
 				syncStatus = "timeout"
 			} else if c.HasSynced() {
 				syncStatus = "synced"

@@ -66,7 +66,22 @@ func (r *Cluster) Run() {
 }
 
 func (r *Cluster) HasSynced() bool {
+	// It could happen when a wrong crendential provide, this cluster has no chance to run.
+	// In this case, the `initialSyncTimeout` will never be set
+	// In order not block istiod start up, check close as well.
+	if r.Closed() {
+		return true
+	}
 	return r.initialSync.Load() || r.initialSyncTimeout.Load()
+}
+
+func (r *Cluster) Closed() bool {
+	select {
+	case <-r.stop:
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *Cluster) SyncDidTimeout() bool {
