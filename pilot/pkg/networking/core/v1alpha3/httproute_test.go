@@ -25,11 +25,11 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -459,8 +459,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
-			Name:      "foo",
-			Namespace: "not-default",
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
@@ -512,8 +513,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	sidecarConfigWithWildcard := &config.Config{
 		Meta: config.Meta{
-			Name:      "foo",
-			Namespace: "not-default",
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
@@ -530,8 +532,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	sidecarConfigWitHTTPProxy := &config.Config{
 		Meta: config.Meta{
-			Name:      "foo",
-			Namespace: "not-default",
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
@@ -548,8 +551,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	sidecarConfigWithRegistryOnly := &config.Config{
 		Meta: config.Meta{
-			Name:      "foo",
-			Namespace: "not-default",
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
@@ -602,8 +606,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	sidecarConfigWithAllowAny := &config.Config{
 		Meta: config.Meta{
-			Name:      "foo",
-			Namespace: "not-default",
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
@@ -1491,27 +1496,20 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	sidecarConfig *config.Config, virtualServices []*config.Config, routeName string,
 	expectedHosts map[string]map[string]bool, expectedRoutes int, registryOnly bool,
 ) {
-	t.Helper()
-	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
-
-	env := buildListenerEnvWithAdditionalConfig(services, virtualServices, nil)
-
-	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
-		t.Fatalf("failed to initialize push context")
-	}
+	m := mesh.DefaultMeshConfig()
 	if registryOnly {
-		env.Mesh().OutboundTrafficPolicy = &meshapi.MeshConfig_OutboundTrafficPolicy{Mode: meshapi.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
+		m.OutboundTrafficPolicy = &meshapi.MeshConfig_OutboundTrafficPolicy{Mode: meshapi.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
 	}
-	proxy := getProxy()
-	if sidecarConfig == nil {
-		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	} else {
-		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
-	}
+	cg := NewConfigGenTest(t, TestOptions{
+		MeshConfig:     m,
+		Services:       services,
+		ConfigPointers: append(virtualServices, sidecarConfig),
+	})
 
+	proxy := &model.Proxy{ConfigNamespace: "not-default", DNSDomain: "default.example.org"}
 	vHostCache := make(map[int][]*route.VirtualHost)
-	resource, _ := configgen.buildSidecarOutboundHTTPRouteConfig(proxy, &model.PushRequest{Push: env.PushContext}, routeName, vHostCache, nil, nil)
+	resource, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
+		cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, routeName, vHostCache, nil, nil)
 	routeCfg := &route.RouteConfiguration{}
 	resource.Resource.UnmarshalTo(routeCfg)
 	xdstest.ValidateRouteConfiguration(t, routeCfg)
