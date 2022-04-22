@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -1162,11 +1163,7 @@ func scopeToSidecar(scope *SidecarScope) string {
 }
 
 func TestSetDestinationRuleInheritance(t *testing.T) {
-	features.EnableDestinationRuleInheritance = true
-	defer func() {
-		features.EnableDestinationRuleInheritance = false
-	}()
-
+	test.SetBoolForTest(t, &features.EnableDestinationRuleInheritance, true)
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	testhost := "httpbin.org"
@@ -1732,6 +1729,24 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
+	destinationRuleNamespace4Local := config.Config{
+		Meta: config.Meta{
+			Name:      "rule4-local",
+			Namespace: "test4",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{"test4"},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset15",
+				},
+				{
+					Name: "subset16",
+				},
+			},
+		},
+	}
 	destinationRuleRootNamespace := config.Config{
 		Meta: config.Meta{
 			Name:      "rule4",
@@ -1805,7 +1820,8 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	}
 	ps.SetDestinationRules([]config.Config{
 		destinationRuleNamespace1, destinationRuleNamespace2,
-		destinationRuleNamespace3, destinationRuleRootNamespace, destinationRuleRootNamespaceLocal,
+		destinationRuleNamespace3, destinationRuleNamespace4Local,
+		destinationRuleRootNamespace, destinationRuleRootNamespaceLocal,
 		destinationRuleRootNamespaceLocalWithWildcardHost1, destinationRuleRootNamespaceLocalWithWildcardHost2,
 	})
 	cases := []struct {
@@ -1837,6 +1853,12 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			serviceNs:   "test1",
 			host:        testhost,
 			wantSubsets: []string{"subset5", "subset6"},
+		},
+		{
+			proxyNs:     "test5",
+			serviceNs:   "test4",
+			host:        testhost,
+			wantSubsets: []string{"subset7", "subset8"},
 		},
 		{
 			proxyNs:     "ns1",

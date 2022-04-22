@@ -70,7 +70,7 @@ spec:
         name: httpbin
         ports:
         - containerPort: 80
-      - image: gcr.io/istio-testing/ext-authz:0.7
+      - image: gcr.io/istio-testing/ext-authz:latest
         imagePullPolicy: IfNotPresent
         name: ext-authz
         ports:

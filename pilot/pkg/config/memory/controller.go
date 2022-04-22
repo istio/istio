@@ -26,14 +26,14 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
-// Controller is an implementation of ConfigStoreCache.
+// Controller is an implementation of ConfigStoreController.
 type Controller struct {
 	monitor     Monitor
 	configStore model.ConfigStore
 	hasSynced   func() bool
 }
 
-// NewController return an implementation of ConfigStoreCache
+// NewController return an implementation of ConfigStoreController
 // This is a client-side monitor that dispatches events as the changes are being
 // made on the client.
 func NewController(cs model.ConfigStore) *Controller {
@@ -44,7 +44,7 @@ func NewController(cs model.ConfigStore) *Controller {
 	return out
 }
 
-// NewSyncController return an implementation of model.ConfigStoreCache which processes events synchronously
+// NewSyncController return an implementation of model.ConfigStoreController which processes events synchronously
 func NewSyncController(cs model.ConfigStore) *Controller {
 	out := &Controller{
 		configStore: cs,

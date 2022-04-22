@@ -122,7 +122,7 @@ func WithNetworkIDCb(cb func(endpointIP string, labels labels.Instance) network.
 }
 
 // NewController creates a new ServiceEntry discovery service.
-func NewController(configController model.ConfigStoreCache, store model.ConfigStore, xdsUpdater model.XDSUpdater,
+func NewController(configController model.ConfigStoreController, store model.ConfigStore, xdsUpdater model.XDSUpdater,
 	options ...Option) *Controller {
 	s := newController(store, xdsUpdater, options...)
 	if configController != nil {
@@ -134,7 +134,7 @@ func NewController(configController model.ConfigStoreCache, store model.ConfigSt
 }
 
 // NewWorkloadEntryController creates a new WorkloadEntry discovery service.
-func NewWorkloadEntryController(configController model.ConfigStoreCache, store model.ConfigStore, xdsUpdater model.XDSUpdater,
+func NewWorkloadEntryController(configController model.ConfigStoreController, store model.ConfigStore, xdsUpdater model.XDSUpdater,
 	options ...Option) *Controller {
 	s := newController(store, xdsUpdater, options...)
 	// Disable service entry processing for workload entry controller.
@@ -610,7 +610,7 @@ func (s *Controller) ResyncEDS() {
 	s.edsUpdate(allInstances)
 }
 
-// edsUpdate triggers an EDS push serially such that we can prevent allinstances
+// edsUpdate triggers an EDS push serially such that we can prevent all instances
 // got at t1 can accidentally override that got at t2 if multiple threads are
 // running this function. Queueing ensures latest updated wins.
 func (s *Controller) edsUpdate(instances []*model.ServiceInstance) {

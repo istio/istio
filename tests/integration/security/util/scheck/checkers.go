@@ -45,23 +45,9 @@ func NotOK() echo.Checker {
 func ReachedClusters(allClusters cluster.Clusters, opts *echo.CallOptions) echo.Checker {
 	// TODO(https://github.com/istio/istio/issues/37307): Investigate why we don't reach all clusters.
 	if opts.To.Clusters().IsMulticluster() && opts.Count > 1 && opts.Scheme != scheme.GRPC && !opts.To.Config().IsHeadless() {
-		return check.ReachedClusters(allClusters, opts.To.Clusters())
+		return check.ReachedTargetClusters(allClusters)
 	}
 	return echo.NoChecker()
-}
-
-func RBACFailure(opts *echo.CallOptions) echo.Checker {
-	if opts.Port.Name == "grpc" {
-		return check.ErrorContains("rpc error: code = PermissionDenied desc = RBAC: access denied")
-	}
-
-	if strings.HasPrefix(opts.Port.Name, "tcp") {
-		return check.ErrorContains("EOF")
-	}
-
-	return check.And(
-		check.NoError(),
-		check.Status(http.StatusForbidden))
 }
 
 func HeaderContains(hType echoClient.HeaderType, expected map[string][]string) echo.Checker {

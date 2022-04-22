@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/proto"
@@ -36,6 +37,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -2113,10 +2116,7 @@ func TestValidateHTTPRedirect(t *testing.T) {
 }
 
 func TestValidateDestinationWithInheritance(t *testing.T) {
-	features.EnableDestinationRuleInheritance = true
-	defer func() {
-		features.EnableDestinationRuleInheritance = false
-	}()
+	test.SetBoolForTest(t, &features.EnableDestinationRuleInheritance, true)
 	cases := []struct {
 		name  string
 		in    proto.Message
@@ -7307,4 +7307,16 @@ func TestValidateWasmPlugin(t *testing.T) {
 			checkValidationMessage(t, warn, err, tt.warning, tt.out)
 		})
 	}
+}
+
+func TestRecurseMissingTypedConfig(t *testing.T) {
+	good := &listener.Filter{
+		Name:       wellknown.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: nil},
+	}
+	bad := &listener.Filter{
+		Name: wellknown.TCPProxy,
+	}
+	assert.Equal(t, recurseMissingTypedConfig(good.ProtoReflect()), []string{}, "typed config set")
+	assert.Equal(t, recurseMissingTypedConfig(bad.ProtoReflect()), []string{wellknown.TCPProxy}, "typed config not set")
 }

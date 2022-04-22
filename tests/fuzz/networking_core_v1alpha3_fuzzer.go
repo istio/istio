@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package v1alpha3
 
 import (
@@ -43,7 +42,7 @@ func ValidateTestOptions(to TestOptions) error {
 	}
 	for _, csc := range to.ConfigStoreCaches {
 		if csc == nil {
-			return errors.New("a ConfigStoreCache was nil")
+			return errors.New("a ConfigStoreController was nil")
 		}
 	}
 	for _, sr := range to.ServiceRegistries {

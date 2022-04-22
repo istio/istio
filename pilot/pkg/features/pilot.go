@@ -81,7 +81,8 @@ var (
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
 	// TODO enable by default once https://github.com/istio/istio/issues/28315 is resolved
 	// Currently this may cause a bug when we go from N clusters -> 0 clusters -> N clusters
-	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false, "").Get()
+	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
+		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
 
 	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
@@ -342,10 +343,11 @@ var (
 		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
 		"but larger numbers may impact CPU in high scale environments.").Get()
 
-	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
-	// for examples: istiod.mycompany.com
+	// IstiodServiceCustomHost allow user to bring a custom address or multiple custom addresses for istiod server
+	// for examples: 1. istiod.mycompany.com  2. istiod.mycompany.com,istiod-canary.mycompany.com
 	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
-		"Custom host name of istiod that istiod signs the server cert.").Get()
+		"Custom host name of istiod that istiod signs the server cert. "+
+			"Multiple custom host names are supported, and multiple values are separated by commas.").Get()
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
 		"The provider of Pilot DNS certificate.").Get()

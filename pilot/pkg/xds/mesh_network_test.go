@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -227,7 +226,7 @@ func TestMeshNetworking(t *testing.T) {
 						Labels: map[string]string{
 							label.TopologyNetwork.Name: "network-2",
 							// set the label here to test it = expectation doesn't change since we map back to that via NodePort
-							annotation.NetworkingGatewayPort.Name: "443",
+							label.NetworkingGatewayPort.Name: "443",
 						},
 					},
 					Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Ports: []corev1.ServicePort{{Port: 443, NodePort: 25443}}},

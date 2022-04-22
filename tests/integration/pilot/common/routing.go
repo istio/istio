@@ -1987,22 +1987,22 @@ spec:
 			// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
 			// But its pretty hard to test that, so for now just ensure we hit the same one.
 			cases = append(cases, TrafficTestCase{
-				name:   "source ip",
+				name:   "source ip " + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
 				call:   c.CallOrFail,
 				opts:   callOpts,
 			}, TrafficTestCase{
-				name:   "query param",
+				name:   "query param" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
 				call:   c.CallOrFail,
 				opts:   callOpts,
 			}, TrafficTestCase{
-				name:   "http header",
+				name:   "http header" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
 				call:   c.CallOrFail,
 				opts:   callOpts,
 			}, TrafficTestCase{
-				name:   "source ip",
+				name:   "tcp source ip " + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
 				call:   c.CallOrFail,
 				opts:   tcpCallopts,
@@ -2681,7 +2681,7 @@ func VMTestCases(t framework.TestContext, vms echo.Instances, apps *deployment.S
 		checker := check.OK()
 		if !match.Headless.Any(c.to) {
 			// headless load-balancing can be inconsistent
-			checker = check.And(checker, check.ReachedClusters(t.AllClusters(), c.to.Clusters()))
+			checker = check.And(checker, check.ReachedTargetClusters(t.AllClusters()))
 		}
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),

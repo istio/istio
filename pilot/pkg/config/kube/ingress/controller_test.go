@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-func newFakeController() (model.ConfigStoreCache, kube.Client) {
+func newFakeController() (model.ConfigStoreController, kube.Client) {
 	meshHolder := mesh.NewTestWatcher(&meshconfig.MeshConfig{
 		IngressControllerMode: meshconfig.MeshConfig_DEFAULT,
 	})
