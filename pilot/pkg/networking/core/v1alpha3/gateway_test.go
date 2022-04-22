@@ -2518,7 +2518,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 		node                   *pilot_model.Proxy
 		gateways               []config.Config
 		virtualServices        []config.Config
-		expectedHttpFilters    []string
+		expectedHTTPFilters    []string
 		expectedNetworkFilters []string
 	}{
 		{
@@ -2606,14 +2606,14 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
 			for _, listener := range builder.gatewayListeners {
 				for _, fc := range listener.GetFilterChains() {
-					gotNWFilters, gotHttpFilters := xdstest.ExtractFilterNames(t, fc)
+					gotNWFilters, gotHTTPFilters := xdstest.ExtractFilterNames(t, fc)
 
-					sort.Strings(gotHttpFilters)
+					sort.Strings(gotHTTPFilters)
 					sort.Strings(gotNWFilters)
-					sort.Strings(tt.expectedHttpFilters)
+					sort.Strings(tt.expectedHTTPFilters)
 					sort.Strings(tt.expectedNetworkFilters)
-					if !reflect.DeepEqual(gotHttpFilters, tt.expectedHttpFilters) {
-						t.Fatalf("Expected httpfilters: %v, got: %v", tt.expectedHttpFilters, gotHttpFilters)
+					if !reflect.DeepEqual(gotHTTPFilters, tt.expectedHTTPFilters) {
+						t.Fatalf("Expected HTTPfilters: %v, got: %v", tt.expectedHTTPFilters, gotHTTPFilters)
 					}
 					if !reflect.DeepEqual(gotNWFilters, tt.expectedNetworkFilters) {
 						t.Fatalf("Expected network filters: %v, got: %v", tt.expectedNetworkFilters, gotNWFilters)
