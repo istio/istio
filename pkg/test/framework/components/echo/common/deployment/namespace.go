@@ -68,45 +68,50 @@ type EchoNamespace struct {
 	All echo.Services
 }
 
-func (n EchoNamespace) build(t resource.Context, b deployment.Builder) deployment.Builder {
+func (n EchoNamespace) build(t resource.Context, b deployment.Builder, cfg Config) deployment.Builder {
 	b = b.WithConfig(echo.Config{
-		Service:        ASvc,
-		Namespace:      n.Namespace,
-		ServiceAccount: true,
-		Ports:          ports.All(),
-		Subsets:        []echo.SubsetConfig{{}},
-		Locality:       "region.zone.subzone",
+		Service:         ASvc,
+		Namespace:       n.Namespace,
+		ServiceAccount:  true,
+		Ports:           ports.All(),
+		Subsets:         []echo.SubsetConfig{{}},
+		Locality:        "region.zone.subzone",
+		IncludeExtAuthz: cfg.IncludeExtAuthz,
 	}).
 		WithConfig(echo.Config{
-			Service:        BSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Ports:          ports.All(),
-			Subsets:        []echo.SubsetConfig{{}},
+			Service:         BSvc,
+			Namespace:       n.Namespace,
+			ServiceAccount:  true,
+			Ports:           ports.All(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: cfg.IncludeExtAuthz,
 		}).
 		WithConfig(echo.Config{
-			Service:        CSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Ports:          ports.All(),
-			Subsets:        []echo.SubsetConfig{{}},
+			Service:         CSvc,
+			Namespace:       n.Namespace,
+			ServiceAccount:  true,
+			Ports:           ports.All(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: cfg.IncludeExtAuthz,
 		}).
 		WithConfig(echo.Config{
-			Service:        HeadlessSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Headless:       true,
-			Ports:          ports.Headless(),
-			Subsets:        []echo.SubsetConfig{{}},
+			Service:         HeadlessSvc,
+			Namespace:       n.Namespace,
+			ServiceAccount:  true,
+			Headless:        true,
+			Ports:           ports.Headless(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: cfg.IncludeExtAuthz,
 		}).
 		WithConfig(echo.Config{
-			Service:        StatefulSetSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Headless:       true,
-			StatefulSet:    true,
-			Ports:          ports.Headless(),
-			Subsets:        []echo.SubsetConfig{{}},
+			Service:         StatefulSetSvc,
+			Namespace:       n.Namespace,
+			ServiceAccount:  true,
+			Headless:        true,
+			StatefulSet:     true,
+			Ports:           ports.Headless(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: cfg.IncludeExtAuthz,
 		}).
 		WithConfig(echo.Config{
 			Service:        NakedSvc,
@@ -131,6 +136,7 @@ func (n EchoNamespace) build(t resource.Context, b deployment.Builder) deploymen
 			Subsets: []echo.SubsetConfig{{
 				Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
 			}},
+			IncludeExtAuthz: cfg.IncludeExtAuthz,
 		}).
 		WithConfig(echo.Config{
 			Service:        VMSvc,

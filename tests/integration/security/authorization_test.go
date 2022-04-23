@@ -19,7 +19,6 @@ package security
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -29,8 +28,8 @@ import (
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/authz"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -39,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/scheck"
@@ -1408,56 +1406,34 @@ func TestAuthorization_Custom(t *testing.T) {
 				Inject: true,
 			})
 
-			customAuthzYAML, err := readCustomAuthzYAML(t)
-			if err != nil {
-				t.Fatal(err)
-			}
+			// Start the authz server.
+			authzServer := authz.NewOrFail(t, ns)
 
-			// Deploy and wait for the ext-authz server to be ready.
-			t.ConfigIstio().YAML(ns.Name(), customAuthzYAML).ApplyOrFail(t)
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns.Name(), "ext-authz"); err != nil {
-				t.Fatalf("Wait for ext-authz server failed: %v", err)
-			}
-			// Update the mesh config extension provider for the ext-authz service.
-			extService := fmt.Sprintf("ext-authz.%s.svc.cluster.local", ns.Name())
-			extServiceWithNs := fmt.Sprintf("%s/%s", ns.Name(), extService)
-			istio.PatchMeshConfigOrFail(t, ist.Settings().SystemNamespace, t.Clusters(), fmt.Sprintf(`
-extensionProviders:
-- name: "ext-authz-http"
-  envoyExtAuthzHttp:
-    service: %q
-    port: 8000
-    pathPrefix: "/check"
-    headersToUpstreamOnAllow: ["x-ext-authz-*"]
-    headersToDownstreamOnDeny: ["x-ext-authz-*"]
-    includeRequestHeadersInCheck: ["x-ext-authz"]
-    includeAdditionalHeadersInCheck:
-      x-ext-authz-additional-header-new: additional-header-new-value
-      x-ext-authz-additional-header-override: additional-header-override-value
-- name: "ext-authz-grpc"
-  envoyExtAuthzGrpc:
-    service: %q
-    port: 9000
-- name: "ext-authz-http-local"
-  envoyExtAuthzHttp:
-    service: ext-authz-http.local
-    port: 8000
-    pathPrefix: "/check"
-    headersToUpstreamOnAllow: ["x-ext-authz-*"]
-    headersToDownstreamOnDeny: ["x-ext-authz-*"]
-    includeRequestHeadersInCheck: ["x-ext-authz"]
-    includeAdditionalHeadersInCheck:
-      x-ext-authz-additional-header-new: additional-header-new-value
-      x-ext-authz-additional-header-override: additional-header-override-value
-- name: "ext-authz-grpc-local"
-  envoyExtAuthzGrpc:
-    service: ext-authz-grpc.local
-    port: 9000`, extService, extServiceWithNs))
+			// Also configure local access to the authz servers deployed in the echo pods.
+			localAuthzServer := authz.NewLocalOrFail(t, ns)
 
-			t.ConfigIstio().EvalFile("", map[string]string{
+			// Create the template args.
+			args := map[string]string{
 				"Namespace":     ns.Name(),
 				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
-			}, "testdata/authz/v1beta1-custom.yaml.tmpl").ApplyOrFail(t)
+			}
+			for _, p := range authzServer.Providers() {
+				switch p.API() {
+				case authz.HTTP:
+					args["HTTPProviderName"] = p.Name()
+				case authz.GRPC:
+					args["GRPCProviderName"] = p.Name()
+				}
+			}
+			for _, p := range localAuthzServer.Providers() {
+				switch p.API() {
+				case authz.HTTP:
+					args["LocalHTTPProviderName"] = p.Name()
+				case authz.GRPC:
+					args["LocalGRPCProviderName"] = p.Name()
+				}
+			}
+			t.ConfigIstio().EvalFile("", args, "testdata/authz/v1beta1-custom.yaml.tmpl").ApplyOrFail(t)
 			ports := []echo.Port{
 				{
 					Name:         "tcp-8092",
@@ -1637,29 +1613,6 @@ extensionProviders:
 				}
 			})
 		})
-}
-
-func readCustomAuthzYAML(ctx resource.Context) (string, error) {
-	// Read the samples file.
-	filePath := fmt.Sprintf("%s/samples/extauthz/ext-authz.yaml", env.IstioSrc)
-	data, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	yamlText := string(data)
-
-	// Replace the image.
-	s := ctx.Settings().Image
-	oldImage := "gcr.io/istio-testing/ext-authz:latest"
-	newImage := fmt.Sprintf("%s/ext-authz:%s", s.Hub, strings.TrimSuffix(s.Tag, "-distroless"))
-	yamlText = strings.ReplaceAll(yamlText, oldImage, newImage)
-
-	// Replace the image pull policy
-	oldPolicy := "IfNotPresent"
-	newPolicy := s.PullPolicy
-	yamlText = strings.ReplaceAll(yamlText, oldPolicy, newPolicy)
-
-	return yamlText, nil
 }
 
 type rbacTestName string

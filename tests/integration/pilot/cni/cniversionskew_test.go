@@ -99,7 +99,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		RequireMultiPrimary().
 		Setup(istio.Setup(&i, nil)).
-		Setup(deployment.SetupSingleNamespace(&apps)).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Run()
 }
 
