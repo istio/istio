@@ -27,7 +27,7 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pilot/pkg/controller/workloadentry"
+	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
@@ -136,7 +136,7 @@ type DiscoveryServer struct {
 
 	// StatusGen is notified of connect/disconnect/nack on all connections
 	StatusGen               *StatusGen
-	WorkloadEntryController *workloadentry.Controller
+	WorkloadEntryController *autoregistration.Controller
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
 	serverReady atomic.Bool
