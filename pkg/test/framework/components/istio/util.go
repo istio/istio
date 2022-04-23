@@ -169,15 +169,15 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 }
 
 func (i *operatorComponent) isExternalControlPlane() bool {
-	for _, cluster := range i.ctx.AllClusters() {
-		if cluster.IsPrimary() && !cluster.IsConfig() {
+	for _, c := range i.ctx.AllClusters() {
+		if c.IsPrimary() && !c.IsConfig() {
 			return true
 		}
 	}
 	return false
 }
 
-func PatchMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, patch string) error {
+func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, update func(*meshconfig.MeshConfig) error) error {
 	errG := multierror.Group{}
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
@@ -189,10 +189,13 @@ func PatchMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, p
 	for _, c := range clusters.Kube() {
 		c := c
 		errG.Go(func() error {
+			// Read the config map from the cluster.
 			cm, err := c.CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
 			if err != nil {
 				return err
 			}
+
+			// Get the MeshConfig yaml from the config map.
 			mcYaml, ok := cm.Data["mesh"]
 			if !ok {
 				return fmt.Errorf("mesh config was missing in istio config map for %s", c.Name())
@@ -200,17 +203,25 @@ func PatchMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, p
 			mu.Lock()
 			origCfg[c.Name()] = cm.Data["mesh"]
 			mu.Unlock()
+
+			// Parse the YAML.
 			mc := &meshconfig.MeshConfig{}
 			if err := protomarshal.ApplyYAML(mcYaml, mc); err != nil {
 				return err
 			}
-			if err := protomarshal.ApplyYAML(patch, mc); err != nil {
+
+			// Apply the change.
+			if err := update(mc); err != nil {
 				return err
 			}
+
+			// Store the updated MeshConfig back into the config map.
 			cm.Data["mesh"], err = protomarshal.ToYAML(mc)
 			if err != nil {
 				return err
 			}
+
+			// Write the config map back to the cluster.
 			_, err = c.CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
 			if err != nil {
 				return err
@@ -219,6 +230,8 @@ func PatchMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, p
 			return nil
 		})
 	}
+
+	// Restore the original value of the MeshConfig when the context completes.
 	t.Cleanup(func() {
 		errG := multierror.Group{}
 		mu.RLock()
@@ -241,6 +254,19 @@ func PatchMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, p
 		}
 	})
 	return errG.Wait().ErrorOrNil()
+}
+
+func UpdateMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters, update func(*meshconfig.MeshConfig) error) {
+	t.Helper()
+	if err := UpdateMeshConfig(t, ns, clusters, update); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func PatchMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, patch string) error {
+	return UpdateMeshConfig(t, ns, clusters, func(mc *meshconfig.MeshConfig) error {
+		return protomarshal.ApplyYAML(patch, mc)
+	})
 }
 
 func PatchMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters, patch string) {
