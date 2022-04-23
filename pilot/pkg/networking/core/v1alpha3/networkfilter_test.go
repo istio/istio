@@ -28,12 +28,14 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestBuildRedisFilter(t *testing.T) {
-	redisFilter := buildRedisFilter("redis", "redis-cluster")
+	node := getProxy()
+	redisFilter := buildRedisFilter(node, "redis", "redis-cluster")
 	if redisFilter.Name != wellknown.RedisProxy {
 		t.Errorf("redis filter name is %s not %s", redisFilter.Name, wellknown.RedisProxy)
 	}
@@ -50,6 +52,35 @@ func TestBuildRedisFilter(t *testing.T) {
 		}
 		if redisProxy.PrefixRoutes.CatchAllRoute.Cluster != "redis-cluster" {
 			t.Errorf("redis proxy's PrefixRoutes.CatchAllCluster is %s", redisProxy.PrefixRoutes.CatchAllRoute.Cluster)
+		}
+	} else {
+		t.Errorf("redis filter type is %T not listener.Filter_TypedConfig ", redisFilter.ConfigType)
+	}
+}
+
+func TestBuildRedisFilterCustomTimeout(t *testing.T) {
+	node := getProxy()
+	node.Metadata.RedisOpTimeout = "15s"
+	redisFilter := buildRedisFilter(node, "redis", "redis-cluster")
+	if redisFilter.Name != wellknown.RedisProxy {
+		t.Errorf("redis filter name is %s not %s", redisFilter.Name, wellknown.RedisProxy)
+	}
+	if config, ok := redisFilter.ConfigType.(*listener.Filter_TypedConfig); ok {
+		redisProxy := redis.RedisProxy{}
+		if err := config.TypedConfig.UnmarshalTo(&redisProxy); err != nil {
+			t.Errorf("unmarshal failed: %v", err)
+		}
+		if redisProxy.StatPrefix != "redis" {
+			t.Errorf("redis proxy statPrefix is %s", redisProxy.StatPrefix)
+		}
+		if !redisProxy.LatencyInMicros {
+			t.Errorf("redis proxy latency stat is not configured for microseconds")
+		}
+		if redisProxy.PrefixRoutes.CatchAllRoute.Cluster != "redis-cluster" {
+			t.Errorf("redis proxy's PrefixRoutes.CatchAllCluster is %s", redisProxy.PrefixRoutes.CatchAllRoute.Cluster)
+		}
+		if redisProxy.Settings.OpTimeout.Seconds != 15 {
+			t.Errorf("redis proxy's Settings.OpTimeout is %s", redisProxy.Settings.OpTimeout)
 		}
 	} else {
 		t.Errorf("redis filter type is %T not listener.Filter_TypedConfig ", redisFilter.ConfigType)
@@ -80,9 +111,12 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			env := buildListenerEnv(services)
-			env.PushContext.InitContext(env, nil, nil)
-			env.PushContext.Mesh.InboundClusterStatName = tt.statPattern
+			m := mesh.DefaultMeshConfig()
+			m.InboundClusterStatName = tt.statPattern
+			cg := NewConfigGenTest(t, TestOptions{
+				Services:   services,
+				MeshConfig: m,
+			})
 
 			instance := &model.ServiceInstance{
 				Service: &model.Service{
@@ -102,7 +136,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				},
 			}
 
-			listenerFilters := buildInboundNetworkFilters(env.PushContext, &model.Proxy{Metadata: &model.NodeMetadata{}},
+			listenerFilters := buildInboundNetworkFilters(cg.PushContext(), cg.SetupProxy(nil),
 				instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
 			tcp := &tcp.TcpProxy{}
 			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
@@ -142,8 +176,7 @@ func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			env := buildListenerEnv(services)
-			env.PushContext.InitContext(env, nil, nil)
+			cg := NewConfigGenTest(t, TestOptions{Services: services})
 
 			instance := &model.ServiceInstance{
 				Service: &model.Service{
@@ -163,7 +196,7 @@ func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
 				},
 			}
 			node := &model.Proxy{Metadata: &model.NodeMetadata{IdleTimeout: tt.idleTimeout}}
-			listenerFilters := buildInboundNetworkFilters(env.PushContext, node,
+			listenerFilters := buildInboundNetworkFilters(cg.PushContext(), node,
 				instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
 			tcp := &tcp.TcpProxy{}
 			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
@@ -269,15 +302,13 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			env := buildListenerEnv(services)
-			env.PushContext.InitContext(env, nil, nil)
-			env.PushContext.Mesh.OutboundClusterStatName = tt.statPattern
+			m := mesh.DefaultMeshConfig()
+			m.OutboundClusterStatName = tt.statPattern
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: m, Services: services})
 
-			proxy := getProxy()
-			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-
-			listeners := buildOutboundNetworkFilters(proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"})
+			listeners := buildOutboundNetworkFilters(
+				cg.SetupProxy(nil), tt.routes, cg.PushContext(),
+				&model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"})
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
@@ -393,12 +424,12 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 
 	destinationRules := []*config.Config{&destinationRule, &simpleDestinationRule, &subsetdestinationRule, &subsetDifferentdestinationRule}
 
-	env := buildListenerEnvWithAdditionalConfig(services, nil, destinationRules)
-	env.PushContext.InitContext(env, nil, nil)
+	cg := NewConfigGenTest(t, TestOptions{
+		ConfigPointers: destinationRules,
+		Services:       services,
+	})
 
-	proxy := getProxy()
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+	proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
 	cases := []struct {
 		name        string
 		routes      []*networking.RouteDestination
@@ -471,7 +502,7 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			listeners := buildOutboundNetworkFilters(proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, tt.configMeta)
+			listeners := buildOutboundNetworkFilters(proxy, tt.routes, cg.PushContext(), &model.Port{Port: 9999}, tt.configMeta)
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			hasSourceIP := tcp.HashPolicy != nil && len(tcp.HashPolicy) == 1 && tcp.HashPolicy[0].GetSourceIp() != nil
