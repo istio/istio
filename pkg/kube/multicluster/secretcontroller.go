@@ -87,8 +87,6 @@ type Controller struct {
 	cs *ClusterStore
 
 	handlers []ClusterHandler
-
-	syncInterval time.Duration
 }
 
 // NewController returns a new secret controller
