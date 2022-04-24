@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/scheck"
@@ -60,7 +60,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 					"Namespace":  apps.Namespace1.Name(),
 					"Namespace2": apps.Namespace2.Name(),
 					"dst":        to.Config().Service,
-				}, "testdata/authz/v1beta1-mtls.yaml.tmpl").ApplyOrFail(t, resource.Wait)
+				}, "testdata/authz/v1beta1-mtls.yaml.tmpl").ApplyOrFail(t, apply.Wait)
 				callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 				for _, cluster := range t.Clusters() {
 					a := match.And(match.Cluster(cluster), match.Namespace(apps.Namespace1)).GetMatches(apps.A)
@@ -127,7 +127,8 @@ func TestAuthorization_JWT(t *testing.T) {
 					"Namespace2": apps.Namespace2.Name(),
 					"dst":        dst[0].Config().Service,
 				}
-				t.ConfigIstio().EvalFile(ns.Name(), args, "testdata/authz/v1beta1-jwt.yaml.tmpl").ApplyOrFail(t, resource.Wait)
+				t.ConfigIstio().EvalFile(ns.Name(), args, "testdata/authz/v1beta1-jwt.yaml.tmpl").
+					ApplyOrFail(t, apply.Wait)
 				for _, srcCluster := range t.Clusters() {
 					a := match.And(match.Cluster(srcCluster), match.Namespace(ns)).GetMatches(apps.A)
 					if len(a) == 0 {
@@ -269,7 +270,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							"RootNamespace": rootns.Name(),
 							"b":             util.BSvc,
 							"c":             util.CSvc,
-						}, filename).ApplyOrFail(t, resource.Wait)
+						}, filename).ApplyOrFail(t, apply.Wait)
 					}
 					applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
 					applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
@@ -315,7 +316,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							"RootNamespace": rootns.Name(),
 							"b":             util.VMSvc, // This is the only difference from standard args.
 							"c":             util.CSvc,
-						}, filename).ApplyOrFail(t, resource.Wait)
+						}, filename).ApplyOrFail(t, apply.Wait)
 					}
 					applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
 					applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
@@ -360,7 +361,7 @@ func TestAuthorization_Deny(t *testing.T) {
 					"b":             b[0].Config().Service,
 					"c":             c[0].Config().Service,
 					"vm":            vm[0].Config().Service,
-				}, filename).ApplyOrFail(t, resource.Wait)
+				}, filename).ApplyOrFail(t, apply.Wait)
 			}
 			applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
@@ -1082,7 +1083,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 								"b":          util.BSvc,
 							}
 
-							t.ConfigIstio().EvalFile("", args, "testdata/authz/v1beta1-conditions.yaml.tmpl").ApplyOrFail(t)
+							t.ConfigIstio().EvalFile("", args, "testdata/authz/v1beta1-conditions.yaml.tmpl").
+								ApplyOrFail(t)
 							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							newTestCase := func(from echo.Instance, path string, headers http.Header, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
@@ -1200,7 +1202,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 								"c":         c[0].Config().Service,
 								"d":         d[0].Config().Service,
 							}
-							t.ConfigIstio().EvalFile(ns.Name(), args, "testdata/authz/v1beta1-grpc.yaml.tmpl").ApplyOrFail(t, resource.Wait)
+							t.ConfigIstio().EvalFile(ns.Name(), args, "testdata/authz/v1beta1-grpc.yaml.tmpl").ApplyOrFail(t, apply.Wait)
 							newTestCase := func(from echo.Instance, to echo.Target, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
 									opts := echo.CallOptions{
@@ -1258,7 +1260,7 @@ func TestAuthorization_Path(t *testing.T) {
 							"Namespace": ns.Name(),
 							"a":         a[0].Config().Service,
 						}
-						t.ConfigIstio().EvalFile(ns.Name(), args, "testdata/authz/v1beta1-path.yaml.tmpl").ApplyOrFail(t, resource.Wait)
+						t.ConfigIstio().EvalFile(ns.Name(), args, "testdata/authz/v1beta1-path.yaml.tmpl").ApplyOrFail(t, apply.Wait)
 
 						newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
 							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
@@ -1328,7 +1330,7 @@ func TestAuthorization_Audit(t *testing.T) {
 						"d":             d[0].Config().Service,
 						"Namespace":     ns.Name(),
 						"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
-					}, filename).ApplyOrFail(t, resource.Wait)
+					}, filename).ApplyOrFail(t, apply.Wait)
 				}
 			}
 
@@ -1337,7 +1339,7 @@ func TestAuthorization_Audit(t *testing.T) {
 					t.ConfigIstio().EvalFile(ns.Name(), map[string]string{
 						"Namespace": ns.Name(),
 						"dst":       vm[0].Config().Service,
-					}, filename).ApplyOrFail(t, resource.Wait)
+					}, filename).ApplyOrFail(t, apply.Wait)
 				}
 			}
 
@@ -1433,7 +1435,8 @@ func TestAuthorization_Custom(t *testing.T) {
 					args["LocalGRPCProviderName"] = p.Name()
 				}
 			}
-			t.ConfigIstio().EvalFile("", args, "testdata/authz/v1beta1-custom.yaml.tmpl").ApplyOrFail(t)
+			t.ConfigIstio().EvalFile("", args, "testdata/authz/v1beta1-custom.yaml.tmpl").
+				ApplyOrFail(t)
 			ports := []echo.Port{
 				{
 					Name:         "tcp-8092",

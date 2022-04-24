@@ -42,7 +42,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
@@ -57,7 +57,9 @@ func TestGateway(t *testing.T) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			if err := t.ConfigIstio().File("", "testdata/gateway-api-crd.yaml").Apply(resource.NoCleanup); err != nil {
+			if err := t.ConfigIstio().
+				File("", "testdata/gateway-api-crd.yaml").
+				Apply(apply.NoCleanup); err != nil {
 				t.Fatal(err)
 			}
 			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
@@ -796,7 +798,7 @@ spec:
         host: {{ .host }}
         port:
           number: 80
-`).Apply(resource.NoCleanup)
+`).Apply(apply.NoCleanup)
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
 				retry.UntilSuccessOrFail(t, func() error {
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
@@ -874,7 +876,7 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.A.Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
+`, apps.A.Config().ClusterLocalFQDN())).Apply(apply.NoCleanup)
 				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
@@ -941,7 +943,7 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.A.Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
+`, apps.A.Config().ClusterLocalFQDN())).Apply(apply.NoCleanup)
 				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
