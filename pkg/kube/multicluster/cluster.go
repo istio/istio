@@ -42,12 +42,6 @@ type Cluster struct {
 	initialSyncTimeout *atomic.Bool
 }
 
-// Stop channel which is closed when the cluster is removed or the Controller that created the client is stopped.
-// Client.RunAndWait is called using this channel.
-func (r *Cluster) Stop() <-chan struct{} {
-	return r.stop
-}
-
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
 func (r *Cluster) Run() {
@@ -61,8 +55,18 @@ func (r *Cluster) Run() {
 		})
 	}
 
-	r.Client.RunAndWait(r.Stop())
+	r.Client.RunAndWait(r.stop)
 	r.initialSync.Store(true)
+}
+
+// Stop closes the stop channel, if is safe to be called multi times.
+func (r *Cluster) Stop() {
+	select {
+	case <-r.stop:
+		return
+	default:
+		close(r.stop)
+	}
 }
 
 func (r *Cluster) HasSynced() bool {

@@ -157,7 +157,7 @@ func (c *Controller) close() {
 	defer c.cs.Unlock()
 	for _, clusterMap := range c.cs.remoteClusters {
 		for _, cluster := range clusterMap {
-			close(cluster.stop)
+			cluster.Stop()
 		}
 	}
 }
@@ -350,7 +350,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 		}
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
-			close(remoteCluster.stop)
+			remoteCluster.Stop()
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
 			continue
 		}
@@ -368,7 +368,7 @@ func (c *Controller) deleteSecret(secretKey string) {
 			continue
 		}
 		log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
-		close(cluster.stop)
+		cluster.Stop()
 		err := c.handleDelete(cluster.ID)
 		if err != nil {
 			log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
@@ -387,7 +387,7 @@ func (c *Controller) deleteCluster(secretKey string, clusterID cluster.ID) {
 		log.Infof("Number of remote clusters: %d", c.cs.Len())
 	}()
 	log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
-	close(c.cs.remoteClusters[secretKey][clusterID].stop)
+	c.cs.remoteClusters[secretKey][clusterID].Stop()
 	err := c.handleDelete(clusterID)
 	if err != nil {
 		log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
