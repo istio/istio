@@ -568,6 +568,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 				Port:     15006,
 				Protocol: protocol.HTTP,
 			},
+			class:    istionetworking.ListenerClassSidecarInbound,
 			protocol: istionetworking.ListenerProtocolAuto,
 		}
 		// Call plugins to get mtls policies.

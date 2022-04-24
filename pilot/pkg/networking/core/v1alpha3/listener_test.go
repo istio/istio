@@ -2359,7 +2359,6 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *listener.Listener, hostn
 func verifyFilterChainMatch(t *testing.T, listener *listener.Listener) {
 	httpFilters := []string{
 		xdsfilters.MxFilterName,
-		xdsfilters.AlpnFilterName, // TODO(https://github.com/istio/istio/pull/38482)
 		xdsfilters.Fault.Name,
 		xdsfilters.Cors.Name,
 		xdsfilters.Router.Name,
