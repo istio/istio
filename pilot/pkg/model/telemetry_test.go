@@ -234,7 +234,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"empty",
 			nil,
-			networking.ListenerClassUndefined,
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
 			nil,
@@ -242,7 +242,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"default provider only",
 			nil,
-			networking.ListenerClassUndefined,
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			[]string{"envoy"},
 			[]string{"envoy"},
@@ -250,7 +250,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"provider only",
 			[]config.Config{newTelemetry("istio-system", envoy)},
-			networking.ListenerClassUndefined,
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
 			[]string{"envoy"},
@@ -330,7 +330,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"override default",
 			[]config.Config{newTelemetry("istio-system", envoy)},
-			networking.ListenerClassUndefined,
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			[]string{"stackdriver"},
 			[]string{"envoy"},
@@ -338,7 +338,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"override namespace",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", stackdriver)},
-			networking.ListenerClassUndefined,
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
 			[]string{"stackdriver"},
@@ -346,7 +346,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"empty config inherits",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", empty)},
-			networking.ListenerClassUndefined,
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
 			[]string{"envoy"},
@@ -354,7 +354,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"default envoy JSON",
 			[]config.Config{newTelemetry("istio-system", defaultJSON)},
-			networking.ListenerClassUndefined,
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
 			[]string{"envoy-json"},
@@ -362,7 +362,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"disable config",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", disabled)},
-			networking.ListenerClassUndefined,
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
 			[]string{},
@@ -370,7 +370,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"disable default",
 			[]config.Config{newTelemetry("default", disabled)},
-			networking.ListenerClassUndefined,
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			[]string{"envoy"},
 			[]string{},
@@ -378,7 +378,7 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"non existing",
 			[]config.Config{newTelemetry("default", nonExistant)},
-			networking.ListenerClassUndefined,
+			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			[]string{"envoy"},
 			[]string{},
@@ -467,7 +467,7 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
-			got := telemetry.AccessLogging(tt.proxy, networking.ListenerClassUndefined)
+			got := telemetry.AccessLogging(tt.proxy, networking.ListenerClassSidecarOutbound)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("got %v want %v", got, tt.want)
 			}
