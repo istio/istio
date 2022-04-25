@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** Uniform pilot-agent and pilot-discover 's code style.
+
