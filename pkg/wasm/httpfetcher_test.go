@@ -15,6 +15,7 @@
 package wasm
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +25,9 @@ import (
 
 func TestWasmHTTPFetch(t *testing.T) {
 	var ts *httptest.Server
+
+	// Shorten the initial backoff for testing
+	httpInitialBackoff = time.Microsecond
 
 	cases := []struct {
 		name           string
@@ -68,9 +72,10 @@ func TestWasmHTTPFetch(t *testing.T) {
 				gotNumRequest++
 			}))
 			defer ts.Close()
-			fetcher := NewHTTPFetcher()
-			fetcher.initialBackoff = time.Microsecond
-			b, err := fetcher.Fetch(ts.URL, 0)
+			fetcher := NewHTTPFetcher(true)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			b, err := fetcher.Fetch(ctx, ts.URL)
 			if c.wantNumRequest != gotNumRequest {
 				t.Errorf("Wasm download request got %v, want %v", gotNumRequest, c.wantNumRequest)
 			}

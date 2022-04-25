@@ -15,6 +15,8 @@
 package wasm
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,39 +25,45 @@ import (
 	"github.com/cenkalti/backoff/v4"
 )
 
+var (
+	httpInitialBackoff = time.Millisecond * 500
+)
+
 // HTTPFetcher fetches remote wasm module with HTTP get.
 type HTTPFetcher struct {
-	defaultClient  *http.Client
-	initialBackoff time.Duration
+	client *http.Client
 }
 
 // NewHTTPFetcher create a new HTTP remote wasm module fetcher.
-func NewHTTPFetcher() *HTTPFetcher {
-	return &HTTPFetcher{
-		defaultClient: &http.Client{
-			Timeout: 5 * time.Second,
-		},
-		initialBackoff: time.Millisecond * 500,
+func NewHTTPFetcher(insecure bool) *HTTPFetcher {
+	fetcher := &HTTPFetcher{
+		client: &http.Client{},
 	}
+	if insecure {
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: insecure}
+		fetcher.client.Transport = transport
+	}
+	return fetcher
 }
 
 // Fetch downloads a wasm module with HTTP get.
-func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
-	c := f.defaultClient
-	if timeout != 0 {
-		c = &http.Client{
-			Timeout: timeout,
-		}
-	}
+func (f *HTTPFetcher) Fetch(ctx context.Context, url string) ([]byte, error) {
+	c := f.client
 	attempts := 0
-
 	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = f.initialBackoff
+	b.InitialInterval = httpInitialBackoff
 	b.Reset()
 	var lastError error
 	for attempts < 5 {
 		attempts++
-		resp, err := c.Get(url)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			lastError = err
+			wasmLog.Debugf("wasm module download request failed: %v", err)
+			return nil, err
+		}
+		resp, err := c.Do(req)
 		if err != nil {
 			lastError = err
 			wasmLog.Debugf("wasm module download request failed: %v", err)

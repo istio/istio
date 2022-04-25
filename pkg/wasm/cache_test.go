@@ -87,6 +87,9 @@ func TestWasmCache(t *testing.T) {
 	cacheHitSha := sha256.Sum256([]byte("cachehit"))
 	cacheHitSum := hex.EncodeToString(cacheHitSha[:])
 
+	// Shorten the initial backoff for testing
+	httpInitialBackoff = time.Microsecond
+
 	cases := []struct {
 		name                   string
 		initialCachedModules   map[moduleKey]cacheEntry
@@ -113,6 +116,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               httpDataCheckSum,
+			requestTimeout:         time.Second * 10,
 			wantFileName:           fmt.Sprintf("%s.wasm", httpDataCheckSum),
 			wantVisitServer:        true,
 		},
@@ -126,6 +130,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               cacheHitSum,
+			requestTimeout:         time.Second * 10,
 			wantFileName:           "test.wasm",
 			wantVisitServer:        false,
 		},
@@ -137,6 +142,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               httpDataCheckSum,
+			requestTimeout:         time.Second * 10,
 			wantFileName:           fmt.Sprintf("%s.wasm", httpDataCheckSum),
 			wantErrorMsgPrefix:     "unsupported Wasm module downloading URL scheme: foo",
 			wantVisitServer:        false,
@@ -148,6 +154,7 @@ func TestWasmCache(t *testing.T) {
 			fetchURL:               "https://dummyurl",
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
+			requestTimeout:         time.Second * 10,
 			wantErrorMsgPrefix:     "wasm module download failed, last error: Get \"https://dummyurl\"",
 			wantVisitServer:        false,
 		},
@@ -159,6 +166,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               "wrongchecksum\n",
+			requestTimeout:         time.Second * 10,
 			wantErrorMsgPrefix:     fmt.Sprintf("module downloaded from %v has checksum %s, which does not match", ts.URL, httpDataCheckSum),
 			wantVisitServer:        true,
 		},
@@ -174,6 +182,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               httpDataCheckSum,
+			requestTimeout:         time.Second * 10,
 			wantErrorMsgPrefix:     fmt.Sprintf("module downloaded from %v/different-url has checksum", ts.URL),
 			wantVisitServer:        true,
 		},
@@ -187,6 +196,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               invalidHTTPDataCheckSum,
+			requestTimeout:         time.Second * 10,
 			wantErrorMsgPrefix:     fmt.Sprintf("fetched Wasm binary from %s is invalid", ts.URL+"/invalid-wasm-header"),
 			wantVisitServer:        true,
 		},
@@ -201,6 +211,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:       1 * time.Millisecond,
 			checkPurgeTimeout:      5 * time.Second,
 			checksum:               httpDataCheckSum,
+			requestTimeout:         time.Second * 10,
 			wantFileName:           fmt.Sprintf("%s.wasm", httpDataCheckSum),
 			wantVisitServer:        true,
 		},
@@ -470,7 +481,6 @@ func TestWasmCache(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			cache := NewLocalFileCache(tmpDir, c.purgeInterval, c.wasmModuleExpiry, nil)
-			cache.httpFetcher.initialBackoff = time.Microsecond
 			defer close(cache.stopChan)
 
 			var cacheHitKey *moduleKey
@@ -645,7 +655,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 
 	// Get wasm module three times, since checksum is not specified, it will be fetched from module server every time.
 	// 1st time
-	gotFilePath, err := cache.Get(ts.URL, "", "namespace.resource", "123456", 0, []byte{}, defaultPullPolicy)
+	gotFilePath, err := cache.Get(ts.URL, "", "namespace.resource", "123456", time.Second*10, []byte{}, defaultPullPolicy)
 	if err != nil {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}
@@ -654,7 +664,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 	}
 
 	// 2nd time
-	gotFilePath, err = cache.Get(ts.URL, "", "namespace.resource", "123456", 0, []byte{}, defaultPullPolicy)
+	gotFilePath, err = cache.Get(ts.URL, "", "namespace.resource", "123456", time.Second*10, []byte{}, defaultPullPolicy)
 	if err != nil {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}
@@ -663,7 +673,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 	}
 
 	// 3rd time
-	gotFilePath, err = cache.Get(ts.URL, "", "namespace.resource", "123456", 0, []byte{}, defaultPullPolicy)
+	gotFilePath, err = cache.Get(ts.URL, "", "namespace.resource", "123456", time.Second*10, []byte{}, defaultPullPolicy)
 	if err != nil {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}
