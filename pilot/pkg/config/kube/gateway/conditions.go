@@ -58,7 +58,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 		var condition metav1.Condition
 		if routeErr != nil {
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAccepted),
+				Type:               string(k8s.RouteConditionAccepted),
 				Status:             kstatus.StatusFalse,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -71,7 +71,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 				err = fmt.Sprintf("failed to bind to %d parents, last error: %v", failedCount[k], gw.DeniedReason.Error())
 			}
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAccepted),
+				Type:               string(k8s.RouteConditionAccepted),
 				Status:             kstatus.StatusFalse,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -80,7 +80,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 			}
 		} else {
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAccepted),
+				Type:               string(k8s.RouteConditionAccepted),
 				Status:             kstatus.StatusTrue,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
