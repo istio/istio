@@ -16,7 +16,6 @@ package framework
 
 import (
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -117,17 +116,7 @@ type testImpl struct {
 	minIstioVersion      string
 
 	ctx *testContext
-
-	// Indicates that at least one child test is being run in parallel. In Go, when
-	// t.Parallel() is called on a test, execution is halted until the parent test exits.
-	// Only after that point, are the Parallel children are resumed. Because the parent test
-	// must exit before the Parallel children do, we have to defer closing the parent's
-	// testcontext until after the children have completed.
-	hasParallelChildren bool
 }
-
-// globalCleanupLock defines a global wait group to synchronize cleanup of test suites
-var globalParentLock = new(sync.Map)
 
 // NewTest returns a new test wrapper for running a single test.
 func NewTest(t *testing.T) Test {
@@ -246,7 +235,6 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 	// we check kube for min clusters, these assume we're talking about real multicluster.
 	// it's possible to have 1 kube cluster then 1 non-kube cluster (vm for example)
 	if t.requiredMinClusters > 0 && len(t.s.Environment().Clusters().Kube()) < t.requiredMinClusters {
-		ctx.Done()
 		t.goTest.Skipf("Skipping %q: number of clusters %d is below required min %d",
 			t.goTest.Name(), len(t.s.Environment().Clusters()), t.requiredMinClusters)
 		return
@@ -254,7 +242,6 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 
 	// max clusters doesn't check kube only, the test may be written in a way that doesn't loop over all of Clusters()
 	if t.requiredMaxClusters > 0 && len(t.s.Environment().Clusters()) > t.requiredMaxClusters {
-		ctx.Done()
 		t.goTest.Skipf("Skipping %q: number of clusters %d is above required max %d",
 			t.goTest.Name(), len(t.s.Environment().Clusters()), t.requiredMaxClusters)
 		return
@@ -263,7 +250,6 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 	if t.requireLocalIstiod {
 		for _, c := range ctx.Clusters() {
 			if !c.IsPrimary() {
-				ctx.Done()
 				t.goTest.Skipf(fmt.Sprintf("Skipping %q: cluster %s is not using a local control plane",
 					t.goTest.Name(), c.Name()))
 				return
@@ -272,7 +258,6 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 	}
 
 	if t.requireSingleNetwork && t.s.Environment().IsMultinetwork() {
-		ctx.Done()
 		t.goTest.Skipf(fmt.Sprintf("Skipping %q: only single network allowed",
 			t.goTest.Name()))
 		return
@@ -280,56 +265,35 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 
 	if t.minIstioVersion != "" {
 		if !t.ctx.Settings().Revisions.AtLeast(resource.IstioVersion(t.minIstioVersion)) {
-			ctx.Done()
 			t.goTest.Skipf("Skipping %q: running with min Istio version %q, test requires at least %s",
 				t.goTest.Name(), t.ctx.Settings().Revisions.Minimum(), t.minIstioVersion)
 		}
 	}
 
 	start := time.Now()
-
 	scopes.Framework.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
 
 	// Initial setup if we're running in Parallel.
 	if parallel {
-		// Inform the parent, who will need to call ctx.Done asynchronously.
-		if t.parent != nil {
-			t.parent.hasParallelChildren = true
-		}
-
 		// Run the underlying Go test in parallel. This will not return until the parent
 		// test (if there is one) exits.
 		t.goTest.Parallel()
 	}
 
-	defer func() {
-		doneFn := func() {
-			message := "passed"
-			if t.goTest.Failed() {
-				message = "failed"
-			}
-			end := time.Now()
-			scopes.Framework.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
-				message,
-				rt.suiteContext().Settings().TestID,
-				t.goTest.Name(),
-				end.Sub(start))
-			rt.suiteContext().registerOutcome(t)
-			ctx.Done()
-			if t.hasParallelChildren {
-				globalParentLock.Delete(t)
-			}
+	// Register the cleanup function for when the Go test completes.
+	t.goTest.Cleanup(func() {
+		message := "passed"
+		if t.goTest.Failed() {
+			message = "failed"
 		}
-		if t.hasParallelChildren {
-			// If a child is running in parallel, it won't continue until this test returns.
-			// Since ctx.Done() will block until the child test is complete, we run ctx.Done()
-			// asynchronously.
-			globalParentLock.Store(t, struct{}{})
-			go doneFn()
-		} else {
-			doneFn()
-		}
-	}()
+		scopes.Framework.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
+			message,
+			rt.suiteContext().Settings().TestID,
+			t.goTest.Name(),
+			time.Since(start))
+		rt.suiteContext().registerOutcome(t)
+	})
 
+	// Run the user's test function.
 	fn(ctx)
 }

@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// suiteContext contains suite-level items used during runtime.
+// SuiteContext contains suite-level items used during runtime.
 type SuiteContext interface {
 	resource.Context
 }
@@ -224,8 +224,6 @@ type TestOutcome struct {
 }
 
 func (s *suiteContext) registerOutcome(test *testImpl) {
-	s.outcomeMu.Lock()
-	defer s.outcomeMu.Unlock()
 	o := Passed
 	if test.notImplemented {
 		o = NotImplemented
