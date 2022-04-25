@@ -175,14 +175,24 @@ type TracingConfig struct {
 }
 
 type LoggingConfig struct {
-	Providers     []*meshconfig.MeshConfig_ExtensionProvider
-	ProviderNames sets.Set
-	Filter        *tpb.AccessLogging_Filter
+	Providers []*meshconfig.MeshConfig_ExtensionProvider
+	Filter    *tpb.AccessLogging_Filter
 }
 
-type LoggingSpec struct {
-	Client *LoggingConfig
-	Server *LoggingConfig
+func getWorkloadMode(class networking.ListenerClass) tpb.WorkloadMode {
+	switch class {
+	case networking.ListenerClassGateway:
+		return tpb.WorkloadMode_CLIENT
+	case networking.ListenerClassSidecarInbound:
+		return tpb.WorkloadMode_SERVER
+	case networking.ListenerClassSidecarOutbound:
+		return tpb.WorkloadMode_CLIENT
+	case networking.ListenerClassUndefined:
+		// this should not happened, just in case
+		return tpb.WorkloadMode_CLIENT
+	}
+
+	return tpb.WorkloadMode_CLIENT
 }
 
 // AccessLogging returns the logging configuration for a given proxy. If nil is returned, access logs
@@ -194,29 +204,16 @@ func (t *Telemetries) AccessLogging(proxy *Proxy, class networking.ListenerClass
 		return nil
 	}
 
-	cfg := mergeLogs(ct.Logging, t.meshConfig)
-
-	var spec *LoggingConfig
-	switch class {
-	case networking.ListenerClassGateway:
-		spec = cfg.Client
-	case networking.ListenerClassSidecarInbound:
-		spec = cfg.Server
-	case networking.ListenerClassSidecarOutbound:
-		spec = cfg.Client
-	case networking.ListenerClassUndefined:
-		// this should not happened, just in case
-		spec = cfg.Client
-	}
-
-	for _, p := range spec.ProviderNames.SortedList() {
+	cfg := LoggingConfig{}
+	providers, f := mergeLogs(ct.Logging, t.meshConfig, getWorkloadMode(class))
+	cfg.Filter = f
+	for _, p := range providers.SortedList() {
 		fp := t.fetchProvider(p)
 		if fp != nil {
-			spec.Providers = append(spec.Providers, fp)
+			cfg.Providers = append(cfg.Providers, fp)
 		}
 	}
-
-	return spec
+	return &cfg
 }
 
 // Tracing returns the logging tracing for a given proxy. If nil is returned, tracing
@@ -389,27 +386,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
 	log.Debugf("merged metrics, proxyID: %s metrics: %+v", proxy.ID, tmm)
 	// Additionally, fetch relevant access logging configurations
-	cfg := mergeLogs(c.Logging, t.meshConfig)
-
-	var (
-		tml        sets.Set
-		logsFilter *tpb.AccessLogging_Filter
-	)
-	switch class {
-	case networking.ListenerClassGateway:
-		tml = cfg.Client.ProviderNames
-		logsFilter = cfg.Client.Filter
-	case networking.ListenerClassSidecarInbound:
-		tml = cfg.Server.ProviderNames
-		logsFilter = cfg.Server.Filter
-	case networking.ListenerClassSidecarOutbound:
-		tml = cfg.Client.ProviderNames
-		logsFilter = cfg.Client.Filter
-	case networking.ListenerClassUndefined:
-		// this should not happened, just in case
-		tml = cfg.Client.ProviderNames
-		logsFilter = cfg.Client.Filter
-	}
+	tml, logsFilter := mergeLogs(c.Logging, t.meshConfig, getWorkloadMode(class))
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
@@ -450,46 +427,30 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	return res
 }
 
-// mergeLogs returns the merged configuration for the given telemetry logging configuration.
-func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) *LoggingSpec {
-	cfg := &LoggingSpec{
-		Client: &LoggingConfig{
-			ProviderNames: sets.New(),
-		},
-		Server: &LoggingConfig{
-			ProviderNames: sets.New(),
-		},
-	}
+// mergeLogs returns the set of providers for the given logging configuration.
+func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig, mode tpb.WorkloadMode) (sets.Set, *tpb.AccessLogging_Filter) {
+	providers := sets.New()
 
-	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
 	if len(logs) == 0 {
-		cfg.Client.ProviderNames.InsertAll(providerNames...)
-		cfg.Server.ProviderNames.InsertAll(providerNames...)
-		return cfg
+		for _, dp := range mesh.GetDefaultProviders().GetAccessLogging() {
+			// Insert the default provider.
+			providers.Insert(dp)
+		}
+		return providers, nil
 	}
-
+	var loggingFilter *tpb.AccessLogging_Filter
+	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, m := range logs {
 		names := getProviderNames(m.Providers)
 		if len(names) > 0 {
 			providerNames = names
 		}
 
-		specs := []*LoggingConfig{cfg.Client, cfg.Server}
-		if m.Match != nil {
-			switch m.Match.Mode {
-			case tpb.WorkloadMode_CLIENT:
-				specs = []*LoggingConfig{cfg.Client}
-			case tpb.WorkloadMode_SERVER:
-				specs = []*LoggingConfig{cfg.Server}
-			}
-		}
-		for _, s := range specs {
-			if m.Filter != nil {
-				s.Filter = m.Filter
-			}
-			s.ProviderNames = sets.New(providerNames...)
+		if m.Filter != nil {
+			loggingFilter = m.Filter
 		}
 	}
+	inScopeProviders := sets.New(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, m := range logs {
@@ -498,34 +459,28 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) *LoggingS
 			providerNames = parentProviders
 		}
 		parentProviders = providerNames
-
-		specs := []*LoggingConfig{cfg.Client, cfg.Server}
-		if m.Match != nil {
-			switch m.Match.Mode {
-			case tpb.WorkloadMode_CLIENT:
-				specs = []*LoggingConfig{cfg.Client}
-			case tpb.WorkloadMode_SERVER:
-				specs = []*LoggingConfig{cfg.Server}
+		for _, provider := range providerNames {
+			if !inScopeProviders.Contains(provider) {
+				// We don't care about this, remove it
+				// This occurs when a top level provider is later disabled by a lower level
+				continue
 			}
-		}
-
-		for _, s := range specs {
-			for _, p := range providerNames {
-				if !s.ProviderNames.Contains(p) {
-					// We don't care about this, remove it
-					// This occurs when a top level provider is later disabled by a lower level
-					continue
-				}
-				if m.GetDisabled().GetValue() {
-					s.ProviderNames.Delete(p)
-					continue
-				}
-				s.ProviderNames.Insert(p)
+			if m.GetDisabled().GetValue() {
+				providers.Delete(provider)
+				continue
 			}
+
+			if m.Match != nil &&
+				m.Match.Mode != tpb.WorkloadMode_CLIENT_AND_SERVER &&
+				m.Match.Mode != mode {
+				continue
+			}
+
+			providers.Insert(provider)
 		}
 	}
 
-	return cfg
+	return providers, loggingFilter
 }
 
 func (t *Telemetries) namespaceWideTelemetryConfig(namespace string) Telemetry {
