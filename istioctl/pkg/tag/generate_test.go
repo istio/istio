@@ -119,7 +119,6 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 		webhook        admit_v1.MutatingWebhookConfiguration
 		whURL          string
 		whSVC          string
-		whSvcNamespace string
 		whCA           string
 	}{
 		{
@@ -128,7 +127,6 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			webhook:        revisionCanonicalWebhook,
 			whURL:          "",
 			whSVC:          "istiod-revision",
-			whSvcNamespace: "istio-system",
 			whCA:           "ca",
 		},
 		{
@@ -137,7 +135,6 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			webhook:        revisionCanonicalWebhook,
 			whURL:          "",
 			whSVC:          "istiod-revision",
-			whSvcNamespace: "istio-system-blue",
 			whCA:           "ca",
 		},
 		{
@@ -179,8 +176,8 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 					if injectionWhConf.Service.Name != tc.whSVC {
 						t.Fatalf("expected injection service %s, got %s", tc.whSVC, injectionWhConf.Service.Name)
 					}
-					if injectionWhConf.Service.Namespace != tc.whSvcNamespace {
-						t.Fatalf("expected injection service namespace %s, got %s", tc.whSvcNamespace, injectionWhConf.Service.Namespace)
+					if injectionWhConf.Service.Namespace != tc.istioNamespace {
+						t.Fatalf("expected injection service namespace %s, got %s", tc.istioNamespace, injectionWhConf.Service.Namespace)
 					}
 				}
 				if tc.whURL != "" {
