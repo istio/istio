@@ -17,7 +17,6 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -230,25 +229,6 @@ func (d Echos) TwoNamespaceView() TwoNamespaceView {
 		External:  d.External,
 		All:       ns1AndNs2.Append(d.External.All.Services()),
 	}
-}
-
-func (d Echos) namespaces(excludes ...namespace.Instance) []string {
-	var out []string
-	for _, n := range d.NS {
-		include := true
-		for _, e := range excludes {
-			if n.Namespace.Name() == e.Name() {
-				include = false
-				break
-			}
-		}
-		if include {
-			out = append(out, n.Namespace.Name())
-		}
-	}
-
-	sort.Strings(out)
-	return out
 }
 
 func serviceEntryPorts() []echo.Port {

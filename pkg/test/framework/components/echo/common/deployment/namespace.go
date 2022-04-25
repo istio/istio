@@ -15,6 +15,7 @@
 package deployment
 
 import (
+	"fmt"
 	"strconv"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -204,10 +205,15 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 		n.DeltaXDS = all(match.ServiceName(echo.NamespacedName{Name: DeltaSvc, Namespace: ns}).GetMatches(echos))
 	}
 
+	namespaces, err := namespace.GetAll(t)
+	if err != nil {
+		return fmt.Errorf("failed retrieving list of namespaces: %v", err)
+	}
+
 	// Restrict egress from this namespace to only those endpoints in the same Echos.
 	cfg := t.ConfigIstio().New()
 	cfg.Eval(ns.Name(), map[string]interface{}{
-		"otherNS": d.namespaces(n.Namespace),
+		"Namespaces": namespaces,
 	}, `
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
@@ -216,10 +222,9 @@ metadata:
 spec:
   egress:
   - hosts:
-    - "./*"
     - "istio-system/*"
-{{ range $ns := .otherNS }}
-    - "{{ $ns }}/*"
+{{ range $ns := .Namespaces }}
+    - "{{ $ns.Name }}/*"
 {{ end }}
 `)
 
