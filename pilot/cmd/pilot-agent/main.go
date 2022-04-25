@@ -17,7 +17,7 @@ package main
 import (
 	"os"
 
-	"istio.io/istio/pilot/cmd/pilot-discovery/app"
+	"istio.io/istio/pilot/cmd/pilot-agent/app"
 	"istio.io/pkg/log"
 )
 
