@@ -91,7 +91,7 @@ func TestGatewayConformance(t *testing.T) {
 				Cleanup:          gatewayConformanceInputs.Cleanup,
 				RoundTripper:     nil,
 			}
-			if rev := ctx.Settings().Revision; rev != "" {
+			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
 					"istio.io/rev": rev,
 				}
