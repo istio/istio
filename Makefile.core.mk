@@ -333,6 +333,9 @@ update-golden: refresh-goldens
 gen-charts:
 	@echo "This target is no longer required and will be removed in the future"
 
+gen-addons:
+	manifests/addons/gen.sh
+
 gen: \
 	mod-download-go \
 	go-gen \
@@ -342,6 +345,7 @@ gen: \
 	proto \
 	copy-templates \
 	gen-kustomize \
+	gen-addons \
 	update-golden ## Update all generated code.
 
 gen-check: gen check-clean-repo
