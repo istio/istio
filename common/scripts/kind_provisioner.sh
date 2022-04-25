@@ -205,23 +205,27 @@ EOF
   # CoreDNS should handle those domains and answer with NXDOMAIN instead of SERVFAIL
   # otherwise pods stops trying to resolve the domain.
   if [ "${IP_FAMILY}" = "ipv6" ] || [ "${IP_FAMILY}" = "dual" ]; then
-      # Get the current config
-      original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
-      echo "Original CoreDNS config:"
-      echo "${original_coredns}"
-      # Patch it
-      fixed_coredns=$(
-        printf '%s' "${original_coredns}" | sed \
-          -e 's/^.*kubernetes cluster\.local/& internal/' \
-          -e '/^.*upstream$/d' \
-          -e '/^.*fallthrough.*$/d' \
-          -e '/^.*forward . \/etc\/resolv.conf$/d' \
-          -e '/^.*loop$/d' \
-      )
-      echo "Patched CoreDNS config:"
-      echo "${fixed_coredns}"
-      printf '%s' "${fixed_coredns}" | kubectl apply -f -
-    fi
+    # Get the current config
+    original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
+    echo "Original CoreDNS config:"
+    echo "${original_coredns}"
+    # Patch it
+    fixed_coredns=$(
+      printf '%s' "${original_coredns}" | sed \
+        -e 's/^.*kubernetes cluster\.local/& internal/' \
+        -e '/^.*upstream$/d' \
+        -e '/^.*fallthrough.*$/d' \
+        -e '/^.*forward . \/etc\/resolv.conf$/d' \
+        -e '/^.*loop$/d' \
+    )
+    echo "Patched CoreDNS config:"
+    echo "${fixed_coredns}"
+    printf '%s' "${fixed_coredns}" | kubectl apply -f -
+  fi
+
+  # On Ubuntu Jammy, the trap runs when this function exits. Remove trap to prevent
+  # cluster shutdown here.
+  trap EXIT
 }
 
 ###############################################################################
@@ -252,7 +256,7 @@ function setup_kind_clusters() {
 
   check_default_cluster_yaml
 
-  # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
+  # Trap replaces any previous trap's, so we need to explicitly cleanup clusters here
   trap cleanup_kind_clusters EXIT
 
   function deploy_kind() {
