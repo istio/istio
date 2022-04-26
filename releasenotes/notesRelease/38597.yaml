@@ -2,7 +2,8 @@ apiVersion: release-notes/v2
 kind: feature
 area: traffic-management
 issue:
-  - 38597
+  - 38597
+
 releaseNotes:
 - |
-  **Fixed** Renamed DefaultKubernetesDomain to DefaultClusterLocalDomain as mentioned TODO in the istio/pkg/config/constants/constants.go
+  **Fixed** Renamed DefaultKubernetesDomain to DefaultClusterLocalDomain as mentioned TODO in the istio/pkg/config/constants/constants.go
