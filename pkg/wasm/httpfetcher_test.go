@@ -72,10 +72,10 @@ func TestWasmHTTPFetch(t *testing.T) {
 				gotNumRequest++
 			}))
 			defer ts.Close()
-			fetcher := NewHTTPFetcher(true)
+			fetcher := NewHTTPFetcher()
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			b, err := fetcher.Fetch(ctx, ts.URL)
+			b, err := fetcher.Fetch(ctx, ts.URL, false)
 			if c.wantNumRequest != gotNumRequest {
 				t.Errorf("Wasm download request got %v, want %v", gotNumRequest, c.wantNumRequest)
 			}

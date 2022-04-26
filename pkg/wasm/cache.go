@@ -201,7 +201,7 @@ func (c *LocalFileCache) Get(
 	switch u.Scheme {
 	case "http", "https":
 		// Download the Wasm module with http fetcher.
-		b, err = NewHTTPFetcher(insecure).Fetch(ctx, downloadURL)
+		b, err = DefaultHTTPFetcher().Fetch(ctx, downloadURL, insecure)
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
 			return "", err

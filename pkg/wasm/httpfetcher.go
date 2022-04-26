@@ -27,29 +27,37 @@ import (
 
 var (
 	httpInitialBackoff = time.Millisecond * 500
+	defaultHTTPFetcher = NewHTTPFetcher()
 )
 
 // HTTPFetcher fetches remote wasm module with HTTP get.
 type HTTPFetcher struct {
-	client *http.Client
+	client         *http.Client
+	insecureClient *http.Client
+}
+
+func DefaultHTTPFetcher() *HTTPFetcher {
+	return defaultHTTPFetcher
 }
 
 // NewHTTPFetcher create a new HTTP remote wasm module fetcher.
-func NewHTTPFetcher(insecure bool) *HTTPFetcher {
+func NewHTTPFetcher() *HTTPFetcher {
 	fetcher := &HTTPFetcher{
-		client: &http.Client{},
+		client:         &http.Client{},
+		insecureClient: &http.Client{},
 	}
-	if insecure {
-		transport := http.DefaultTransport.(*http.Transport).Clone()
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: insecure}
-		fetcher.client.Transport = transport
-	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	fetcher.insecureClient.Transport = transport
 	return fetcher
 }
 
 // Fetch downloads a wasm module with HTTP get.
-func (f *HTTPFetcher) Fetch(ctx context.Context, url string) ([]byte, error) {
+func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool) ([]byte, error) {
 	c := f.client
+	if allowInsecure {
+		c = f.insecureClient
+	}
 	attempts := 0
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = httpInitialBackoff
