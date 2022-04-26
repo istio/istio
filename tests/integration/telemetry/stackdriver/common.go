@@ -32,10 +32,12 @@ import (
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
@@ -215,6 +217,13 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 	return nil
 }
 
+func clusterProject(c cluster.Cluster) string {
+	if c == nil {
+		return ""
+	}
+	return c.MetadataValue(platform.GCPProject)
+}
+
 func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, clName, trustDomain string) error {
 	t.Helper()
 
@@ -226,8 +235,7 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 		return fmt.Errorf("metrics: error generating wanted client request: %v", err)
 	}
 
-	// Traverse all time series received and compare with expected client and server time series.
-	ts, err := SDInst.ListTimeSeries(EchoNsInst.Name())
+	ts, err := SDInst.ListTimeSeries(EchoNsInst.Name(), clusterProject(t.Clusters().GetByName(clName)))
 	if err != nil {
 		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
 	}
@@ -285,22 +293,22 @@ func ConditionallySetupMetadataServer(ctx resource.Context) (err error) {
 			return
 		}
 	} else {
-		scopes.Framework.Infof("On GCE, setup fake GCE metadata server")
+		scopes.Framework.Infof("On GCE, use the real GCE metadata server")
 	}
 	return nil
 }
 
-func ValidateLogs(t test.Failer, srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
+func ValidateLogs(t framework.TestContext, srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
 	var wantLog loggingpb.LogEntry
 	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName, trustDomain); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
-	return ValidateLogEntry(t, &wantLog, filter)
+	return ValidateLogEntry(t, &wantLog, filter, clusterProject(t.Clusters().GetByName(clName)))
 }
 
-func ValidateLogEntry(t test.Failer, want *loggingpb.LogEntry, filter stackdriver.LogType) error {
+func ValidateLogEntry(t framework.TestContext, want *loggingpb.LogEntry, filter stackdriver.LogType, project string) error {
 	// Traverse all log entries received and compare with expected server log entry.
-	entries, err := SDInst.ListLogEntries(filter, EchoNsInst.Name())
+	entries, err := SDInst.ListLogEntries(filter, EchoNsInst.Name(), project)
 	if err != nil {
 		return fmt.Errorf("logs: failed to get received log entries: %v", err)
 	}

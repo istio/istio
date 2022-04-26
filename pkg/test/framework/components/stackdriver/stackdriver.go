@@ -31,9 +31,9 @@ type Instance interface {
 	Address() string
 	// Gets the namespace in which stackdriver is deployed.
 	GetStackdriverNamespace() string
-	ListTimeSeries(namespace string) ([]*monitoringpb.TimeSeries, error)
-	ListLogEntries(lt LogType, namespace string) ([]*loggingpb.LogEntry, error)
-	ListTraces(namespace string) ([]*cloudtracepb.Trace, error)
+	ListTimeSeries(namespace, project string) ([]*monitoringpb.TimeSeries, error)
+	ListLogEntries(lt LogType, namespace, project string) ([]*loggingpb.LogEntry, error)
+	ListTraces(namespace, project string) ([]*cloudtracepb.Trace, error)
 }
 
 type Config struct {

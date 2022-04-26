@@ -28,7 +28,6 @@ import (
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
@@ -114,8 +113,8 @@ func traceEqual(got, want *cloudtrace.Trace) bool {
 	return true
 }
 
-func gotRequestCountMetrics(t test.Failer, wantClient, wantServer *monitoring.TimeSeries) bool {
-	ts, err := sdInst.ListTimeSeries(ns.Name())
+func gotRequestCountMetrics(t framework.TestContext, wantClient, wantServer *monitoring.TimeSeries) bool {
+	ts, err := sdInst.ListTimeSeries(ns.Name(), "")
 	if err != nil {
 		log.Errorf("could not get list of time-series from stackdriver: %v", err)
 		return false
@@ -142,12 +141,12 @@ func gotRequestCountMetrics(t test.Failer, wantClient, wantServer *monitoring.Ti
 	return gotServer && gotClient
 }
 
-func gotLogEntry(t test.Failer, want *loggingpb.LogEntry) bool {
-	return sdtest.ValidateLogEntry(t, want, stackdriver.ServerAccessLog) == nil
+func gotLogEntry(t framework.TestContext, want *loggingpb.LogEntry) bool {
+	return sdtest.ValidateLogEntry(t, want, stackdriver.ServerAccessLog, "") == nil
 }
 
-func gotTrace(t test.Failer, want *cloudtrace.Trace) bool {
-	traces, err := sdInst.ListTraces(ns.Name())
+func gotTrace(t framework.TestContext, want *cloudtrace.Trace) bool {
+	traces, err := sdInst.ListTraces(ns.Name(), "")
 	if err != nil {
 		log.Errorf("failed to retrieve list of tracespans from stackdriver: %v", err)
 		return false
