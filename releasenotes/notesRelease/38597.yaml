@@ -3,7 +3,6 @@ kind: feature
 area: traffic-management
 issue:
   - 38597
- 
 releaseNotes:
 - |
   **Fixed** Renamed DefaultKubernetesDomain to DefaultClusterLocalDomain as mentioned TODO in the istio/pkg/config/constants/constants.go
