@@ -67,7 +67,6 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 		attempts++
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
-			lastError = err
 			wasmLog.Debugf("wasm module download request failed: %v", err)
 			return nil, err
 		}

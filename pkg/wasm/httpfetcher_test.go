@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -84,6 +85,67 @@ func TestWasmHTTPFetch(t *testing.T) {
 					t.Errorf("Wasm download got no error, want error `%v`", c.wantError)
 				} else if c.wantError != err.Error() {
 					t.Errorf("Wasm download got error `%v`, want error `%v`", err, c.wantError)
+				}
+			} else if string(b) != wantWasmModule {
+				t.Errorf("downloaded wasm module got %v, want wasm", string(b))
+			}
+		})
+	}
+}
+
+func TestWasmHTTPInsecureServer(t *testing.T) {
+	var ts *httptest.Server
+
+	// Shorten the initial backoff for testing
+	httpInitialBackoff = time.Microsecond
+
+	cases := []struct {
+		name            string
+		handler         func(http.ResponseWriter, *http.Request, int)
+		insecure        bool
+		wantNumRequest  int
+		wantErrorSuffix string
+	}{
+		{
+			name: "download ok",
+			handler: func(w http.ResponseWriter, r *http.Request, num int) {
+				fmt.Fprintln(w, "wasm")
+			},
+			insecure:        false,
+			wantErrorSuffix: "x509: certificate signed by unknown authority",
+			wantNumRequest:  0,
+		},
+		{
+			name: "download ok",
+			handler: func(w http.ResponseWriter, r *http.Request, num int) {
+				fmt.Fprintln(w, "wasm")
+			},
+			insecure:       true,
+			wantNumRequest: 1,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotNumRequest := 0
+			wantWasmModule := "wasm\n"
+			ts = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				c.handler(w, r, gotNumRequest)
+				gotNumRequest++
+			}))
+			defer ts.Close()
+			fetcher := NewHTTPFetcher()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			b, err := fetcher.Fetch(ctx, ts.URL, c.insecure)
+			if c.wantNumRequest != gotNumRequest {
+				t.Errorf("Wasm download request got %v, want %v", gotNumRequest, c.wantNumRequest)
+			}
+			if c.wantErrorSuffix != "" {
+				if err == nil {
+					t.Errorf("Wasm download got no error, want error suffix `%v`", c.wantErrorSuffix)
+				} else if !strings.HasSuffix(err.Error(), c.wantErrorSuffix) {
+					t.Errorf("Wasm download got error `%v`, want error suffix `%v`", err, c.wantErrorSuffix)
 				}
 			} else if string(b) != wantWasmModule {
 				t.Errorf("downloaded wasm module got %v, want wasm", string(b))
