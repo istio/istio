@@ -2537,9 +2537,11 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				},
 			},
 			virtualServices: nil,
-			expectedHTTPFilters: []string{xdsfilters.MxFilterName, // why Mx filter is being added in this case?
+			expectedHTTPFilters: []string{
+				xdsfilters.MxFilterName,
 				xdsfilters.Alpn.GetName(),
-				xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName()},
+				xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+			},
 			expectedNetworkFilters: []string{wellknown.HTTPConnectionManager},
 		},
 		{
