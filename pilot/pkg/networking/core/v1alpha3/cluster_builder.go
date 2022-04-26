@@ -1143,7 +1143,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 }
 
 func (cb *ClusterBuilder) setAutoSni(mc *MutableCluster, tls *networking.ClientTLSSettings) {
-	if mc != nil && features.VerifyCertAtClient && len(tls.Sni) == 0 {
+	if mc != nil && features.EnableAutoSni && len(tls.Sni) == 0 {
 		if mc.httpProtocolOptions == nil {
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
