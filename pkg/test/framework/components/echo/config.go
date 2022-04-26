@@ -289,7 +289,7 @@ const (
 	defaultService   = "echo"
 	defaultVersion   = "v1"
 	defaultNamespace = "echo"
-	defaultDomain    = constants.DefaultKubernetesDomain
+	defaultDomain    = constants.DefaultClusterLocalDomain
 )
 
 func (c *Config) FillDefaults(ctx resource.Context) (err error) {
