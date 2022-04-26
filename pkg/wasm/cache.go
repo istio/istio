@@ -64,6 +64,9 @@ type LocalFileCache struct {
 	// Map from tagged URL to checksum
 	checksums map[string]*checksumEntry
 
+	// http fetcher fetches Wasm module with HTTP get.
+	httpFetcher *HTTPFetcher
+
 	// directory path used to store Wasm module.
 	dir string
 
@@ -118,6 +121,7 @@ type cacheEntry struct {
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
 func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
 	cache := &LocalFileCache{
+		httpFetcher:        NewHTTPFetcher(),
 		modules:            make(map[moduleKey]*cacheEntry),
 		checksums:          make(map[string]*checksumEntry),
 		dir:                dir,
@@ -201,7 +205,7 @@ func (c *LocalFileCache) Get(
 	switch u.Scheme {
 	case "http", "https":
 		// Download the Wasm module with http fetcher.
-		b, err = DefaultHTTPFetcher().Fetch(ctx, downloadURL, insecure)
+		b, err = c.httpFetcher.Fetch(ctx, downloadURL, insecure)
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
 			return "", err

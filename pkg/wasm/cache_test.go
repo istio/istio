@@ -87,9 +87,6 @@ func TestWasmCache(t *testing.T) {
 	cacheHitSha := sha256.Sum256([]byte("cachehit"))
 	cacheHitSum := hex.EncodeToString(cacheHitSha[:])
 
-	// Shorten the initial backoff for testing
-	httpInitialBackoff = time.Microsecond
-
 	cases := []struct {
 		name                   string
 		initialCachedModules   map[moduleKey]cacheEntry
@@ -481,6 +478,7 @@ func TestWasmCache(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			cache := NewLocalFileCache(tmpDir, c.purgeInterval, c.wasmModuleExpiry, nil)
+			cache.httpFetcher.initialBackoff = time.Microsecond
 			defer close(cache.stopChan)
 
 			var cacheHitKey *moduleKey

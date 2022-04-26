@@ -25,31 +25,24 @@ import (
 	"github.com/cenkalti/backoff/v4"
 )
 
-var (
-	httpInitialBackoff = time.Millisecond * 500
-	defaultHTTPFetcher = NewHTTPFetcher()
-)
-
 // HTTPFetcher fetches remote wasm module with HTTP get.
 type HTTPFetcher struct {
 	client         *http.Client
 	insecureClient *http.Client
-}
-
-func DefaultHTTPFetcher() *HTTPFetcher {
-	return defaultHTTPFetcher
+	initialBackoff time.Duration
 }
 
 // NewHTTPFetcher create a new HTTP remote wasm module fetcher.
 func NewHTTPFetcher() *HTTPFetcher {
-	fetcher := &HTTPFetcher{
-		client:         &http.Client{},
-		insecureClient: &http.Client{},
-	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	fetcher.insecureClient.Transport = transport
-	return fetcher
+	return &HTTPFetcher{
+		client: &http.Client{},
+		insecureClient: &http.Client{
+			Transport: transport,
+		},
+		initialBackoff: time.Millisecond * 500,
+	}
 }
 
 // Fetch downloads a wasm module with HTTP get.
@@ -60,7 +53,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 	}
 	attempts := 0
 	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = httpInitialBackoff
+	b.InitialInterval = f.initialBackoff
 	b.Reset()
 	var lastError error
 	for attempts < 5 {

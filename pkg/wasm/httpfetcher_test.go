@@ -27,9 +27,6 @@ import (
 func TestWasmHTTPFetch(t *testing.T) {
 	var ts *httptest.Server
 
-	// Shorten the initial backoff for testing
-	httpInitialBackoff = time.Microsecond
-
 	cases := []struct {
 		name           string
 		handler        func(http.ResponseWriter, *http.Request, int)
@@ -74,6 +71,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 			}))
 			defer ts.Close()
 			fetcher := NewHTTPFetcher()
+			fetcher.initialBackoff = time.Microsecond
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			b, err := fetcher.Fetch(ctx, ts.URL, false)
@@ -95,9 +93,6 @@ func TestWasmHTTPFetch(t *testing.T) {
 
 func TestWasmHTTPInsecureServer(t *testing.T) {
 	var ts *httptest.Server
-
-	// Shorten the initial backoff for testing
-	httpInitialBackoff = time.Microsecond
 
 	cases := []struct {
 		name            string
@@ -135,6 +130,7 @@ func TestWasmHTTPInsecureServer(t *testing.T) {
 			}))
 			defer ts.Close()
 			fetcher := NewHTTPFetcher()
+			fetcher.initialBackoff = time.Microsecond
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			b, err := fetcher.Fetch(ctx, ts.URL, c.insecure)
