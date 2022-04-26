@@ -108,6 +108,8 @@ func newDiscoveryCommand() *cobra.Command {
 	}
 }
 
+var ignored []string
+
 func addFlags(c *cobra.Command) {
 	serverArgs = bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
 		// Set Defaults
@@ -133,8 +135,9 @@ func addFlags(c *cobra.Command) {
 		"File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used.")
 	c.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", bootstrap.PodNamespace,
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
-	c.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
+	c.PersistentFlags().StringSliceVar(&ignored, "plugins", nil,
 		"comma separated list of networking plugins to enable")
+	_ = c.PersistentFlags().MarkDeprecated("plugins", "no effect")
 	c.PersistentFlags().DurationVar(&serverArgs.ShutdownDuration, "shutdownDuration", 10*time.Second,
 		"Duration the discovery server needs to terminate gracefully")
 

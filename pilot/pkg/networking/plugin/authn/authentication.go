@@ -15,106 +15,90 @@
 package authn
 
 import (
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/pkg/log"
 )
 
 var authnLog = log.RegisterScope("authn", "authn debugging", 0)
 
-// Plugin implements Istio mTLS auth
-type Plugin struct{}
-
-// NewPlugin returns an instance of the authn plugin
-func NewPlugin() plugin.Plugin {
-	return Plugin{}
+type Builder struct {
+	applier      authn.PolicyApplier
+	trustDomains []string
+	proxy        *model.Proxy
 }
 
-var _ plugin.Plugin = Plugin{}
-
-// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
-// Can be used to add additional filters on the outbound path
-func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	if in.Node.Type != model.Router {
-		// Only care about router.
-		return nil
+func NewBuilder(push *model.PushContext, proxy *model.Proxy) *Builder {
+	applier := factory.NewPolicyApplier(push, proxy.Metadata.Namespace, proxy.Metadata.Labels)
+	trustDomains := TrustDomainsForValidation(push.Mesh)
+	return &Builder{
+		applier:      applier,
+		proxy:        proxy,
+		trustDomains: trustDomains,
 	}
-
-	return buildFilter(in, mutable)
 }
 
-// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
-// Can be used to add additional filters or add more stuff to the HTTP connection manager
-// on the inbound path
-func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	if in.Node.Type != model.SidecarProxy {
-		// Only care about sidecar.
-		return nil
-	}
-	return buildFilter(in, mutable)
-}
-
-func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	ns := in.Node.Metadata.Namespace
-	applier := factory.NewPolicyApplier(in.Push, ns, in.Node.Metadata.Labels)
-	forSidecar := in.Node.Type == model.SidecarProxy
-	for i := range mutable.FilterChains {
-		if mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
-			// Adding Jwt filter and authn filter, if needed.
-			if filter := applier.JwtFilter(); filter != nil {
-				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
-			}
-			if filter := applier.AuthNFilter(forSidecar); filter != nil {
-				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
-			}
+func (b *Builder) ForPort(port uint32) plugin.MTLSSettings {
+	if b == nil {
+		return plugin.MTLSSettings{
+			Port: port,
+			Mode: model.MTLSDisable,
 		}
 	}
-
-	return nil
+	return b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains)
 }
 
-// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
-func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	if in.Node.Type != model.SidecarProxy {
-		// Only care about sidecar.
-		return nil
+func (b *Builder) ForPassthrough() []plugin.MTLSSettings {
+	if b == nil {
+		return []plugin.MTLSSettings{{
+			Port: 0,
+			Mode: model.MTLSDisable,
+		}}
 	}
-
-	return buildFilter(in, mutable)
-}
-
-func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
-	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, in.Node.Metadata.Labels)
-	trustDomains := TrustDomainsForValidation(in.Push.Mesh)
-
-	port := in.ServiceInstance.Endpoint.EndpointPort
-
-	// For non passthrough, set up the specific port
-	if !passthrough {
-		return []plugin.MTLSSettings{
-			applier.InboundMTLSSettings(port, in.Node, trustDomains),
-		}
-	}
-	// Otherwise, this is for passthrough configuration. We need to create configuration for the passthrough,
+	//	We need to create configuration for the passthrough,
 	// but also any ports that are not explicitly declared in the Service but are in the mTLS port level settings.
+
 	resp := []plugin.MTLSSettings{
 		// Full passthrough - no port match
-		applier.InboundMTLSSettings(0, in.Node, trustDomains),
+		b.applier.InboundMTLSSettings(0, b.proxy, b.trustDomains),
 	}
 
 	// Then generate the per-port passthrough filter chains.
-	for port := range applier.PortLevelSetting() {
+	for port := range b.applier.PortLevelSetting() {
 		// Skip the per-port passthrough filterchain if the port is already handled by InboundMTLSConfiguration().
-		if !needPerPortPassthroughFilterChain(port, in.Node) {
+		if !needPerPortPassthroughFilterChain(port, b.proxy) {
 			continue
 		}
 
-		authnLog.Debugf("InboundMTLSConfiguration: build extra pass through filter chain for %v:%d", in.Node.ID, port)
-		resp = append(resp, applier.InboundMTLSSettings(port, in.Node, trustDomains))
+		authnLog.Debugf("InboundMTLSConfiguration: build extra pass through filter chain for %v:%d", b.proxy.ID, port)
+		resp = append(resp, b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains))
 	}
 	return resp
+}
+
+func (b *Builder) BuildHTTP(class networking.ListenerClass) []*httppb.HttpFilter {
+	if b == nil {
+		return nil
+	}
+	if class == networking.ListenerClassSidecarOutbound {
+		// Only applies to inbound and gateways
+		return nil
+	}
+	res := []*httppb.HttpFilter{}
+	if filter := b.applier.JwtFilter(); filter != nil {
+		res = append(res, filter)
+	}
+	forSidecar := b.proxy.Type == model.SidecarProxy
+	if filter := b.applier.AuthNFilter(forSidecar); filter != nil {
+		res = append(res, filter)
+	}
+
+	return res
 }
 
 func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {

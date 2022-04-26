@@ -40,7 +40,6 @@ import (
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -1261,8 +1260,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 			Protocol: "GRPC",
 		},
 	}
-	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
-	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
+	instance := findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
 	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
 		t.Fatal("Expected to return a valid instance, but got nil/default instance")
 	}

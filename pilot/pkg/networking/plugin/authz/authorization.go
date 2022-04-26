@@ -20,13 +20,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/pkg/log"
 )
-
-var authzLog = log.RegisterScope("authorization", "Istio Authorization Policy", 0)
 
 type ActionType int
 
@@ -37,96 +33,52 @@ const (
 	Custom
 )
 
-// Plugin implements Istio Authorization
-type Plugin struct {
-	actionType ActionType
+type Builder struct {
+	// Lazy load
+	httpBuilt, tcpBuilt bool
+
+	httpFilters []*httppb.HttpFilter
+	tcpFilters  []*tcppb.Filter
+	builder     *builder.Builder
 }
 
-// NewPlugin returns an instance of the authorization plugin
-func NewPlugin(actionType ActionType) plugin.Plugin {
-	return Plugin{actionType: actionType}
-}
-
-// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
-// Can be used to add additional filters on the outbound path
-func (p Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	if in.Node.Type != model.Router {
-		// Only care about router.
-		return nil
-	}
-
-	p.buildFilter(in, mutable)
-	return nil
-}
-
-// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
-// Can be used to add additional filters or add more stuff to the HTTP connection manager
-// on the inbound path
-func (p Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	if in.Node.Type != model.SidecarProxy {
-		// Only care about sidecar.
-		return nil
-	}
-
-	p.buildFilter(in, mutable)
-	return nil
-}
-
-func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) {
-	if in.Push == nil || in.Push.AuthzPolicies == nil {
-		authzLog.Debugf("No authorization policy for %s", in.Node.ID)
-		return
-	}
-
-	meshConfig := in.Push.Mesh
-	tdBundle := trustdomain.NewBundle(meshConfig.TrustDomain, meshConfig.TrustDomainAliases)
+func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy) *Builder {
+	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	option := builder.Option{
-		IsCustomBuilder: p.actionType == Custom,
+		IsCustomBuilder: actionType == Custom,
 		Logger:          &builder.AuthzLogger{},
 	}
-	defer option.Logger.Report(in)
-	b := builder.New(tdBundle, in, option)
-	if b == nil {
-		return
-	}
-
-	// We will lazily build filters for tcp/http as needed
-	httpBuilt := false
-	tcpBuilt := false
-	var httpFilters []*httppb.HttpFilter
-	var tcpFilters []*tcppb.Filter
-
-	for cnum := range mutable.FilterChains {
-		switch mutable.FilterChains[cnum].ListenerProtocol {
-		case networking.ListenerProtocolTCP:
-			if !tcpBuilt {
-				tcpFilters = b.BuildTCP()
-				tcpBuilt = true
-			}
-			option.Logger.AppendDebugf("added %d TCP filters to filter chain %d", len(tcpFilters), cnum)
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
-		case networking.ListenerProtocolHTTP:
-			if !httpBuilt {
-				httpFilters = b.BuildHTTP()
-				httpBuilt = true
-			}
-			option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
-		}
-	}
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+	b := builder.New(tdBundle, push, policies, option)
+	return &Builder{builder: b}
 }
 
-// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
-func (p Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	if in.Node.Type != model.SidecarProxy {
-		// Only care about sidecar.
+func (b *Builder) BuildTCP() []*tcppb.Filter {
+	if b.builder == nil {
 		return nil
 	}
+	if b.tcpBuilt {
+		return b.tcpFilters
+	}
+	b.tcpBuilt = true
+	b.tcpFilters = b.builder.BuildTCP()
 
-	p.buildFilter(in, mutable)
-	return nil
+	return b.tcpFilters
 }
 
-func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
-	return nil
+func (b *Builder) BuildHTTP(class networking.ListenerClass) []*httppb.HttpFilter {
+	if b.builder == nil {
+		return nil
+	}
+	if class == networking.ListenerClassSidecarOutbound {
+		// Only applies to inbound and gateways
+		return nil
+	}
+	if b.httpBuilt {
+		return b.httpFilters
+	}
+	b.httpBuilt = true
+	b.httpFilters = b.builder.BuildHTTP()
+
+	return b.httpFilters
 }

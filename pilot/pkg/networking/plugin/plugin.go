@@ -18,7 +18,6 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/model"
-	istionetworking "istio.io/istio/pilot/pkg/networking"
 )
 
 const (
@@ -42,26 +41,6 @@ type InputParams struct {
 	ServiceInstance *model.ServiceInstance
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
-}
-
-// Plugin is called during the construction of a listener.Listener which may alter the Listener in any
-// way. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
-// and outbound Cluster, etc.
-type Plugin interface {
-	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service.
-	// Can be used to add additional filters on the outbound path.
-	OnOutboundListener(in *InputParams, mutable *istionetworking.MutableObjects) error
-
-	// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
-	// Can be used to add additional filters.
-	OnInboundListener(in *InputParams, mutable *istionetworking.MutableObjects) error
-
-	// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
-	// Can be used to add additional filters.
-	OnInboundPassthrough(in *InputParams, mutable *istionetworking.MutableObjects) error
-
-	// InboundMTLSConfiguration configures the mTLS configuration for inbound listeners.
-	InboundMTLSConfiguration(in *InputParams, passthrough bool) []MTLSSettings
 }
 
 // MTLSSettings describes the mTLS options for a filter chain
