@@ -589,7 +589,8 @@ func newTracingConfig(providerName string, disabled bool) *TracingConfig {
 			Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: providerName},
 			Disabled:                     disabled,
 			UseRequestIDForTraceSampling: true,
-		}}
+		},
+	}
 }
 
 const (
