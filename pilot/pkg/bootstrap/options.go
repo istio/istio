@@ -60,7 +60,6 @@ type PilotArgs struct {
 	NetworksConfigFile string
 	RegistryOptions    RegistryOptions
 	CtrlZOptions       *ctrlz.Options
-	Plugins            []string
 	KeepaliveOptions   *keepalive.Options
 	ShutdownDuration   time.Duration
 	JwtRule            string

@@ -133,8 +133,6 @@ func TestNewServerCertInit(t *testing.T) {
 					FileDir: configDir,
 				}
 
-				// Include all of the default plugins
-				p.Plugins = DefaultPlugins
 				p.ShutdownDuration = 1 * time.Millisecond
 			})
 			g := NewWithT(t)
@@ -300,8 +298,6 @@ func TestNewServer(t *testing.T) {
 					FileDir: configDir,
 				}
 
-				// Include all of the default plugins
-				p.Plugins = DefaultPlugins
 				p.ShutdownDuration = 1 * time.Millisecond
 
 				p.JwtRule = c.jwtRule
@@ -384,7 +380,6 @@ func TestIstiodCipherSuites(t *testing.T) {
 				}
 
 				// Include all of the default plugins
-				p.Plugins = DefaultPlugins
 				p.ShutdownDuration = 1 * time.Millisecond
 			})
 

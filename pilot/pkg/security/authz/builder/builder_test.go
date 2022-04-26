@@ -258,7 +258,8 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			}
 			in := inputParams(t, baseDir+tc.input, tc.meshConfig, tc.version)
 			defer option.Logger.Report(in)
-			g := New(tc.tdBundle, in, option)
+			policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
+			g := New(tc.tdBundle, in.Push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -324,7 +325,8 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			}
 			in := inputParams(t, baseDir+tc.input, tc.meshConfig, nil)
 			defer option.Logger.Report(in)
-			g := New(tc.tdBundle, in, option)
+			policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
+			g := New(tc.tdBundle, in.Push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
