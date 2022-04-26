@@ -249,12 +249,12 @@ func TestNewServer(t *testing.T) {
 		{
 			name:           "default domain",
 			domain:         "",
-			expectedDomain: constants.DefaultKubernetesDomain,
+			expectedDomain: constants.DefaultClusterLocalDomain,
 		},
 		{
 			name:           "default domain with JwtRule",
 			domain:         "",
-			expectedDomain: constants.DefaultKubernetesDomain,
+			expectedDomain: constants.DefaultClusterLocalDomain,
 			jwtRule:        `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`,
 		},
 		{
@@ -265,7 +265,7 @@ func TestNewServer(t *testing.T) {
 		{
 			name:             "override default secured grpc port",
 			domain:           "",
-			expectedDomain:   constants.DefaultKubernetesDomain,
+			expectedDomain:   constants.DefaultClusterLocalDomain,
 			enableSecureGRPC: true,
 		},
 	}
