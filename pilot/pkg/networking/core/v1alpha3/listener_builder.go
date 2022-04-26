@@ -32,9 +32,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/authn"
+	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/protocol"
@@ -66,6 +67,13 @@ type ListenerBuilder struct {
 	virtualInboundListener  *listener.Listener
 
 	envoyFilterWrapper *model.EnvoyFilterWrapper
+
+	// authnBuilder provides access to authn (mTLS) configuration for the given proxy.
+	authnBuilder *authn.Builder
+	// authzBuilder provides access to authz configuration for the given proxy.
+	authzBuilder *authz.Builder
+	// authzCustomBuilder provides access to CUSTOM authz configuration for the given proxy.
+	authzCustomBuilder *authz.Builder
 }
 
 // Setup the filter chain match so that the match should work under both
@@ -326,21 +334,24 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 		node: node,
 		push: push,
 	}
+	builder.authnBuilder = authn.NewBuilder(push, node)
+	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node)
+	builder.authzCustomBuilder = authz.NewBuilder(authz.Custom, push, node)
 	return builder
 }
 
-func (lb *ListenerBuilder) buildSidecarInboundListeners(configgen *ConfigGeneratorImpl) *ListenerBuilder {
-	lb.inboundListeners = configgen.buildSidecarInboundListeners(lb.node, lb.push)
+func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
+	lb.inboundListeners = lb.buildSidecarInboundListeners(lb.node, lb.push)
 	return lb
 }
 
-func (lb *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigGeneratorImpl) *ListenerBuilder {
-	lb.outboundListeners = configgen.buildSidecarOutboundListeners(lb.node, lb.push)
+func (lb *ListenerBuilder) appendSidecarOutboundListeners() *ListenerBuilder {
+	lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
 	return lb
 }
 
-func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
-	httpProxy := configgen.buildHTTPProxy(lb.node, lb.push)
+func (lb *ListenerBuilder) buildHTTPProxyListener() *ListenerBuilder {
+	httpProxy := lb.buildHTTPProxy(lb.node, lb.push)
 	if httpProxy == nil {
 		return lb
 	}
@@ -350,7 +361,7 @@ func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl
 	return lb
 }
 
-func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
+func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 	if lb.node.GetInterceptionMode() == model.InterceptionNone {
 		// virtual listener is not necessary since workload is not using IPtables for traffic interception
 		return lb
@@ -361,7 +372,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	filterChains := buildOutboundCatchAllNetworkFilterChains(configgen, lb.node, lb.push)
+	filterChains := buildOutboundCatchAllNetworkFilterChains(lb.node, lb.push)
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 
@@ -382,7 +393,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 
 // TProxy uses only the virtual outbound listener on 15001 for both directions
 // but we still ship the no-op virtual inbound listener, so that the code flow is same across REDIRECT and TPROXY.
-func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
+func (lb *ListenerBuilder) buildVirtualInboundListener() *ListenerBuilder {
 	if lb.node.GetInterceptionMode() == model.InterceptionNone {
 		// virtual listener is not necessary since workload is not using IPtables for traffic interception
 		return lb
@@ -395,7 +406,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
-	filterChains, passthroughInspector, usesQUIC := buildInboundCatchAllFilterChains(configgen, lb.node, lb.push)
+	filterChains, passthroughInspector, usesQUIC := buildInboundCatchAllFilterChains(lb, lb.node, lb.push)
 
 	// exact balance used in Envoy is only supported over TCP connections
 	var connectionBalance *listener.Listener_ConnectionBalanceConfig
@@ -495,24 +506,7 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	return lb.gatewayListeners
 }
 
-func getMtlsSettings(configgen *ConfigGeneratorImpl, in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
-	for _, p := range configgen.Plugins {
-		cfg := p.InboundMTLSConfiguration(in, passthrough)
-		if cfg != nil {
-			return cfg
-		}
-	}
-	// If no plugin configures mtls, set it to disabled
-	if passthrough {
-		return []plugin.MTLSSettings{{Mode: model.MTLSDisable}}
-	}
-	return []plugin.MTLSSettings{{
-		Port: in.ServiceInstance.Endpoint.EndpointPort,
-		Mode: model.MTLSDisable,
-	}}
-}
-
-func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
+func buildInboundCatchAllFilterChains(lb *ListenerBuilder,
 	node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, map[int]enabledInspector, bool) {
 	usesQUIC := false
 
@@ -573,7 +567,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 			protocol: istionetworking.ListenerProtocolAuto,
 		}
 		// Call plugins to get mtls policies.
-		fcOpts := configgen.buildInboundFilterchains(in, listenerOpts, matchingIP, clusterName, true)
+		fcOpts := lb.buildInboundFilterchains(in, listenerOpts, matchingIP, clusterName, true)
 		for _, opt := range fcOpts {
 			filterChain := &listener.FilterChain{
 				FilterChainMatch: opt.match,
@@ -584,14 +578,18 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 				if opt.httpOpts.http3Only {
 					usesQUIC = true
 				}
-				connectionManager := buildHTTPConnectionManager(listenerOpts, opt.httpOpts, opt.filterChain.HTTP)
+				connectionManager := lb.buildHTTPConnectionManager(listenerOpts, opt.httpOpts)
 				filter := &listener.Filter{
 					Name:       wellknown.HTTPConnectionManager,
 					ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
 				}
 				filterChain.Filters = append(opt.filterChain.TCP, filter)
 			} else {
-				filterChain.Filters = append(opt.filterChain.TCP, opt.networkFilters...)
+				filterChain.Filters = append(filterChain.Filters, lb.authzCustomBuilder.BuildTCP()...)
+				filterChain.Filters = append(filterChain.Filters, lb.authzBuilder.BuildTCP()...)
+
+				filterChain.Filters = append(filterChain.Filters, opt.filterChain.TCP...)
+				filterChain.Filters = append(filterChain.Filters, opt.networkFilters...)
 			}
 			port := int(opt.match.DestinationPort.GetValue())
 			inspector := inspectors[port]
@@ -611,7 +609,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 	return filterChains, inspectors, usesQUIC
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputParams, listenerOpts buildListenerOpts,
+func (lb *ListenerBuilder) buildInboundFilterchains(in *plugin.InputParams, listenerOpts buildListenerOpts,
 	matchingIP string, clusterName string, passthrough bool) []*filterChainOpts {
 	newOpts := []*fcOpts{}
 
@@ -619,7 +617,12 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 	// TLS settings won't take effect
 	hasMTLs := false
 
-	mtlsConfigs := getMtlsSettings(configgen, in, passthrough)
+	var mtlsConfigs []plugin.MTLSSettings
+	if passthrough {
+		mtlsConfigs = lb.authnBuilder.ForPassthrough()
+	} else {
+		mtlsConfigs = []plugin.MTLSSettings{lb.authnBuilder.ForPort(in.ServiceInstance.Endpoint.EndpointPort)}
+	}
 	for _, mtlsConfig := range mtlsConfigs {
 		hasMTLs = hasMTLs || mtlsConfig.Mode != model.MTLSDisable
 		for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
@@ -637,7 +640,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		}
 		opt.fc.ListenerProtocol = listenerOpts.protocol
 		listenerOpts.tlsSettings.CipherSuites = filteredSidecarCipherSuites(listenerOpts.tlsSettings.CipherSuites)
-		opt.fc.TLSContext = configgen.BuildListenerTLSContext(listenerOpts.tlsSettings, in.Node, istionetworking.TransportProtocolTCP)
+		opt.fc.TLSContext = BuildListenerTLSContext(listenerOpts.tlsSettings, in.Node, istionetworking.TransportProtocolTCP)
 		newOpts = append(newOpts, &opt)
 	}
 
@@ -649,18 +652,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 	mutable := &istionetworking.MutableObjects{
 		FilterChains: fcs,
 	}
-	for _, p := range configgen.Plugins {
-		if passthrough {
-			if err := p.OnInboundPassthrough(in, mutable); err != nil {
-				log.Errorf("Build inbound passthrough filter chains error: %v", err)
-			}
-		} else {
-			if err := p.OnInboundListener(in, mutable); err != nil {
-				log.Errorf("Build inbound filter chains error: %v", err)
-			}
-		}
-	}
-	extension.AddWasmPluginsToMutableObjects(mutable, in.Push.WasmPlugins(in.Node))
 	// Merge the results back into our struct
 	for i, fc := range mutable.FilterChains {
 		newOpts[i].fc = fc
@@ -681,14 +672,14 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		fcOpt.filterChain = opt.fc
 		switch opt.fc.ListenerProtocol {
 		case istionetworking.ListenerProtocolHTTP:
-			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
+			fcOpt.httpOpts = buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
 			fcOpt.filterChain.TCP = append(
 				buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound),
 				fcOpt.filterChain.TCP...)
 		case istionetworking.ListenerProtocolTCP:
 			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.Node, in.ServiceInstance, clusterName)
 		case istionetworking.ListenerProtocolAuto:
-			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
+			fcOpt.httpOpts = buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
 			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.Node, in.ServiceInstance, clusterName)
 		}
 		fcOpt.filterChainName = model.VirtualInboundListenerName
@@ -741,8 +732,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 // with TLS blocks and build the appropriate filter chain matches and routes here. And then finally
 // evaluate the left over unmatched TLS traffic using allow_any or registry_only.
 // See https://github.com/istio/istio/issues/21170
-func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
-	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+func buildOutboundCatchAllNetworkFilterChains(node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 	chains := make([]*listener.FilterChain, 0, 2)
 	chains = append(chains, blackholeFilterChain(push, node), &listener.FilterChain{

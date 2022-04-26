@@ -30,11 +30,6 @@ func init() {
 }
 
 func ValidateTestOptions(to v1alpha3.TestOptions) error {
-	for _, plugin := range to.Plugins {
-		if plugin == nil {
-			return errors.New("a Plugin was nil")
-		}
-	}
 	for _, csc := range to.ConfigStoreCaches {
 		if csc == nil {
 			return errors.New("a ConfigStoreController was nil")
