@@ -127,7 +127,11 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
 		alpnByTransport = util.ALPNHttp3OverQUIC
+	} else if transportProtocol == istionetworking.TransportProtocolTCP &&
+		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+		alpnByTransport = util.ALPNDownstreamWithMxc
 	}
+
 	ctx := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
 			AlpnProtocols: alpnByTransport,
