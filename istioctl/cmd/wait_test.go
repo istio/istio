@@ -49,7 +49,7 @@ func TestWaitCmd(t *testing.T) {
 	cases := []execTestCase{
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --generation=2 --timeout=2s virtual-service foo.default", " "),
+			args:             strings.Split("x wait --generation=2 --timeout=20ms virtual-service foo.default", " "),
 			wantException:    true,
 		},
 		{
@@ -69,7 +69,7 @@ func TestWaitCmd(t *testing.T) {
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --timeout 2s virtual-service bar.default", " "),
+			args:             strings.Split("x wait --timeout 20ms virtual-service bar.default", " "),
 			wantException:    true,
 			expectedOutput:   "Error: timeout expired before resource networking.istio.io/v1alpha3/VirtualService/default/bar became effective on all sidecars\n",
 		},
