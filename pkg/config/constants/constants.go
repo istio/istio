@@ -60,7 +60,6 @@ const (
 	IstioIngressNamespace = "istio-system"
 
 	// DefaultClusterLocalDomain the default service domain suffix for Kubernetes, if not overridden in config.
-	// TODO(nmittler): Renamed DefaultKubernetesDomain to DefaultClusterLocalDomain.
 	DefaultClusterLocalDomain = "cluster.local"
 
 	// DefaultClusterSetLocalDomain is the default domain suffix for Kubernetes Multi-Cluster Services (MCS)
