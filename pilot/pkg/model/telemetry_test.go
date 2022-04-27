@@ -351,9 +351,16 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 
 func newTracingConfig(providerName string, disabled bool) *TracingConfig {
 	return &TracingConfig{
-		Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: providerName},
-		Disabled:                     disabled,
-		UseRequestIDForTraceSampling: true,
+		ClientSpec: TracingSpec{
+			Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: providerName},
+			Disabled:                     disabled,
+			UseRequestIDForTraceSampling: true,
+		},
+		ServerSpec: TracingSpec{
+			Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: providerName},
+			Disabled:                     disabled,
+			UseRequestIDForTraceSampling: true,
+		},
 	}
 }
 
@@ -441,6 +448,32 @@ func TestTracing(t *testing.T) {
 			},
 		},
 	}
+	clientSideSampling := &tpb.Telemetry{
+		Tracing: []*tpb.Tracing{
+			{
+				Match: &tpb.Tracing_TracingSelector{
+					Mode: tpb.WorkloadMode_CLIENT,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "stackdriver",
+					},
+				},
+				RandomSamplingPercentage: &wrappers.DoubleValue{Value: 99.9},
+			},
+		},
+	}
+	serverSideDisabled := &tpb.Telemetry{
+		Tracing: []*tpb.Tracing{
+			{
+				Match: &tpb.Tracing_TracingSelector{
+					Mode: tpb.WorkloadMode_SERVER,
+				},
+				DisableSpanReporting: &wrappers.BoolValue{Value: true},
+			},
+		},
+	}
+
 	tests := []struct {
 		name             string
 		cfgs             []config.Config
@@ -509,7 +542,10 @@ func TestTracing(t *testing.T) {
 			[]config.Config{newTelemetry("default", nonExistant)},
 			sidecar,
 			[]string{"envoy"},
-			&TracingConfig{Disabled: true, UseRequestIDForTraceSampling: true},
+			&TracingConfig{
+				ClientSpec: TracingSpec{Disabled: true, UseRequestIDForTraceSampling: true},
+				ServerSpec: TracingSpec{Disabled: true, UseRequestIDForTraceSampling: true},
+			},
 		},
 		{
 			"overrides",
@@ -517,13 +553,23 @@ func TestTracing(t *testing.T) {
 			sidecar,
 			[]string{"envoy"},
 			&TracingConfig{
-				Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-				RandomSamplingPercentage: 50.0,
-				CustomTags: map[string]*tpb.Tracing_CustomTag{
-					"foo": {},
-					"bar": {},
+				ClientSpec: TracingSpec{
+					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					RandomSamplingPercentage: 50.0,
+					CustomTags: map[string]*tpb.Tracing_CustomTag{
+						"foo": {},
+						"bar": {},
+					},
+					UseRequestIDForTraceSampling: false,
+				}, ServerSpec: TracingSpec{
+					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					RandomSamplingPercentage: 50.0,
+					CustomTags: map[string]*tpb.Tracing_CustomTag{
+						"foo": {},
+						"bar": {},
+					},
+					UseRequestIDForTraceSampling: false,
 				},
-				UseRequestIDForTraceSampling: false,
 			},
 		},
 		{
@@ -532,13 +578,23 @@ func TestTracing(t *testing.T) {
 			sidecar,
 			[]string{"envoy"},
 			&TracingConfig{
-				Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-				RandomSamplingPercentage: 0.0,
-				CustomTags: map[string]*tpb.Tracing_CustomTag{
-					"foo": {},
-					"baz": {},
+				ClientSpec: TracingSpec{
+					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					RandomSamplingPercentage: 0.0,
+					CustomTags: map[string]*tpb.Tracing_CustomTag{
+						"foo": {},
+						"baz": {},
+					},
+					UseRequestIDForTraceSampling: true,
+				}, ServerSpec: TracingSpec{
+					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					RandomSamplingPercentage: 0.0,
+					CustomTags: map[string]*tpb.Tracing_CustomTag{
+						"foo": {},
+						"baz": {},
+					},
+					UseRequestIDForTraceSampling: true,
 				},
-				UseRequestIDForTraceSampling: true,
 			},
 		},
 		{
@@ -550,13 +606,63 @@ func TestTracing(t *testing.T) {
 			sidecar,
 			[]string{"envoy"},
 			&TracingConfig{
-				Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-				RandomSamplingPercentage: 80,
-				CustomTags: map[string]*tpb.Tracing_CustomTag{
-					"foo": {},
-					"baz": {},
+				ClientSpec: TracingSpec{
+					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					RandomSamplingPercentage: 80,
+					CustomTags: map[string]*tpb.Tracing_CustomTag{
+						"foo": {},
+						"baz": {},
+					},
+					UseRequestIDForTraceSampling: true,
 				},
-				UseRequestIDForTraceSampling: true,
+				ServerSpec: TracingSpec{
+					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					RandomSamplingPercentage: 80,
+					CustomTags: map[string]*tpb.Tracing_CustomTag{
+						"foo": {},
+						"baz": {},
+					},
+					UseRequestIDForTraceSampling: true,
+				},
+			},
+		},
+		{
+			"client-only override",
+			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", clientSideSampling)},
+			sidecar,
+			[]string{"envoy"},
+			&TracingConfig{
+				ClientSpec: TracingSpec{
+					Provider: &meshconfig.MeshConfig_ExtensionProvider{
+						Name: "stackdriver",
+						Provider: &meshconfig.MeshConfig_ExtensionProvider_Stackdriver{
+							Stackdriver: &meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider{},
+						},
+					},
+					RandomSamplingPercentage:     99.9,
+					UseRequestIDForTraceSampling: true,
+				},
+				ServerSpec: TracingSpec{
+					Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					UseRequestIDForTraceSampling: true,
+				},
+			},
+		},
+		{
+			"server-only override",
+			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", serverSideDisabled)},
+			sidecar,
+			[]string{"envoy"},
+			&TracingConfig{
+				ClientSpec: TracingSpec{
+					Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					UseRequestIDForTraceSampling: true,
+				},
+				ServerSpec: TracingSpec{
+					Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					Disabled:                     true,
+					UseRequestIDForTraceSampling: true,
+				},
 			},
 		},
 	}
@@ -565,9 +671,9 @@ func TestTracing(t *testing.T) {
 			telemetry := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.Tracing = tt.defaultProviders
 			got := telemetry.Tracing(tt.proxy)
-			if got != nil && got.Provider != nil {
+			if got != nil && got.ServerSpec.Provider != nil {
 				// We don't match on this, just the name for test simplicity
-				got.Provider.Provider = nil
+				got.ServerSpec.Provider.Provider = nil
 			}
 			assert.Equal(t, got, tt.want)
 		})
