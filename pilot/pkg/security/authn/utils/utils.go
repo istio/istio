@@ -42,7 +42,7 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		return nil
 	}
 	ctx := &tls.DownstreamTlsContext{
-		CommonTlsContext:         &tls.CommonTlsContext{},
+		CommonTlsContext:         &tls.CommonTlsContext{AlpnProtocols: []string{"aaa", "bbb"}},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
 
