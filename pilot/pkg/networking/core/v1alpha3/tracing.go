@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
@@ -73,20 +74,27 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 		return nil, nil
 	}
 
-	if tracing.Disabled {
+	spec := tracing.ServerSpec
+	if opts.class == networking.ListenerClassSidecarOutbound || opts.class == networking.ListenerClassGateway {
+		spec = tracing.ClientSpec
+	}
+
+	if spec.Disabled {
 		return nil, nil
 	}
 
 	var routerFilterCtx *xdsfilters.RouterFilterContext
-	if tracing.Provider != nil {
-		tcfg, rfCtx, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, tracing.Provider)
+	if spec.Provider != nil {
+		tcfg, rfCtx, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, spec.Provider)
 		if err != nil {
-			log.Warnf("Not able to configure requested tracing provider %q: %v", tracing.Provider.Name, err)
+			log.Warnf("Not able to configure requested tracing provider %q: %v", spec.Provider.Name, err)
 			return nil, nil
 		}
 		hcm.Tracing = tcfg
 		routerFilterCtx = rfCtx
 	} else {
+		// TODO: should this `return nil, nil` instead ?
+		log.Warnf("Not able to configure tracing provider. Provider lookup failed.")
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
 		// TODO: transition to configuring providers from proxy config here?
 		// something like: configureFromProxyConfig(tracingCfg, opts.proxy.Metadata.ProxyConfig.Tracing)
@@ -94,8 +102,8 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 
 	// gracefully fallback to MeshConfig configuration. It will act as an implicit
 	// parent configuration during transition period.
-	configureSampling(hcm.Tracing, tracing.RandomSamplingPercentage)
-	configureCustomTags(hcm.Tracing, tracing.CustomTags, proxyCfg, opts.proxy.Metadata)
+	configureSampling(hcm.Tracing, spec.RandomSamplingPercentage)
+	configureCustomTags(hcm.Tracing, spec.CustomTags, proxyCfg, opts.proxy.Metadata)
 
 	// if there is configured max tag length somewhere, fallback to it.
 	if hcm.GetTracing().GetMaxPathTagLength() == nil && proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
@@ -103,7 +111,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 	}
 
 	reqIDExtension := &requestidextension.UUIDRequestIDExtensionContext{}
-	reqIDExtension.UseRequestIDForTraceSampling = tracing.UseRequestIDForTraceSampling
+	reqIDExtension.UseRequestIDForTraceSampling = spec.UseRequestIDForTraceSampling
 	return routerFilterCtx, reqIDExtension
 }
 
