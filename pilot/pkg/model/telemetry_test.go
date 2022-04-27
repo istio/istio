@@ -28,6 +28,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
@@ -125,7 +126,8 @@ func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) ([
 }
 
 func TestAccessLogging(t *testing.T) {
-	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	labels := map[string]string{"app": "test"}
+	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: labels}}
 	envoy := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -152,6 +154,40 @@ func TestAccessLogging(t *testing.T) {
 			},
 		},
 	}
+	clientDisabled := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_CLIENT,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+				Disabled: &wrappers.BoolValue{
+					Value: true,
+				},
+			},
+		},
+	}
+	sidecarClient := &tpb.Telemetry{
+		Selector: &v1beta1.WorkloadSelector{
+			MatchLabels: labels,
+		},
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_CLIENT,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+		},
+	}
 	server := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -162,6 +198,23 @@ func TestAccessLogging(t *testing.T) {
 					{
 						Name: "envoy",
 					},
+				},
+			},
+		},
+	}
+	serverDisabled := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_SERVER,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+				Disabled: &wrappers.BoolValue{
+					Value: true,
 				},
 			},
 		},
@@ -278,6 +331,30 @@ func TestAccessLogging(t *testing.T) {
 			sidecar,
 			nil,
 			[]string{},
+		},
+		{
+			"client - disabled server",
+			[]config.Config{newTelemetry("istio-system", client), newTelemetry("default", serverDisabled)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"client - disabled client",
+			[]config.Config{newTelemetry("istio-system", client), newTelemetry("default", clientDisabled)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{},
+		},
+		{
+			"client - disabled - enabled",
+			[]config.Config{newTelemetry("istio-system", client), newTelemetry("default", clientDisabled), newTelemetry("default", sidecarClient)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{"envoy"},
 		},
 		{
 			"server - gateway",
