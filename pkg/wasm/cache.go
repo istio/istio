@@ -121,7 +121,7 @@ type cacheEntry struct {
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
 func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
 	cache := &LocalFileCache{
-		httpFetcher:        NewHTTPFetcher(),
+		httpFetcher:        NewHTTPFetcher(5 * time.Second),
 		modules:            make(map[moduleKey]*cacheEntry),
 		checksums:          make(map[string]*checksumEntry),
 		dir:                dir,

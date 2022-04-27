@@ -33,12 +33,19 @@ type HTTPFetcher struct {
 }
 
 // NewHTTPFetcher create a new HTTP remote wasm module fetcher.
-func NewHTTPFetcher() *HTTPFetcher {
+// requestTimeout is a timeout for each HTTP/HTTPS request.
+func NewHTTPFetcher(requestTimeout time.Duration) *HTTPFetcher {
+	if requestTimeout == 0 {
+		requestTimeout = 5 * time.Second
+	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	return &HTTPFetcher{
-		client: &http.Client{},
+		client: &http.Client{
+			Timeout: requestTimeout,
+		},
 		insecureClient: &http.Client{
+			Timeout:   requestTimeout,
 			Transport: transport,
 		},
 		initialBackoff: time.Millisecond * 500,

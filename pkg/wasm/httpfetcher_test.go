@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -30,14 +31,16 @@ func TestWasmHTTPFetch(t *testing.T) {
 	cases := []struct {
 		name           string
 		handler        func(http.ResponseWriter, *http.Request, int)
+		timeout        time.Duration
 		wantNumRequest int
-		wantError      string
+		wantErrorRegex string
 	}{
 		{
 			name: "download ok",
 			handler: func(w http.ResponseWriter, r *http.Request, num int) {
 				fmt.Fprintln(w, "wasm")
 			},
+			timeout:        5 * time.Second,
 			wantNumRequest: 1,
 		},
 		{
@@ -49,6 +52,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 					fmt.Fprintln(w, "wasm")
 				}
 			},
+			timeout:        5 * time.Second,
 			wantNumRequest: 4,
 		},
 		{
@@ -56,8 +60,18 @@ func TestWasmHTTPFetch(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request, num int) {
 				w.WriteHeader(500)
 			},
+			timeout:        5 * time.Second,
 			wantNumRequest: 5,
-			wantError:      "wasm module download failed, last error: wasm module download request failed: status code 500",
+			wantErrorRegex: "wasm module download failed, last error: wasm module download request failed: status code 500",
+		},
+		{
+			name: "download is never tried by immediate context timeout",
+			handler: func(w http.ResponseWriter, r *http.Request, num int) {
+				w.WriteHeader(500)
+			},
+			timeout:        0, // Immediately timeout in the context level.
+			wantNumRequest: 0, // Should not retried because it is already timed out.
+			wantErrorRegex: "wasm module download failed, last error: Get \".*\": context deadline exceeded",
 		},
 	}
 
@@ -70,19 +84,19 @@ func TestWasmHTTPFetch(t *testing.T) {
 				gotNumRequest++
 			}))
 			defer ts.Close()
-			fetcher := NewHTTPFetcher()
+			fetcher := NewHTTPFetcher(1 * time.Second)
 			fetcher.initialBackoff = time.Microsecond
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 			defer cancel()
 			b, err := fetcher.Fetch(ctx, ts.URL, false)
 			if c.wantNumRequest != gotNumRequest {
 				t.Errorf("Wasm download request got %v, want %v", gotNumRequest, c.wantNumRequest)
 			}
-			if c.wantError != "" {
+			if c.wantErrorRegex != "" {
 				if err == nil {
-					t.Errorf("Wasm download got no error, want error `%v`", c.wantError)
-				} else if c.wantError != err.Error() {
-					t.Errorf("Wasm download got error `%v`, want error `%v`", err, c.wantError)
+					t.Errorf("Wasm download got no error, want error regex `%v`", c.wantErrorRegex)
+				} else if matched, err := regexp.MatchString(c.wantErrorRegex, err.Error()); err != nil || !matched {
+					t.Errorf("Wasm download got error `%v`, want error regex `%v`", err, c.wantErrorRegex)
 				}
 			} else if string(b) != wantWasmModule {
 				t.Errorf("downloaded wasm module got %v, want wasm", string(b))
@@ -129,7 +143,7 @@ func TestWasmHTTPInsecureServer(t *testing.T) {
 				gotNumRequest++
 			}))
 			defer ts.Close()
-			fetcher := NewHTTPFetcher()
+			fetcher := NewHTTPFetcher(1 * time.Second)
 			fetcher.initialBackoff = time.Microsecond
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
