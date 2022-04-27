@@ -28,7 +28,6 @@ import (
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
-	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -1095,10 +1094,10 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: "envoy.redis_proxy",
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
 									StatPrefix: "redis_stats",
-									PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
-										CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
+									PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
+										CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{
 											Cluster: "custom-redis-cluster",
 										},
 									},
@@ -1700,10 +1699,10 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: "envoy.redis_proxy",
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
 									StatPrefix: "redis_stats",
-									PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
-										CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
+									PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
+										CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{
 											Cluster: "custom-redis-cluster",
 										},
 									},
