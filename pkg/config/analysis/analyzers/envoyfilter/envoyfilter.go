@@ -63,7 +63,6 @@ func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, p
 		// if the proxyVersion is set choose that error message over the relative operation message as
 		// the proxyVersion error message also indicates that the proxyVersion is set
 		count := 0
-		fmt.Println("relativeOperationMsg patchFilters names:", patchFilterNames)
 
 		for _, name := range patchFilterNames {
 			if instanceName == name {
@@ -91,12 +90,11 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 	for index, patch := range ef.ConfigPatches {
 		// validate that the patch and match sections are populated
 		if patch.GetPatch() == nil {
-			fmt.Println(" no patch set")
 			break
 		}
 
 		// collect filter names to figure out if there is more than one envoyFilter with the same filter name where one
-		//of the envoy filters has the proxy version set
+		// of the envoy filters has the proxy version set
 		instanceName := ""
 		if patch.Patch.GetValue() != nil {
 			if patch.Patch.Value.GetFields() != nil {
@@ -104,12 +102,10 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 				tmpName := tmpValue["name"]
 				if tmpName != nil {
 					instanceName = tmpValue["name"].String()
-				} else {
-					if patch.GetMatch() != nil {
-						if patch.Match.GetListener() != nil {
-							if patch.Match.GetListener().GetFilterChain() != nil {
-								instanceName = patch.Match.GetListener().FilterChain.Filter.Name
-							}
+				} else if patch.GetMatch() != nil {
+					if patch.Match.GetListener() != nil {
+						if patch.Match.GetListener().GetFilterChain() != nil {
+							instanceName = patch.Match.GetListener().FilterChain.Filter.Name
 						}
 					}
 				}
@@ -173,7 +169,6 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 			if patch.Match.GetProxy() != nil {
 				if len(patch.Match.Proxy.ProxyVersion) != 0 {
 					patchFilterNames = append(patchFilterNames, instanceName)
-					fmt.Println("adding to the patchFilters instance:", instanceName)
 				}
 			}
 		}
