@@ -612,6 +612,9 @@ var (
 	EnableTLSOnSidecarIngress = env.RegisterBoolVar("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
 		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
 
+	EnableAutoSni = env.RegisterBoolVar("ENABLE_AUTO_SNI", false,
+		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
+
 	InsecureKubeConfigOptions = func() sets.Set {
 		v := env.RegisterStringVar(
 			"PILOT_INSECURE_MULTICLUSTER_KUBECONFIG_OPTIONS",
