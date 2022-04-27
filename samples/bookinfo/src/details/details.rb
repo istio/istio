@@ -175,6 +175,11 @@ def get_forward_headers(request)
       # Application-specific headers to forward.
       'end-user',
       'user-agent',
+
+      # Context and session specific headers
+      'cookie',
+      'authorization',
+      'jwt'
   ]
 
   request.each do |header, value|
