@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -78,7 +79,7 @@ func InstallMCSCRDs(t resource.Context) error {
 
 			// Add/Update the CRD in this cluster...
 			if t.Settings().NoCleanup {
-				if err := t.ConfigKube(c).YAML("", crdYAML).Apply(resource.NoCleanup); err != nil {
+				if err := t.ConfigKube(c).YAML("", crdYAML).Apply(apply.NoCleanup); err != nil {
 					return err
 				}
 			} else {

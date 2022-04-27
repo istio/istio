@@ -121,7 +121,7 @@ func TestValidation(t *testing.T) {
 						}
 
 						wetRunErr := cluster.ApplyYAMLFiles(ns.Name(), applyFiles...)
-						t.ConditionalCleanup(func() {
+						t.CleanupConditionally(func() {
 							cluster.DeleteYAMLFiles(ns.Name(), applyFiles...)
 						})
 
