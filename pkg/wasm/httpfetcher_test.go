@@ -102,7 +102,7 @@ func TestWasmHTTPInsecureServer(t *testing.T) {
 		wantErrorSuffix string
 	}{
 		{
-			name: "download ok",
+			name: "download fail",
 			handler: func(w http.ResponseWriter, r *http.Request, num int) {
 				fmt.Fprintln(w, "wasm")
 			},
