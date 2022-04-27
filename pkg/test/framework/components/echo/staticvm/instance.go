@@ -117,6 +117,26 @@ func (i *instance) PortForName(name string) echo.Port {
 	return i.Config().Ports.MustForName(name)
 }
 
+func (i *instance) ServiceName() string {
+	return i.Config().Service
+}
+
+func (i *instance) NamespaceName() string {
+	return i.Config().NamespaceName()
+}
+
+func (i *instance) ServiceAccountName() string {
+	return i.Config().ServiceAccountName()
+}
+
+func (i *instance) ClusterLocalFQDN() string {
+	return i.Config().ClusterLocalFQDN()
+}
+
+func (i *instance) ClusterSetLocalFQDN() string {
+	return i.Config().ClusterSetLocalFQDN()
+}
+
 func (i *instance) Config() echo.Config {
 	return i.config
 }
