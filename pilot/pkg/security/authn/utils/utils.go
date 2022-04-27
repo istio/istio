@@ -18,10 +18,8 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	protovalue "istio.io/istio/pkg/proto"
 )
@@ -46,27 +44,6 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 	ctx := &tls.DownstreamTlsContext{
 		CommonTlsContext:         &tls.CommonTlsContext{},
 		RequireClientCertificate: protovalue.BoolTrue,
-	}
-	if protocol == networking.ListenerProtocolTCP {
-		// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
-		// expect the same from server. This  is so that secure metadata exchange
-		// transfer can take place between sidecars for TCP with mTLS.
-		if features.MetadataExchange {
-			ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstreamWithMxc
-		} else {
-			ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstream
-		}
-	} else {
-		// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
-		// which is used to differentiate between service mesh and legacy traffic.
-		//
-		// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
-		//
-		// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
-		// include "istio" for the secure traffic, but its TLSContext.ALPN must not
-		// include "istio", which would interfere with negotiation of the underlying
-		// protocol, e.g. HTTP/2.
-		ctx.CommonTlsContext.AlpnProtocols = util.ALPNHttp
 	}
 
 	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
