@@ -29,6 +29,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -153,7 +155,9 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 		return err
 	}
 
-	if err := ctx.ConfigKube(ctx.Clusters()...).YAML(s.ns.Name(), yamlText).Apply(); err != nil {
+	if err := ctx.ConfigKube(ctx.Clusters()...).
+		YAML(s.ns.Name(), yamlText).
+		Apply(apply.CleanupConditionally); err != nil {
 		return err
 	}
 
@@ -216,16 +220,16 @@ func installProviders(ctx resource.Context, providerYAML string) error {
 		return err
 	}
 
+	// Now parse the provider YAML.
+	newMC := &meshconfig.MeshConfig{}
+	if err := protomarshal.ApplyYAML(providerYAML, newMC); err != nil {
+		return err
+	}
+
 	return istio.UpdateMeshConfig(ctx, ist.Settings().SystemNamespace, ctx.Clusters(),
 		func(mc *meshconfig.MeshConfig) error {
-			// Now parse the provider YAML.
-			newMC := &meshconfig.MeshConfig{}
-			if err := protomarshal.ApplyYAML(providerYAML, newMC); err != nil {
-				return err
-			}
-
 			// Merge the extension providers.
 			mc.ExtensionProviders = append(mc.ExtensionProviders, newMC.ExtensionProviders...)
 			return nil
-		})
+		}, cleanup.Conditionally)
 }

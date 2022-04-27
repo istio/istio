@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
@@ -98,8 +99,7 @@ func TestJWTHTTPS(t *testing.T) {
 								"Namespace": ns.Name(),
 								"dst":       to.Config().Service,
 							}
-							return t.ConfigIstio().EvalFile(ns.Name(), args, c.policyFile).
-								Apply(resource.Wait)
+							return t.ConfigIstio().EvalFile(ns.Name(), args, c.policyFile).Apply(apply.Wait)
 						}).
 						FromMatch(
 							// TODO(JimmyCYJ): enable VM for all test cases.

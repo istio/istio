@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
@@ -134,7 +135,7 @@ spec:
           - regex: "(custom_dimension=\\.=(.*?);\\.;)"
             tag_name: "custom_dimension"
 `
-	if err := ctx.ConfigIstio().YAML("istio-system", bootstrapPatch).Apply(resource.Wait); err != nil {
+	if err := ctx.ConfigIstio().YAML("istio-system", bootstrapPatch).Apply(apply.Wait); err != nil {
 		return err
 	}
 
@@ -255,7 +256,8 @@ func setupWasmExtension(ctx resource.Context) error {
 		"DockerConfigJson": base64.StdEncoding.EncodeToString(
 			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
 	}
-	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").Apply(); err != nil {
+	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").
+		Apply(); err != nil {
 		return err
 	}
 

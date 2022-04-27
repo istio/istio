@@ -60,8 +60,16 @@ func NewLocalOrFail(t framework.TestContext, ns namespace.Instance) Server {
 	return s
 }
 
+var nilNamespaceFunc = func() namespace.Instance {
+	return nil
+}
+
 // Setup is a utility function for configuring a global authz Server.
 func Setup(server *Server, ns func() namespace.Instance) resource.SetupFn {
+	if ns == nil {
+		ns = nilNamespaceFunc
+	}
+
 	return func(ctx resource.Context) error {
 		s, err := New(ctx, ns())
 		if err != nil {
@@ -76,6 +84,10 @@ func Setup(server *Server, ns func() namespace.Instance) resource.SetupFn {
 
 // SetupLocal is a utility function for setting a global variable for a local Server.
 func SetupLocal(server *Server, ns func() namespace.Instance) resource.SetupFn {
+	if ns == nil {
+		ns = nilNamespaceFunc
+	}
+
 	return func(ctx resource.Context) error {
 		s, err := NewLocal(ctx, ns())
 		if err != nil {
