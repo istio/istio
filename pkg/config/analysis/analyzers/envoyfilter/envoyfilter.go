@@ -46,7 +46,7 @@ func (*EnvoyPatchAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements analysis.Analyzer
 func (s *EnvoyPatchAnalyzer) Analyze(c analysis.Context) {
 	// hold the filter names that have a proxyVersion set
-	patchFilterNames := make([]string, 1)
+	patchFilterNames := make([]string, 0)
 	c.ForEach(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
 		names := s.analyzeEnvoyFilterPatch(r, c, patchFilterNames)
 		patchFilterNames = names
@@ -63,6 +63,8 @@ func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, p
 		// if the proxyVersion is set choose that error message over the relative operation message as
 		// the proxyVersion error message also indicates that the proxyVersion is set
 		count := 0
+		fmt.Println("relativeOperationMsg patchFilters names:", patchFilterNames)
+
 		for _, name := range patchFilterNames {
 			if instanceName == name {
 				count++
@@ -87,14 +89,31 @@ func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, p
 func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analysis.Context, patchFilterNames []string) []string {
 	ef := r.Message.(*network.EnvoyFilter)
 	for index, patch := range ef.ConfigPatches {
-		// collect filter names to figure out if the order is correct
-		tmpValue := patch.Patch.Value.GetFields()
-		tmpName := tmpValue["name"]
+		// validate that the patch and match sections are populated
+		if patch.GetPatch() == nil {
+			fmt.Println(" no patch set")
+			break
+		}
+
+		// collect filter names to figure out if there is more than one envoyFilter with the same filter name where one
+		//of the envoy filters has the proxy version set
 		instanceName := ""
-		if tmpName != nil {
-			instanceName = tmpValue["name"].String()
-		} else {
-			instanceName = patch.Match.GetListener().FilterChain.Filter.Name
+		if patch.Patch.GetValue() != nil {
+			if patch.Patch.Value.GetFields() != nil {
+				tmpValue := patch.Patch.Value.GetFields()
+				tmpName := tmpValue["name"]
+				if tmpName != nil {
+					instanceName = tmpValue["name"].String()
+				} else {
+					if patch.GetMatch() != nil {
+						if patch.Match.GetListener() != nil {
+							if patch.Match.GetListener().GetFilterChain() != nil {
+								instanceName = patch.Match.GetListener().FilterChain.Filter.Name
+							}
+						}
+					}
+				}
+			}
 		}
 
 		// check each operation type
@@ -154,6 +173,7 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 			if patch.Match.GetProxy() != nil {
 				if len(patch.Match.Proxy.ProxyVersion) != 0 {
 					patchFilterNames = append(patchFilterNames, instanceName)
+					fmt.Println("adding to the patchFilters instance:", instanceName)
 				}
 			}
 		}

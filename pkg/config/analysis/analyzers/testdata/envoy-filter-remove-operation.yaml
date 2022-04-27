@@ -64,3 +64,33 @@ spec:
     patch:
       operation: REMOVE
 
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-remove-4
+  namespace: bookinfo
+spec:
+  workloadSelector:
+    labels:
+      app: mysvc1
+  configPatches:
+  - applyTo: NETWORK_FILTER # http connection manager is a filter in Envoy
+    match:
+    patch:
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-remove-5
+  namespace: bookinfo
+spec:
+  workloadSelector:
+    labels:
+      app: mysvc1
+  configPatches:
+  - applyTo: NETWORK_FILTER # http connection manager is a filter in Envoy
+    match:
+    patch:
+      operation: REMOVE
