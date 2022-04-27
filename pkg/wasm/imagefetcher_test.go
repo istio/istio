@@ -108,8 +108,12 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Fetch docker image without digest
-		actual, actualDiget, err := fetcher.Fetch(ref, "")
+		// Fetch OCI image.
+		binaryGetter, actualDiget, err := fetcher.Fetch(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := binaryGetter()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -118,23 +122,6 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 		if actualDiget != d.Hex {
 			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
-		}
-
-		actual, actualDiget, err = fetcher.Fetch(ref, d.Hex)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(actual) != exp {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
-		}
-		if actualDiget != d.Hex {
-			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
-		}
-
-		// Giving wrong digest should be error
-		_, _, err = fetcher.Fetch(ref, "foobar")
-		if err == nil {
-			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
 	})
 
@@ -167,7 +154,11 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Fetch OCI image.
-		actual, actualDiget, err := fetcher.Fetch(ref, "")
+		binaryGetter, actualDiget, err := fetcher.Fetch(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := binaryGetter()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -176,23 +167,6 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 		if actualDiget != d.Hex {
 			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
-		}
-
-		actual, actualDiget, err = fetcher.Fetch(ref, d.Hex)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(actual) != exp {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
-		}
-		if actualDiget != d.Hex {
-			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
-		}
-
-		// Giving wrong digest should be error
-		_, _, err = fetcher.Fetch(ref, "foobar")
-		if err == nil {
-			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
 	})
 
@@ -239,7 +213,11 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Fetch OCI image.
-		actual, actualDiget, err := fetcher.Fetch(ref, "")
+		binaryGetter, actualDiget, err := fetcher.Fetch(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := binaryGetter()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -248,23 +226,6 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 		if actualDiget != d.Hex {
 			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
-		}
-
-		actual, actualDiget, err = fetcher.Fetch(ref, d.Hex)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Equal(actual, want) {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), want)
-		}
-		if actualDiget != d.Hex {
-			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
-		}
-
-		// Giving wrong digest should be error
-		_, _, err = fetcher.Fetch(ref, "foobar")
-		if err == nil {
-			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
 	})
 
@@ -288,7 +249,11 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Try to fetch.
-		actual, _, err := fetcher.Fetch(ref, "")
+		binaryGetter, _, err := fetcher.Fetch(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := binaryGetter()
 		if actual != nil {
 			t.Errorf("ImageFetcher.Fetch got %s, but want nil", string(actual))
 		}
