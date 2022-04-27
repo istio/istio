@@ -2,14 +2,14 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: test-reviews-lua-1
+  name: test-relative-1
   namespace: bookinfo
 spec:
   workloadSelector:
     labels:
       app: reviews1
   configPatches:
-    # The first patch adds the lua filter to the listener/http connection manager
+    # The first patch adds the Lua filter to the listener/http connection manager
   - applyTo: HTTP_FILTER
     match:
       context: SIDECAR_INBOUND
@@ -22,7 +22,7 @@ spec:
               name: "envoy.filters.http.router"
     patch:
       operation: INSERT_BEFORE
-      value: # lua filter specification
+      value: # Lua filter specification
        name: envoy.lua
        typed_config:
           "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
@@ -39,7 +39,7 @@ spec:
               "authorize call",
               5000)
             end
-  # The second patch adds the cluster that is referenced by the lua code
+  # The second patch adds the cluster that is referenced by the Lua code
   # cds match is omitted as a new cluster is being added
   - applyTo: CLUSTER
     match:
@@ -66,14 +66,14 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: test-reviews-lua-2
+  name: test-relative-2
   namespace: bookinfo
 spec:
   workloadSelector:
     labels:
       app: reviews2
   configPatches:
-    # The first patch adds the lua filter to the listener/http connection manager
+    # The first patch adds the Lua filter to the listener/http connection manager
   - applyTo: HTTP_FILTER
     match:
       context: SIDECAR_INBOUND
@@ -86,7 +86,7 @@ spec:
               name: "envoy.filters.http.router"
     patch:
       operation: INSERT_AFTER
-      value: # lua filter specification
+      value: # Lua filter specification
        name: envoy.lua
        typed_config:
           "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
@@ -103,7 +103,7 @@ spec:
               "authorize call",
               5000)
             end
-  # The second patch adds the cluster that is referenced by the lua code
+  # The second patch adds the cluster that is referenced by the Lua code
   # cds match is omitted as a new cluster is being added
   - applyTo: CLUSTER
     match:
@@ -130,14 +130,14 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: test-reviews-lua-3
+  name: test-relative-3
   namespace: bookinfo
 spec:
   workloadSelector:
     labels:
       app: reviews-3
   configPatches:
-    # The first patch adds the lua filter to the listener/http connection manager
+    # The first patch adds the Lua filter to the listener/http connection manager
   - applyTo: HTTP_FILTER
     match:
       context: SIDECAR_INBOUND
@@ -150,7 +150,7 @@ spec:
             name: "envoy.filters.network.http_connection_manager.InternalAddressConfig"
     patch:
       operation: INSERT_AFTER
-      value: # lua filter specification
+      value: # Lua filter specification
        name: envoy.lua1
        typed_config:
           "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
@@ -172,14 +172,14 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: test-reviews-lua-4
+  name: test-relative-4
   namespace: bookinfo
 spec:
   workloadSelector:
     labels:
       app: reviews-4
   configPatches:
-    # The first patch adds the lua filter to the listener/http connection manager
+    # The first patch adds the Lua filter to the listener/http connection manager
   - applyTo: HTTP_FILTER
     match:
       context: SIDECAR_INBOUND
@@ -190,7 +190,7 @@ spec:
             name: "envoy.filters.network.http_connection_manager.InternalAddressConfig"
     patch:
       operation: INSERT_AFTER
-      value: # lua filter specification
+      value: # Lua filter specification
        name: envoy.lua1
        typed_config:
           "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
