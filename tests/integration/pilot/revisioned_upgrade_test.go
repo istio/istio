@@ -69,7 +69,7 @@ func TestRevisionedUpgrade(t *testing.T) {
 // TODO(monkeyanator) pass this a generic UpgradeFunc allowing for reuse across in-place and revisioned upgrades
 func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	configs := make(map[string]string)
-	t.ConditionalCleanup(func() {
+	t.CleanupConditionally(func() {
 		for _, config := range configs {
 			_ = t.ConfigIstio().YAML("istio-system", config).Delete()
 		}

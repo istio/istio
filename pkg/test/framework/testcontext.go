@@ -26,6 +26,8 @@ import (
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -217,12 +219,12 @@ func (c *testContext) SkipDumping() {
 	c.scope.skipDumping()
 }
 
-func (c *testContext) ConfigKube(clusters ...cluster.Cluster) resource.ConfigManager {
-	return newConfigManager(c, clusters)
+func (c *testContext) ConfigKube(clusters ...cluster.Cluster) config.Factory {
+	return newConfigFactory(c, clusters)
 }
 
-func (c *testContext) ConfigIstio() resource.ConfigManager {
-	return newConfigManager(c, c.Clusters().Configs())
+func (c *testContext) ConfigIstio() config.Factory {
+	return newConfigFactory(c, c.Clusters().Configs())
 }
 
 func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {
@@ -258,18 +260,30 @@ func (c *testContext) NewSubTestf(format string, a ...interface{}) Test {
 	return c.NewSubTest(fmt.Sprintf(format, a...))
 }
 
-func (c *testContext) ConditionalCleanup(fn func()) {
-	c.scope.addCloser(&closer{fn: func() error {
-		fn()
-		return nil
-	}, noskip: true})
+func (c *testContext) CleanupConditionally(fn func()) {
+	c.CleanupStrategy(cleanup.Conditionally, fn)
 }
 
 func (c *testContext) Cleanup(fn func()) {
-	c.scope.addCloser(&closer{fn: func() error {
-		fn()
-		return nil
-	}})
+	c.CleanupStrategy(cleanup.Always, fn)
+}
+
+func (c *testContext) CleanupStrategy(strategy cleanup.Strategy, fn func()) {
+	switch strategy {
+	case cleanup.Always:
+		c.scope.addCloser(&closer{fn: func() error {
+			fn()
+			return nil
+		}})
+	case cleanup.Conditionally:
+		c.scope.addCloser(&closer{fn: func() error {
+			fn()
+			return nil
+		}, noskip: true})
+	default:
+		// No cleanup.
+		return
+	}
 }
 
 func (c *testContext) close() {

@@ -132,7 +132,7 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 	ingressType CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool, ns string, clusters ...cluster.Cluster) {
 	t.Helper()
 
-	t.ConditionalCleanup(func() {
+	t.CleanupConditionally(func() {
 		deleteKubeSecret(t, credName)
 	})
 
@@ -477,11 +477,11 @@ func runTemplate(t test.Failer, tmpl string, params interface{}) string {
 }
 
 func SetupConfig(ctx framework.TestContext, ns namespace.Instance, config ...TestConfig) {
-	var apply []string
+	var cfg []string
 	for _, c := range config {
-		apply = append(apply, runTemplate(ctx, vsTemplate, c), runTemplate(ctx, gwTemplate, c))
+		cfg = append(cfg, runTemplate(ctx, vsTemplate, c), runTemplate(ctx, gwTemplate, c))
 	}
-	ctx.ConfigIstio().YAML(ns.Name(), apply...).ApplyOrFail(ctx)
+	ctx.ConfigIstio().YAML(ns.Name(), cfg...).ApplyOrFail(ctx)
 }
 
 // RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes secret that stores

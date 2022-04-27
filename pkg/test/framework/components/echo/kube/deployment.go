@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
@@ -500,7 +501,9 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 	}
 
 	// Apply the deployment to the configured cluster.
-	if err = ctx.ConfigKube(cfg.Cluster).YAML(cfg.Namespace.Name(), deploymentYAML).Apply(resource.NoCleanup); err != nil {
+	if err = ctx.ConfigKube(cfg.Cluster).
+		YAML(cfg.Namespace.Name(), deploymentYAML).
+		Apply(apply.NoCleanup); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
 			cfg.ClusterLocalFQDN(), cfg.Cluster.Name(), err)
 	}
@@ -550,7 +553,9 @@ func (d *deployment) WorkloadReady(w *workload) {
 
 	// Deploy the workload entry to the primary cluster. We will read WorkloadEntry across clusters.
 	wle := d.workloadEntryYAML(w)
-	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).YAML(d.cfg.Namespace.Name(), wle).Apply(resource.NoCleanup); err != nil {
+	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).
+		YAML(d.cfg.Namespace.Name(), wle).
+		Apply(apply.NoCleanup); err != nil {
 		log.Warnf("failed deploying echo WLE for %s/%s to primary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
@@ -755,7 +760,9 @@ spec:
 
 	// Push the WorkloadGroup for auto-registration
 	if cfg.AutoRegisterVM {
-		if err := ctx.ConfigKube(cfg.Cluster).YAML(cfg.Namespace.Name(), wg).Apply(resource.NoCleanup); err != nil {
+		if err := ctx.ConfigKube(cfg.Cluster).
+			YAML(cfg.Namespace.Name(), wg).
+			Apply(apply.NoCleanup); err != nil {
 			return err
 		}
 	}

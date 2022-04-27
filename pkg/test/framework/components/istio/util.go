@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -177,7 +178,8 @@ func (i *operatorComponent) isExternalControlPlane() bool {
 	return false
 }
 
-func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, update func(*meshconfig.MeshConfig) error) error {
+func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters,
+	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) error {
 	errG := multierror.Group{}
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
@@ -232,7 +234,7 @@ func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, 
 	}
 
 	// Restore the original value of the MeshConfig when the context completes.
-	t.Cleanup(func() {
+	t.CleanupStrategy(cleanupStrategy, func() {
 		errG := multierror.Group{}
 		mu.RLock()
 		defer mu.RUnlock()
@@ -256,9 +258,10 @@ func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, 
 	return errG.Wait().ErrorOrNil()
 }
 
-func UpdateMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters, update func(*meshconfig.MeshConfig) error) {
+func UpdateMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters,
+	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) {
 	t.Helper()
-	if err := UpdateMeshConfig(t, ns, clusters, update); err != nil {
+	if err := UpdateMeshConfig(t, ns, clusters, update, cleanupStrategy); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -266,7 +269,7 @@ func UpdateMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster
 func PatchMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, patch string) error {
 	return UpdateMeshConfig(t, ns, clusters, func(mc *meshconfig.MeshConfig) error {
 		return protomarshal.ApplyYAML(patch, mc)
-	})
+	}, cleanup.Always)
 }
 
 func PatchMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters, patch string) {

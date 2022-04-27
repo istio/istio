@@ -160,7 +160,7 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
 
-		t.ConditionalCleanup(func() {
+		t.CleanupConditionally(func() {
 			// only need to do call this once as helm doesn't need to remove
 			// all versions
 			err := deleteIstio(cs, h, true)
@@ -213,7 +213,7 @@ func performRevisionUpgradeFunc(previousVersion, previousValidatingWebhookName s
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
 
-		t.ConditionalCleanup(func() {
+		t.CleanupConditionally(func() {
 			err := deleteIstioRevision(h, canaryTag)
 			if err != nil {
 				t.Fatalf("could not delete istio: %v", err)
@@ -272,7 +272,7 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
 
-		t.ConditionalCleanup(func() {
+		t.CleanupConditionally(func() {
 			err := deleteIstioRevision(h, latestRevisionTag)
 			if err != nil {
 				t.Fatalf("could not delete istio revision (%v): %v", latestRevisionTag, err)

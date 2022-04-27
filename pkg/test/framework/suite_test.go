@@ -330,7 +330,7 @@ func TestSuite_Cleanup(t *testing.T) {
 			ctx.Cleanup(func() {
 				cleanupCalled = true
 			})
-			ctx.ConditionalCleanup(func() {
+			ctx.CleanupConditionally(func() {
 				conditionalCleanupCalled = true
 			})
 			return nil
@@ -361,7 +361,7 @@ func TestSuite_Cleanup(t *testing.T) {
 			ctx.Cleanup(func() {
 				cleanupCalled = true
 			})
-			ctx.ConditionalCleanup(func() {
+			ctx.CleanupConditionally(func() {
 				conditionalCleanupCalled = true
 			})
 			return nil

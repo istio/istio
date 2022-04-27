@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 )
 
 const (
@@ -268,5 +269,5 @@ spec:
 `)
 	}
 
-	return cfg.Apply(resource.NoCleanup)
+	return cfg.Apply(apply.NoCleanup)
 }

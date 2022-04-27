@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -193,5 +194,7 @@ func (s *localServerImpl) installProviders(ctx resource.Context) error {
 }
 
 func (s *localServerImpl) installServiceEntries(ctx resource.Context) error {
-	return ctx.ConfigIstio().Eval(s.ns.Name(), s.templateArgs(), localServiceEntryTemplate).Apply()
+	return ctx.ConfigIstio().
+		Eval(s.ns.Name(), s.templateArgs(), localServiceEntryTemplate).
+		Apply(apply.CleanupConditionally)
 }

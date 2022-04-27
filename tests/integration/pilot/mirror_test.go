@@ -138,7 +138,8 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 					}
 
 					// we only apply to config clusters
-					t.ConfigIstio().EvalFile(apps.Namespace.Name(), vsc, "testdata/traffic-mirroring-template.yaml").ApplyOrFail(t)
+					t.ConfigIstio().EvalFile(apps.Namespace.Name(), vsc, "testdata/traffic-mirroring-template.yaml").
+						ApplyOrFail(t)
 
 					for _, podA := range apps.A {
 						podA := podA
