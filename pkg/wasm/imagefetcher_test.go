@@ -109,19 +109,19 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Fetch OCI image.
-		binaryGetter, actualDiget, err := fetcher.Fetch(ref)
+		binaryFetcher, actualDiget, err := fetcher.PrepareFetch(ref)
 		if err != nil {
 			t.Fatal(err)
 		}
-		actual, err := binaryGetter()
+		actual, err := binaryFetcher()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if string(actual) != exp {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
+			t.Errorf("ImageFetcher.binaryFetcher got %s, but want '%s'", string(actual), exp)
 		}
 		if actualDiget != d.Hex {
-			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
+			t.Errorf("ImageFetcher.binaryFetcher got digest %s, but want '%s'", actualDiget, d.Hex)
 		}
 	})
 
@@ -154,19 +154,19 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Fetch OCI image.
-		binaryGetter, actualDiget, err := fetcher.Fetch(ref)
+		binaryFetcher, actualDiget, err := fetcher.PrepareFetch(ref)
 		if err != nil {
 			t.Fatal(err)
 		}
-		actual, err := binaryGetter()
+		actual, err := binaryFetcher()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if string(actual) != exp {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
+			t.Errorf("ImageFetcher.binaryFetcher got %s, but want '%s'", string(actual), exp)
 		}
 		if actualDiget != d.Hex {
-			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
+			t.Errorf("ImageFetcher.binaryFetcher got digest %s, but want '%s'", actualDiget, d.Hex)
 		}
 	})
 
@@ -213,19 +213,19 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Fetch OCI image.
-		binaryGetter, actualDiget, err := fetcher.Fetch(ref)
+		binaryFetcher, actualDiget, err := fetcher.PrepareFetch(ref)
 		if err != nil {
 			t.Fatal(err)
 		}
-		actual, err := binaryGetter()
+		actual, err := binaryFetcher()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !bytes.Equal(actual, want) {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), string(want))
+			t.Errorf("ImageFetcher.binaryFetcher got %s, but want '%s'", string(actual), string(want))
 		}
 		if actualDiget != d.Hex {
-			t.Errorf("ImageFetcher.Getch got digest %s, but want '%s'", actualDiget, d.Hex)
+			t.Errorf("ImageFetcher.binaryFetcher got digest %s, but want '%s'", actualDiget, d.Hex)
 		}
 	})
 
@@ -249,20 +249,20 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Try to fetch.
-		binaryGetter, _, err := fetcher.Fetch(ref)
+		binaryFetcher, _, err := fetcher.PrepareFetch(ref)
 		if err != nil {
 			t.Fatal(err)
 		}
-		actual, err := binaryGetter()
+		actual, err := binaryFetcher()
 		if actual != nil {
-			t.Errorf("ImageFetcher.Fetch got %s, but want nil", string(actual))
+			t.Errorf("ImageFetcher.binaryFetcher got %s, but want nil", string(actual))
 		}
 
 		expErr := `the given image is in invalid format as an OCI image: 2 errors occurred:
 	* could not parse as compat variant: invalid media type application/vnd.oci.image.layer.v1.tar (expect application/vnd.oci.image.layer.v1.tar+gzip)
 	* could not parse as oci variant: number of layers must be 2 but got 1`
 		if actual := strings.TrimSpace(err.Error()); actual != expErr {
-			t.Errorf("ImageFetcher.Fetch get unexpected error '%v', but want '%v'", actual, expErr)
+			t.Errorf("ImageFetcher.binaryFetcher get unexpected error '%v', but want '%v'", actual, expErr)
 		}
 	})
 }
