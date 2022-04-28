@@ -41,6 +41,21 @@ import (
 // redisOpTimeout is the default operation timeout for the Redis proxy filter.
 var redisOpTimeout = 5 * time.Second
 
+// buildInboundNetworkFiltersForHTTP builds the network filters that should be inserted before an HCM.
+// This should only be used with HTTP; see buildInboundNetworkFilters for TCP
+func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
+	var filters []*listener.Filter
+	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+
+	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
+	hcm := lb.buildHTTPConnectionManager(httpOpts)
+	filters = append(filters, &listener.Filter{
+		Name:       wellknown.HTTPConnectionManager,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
+	})
+	return filters
+}
+
 func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []*listener.Filter {
 	filterstack := make([]*listener.Filter, 0)
 	// We add metadata exchange on inbound only; outbound is handled in cluster filter
@@ -56,27 +71,29 @@ func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, cla
 }
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
-func buildInboundNetworkFilters(push *model.PushContext, proxy *model.Proxy, instance *model.ServiceInstance, clusterName string) []*listener.Filter {
-	statPrefix := clusterName
+func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []*listener.Filter {
+	statPrefix := fcc.clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
-	if len(push.Mesh.InboundClusterStatName) != 0 {
-		statPrefix = util.BuildStatPrefix(push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.ServicePort, &instance.Service.Attributes)
+	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
+		statPrefix = util.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", fcc.port.Port, fcc.port.Name)
 	}
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
 	}
-	idleTimeout, err := time.ParseDuration(proxy.Metadata.IdleTimeout)
+	idleTimeout, err := time.ParseDuration(lb.node.Metadata.IdleTimeout)
 	if err == nil {
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
 	}
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound)
 
 	var filters []*listener.Filter
 	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, buildMetricsNetworkFilters(push, proxy, istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, buildNetworkFiltersStack(instance.ServicePort, tcpFilter, statPrefix, clusterName)...)
+	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
+	filters = append(filters, lb.authzBuilder.BuildTCP()...)
+	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
+	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
+
 	return filters
 }
 
@@ -112,7 +129,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	var filters []*listener.Filter
 	filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
-	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
+	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters
 }
 
@@ -157,7 +174,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	var filters []*listener.Filter
 	filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
-	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
+	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters
 }
 
@@ -190,9 +207,9 @@ func maybeSetHashPolicy(destinationRule *networking.DestinationRule, tcpProxy *t
 
 // buildNetworkFiltersStack builds a slice of network filters based on
 // the protocol in use and the given TCP filter instance.
-func buildNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, statPrefix string, clusterName string) []*listener.Filter {
+func buildNetworkFiltersStack(p protocol.Instance, tcpFilter *listener.Filter, statPrefix string, clusterName string) []*listener.Filter {
 	filterstack := make([]*listener.Filter, 0)
-	switch port.Protocol {
+	switch p {
 	case protocol.Mongo:
 		if features.EnableMongoFilter {
 			filterstack = append(filterstack, buildMongoFilter(statPrefix), tcpFilter)
@@ -284,7 +301,7 @@ func buildRedisFilter(statPrefix, clusterName string) *listener.Filter {
 		LatencyInMicros: true,       // redis latency stats are captured in micro seconds which is typically the case.
 		StatPrefix:      statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
 		Settings: &redis.RedisProxy_ConnPoolSettings{
-			OpTimeout: durationpb.New(redisOpTimeout), // TODO: Make this user configurable
+			OpTimeout: durationpb.New(redisOpTimeout),
 		},
 		PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
 			CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{

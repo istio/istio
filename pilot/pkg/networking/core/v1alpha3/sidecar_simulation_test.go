@@ -480,9 +480,8 @@ func extractClusterMetadataServices(t test.Failer, c *cluster.Cluster) []string 
 	return res
 }
 
-func TestInbound(t *testing.T) {
-	mtlsMode := func(m string) string {
-		return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+func mtlsMode(m string) string {
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -491,7 +490,9 @@ spec:
   mtls:
     mode: %s
 `, m)
-	}
+}
+
+func TestInbound(t *testing.T) {
 	svc := `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -1383,7 +1384,11 @@ spec:
 	}
 	expectedTLSContext := func(filterChain *listener.FilterChain) error {
 		tlsContext := &tls.DownstreamTlsContext{}
-		if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
+		ts := filterChain.GetTransportSocket().GetTypedConfig()
+		if ts == nil {
+			return fmt.Errorf("expected transport socket for chain %v", filterChain.GetName())
+		}
+		if err := ts.UnmarshalTo(tlsContext); err != nil {
 			return err
 		}
 		commonTLSContext := tlsContext.CommonTlsContext
