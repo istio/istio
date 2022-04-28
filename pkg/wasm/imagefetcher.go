@@ -20,7 +20,6 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -40,9 +39,6 @@ import (
 // This file implements the fetcher of "Wasm Image Specification" compatible container images.
 // The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
 // Basically, this supports fetching and unpackaging three types of container images containing a Wasm binary.
-
-var errWasmOCIImageDigestMismatch = errors.New("fetched image's digest does not match the expected one")
-
 type ImageFetcherOption struct {
 	// TODO(mathetake) Add signature verification stuff.
 	PullSecret []byte
@@ -88,10 +84,10 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 	}
 }
 
-// Fetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
-// Wasm binary is not fetched immediately, but returned by `binaryGetter` function.
+// PrepareFetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
+// Wasm binary is not fetched immediately, but returned by `binaryFetcher` function, which is returned by PrepareFetch.
 // By this way, we can have another chance to check cache with `actualDigest` without downloading the OCI image.
-func (o *ImageFetcher) Fetch(url string) (binaryGetter func() ([]byte, error), actualDigest string, err error) {
+func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, error), actualDigest string, err error) {
 	ref, err := name.ParseReference(url)
 	if err != nil {
 		err = fmt.Errorf("could not parse url in image reference: %v", err)
@@ -124,7 +120,7 @@ func (o *ImageFetcher) Fetch(url string) (binaryGetter func() ([]byte, error), a
 	// Check Manifest's digest if expManifestDigest is not empty.
 	d, _ := img.Digest()
 	actualDigest = d.Hex
-	binaryGetter = func() ([]byte, error) {
+	binaryFetcher = func() ([]byte, error) {
 		manifest, err := img.Manifest()
 		if err != nil {
 			return nil, fmt.Errorf("could not retrieve manifest: %v", err)

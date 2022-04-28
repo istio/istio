@@ -126,7 +126,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	var b []byte
 	// Hex-Encoded sha256 checksum of binary.
 	var dChecksum string
-	var binaryGetter func() ([]byte, error)
+	var binaryFetcher func() ([]byte, error)
 	switch u.Scheme {
 	case "http", "https":
 		// Download the Wasm module with http fetcher.
@@ -156,7 +156,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		}
 		wasmLog.Debugf("wasm oci fetch %s with options: %v", downloadURL, imgFetcherOps)
 		fetcher := NewImageFetcher(ctx, imgFetcherOps)
-		binaryGetter, dChecksum, err = fetcher.Fetch(u.Host + u.Path)
+		binaryFetcher, dChecksum, err = fetcher.PrepareFetch(u.Host + u.Path)
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
 			return "", fmt.Errorf("could not fetch Wasm OCI image: %v", err)
@@ -176,8 +176,8 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		return "", fmt.Errorf("module downloaded from %v has checksum %v, which does not match: %v", downloadURL, dChecksum, key.checksum)
 	}
 
-	if binaryGetter != nil {
-		b, err = binaryGetter()
+	if binaryFetcher != nil {
+		b, err = binaryFetcher()
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
 			return "", fmt.Errorf("could not fetch Wasm binary: %v", err)
