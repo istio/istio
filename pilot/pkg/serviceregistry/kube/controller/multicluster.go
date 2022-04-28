@@ -151,22 +151,22 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	}
 
 	client := cluster.Client
+	// localCluster may also be the "config" cluster, in an external-istiod setup.
+	localCluster := m.opts.ClusterID == cluster.ID
 
 	// clusterStopCh is a channel that will be closed when this cluster removed.
 	options := m.opts
 	options.ClusterID = cluster.ID
-	// the aggregate registry's HasSynced will use the k8s controller's HasSynced, so we reference the same timeout
-	options.SyncTimeout = cluster.SyncTimeout
 	// different clusters may have different k8s version, re-apply conditional default
 	options.EndpointMode = DetectEndpointMode(client)
-
+	if !localCluster {
+		options.SyncTimeout = features.RemoteClusterTimeout
+	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
 	m.remoteKubeControllers[cluster.ID] = &kubeController{
 		Controller: kubeRegistry,
 	}
-	// localCluster may also be the "config" cluster, in an external-istiod setup.
-	localCluster := m.opts.ClusterID == cluster.ID
 
 	m.m.Unlock()
 
