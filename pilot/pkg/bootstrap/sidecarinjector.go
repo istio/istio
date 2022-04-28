@@ -29,6 +29,8 @@ import (
 )
 
 const (
+	// Name of the webhook config in the config - no need to change it.
+	webhookName = "sidecar-injector.istio.io"
 	// defaultInjectorConfigMapName is the default name of the ConfigMap with the injection config
 	// The actual name can be different - use getInjectorConfigMapName
 	defaultInjectorConfigMapName = "istio-sidecar-injector"

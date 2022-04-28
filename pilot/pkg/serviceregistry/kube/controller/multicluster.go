@@ -232,6 +232,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 							patcher.Run(leaderStop)
 						}
 					})
+
 			}
 			election.Run(clusterStopCh)
 			return nil
