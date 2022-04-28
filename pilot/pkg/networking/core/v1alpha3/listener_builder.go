@@ -385,7 +385,8 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
-	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, ipTablesListener)
+	class := model.OutboundListenerClass(lb.node.Type)
+	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, ipTablesListener, class)
 	lb.virtualOutboundListener = ipTablesListener
 	return lb
 }
@@ -425,7 +426,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener() *ListenerBuilder {
 		FilterChains:            filterChains,
 		ConnectionBalanceConfig: connectionBalance,
 	}
-	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, lb.virtualInboundListener)
+	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, lb.virtualInboundListener, istionetworking.ListenerClassSidecarInbound)
 	lb.aggregateVirtualInboundListener(passthroughInspector)
 
 	return lb
@@ -718,7 +719,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		IdleTimeout:      durationpb.New(idleTimeoutDuration),
 	}
 	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound)
-	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy)
+	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy, istionetworking.ListenerClassSidecarOutbound)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
