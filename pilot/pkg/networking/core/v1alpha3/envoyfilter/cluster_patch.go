@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/proto/merge"
 	"istio.io/pkg/log"
 )
 
@@ -56,7 +57,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 			}
 			applied = true
 			if !ret {
-				proto.Merge(c, cp.Value)
+				merge.Merge(c, cp.Value)
 			}
 		}
 		IncrementEnvoyFilterMetric(cp.Key(), Cluster, applied)
@@ -115,7 +116,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 			}
 
 			// Merge the above result with the whole cluster
-			proto.Merge(dstCluster, retVal)
+			merge.Merge(dstCluster, retVal)
 		}
 	}
 	return true, nil

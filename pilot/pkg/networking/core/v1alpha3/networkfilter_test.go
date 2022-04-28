@@ -34,8 +34,7 @@ import (
 )
 
 func TestBuildRedisFilter(t *testing.T) {
-	node := getProxy()
-	redisFilter := buildRedisFilter(node, "redis", "redis-cluster")
+	redisFilter := buildRedisFilter("redis", "redis-cluster")
 	if redisFilter.Name != wellknown.RedisProxy {
 		t.Errorf("redis filter name is %s not %s", redisFilter.Name, wellknown.RedisProxy)
 	}
@@ -52,35 +51,6 @@ func TestBuildRedisFilter(t *testing.T) {
 		}
 		if redisProxy.PrefixRoutes.CatchAllRoute.Cluster != "redis-cluster" {
 			t.Errorf("redis proxy's PrefixRoutes.CatchAllCluster is %s", redisProxy.PrefixRoutes.CatchAllRoute.Cluster)
-		}
-	} else {
-		t.Errorf("redis filter type is %T not listener.Filter_TypedConfig ", redisFilter.ConfigType)
-	}
-}
-
-func TestBuildRedisFilterCustomTimeout(t *testing.T) {
-	node := getProxy()
-	node.Metadata.RedisOpTimeout = "15s"
-	redisFilter := buildRedisFilter(node, "redis", "redis-cluster")
-	if redisFilter.Name != wellknown.RedisProxy {
-		t.Errorf("redis filter name is %s not %s", redisFilter.Name, wellknown.RedisProxy)
-	}
-	if config, ok := redisFilter.ConfigType.(*listener.Filter_TypedConfig); ok {
-		redisProxy := redis.RedisProxy{}
-		if err := config.TypedConfig.UnmarshalTo(&redisProxy); err != nil {
-			t.Errorf("unmarshal failed: %v", err)
-		}
-		if redisProxy.StatPrefix != "redis" {
-			t.Errorf("redis proxy statPrefix is %s", redisProxy.StatPrefix)
-		}
-		if !redisProxy.LatencyInMicros {
-			t.Errorf("redis proxy latency stat is not configured for microseconds")
-		}
-		if redisProxy.PrefixRoutes.CatchAllRoute.Cluster != "redis-cluster" {
-			t.Errorf("redis proxy's PrefixRoutes.CatchAllCluster is %s", redisProxy.PrefixRoutes.CatchAllRoute.Cluster)
-		}
-		if redisProxy.Settings.OpTimeout.Seconds != 15 {
-			t.Errorf("redis proxy's Settings.OpTimeout is %s", redisProxy.Settings.OpTimeout)
 		}
 	} else {
 		t.Errorf("redis filter type is %T not listener.Filter_TypedConfig ", redisFilter.ConfigType)

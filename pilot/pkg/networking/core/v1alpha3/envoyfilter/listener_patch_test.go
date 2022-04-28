@@ -20,13 +20,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
+	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -258,6 +259,28 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value:     buildPatchStruct(`{"filter_chain_match": { "server_names": ["foo.com"] }}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{Name: wellknown.RedisProxy},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+{"name": "envoy.filters.network.redis_proxy",
+"typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.redis_proxy.v3.RedisProxy",
+        "settings": {"op_timeout": "0.2s"}
+}
+}`),
 			},
 		},
 		{
@@ -849,6 +872,30 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 		{
+			Name: "redis-proxy",
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrapperspb.UInt32Value{
+							Value: 9999,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.RedisProxy,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
+									Settings: &redis.RedisProxy_ConnPoolSettings{
+										OpTimeout: durationpb.New(time.Second * 5),
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			Name: "network-filter-to-be-replaced-not-found",
 			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
@@ -1047,10 +1094,10 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: "envoy.redis_proxy",
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
 									StatPrefix: "redis_stats",
-									PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
-										CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
+									PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
+										CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{
 											Cluster: "custom-redis-cluster",
 										},
 									},
@@ -1058,6 +1105,30 @@ func TestApplyListenerPatches(t *testing.T) {
 							},
 						},
 						{Name: "filter2"},
+					},
+				},
+			},
+		},
+		{
+			Name: "redis-proxy",
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrapperspb.UInt32Value{
+							Value: 9999,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.RedisProxy,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
+									Settings: &redis.RedisProxy_ConnPoolSettings{
+										OpTimeout: durationpb.New(time.Millisecond * 200),
+									},
+								}),
+							},
+						},
 					},
 				},
 			},
@@ -1628,10 +1699,10 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: "envoy.redis_proxy",
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
 									StatPrefix: "redis_stats",
-									PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
-										CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
+									PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
+										CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{
 											Cluster: "custom-redis-cluster",
 										},
 									},
