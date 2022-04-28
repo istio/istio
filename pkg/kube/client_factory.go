@@ -29,7 +29,6 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/util/openapi"
 	"k8s.io/kubectl/pkg/validation"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 var _ util.Factory = &clientFactory{}
@@ -85,20 +84,8 @@ func (c *clientFactory) ToRESTMapper() (meta.RESTMapper, error) {
 	if err != nil {
 		return nil, err
 	}
-	rc, err := c.ToRESTConfig()
-	if err != nil {
-		return nil, err
-	}
 	c.mapperOnce.Do(func() {
-		c.mapper, _ = apiutil.NewDynamicRESTMapper(rc, apiutil.WithLazyDiscovery, apiutil.WithCustomMapper(func() (meta.RESTMapper, error) {
-			discoveryClient.Invalidate()
-			// Use a custom mapper so we can re-use our discoveryClient instead of creating a new one
-			groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
-			if err != nil {
-				return nil, err
-			}
-			return restmapper.NewDiscoveryRESTMapper(groupResources), nil
-		}))
+		c.mapper = restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
 		c.expander = restmapper.NewShortcutExpander(c.mapper, discoveryClient)
 	})
 	return c.expander, nil

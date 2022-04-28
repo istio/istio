@@ -22,6 +22,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
@@ -137,7 +138,16 @@ func readConfigFile(filename string) ([]byte, error) {
 }
 
 func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
-	return kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
+		// We are running a one-off command locally, so we don't need to worry too much about rate limitting
+		// Bumping this up greatly decreases install time
+		config.QPS = 50
+		config.Burst = 100
+	})
+	if err != nil {
+		return nil, err
+	}
+	return kube.NewExtendedClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
 func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {
