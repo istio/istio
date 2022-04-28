@@ -37,9 +37,10 @@ import (
 
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
-		Name:     port.Name,
-		Port:     int(port.Number),
-		Protocol: protocol.Parse(port.Protocol),
+		Name:       port.Name,
+		Port:       int(port.Number),
+		Protocol:   protocol.Parse(port.Protocol),
+		TargetPort: int(port.TargetPort),
 	}
 }
 
@@ -114,8 +115,8 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 			Number: uint32(p.Port),
 			Name:   p.Name,
 			// Protocol is converted to protocol.Instance - reverse conversion will use the name.
-			Protocol: string(p.Protocol),
-			// TODO: target port
+			Protocol:   string(p.Protocol),
+			TargetPort: uint32(p.TargetPort),
 		})
 	}
 

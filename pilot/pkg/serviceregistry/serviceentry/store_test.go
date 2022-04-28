@@ -108,8 +108,20 @@ func TestServiceStore(t *testing.T) {
 	}
 
 	expectedServices := []*model.Service{
-		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB),
-		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP,
+			map[string]*testPort{
+				"http-port":     {Port: 80},
+				"http-alt-port": {Port: 8080},
+			},
+			true,
+			model.DNSRoundRobinLB),
+		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP,
+			map[string]*testPort{
+				"http-port":     {Port: 80},
+				"http-alt-port": {Port: 8080},
+			},
+			true,
+			model.DNSLB),
 	}
 
 	store.updateServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name}, expectedServices)

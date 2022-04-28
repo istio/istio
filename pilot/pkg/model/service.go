@@ -193,6 +193,10 @@ type Port struct {
 
 	// Protocol to be used for the port.
 	Protocol protocol.Instance `json:"protocol,omitempty"`
+
+	// The port number on the endpoint where the traffic will be received.
+	// It can map the k8s service or ServiceEntries with targetPort specified
+	TargetPort int `json:"target_port,omitempty"`
 }
 
 // PortList is a set of ports
@@ -840,9 +844,10 @@ func (s *Service) DeepCopy() *Service {
 		for i, port := range s.Ports {
 			if port != nil {
 				out.Ports[i] = &Port{
-					Name:     port.Name,
-					Port:     port.Port,
-					Protocol: port.Protocol,
+					Name:       port.Name,
+					Port:       port.Port,
+					Protocol:   port.Protocol,
+					TargetPort: port.TargetPort,
 				}
 			} else {
 				out.Ports[i] = nil
