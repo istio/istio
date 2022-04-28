@@ -126,7 +126,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 			if s.Attributes.ServiceRegistry == provider.External {
 				continue
 			}
-			c := serviceentry.ServiceToServiceEntry(s, proxy)
+			c := serviceentry.ServiceToServiceEntry(s, proxy, req.Push)
 			b, err := config.PilotConfigToResource(c)
 			if err != nil {
 				log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)

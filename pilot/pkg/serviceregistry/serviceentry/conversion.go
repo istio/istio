@@ -72,7 +72,7 @@ type HostAddress struct {
 //
 // See convertServices() for the reverse conversion, used by Istio to handle ServiceEntry configs.
 // See kube.ConvertService for the conversion from K8S to internal Service.
-func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Config {
+func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy, ps *model.PushContext) *config.Config {
 	gvk := gvk.ServiceEntry
 	se := &networking.ServiceEntry{
 		// Host is fully qualified: name, namespace, domainSuffix
@@ -129,7 +129,8 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 
 	// Port is mapped from ServicePort
 	for _, p := range svc.Ports {
-		targetPort := getTargetPortFromServiceInstances(p, svc, proxy.ServiceInstances)
+		serviceInstances := ps.ServiceInstancesByPort(svc, p.Port, nil)
+		targetPort := getTargetPortFromServiceInstances(p, svc, serviceInstances)
 		se.Ports = append(se.Ports, &networking.Port{
 			Number: uint32(p.Port),
 			Name:   p.Name,
