@@ -44,6 +44,13 @@ const (
 	// DefaultWasmModuleExpiry is the default duration for least recently touched Wasm module to become stale.
 	DefaultWasmModuleExpiry = 24 * time.Hour
 
+	// Default timeout per a HTTP/HTTPS request for HTTP/HTTPS-based wasm pulling.
+	DefaultWasmHTTPRequestTimeout = 5 * time.Second
+
+	// Default maximum number of HTTP/HTTPS request retries for HTTP/HTTPS-based wasm pulling.
+	// Note that, if the timeout specified in WasmPlugin is reaching out, then the pulling is stopped even though the retry count is still less than this value.
+	DefaultWasmHTTPRequestMaxRetries = 5
+
 	// oci URL prefix
 	ociURLPrefix = "oci://"
 
@@ -121,7 +128,7 @@ type cacheEntry struct {
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
 func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
 	cache := &LocalFileCache{
-		httpFetcher:        NewHTTPFetcher(5 * time.Second),
+		httpFetcher:        NewHTTPFetcher(DefaultWasmHTTPRequestTimeout),
 		modules:            make(map[moduleKey]*cacheEntry),
 		checksums:          make(map[string]*checksumEntry),
 		dir:                dir,

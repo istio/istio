@@ -63,7 +63,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 	b.InitialInterval = f.initialBackoff
 	b.Reset()
 	var lastError error
-	for attempts < 5 {
+	for attempts < DefaultWasmHTTPRequestMaxRetries {
 		attempts++
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
