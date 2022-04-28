@@ -426,7 +426,7 @@ func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]struct{}, er
 	var res *crd.CustomResourceDefinitionList
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = time.Second
-	b.MaxElapsedTime = time.Minute
+	b.MaxElapsedTime = 20 * time.Second
 	err := backoff.Retry(func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
