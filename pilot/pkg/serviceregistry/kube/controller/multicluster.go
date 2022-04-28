@@ -219,24 +219,21 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 					client.RunAndWait(clusterStopCh)
 					nc.Run(leaderStop)
 				})
-			// Set up injection webhook patching for remote clusters we are controlling.
-			// The local cluster has this patching set up elsewhere. We may eventually want to move it here.
-			if features.ExternalIstiod && !localCluster && m.caBundleWatcher != nil {
-				// Patch injection webhook cert
+			// Patch injection webhook cert for clusters we are leading.
+			if m.caBundleWatcher != nil && features.InjectionWebhookConfigName != "" {
 				// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 				// operator or CI/CD
-				if features.InjectionWebhookConfigName != "" {
-					election = election.
-						AddRunFunction(func(leaderStop <-chan struct{}) {
-							log.Infof("initializing webhook cert patch for cluster %s", cluster.ID)
-							patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
-							if err != nil {
-								log.Errorf("could not initialize webhook cert patcher: %v", err)
-							} else {
-								patcher.Run(leaderStop)
-							}
-						})
-				}
+				election = election.
+					AddRunFunction(func(leaderStop <-chan struct{}) {
+						log.Infof("initializing webhook cert patch for cluster %s", cluster.ID)
+						patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
+						if err != nil {
+							log.Errorf("could not initialize webhook cert patcher: %v", err)
+						} else {
+							patcher.Run(leaderStop)
+						}
+					})
+
 			}
 			election.Run(clusterStopCh)
 			return nil
