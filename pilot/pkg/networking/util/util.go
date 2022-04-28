@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
@@ -440,7 +441,7 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 	}
 
 	// Merge the two typed protos
-	proto.Merge(dstX, srcX)
+	merge.Merge(dstX, srcX)
 	var retVal *anypb.Any
 
 	// Convert the merged proto back to dst

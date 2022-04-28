@@ -24,6 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
@@ -55,7 +56,7 @@ func ApplyRouteConfigurationPatches(
 		}
 		if commonConditionMatch(patchContext, rp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) {
-			proto.Merge(routeConfiguration, rp.Value)
+			merge.Merge(routeConfiguration, rp.Value)
 			IncrementEnvoyFilterMetric(rp.Key(), Route, true)
 		} else {
 			IncrementEnvoyFilterMetric(rp.Key(), Route, false)
@@ -117,7 +118,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				return true
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				proto.Merge(virtualHosts[idx], rp.Value)
+				merge.Merge(virtualHosts[idx], rp.Value)
 			} else if rp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 				virtualHosts[idx] = proto.Clone(rp.Value).(*route.VirtualHost)
 			}
@@ -251,7 +252,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 				*routesRemoved = true
 				return
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				proto.Merge(virtualHost.Routes[routeIndex], rp.Value)
+				merge.Merge(virtualHost.Routes[routeIndex], rp.Value)
 			}
 			applied = true
 		}
