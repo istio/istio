@@ -22,7 +22,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
@@ -56,6 +55,6 @@ type ConfigGenerator interface {
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator
-func NewConfigGenerator(plugins []string, cache model.XdsCache) ConfigGenerator {
-	return v1alpha3.NewConfigGenerator(registry.NewPlugins(plugins), cache)
+func NewConfigGenerator(cache model.XdsCache) ConfigGenerator {
+	return v1alpha3.NewConfigGenerator(cache)
 }

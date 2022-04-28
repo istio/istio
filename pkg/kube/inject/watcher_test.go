@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
 )
@@ -86,7 +85,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	stop := make(chan struct{})
 	go w.Run(stop)
 	controller := w.(*configMapWatcher).c
-	cache.WaitForCacheSync(stop, controller.HasSynced)
+	kube.WaitForCacheSync(stop, controller.HasSynced)
 	client.RunAndWait(stop)
 
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)

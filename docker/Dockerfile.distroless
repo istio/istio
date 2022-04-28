@@ -1,3 +1,20 @@
-# istio-static image is prebuilt with 1337:1337.
-# https://github.com/istio/distroless/tree/iptables/istio
-FROM gcr.io/istio-release/distroless/istio-static@sha256:6330bd7b07d70fe4277af99c6bba96236ae3f415417b13a4563f29bcf6208062 as distroless_source
+# prepare a distroless source context to copy files from
+FROM gcr.io/distroless/static-debian11@sha256:d6fa9db9548b5772860fecddb11d84f9ebd7e0321c0cb3c02870402680cc315f as distroless_source
+
+# prepare a base dev to modify file contents
+FROM ubuntu:focal as ubuntu_source
+
+# Modify contents of container
+COPY --from=distroless_source /etc/ /home/etc
+COPY --from=distroless_source /home/nonroot /home/nonroot
+RUN echo istio-proxy:x:1337: >> /home/etc/group
+RUN echo istio-proxy:x:1337:1337:istio-proxy:/nonexistent:/sbin/nologin >> /home/etc/passwd
+
+# Customize distroless with the following:
+# - password file
+# - groups file
+# - /home/nonroot directory
+FROM distroless_source
+COPY --from=ubuntu_source /home/etc/passwd /etc/passwd
+COPY --from=ubuntu_source /home/etc/group /etc/group
+COPY --from=ubuntu_source /home/nonroot /home/nonroot

@@ -279,7 +279,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			gcc.Run(stop)
 		}
 	}()
-	cache.WaitForCacheSync(stop, c.namespaceInformer.HasSynced)
+	kube.WaitForCacheSync(stop, c.namespaceInformer.HasSynced)
 }
 
 func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
@@ -298,7 +298,9 @@ func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
 	}
 	from := Reference{Kind: gvk.KubernetesGateway, Namespace: k8s.Namespace(namespace)}
 	to := Reference{Kind: gvk.Secret, Namespace: k8s.Namespace(p.Namespace)}
+	c.stateMu.RLock()
 	allow := c.state.AllowedReferences[from][to]
+	c.stateMu.RUnlock()
 	if allow == nil {
 		return false
 	}

@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -101,7 +102,7 @@ func Test_SecretController(t *testing.T) {
 	BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	features.RemoteClusterTimeout = 10 * time.Nanosecond
+	test.SetDurationForTest(t, &features.RemoteClusterTimeout, 10*time.Nanosecond)
 	clientset := kube.NewFakeClient()
 
 	var (
@@ -146,7 +147,7 @@ func Test_SecretController(t *testing.T) {
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})
-	kube.WaitForCacheSyncInterval(stopCh, time.Microsecond, c.informer.HasSynced)
+	kube.WaitForCacheSync(stopCh, c.informer.HasSynced)
 	clientset.RunAndWait(stopCh)
 
 	for i, step := range steps {

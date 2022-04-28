@@ -339,7 +339,8 @@ func CreateDestinationRule(t framework.TestContext, to echo.Instances,
 	istioCfg := istio.DefaultConfigOrFail(t, t)
 	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-	t.ConfigKube(t.Clusters().Default()).Eval(systemNS.Name(), args, DestinationRuleConfig).ApplyOrFail(t)
+	t.ConfigKube(t.Clusters().Default()).Eval(systemNS.Name(), args, DestinationRuleConfig).
+		ApplyOrFail(t)
 }
 
 type TLSTestCase struct {

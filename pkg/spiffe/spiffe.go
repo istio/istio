@@ -40,7 +40,7 @@ const (
 	URIPrefixLen = len(URIPrefix)
 
 	// The default SPIFFE URL value for trust domain
-	defaultTrustDomain = constants.DefaultKubernetesDomain
+	defaultTrustDomain = constants.DefaultClusterLocalDomain
 
 	ServiceAccountSegment = "sa"
 	NamespaceSegment      = "ns"

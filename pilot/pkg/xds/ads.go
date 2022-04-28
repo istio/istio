@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/pilot/pkg/controller/workloadentry"
+	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
@@ -656,7 +656,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 // handleWorkloadHealthcheck processes HealthInformation type Url.
 func (s *DiscoveryServer) handleWorkloadHealthcheck(proxy *model.Proxy, req *discovery.DiscoveryRequest) {
 	if features.WorkloadEntryHealthChecks {
-		event := workloadentry.HealthEvent{}
+		event := autoregistration.HealthEvent{}
 		event.Healthy = req.ErrorDetail == nil
 		if !event.Healthy {
 			event.Message = req.ErrorDetail.Message

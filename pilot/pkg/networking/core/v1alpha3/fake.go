@@ -33,8 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -76,9 +74,6 @@ type TestOptions struct {
 
 	// CreateConfigStore defines a function that, given a ConfigStoreController, returns another ConfigStoreController to use
 	CreateConfigStore func(c model.ConfigStoreController) model.ConfigStoreController
-
-	// ConfigGen plugins to use. If not set, all default plugins will be used
-	Plugins []plugin.Plugin
 
 	// Mutex used for push context access. Should generally only be used by NewFakeDiscoveryServer
 	PushContextLock *sync.RWMutex
@@ -158,17 +153,13 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	env.NetworksWatcher = opts.NetworksWatcher
 	env.Init()
 
-	if opts.Plugins == nil {
-		opts.Plugins = registry.NewPlugins([]string{plugin.AuthzCustom, plugin.Authn, plugin.Authz})
-	}
-
 	fake := &ConfigGenTest{
 		t:                    t,
 		store:                configController,
 		env:                  env,
 		initialConfigs:       configs,
 		stop:                 stop,
-		ConfigGen:            NewConfigGenerator(opts.Plugins, &model.DisabledCache{}),
+		ConfigGen:            NewConfigGenerator(&model.DisabledCache{}),
 		MemRegistry:          msd,
 		Registry:             serviceDiscovery,
 		ServiceEntryRegistry: se,
@@ -215,7 +206,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.14.0"
+		p.Metadata.IstioVersion = "1.15.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)

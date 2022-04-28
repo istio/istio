@@ -43,8 +43,25 @@ type Cluster interface {
 type Configurable interface {
 	Config() Config
 
-	// NamespacedName is a short form for Config().NamespacedName().
+	// ServiceName is the name of this service within the namespace.
+	ServiceName() string
+
+	// NamespaceName returns the name of the namespace or "" if the Namespace is nil.
+	NamespaceName() string
+
+	// NamespacedName returns the namespaced name for this service.
+	// Short form for Config().NamespacedName().
 	NamespacedName() NamespacedName
+
+	// ServiceAccountName returns the service account string for this service.
+	ServiceAccountName() string
+
+	// ClusterLocalFQDN returns the fully qualified domain name for cluster-local host.
+	ClusterLocalFQDN() string
+
+	// ClusterSetLocalFQDN returns the fully qualified domain name for the Kubernetes
+	// Multi-Cluster Services (MCS) Cluster Set host.
+	ClusterSetLocalFQDN() string
 
 	// PortForName is a short form for Config().Ports.MustForName().
 	PortForName(name string) Port
@@ -150,12 +167,22 @@ type Config struct {
 	IPFamilyPolicy string
 }
 
+// NamespaceName returns the string name of the namespace.
+func (c Config) NamespaceName() string {
+	return c.NamespacedName().NamespaceName()
+}
+
 // NamespacedName returns the namespaced name for the service.
 func (c Config) NamespacedName() NamespacedName {
 	return NamespacedName{
 		Name:      c.Service,
 		Namespace: c.Namespace,
 	}
+}
+
+// ServiceAccountName returns the service account name for this service.
+func (c Config) ServiceAccountName() string {
+	return "cluster.local/ns/" + c.NamespaceName() + "/sa/" + c.Service
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
@@ -276,7 +303,7 @@ const (
 	defaultService   = "echo"
 	defaultVersion   = "v1"
 	defaultNamespace = "echo"
-	defaultDomain    = constants.DefaultKubernetesDomain
+	defaultDomain    = constants.DefaultClusterLocalDomain
 )
 
 func (c *Config) FillDefaults(ctx resource.Context) (err error) {

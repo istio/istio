@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -82,8 +83,10 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	"istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/pkg/version"
 )
 
@@ -574,6 +577,48 @@ func fastWaitForCacheSync(stop <-chan struct{}, informerFactory reflectInformerS
 	})
 }
 
+// WaitForCacheSync waits until all caches are synced. This will return true only if things synced
+// successfully before the stop channel is closed. This function also lives in the Kubernetes cache
+// library. However, that library will poll with 100ms fixed interval. Often the cache syncs in a few
+// ms, but we are delayed a full 100ms. This is especially apparent in tests, which previously spent
+// most of their time just in the 100ms wait interval.
+//
+// To optimize this, this function performs exponential backoff. This is generally safe because
+// cache.InformerSynced functions are ~always quick to run. However, if the sync functions do perform
+// expensive checks this function may not be suitable.
+func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+	max := time.Millisecond * 100
+	delay := time.Millisecond
+	f := func() bool {
+		for _, syncFunc := range cacheSyncs {
+			if !syncFunc() {
+				return false
+			}
+		}
+		return true
+	}
+	for {
+		select {
+		case <-stop:
+			return false
+		default:
+		}
+		res := f()
+		if res {
+			return true
+		}
+		delay *= 2
+		if delay > max {
+			delay = max
+		}
+		select {
+		case <-stop:
+			return false
+		case <-time.After(delay):
+		}
+	}
+}
+
 func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
@@ -590,21 +635,6 @@ func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicIn
 		}
 		return true, nil
 	})
-}
-
-// WaitForCacheSyncInterval waits for caches to populate, with explicitly configured interval
-func WaitForCacheSyncInterval(stopCh <-chan struct{}, interval time.Duration, cacheSyncs ...cache.InformerSynced) bool {
-	err := wait.PollImmediateUntil(interval,
-		func() (bool, error) {
-			for _, syncFunc := range cacheSyncs {
-				if !syncFunc() {
-					return false, nil
-				}
-			}
-			return true, nil
-		},
-		stopCh)
-	return err == nil
 }
 
 func (c *client) Revision() string {
@@ -978,6 +1008,13 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		// Concatenate the stdout and stderr
 		s := stdout.String() + stderr.String()
 		return fmt.Errorf("%v: %s", err, s)
+	}
+	// If we are changing CRDs, invalidate the discovery client so future calls will not fail
+	if !dryRun {
+		f, _ := ioutil.ReadFile(file)
+		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
+			c.discoveryClient.Invalidate()
+		}
 	}
 	return nil
 }

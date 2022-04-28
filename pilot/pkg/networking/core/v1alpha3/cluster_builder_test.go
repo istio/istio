@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -1778,13 +1779,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	credentialName := "some-fake-credential"
 
 	testCases := []struct {
-		name                     string
-		opts                     *buildClusterOpts
-		tls                      *networking.ClientTLSSettings
-		h2                       bool
-		router                   bool
-		result                   expectedResult
-		enableVerifyCertAtClient bool
+		name          string
+		opts          *buildClusterOpts
+		tls           *networking.ClientTLSSettings
+		h2            bool
+		router        bool
+		result        expectedResult
+		enableAutoSni bool
 	}{
 		{
 			name: "tls mode disabled",
@@ -1994,7 +1995,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				err: nil,
 			},
-			enableVerifyCertAtClient: true,
+			enableAutoSni: true,
 		},
 		{
 			name: "tls mode SIMPLE, with VerifyCert enabled and sni specified in tls",
@@ -2020,7 +2021,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				err: nil,
 			},
-			enableVerifyCertAtClient: true,
+			enableAutoSni: true,
 		},
 		{
 			name: "tls mode SIMPLE, with certs specified in tls",
@@ -2647,11 +2648,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			old := features.VerifyCertAtClient
-			defer func() {
-				features.VerifyCertAtClient = old
-			}()
-			features.VerifyCertAtClient = tc.enableVerifyCertAtClient
+			test.SetBoolForTest(t, &features.EnableAutoSni, tc.enableAutoSni)
 			var proxy *model.Proxy
 			if tc.router {
 				proxy = newGatewayProxy()
@@ -2668,7 +2665,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: `%v", diff)
 			}
-			if tc.enableVerifyCertAtClient {
+			if tc.enableAutoSni {
 				if len(tc.tls.Sni) == 0 {
 					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
 				} else if tc.opts.mutable.httpProtocolOptions != nil {
@@ -3217,11 +3214,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			old := features.VerifyCertAtClient
-			defer func() {
-				features.VerifyCertAtClient = old
-			}()
-			features.VerifyCertAtClient = tt.enableVerifyCertAtClient
+			test.SetBoolForTest(t, &features.VerifyCertAtClient, tt.enableVerifyCertAtClient)
 			instances := []*model.ServiceInstance{
 				{
 					Service:     tt.service,

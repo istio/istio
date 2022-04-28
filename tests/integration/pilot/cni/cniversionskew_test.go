@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -100,9 +99,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		RequireMultiPrimary().
 		Setup(istio.Setup(&i, nil)).
-		Setup(func(t resource.Context) error {
-			return deployment.SetupSingleNamespace(t, &apps)
-		}).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Run()
 }
 

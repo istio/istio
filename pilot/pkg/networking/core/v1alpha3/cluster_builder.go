@@ -1143,7 +1143,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 }
 
 func (cb *ClusterBuilder) setAutoSni(mc *MutableCluster, tls *networking.ClientTLSSettings) {
-	if mc != nil && features.VerifyCertAtClient && len(tls.Sni) == 0 {
+	if mc != nil && features.EnableAutoSni && len(tls.Sni) == 0 {
 		if mc.httpProtocolOptions == nil {
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
@@ -1315,10 +1315,8 @@ func defaultUpstreamCommonTLSContext() *auth.CommonTlsContext {
 // or those whose label value does not match "istio"
 func defaultTransportSocketMatch() *cluster.Cluster_TransportSocketMatch {
 	return &cluster.Cluster_TransportSocketMatch{
-		Name:  "tlsMode-disabled",
-		Match: &structpb.Struct{},
-		TransportSocket: &core.TransportSocket{
-			Name: util.EnvoyRawBufferSocketName,
-		},
+		Name:            "tlsMode-disabled",
+		Match:           &structpb.Struct{},
+		TransportSocket: xdsfilters.RawBufferTransportSocket,
 	}
 }

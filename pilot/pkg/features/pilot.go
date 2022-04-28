@@ -343,10 +343,11 @@ var (
 		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
 		"but larger numbers may impact CPU in high scale environments.").Get()
 
-	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
-	// for examples: istiod.mycompany.com
+	// IstiodServiceCustomHost allow user to bring a custom address or multiple custom addresses for istiod server
+	// for examples: 1. istiod.mycompany.com  2. istiod.mycompany.com,istiod-canary.mycompany.com
 	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
-		"Custom host name of istiod that istiod signs the server cert.").Get()
+		"Custom host name of istiod that istiod signs the server cert. "+
+			"Multiple custom host names are supported, and multiple values are separated by commas.").Get()
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
 		"The provider of Pilot DNS certificate.").Get()
@@ -610,6 +611,9 @@ var (
 
 	EnableTLSOnSidecarIngress = env.RegisterBoolVar("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
 		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
+
+	EnableAutoSni = env.RegisterBoolVar("ENABLE_AUTO_SNI", false,
+		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
 
 	InsecureKubeConfigOptions = func() sets.Set {
 		v := env.RegisterStringVar(

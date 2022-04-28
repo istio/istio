@@ -28,12 +28,14 @@ import (
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/sets"
 )
 
-// suiteContext contains suite-level items used during runtime.
+// SuiteContext contains suite-level items used during runtime.
 type SuiteContext interface {
 	resource.Context
 }
@@ -92,15 +94,15 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 
 // allocateContextID allocates a unique context id for TestContexts. Useful for creating unique names to help with
 // debugging
-func (s *suiteContext) allocateContextID(prefix string) string {
-	s.contextMu.Lock()
-	defer s.contextMu.Unlock()
+func (c *suiteContext) allocateContextID(prefix string) string {
+	c.contextMu.Lock()
+	defer c.contextMu.Unlock()
 
 	candidate := prefix
 	discriminator := 0
 	for {
-		if !s.contextNames.Contains(candidate) {
-			s.contextNames.Insert(candidate)
+		if !c.contextNames.Contains(candidate) {
+			c.contextNames.Insert(candidate)
 			return candidate
 		}
 
@@ -109,16 +111,16 @@ func (s *suiteContext) allocateContextID(prefix string) string {
 	}
 }
 
-func (s *suiteContext) allocateResourceID(contextID string, r resource.Resource) string {
-	s.contextMu.Lock()
-	defer s.contextMu.Unlock()
+func (c *suiteContext) allocateResourceID(contextID string, r resource.Resource) string {
+	c.contextMu.Lock()
+	defer c.contextMu.Unlock()
 
 	t := reflect.TypeOf(r)
 	candidate := fmt.Sprintf("%s/[%s]", contextID, t.String())
 	discriminator := 0
 	for {
-		if !s.contextNames.Contains(candidate) {
-			s.contextNames.Insert(candidate)
+		if !c.contextNames.Contains(candidate) {
+			c.contextNames.Insert(candidate)
 			return candidate
 		}
 
@@ -127,84 +129,96 @@ func (s *suiteContext) allocateResourceID(contextID string, r resource.Resource)
 	}
 }
 
-func (s *suiteContext) ConditionalCleanup(fn func()) {
-	s.globalScope.addCloser(&closer{fn: func() error {
-		fn()
-		return nil
-	}, noskip: true})
+func (c *suiteContext) CleanupConditionally(fn func()) {
+	c.CleanupStrategy(cleanup.Conditionally, fn)
 }
 
-func (s *suiteContext) Cleanup(fn func()) {
-	s.globalScope.addCloser(&closer{fn: func() error {
-		fn()
-		return nil
-	}})
+func (c *suiteContext) Cleanup(fn func()) {
+	c.CleanupStrategy(cleanup.Always, fn)
+}
+
+func (c *suiteContext) CleanupStrategy(strategy cleanup.Strategy, fn func()) {
+	switch strategy {
+	case cleanup.Always:
+		c.globalScope.addCloser(&closer{fn: func() error {
+			fn()
+			return nil
+		}})
+	case cleanup.Conditionally:
+		c.globalScope.addCloser(&closer{fn: func() error {
+			fn()
+			return nil
+		}, noskip: true})
+	default:
+		// No cleanup.
+		return
+	}
 }
 
 // TrackResource adds a new resource to track to the context at this level.
-func (s *suiteContext) TrackResource(r resource.Resource) resource.ID {
-	id := s.allocateResourceID(s.globalScope.id, r)
+func (c *suiteContext) TrackResource(r resource.Resource) resource.ID {
+	id := c.allocateResourceID(c.globalScope.id, r)
 	rid := &resourceID{id: id}
-	s.globalScope.add(r, rid)
+	c.globalScope.add(r, rid)
 	return rid
 }
 
-func (s *suiteContext) GetResource(ref interface{}) error {
-	return s.globalScope.get(ref)
+func (c *suiteContext) GetResource(ref interface{}) error {
+	return c.globalScope.get(ref)
 }
 
-func (s *suiteContext) Environment() resource.Environment {
-	return s.environment
+func (c *suiteContext) Environment() resource.Environment {
+	return c.environment
 }
 
-func (s *suiteContext) Clusters() cluster.Clusters {
-	return s.Environment().Clusters()
+func (c *suiteContext) Clusters() cluster.Clusters {
+	return c.Environment().Clusters()
 }
 
-func (s *suiteContext) AllClusters() cluster.Clusters {
-	return s.Environment().AllClusters()
+func (c *suiteContext) AllClusters() cluster.Clusters {
+	return c.Environment().AllClusters()
 }
 
 // Settings returns the current runtime.Settings.
-func (s *suiteContext) Settings() *resource.Settings {
-	return s.settings
+func (c *suiteContext) Settings() *resource.Settings {
+	return c.settings
 }
 
 // CreateDirectory creates a new subdirectory within this context.
-func (s *suiteContext) CreateDirectory(name string) (string, error) {
-	dir, err := os.MkdirTemp(s.workDir, name)
+func (c *suiteContext) CreateDirectory(name string) (string, error) {
+	dir, err := os.MkdirTemp(c.workDir, name)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
-			s.settings.RunID, name, s.workDir, err)
+			c.settings.RunID, name, c.workDir, err)
 	} else {
-		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", s.settings.RunID, dir)
+		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", c.settings.RunID, dir)
 	}
 	return dir, err
 }
 
 // CreateTmpDirectory creates a new temporary directory with the given prefix.
-func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
+func (c *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 	if len(prefix) != 0 && !strings.HasSuffix(prefix, "-") {
 		prefix += "-"
 	}
 
-	dir, err := os.MkdirTemp(s.workDir, prefix)
+	dir, err := os.MkdirTemp(c.workDir, prefix)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
-			s.settings.RunID, prefix, s.workDir, err)
+			c.settings.RunID, prefix, c.workDir, err)
 	} else {
-		scopes.Framework.Debugf("Created a temp dir: runID='%s', Name='%s'", s.settings.RunID, dir)
+		scopes.Framework.Debugf("Created a temp dir: runID='%s', Name='%s'", c.settings.RunID, dir)
 	}
 
 	return dir, err
 }
 
-func (s *suiteContext) ConfigKube(clusters ...cluster.Cluster) resource.ConfigManager {
-	return newConfigManager(s, clusters)
+func (c *suiteContext) ConfigKube(clusters ...cluster.Cluster) config.Factory {
+	return newConfigFactory(c, clusters)
 }
 
-func (s *suiteContext) ConfigIstio() resource.ConfigManager {
-	return newConfigManager(s, s.Clusters().Configs())
+func (c *suiteContext) ConfigIstio() config.Factory {
+	return newConfigFactory(c, c.Clusters().Configs())
 }
 
 type Outcome string
@@ -223,9 +237,7 @@ type TestOutcome struct {
 	FeatureLabels map[features.Feature][]string
 }
 
-func (s *suiteContext) registerOutcome(test *testImpl) {
-	s.outcomeMu.Lock()
-	defer s.outcomeMu.Unlock()
+func (c *suiteContext) registerOutcome(test *testImpl) {
 	o := Passed
 	if test.notImplemented {
 		o = NotImplemented
@@ -240,23 +252,23 @@ func (s *suiteContext) registerOutcome(test *testImpl) {
 		Outcome:       o,
 		FeatureLabels: test.featureLabels,
 	}
-	s.contextMu.Lock()
-	defer s.contextMu.Unlock()
-	s.testOutcomes = append(s.testOutcomes, newOutcome)
+	c.contextMu.Lock()
+	defer c.contextMu.Unlock()
+	c.testOutcomes = append(c.testOutcomes, newOutcome)
 }
 
-func (s *suiteContext) RecordTraceEvent(key string, value interface{}) {
-	s.traces.Store(key, value)
+func (c *suiteContext) RecordTraceEvent(key string, value interface{}) {
+	c.traces.Store(key, value)
 }
 
-func (s *suiteContext) marshalTraceEvent() []byte {
+func (c *suiteContext) marshalTraceEvent() []byte {
 	kvs := map[string]interface{}{}
-	s.traces.Range(func(key, value interface{}) bool {
+	c.traces.Range(func(key, value interface{}) bool {
 		kvs[key.(string)] = value
 		return true
 	})
 	outer := map[string]interface{}{
-		fmt.Sprintf("suite/%s", s.settings.TestID): kvs,
+		fmt.Sprintf("suite/%s", c.settings.TestID): kvs,
 	}
 	d, _ := yaml.Marshal(outer)
 	return d

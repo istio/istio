@@ -53,9 +53,7 @@ values:
 				// for k8s 1.21+, this suite should test disabling EndpointSlice mode
 				kubelib.IsLessThanVersion(t.Clusters().Kube().Default(), 21))
 		})).
-		Setup(func(t resource.Context) error {
-			return deployment.SetupSingleNamespace(t, &apps)
-		}).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Run()
 }
 

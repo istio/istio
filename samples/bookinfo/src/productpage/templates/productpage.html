@@ -147,6 +147,13 @@
         {% endif %}
       </blockquote>
       {% endfor %}
+      <dl>
+        <dt>Reviews served by:</dt>
+        <u>{{ reviews.podname }}</u>
+        {% if reviews.clustername != "null" %}
+        on cluster <u>{{ reviews.clustername }}</u>
+        {% endif %}
+      </dl>
       {% else %}
       <h4 class="text-center text-primary">Error fetching product reviews!</h4>
       {% if reviews: %}

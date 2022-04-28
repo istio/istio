@@ -40,7 +40,6 @@ import (
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 )
 
 type ConfigType int
@@ -193,13 +193,8 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		defaultValue := features.EnableProtocolSniffingForInbound
-		features.EnableProtocolSniffingForInbound = tc.sniffingEnabledForInbound
-		defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
-
-		gwClusters := features.FilterGatewayClusterConfig
-		features.FilterGatewayClusterConfig = false
-		defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+		test.SetBoolForTest(t, &features.EnableProtocolSniffingForInbound, tc.sniffingEnabledForInbound)
+		test.SetBoolForTest(t, &features.FilterGatewayClusterConfig, false)
 
 		settingsName := "default"
 		if settings != nil {
@@ -442,9 +437,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			gwClusters := features.FilterGatewayClusterConfig
-			features.FilterGatewayClusterConfig = false
-			defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+			test.SetBoolForTest(t, &features.FilterGatewayClusterConfig, false)
 
 			c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 				buildTestClusters(clusterTest{
@@ -1148,9 +1141,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 		},
 	}
 
-	gwClusters := features.FilterGatewayClusterConfig
-	features.FilterGatewayClusterConfig = false
-	defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+	test.SetBoolForTest(t, &features.FilterGatewayClusterConfig, false)
 
 	c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 		buildTestClusters(clusterTest{
@@ -1269,8 +1260,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 			Protocol: "GRPC",
 		},
 	}
-	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
-	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
+	instance := findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
 	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
 		t.Fatal("Expected to return a valid instance, but got nil/default instance")
 	}
@@ -1591,16 +1581,8 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-
-			gwClusters := features.FilterGatewayClusterConfig
-			features.FilterGatewayClusterConfig = false
-			defer func() { features.FilterGatewayClusterConfig = gwClusters }()
-
-			if tt.redisEnabled {
-				defaultValue := features.EnableRedisFilter
-				features.EnableRedisFilter = true
-				defer func() { features.EnableRedisFilter = defaultValue }()
-			}
+			test.SetBoolForTest(t, &features.FilterGatewayClusterConfig, false)
+			test.SetBoolForTest(t, &features.EnableRedisFilter, tt.redisEnabled)
 			cg := NewConfigGenTest(t, TestOptions{Services: []*model.Service{service}})
 			clusters := cg.Clusters(cg.SetupProxy(&model.Proxy{Type: model.Router}))
 			xdstest.ValidateClusters(t, clusters)
@@ -1773,29 +1755,27 @@ func TestApplyLoadBalancer(t *testing.T) {
 		Metadata:     &model.NodeMetadata{},
 	}
 
-	for _, test := range testcases {
-		t.Run(test.name, func(t *testing.T) {
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
 			c := &cluster.Cluster{
-				ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
 			}
 
-			if test.discoveryType == cluster.Cluster_ORIGINAL_DST {
+			if tt.discoveryType == cluster.Cluster_ORIGINAL_DST {
 				c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 			}
 
-			if test.port != nil && test.port.Protocol == protocol.Redis {
-				defaultValue := features.EnableRedisFilter
-				features.EnableRedisFilter = true
-				defer func() { features.EnableRedisFilter = defaultValue }()
+			if tt.port != nil && tt.port.Protocol == protocol.Redis {
+				test.SetBoolForTest(t, &features.EnableRedisFilter, true)
 			}
 
-			applyLoadBalancer(c, test.lbSettings, test.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
+			applyLoadBalancer(c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
 
-			if c.LbPolicy != test.expectedLbPolicy {
-				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, test.expectedLbPolicy)
+			if c.LbPolicy != tt.expectedLbPolicy {
+				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
 			}
 
-			if test.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
+			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
 				t.Errorf("cluster expected to have weighed config, but is nil")
 			}
 		})
@@ -2396,13 +2376,7 @@ func TestTelemetryMetadata(t *testing.T) {
 	}
 }
 
-func resetVerifyCertAtClient() {
-	features.VerifyCertAtClient = false
-}
-
 func TestVerifyCertAtClient(t *testing.T) {
-	defer resetVerifyCertAtClient()
-
 	testCases := []struct {
 		name               string
 		policy             *networking.TrafficPolicy
@@ -2473,7 +2447,7 @@ func TestVerifyCertAtClient(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			features.VerifyCertAtClient = testCase.verifyCertAtClient
+			test.SetBoolForTest(t, &features.VerifyCertAtClient, testCase.verifyCertAtClient)
 			selectTrafficPolicyComponents(testCase.policy)
 			if testCase.policy.Tls.CaCertificates != testCase.expectedCARootPath {
 				t.Errorf("%v got %v when expecting %v", testCase.name, testCase.policy.Tls.CaCertificates, testCase.expectedCARootPath)
