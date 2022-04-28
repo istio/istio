@@ -293,7 +293,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	adsc.Locality = opts.Locality
 
 	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.%s", opts.NodeType, opts.IP,
-		opts.Workload, opts.Namespace, opts.Namespace, constants.DefaultKubernetesDomain)
+		opts.Workload, opts.Namespace, opts.Namespace, constants.DefaultClusterLocalDomain)
 
 	if err := adsc.Dial(); err != nil {
 		return nil, err

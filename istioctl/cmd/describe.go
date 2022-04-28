@@ -69,7 +69,7 @@ type myProtoValue struct {
 }
 
 const (
-	k8sSuffix = ".svc." + constants.DefaultKubernetesDomain
+	k8sSuffix = ".svc." + constants.DefaultClusterLocalDomain
 )
 
 var (
