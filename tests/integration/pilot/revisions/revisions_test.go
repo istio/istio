@@ -58,7 +58,6 @@ components:
   pilot:
     enabled: true
 `
-			cfg.DeployEastWestGW = false
 		})).
 		Run()
 }
