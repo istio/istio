@@ -47,10 +47,9 @@ const (
 
 func convertPort(port coreV1.ServicePort) *model.Port {
 	return &model.Port{
-		Name:       port.Name,
-		Port:       int(port.Port),
-		Protocol:   kube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol),
-		TargetPort: int(port.TargetPort.IntVal),
+		Name:     port.Name,
+		Port:     int(port.Port),
+		Protocol: kube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol),
 	}
 }
 

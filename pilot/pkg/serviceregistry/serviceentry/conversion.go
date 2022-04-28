@@ -37,11 +37,29 @@ import (
 
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
-		Name:       port.Name,
-		Port:       int(port.Number),
-		Protocol:   protocol.Parse(port.Protocol),
-		TargetPort: int(port.TargetPort),
+		Name:     port.Name,
+		Port:     int(port.Number),
+		Protocol: protocol.Parse(port.Protocol),
 	}
+}
+
+func getTargetPortFromServiceInstances(port *model.Port, svc *model.Service, serviceInstances []*model.ServiceInstance) uint32 {
+	if port == nil {
+		return uint32(0)
+	}
+	if len(serviceInstances) == 0 {
+		return uint32(0)
+	}
+
+	for _, instance := range serviceInstances {
+		if svc != instance.Service {
+			continue
+		}
+		if port.Name == instance.ServicePort.Name {
+			return instance.Endpoint.EndpointPort
+		}
+	}
+	return uint32(0)
 }
 
 type HostAddress struct {
@@ -111,12 +129,13 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 
 	// Port is mapped from ServicePort
 	for _, p := range svc.Ports {
+		targetPort := getTargetPortFromServiceInstances(p, svc, proxy.ServiceInstances)
 		se.Ports = append(se.Ports, &networking.Port{
 			Number: uint32(p.Port),
 			Name:   p.Name,
 			// Protocol is converted to protocol.Instance - reverse conversion will use the name.
 			Protocol:   string(p.Protocol),
-			TargetPort: uint32(p.TargetPort),
+			TargetPort: targetPort,
 		})
 	}
 
