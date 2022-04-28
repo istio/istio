@@ -119,7 +119,7 @@ type BuildPlan struct {
 }
 
 func (p BuildPlan) Targets() []string {
-	tgts := sets.New()
+	tgts := sets.New("init") // All targets depend on init
 	for _, img := range p.Images {
 		tgts.InsertAll(img.Targets...)
 	}
