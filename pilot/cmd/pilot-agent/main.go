@@ -236,7 +236,7 @@ func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*sts
 
 func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
-		domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
+		domain = podNamespace + ".svc." + constants.DefaultClusterLocalDomain
 	}
 	return domain
 }

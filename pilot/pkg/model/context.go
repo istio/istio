@@ -143,7 +143,7 @@ func (e *Environment) Version() string {
 func (e *Environment) Init() {
 	// Use a default DomainSuffix, if none was provided.
 	if len(e.DomainSuffix) == 0 {
-		e.DomainSuffix = constants.DefaultKubernetesDomain
+		e.DomainSuffix = constants.DefaultClusterLocalDomain
 	}
 
 	// Create the cluster-local service registry.

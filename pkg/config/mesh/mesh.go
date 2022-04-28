@@ -86,7 +86,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		IngressService:              "istio-ingressgateway",
 		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
 		IngressClass:                "istio",
-		TrustDomain:                 constants.DefaultKubernetesDomain,
+		TrustDomain:                 constants.DefaultClusterLocalDomain,
 		TrustDomainAliases:          []string{},
 		EnableAutoMtls:              &wrappers.BoolValue{Value: true},
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},

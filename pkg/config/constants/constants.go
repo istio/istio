@@ -59,10 +59,8 @@ const (
 	// IstioIngressNamespace is the namespace where Istio ingress controller is deployed
 	IstioIngressNamespace = "istio-system"
 
-	// DefaultKubernetesDomain the default service domain suffix for Kubernetes, if not overridden in config.
-	// TODO(nmittler): Rename this to DefaultClusterLocalDomain.
-	// TODO(nmittler): Search/replace explicit usages of the string with this constant.
-	DefaultKubernetesDomain = "cluster.local"
+	// DefaultClusterLocalDomain the default service domain suffix for Kubernetes, if not overridden in config.
+	DefaultClusterLocalDomain = "cluster.local"
 
 	// DefaultClusterSetLocalDomain is the default domain suffix for Kubernetes Multi-Cluster Services (MCS)
 	// used for load balancing requests against endpoints across the ClusterSet (i.e. mesh).
