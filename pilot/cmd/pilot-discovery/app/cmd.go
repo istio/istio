@@ -45,6 +45,10 @@ func NewRootCommand() *cobra.Command {
 		Short:        "Istio Pilot.",
 		Long:         "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
 		SilenceUsage: true,
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			// Allow unknown flags for backward-compatibility.
+			UnknownFlags: true,
+		},
 		PreRunE: func(c *cobra.Command, args []string) error {
 			cmd.AddFlags(c)
 			return nil
@@ -70,6 +74,10 @@ func newDiscoveryCommand() *cobra.Command {
 		Use:   "discovery",
 		Short: "Start Istio proxy discovery service.",
 		Args:  cobra.ExactArgs(0),
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			// Allow unknown flags for backward-compatibility.
+			UnknownFlags: true,
+		},
 		PreRunE: func(c *cobra.Command, args []string) error {
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
