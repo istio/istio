@@ -36,7 +36,6 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/webhooks"
-	"istio.io/istio/pkg/webhooks/validation/controller"
 )
 
 const (
@@ -206,7 +205,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			log.Infof("joining leader-election for %s in %s on cluster %s",
 				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
-			leaderelection.
+			election := leaderelection.
 				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !localCluster, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting namespace controller for cluster %s", cluster.ID)
@@ -218,40 +217,39 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 					// recreate it again.
 					client.RunAndWait(clusterStopCh)
 					nc.Run(leaderStop)
-				}).Run(clusterStopCh)
+				})
+			// Set up injection webhook patching for remote clusters we are controlling.
+			// The local cluster has this patching set up elsewhere. We may eventually want to move it here.
+			if features.ExternalIstiod && !localCluster && m.caBundleWatcher != nil {
+				// Patch injection webhook cert
+				// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
+				// operator or CI/CD
+				if features.InjectionWebhookConfigName != "" {
+					election = election.
+						AddRunFunction(func(leaderStop <-chan struct{}) {
+							log.Infof("initializing webhook cert patch for cluster %s", cluster.ID)
+							patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
+							if err != nil {
+								log.Errorf("could not initialize webhook cert patcher: %v", err)
+							} else {
+								patcher.Run(leaderStop)
+							}
+						})
+				}
+			}
+			election.Run(clusterStopCh)
 			return nil
 		})
 	}
 
-	// The local cluster has this patching set-up elsewhere. We may eventually want to move it here.
-	if features.ExternalIstiod && !localCluster && m.caBundleWatcher != nil {
-		// Patch injection webhook cert
-		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
-		// operator or CI/CD
-		if features.InjectionWebhookConfigName != "" {
-			// TODO prevent istiods in primary clusters from trying to patch eachother. should we also leader-elect?
-			log.Infof("initializing webhook cert patch for cluster %s", cluster.ID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
-			if err != nil {
-				log.Errorf("could not initialize webhook cert patcher: %v", err)
-			} else {
-				go patcher.Run(clusterStopCh)
-			}
-		}
-		// Patch validation webhook cert
-		go controller.NewValidatingWebhookController(client, m.revision, m.secretNamespace, m.caBundleWatcher).Run(clusterStopCh)
-
-	}
-
 	// setting up the serviceexport controller if and only if it is turned on in the meshconfig.
-	// TODO(nmittler): Need a better solution. Leader election doesn't take into account locality.
 	if features.EnableMCSAutoExport {
 		log.Infof("joining leader-election for %s in %s on cluster %s",
 			leaderelection.ServiceExportController, options.SystemNamespace, options.ClusterID)
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, client).
+				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, !localCluster, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					serviceExportController := newAutoServiceExportController(autoServiceExportOptions{
 						Client:       client,
