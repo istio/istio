@@ -28,9 +28,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/name"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
+
+	"github.com/google/go-containerregistry/pkg/name"
 )
 
 var wasmLog = log.RegisterScope("wasm", "", 0)
