@@ -28,13 +28,13 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/util/sets"
-
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Wasm header = magic number (4 bytes) + Wasm spec version (4 bytes).
