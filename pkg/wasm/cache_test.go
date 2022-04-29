@@ -529,7 +529,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}
 	if gotFilePath != wantFilePath2 {
-		t.Errorf("wasm download path got %v want %v (1st: %v)", gotFilePath, wantFilePath2, wantFilePath1)
+		t.Errorf("wasm download path got %v want %v", gotFilePath, wantFilePath2)
 	}
 
 	wantNumRequest := 3
