@@ -86,7 +86,7 @@ var _ Cache = &LocalFileCache{}
 type moduleKey struct {
 	// Identifier for the module. It should be neutral for the checksum.
 	// e.g.) oci://docker.io/test@sha256:0123456789 is not allowed.
-	//       oci://docker.io/test@latest (tagged form) is allowed.
+	//       oci://docker.io/test:latest (tagged form) is allowed.
 	name     string
 	checksum string
 }
