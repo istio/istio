@@ -24,7 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -42,13 +42,13 @@ var wasmHeader = append(wasmMagicNumber, []byte{0x1, 0x00, 0x00, 0x00}...)
 
 func TestWasmCache(t *testing.T) {
 	// Setup http server.
-	serverVisited := false
-	var serverVisitedMux sync.Mutex
+	tsNumRequest := int32(0)
 
 	httpData := append(wasmHeader, []byte("data")...)
 	invalidHTTPData := []byte("invalid binary")
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serverVisited = true
+		atomic.AddInt32(&tsNumRequest, 1)
+
 		if r.URL.Path == "/different-url" {
 			w.Write(append(httpData, []byte("different data")...))
 		} else if r.URL.Path == "/invalid-wasm-header" {
@@ -66,7 +66,7 @@ func TestWasmCache(t *testing.T) {
 	reg := registry.New()
 	// Set up a fake registry for OCI images.
 	tos := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serverVisited = true
+		atomic.AddInt32(&tsNumRequest, 1)
 		reg.ServeHTTP(w, r)
 	}))
 	defer tos.Close()
@@ -393,10 +393,9 @@ func TestWasmCache(t *testing.T) {
 				}
 			}
 
-			serverVisitedMux.Lock()
-			serverVisited = false
+			atomic.StoreInt32(&tsNumRequest, 0)
 			gotFilePath, gotErr := cache.Get(c.fetchURL, c.checksum, c.requestTimeout, []byte{})
-			serverVisitedMux.Unlock()
+			serverVisited := atomic.LoadInt32(&tsNumRequest) > 0
 
 			if cacheHitKey != nil {
 				cache.mux.Lock()
