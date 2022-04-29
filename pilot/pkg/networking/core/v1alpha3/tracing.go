@@ -47,16 +47,25 @@ import (
 // this is used for testing. it should not be changed in regular code.
 var clusterLookupFn = extensionproviders.LookupCluster
 
-func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager) (*xdsfilters.RouterFilterContext,
-	*requestidextension.UUIDRequestIDExtensionContext) {
-	tracing := opts.push.Telemetry.Tracing(opts.proxy)
-	return configureTracingFromSpec(tracing, opts, hcm)
+func configureTracing(
+	push *model.PushContext,
+	proxy *model.Proxy,
+	hcm *hpb.HttpConnectionManager,
+	class networking.ListenerClass,
+) (*xdsfilters.RouterFilterContext, *requestidextension.UUIDRequestIDExtensionContext) {
+	tracing := push.Telemetry.Tracing(proxy)
+	return configureTracingFromSpec(tracing, push, proxy, hcm, class)
 }
 
-func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOpts, hcm *hpb.HttpConnectionManager) (*xdsfilters.RouterFilterContext,
-	*requestidextension.UUIDRequestIDExtensionContext) {
-	meshCfg := opts.push.Mesh
-	proxyCfg := opts.proxy.Metadata.ProxyConfigOrDefault(opts.push.Mesh.DefaultConfig)
+func configureTracingFromSpec(
+	tracing *model.TracingConfig,
+	push *model.PushContext,
+	proxy *model.Proxy,
+	hcm *hpb.HttpConnectionManager,
+	class networking.ListenerClass,
+) (*xdsfilters.RouterFilterContext, *requestidextension.UUIDRequestIDExtensionContext) {
+	meshCfg := push.Mesh
+	proxyCfg := proxy.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
 
 	if tracing == nil {
 		// No Telemetry config for tracing, fallback to legacy mesh config
@@ -67,7 +76,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
 		configureSampling(hcm.Tracing, proxyConfigSamplingValue(proxyCfg))
-		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, opts.proxy.Metadata)
+		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, proxy.Metadata)
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
@@ -75,7 +84,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 	}
 
 	spec := tracing.ServerSpec
-	if opts.class == networking.ListenerClassSidecarOutbound || opts.class == networking.ListenerClassGateway {
+	if class == networking.ListenerClassSidecarOutbound || class == networking.ListenerClassGateway {
 		spec = tracing.ClientSpec
 	}
 
@@ -85,7 +94,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 
 	var routerFilterCtx *xdsfilters.RouterFilterContext
 	if spec.Provider != nil {
-		tcfg, rfCtx, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, spec.Provider)
+		tcfg, rfCtx, err := configureFromProviderConfig(push, proxy.Metadata, spec.Provider)
 		if err != nil {
 			log.Warnf("Not able to configure requested tracing provider %q: %v", spec.Provider.Name, err)
 			return nil, nil
@@ -103,7 +112,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 	// gracefully fallback to MeshConfig configuration. It will act as an implicit
 	// parent configuration during transition period.
 	configureSampling(hcm.Tracing, spec.RandomSamplingPercentage)
-	configureCustomTags(hcm.Tracing, spec.CustomTags, proxyCfg, opts.proxy.Metadata)
+	configureCustomTags(hcm.Tracing, spec.CustomTags, proxyCfg, proxy.Metadata)
 
 	// if there is configured max tag length somewhere, fallback to it.
 	if hcm.GetTracing().GetMaxPathTagLength() == nil && proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
