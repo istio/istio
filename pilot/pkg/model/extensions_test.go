@@ -153,7 +153,11 @@ func TestBuildVMConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			got := buildVMConfig(nil, tc.vm, "secret-name", tc.policy)
+			got := buildVMConfig(nil, "dummy-resource-version", &extensions.WasmPlugin{
+				VmConfig:        tc.vm,
+				ImagePullSecret: "secret-name",
+				ImagePullPolicy: tc.policy,
+			})
 			assert.Equal(t, tc.expected, got)
 		})
 	}
