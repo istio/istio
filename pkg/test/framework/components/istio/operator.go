@@ -528,9 +528,9 @@ func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg 
 	}
 
 	if i.environment.IsMulticluster() {
-		if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
-			// Enable namespace controller writing to remote clusters
-			installArgs.Set = append(installArgs.Set, "values.pilot.env.EXTERNAL_ISTIOD=true")
+		if !i.isExternalControlPlane() && !cfg.IstiodlessRemotes {
+			// Disable namespace controller writing to remote clusters
+			installArgs.Set = append(installArgs.Set, "values.pilot.env.EXTERNAL_ISTIOD=false")
 		}
 
 		// Set the clusterName for the local cluster.
