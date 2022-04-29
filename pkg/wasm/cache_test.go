@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -41,11 +42,13 @@ var wasmHeader = append(wasmMagicNumber, []byte{0x1, 0x00, 0x00, 0x00}...)
 
 func TestWasmCache(t *testing.T) {
 	// Setup http server.
-	tsNumRequest := 0
+	serverVisited := false
+	var serverVisitedMux sync.Mutex
+
 	httpData := append(wasmHeader, []byte("data")...)
 	invalidHTTPData := []byte("invalid binary")
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tsNumRequest++
+		serverVisited = true
 		if r.URL.Path == "/different-url" {
 			w.Write(append(httpData, []byte("different data")...))
 		} else if r.URL.Path == "/invalid-wasm-header" {
@@ -61,10 +64,9 @@ func TestWasmCache(t *testing.T) {
 	invalidHTTPDataCheckSum := hex.EncodeToString(invalidHTTPDataSha[:])
 
 	reg := registry.New()
-	registryVisited := false
 	// Set up a fake registry for OCI images.
 	tos := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		registryVisited = true
+		serverVisited = true
 		reg.ServeHTTP(w, r)
 	}))
 	defer tos.Close()
@@ -95,8 +97,7 @@ func TestWasmCache(t *testing.T) {
 		requestTimeout         time.Duration
 		wantFileName           string
 		wantErrorMsgPrefix     string
-		wantServerReqNum       int
-		wantVisitRegistry      bool
+		wantVisitServer        bool
 		wantURLPurged          string
 	}{
 		{
@@ -108,7 +109,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               httpDataCheckSum,
 			wantFileName:           fmt.Sprintf("%s.wasm", httpDataCheckSum),
-			wantServerReqNum:       1,
+			wantVisitServer:        true,
 		},
 		{
 			name: "cache hit",
@@ -121,7 +122,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               cacheHitSum,
 			wantFileName:           "test.wasm",
-			wantServerReqNum:       0,
+			wantVisitServer:        false,
 		},
 		{
 			name:                   "invalid scheme",
@@ -133,7 +134,7 @@ func TestWasmCache(t *testing.T) {
 			checksum:               httpDataCheckSum,
 			wantFileName:           fmt.Sprintf("%s.wasm", httpDataCheckSum),
 			wantErrorMsgPrefix:     "unsupported Wasm module downloading URL scheme: foo",
-			wantServerReqNum:       0,
+			wantVisitServer:        false,
 		},
 		{
 			name:                   "download failure",
@@ -143,7 +144,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			wantErrorMsgPrefix:     "wasm module download failed, last error: Get \"https://dummyurl\"",
-			wantServerReqNum:       0,
+			wantVisitServer:        false,
 		},
 		{
 			name:                   "wrong checksum",
@@ -154,7 +155,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               "wrongchecksum\n",
 			wantErrorMsgPrefix:     fmt.Sprintf("module downloaded from %v has checksum %s, which does not match", ts.URL, httpDataCheckSum),
-			wantServerReqNum:       1,
+			wantVisitServer:        true,
 		},
 		{
 			// this might be common error in user configuration, that url was updated, but not checksum.
@@ -169,7 +170,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               httpDataCheckSum,
 			wantErrorMsgPrefix:     fmt.Sprintf("module downloaded from %v/different-url has checksum", ts.URL),
-			wantServerReqNum:       1,
+			wantVisitServer:        true,
 		},
 		{
 			name: "invalid wasm header",
@@ -182,7 +183,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			checksum:               invalidHTTPDataCheckSum,
 			wantErrorMsgPrefix:     fmt.Sprintf("fetched Wasm binary from %s is invalid", ts.URL+"/invalid-wasm-header"),
-			wantServerReqNum:       1,
+			wantVisitServer:        true,
 		},
 		{
 			name: "purge on expiry",
@@ -196,7 +197,7 @@ func TestWasmCache(t *testing.T) {
 			checkPurgeTimeout:      5 * time.Second,
 			checksum:               httpDataCheckSum,
 			wantFileName:           fmt.Sprintf("%s.wasm", httpDataCheckSum),
-			wantServerReqNum:       1,
+			wantVisitServer:        true,
 		},
 		{
 			name:                   "fetch oci without digest",
@@ -207,7 +208,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			requestTimeout:         time.Second * 10,
 			wantFileName:           ociWasmFile,
-			wantVisitRegistry:      true,
+			wantVisitServer:        true,
 		},
 		{
 			name:                   "fetch oci with digest",
@@ -219,7 +220,7 @@ func TestWasmCache(t *testing.T) {
 			requestTimeout:         time.Second * 10,
 			checksum:               dockerImageDigest,
 			wantFileName:           ociWasmFile,
-			wantVisitRegistry:      true,
+			wantVisitServer:        true,
 		},
 		{
 			name: "cache hit for tagged oci url with digest",
@@ -233,7 +234,7 @@ func TestWasmCache(t *testing.T) {
 			requestTimeout:         time.Second * 10,
 			checksum:               dockerImageDigest,
 			wantFileName:           ociWasmFile,
-			wantVisitRegistry:      false,
+			wantVisitServer:        false,
 		},
 		{
 			name: "cache hit for tagged oci url without digest",
@@ -243,12 +244,12 @@ func TestWasmCache(t *testing.T) {
 			initialCachedChecksums: map[string]string{
 				ociURLWithTag: dockerImageDigest,
 			},
-			fetchURL:          ociURLWithTag,
-			purgeInterval:     DefaultWasmModulePurgeInterval,
-			wasmModuleExpiry:  DefaultWasmModuleExpiry,
-			requestTimeout:    time.Second * 10,
-			wantFileName:      ociWasmFile,
-			wantVisitRegistry: false,
+			fetchURL:         ociURLWithTag,
+			purgeInterval:    DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry: DefaultWasmModuleExpiry,
+			requestTimeout:   time.Second * 10,
+			wantFileName:     ociWasmFile,
+			wantVisitServer:  false,
 		},
 		{
 			name: "cache miss for tagged oci url without digest",
@@ -261,7 +262,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			requestTimeout:         time.Second * 10,
 			wantFileName:           ociWasmFile,
-			wantVisitRegistry:      true,
+			wantVisitServer:        true,
 		},
 		{
 			name: "cache hit for oci url suffixed by digest",
@@ -274,7 +275,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			requestTimeout:         time.Second * 10,
 			wantFileName:           ociWasmFile,
-			wantVisitRegistry:      false,
+			wantVisitServer:        false,
 		},
 		{
 			name: "purge OCI image on expiry",
@@ -291,7 +292,7 @@ func TestWasmCache(t *testing.T) {
 			requestTimeout:    time.Second * 10,
 			checkPurgeTimeout: 5 * time.Second,
 			wantFileName:      ociWasmFile,
-			wantVisitRegistry: true,
+			wantVisitServer:   true,
 			wantURLPurged:     ociURLWithTag,
 		},
 		{
@@ -303,7 +304,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			requestTimeout:         0, // Cause timeout immediately.
 			wantErrorMsgPrefix:     fmt.Sprintf("could not fetch Wasm OCI image: could not fetch manifest: Get \"https://%s/v2/\"", ou.Host),
-			wantVisitRegistry:      false,
+			wantVisitServer:        false,
 		},
 		{
 			name:                   "fetch oci with wrong digest",
@@ -317,7 +318,7 @@ func TestWasmCache(t *testing.T) {
 			wantErrorMsgPrefix: fmt.Sprintf(
 				"module downloaded from %v has checksum %v, which does not match:", fmt.Sprintf("oci://%s/test/valid/docker:v0.1.0", ou.Host), dockerImageDigest,
 			),
-			wantVisitRegistry: true,
+			wantVisitServer: true,
 		},
 		{
 			name:                   "fetch invalid oci",
@@ -331,7 +332,7 @@ func TestWasmCache(t *testing.T) {
 			wantErrorMsgPrefix: `could not fetch Wasm binary: the given image is in invalid format as an OCI image: 2 errors occurred:
 	* could not parse as compat variant: invalid media type application/vnd.oci.image.layer.v1.tar (expect application/vnd.oci.image.layer.v1.tar+gzip)
 	* could not parse as oci variant: number of layers must be 2 but got 1`,
-			wantVisitRegistry: true,
+			wantVisitServer: true,
 		},
 	}
 
@@ -341,8 +342,6 @@ func TestWasmCache(t *testing.T) {
 			cache := NewLocalFileCache(tmpDir, c.purgeInterval, c.wasmModuleExpiry, nil)
 			cache.httpFetcher.initialBackoff = time.Microsecond
 			defer close(cache.stopChan)
-			tsNumRequest = 0
-			registryVisited = false
 
 			var cacheHitKey *moduleKey
 			initTime := time.Now()
@@ -394,7 +393,11 @@ func TestWasmCache(t *testing.T) {
 				}
 			}
 
+			serverVisitedMux.Lock()
+			serverVisited = false
 			gotFilePath, gotErr := cache.Get(c.fetchURL, c.checksum, c.requestTimeout, []byte{})
+			serverVisitedMux.Unlock()
+
 			if cacheHitKey != nil {
 				cache.mux.Lock()
 				if entry, ok := cache.modules[*cacheHitKey]; ok && entry.last == initTime {
@@ -415,11 +418,8 @@ func TestWasmCache(t *testing.T) {
 					t.Errorf("got unexpected error %v", gotErr)
 				}
 			}
-			if c.wantServerReqNum != tsNumRequest {
-				t.Errorf("test server request number got %v, want %v", tsNumRequest, c.wantServerReqNum)
-			}
-			if c.wantVisitRegistry != registryVisited {
-				t.Errorf("test OCI registry encountered the unexpected visiting status got %v, want %v", registryVisited, c.wantVisitRegistry)
+			if c.wantVisitServer != serverVisited {
+				t.Errorf("test wasm binary server encountered the unexpected visiting status got %v, want %v", serverVisited, c.wantVisitServer)
 			}
 		})
 	}
