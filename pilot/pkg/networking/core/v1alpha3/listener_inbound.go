@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -51,7 +52,7 @@ type inboundChainConfig struct {
 	// port defines the port configuration for this chain. Note that there is a Port and TargetPort;
 	// most usages should just use TargetPort. Port is mostly used for legacy compatibility and
 	// telemetry.
-	port ServicePort
+	port ServiceInstancePort
 	// bind determines where (IP) this filter chain should bind. Note: typically we just end up using
 	// 'virtual' listener and do not literally bind to port; in these cases this just impacts naming
 	// and telemetry.
@@ -97,6 +98,11 @@ func (cc inboundChainConfig) Name(protocol istionetworking.ListenerProtocol) str
 	return getListenerName(cc.bind, int(cc.port.TargetPort), istionetworking.TransportProtocolTCP)
 }
 
+var (
+	IPv4PasstrhoughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("0.0.0.0/0")}
+	IPv6PasstrhoughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("::/0")}
+)
+
 // ToFilterChainMatch builds the FilterChainMatch for the config
 func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *listener.FilterChainMatch {
 	match := &listener.FilterChainMatch{}
@@ -105,13 +111,11 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 	if cc.passthrough {
 		// Pasthrough listeners do an IP match - but matching all IPs. This is really an IP *version* match,
 		// but Envoy doesn't explicitly have version check.
-		var matchingIP string
 		if cc.clusterName == util.InboundPassthroughClusterIpv4 {
-			matchingIP = "0.0.0.0/0"
+			match.PrefixRanges = IPv4PasstrhoughCIDR
 		} else {
-			matchingIP = "::/0"
+			match.PrefixRanges = IPv6PasstrhoughCIDR
 		}
-		match.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(matchingIP)}
 	}
 	if cc.port.TargetPort > 0 {
 		match.DestinationPort = &wrappers.UInt32Value{Value: cc.port.TargetPort}
@@ -119,9 +123,9 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 	return match
 }
 
-// ServicePort defines a port that has both a port and targetPort (which distinguishes it from model.Port)
-// Note: ServicePort only makes sense in the context of a specific ServiceInstance, because TargetPort depends on a specific instance.
-type ServicePort struct {
+// ServiceInstancePort defines a port that has both a port and targetPort (which distinguishes it from model.Port)
+// Note: ServiceInstancePort only makes sense in the context of a specific ServiceInstance, because TargetPort depends on a specific instance.
+type ServiceInstancePort struct {
 	// Name ascribes a human readable name for the port object. When a
 	// service has multiple ports, the name field is mandatory
 	Name string `json:"name,omitempty"`
@@ -191,40 +195,20 @@ func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain
 	// Build the "virtual" inbound listener. This will capture all inbound redirected traffic and contains:
 	// * Passthrough filter chains, matching all unmatched traffic. There are a few of these to handle all cases
 	// * Service filter chains. These will either be for each Port exposed by a Service OR Sidecar.Ingress configuration.
-	vi := &listener.Listener{
-		Name:             model.VirtualInboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
-		TrafficDirection: core.TrafficDirection_INBOUND,
-	}
-	if lb.node.GetInterceptionMode() == model.InterceptionTproxy {
-		vi.Transparent = proto.BoolTrue
-	}
-	if lb.node.Metadata.InboundListenerExactBalance {
-		vi.ConnectionBalanceConfig = &listener.Listener_ConnectionBalanceConfig{
-			BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
-				ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},
-			},
-		}
-	}
-	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, vi, istionetworking.ListenerClassSidecarInbound)
-
-	// First, we setup the catchall filter chains. These are present in all proxies and catch any
-	// traffic that is received on a port not exposed in the service, passing it through.
-	vi.FilterChains = append(vi.FilterChains, buildInboundPassthroughChains(lb)...)
-	vi.FilterChains = append(vi.FilterChains, chains...)
-
-	// Listener filters are derived from the filter chains, so we set them up after filter chain construction
-	vi.ListenerFilters = populateListenerFilters(lb.node, vi, false)
-	vi.ListenerFiltersTimeout = getProtocolDetectionTimeout(lb.push.Mesh)
-	vi.ContinueOnListenerFiltersTimeout = true
-
-	return vi
+	allChains := buildInboundPassthroughChains(lb)
+	allChains = append(allChains, chains...)
+	return lb.buildInboundListener(model.VirtualInboundListenerName, util.BuildAddress(actualWildcard, ProxyInboundListenPort), false, allChains)
 }
 
+// inboundCustomListener build a custom listener that actually binds to a port, rather than relying on redirection.
 func (lb *ListenerBuilder) inboundCustomListener(cc inboundChainConfig, chains []*listener.FilterChain) *listener.Listener {
+	return lb.buildInboundListener(cc.Name(istionetworking.ListenerProtocolTCP), util.BuildAddress(cc.bind, cc.port.TargetPort), true, chains)
+}
+
+func (lb *ListenerBuilder) buildInboundListener(name string, address *core.Address, bindToPort bool, chains []*listener.FilterChain) *listener.Listener {
 	l := &listener.Listener{
-		Name:             cc.Name(istionetworking.ListenerProtocolTCP),
-		Address:          util.BuildAddress(cc.bind, cc.port.TargetPort),
+		Name:             name,
+		Address:          address,
 		TrafficDirection: core.TrafficDirection_INBOUND,
 	}
 	if lb.node.Metadata.InboundListenerExactBalance {
@@ -234,9 +218,13 @@ func (lb *ListenerBuilder) inboundCustomListener(cc inboundChainConfig, chains [
 			},
 		}
 	}
+	if !bindToPort && lb.node.GetInterceptionMode() == model.InterceptionTproxy {
+		l.Transparent = proto.BoolTrue
+	}
+
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	l.FilterChains = chains
-	l.ListenerFilters = populateListenerFilters(lb.node, l, true)
+	l.ListenerFilters = populateListenerFilters(lb.node, l, bindToPort)
 	l.ListenerFiltersTimeout = getProtocolDetectionTimeout(lb.push.Mesh)
 	l.ContinueOnListenerFiltersTimeout = true
 	return l
@@ -275,7 +263,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 		// We will look at all Services that apply to this proxy and build chains for each distinct port.
 		// Note: this does mean that we may have multiple Services applying to the same port, which introduces a conflict
 		for _, i := range lb.node.ServiceInstances {
-			port := ServicePort{
+			port := ServiceInstancePort{
 				Name:       i.ServicePort.Name,
 				Port:       uint32(i.ServicePort.Port),
 				TargetPort: i.Endpoint.EndpointPort,
@@ -304,7 +292,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 		}
 	} else {
 		for _, i := range lb.node.SidecarScope.Sidecar.Ingress {
-			port := ServicePort{
+			port := ServiceInstancePort{
 				Name:       i.Port.Name,
 				Port:       i.Port.Number,
 				TargetPort: i.Port.Number, // No targetPort support in the API
@@ -598,7 +586,7 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 		mtlsOptions := lb.authnBuilder.ForPassthrough()
 		for _, mtls := range mtlsOptions {
 			cc := inboundChainConfig{
-				port: ServicePort{
+				port: ServiceInstancePort{
 					Name: model.VirtualInboundListenerName,
 					// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
 					// but this is backwards compatible and there aren't any perfect options.
@@ -671,4 +659,46 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 	}
 
 	return httpOpts
+}
+
+// buildInboundNetworkFiltersForHTTP builds the network filters that should be inserted before an HCM.
+// This should only be used with HTTP; see buildInboundNetworkFilters for TCP
+func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
+	var filters []*listener.Filter
+	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+
+	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
+	hcm := lb.buildHTTPConnectionManager(httpOpts)
+	filters = append(filters, &listener.Filter{
+		Name:       wellknown.HTTPConnectionManager,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
+	})
+	return filters
+}
+
+// buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
+func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []*listener.Filter {
+	statPrefix := fcc.clusterName
+	// If stat name is configured, build the stat prefix from configured pattern.
+	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
+		statPrefix = util.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", fcc.port.Port, fcc.port.Name)
+	}
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       statPrefix,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
+	}
+	idleTimeout, err := time.ParseDuration(lb.node.Metadata.IdleTimeout)
+	if err == nil {
+		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
+	}
+	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+
+	var filters []*listener.Filter
+	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
+	filters = append(filters, lb.authzBuilder.BuildTCP()...)
+	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
+	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
+
+	return filters
 }

@@ -41,21 +41,6 @@ import (
 // redisOpTimeout is the default operation timeout for the Redis proxy filter.
 var redisOpTimeout = 5 * time.Second
 
-// buildInboundNetworkFiltersForHTTP builds the network filters that should be inserted before an HCM.
-// This should only be used with HTTP; see buildInboundNetworkFilters for TCP
-func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
-	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-
-	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
-	hcm := lb.buildHTTPConnectionManager(httpOpts)
-	filters = append(filters, &listener.Filter{
-		Name:       wellknown.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
-	})
-	return filters
-}
-
 func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []*listener.Filter {
 	filterstack := make([]*listener.Filter, 0)
 	// We add metadata exchange on inbound only; outbound is handled in cluster filter
@@ -68,33 +53,6 @@ func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []
 
 func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) []*listener.Filter {
 	return push.Telemetry.TCPFilters(proxy, class)
-}
-
-// buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
-func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []*listener.Filter {
-	statPrefix := fcc.clusterName
-	// If stat name is configured, build the stat prefix from configured pattern.
-	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
-		statPrefix = util.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", fcc.port.Port, fcc.port.Name)
-	}
-	tcpProxy := &tcp.TcpProxy{
-		StatPrefix:       statPrefix,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
-	}
-	idleTimeout, err := time.ParseDuration(lb.node.Metadata.IdleTimeout)
-	if err == nil {
-		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
-	}
-	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound)
-
-	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
-	filters = append(filters, lb.authzBuilder.BuildTCP()...)
-	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
-
-	return filters
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
