@@ -43,23 +43,24 @@ func convertPort(port *networking.Port) *model.Port {
 	}
 }
 
-func getTargetPortFromServiceInstances(port *model.Port, svc *model.Service, serviceInstances []*model.ServiceInstance) uint32 {
+func getTargetPortFromServiceInstances(port *model.Port, svc *model.Service, serviceInstances []*model.ServiceInstance) []uint32 {
+	var arrEdPorts []uint32
 	if port == nil {
-		return uint32(0)
+		return arrEdPorts
 	}
 	if len(serviceInstances) == 0 {
-		return uint32(0)
+		return arrEdPorts
 	}
 
 	for _, instance := range serviceInstances {
 		if svc != instance.Service {
 			continue
 		}
-		if port.Name == instance.ServicePort.Name {
-			return instance.Endpoint.EndpointPort
+		if port.Name == instance.Endpoint.ServicePortName {
+			arrEdPorts = append(arrEdPorts, instance.Endpoint.EndpointPort)
 		}
 	}
-	return uint32(0)
+	return arrEdPorts
 }
 
 type HostAddress struct {
@@ -130,14 +131,26 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy, ps *model.Pus
 	// Port is mapped from ServicePort
 	for _, p := range svc.Ports {
 		serviceInstances := ps.ServiceInstancesByPort(svc, p.Port, nil)
-		targetPort := getTargetPortFromServiceInstances(p, svc, serviceInstances)
-		se.Ports = append(se.Ports, &networking.Port{
-			Number: uint32(p.Port),
-			Name:   p.Name,
-			// Protocol is converted to protocol.Instance - reverse conversion will use the name.
-			Protocol:   string(p.Protocol),
-			TargetPort: targetPort,
-		})
+		targetPorts := getTargetPortFromServiceInstances(p, svc, serviceInstances)
+		deDupTargetProtsMap := make(map[uint32]bool)
+		for _, targetPort := range targetPorts {
+			deDupTargetProtsMap[targetPort] = false
+		}
+
+		for _, targetPort := range targetPorts {
+			// no duplicated port can be added to service entry
+			if _, ok := deDupTargetProtsMap[targetPort]; ok {
+				continue
+			}
+			se.Ports = append(se.Ports, &networking.Port{
+				Number: uint32(p.Port),
+				Name:   p.Name,
+				// Protocol is converted to protocol.Instance - reverse conversion will use the name.
+				Protocol:   string(p.Protocol),
+				TargetPort: targetPort,
+			})
+			deDupTargetProtsMap[targetPort] = true
+		}
 	}
 
 	cfg := &config.Config{
