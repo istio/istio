@@ -22,7 +22,7 @@ import (
 // This is exposed for testing only, and should not be used in XDS generation code
 func EvaluateListenerFilterPredicates(predicate *listener.ListenerFilterChainMatchPredicate, port int) bool {
 	if predicate == nil {
-		return false
+		return true
 	}
 	switch r := predicate.Rule.(type) {
 	case *listener.ListenerFilterChainMatchPredicate_NotMatch:

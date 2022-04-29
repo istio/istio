@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/proto"
@@ -662,7 +663,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				Metadata: &pilot_model.NodeMetadata{HTTP10: "1"},
 			},
 			server: &networking.Server{
-				Port: &networking.Port{},
+				Port: &networking.Port{
+					Protocol: protocol.HTTP.String(),
+				},
 			},
 			routeName:   "some-route",
 			proxyConfig: nil,
@@ -687,6 +690,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						StripPortMode: stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -777,6 +782,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTPS,
 				},
 			},
 		},
@@ -867,6 +874,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTPS,
 				},
 			},
 		},
@@ -957,6 +966,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTPS,
 				},
 			},
 		},
@@ -964,7 +975,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			name: "Topology HTTP Protocol",
 			node: &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
 			server: &networking.Server{
-				Port: &networking.Port{},
+				Port: &networking.Port{
+					Protocol: protocol.HTTP.String(),
+				},
 			},
 			routeName: "some-route",
 			proxyConfig: &meshconfig.ProxyConfig{
@@ -992,6 +1005,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -1087,6 +1102,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTPS,
 				},
 			},
 		},
@@ -1184,6 +1201,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						StripPortMode:       stripPortMode,
 					},
 					statPrefix: "server1",
+					class:      istionetworking.ListenerClassGateway,
+					protocol:   protocol.HTTPS,
 				},
 			},
 		},
@@ -1265,6 +1284,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					},
 					useRemoteAddress: true,
 					statPrefix:       "server1",
+					class:            istionetworking.ListenerClassGateway,
+					protocol:         protocol.HTTPS,
 				},
 			},
 		},
@@ -1282,7 +1303,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				t.Errorf("got diff in tls context: %v", diff)
 			}
 			if !reflect.DeepEqual(tc.result.httpOpts, ret.httpOpts) {
-				t.Errorf("expecting httpopts:\n %+v \nbut got:\n %+v", tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
+				t.Errorf("expecting httpopts:\n %+v \nbut got:\n %+v", tc.result.httpOpts, ret.httpOpts)
 			}
 			if !reflect.DeepEqual(tc.result.sniHosts, ret.sniHosts) {
 				t.Errorf("expecting snihosts %+v but got %+v", tc.result.sniHosts, ret.sniHosts)

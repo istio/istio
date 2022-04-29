@@ -153,3 +153,15 @@ func (i Instance) IsGRPC() bool {
 func (i Instance) IsUnsupported() bool {
 	return i == Unsupported
 }
+
+// AfterTLSTermination returns the protocol that will be used if TLS is terminated on the current protocol.
+func (i Instance) AfterTLSTermination() Instance {
+	switch i {
+	case HTTPS:
+		return HTTP
+	case TLS:
+		return TCP
+	default:
+		return i
+	}
+}

@@ -585,9 +585,10 @@ func TestInboundListenerFilters(t *testing.T) {
 				// Should not see HTTP inspector if we declare ports
 				80: true,
 				82: true,
-				// But should see for passthrough or unnamed ports
-				81:   false,
-				1000: false,
+				// This is 'auto', but for STRICT we always get requests over TLS so HTTP inspector is not in play
+				81: true,
+				// Even for passthrough, we do not need HTTP inspector because it is handled by TLS inspector
+				1000: true,
 			},
 			tls: map[int]bool{
 				// strict mode: inspector is set everywhere.
@@ -608,7 +609,7 @@ func TestInboundListenerFilters(t *testing.T) {
 			listeners := cg.Listeners(cg.SetupProxy(nil))
 			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
 			filters := xdstest.ExtractListenerFilters(virtualInbound)
-			evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].FilterDisabled, tt.http)
+			evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].GetFilterDisabled(), tt.http)
 			if filters[wellknown.TlsInspector] == nil {
 				if len(tt.tls) > 0 {
 					t.Fatalf("Expected tls inspector, got none")
