@@ -459,7 +459,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		}
 		seNamespacedName := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
 		services := s.services.getServices(seNamespacedName)
-		instance := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, se)
+		instance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 		instances = append(instances, instance...)
 		if addressToDelete != "" {
 			for _, i := range instance {
@@ -857,7 +857,7 @@ func (s *ServiceEntryStore) buildServiceInstancesForSE(
 					currentServiceEntry.Hosts)
 				continue
 			}
-			instances := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, currentServiceEntry)
+			instances := convertWorkloadInstanceToServiceInstance(wi, services, currentServiceEntry)
 			serviceInstances = append(serviceInstances, instances...)
 			ckey := configKey{namespace: wi.Namespace, name: wi.Name}
 			if wi.Kind == model.PodKind {
