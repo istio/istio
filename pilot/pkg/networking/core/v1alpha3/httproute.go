@@ -100,25 +100,23 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
-func buildSidecarInboundHTTPRouteConfig(
-	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string,
-) *route.RouteConfiguration {
-	traceOperation := util.TraceOperation(string(instance.Service.Hostname), instance.ServicePort.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(clusterName, traceOperation)
+func buildSidecarInboundHTTPRouteConfig(lb *ListenerBuilder, cc inboundChainConfig) *route.RouteConfiguration {
+	traceOperation := util.TraceOperation(string(cc.telemetryMetadata.InstanceHostname), int(cc.port.Port))
+	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(cc.clusterName, traceOperation)
 
 	inboundVHost := &route.VirtualHost{
-		Name:    inboundVirtualHostPrefix + strconv.Itoa(instance.ServicePort.Port), // Format: "inbound|http|%d"
+		Name:    inboundVirtualHostPrefix + strconv.Itoa(int(cc.port.Port)), // Format: "inbound|http|%d"
 		Domains: []string{"*"},
 		Routes:  []*route.Route{defaultRoute},
 	}
 
 	r := &route.RouteConfiguration{
-		Name:             clusterName,
+		Name:             cc.clusterName,
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
-	efw := push.EnvoyFilters(node)
-	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, node, efw, r)
+	efw := lb.push.EnvoyFilters(lb.node)
+	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node, efw, r)
 	return r
 }
 

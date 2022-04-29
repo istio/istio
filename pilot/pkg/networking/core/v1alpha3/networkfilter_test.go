@@ -27,6 +27,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -88,26 +89,12 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				MeshConfig: m,
 			})
 
-			instance := &model.ServiceInstance{
-				Service: &model.Service{
-					Hostname:       "v0.default.example.org",
-					DefaultAddress: "9.9.9.9",
-					CreationTime:   tnow,
-					Attributes: model.ServiceAttributes{
-						Namespace: "not-default",
-					},
-				},
-				ServicePort: &model.Port{
-					Port: 9999,
-					Name: "http",
-				},
-				Endpoint: &model.IstioEndpoint{
-					EndpointPort: 8888,
-				},
+			fcc := inboundChainConfig{
+				telemetryMetadata: util.TelemetryMetadata{InstanceHostname: "v0.default.example.org"},
+				clusterName:       "inbound|8888||",
 			}
 
-			listenerFilters := buildInboundNetworkFilters(cg.PushContext(), cg.SetupProxy(nil),
-				instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
+			listenerFilters := NewListenerBuilder(cg.SetupProxy(nil), cg.PushContext()).buildInboundNetworkFilters(fcc)
 			tcp := &tcp.TcpProxy{}
 			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
@@ -148,26 +135,9 @@ func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{Services: services})
 
-			instance := &model.ServiceInstance{
-				Service: &model.Service{
-					Hostname:       "v0.default.example.org",
-					DefaultAddress: "9.9.9.9",
-					CreationTime:   tnow,
-					Attributes: model.ServiceAttributes{
-						Namespace: "not-default",
-					},
-				},
-				ServicePort: &model.Port{
-					Port: 9999,
-					Name: "http",
-				},
-				Endpoint: &model.IstioEndpoint{
-					EndpointPort: 8888,
-				},
-			}
+			fcc := inboundChainConfig{}
 			node := &model.Proxy{Metadata: &model.NodeMetadata{IdleTimeout: tt.idleTimeout}}
-			listenerFilters := buildInboundNetworkFilters(cg.PushContext(), node,
-				instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
+			listenerFilters := NewListenerBuilder(cg.SetupProxy(node), cg.PushContext()).buildInboundNetworkFilters(fcc)
 			tcp := &tcp.TcpProxy{}
 			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
 			if !reflect.DeepEqual(tcp.IdleTimeout, tt.expected) {

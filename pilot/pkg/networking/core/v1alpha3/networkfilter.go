@@ -55,31 +55,6 @@ func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, cla
 	return push.Telemetry.TCPFilters(proxy, class)
 }
 
-// buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
-func buildInboundNetworkFilters(push *model.PushContext, proxy *model.Proxy, instance *model.ServiceInstance, clusterName string) []*listener.Filter {
-	statPrefix := clusterName
-	// If stat name is configured, build the stat prefix from configured pattern.
-	if len(push.Mesh.InboundClusterStatName) != 0 {
-		statPrefix = util.BuildStatPrefix(push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.ServicePort, &instance.Service.Attributes)
-	}
-	tcpProxy := &tcp.TcpProxy{
-		StatPrefix:       statPrefix,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
-	}
-	idleTimeout, err := time.ParseDuration(proxy.Metadata.IdleTimeout)
-	if err == nil {
-		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
-	}
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
-
-	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, buildMetricsNetworkFilters(push, proxy, istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, buildNetworkFiltersStack(instance.ServicePort, tcpFilter, statPrefix, clusterName)...)
-	return filters
-}
-
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
 func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, config *tcp.TcpProxy, class istionetworking.ListenerClass) *listener.Filter {
@@ -112,7 +87,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	var filters []*listener.Filter
 	filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
-	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
+	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters
 }
 
@@ -157,7 +132,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	var filters []*listener.Filter
 	filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
-	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
+	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters
 }
 
@@ -190,9 +165,9 @@ func maybeSetHashPolicy(destinationRule *networking.DestinationRule, tcpProxy *t
 
 // buildNetworkFiltersStack builds a slice of network filters based on
 // the protocol in use and the given TCP filter instance.
-func buildNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, statPrefix string, clusterName string) []*listener.Filter {
+func buildNetworkFiltersStack(p protocol.Instance, tcpFilter *listener.Filter, statPrefix string, clusterName string) []*listener.Filter {
 	filterstack := make([]*listener.Filter, 0)
-	switch port.Protocol {
+	switch p {
 	case protocol.Mongo:
 		if features.EnableMongoFilter {
 			filterstack = append(filterstack, buildMongoFilter(statPrefix), tcpFilter)
@@ -284,7 +259,7 @@ func buildRedisFilter(statPrefix, clusterName string) *listener.Filter {
 		LatencyInMicros: true,       // redis latency stats are captured in micro seconds which is typically the case.
 		StatPrefix:      statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
 		Settings: &redis.RedisProxy_ConnPoolSettings{
-			OpTimeout: durationpb.New(redisOpTimeout), // TODO: Make this user configurable
+			OpTimeout: durationpb.New(redisOpTimeout),
 		},
 		PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
 			CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{

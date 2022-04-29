@@ -567,7 +567,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 				rds:               routeName,
 				useRemoteAddress:  true,
 				connectionManager: buildGatewayConnectionManager(proxyConfig, node, false /* http3SupportEnabled */),
-				addGRPCWebFilter:  serverProto == protocol.GRPCWeb,
+				protocol:          serverProto,
+				class:             istionetworking.ListenerClassGateway,
 			},
 		}
 	}
@@ -586,9 +587,10 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 			rds:               routeName,
 			useRemoteAddress:  true,
 			connectionManager: buildGatewayConnectionManager(proxyConfig, node, http3Enabled),
-			addGRPCWebFilter:  serverProto == protocol.GRPCWeb,
+			protocol:          serverProto,
 			statPrefix:        server.Name,
 			http3Only:         http3Enabled,
+			class:             istionetworking.ListenerClassGateway,
 		},
 	}
 }
