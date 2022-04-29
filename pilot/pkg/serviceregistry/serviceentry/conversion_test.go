@@ -888,6 +888,55 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 	}
 }
 
+func TestConvertWorkloadInstanceToServiceInstance(t *testing.T) {
+	t.Run("External only: the port name of the workloadEntry and serviceEntry does match, "+
+		"serviceEntry's targetPort not equal workloadEntry's, use workloadEntry port to override", func(t *testing.T) {
+		services := []*model.Service{
+			makeService("workload.namespace.svc.cluster.local", "httpNone", constants.UnspecifiedIP,
+				map[string]int{"http-number": 80, "http2-number": 8080}, true, model.Passthrough),
+		}
+		workloadEntry := &model.WorkloadInstance{
+			Namespace: "namespace",
+			Kind:      model.WorkloadEntryKind,
+			Endpoint: &model.IstioEndpoint{
+				Labels: map[string]string{
+					"app": "foo",
+				},
+				Address:        "1.1.1.1",
+				ServiceAccount: "spiffe://cluster.local/ns/namespace/sa/scooby",
+				TLSMode:        "istio",
+				Namespace:      "namespace",
+				Locality: model.Locality{
+					ClusterID: cluster.ID("cluster"),
+				},
+			},
+			PortMap: map[string]uint32{
+				"http": 8082,
+			},
+		}
+		serviceEntry := networking.ServiceEntry{
+			Hosts: []string{"service.namespace.svc.cluster.local"},
+			Ports: []*networking.Port{
+				{
+					Name:     "http",
+					Number:   8080,
+					Protocol: "HTTP",
+				},
+			},
+			WorkloadSelector: &networking.WorkloadSelector{
+				Labels: map[string]string{
+					"app": "foo",
+				},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+		}
+		instance := convertWorkloadInstanceToServiceInstance(workloadEntry, services, &serviceEntry)
+		if err := compare(t, instance[0].Endpoint.EndpointPort, workloadEntry.PortMap["http"]); err != nil {
+			t.Errorf("%v", err)
+		}
+	})
+}
+
 func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	workloadLabel := map[string]string{
 		"app": "wle",
