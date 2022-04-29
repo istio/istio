@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -48,7 +49,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/util/sets"
 )
 
 // IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based
@@ -270,7 +270,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 }
 
 func listRevision(c kubelib.Client) sets.Set {
-	revisions := sets.New("default")
+	revisions := sets.NewSet("default")
 	tagWebhooks, err := tag.GetTagWebhooks(context.Background(), c)
 	if err != nil {
 		return revisions
