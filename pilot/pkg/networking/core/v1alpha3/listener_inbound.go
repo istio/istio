@@ -99,8 +99,8 @@ func (cc inboundChainConfig) Name(protocol istionetworking.ListenerProtocol) str
 }
 
 var (
-	IPv4PasstrhoughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("0.0.0.0/0")}
-	IPv6PasstrhoughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("::/0")}
+	IPv4PassthroughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("0.0.0.0/0")}
+	IPv6PassthroughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("::/0")}
 )
 
 // ToFilterChainMatch builds the FilterChainMatch for the config
@@ -112,9 +112,9 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 		// Pasthrough listeners do an IP match - but matching all IPs. This is really an IP *version* match,
 		// but Envoy doesn't explicitly have version check.
 		if cc.clusterName == util.InboundPassthroughClusterIpv4 {
-			match.PrefixRanges = IPv4PasstrhoughCIDR
+			match.PrefixRanges = IPv4PassthroughCIDR
 		} else {
-			match.PrefixRanges = IPv6PasstrhoughCIDR
+			match.PrefixRanges = IPv6PassthroughCIDR
 		}
 	}
 	if cc.port.TargetPort > 0 {
