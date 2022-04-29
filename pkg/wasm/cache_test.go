@@ -212,7 +212,7 @@ func TestWasmCache(t *testing.T) {
 			requestTimeout:       time.Second * 10,
 			checksum:             "wrongdigest",
 			wantErrorMsgPrefix: fmt.Sprintf(
-				"could not fetch Wasm OCI image: fetched image's digest does not match the expected one: got %s, but want wrongdigest", dockerImageDigest,
+				"module downloaded from %v has checksum %v, which does not match:", fmt.Sprintf("oci://%s/test/valid/docker:v0.1.0", ou.Host), dockerImageDigest,
 			),
 		},
 		{
@@ -223,7 +223,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			checksum:             invalidOCIImageDigest,
 			requestTimeout:       time.Second * 10,
-			wantErrorMsgPrefix: `could not fetch Wasm OCI image: the given image is in invalid format as an OCI image: 2 errors occurred:
+			wantErrorMsgPrefix: `could not fetch Wasm binary: the given image is in invalid format as an OCI image: 2 errors occurred:
 	* could not parse as compat variant: invalid media type application/vnd.oci.image.layer.v1.tar (expect application/vnd.oci.image.layer.v1.tar+gzip)
 	* could not parse as oci variant: number of layers must be 2 but got 1`,
 		},

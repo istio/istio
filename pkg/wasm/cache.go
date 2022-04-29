@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -127,6 +126,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	var b []byte
 	// Hex-Encoded sha256 checksum of binary.
 	var dChecksum string
+	var binaryFetcher func() ([]byte, error)
 	switch u.Scheme {
 	case "http", "https":
 		// Download the Wasm module with http fetcher.
@@ -139,10 +139,6 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		// Get sha256 checksum and check if it is the same as provided one.
 		sha := sha256.Sum256(b)
 		dChecksum = hex.EncodeToString(sha[:])
-		if checksum != "" && dChecksum != checksum {
-			wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
-			return "", fmt.Errorf("module downloaded from %v has checksum %v, which does not match: %v", downloadURL, dChecksum, checksum)
-		}
 	case "oci":
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
@@ -160,17 +156,32 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		}
 		wasmLog.Debugf("wasm oci fetch %s with options: %v", downloadURL, imgFetcherOps)
 		fetcher := NewImageFetcher(ctx, imgFetcherOps)
-		b, dChecksum, err = fetcher.Fetch(u.Host+u.Path, checksum)
+		binaryFetcher, dChecksum, err = fetcher.PrepareFetch(u.Host + u.Path)
 		if err != nil {
-			if errors.Is(err, errWasmOCIImageDigestMismatch) {
-				wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
-			} else {
-				wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
-			}
+			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
 			return "", fmt.Errorf("could not fetch Wasm OCI image: %v", err)
 		}
 	default:
 		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", u.Scheme)
+	}
+
+	if key.checksum == "" {
+		key.checksum = dChecksum
+		// check again if the cache is having the checksum.
+		if modulePath := c.getEntry(key); modulePath != "" {
+			return modulePath, nil
+		}
+	} else if dChecksum != key.checksum {
+		wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
+		return "", fmt.Errorf("module downloaded from %v has checksum %v, which does not match: %v", downloadURL, dChecksum, key.checksum)
+	}
+
+	if binaryFetcher != nil {
+		b, err = binaryFetcher()
+		if err != nil {
+			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
+			return "", fmt.Errorf("could not fetch Wasm binary: %v", err)
+		}
 	}
 
 	if !isValidWasmBinary(b) {
