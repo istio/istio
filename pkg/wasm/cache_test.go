@@ -90,12 +90,14 @@ func TestWasmCache(t *testing.T) {
 	cases := []struct {
 		name                   string
 		initialCachedModules   map[moduleKey]cacheEntry
-		initialCachedChecksums map[string]string
+		initialCachedChecksums map[string]*checksumEntry
 		fetchURL               string
 		purgeInterval          time.Duration
 		wasmModuleExpiry       time.Duration
 		checkPurgeTimeout      time.Duration
 		checksum               string // Hex-encoded string.
+		resourceName           string
+		resourceVersion        string
 		requestTimeout         time.Duration
 		pullPolicy             extensions.PullPolicy
 		wantFileName           string
@@ -106,7 +108,7 @@ func TestWasmCache(t *testing.T) {
 		{
 			name:                   "cache miss",
 			initialCachedModules:   map[moduleKey]cacheEntry{},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ts.URL,
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -119,7 +121,7 @@ func TestWasmCache(t *testing.T) {
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ts.URL), checksum: cacheHitSum}: {modulePath: "test.wasm"},
 			},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ts.URL,
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -130,7 +132,7 @@ func TestWasmCache(t *testing.T) {
 		{
 			name:                   "invalid scheme",
 			initialCachedModules:   map[moduleKey]cacheEntry{},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               "foo://abc",
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -142,7 +144,7 @@ func TestWasmCache(t *testing.T) {
 		{
 			name:                   "download failure",
 			initialCachedModules:   map[moduleKey]cacheEntry{},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               "https://dummyurl",
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -152,7 +154,7 @@ func TestWasmCache(t *testing.T) {
 		{
 			name:                   "wrong checksum",
 			initialCachedModules:   map[moduleKey]cacheEntry{},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ts.URL,
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -167,7 +169,7 @@ func TestWasmCache(t *testing.T) {
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ts.URL), checksum: httpDataCheckSum}: {modulePath: fmt.Sprintf("%s.wasm", httpDataCheckSum)},
 			},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ts.URL + "/different-url",
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -180,7 +182,7 @@ func TestWasmCache(t *testing.T) {
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ts.URL), checksum: httpDataCheckSum}: {modulePath: fmt.Sprintf("%s.wasm", httpDataCheckSum)},
 			},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ts.URL + "/invalid-wasm-header",
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -193,7 +195,7 @@ func TestWasmCache(t *testing.T) {
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ts.URL), checksum: httpDataCheckSum}: {modulePath: fmt.Sprintf("%s.wasm", httpDataCheckSum)},
 			},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ts.URL,
 			purgeInterval:          1 * time.Millisecond,
 			wasmModuleExpiry:       1 * time.Millisecond,
@@ -205,7 +207,7 @@ func TestWasmCache(t *testing.T) {
 		{
 			name:                   "fetch oci without digest",
 			initialCachedModules:   map[moduleKey]cacheEntry{},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ociURLWithTag,
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -216,7 +218,7 @@ func TestWasmCache(t *testing.T) {
 		{
 			name:                   "fetch oci with digest",
 			initialCachedModules:   map[moduleKey]cacheEntry{},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ociURLWithTag,
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -230,7 +232,7 @@ func TestWasmCache(t *testing.T) {
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
 			},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ociURLWithTag,
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -244,9 +246,16 @@ func TestWasmCache(t *testing.T) {
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
 			},
-			initialCachedChecksums: map[string]string{
-				ociURLWithTag: dockerImageDigest,
+			initialCachedChecksums: map[string]*checksumEntry{
+				ociURLWithTag: {
+					checksum: dockerImageDigest,
+					resourceVersionByResource: map[string]string{
+						"namespace.resource": "123456",
+					},
+				},
 			},
+			resourceName:     "namespace.resource",
+			resourceVersion:  "0",
 			fetchURL:         ociURLWithTag,
 			purgeInterval:    DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry: DefaultWasmModuleExpiry,
@@ -259,7 +268,7 @@ func TestWasmCache(t *testing.T) {
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
 			},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ociURLWithTag,
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -272,7 +281,7 @@ func TestWasmCache(t *testing.T) {
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
 			},
-			initialCachedChecksums: map[string]string{},
+			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ociURLWithDigest,
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
@@ -281,7 +290,76 @@ func TestWasmCache(t *testing.T) {
 			wantVisitServer:        false,
 		},
 		{
-			name: "cache hit for oci but pulling due to pull-always policy",
+			name: "pull due to pull-always policy when cache hit",
+			initialCachedModules: map[moduleKey]cacheEntry{
+				{name: urlAsResourceName(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
+			},
+			initialCachedChecksums: map[string]*checksumEntry{
+				ociURLWithTag: {
+					checksum: dockerImageDigest,
+					resourceVersionByResource: map[string]string{
+						"namespace.resource": "123456",
+					},
+				},
+			},
+			resourceName:     "namespace.resource",
+			resourceVersion:  "0",
+			fetchURL:         ociURLWithTag,
+			purgeInterval:    DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry: DefaultWasmModuleExpiry,
+			requestTimeout:   time.Second * 10,
+			pullPolicy:       extensions.PullPolicy_Always,
+			wantFileName:     ociWasmFile,
+			wantVisitServer:  true,
+		},
+		{
+			name: "do not pull due to resourceVersion is the same",
+			initialCachedModules: map[moduleKey]cacheEntry{
+				{name: urlAsResourceName(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
+			},
+			initialCachedChecksums: map[string]*checksumEntry{
+				ociURLWithTag: {
+					checksum: dockerImageDigest,
+					resourceVersionByResource: map[string]string{
+						"namespace.resource": "123456",
+					},
+				},
+			},
+			resourceName:     "namespace.resource",
+			resourceVersion:  "123456",
+			fetchURL:         ociURLWithTag,
+			purgeInterval:    DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry: DefaultWasmModuleExpiry,
+			requestTimeout:   time.Second * 10,
+			pullPolicy:       extensions.PullPolicy_Always,
+			wantFileName:     ociWasmFile,
+			wantVisitServer:  false,
+		},
+		{
+			name: "pull due to if-not-present policy when cache hit",
+			initialCachedModules: map[moduleKey]cacheEntry{
+				{name: urlAsResourceName(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
+			},
+			initialCachedChecksums: map[string]*checksumEntry{
+				ociURLWithTag: {
+					checksum: dockerImageDigest,
+					resourceVersionByResource: map[string]string{
+						"namespace.resource": "123456",
+					},
+				},
+			},
+			resourceName:     "namespace.resource",
+			resourceVersion:  "0",
+			fetchURL:         ociURLWithTag,
+			purgeInterval:    DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry: DefaultWasmModuleExpiry,
+			requestTimeout:   time.Second * 10,
+			pullPolicy:       extensions.PullPolicy_IfNotPresent,
+			wantFileName:     ociWasmFile,
+			wantVisitServer:  false,
+		},
+		{
+			name: "do not pull in spite of pull-always policy due to checksum",
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
 			},
@@ -292,28 +370,28 @@ func TestWasmCache(t *testing.T) {
 			checksum:         dockerImageDigest,
 			pullPolicy:       extensions.PullPolicy_Always,
 			wantFileName:     ociWasmFile,
-			wantVisitServer:  true,
+			wantVisitServer:  false,
 		},
 		{
-			name: "cache hit for oci but pulling due to the latest tag",
+			name: "do not pull in spite of latest tag due to checksum",
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ociURLWithLatestTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
 			},
-			fetchURL:         fmt.Sprintf("oci://%s/test/valid/docker:latest", ou.Host),
+			fetchURL:         ociURLWithLatestTag,
 			purgeInterval:    DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry: DefaultWasmModuleExpiry,
 			requestTimeout:   time.Second * 10,
 			checksum:         dockerImageDigest,
-			pullPolicy:       extensions.PullPolicy_UNSPECIFIED_POLICY,
+			pullPolicy:       extensions.PullPolicy_UNSPECIFIED_POLICY, // Default policy
 			wantFileName:     ociWasmFile,
-			wantVisitServer:  true,
+			wantVisitServer:  false,
 		},
 		{
-			name: "cache hit for oci with if-not-present policy and latest tag",
+			name: "do not pull in spite of latest tag due to IfNotPresent policy",
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ociURLWithLatestTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
 			},
-			fetchURL:         fmt.Sprintf("oci://%s/test/valid/docker:latest", ou.Host),
+			fetchURL:         ociURLWithLatestTag,
 			purgeInterval:    DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry: DefaultWasmModuleExpiry,
 			requestTimeout:   time.Second * 10,
@@ -327,9 +405,19 @@ func TestWasmCache(t *testing.T) {
 			initialCachedModules: map[moduleKey]cacheEntry{
 				{name: urlAsResourceName(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile, referencingURLs: sets.New(ociURLWithTag)},
 			},
-			initialCachedChecksums: map[string]string{
-				ociURLWithTag: dockerImageDigest,
-				"test-url":    "test-checksum",
+			initialCachedChecksums: map[string]*checksumEntry{
+				ociURLWithTag: {
+					checksum: dockerImageDigest,
+					resourceVersionByResource: map[string]string{
+						"namespace.resource1": "123456",
+					},
+				},
+				"test-url": {
+					checksum: "test-checksum",
+					resourceVersionByResource: map[string]string{
+						"namespace.resource2": "123456",
+					},
+				},
 			},
 			fetchURL:          ociURLWithDigest,
 			purgeInterval:     1 * time.Millisecond,
@@ -341,39 +429,36 @@ func TestWasmCache(t *testing.T) {
 			wantURLPurged:     ociURLWithTag,
 		},
 		{
-			name:                   "fetch oci timed out",
-			initialCachedModules:   map[moduleKey]cacheEntry{},
-			initialCachedChecksums: map[string]string{},
-			fetchURL:               ociURLWithTag,
-			purgeInterval:          DefaultWasmModulePurgeInterval,
-			wasmModuleExpiry:       DefaultWasmModuleExpiry,
-			requestTimeout:         0, // Cause timeout immediately.
-			wantErrorMsgPrefix:     fmt.Sprintf("could not fetch Wasm OCI image: could not fetch manifest: Get \"https://%s/v2/\"", ou.Host),
-			wantVisitServer:        false,
+			name:                 "fetch oci timed out",
+			initialCachedModules: map[moduleKey]cacheEntry{},
+			fetchURL:             ociURLWithTag,
+			purgeInterval:        DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry:     DefaultWasmModuleExpiry,
+			requestTimeout:       0, // Cause timeout immediately.
+			wantErrorMsgPrefix:   fmt.Sprintf("could not fetch Wasm OCI image: could not fetch manifest: Get \"https://%s/v2/\"", ou.Host),
+			wantVisitServer:      false,
 		},
 		{
-			name:                   "fetch oci with wrong digest",
-			initialCachedModules:   map[moduleKey]cacheEntry{},
-			initialCachedChecksums: map[string]string{},
-			fetchURL:               ociURLWithTag,
-			purgeInterval:          DefaultWasmModulePurgeInterval,
-			wasmModuleExpiry:       DefaultWasmModuleExpiry,
-			requestTimeout:         time.Second * 10,
-			checksum:               "wrongdigest",
+			name:                 "fetch oci with wrong digest",
+			initialCachedModules: map[moduleKey]cacheEntry{},
+			fetchURL:             ociURLWithTag,
+			purgeInterval:        DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry:     DefaultWasmModuleExpiry,
+			requestTimeout:       time.Second * 10,
+			checksum:             "wrongdigest",
 			wantErrorMsgPrefix: fmt.Sprintf(
 				"module downloaded from %v has checksum %v, which does not match:", fmt.Sprintf("oci://%s/test/valid/docker:v0.1.0", ou.Host), dockerImageDigest,
 			),
 			wantVisitServer: true,
 		},
 		{
-			name:                   "fetch invalid oci",
-			initialCachedModules:   map[moduleKey]cacheEntry{},
-			initialCachedChecksums: map[string]string{},
-			fetchURL:               fmt.Sprintf("oci://%s/test/invalid", ou.Host),
-			purgeInterval:          DefaultWasmModulePurgeInterval,
-			wasmModuleExpiry:       DefaultWasmModuleExpiry,
-			checksum:               invalidOCIImageDigest,
-			requestTimeout:         time.Second * 10,
+			name:                 "fetch invalid oci",
+			initialCachedModules: map[moduleKey]cacheEntry{},
+			fetchURL:             fmt.Sprintf("oci://%s/test/invalid", ou.Host),
+			purgeInterval:        DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry:     DefaultWasmModuleExpiry,
+			checksum:             invalidOCIImageDigest,
+			requestTimeout:       time.Second * 10,
 			wantErrorMsgPrefix: `could not fetch Wasm binary: the given image is in invalid format as an OCI image: 2 errors occurred:
 	* could not parse as compat variant: invalid media type application/vnd.oci.image.layer.v1.tar (expect application/vnd.oci.image.layer.v1.tar+gzip)
 	* could not parse as oci variant: number of layers must be 2 but got 1`,
@@ -439,7 +524,7 @@ func TestWasmCache(t *testing.T) {
 			}
 
 			atomic.StoreInt32(&tsNumRequest, 0)
-			gotFilePath, gotErr := cache.Get(c.fetchURL, c.checksum, c.requestTimeout, []byte{}, c.pullPolicy)
+			gotFilePath, gotErr := cache.Get(c.fetchURL, c.checksum, c.resourceName, c.resourceVersion, c.requestTimeout, []byte{}, c.pullPolicy)
 			serverVisited := atomic.LoadInt32(&tsNumRequest) > 0
 
 			if cacheHitKey != nil {
@@ -560,7 +645,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 
 	// Get wasm module three times, since checksum is not specified, it will be fetched from module server every time.
 	// 1st time
-	gotFilePath, err := cache.Get(ts.URL, "", 0, []byte{}, defaultPullPolicy)
+	gotFilePath, err := cache.Get(ts.URL, "", "namespace.resource", "123456", 0, []byte{}, defaultPullPolicy)
 	if err != nil {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}
@@ -569,7 +654,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 	}
 
 	// 2nd time
-	gotFilePath, err = cache.Get(ts.URL, "", 0, []byte{}, defaultPullPolicy)
+	gotFilePath, err = cache.Get(ts.URL, "", "namespace.resource", "123456", 0, []byte{}, defaultPullPolicy)
 	if err != nil {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}
@@ -578,7 +663,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 	}
 
 	// 3rd time
-	gotFilePath, err = cache.Get(ts.URL, "", 0, []byte{}, defaultPullPolicy)
+	gotFilePath, err = cache.Get(ts.URL, "", "namespace.resource", "123456", 0, []byte{}, defaultPullPolicy)
 	if err != nil {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}

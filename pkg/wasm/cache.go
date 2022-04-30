@@ -53,7 +53,7 @@ const (
 
 // Cache models a Wasm module cache.
 type Cache interface {
-	Get(url, checksum string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error)
+	Get(url, checksum, resourceName, resourceVersion string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error)
 	Cleanup()
 }
 
@@ -62,7 +62,7 @@ type LocalFileCache struct {
 	// Map from Wasm module checksum to cache entry.
 	modules map[moduleKey]*cacheEntry
 	// Map from tagged URL to checksum
-	checksums map[string]string
+	checksums map[string]*checksumEntry
 
 	// http fetcher fetches Wasm module with HTTP get.
 	httpFetcher *HTTPFetcher
@@ -84,6 +84,12 @@ type LocalFileCache struct {
 
 var _ Cache = &LocalFileCache{}
 
+type checksumEntry struct {
+	checksum string
+	// Keeps the resource version per each resource for dealing with multiple resources which pointing the same image.
+	resourceVersionByResource map[string]string
+}
+
 type moduleKey struct {
 	// Identifier for the module. It should be neutral for the checksum.
 	// e.g.) oci://docker.io/test@sha256:0123456789 is not allowed.
@@ -95,6 +101,11 @@ type moduleKey struct {
 type cacheKey struct {
 	moduleKey
 	downloadURL string
+	// Resource name of WasmPlugin resource. This should be a fully-qualified name.
+	resourceName string
+	// Resource version of WasmPlugin resource. Even though PullPolicy is Always,
+	// if there is no change of resource state, a cached entry is used instead of pulling newly.
+	resourceVersion string
 }
 
 // cacheEntry contains information about a Wasm module cache entry.
@@ -112,7 +123,7 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, in
 	cache := &LocalFileCache{
 		httpFetcher:        NewHTTPFetcher(),
 		modules:            make(map[moduleKey]*cacheEntry),
-		checksums:          make(map[string]string),
+		checksums:          make(map[string]*checksumEntry),
 		dir:                dir,
 		purgeInterval:      purgeInterval,
 		wasmModuleExpiry:   moduleExpiry,
@@ -135,7 +146,7 @@ func urlAsResourceName(fullURLStr string) string {
 	return fullURLStr
 }
 
-func needToUseCache(pullPolicy extensions.PullPolicy, u *url.URL) bool {
+func pullIfNotPresent(pullPolicy extensions.PullPolicy, u *url.URL) bool {
 	if u.Scheme == "oci" {
 		switch pullPolicy {
 		case extensions.PullPolicy_Always:
@@ -146,11 +157,12 @@ func needToUseCache(pullPolicy extensions.PullPolicy, u *url.URL) bool {
 			return !strings.HasSuffix(u.Path, ":latest")
 		}
 	}
-	return true
+	// If http/https is used, it has `always` semantics at this time.
+	return false
 }
 
 // Get returns path the local Wasm module file.
-func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
+func (c *LocalFileCache) Get(downloadURL, checksum, resourceName, resourceVersion string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -158,6 +170,8 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 			name:     urlAsResourceName(downloadURL),
 			checksum: checksum,
 		},
+		resourceName:    resourceName,
+		resourceVersion: resourceVersion,
 	}
 
 	u, err := url.Parse(downloadURL)
@@ -166,11 +180,10 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	}
 
 	// First check if the cache entry is already downloaded and policy does not require to pull always.
-	if needToUseCache(pullPolicy, u) {
-		if modulePath := c.getEntry(key); modulePath != "" {
-			return modulePath, nil
-		}
+	if modulePath := c.getEntry(&key, pullIfNotPresent(pullPolicy, u)); modulePath != "" {
+		return modulePath, nil
 	}
+
 	// If not, fetch images.
 
 	// Byte array of Wasm binary.
@@ -219,7 +232,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	if key.checksum == "" {
 		key.checksum = dChecksum
 		// check again if the cache is having the checksum.
-		if modulePath := c.getEntry(key); modulePath != "" {
+		if modulePath := c.getEntry(&key, true); modulePath != "" {
 			return modulePath, nil
 		}
 	} else if dChecksum != key.checksum {
@@ -264,7 +277,14 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 	defer c.mux.Unlock()
 
 	if needChecksumUpdate {
-		c.checksums[key.downloadURL] = key.checksum
+		ce := c.checksums[key.downloadURL]
+		if ce == nil {
+			ce = new(checksumEntry)
+			ce.resourceVersionByResource = make(map[string]string)
+			c.checksums[key.downloadURL] = ce
+		}
+		ce.checksum = key.checksum
+		ce.resourceVersionByResource[key.resourceName] = key.resourceVersion
 	}
 
 	// Check if the module has already been added. If so, avoid writing the file again.
@@ -295,7 +315,7 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 	return nil
 }
 
-func (c *LocalFileCache) getEntry(key cacheKey) string {
+func (c *LocalFileCache) getEntry(key *cacheKey, dontcareResourceVersion bool) string {
 	modulePath := ""
 	cacheHit := false
 
@@ -313,7 +333,13 @@ func (c *LocalFileCache) getEntry(key cacheKey) string {
 		} else {
 			// If no checksum, try the checksum cache.
 			// If the image was pulled before, there should be a checksum of the most recently pulled image.
-			key.checksum = c.checksums[key.downloadURL]
+			if ce, found := c.checksums[key.downloadURL]; found {
+				if dontcareResourceVersion || key.resourceVersion == ce.resourceVersionByResource[key.resourceName] {
+					key.checksum = ce.checksum
+				}
+				// update resource version here
+				ce.resourceVersionByResource[key.resourceName] = key.resourceVersion
+			}
 		}
 	}
 
