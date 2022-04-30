@@ -19,9 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/networking/v1beta1"
+	"k8s.io/api/networking/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -34,24 +33,28 @@ import (
 )
 
 var (
-	ingressWithoutClass = []v1beta1.Ingress{
+	ingressWithoutClass = []v1.Ingress{
 		{
 			ObjectMeta: metaV1.ObjectMeta{
 				Namespace: "mock", // goes into backend full name
 				Name:      "test-1",
 			},
-			Spec: v1beta1.IngressSpec{
-				Rules: []v1beta1.IngressRule{
+			Spec: v1.IngressSpec{
+				Rules: []v1.IngressRule{
 					{
 						Host: "my.host.com",
-						IngressRuleValue: v1beta1.IngressRuleValue{
-							HTTP: &v1beta1.HTTPIngressRuleValue{
-								Paths: []v1beta1.HTTPIngressPath{
+						IngressRuleValue: v1.IngressRuleValue{
+							HTTP: &v1.HTTPIngressRuleValue{
+								Paths: []v1.HTTPIngressPath{
 									{
 										Path: "/test1",
-										Backend: v1beta1.IngressBackend{
-											ServiceName: "foo",
-											ServicePort: intstr.IntOrString{IntVal: 8000},
+										Backend: v1.IngressBackend{
+											Service: &v1.IngressServiceBackend{
+												Name: "foo",
+												Port: v1.ServiceBackendPort{
+													Number: 8000,
+												},
+											},
 										},
 									},
 								},
@@ -63,21 +66,25 @@ var (
 		},
 		{
 			ObjectMeta: metaV1.ObjectMeta{
-				Namespace: "mock",
+				Namespace: "mock", // goes into backend full name
 				Name:      "test-2",
 			},
-			Spec: v1beta1.IngressSpec{
-				Rules: []v1beta1.IngressRule{
+			Spec: v1.IngressSpec{
+				Rules: []v1.IngressRule{
 					{
 						Host: "my.host.com",
-						IngressRuleValue: v1beta1.IngressRuleValue{
-							HTTP: &v1beta1.HTTPIngressRuleValue{
-								Paths: []v1beta1.HTTPIngressPath{
+						IngressRuleValue: v1.IngressRuleValue{
+							HTTP: &v1.HTTPIngressRuleValue{
+								Paths: []v1.HTTPIngressPath{
 									{
 										Path: "/test2",
-										Backend: v1beta1.IngressBackend{
-											ServiceName: "bar",
-											ServicePort: intstr.IntOrString{IntVal: 8000},
+										Backend: v1.IngressBackend{
+											Service: &v1.IngressServiceBackend{
+												Name: "bar",
+												Port: v1.ServiceBackendPort{
+													Number: 8000,
+												},
+											},
 										},
 									},
 								},
@@ -89,7 +96,7 @@ var (
 		},
 	}
 
-	ingressWithClass = []v1beta1.Ingress{
+	ingressWithClass = []v1.Ingress{
 		{
 			ObjectMeta: metaV1.ObjectMeta{
 				Namespace: "mock", // goes into backend full name
@@ -98,18 +105,22 @@ var (
 					serviceregistrykube.IngressClassAnnotation: "istio",
 				},
 			},
-			Spec: v1beta1.IngressSpec{
-				Rules: []v1beta1.IngressRule{
+			Spec: v1.IngressSpec{
+				Rules: []v1.IngressRule{
 					{
 						Host: "my.host.com",
-						IngressRuleValue: v1beta1.IngressRuleValue{
-							HTTP: &v1beta1.HTTPIngressRuleValue{
-								Paths: []v1beta1.HTTPIngressPath{
+						IngressRuleValue: v1.IngressRuleValue{
+							HTTP: &v1.HTTPIngressRuleValue{
+								Paths: []v1.HTTPIngressPath{
 									{
 										Path: "/test1",
-										Backend: v1beta1.IngressBackend{
-											ServiceName: "foo",
-											ServicePort: intstr.IntOrString{IntVal: 8000},
+										Backend: v1.IngressBackend{
+											Service: &v1.IngressServiceBackend{
+												Name: "foo",
+												Port: v1.ServiceBackendPort{
+													Number: 8000,
+												},
+											},
 										},
 									},
 								},
@@ -127,18 +138,22 @@ var (
 					serviceregistrykube.IngressClassAnnotation: "istio",
 				},
 			},
-			Spec: v1beta1.IngressSpec{
-				Rules: []v1beta1.IngressRule{
+			Spec: v1.IngressSpec{
+				Rules: []v1.IngressRule{
 					{
 						Host: "my.host.com",
-						IngressRuleValue: v1beta1.IngressRuleValue{
-							HTTP: &v1beta1.HTTPIngressRuleValue{
-								Paths: []v1beta1.HTTPIngressPath{
+						IngressRuleValue: v1.IngressRuleValue{
+							HTTP: &v1.HTTPIngressRuleValue{
+								Paths: []v1.HTTPIngressPath{
 									{
 										Path: "/test2",
-										Backend: v1beta1.IngressBackend{
-											ServiceName: "bar",
-											ServicePort: intstr.IntOrString{IntVal: 8000},
+										Backend: v1.IngressBackend{
+											Service: &v1.IngressServiceBackend{
+												Name: "bar",
+												Port: v1.ServiceBackendPort{
+													Number: 8000,
+												},
+											},
 										},
 									},
 								},
@@ -223,7 +238,7 @@ func TestIngressControllerWithDefaultIngressControllerMode(t *testing.T) {
 	}
 
 	for _, ingress := range ingressWithoutClass {
-		client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(context.TODO(), &ingress, metaV1.CreateOptions{})
+		client.NetworkingV1().Ingresses(ingress.Namespace).Create(context.TODO(), &ingress, metaV1.CreateOptions{})
 		vs := wait()
 		if vs.Name != ingress.Name+"-"+"virtualservice" || vs.Namespace != ingress.Namespace {
 			t.Fatalf("received unecpected config %v/%v", vs.Namespace, vs.Name)
@@ -236,7 +251,7 @@ func TestIngressControllerWithDefaultIngressControllerMode(t *testing.T) {
 
 	// Apply unmatched ingresses
 	for _, ingress := range ingressWithClass {
-		client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(context.TODO(), &ingress, metaV1.CreateOptions{})
+		client.NetworkingV1().Ingresses(ingress.Namespace).Create(context.TODO(), &ingress, metaV1.CreateOptions{})
 		vs := wait()
 		if vs.Name != "" || vs.Namespace != "" {
 			t.Fatalf("received unecpected config %v/%v", vs.Namespace, vs.Name)
@@ -245,7 +260,7 @@ func TestIngressControllerWithDefaultIngressControllerMode(t *testing.T) {
 
 	// We should not store unmatched ingresses
 	if len(controller.ingresses) != len(ingressWithoutClass) {
-		t.Fatalf("ingresses size should be %d", len(ingressWithoutClass))
+		t.Fatalf("ingresses size should be %d, actual is %d", len(ingressWithoutClass), len(controller.ingresses))
 	}
 }
 
@@ -278,7 +293,7 @@ func TestIngressControllerWithStrictIngressControllerMode(t *testing.T) {
 	}
 
 	for _, ingress := range ingressWithClass {
-		client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(context.TODO(), &ingress, metaV1.CreateOptions{})
+		client.NetworkingV1().Ingresses(ingress.Namespace).Create(context.TODO(), &ingress, metaV1.CreateOptions{})
 		vs := wait()
 		if vs.Name != ingress.Name+"-"+"virtualservice" || vs.Namespace != ingress.Namespace {
 			t.Fatalf("received unecpected config %v/%v", vs.Namespace, vs.Name)
@@ -291,7 +306,7 @@ func TestIngressControllerWithStrictIngressControllerMode(t *testing.T) {
 
 	// Apply unmatched ingresses
 	for _, ingress := range ingressWithoutClass {
-		client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(context.TODO(), &ingress, metaV1.CreateOptions{})
+		client.NetworkingV1().Ingresses(ingress.Namespace).Create(context.TODO(), &ingress, metaV1.CreateOptions{})
 		vs := wait()
 		if vs.Name != "" || vs.Namespace != "" {
 			t.Fatalf("received unecpected config %v/%v", vs.Namespace, vs.Name)
@@ -300,6 +315,7 @@ func TestIngressControllerWithStrictIngressControllerMode(t *testing.T) {
 
 	// We should not store unmatched ingresses
 	if len(controller.ingresses) != len(ingressWithClass) {
-		t.Fatalf("ingresses size should be %d", len(ingressWithClass))
+		t.Fatalf("ingresses size should be %d, actual is %d", len(ingressWithClass), len(controller.ingresses))
 	}
 }
+

@@ -95,6 +95,9 @@ type controller struct {
 	serviceLister   listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
 	classes v1beta1.IngressClassInformer
+
+	// Only use for test case.
+	eventCompletedCallback func()
 }
 
 // TODO: move to features ( and remove in 1.2 )
@@ -214,8 +217,6 @@ func (c *controller) shouldProcessIngressUpdate(ing *ingress.Ingress) (bool, err
 	// previous processed but should not currently, delete it
 	if preProcessed && !shouldProcess {
 		delete(c.ingresses, item)
-	} else {
-		c.ingresses[item] = ing
 	}
 	c.mutex.Unlock()
 
@@ -223,6 +224,12 @@ func (c *controller) shouldProcessIngressUpdate(ing *ingress.Ingress) (bool, err
 }
 
 func (c *controller) onEvent(item types.NamespacedName) error {
+	defer func() {
+		if c.eventCompletedCallback != nil {
+			c.eventCompletedCallback()
+		}
+	}()
+
 	event := model.EventUpdate
 	ing, err := c.ingressLister.Ingresses(item.Namespace).Get(item.Name)
 	if err != nil {
