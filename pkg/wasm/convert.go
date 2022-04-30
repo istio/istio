@@ -119,6 +119,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	envs := vm.GetEnvironmentVariables()
 	var pullSecret []byte
 	pullPolicy := extensions.PullPolicy_UNSPECIFIED_POLICY
+	resourceVersion := ""
 	if envs != nil {
 		if sec, found := envs.KeyValues[model.WasmSecretEnv]; found {
 			if sec == "" {
@@ -145,6 +146,8 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 				pullPolicy = extensions.PullPolicy(p)
 			}
 		}
+
+		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]
 	}
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()
@@ -161,7 +164,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}
-	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, timeout, pullSecret, pullPolicy)
+	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, wasmHTTPFilterConfig.Config.Name, resourceVersion, timeout, pullSecret, pullPolicy)
 	if err != nil {
 		status = fetchFailure
 		wasmLog.Errorf("cannot fetch Wasm module %v: %v", remote.GetHttpUri().GetUri(), err)
