@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: extensibility
+issue: []
+releaseNotes:
+  - |
+    **Improved** Use tag-stripped URL + checksum as a Wasm module cachekey, and the tagged URL is seperately cached. 
+    This may increase the chance of cache hit (e.g., trying to find the same image with both of the tagged and digest URLs.)
+    In addition, this will be a base to implement ImagePullPolicy.
