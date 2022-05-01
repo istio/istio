@@ -111,7 +111,7 @@ the configuration objects that affect that pod.`,
 
 			podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
 			annotations := k8s_labels.Set(pod.ObjectMeta.Annotations)
-			opts.Revision = getRevisionFromPodAnnotaion(annotations)
+			opts.Revision = getRevisionFromPodAnnotation(annotations)
 
 			printPod(writer, pod, opts.Revision)
 
@@ -175,7 +175,7 @@ the configuration objects that affect that pod.`,
 	return cmd
 }
 
-func getRevisionFromPodAnnotaion(anno k8s_labels.Set) string {
+func getRevisionFromPodAnnotation(anno k8s_labels.Set) string {
 	statusString := anno.Get(apiannotation.SidecarStatus.Name)
 	var injectionStatus inject.SidecarInjectionStatus
 	if err := json.Unmarshal([]byte(statusString), &injectionStatus); err != nil {
