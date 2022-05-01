@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/networking/v1"
+	v1 "k8s.io/api/networking/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -175,7 +175,7 @@ type configHandler struct {
 	notifyCh chan config.Config
 }
 
-func newConfigHandler() *configHandler{
+func newConfigHandler() *configHandler {
 	return &configHandler{
 		notifyCh: make(chan config.Config, 2),
 	}
@@ -188,7 +188,7 @@ func (c *configHandler) handle(_, curr config.Config, _ model.Event) {
 func newFakeController(options ingressClassOptions) (model.ConfigStoreController, kube.Client) {
 	meshHolder := mesh.NewTestWatcher(&meshconfig.MeshConfig{
 		IngressControllerMode: options.mode,
-		IngressClass: options.ingressClass,
+		IngressClass:          options.ingressClass,
 	})
 	fakeClient := kube.NewFakeClient()
 	return NewController(fakeClient, meshHolder, kubecontroller.Options{}), fakeClient
@@ -270,7 +270,7 @@ func TestIngressControllerWithStrictIngressControllerMode(t *testing.T) {
 	defer close(stopCh)
 
 	options := ingressClassOptions{
-		mode: meshconfig.MeshConfig_STRICT,
+		mode:         meshconfig.MeshConfig_STRICT,
 		ingressClass: "istio",
 	}
 	controller, client := initAndStartController(options, configHandler, stopCh)
@@ -318,4 +318,3 @@ func TestIngressControllerWithStrictIngressControllerMode(t *testing.T) {
 		t.Fatalf("ingresses size should be %d, actual is %d", len(ingressWithClass), len(controller.ingresses))
 	}
 }
-
