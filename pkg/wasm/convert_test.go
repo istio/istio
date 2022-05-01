@@ -43,7 +43,9 @@ type mockCache struct {
 	wantPolicy extensions.PullPolicy
 }
 
-func (c *mockCache) Get(downloadURL, checksum, resourceName, resourceVersion string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
+func (c *mockCache) Get(
+	downloadURL, checksum, resourceName, resourceVersion string,
+	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
 	url, _ := url.Parse(downloadURL)
 	query := url.Query()
 

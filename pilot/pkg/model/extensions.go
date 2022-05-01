@@ -163,7 +163,10 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3
 	}
 }
 
-func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, resourceVersion string, wasmPlugin *extensions.WasmPlugin) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
+func buildVMConfig(
+	datasource *envoyCoreV3.AsyncDataSource,
+	resourceVersion string,
+	wasmPlugin *extensions.WasmPlugin) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
 	cfg := &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 		VmConfig: &envoyExtensionsWasmV3.VmConfig{
 			Runtime: defaultRuntime,
