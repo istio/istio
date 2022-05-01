@@ -354,6 +354,26 @@ func (f fakeInstance) Config() echo.Config {
 	return cfg
 }
 
+func (f fakeInstance) ServiceName() string {
+	return f.Config().Service
+}
+
+func (f fakeInstance) NamespaceName() string {
+	return f.Config().NamespaceName()
+}
+
+func (f fakeInstance) ServiceAccountName() string {
+	return f.Config().ServiceAccountName()
+}
+
+func (f fakeInstance) ClusterLocalFQDN() string {
+	return f.Config().ClusterLocalFQDN()
+}
+
+func (f fakeInstance) ClusterSetLocalFQDN() string {
+	return f.Config().ClusterSetLocalFQDN()
+}
+
 func (f fakeInstance) Address() string {
 	panic("implement me")
 }

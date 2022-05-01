@@ -34,12 +34,12 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/proto"
@@ -63,7 +63,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.ALPNDownstreamWithMxc,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "default",
@@ -129,7 +129,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.ALPNDownstreamWithMxc,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "default",
@@ -636,10 +636,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cgi := NewConfigGenerator([]plugin.Plugin{}, &pilot_model.DisabledCache{})
 			ret := buildGatewayListenerTLSContext(tc.server, &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{},
-			}, tc.transportProtocol, cgi)
+			}, tc.transportProtocol)
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
@@ -664,7 +663,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				Metadata: &pilot_model.NodeMetadata{HTTP10: "1"},
 			},
 			server: &networking.Server{
-				Port: &networking.Port{},
+				Port: &networking.Port{
+					Protocol: protocol.HTTP.String(),
+				},
 			},
 			routeName:   "some-route",
 			proxyConfig: nil,
@@ -689,6 +690,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						StripPortMode: stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -710,7 +713,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				sniHosts: []string{"example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: []string{"h2", "http/1.1"},
+						AlpnProtocols: util.ALPNDownstreamWithMxc,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
@@ -779,6 +782,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTPS,
 				},
 			},
 		},
@@ -800,7 +805,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				sniHosts: []string{"example.org", "test.org"},
 				tlsContext: &auth.DownstreamTlsContext{
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: []string{"h2", "http/1.1"},
+						AlpnProtocols: util.ALPNDownstreamWithMxc,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
@@ -869,6 +874,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTPS,
 				},
 			},
 		},
@@ -890,7 +897,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				sniHosts: []string{"*.example.org", "example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: []string{"h2", "http/1.1"},
+						AlpnProtocols: util.ALPNDownstreamWithMxc,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
@@ -959,6 +966,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTPS,
 				},
 			},
 		},
@@ -966,7 +975,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			name: "Topology HTTP Protocol",
 			node: &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
 			server: &networking.Server{
-				Port: &networking.Port{},
+				Port: &networking.Port{
+					Protocol: protocol.HTTP.String(),
+				},
 			},
 			routeName: "some-route",
 			proxyConfig: &meshconfig.ProxyConfig{
@@ -994,6 +1005,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -1020,7 +1033,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				sniHosts: []string{"example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: []string{"h2", "http/1.1"},
+						AlpnProtocols: util.ALPNDownstreamWithMxc,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
@@ -1089,6 +1102,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTPS,
 				},
 			},
 		},
@@ -1117,7 +1132,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				tlsContext: &auth.DownstreamTlsContext{
 					RequireClientCertificate: proto.BoolTrue,
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: []string{"h2", "http/1.1"},
+						AlpnProtocols: util.ALPNDownstreamWithMxc,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
@@ -1186,6 +1201,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						StripPortMode:       stripPortMode,
 					},
 					statPrefix: "server1",
+					class:      istionetworking.ListenerClassGateway,
+					protocol:   protocol.HTTPS,
 				},
 			},
 		},
@@ -1267,6 +1284,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					},
 					useRemoteAddress: true,
 					statPrefix:       "server1",
+					class:            istionetworking.ListenerClassGateway,
+					protocol:         protocol.HTTPS,
 				},
 			},
 		},
@@ -1274,7 +1293,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cgi := NewConfigGenerator([]plugin.Plugin{}, &pilot_model.DisabledCache{})
+			cgi := NewConfigGenerator(&pilot_model.DisabledCache{})
 			tc.node.MergedGateway = &pilot_model.MergedGateway{TLSServerInfo: map[*networking.Server]*pilot_model.TLSServerInfo{
 				tc.server: {SNIHosts: pilot_model.GetSNIHostsForServer(tc.server)},
 			}}
@@ -1284,7 +1303,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				t.Errorf("got diff in tls context: %v", diff)
 			}
 			if !reflect.DeepEqual(tc.result.httpOpts, ret.httpOpts) {
-				t.Errorf("expecting httpopts:\n %+v \nbut got:\n %+v", tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
+				t.Errorf("expecting httpopts:\n %+v \nbut got:\n %+v", tc.result.httpOpts, ret.httpOpts)
 			}
 			if !reflect.DeepEqual(tc.result.sniHosts, ret.sniHosts) {
 				t.Errorf("expecting snihosts %+v but got %+v", tc.result.sniHosts, ret.sniHosts)
@@ -1871,6 +1890,31 @@ func TestBuildGatewayListeners(t *testing.T) {
 			[]string{"0.0.0.0_8080"},
 		},
 		{
+			"privileged port on privileged pod when empty env var is set",
+			&pilot_model.Proxy{
+				Metadata: &pilot_model.NodeMetadata{
+					UnprivilegedPod: "",
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+							},
+							{
+								Port: &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+							},
+						},
+					},
+				},
+			},
+			nil,
+			[]string{"0.0.0.0_80", "0.0.0.0_8080"},
+		},
+		{
 			"privileged port on privileged pod",
 			&pilot_model.Proxy{},
 			[]config.Config{
@@ -2116,7 +2160,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 				proxy.Metadata = &proxyGatewayMetadata
 			}
 
-			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
+			builder := cg.ConfigGen.buildGatewayListeners(NewListenerBuilder(proxy, cg.PushContext()))
 			listeners := xdstest.ExtractListenerNames(builder.gatewayListeners)
 			sort.Strings(listeners)
 			sort.Strings(tt.expectedListeners)

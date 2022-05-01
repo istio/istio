@@ -114,25 +114,36 @@ var (
 
 func TestGenerateValidatingWebhook(t *testing.T) {
 	tcs := []struct {
-		name    string
-		webhook admit_v1.MutatingWebhookConfiguration
-		whURL   string
-		whSVC   string
-		whCA    string
+		name           string
+		istioNamespace string
+		webhook        admit_v1.MutatingWebhookConfiguration
+		whURL          string
+		whSVC          string
+		whCA           string
 	}{
 		{
-			name:    "webhook-pointing-to-service",
-			webhook: revisionCanonicalWebhook,
-			whURL:   "",
-			whSVC:   "istiod-revision",
-			whCA:    "ca",
+			name:           "webhook-pointing-to-service",
+			istioNamespace: "istio-system",
+			webhook:        revisionCanonicalWebhook,
+			whURL:          "",
+			whSVC:          "istiod-revision",
+			whCA:           "ca",
 		},
 		{
-			name:    "webhook-pointing-to-url",
-			webhook: revisionCanonicalWebhookRemote,
-			whURL:   remoteInjectionURL,
-			whSVC:   "",
-			whCA:    "ca",
+			name:           "webhook-custom-istio-namespace",
+			istioNamespace: "istio-system-blue",
+			webhook:        revisionCanonicalWebhook,
+			whURL:          "",
+			whSVC:          "istiod-revision",
+			whCA:           "ca",
+		},
+		{
+			name:           "webhook-pointing-to-url",
+			istioNamespace: "istio-system",
+			webhook:        revisionCanonicalWebhookRemote,
+			whURL:          remoteInjectionURL,
+			whSVC:          "",
+			whCA:           "ca",
 		},
 	}
 	scheme := runtime.NewScheme()
@@ -140,45 +151,50 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 	deserializer := codecFactory.UniversalDeserializer()
 
 	for _, tc := range tcs {
-		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, "default", "istio-system")
-		if err != nil {
-			t.Fatalf("webhook parsing failed with error: %v", err)
-		}
-		webhookYAML, err := generateValidatingWebhook(webhookConfig, filepath.Join(env.IstioSrc, "manifests"))
-		if err != nil {
-			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, "default", tc.istioNamespace)
+			if err != nil {
+				t.Fatalf("webhook parsing failed with error: %v", err)
+			}
+			webhookYAML, err := generateValidatingWebhook(webhookConfig, filepath.Join(env.IstioSrc, "manifests"))
+			if err != nil {
+				t.Fatalf("tag webhook YAML generation failed with error: %v", err)
+			}
 
-		vwhObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admit_v1.ValidatingWebhookConfiguration{})
-		if err != nil {
-			t.Fatalf("could not parse webhook from generated YAML: %s", vwhObject)
-		}
-		wh := vwhObject.(*admit_v1.ValidatingWebhookConfiguration)
+			vwhObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admit_v1.ValidatingWebhookConfiguration{})
+			if err != nil {
+				t.Fatalf("could not parse webhook from generated YAML: %s", vwhObject)
+			}
+			wh := vwhObject.(*admit_v1.ValidatingWebhookConfiguration)
 
-		for _, webhook := range wh.Webhooks {
-			injectionWhConf := webhook.ClientConfig
-			if tc.whSVC != "" {
-				if injectionWhConf.Service == nil {
-					t.Fatalf("expected injection service %s, got nil", tc.whSVC)
+			for _, webhook := range wh.Webhooks {
+				injectionWhConf := webhook.ClientConfig
+				if tc.whSVC != "" {
+					if injectionWhConf.Service == nil {
+						t.Fatalf("expected injection service %s, got nil", tc.whSVC)
+					}
+					if injectionWhConf.Service.Name != tc.whSVC {
+						t.Fatalf("expected injection service %s, got %s", tc.whSVC, injectionWhConf.Service.Name)
+					}
+					if injectionWhConf.Service.Namespace != tc.istioNamespace {
+						t.Fatalf("expected injection service namespace %s, got %s", tc.istioNamespace, injectionWhConf.Service.Namespace)
+					}
 				}
-				if injectionWhConf.Service.Name != tc.whSVC {
-					t.Fatalf("expected injection service %s, got %s", tc.whSVC, injectionWhConf.Service.Name)
+				if tc.whURL != "" {
+					if injectionWhConf.URL == nil {
+						t.Fatalf("expected injection URL %s, got nil", tc.whURL)
+					}
+					if *injectionWhConf.URL != tc.whURL {
+						t.Fatalf("expected injection URL %s, got %s", tc.whURL, *injectionWhConf.URL)
+					}
+				}
+				if tc.whCA != "" {
+					if string(injectionWhConf.CABundle) != tc.whCA {
+						t.Fatalf("expected CA bundle %q, got %q", tc.whCA, injectionWhConf.CABundle)
+					}
 				}
 			}
-			if tc.whURL != "" {
-				if injectionWhConf.URL == nil {
-					t.Fatalf("expected injection URL %s, got nil", tc.whURL)
-				}
-				if *injectionWhConf.URL != tc.whURL {
-					t.Fatalf("expected injection URL %s, got %s", tc.whURL, *injectionWhConf.URL)
-				}
-			}
-			if tc.whCA != "" {
-				if string(injectionWhConf.CABundle) != tc.whCA {
-					t.Fatalf("expected CA bundle %q, got %q", tc.whCA, injectionWhConf.CABundle)
-				}
-			}
-		}
+		})
 	}
 }
 

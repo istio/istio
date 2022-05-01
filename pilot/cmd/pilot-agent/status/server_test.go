@@ -34,7 +34,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/expfmt"
-	"github.com/prometheus/prometheus/pkg/textparse"
+	"github.com/prometheus/prometheus/model/textparse"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"

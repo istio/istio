@@ -32,7 +32,10 @@ func WriteArchiveFromFiles(base string, files map[string]string, out io.Writer) 
 		if !filepath.IsAbs(src) {
 			src = filepath.Join(base, srcRel)
 		}
-		i, _ := os.Stat(src)
+		i, err := os.Stat(src)
+		if err != nil {
+			return err
+		}
 		isDir := i.IsDir()
 		ts := src
 		write := func(src string) error {

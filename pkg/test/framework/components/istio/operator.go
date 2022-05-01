@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
@@ -527,9 +528,9 @@ func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg 
 	}
 
 	if i.environment.IsMulticluster() {
-		if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
-			// Enable namespace controller writing to remote clusters
-			installArgs.Set = append(installArgs.Set, "values.pilot.env.EXTERNAL_ISTIOD=true")
+		if !i.isExternalControlPlane() && !cfg.IstiodlessRemotes {
+			// Disable namespace controller writing to remote clusters
+			installArgs.Set = append(installArgs.Set, "values.pilot.env.EXTERNAL_ISTIOD=false")
 		}
 
 		// Set the clusterName for the local cluster.
@@ -813,7 +814,9 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", c.Name(), err)
 	}
-	if err := ctx.ConfigKube(clusters...).YAML(cfg.SystemNamespace, secret).Apply(resource.NoCleanup); err != nil {
+	if err := ctx.ConfigKube(clusters...).
+		YAML(cfg.SystemNamespace, secret).
+		Apply(apply.NoCleanup); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil

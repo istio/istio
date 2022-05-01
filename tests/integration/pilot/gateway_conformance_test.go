@@ -42,7 +42,7 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -66,7 +66,9 @@ func TestGatewayConformance(t *testing.T) {
 			if !supportsCRDv1(ctx) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			if err := ctx.ConfigIstio().File("", "testdata/gateway-api-crd.yaml").Apply(resource.NoCleanup); err != nil {
+			if err := ctx.ConfigIstio().
+				File("", "testdata/gateway-api-crd.yaml").
+				Apply(apply.NoCleanup); err != nil {
 				ctx.Fatal(err)
 			}
 			// Wait until our GatewayClass is ready
@@ -84,13 +86,19 @@ func TestGatewayConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			csuite := suite.New(suite.Options{
+			opts := suite.Options{
 				Client:           c,
 				GatewayClassName: "istio",
 				Debug:            scopes.Framework.DebugEnabled(),
 				Cleanup:          gatewayConformanceInputs.Cleanup,
 				RoundTripper:     nil,
-			})
+			}
+			if rev := ctx.Settings().Revisions.Default(); rev != "" {
+				opts.NamespaceLabels = map[string]string{
+					"istio.io/rev": rev,
+				}
+			}
+			csuite := suite.New(opts)
 			csuite.Setup(t)
 
 			for _, ct := range tests.ConformanceTests {

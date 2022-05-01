@@ -88,7 +88,7 @@ func TestMinimumIstioVersion(t *testing.T) {
 		{
 			"three versions",
 			IstioVersions([]IstioVersion{
-				"1.9", "1.14", "1.10",
+				"1.9", "1.15", "1.10",
 			}),
 			IstioVersion("1.9"),
 		},

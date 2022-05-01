@@ -27,7 +27,7 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pilot/pkg/controller/workloadentry"
+	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
@@ -136,7 +136,7 @@ type DiscoveryServer struct {
 
 	// StatusGen is notified of connect/disconnect/nack on all connections
 	StatusGen               *StatusGen
-	WorkloadEntryController *workloadentry.Controller
+	WorkloadEntryController *autoregistration.Controller
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
 	serverReady atomic.Bool
@@ -160,8 +160,7 @@ type DiscoveryServer struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string,
-	clusterAliases map[string]string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, instanceID string, clusterAliases map[string]string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                 env,
 		Generators:          map[string]model.XdsResourceGenerator{},
@@ -197,7 +196,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		out.EndpointIndex.SetCache(out.Cache)
 	}
 
-	out.ConfigGenerator = core.NewConfigGenerator(plugins, out.Cache)
+	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
 
 	return out
 }

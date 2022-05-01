@@ -225,7 +225,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
 	scope.Info("Starting Pilot K8S CRD controller")
 
-	if !cache.WaitForCacheSync(stop, cl.informerSynced) {
+	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
 		scope.Error("Failed to sync Pilot K8S CRD controller cache")
 		return
 	}
@@ -426,7 +426,7 @@ func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]struct{}, er
 	var res *crd.CustomResourceDefinitionList
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = time.Second
-	b.MaxElapsedTime = time.Minute
+	b.MaxElapsedTime = 20 * time.Second
 	err := backoff.Retry(func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()

@@ -21,12 +21,12 @@
 package v1alpha1
 
 import (
-	_ "github.com/golang/protobuf/ptypes/any"
-	duration "github.com/golang/protobuf/ptypes/duration"
-	_struct "github.com/golang/protobuf/ptypes/struct"
-	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	_ "google.golang.org/protobuf/types/known/anypb"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
 )
@@ -342,25 +342,25 @@ type CNIConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether CNI is enabled.
-	Enabled           *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Hub               string              `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag               *_struct.Value      `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
-	Image             string              `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
-	PullPolicy        string              `protobuf:"bytes,5,opt,name=pullPolicy,proto3" json:"pullPolicy,omitempty"`
-	CniBinDir         string              `protobuf:"bytes,6,opt,name=cniBinDir,proto3" json:"cniBinDir,omitempty"`
-	CniConfDir        string              `protobuf:"bytes,7,opt,name=cniConfDir,proto3" json:"cniConfDir,omitempty"`
-	CniConfFileName   string              `protobuf:"bytes,8,opt,name=cniConfFileName,proto3" json:"cniConfFileName,omitempty"`
-	ExcludeNamespaces []string            `protobuf:"bytes,9,rep,name=excludeNamespaces,proto3" json:"excludeNamespaces,omitempty"`
+	Enabled           *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Hub               string                `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
+	Tag               *structpb.Value       `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	Image             string                `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
+	PullPolicy        string                `protobuf:"bytes,5,opt,name=pullPolicy,proto3" json:"pullPolicy,omitempty"`
+	CniBinDir         string                `protobuf:"bytes,6,opt,name=cniBinDir,proto3" json:"cniBinDir,omitempty"`
+	CniConfDir        string                `protobuf:"bytes,7,opt,name=cniConfDir,proto3" json:"cniConfDir,omitempty"`
+	CniConfFileName   string                `protobuf:"bytes,8,opt,name=cniConfFileName,proto3" json:"cniConfFileName,omitempty"`
+	ExcludeNamespaces []string              `protobuf:"bytes,9,rep,name=excludeNamespaces,proto3" json:"excludeNamespaces,omitempty"`
 	// Deprecated: Do not use.
-	PodAnnotations *_struct.Struct     `protobuf:"bytes,10,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
-	PspClusterRole string              `protobuf:"bytes,11,opt,name=psp_cluster_role,json=pspClusterRole,proto3" json:"psp_cluster_role,omitempty"`
-	LogLevel       string              `protobuf:"bytes,12,opt,name=logLevel,proto3" json:"logLevel,omitempty"`
-	Repair         *CNIRepairConfig    `protobuf:"bytes,13,opt,name=repair,proto3" json:"repair,omitempty"`
-	Chained        *wrappers.BoolValue `protobuf:"bytes,14,opt,name=chained,proto3" json:"chained,omitempty"`
-	Taint          *CNITaintConfig     `protobuf:"bytes,15,opt,name=taint,proto3" json:"taint,omitempty"`
-	ResourceQuotas *ResourceQuotas     `protobuf:"bytes,16,opt,name=resource_quotas,json=resourceQuotas,proto3" json:"resource_quotas,omitempty"`
-	Resources      *Resources          `protobuf:"bytes,17,opt,name=resources,proto3" json:"resources,omitempty"`
-	Privileged     *wrappers.BoolValue `protobuf:"bytes,18,opt,name=privileged,proto3" json:"privileged,omitempty"`
+	PodAnnotations *structpb.Struct      `protobuf:"bytes,10,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	PspClusterRole string                `protobuf:"bytes,11,opt,name=psp_cluster_role,json=pspClusterRole,proto3" json:"psp_cluster_role,omitempty"`
+	LogLevel       string                `protobuf:"bytes,12,opt,name=logLevel,proto3" json:"logLevel,omitempty"`
+	Repair         *CNIRepairConfig      `protobuf:"bytes,13,opt,name=repair,proto3" json:"repair,omitempty"`
+	Chained        *wrapperspb.BoolValue `protobuf:"bytes,14,opt,name=chained,proto3" json:"chained,omitempty"`
+	Taint          *CNITaintConfig       `protobuf:"bytes,15,opt,name=taint,proto3" json:"taint,omitempty"`
+	ResourceQuotas *ResourceQuotas       `protobuf:"bytes,16,opt,name=resource_quotas,json=resourceQuotas,proto3" json:"resource_quotas,omitempty"`
+	Resources      *Resources            `protobuf:"bytes,17,opt,name=resources,proto3" json:"resources,omitempty"`
+	Privileged     *wrapperspb.BoolValue `protobuf:"bytes,18,opt,name=privileged,proto3" json:"privileged,omitempty"`
 }
 
 func (x *CNIConfig) Reset() {
@@ -395,7 +395,7 @@ func (*CNIConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *CNIConfig) GetEnabled() *wrappers.BoolValue {
+func (x *CNIConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -409,7 +409,7 @@ func (x *CNIConfig) GetHub() string {
 	return ""
 }
 
-func (x *CNIConfig) GetTag() *_struct.Value {
+func (x *CNIConfig) GetTag() *structpb.Value {
 	if x != nil {
 		return x.Tag
 	}
@@ -459,7 +459,7 @@ func (x *CNIConfig) GetExcludeNamespaces() []string {
 }
 
 // Deprecated: Do not use.
-func (x *CNIConfig) GetPodAnnotations() *_struct.Struct {
+func (x *CNIConfig) GetPodAnnotations() *structpb.Struct {
 	if x != nil {
 		return x.PodAnnotations
 	}
@@ -487,7 +487,7 @@ func (x *CNIConfig) GetRepair() *CNIRepairConfig {
 	return nil
 }
 
-func (x *CNIConfig) GetChained() *wrappers.BoolValue {
+func (x *CNIConfig) GetChained() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Chained
 	}
@@ -515,7 +515,7 @@ func (x *CNIConfig) GetResources() *Resources {
 	return nil
 }
 
-func (x *CNIConfig) GetPrivileged() *wrappers.BoolValue {
+func (x *CNIConfig) GetPrivileged() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Privileged
 	}
@@ -528,7 +528,7 @@ type CNITaintConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether taint behavior is enabled.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 }
 
 func (x *CNITaintConfig) Reset() {
@@ -563,7 +563,7 @@ func (*CNITaintConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *CNITaintConfig) GetEnabled() *wrappers.BoolValue {
+func (x *CNITaintConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -576,10 +576,10 @@ type CNIRepairConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether repair behavior is enabled.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Hub     string              `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag     *_struct.Value      `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
-	Image   string              `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Hub     string                `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
+	Tag     *structpb.Value       `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	Image   string                `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
 	// Controls whether various repair behaviors are enabled.
 	LabelPods bool `protobuf:"varint,5,opt,name=labelPods,proto3" json:"labelPods,omitempty"`
 	// Deprecated: Do not use.
@@ -622,7 +622,7 @@ func (*CNIRepairConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *CNIRepairConfig) GetEnabled() *wrappers.BoolValue {
+func (x *CNIRepairConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -636,7 +636,7 @@ func (x *CNIRepairConfig) GetHub() string {
 	return ""
 }
 
-func (x *CNIRepairConfig) GetTag() *_struct.Value {
+func (x *CNIRepairConfig) GetTag() *structpb.Value {
 	if x != nil {
 		return x.Tag
 	}
@@ -699,8 +699,8 @@ type ResourceQuotas struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether to create resource quotas or not for the CNI DaemonSet.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Pods    int64               `protobuf:"varint,2,opt,name=pods,proto3" json:"pods,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Pods    int64                 `protobuf:"varint,2,opt,name=pods,proto3" json:"pods,omitempty"`
 }
 
 func (x *ResourceQuotas) Reset() {
@@ -735,7 +735,7 @@ func (*ResourceQuotas) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ResourceQuotas) GetEnabled() *wrappers.BoolValue {
+func (x *ResourceQuotas) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -862,7 +862,7 @@ type ServiceAccount struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Annotations *_struct.Struct `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
+	Annotations *structpb.Struct `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
 }
 
 func (x *ServiceAccount) Reset() {
@@ -897,7 +897,7 @@ func (*ServiceAccount) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *ServiceAccount) GetAnnotations() *_struct.Struct {
+func (x *ServiceAccount) GetAnnotations() *structpb.Struct {
 	if x != nil {
 		return x.Annotations
 	}
@@ -913,7 +913,7 @@ type DefaultPodDisruptionBudgetConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether a PodDisruptionBudget with a default minAvailable value of 1 is created for each deployment.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 }
 
 func (x *DefaultPodDisruptionBudgetConfig) Reset() {
@@ -948,7 +948,7 @@ func (*DefaultPodDisruptionBudgetConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *DefaultPodDisruptionBudgetConfig) GetEnabled() *wrappers.BoolValue {
+func (x *DefaultPodDisruptionBudgetConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -1013,7 +1013,7 @@ type EgressGatewayConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.
-	AutoscaleEnabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
+	AutoscaleEnabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
 	// maxReplicas setting for HorizontalPodAutoscaler.
 	AutoscaleMax uint32 `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
 	// minReplicas setting for HorizontalPodAutoscaler.
@@ -1025,9 +1025,9 @@ type EgressGatewayConfig struct {
 	// Deprecated: Do not use.
 	Cpu *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
 	// Controls whether an egress gateway is enabled.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Environment variables passed to the proxy container.
-	Env    *_struct.Struct   `protobuf:"bytes,8,opt,name=env,proto3" json:"env,omitempty"`
+	Env    *structpb.Struct  `protobuf:"bytes,8,opt,name=env,proto3" json:"env,omitempty"`
 	Labels map[string]string `protobuf:"bytes,9,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	Name   string            `protobuf:"bytes,25,opt,name=name,proto3" json:"name,omitempty"`
 	// K8s node selector.
@@ -1035,13 +1035,13 @@ type EgressGatewayConfig struct {
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
 	//
 	// Deprecated: Do not use.
-	NodeSelector *_struct.Struct `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector *structpb.Struct `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// K8s annotations for pods.
 	//
 	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 	//
 	// Deprecated: Do not use.
-	PodAnnotations *_struct.Struct `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	PodAnnotations *structpb.Struct `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
 	// Pod anti-affinity label selector.
 	//
 	// Specify the pod anti-affinity that allows you to constrain which nodes
@@ -1066,11 +1066,11 @@ type EgressGatewayConfig struct {
 	//  “security” and value “S1”.
 	//
 	// Deprecated: Do not use.
-	PodAntiAffinityLabelSelector []*_struct.Struct `protobuf:"bytes,12,rep,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []*structpb.Struct `protobuf:"bytes,12,rep,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See PodAntiAffinityLabelSelector.
 	//
 	// Deprecated: Do not use.
-	PodAntiAffinityTermLabelSelector []*_struct.Struct `protobuf:"bytes,13,rep,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []*structpb.Struct `protobuf:"bytes,13,rep,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	// Ports Configuration for the egress gateway service.
 	Ports []*PortsConfig `protobuf:"bytes,14,rep,name=ports,proto3" json:"ports,omitempty"`
 	// K8s resources settings.
@@ -1082,7 +1082,7 @@ type EgressGatewayConfig struct {
 	// Config for secret volume mounts.
 	SecretVolumes []*SecretVolume `protobuf:"bytes,16,rep,name=secretVolumes,proto3" json:"secretVolumes,omitempty"`
 	// Annotations to add to the egress gateway service.
-	ServiceAnnotations *_struct.Struct `protobuf:"bytes,17,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
+	ServiceAnnotations *structpb.Struct `protobuf:"bytes,17,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
 	// Service type.
 	//
 	// See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
@@ -1090,7 +1090,7 @@ type EgressGatewayConfig struct {
 	// Enables cross-cluster access using SNI matching.
 	Zvpn *ZeroVPNConfig `protobuf:"bytes,19,opt,name=zvpn,proto3" json:"zvpn,omitempty"`
 	// Deprecated: Do not use.
-	Tolerations []*_struct.Struct `protobuf:"bytes,20,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
+	Tolerations []*structpb.Struct `protobuf:"bytes,20,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
 	// K8s rolling update strategy
 	//
 	// Deprecated: Do not use.
@@ -1098,10 +1098,10 @@ type EgressGatewayConfig struct {
 	// K8s rolling update strategy
 	//
 	// Deprecated: Do not use.
-	RollingMaxUnavailable *IntOrString        `protobuf:"bytes,22,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
-	ConfigVolumes         []*_struct.Struct   `protobuf:"bytes,23,rep,name=configVolumes,proto3" json:"configVolumes,omitempty"`
-	AdditionalContainers  []*_struct.Struct   `protobuf:"bytes,24,rep,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
-	RunAsRoot             *wrappers.BoolValue `protobuf:"bytes,26,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
+	RollingMaxUnavailable *IntOrString          `protobuf:"bytes,22,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
+	ConfigVolumes         []*structpb.Struct    `protobuf:"bytes,23,rep,name=configVolumes,proto3" json:"configVolumes,omitempty"`
+	AdditionalContainers  []*structpb.Struct    `protobuf:"bytes,24,rep,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
+	RunAsRoot             *wrapperspb.BoolValue `protobuf:"bytes,26,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
 	// The injection template to use for the gateway. If not set, no injection will be performed.
 	InjectionTemplate string          `protobuf:"bytes,27,opt,name=injectionTemplate,proto3" json:"injectionTemplate,omitempty"`
 	ServiceAccount    *ServiceAccount `protobuf:"bytes,28,opt,name=serviceAccount,proto3" json:"serviceAccount,omitempty"`
@@ -1139,7 +1139,7 @@ func (*EgressGatewayConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *EgressGatewayConfig) GetAutoscaleEnabled() *wrappers.BoolValue {
+func (x *EgressGatewayConfig) GetAutoscaleEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.AutoscaleEnabled
 	}
@@ -1168,14 +1168,14 @@ func (x *EgressGatewayConfig) GetCpu() *CPUTargetUtilizationConfig {
 	return nil
 }
 
-func (x *EgressGatewayConfig) GetEnabled() *wrappers.BoolValue {
+func (x *EgressGatewayConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
 	return nil
 }
 
-func (x *EgressGatewayConfig) GetEnv() *_struct.Struct {
+func (x *EgressGatewayConfig) GetEnv() *structpb.Struct {
 	if x != nil {
 		return x.Env
 	}
@@ -1197,7 +1197,7 @@ func (x *EgressGatewayConfig) GetName() string {
 }
 
 // Deprecated: Do not use.
-func (x *EgressGatewayConfig) GetNodeSelector() *_struct.Struct {
+func (x *EgressGatewayConfig) GetNodeSelector() *structpb.Struct {
 	if x != nil {
 		return x.NodeSelector
 	}
@@ -1205,7 +1205,7 @@ func (x *EgressGatewayConfig) GetNodeSelector() *_struct.Struct {
 }
 
 // Deprecated: Do not use.
-func (x *EgressGatewayConfig) GetPodAnnotations() *_struct.Struct {
+func (x *EgressGatewayConfig) GetPodAnnotations() *structpb.Struct {
 	if x != nil {
 		return x.PodAnnotations
 	}
@@ -1213,7 +1213,7 @@ func (x *EgressGatewayConfig) GetPodAnnotations() *_struct.Struct {
 }
 
 // Deprecated: Do not use.
-func (x *EgressGatewayConfig) GetPodAntiAffinityLabelSelector() []*_struct.Struct {
+func (x *EgressGatewayConfig) GetPodAntiAffinityLabelSelector() []*structpb.Struct {
 	if x != nil {
 		return x.PodAntiAffinityLabelSelector
 	}
@@ -1221,7 +1221,7 @@ func (x *EgressGatewayConfig) GetPodAntiAffinityLabelSelector() []*_struct.Struc
 }
 
 // Deprecated: Do not use.
-func (x *EgressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []*_struct.Struct {
+func (x *EgressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []*structpb.Struct {
 	if x != nil {
 		return x.PodAntiAffinityTermLabelSelector
 	}
@@ -1250,7 +1250,7 @@ func (x *EgressGatewayConfig) GetSecretVolumes() []*SecretVolume {
 	return nil
 }
 
-func (x *EgressGatewayConfig) GetServiceAnnotations() *_struct.Struct {
+func (x *EgressGatewayConfig) GetServiceAnnotations() *structpb.Struct {
 	if x != nil {
 		return x.ServiceAnnotations
 	}
@@ -1272,7 +1272,7 @@ func (x *EgressGatewayConfig) GetZvpn() *ZeroVPNConfig {
 }
 
 // Deprecated: Do not use.
-func (x *EgressGatewayConfig) GetTolerations() []*_struct.Struct {
+func (x *EgressGatewayConfig) GetTolerations() []*structpb.Struct {
 	if x != nil {
 		return x.Tolerations
 	}
@@ -1295,21 +1295,21 @@ func (x *EgressGatewayConfig) GetRollingMaxUnavailable() *IntOrString {
 	return nil
 }
 
-func (x *EgressGatewayConfig) GetConfigVolumes() []*_struct.Struct {
+func (x *EgressGatewayConfig) GetConfigVolumes() []*structpb.Struct {
 	if x != nil {
 		return x.ConfigVolumes
 	}
 	return nil
 }
 
-func (x *EgressGatewayConfig) GetAdditionalContainers() []*_struct.Struct {
+func (x *EgressGatewayConfig) GetAdditionalContainers() []*structpb.Struct {
 	if x != nil {
 		return x.AdditionalContainers
 	}
 	return nil
 }
 
-func (x *EgressGatewayConfig) GetRunAsRoot() *wrappers.BoolValue {
+func (x *EgressGatewayConfig) GetRunAsRoot() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.RunAsRoot
 	}
@@ -1339,7 +1339,7 @@ type GatewaysConfig struct {
 	// Configuration for an egress gateway.
 	IstioEgressgateway *EgressGatewayConfig `protobuf:"bytes,1,opt,name=istio_egressgateway,json=istio-egressgateway,proto3" json:"istio_egressgateway,omitempty"`
 	// Controls whether any gateways are enabled.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Configuration for an ingress gateway.
 	IstioIngressgateway *IngressGatewayConfig `protobuf:"bytes,4,opt,name=istio_ingressgateway,json=istio-ingressgateway,proto3" json:"istio_ingressgateway,omitempty"`
 }
@@ -1383,7 +1383,7 @@ func (x *GatewaysConfig) GetIstioEgressgateway() *EgressGatewayConfig {
 	return nil
 }
 
-func (x *GatewaysConfig) GetEnabled() *wrappers.BoolValue {
+func (x *GatewaysConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -1415,14 +1415,14 @@ type GlobalConfig struct {
 	Arch                *ArchConfig `protobuf:"bytes,1,opt,name=arch,proto3" json:"arch,omitempty"`
 	ConfigRootNamespace string      `protobuf:"bytes,50,opt,name=configRootNamespace,proto3" json:"configRootNamespace,omitempty"`
 	// Controls whether the server-side validation is enabled.
-	ConfigValidation                *wrappers.BoolValue `protobuf:"bytes,3,opt,name=configValidation,proto3" json:"configValidation,omitempty"`
-	DefaultConfigVisibilitySettings []string            `protobuf:"bytes,52,rep,name=defaultConfigVisibilitySettings,proto3" json:"defaultConfigVisibilitySettings,omitempty"`
+	ConfigValidation                *wrapperspb.BoolValue `protobuf:"bytes,3,opt,name=configValidation,proto3" json:"configValidation,omitempty"`
+	DefaultConfigVisibilitySettings []string              `protobuf:"bytes,52,rep,name=defaultConfigVisibilitySettings,proto3" json:"defaultConfigVisibilitySettings,omitempty"`
 	// Default k8s node selector for all the Istio control plane components
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
 	//
 	// Deprecated: Do not use.
-	DefaultNodeSelector *_struct.Struct `protobuf:"bytes,6,opt,name=defaultNodeSelector,proto3" json:"defaultNodeSelector,omitempty"`
+	DefaultNodeSelector *structpb.Struct `protobuf:"bytes,6,opt,name=defaultNodeSelector,proto3" json:"defaultNodeSelector,omitempty"`
 	// Specifies the default pod disruption budget configuration.
 	//
 	// Deprecated: Do not use.
@@ -1434,7 +1434,7 @@ type GlobalConfig struct {
 	// Deprecated: Do not use.
 	DefaultResources *DefaultResourcesConfig `protobuf:"bytes,9,opt,name=defaultResources,proto3" json:"defaultResources,omitempty"`
 	// Deprecated: Do not use.
-	DefaultTolerations []*_struct.Struct `protobuf:"bytes,55,rep,name=defaultTolerations,proto3" json:"defaultTolerations,omitempty"`
+	DefaultTolerations []*structpb.Struct `protobuf:"bytes,55,rep,name=defaultTolerations,proto3" json:"defaultTolerations,omitempty"`
 	// Specifies the docker hub for Istio images.
 	Hub string `protobuf:"bytes,12,opt,name=hub,proto3" json:"hub,omitempty"`
 	// Specifies the image pull policy for the Istio images. one of Always, Never, IfNotPresent.
@@ -1444,8 +1444,8 @@ type GlobalConfig struct {
 	ImagePullPolicy  string   `protobuf:"bytes,13,opt,name=imagePullPolicy,proto3" json:"imagePullPolicy,omitempty"` // ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
 	ImagePullSecrets []string `protobuf:"bytes,37,rep,name=imagePullSecrets,proto3" json:"imagePullSecrets,omitempty"`
 	// Specifies the default namespace for the Istio control plane components.
-	IstioNamespace string              `protobuf:"bytes,14,opt,name=istioNamespace,proto3" json:"istioNamespace,omitempty"`
-	LogAsJson      *wrappers.BoolValue `protobuf:"bytes,36,opt,name=logAsJson,proto3" json:"logAsJson,omitempty"`
+	IstioNamespace string                `protobuf:"bytes,14,opt,name=istioNamespace,proto3" json:"istioNamespace,omitempty"`
+	LogAsJson      *wrapperspb.BoolValue `protobuf:"bytes,36,opt,name=logAsJson,proto3" json:"logAsJson,omitempty"`
 	// Specifies the global logging level settings for the Istio control plane components.
 	Logging *GlobalLoggingConfig `protobuf:"bytes,17,opt,name=logging,proto3" json:"logging,omitempty"`
 	MeshID  string               `protobuf:"bytes,53,opt,name=meshID,proto3" json:"meshID,omitempty"`
@@ -1476,7 +1476,7 @@ type GlobalConfig struct {
 	//     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
 	//       port: 443
 	//
-	MeshNetworks *_struct.Struct `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
+	MeshNetworks *structpb.Struct `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
 	// Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.
 	MultiCluster *MultiClusterConfig `protobuf:"bytes,22,opt,name=multiCluster,proto3" json:"multiCluster,omitempty"`
 	Network      string              `protobuf:"bytes,39,opt,name=network,proto3" json:"network,omitempty"`
@@ -1485,12 +1485,12 @@ type GlobalConfig struct {
 	// see https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#dns-config
 	// This does not apply to gateway pods as they typically need a different
 	// set of DNS settings than the normal application pods (e.g. in multicluster scenarios).
-	PodDNSSearchNamespaces       []string            `protobuf:"bytes,43,rep,name=podDNSSearchNamespaces,proto3" json:"podDNSSearchNamespaces,omitempty"`
-	OmitSidecarInjectorConfigMap *wrappers.BoolValue `protobuf:"bytes,38,opt,name=omitSidecarInjectorConfigMap,proto3" json:"omitSidecarInjectorConfigMap,omitempty"`
+	PodDNSSearchNamespaces       []string              `protobuf:"bytes,43,rep,name=podDNSSearchNamespaces,proto3" json:"podDNSSearchNamespaces,omitempty"`
+	OmitSidecarInjectorConfigMap *wrapperspb.BoolValue `protobuf:"bytes,38,opt,name=omitSidecarInjectorConfigMap,proto3" json:"omitSidecarInjectorConfigMap,omitempty"`
 	// Controls whether to restrict the applications namespace the controller manages;
 	// If set it to false, the controller watches all namespaces.
-	OneNamespace           *wrappers.BoolValue `protobuf:"bytes,23,opt,name=oneNamespace,proto3" json:"oneNamespace,omitempty"`
-	OperatorManageWebhooks *wrappers.BoolValue `protobuf:"bytes,41,opt,name=operatorManageWebhooks,proto3" json:"operatorManageWebhooks,omitempty"`
+	OneNamespace           *wrapperspb.BoolValue `protobuf:"bytes,23,opt,name=oneNamespace,proto3" json:"oneNamespace,omitempty"`
+	OperatorManageWebhooks *wrapperspb.BoolValue `protobuf:"bytes,41,opt,name=operatorManageWebhooks,proto3" json:"operatorManageWebhooks,omitempty"`
 	// Specifies the k8s priorityClassName for the istio control plane components.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
@@ -1504,11 +1504,11 @@ type GlobalConfig struct {
 	// Specifies the Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 	Sds *SDSConfig `protobuf:"bytes,30,opt,name=sds,proto3" json:"sds,omitempty"`
 	// Specifies the tag for the Istio docker images.
-	Tag *_struct.Value `protobuf:"bytes,31,opt,name=tag,proto3" json:"tag,omitempty"`
+	Tag *structpb.Value `protobuf:"bytes,31,opt,name=tag,proto3" json:"tag,omitempty"`
 	// Specifies the Configuration for each of the supported tracers.
 	Tracer *TracerConfig `protobuf:"bytes,33,opt,name=tracer,proto3" json:"tracer,omitempty"`
 	// Controls whether to use of Mesh Configuration Protocol to distribute configuration.
-	UseMCP *wrappers.BoolValue `protobuf:"bytes,35,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
+	UseMCP *wrapperspb.BoolValue `protobuf:"bytes,35,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
 	// Specifies the Istio control plane’s pilot Pod IP address or remote cluster DNS resolvable hostname.
 	RemotePilotAddress string `protobuf:"bytes,48,opt,name=remotePilotAddress,proto3" json:"remotePilotAddress,omitempty"`
 	// Specifies the configution of istiod
@@ -1524,13 +1524,13 @@ type GlobalConfig struct {
 	// Configures the revision this control plane is a part of
 	Revision string `protobuf:"bytes,59,opt,name=revision,proto3" json:"revision,omitempty"`
 	// Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.
-	MountMtlsCerts *wrappers.BoolValue `protobuf:"bytes,60,opt,name=mountMtlsCerts,proto3" json:"mountMtlsCerts,omitempty"`
+	MountMtlsCerts *wrapperspb.BoolValue `protobuf:"bytes,60,opt,name=mountMtlsCerts,proto3" json:"mountMtlsCerts,omitempty"`
 	// The address of the CA for CSR.
 	CaAddress string `protobuf:"bytes,61,opt,name=caAddress,proto3" json:"caAddress,omitempty"`
 	// Controls whether one external istiod is enabled.
-	ExternalIstiod *wrappers.BoolValue `protobuf:"bytes,62,opt,name=externalIstiod,proto3" json:"externalIstiod,omitempty"`
+	ExternalIstiod *wrapperspb.BoolValue `protobuf:"bytes,62,opt,name=externalIstiod,proto3" json:"externalIstiod,omitempty"`
 	// Controls whether a remote cluster is the config cluster for an external istiod
-	ConfigCluster *wrappers.BoolValue `protobuf:"bytes,64,opt,name=configCluster,proto3" json:"configCluster,omitempty"`
+	ConfigCluster *wrapperspb.BoolValue `protobuf:"bytes,64,opt,name=configCluster,proto3" json:"configCluster,omitempty"`
 	// The name of the CA for workloads.
 	// For example, when caName=GkeWorkloadCertificate, GKE workload certificates
 	// will be used as the certificates for workloads.
@@ -1586,7 +1586,7 @@ func (x *GlobalConfig) GetConfigRootNamespace() string {
 	return ""
 }
 
-func (x *GlobalConfig) GetConfigValidation() *wrappers.BoolValue {
+func (x *GlobalConfig) GetConfigValidation() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.ConfigValidation
 	}
@@ -1601,7 +1601,7 @@ func (x *GlobalConfig) GetDefaultConfigVisibilitySettings() []string {
 }
 
 // Deprecated: Do not use.
-func (x *GlobalConfig) GetDefaultNodeSelector() *_struct.Struct {
+func (x *GlobalConfig) GetDefaultNodeSelector() *structpb.Struct {
 	if x != nil {
 		return x.DefaultNodeSelector
 	}
@@ -1625,7 +1625,7 @@ func (x *GlobalConfig) GetDefaultResources() *DefaultResourcesConfig {
 }
 
 // Deprecated: Do not use.
-func (x *GlobalConfig) GetDefaultTolerations() []*_struct.Struct {
+func (x *GlobalConfig) GetDefaultTolerations() []*structpb.Struct {
 	if x != nil {
 		return x.DefaultTolerations
 	}
@@ -1660,7 +1660,7 @@ func (x *GlobalConfig) GetIstioNamespace() string {
 	return ""
 }
 
-func (x *GlobalConfig) GetLogAsJson() *wrappers.BoolValue {
+func (x *GlobalConfig) GetLogAsJson() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.LogAsJson
 	}
@@ -1681,7 +1681,7 @@ func (x *GlobalConfig) GetMeshID() string {
 	return ""
 }
 
-func (x *GlobalConfig) GetMeshNetworks() *_struct.Struct {
+func (x *GlobalConfig) GetMeshNetworks() *structpb.Struct {
 	if x != nil {
 		return x.MeshNetworks
 	}
@@ -1709,21 +1709,21 @@ func (x *GlobalConfig) GetPodDNSSearchNamespaces() []string {
 	return nil
 }
 
-func (x *GlobalConfig) GetOmitSidecarInjectorConfigMap() *wrappers.BoolValue {
+func (x *GlobalConfig) GetOmitSidecarInjectorConfigMap() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.OmitSidecarInjectorConfigMap
 	}
 	return nil
 }
 
-func (x *GlobalConfig) GetOneNamespace() *wrappers.BoolValue {
+func (x *GlobalConfig) GetOneNamespace() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.OneNamespace
 	}
 	return nil
 }
 
-func (x *GlobalConfig) GetOperatorManageWebhooks() *wrappers.BoolValue {
+func (x *GlobalConfig) GetOperatorManageWebhooks() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.OperatorManageWebhooks
 	}
@@ -1759,7 +1759,7 @@ func (x *GlobalConfig) GetSds() *SDSConfig {
 	return nil
 }
 
-func (x *GlobalConfig) GetTag() *_struct.Value {
+func (x *GlobalConfig) GetTag() *structpb.Value {
 	if x != nil {
 		return x.Tag
 	}
@@ -1773,7 +1773,7 @@ func (x *GlobalConfig) GetTracer() *TracerConfig {
 	return nil
 }
 
-func (x *GlobalConfig) GetUseMCP() *wrappers.BoolValue {
+func (x *GlobalConfig) GetUseMCP() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.UseMCP
 	}
@@ -1822,7 +1822,7 @@ func (x *GlobalConfig) GetRevision() string {
 	return ""
 }
 
-func (x *GlobalConfig) GetMountMtlsCerts() *wrappers.BoolValue {
+func (x *GlobalConfig) GetMountMtlsCerts() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.MountMtlsCerts
 	}
@@ -1836,14 +1836,14 @@ func (x *GlobalConfig) GetCaAddress() string {
 	return ""
 }
 
-func (x *GlobalConfig) GetExternalIstiod() *wrappers.BoolValue {
+func (x *GlobalConfig) GetExternalIstiod() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.ExternalIstiod
 	}
 	return nil
 }
 
-func (x *GlobalConfig) GetConfigCluster() *wrappers.BoolValue {
+func (x *GlobalConfig) GetConfigCluster() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.ConfigCluster
 	}
@@ -1913,7 +1913,7 @@ type IstiodConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// If enabled, istiod will perform config analysis
-	EnableAnalysis *wrappers.BoolValue `protobuf:"bytes,2,opt,name=enableAnalysis,proto3" json:"enableAnalysis,omitempty"`
+	EnableAnalysis *wrapperspb.BoolValue `protobuf:"bytes,2,opt,name=enableAnalysis,proto3" json:"enableAnalysis,omitempty"`
 }
 
 func (x *IstiodConfig) Reset() {
@@ -1948,7 +1948,7 @@ func (*IstiodConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *IstiodConfig) GetEnableAnalysis() *wrappers.BoolValue {
+func (x *IstiodConfig) GetEnableAnalysis() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.EnableAnalysis
 	}
@@ -2013,7 +2013,7 @@ type IngressGatewayConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.
-	AutoscaleEnabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
+	AutoscaleEnabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
 	// maxReplicas setting for HorizontalPodAutoscaler.
 	AutoscaleMax uint32 `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
 	// minReplicas setting for HorizontalPodAutoscaler.
@@ -2024,11 +2024,11 @@ type IngressGatewayConfig struct {
 	//
 	// Deprecated: Do not use.
 	Cpu           *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	CustomService *wrappers.BoolValue         `protobuf:"bytes,6,opt,name=customService,proto3" json:"customService,omitempty"`
+	CustomService *wrapperspb.BoolValue       `protobuf:"bytes,6,opt,name=customService,proto3" json:"customService,omitempty"`
 	// Controls whether an ingress gateway is enabled.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,10,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,10,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Environment variables passed to the proxy container.
-	Env                      *_struct.Struct   `protobuf:"bytes,11,opt,name=env,proto3" json:"env,omitempty"`
+	Env                      *structpb.Struct  `protobuf:"bytes,11,opt,name=env,proto3" json:"env,omitempty"`
 	Labels                   map[string]string `protobuf:"bytes,15,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	LoadBalancerIP           string            `protobuf:"bytes,16,opt,name=loadBalancerIP,proto3" json:"loadBalancerIP,omitempty"`
 	LoadBalancerSourceRanges []string          `protobuf:"bytes,17,rep,name=loadBalancerSourceRanges,proto3" json:"loadBalancerSourceRanges,omitempty"`
@@ -2038,21 +2038,21 @@ type IngressGatewayConfig struct {
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
 	//
 	// Deprecated: Do not use.
-	NodeSelector *_struct.Struct `protobuf:"bytes,19,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector *structpb.Struct `protobuf:"bytes,19,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// K8s annotations for pods.
 	//
 	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 	//
 	// Deprecated: Do not use.
-	PodAnnotations *_struct.Struct `protobuf:"bytes,20,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	PodAnnotations *structpb.Struct `protobuf:"bytes,20,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
 	// See EgressGatewayConfig.
 	//
 	// Deprecated: Do not use.
-	PodAntiAffinityLabelSelector []*_struct.Struct `protobuf:"bytes,21,rep,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []*structpb.Struct `protobuf:"bytes,21,rep,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See EgressGatewayConfig.
 	//
 	// Deprecated: Do not use.
-	PodAntiAffinityTermLabelSelector []*_struct.Struct `protobuf:"bytes,22,rep,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []*structpb.Struct `protobuf:"bytes,22,rep,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	// Port Configuration for the ingress gateway.
 	Ports []*PortsConfig `protobuf:"bytes,23,rep,name=ports,proto3" json:"ports,omitempty"`
 	// Number of replicas for the ingress gateway Deployment.
@@ -2064,11 +2064,11 @@ type IngressGatewayConfig struct {
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
 	//
 	// Deprecated: Do not use.
-	Resources *_struct.Struct `protobuf:"bytes,25,opt,name=resources,proto3" json:"resources,omitempty"`
+	Resources *structpb.Struct `protobuf:"bytes,25,opt,name=resources,proto3" json:"resources,omitempty"`
 	// Config for secret volume mounts.
 	SecretVolumes []*SecretVolume `protobuf:"bytes,27,rep,name=secretVolumes,proto3" json:"secretVolumes,omitempty"`
 	// Annotations to add to the egress gateway service.
-	ServiceAnnotations *_struct.Struct `protobuf:"bytes,28,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
+	ServiceAnnotations *structpb.Struct `protobuf:"bytes,28,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
 	// Service type.
 	//
 	// See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
@@ -2085,11 +2085,11 @@ type IngressGatewayConfig struct {
 	RollingMaxUnavailable *IntOrString `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
 	ExternalTrafficPolicy string       `protobuf:"bytes,34,opt,name=externalTrafficPolicy,proto3" json:"externalTrafficPolicy,omitempty"`
 	// Deprecated: Do not use.
-	Tolerations          []*_struct.Struct   `protobuf:"bytes,35,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
-	IngressPorts         []*_struct.Struct   `protobuf:"bytes,36,rep,name=ingressPorts,proto3" json:"ingressPorts,omitempty"`
-	AdditionalContainers []*_struct.Struct   `protobuf:"bytes,37,rep,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
-	ConfigVolumes        []*_struct.Struct   `protobuf:"bytes,38,rep,name=configVolumes,proto3" json:"configVolumes,omitempty"`
-	RunAsRoot            *wrappers.BoolValue `protobuf:"bytes,45,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
+	Tolerations          []*structpb.Struct    `protobuf:"bytes,35,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
+	IngressPorts         []*structpb.Struct    `protobuf:"bytes,36,rep,name=ingressPorts,proto3" json:"ingressPorts,omitempty"`
+	AdditionalContainers []*structpb.Struct    `protobuf:"bytes,37,rep,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
+	ConfigVolumes        []*structpb.Struct    `protobuf:"bytes,38,rep,name=configVolumes,proto3" json:"configVolumes,omitempty"`
+	RunAsRoot            *wrapperspb.BoolValue `protobuf:"bytes,45,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
 	// The injection template to use for the gateway. If not set, no injection will be performed.
 	InjectionTemplate string          `protobuf:"bytes,46,opt,name=injectionTemplate,proto3" json:"injectionTemplate,omitempty"`
 	ServiceAccount    *ServiceAccount `protobuf:"bytes,47,opt,name=serviceAccount,proto3" json:"serviceAccount,omitempty"`
@@ -2127,7 +2127,7 @@ func (*IngressGatewayConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *IngressGatewayConfig) GetAutoscaleEnabled() *wrappers.BoolValue {
+func (x *IngressGatewayConfig) GetAutoscaleEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.AutoscaleEnabled
 	}
@@ -2156,21 +2156,21 @@ func (x *IngressGatewayConfig) GetCpu() *CPUTargetUtilizationConfig {
 	return nil
 }
 
-func (x *IngressGatewayConfig) GetCustomService() *wrappers.BoolValue {
+func (x *IngressGatewayConfig) GetCustomService() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.CustomService
 	}
 	return nil
 }
 
-func (x *IngressGatewayConfig) GetEnabled() *wrappers.BoolValue {
+func (x *IngressGatewayConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
 	return nil
 }
 
-func (x *IngressGatewayConfig) GetEnv() *_struct.Struct {
+func (x *IngressGatewayConfig) GetEnv() *structpb.Struct {
 	if x != nil {
 		return x.Env
 	}
@@ -2206,7 +2206,7 @@ func (x *IngressGatewayConfig) GetName() string {
 }
 
 // Deprecated: Do not use.
-func (x *IngressGatewayConfig) GetNodeSelector() *_struct.Struct {
+func (x *IngressGatewayConfig) GetNodeSelector() *structpb.Struct {
 	if x != nil {
 		return x.NodeSelector
 	}
@@ -2214,7 +2214,7 @@ func (x *IngressGatewayConfig) GetNodeSelector() *_struct.Struct {
 }
 
 // Deprecated: Do not use.
-func (x *IngressGatewayConfig) GetPodAnnotations() *_struct.Struct {
+func (x *IngressGatewayConfig) GetPodAnnotations() *structpb.Struct {
 	if x != nil {
 		return x.PodAnnotations
 	}
@@ -2222,7 +2222,7 @@ func (x *IngressGatewayConfig) GetPodAnnotations() *_struct.Struct {
 }
 
 // Deprecated: Do not use.
-func (x *IngressGatewayConfig) GetPodAntiAffinityLabelSelector() []*_struct.Struct {
+func (x *IngressGatewayConfig) GetPodAntiAffinityLabelSelector() []*structpb.Struct {
 	if x != nil {
 		return x.PodAntiAffinityLabelSelector
 	}
@@ -2230,7 +2230,7 @@ func (x *IngressGatewayConfig) GetPodAntiAffinityLabelSelector() []*_struct.Stru
 }
 
 // Deprecated: Do not use.
-func (x *IngressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []*_struct.Struct {
+func (x *IngressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []*structpb.Struct {
 	if x != nil {
 		return x.PodAntiAffinityTermLabelSelector
 	}
@@ -2253,7 +2253,7 @@ func (x *IngressGatewayConfig) GetReplicaCount() uint32 {
 }
 
 // Deprecated: Do not use.
-func (x *IngressGatewayConfig) GetResources() *_struct.Struct {
+func (x *IngressGatewayConfig) GetResources() *structpb.Struct {
 	if x != nil {
 		return x.Resources
 	}
@@ -2267,7 +2267,7 @@ func (x *IngressGatewayConfig) GetSecretVolumes() []*SecretVolume {
 	return nil
 }
 
-func (x *IngressGatewayConfig) GetServiceAnnotations() *_struct.Struct {
+func (x *IngressGatewayConfig) GetServiceAnnotations() *structpb.Struct {
 	if x != nil {
 		return x.ServiceAnnotations
 	}
@@ -2312,35 +2312,35 @@ func (x *IngressGatewayConfig) GetExternalTrafficPolicy() string {
 }
 
 // Deprecated: Do not use.
-func (x *IngressGatewayConfig) GetTolerations() []*_struct.Struct {
+func (x *IngressGatewayConfig) GetTolerations() []*structpb.Struct {
 	if x != nil {
 		return x.Tolerations
 	}
 	return nil
 }
 
-func (x *IngressGatewayConfig) GetIngressPorts() []*_struct.Struct {
+func (x *IngressGatewayConfig) GetIngressPorts() []*structpb.Struct {
 	if x != nil {
 		return x.IngressPorts
 	}
 	return nil
 }
 
-func (x *IngressGatewayConfig) GetAdditionalContainers() []*_struct.Struct {
+func (x *IngressGatewayConfig) GetAdditionalContainers() []*structpb.Struct {
 	if x != nil {
 		return x.AdditionalContainers
 	}
 	return nil
 }
 
-func (x *IngressGatewayConfig) GetConfigVolumes() []*_struct.Struct {
+func (x *IngressGatewayConfig) GetConfigVolumes() []*structpb.Struct {
 	if x != nil {
 		return x.ConfigVolumes
 	}
 	return nil
 }
 
-func (x *IngressGatewayConfig) GetRunAsRoot() *wrappers.BoolValue {
+func (x *IngressGatewayConfig) GetRunAsRoot() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.RunAsRoot
 	}
@@ -2368,8 +2368,8 @@ type IngressGatewayZvpnConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether ZeroVPN is enabled.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Suffix  string              `protobuf:"bytes,2,opt,name=suffix,proto3" json:"suffix,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Suffix  string                `protobuf:"bytes,2,opt,name=suffix,proto3" json:"suffix,omitempty"`
 }
 
 func (x *IngressGatewayZvpnConfig) Reset() {
@@ -2404,7 +2404,7 @@ func (*IngressGatewayZvpnConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{17}
 }
 
-func (x *IngressGatewayZvpnConfig) GetEnabled() *wrappers.BoolValue {
+func (x *IngressGatewayZvpnConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -2426,10 +2426,10 @@ type MultiClusterConfig struct {
 
 	// Enables the connection between two kubernetes clusters via their respective ingressgateway services.
 	// Use if the pods in each cluster cannot directly talk to one another.
-	Enabled            *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	ClusterName        string              `protobuf:"bytes,2,opt,name=clusterName,proto3" json:"clusterName,omitempty"`
-	GlobalDomainSuffix string              `protobuf:"bytes,3,opt,name=globalDomainSuffix,proto3" json:"globalDomainSuffix,omitempty"`
-	IncludeEnvoyFilter *wrappers.BoolValue `protobuf:"bytes,4,opt,name=includeEnvoyFilter,proto3" json:"includeEnvoyFilter,omitempty"`
+	Enabled            *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	ClusterName        string                `protobuf:"bytes,2,opt,name=clusterName,proto3" json:"clusterName,omitempty"`
+	GlobalDomainSuffix string                `protobuf:"bytes,3,opt,name=globalDomainSuffix,proto3" json:"globalDomainSuffix,omitempty"`
+	IncludeEnvoyFilter *wrapperspb.BoolValue `protobuf:"bytes,4,opt,name=includeEnvoyFilter,proto3" json:"includeEnvoyFilter,omitempty"`
 }
 
 func (x *MultiClusterConfig) Reset() {
@@ -2464,7 +2464,7 @@ func (*MultiClusterConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{18}
 }
 
-func (x *MultiClusterConfig) GetEnabled() *wrappers.BoolValue {
+func (x *MultiClusterConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -2485,7 +2485,7 @@ func (x *MultiClusterConfig) GetGlobalDomainSuffix() string {
 	return ""
 }
 
-func (x *MultiClusterConfig) GetIncludeEnvoyFilter() *wrappers.BoolValue {
+func (x *MultiClusterConfig) GetIncludeEnvoyFilter() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.IncludeEnvoyFilter
 	}
@@ -2547,9 +2547,9 @@ type PilotConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether Pilot is enabled.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Controls whether a HorizontalPodAutoscaler is installed for Pilot.
-	AutoscaleEnabled *wrappers.BoolValue `protobuf:"bytes,2,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
+	AutoscaleEnabled *wrapperspb.BoolValue `protobuf:"bytes,2,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
 	// Minimum number of replicas in the HorizontalPodAutoscaler for Pilot.
 	AutoscaleMin uint32 `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
 	// Maximum number of replicas in the HorizontalPodAutoscaler for Pilot.
@@ -2589,34 +2589,34 @@ type PilotConfig struct {
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
 	//
 	// Deprecated: Do not use.
-	NodeSelector *_struct.Struct `protobuf:"bytes,12,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector *structpb.Struct `protobuf:"bytes,12,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// Maximum duration that a sidecar can be connected to a pilot.
 	//
 	// This setting balances out load across pilot instances, but adds some resource overhead.
 	//
 	// Examples: 300s, 30m, 1h
-	KeepaliveMaxServerConnectionAge *duration.Duration `protobuf:"bytes,13,opt,name=keepaliveMaxServerConnectionAge,proto3" json:"keepaliveMaxServerConnectionAge,omitempty"`
+	KeepaliveMaxServerConnectionAge *durationpb.Duration `protobuf:"bytes,13,opt,name=keepaliveMaxServerConnectionAge,proto3" json:"keepaliveMaxServerConnectionAge,omitempty"`
 	// Labels that are added to Pilot deployment and pods.
 	//
 	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-	DeploymentLabels *_struct.Struct `protobuf:"bytes,14,opt,name=deploymentLabels,proto3" json:"deploymentLabels,omitempty"`
-	PodLabels        *_struct.Struct `protobuf:"bytes,36,opt,name=podLabels,proto3" json:"podLabels,omitempty"`
+	DeploymentLabels *structpb.Struct `protobuf:"bytes,14,opt,name=deploymentLabels,proto3" json:"deploymentLabels,omitempty"`
+	PodLabels        *structpb.Struct `protobuf:"bytes,36,opt,name=podLabels,proto3" json:"podLabels,omitempty"`
 	// Configuration settings passed to Pilot as a ConfigMap.
 	//
 	// This controls whether the mesh config map, generated from values.yaml is generated.
 	// If false, pilot wil use default values or user-supplied values, in that order of preference.
-	ConfigMap *wrappers.BoolValue `protobuf:"bytes,18,opt,name=configMap,proto3" json:"configMap,omitempty"`
+	ConfigMap *wrapperspb.BoolValue `protobuf:"bytes,18,opt,name=configMap,proto3" json:"configMap,omitempty"`
 	// Controls whether Pilot is configured through the Mesh Control Protocol (MCP).
 	//
 	// If set to true, Pilot requires an MCP server (like Galley) to be installed.
-	UseMCP *wrappers.BoolValue `protobuf:"bytes,20,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
+	UseMCP *wrapperspb.BoolValue `protobuf:"bytes,20,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
 	// Environment variables passed to the Pilot container.
 	//
 	// Examples:
 	// env:
 	//   ENV_VAR_1: value1
 	//   ENV_VAR_2: value2
-	Env *_struct.Struct `protobuf:"bytes,21,opt,name=env,proto3" json:"env,omitempty"`
+	Env *structpb.Struct `protobuf:"bytes,21,opt,name=env,proto3" json:"env,omitempty"`
 	// K8s rolling update strategy
 	//
 	// Deprecated: Do not use.
@@ -2628,18 +2628,18 @@ type PilotConfig struct {
 	//
 	//
 	// Deprecated: Do not use.
-	Tolerations []*_struct.Struct `protobuf:"bytes,26,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
+	Tolerations []*structpb.Struct `protobuf:"bytes,26,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
 	// if protocol sniffing is enabled for outbound
-	EnableProtocolSniffingForOutbound *wrappers.BoolValue `protobuf:"bytes,28,opt,name=enableProtocolSniffingForOutbound,proto3" json:"enableProtocolSniffingForOutbound,omitempty"`
+	EnableProtocolSniffingForOutbound *wrapperspb.BoolValue `protobuf:"bytes,28,opt,name=enableProtocolSniffingForOutbound,proto3" json:"enableProtocolSniffingForOutbound,omitempty"`
 	// if protocol sniffing is enabled for inbound
-	EnableProtocolSniffingForInbound *wrappers.BoolValue `protobuf:"bytes,29,opt,name=enableProtocolSniffingForInbound,proto3" json:"enableProtocolSniffingForInbound,omitempty"`
+	EnableProtocolSniffingForInbound *wrapperspb.BoolValue `protobuf:"bytes,29,opt,name=enableProtocolSniffingForInbound,proto3" json:"enableProtocolSniffingForInbound,omitempty"`
 	// K8s annotations for pods.
 	//
 	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 	//
 	// Deprecated: Do not use.
-	PodAnnotations     *_struct.Struct `protobuf:"bytes,30,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
-	ServiceAnnotations *_struct.Struct `protobuf:"bytes,37,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
+	PodAnnotations     *structpb.Struct `protobuf:"bytes,30,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	ServiceAnnotations *structpb.Struct `protobuf:"bytes,37,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
 	// ConfigSource describes a source of configuration data for networking
 	// rules, and other Istio configuration artifacts. Multiple data sources
 	// can be configured for a single control plane.
@@ -2647,7 +2647,7 @@ type PilotConfig struct {
 	JwksResolverExtraRootCA string             `protobuf:"bytes,32,opt,name=jwksResolverExtraRootCA,proto3" json:"jwksResolverExtraRootCA,omitempty"`
 	Plugins                 []string           `protobuf:"bytes,33,rep,name=plugins,proto3" json:"plugins,omitempty"`
 	Hub                     string             `protobuf:"bytes,34,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag                     *_struct.Value     `protobuf:"bytes,35,opt,name=tag,proto3" json:"tag,omitempty"`
+	Tag                     *structpb.Value    `protobuf:"bytes,35,opt,name=tag,proto3" json:"tag,omitempty"`
 }
 
 func (x *PilotConfig) Reset() {
@@ -2682,14 +2682,14 @@ func (*PilotConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *PilotConfig) GetEnabled() *wrappers.BoolValue {
+func (x *PilotConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetAutoscaleEnabled() *wrappers.BoolValue {
+func (x *PilotConfig) GetAutoscaleEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.AutoscaleEnabled
 	}
@@ -2756,49 +2756,49 @@ func (x *PilotConfig) GetCpu() *CPUTargetUtilizationConfig {
 }
 
 // Deprecated: Do not use.
-func (x *PilotConfig) GetNodeSelector() *_struct.Struct {
+func (x *PilotConfig) GetNodeSelector() *structpb.Struct {
 	if x != nil {
 		return x.NodeSelector
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetKeepaliveMaxServerConnectionAge() *duration.Duration {
+func (x *PilotConfig) GetKeepaliveMaxServerConnectionAge() *durationpb.Duration {
 	if x != nil {
 		return x.KeepaliveMaxServerConnectionAge
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetDeploymentLabels() *_struct.Struct {
+func (x *PilotConfig) GetDeploymentLabels() *structpb.Struct {
 	if x != nil {
 		return x.DeploymentLabels
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetPodLabels() *_struct.Struct {
+func (x *PilotConfig) GetPodLabels() *structpb.Struct {
 	if x != nil {
 		return x.PodLabels
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetConfigMap() *wrappers.BoolValue {
+func (x *PilotConfig) GetConfigMap() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.ConfigMap
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetUseMCP() *wrappers.BoolValue {
+func (x *PilotConfig) GetUseMCP() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.UseMCP
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetEnv() *_struct.Struct {
+func (x *PilotConfig) GetEnv() *structpb.Struct {
 	if x != nil {
 		return x.Env
 	}
@@ -2822,21 +2822,21 @@ func (x *PilotConfig) GetRollingMaxUnavailable() *IntOrString {
 }
 
 // Deprecated: Do not use.
-func (x *PilotConfig) GetTolerations() []*_struct.Struct {
+func (x *PilotConfig) GetTolerations() []*structpb.Struct {
 	if x != nil {
 		return x.Tolerations
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetEnableProtocolSniffingForOutbound() *wrappers.BoolValue {
+func (x *PilotConfig) GetEnableProtocolSniffingForOutbound() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.EnableProtocolSniffingForOutbound
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetEnableProtocolSniffingForInbound() *wrappers.BoolValue {
+func (x *PilotConfig) GetEnableProtocolSniffingForInbound() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.EnableProtocolSniffingForInbound
 	}
@@ -2844,14 +2844,14 @@ func (x *PilotConfig) GetEnableProtocolSniffingForInbound() *wrappers.BoolValue 
 }
 
 // Deprecated: Do not use.
-func (x *PilotConfig) GetPodAnnotations() *_struct.Struct {
+func (x *PilotConfig) GetPodAnnotations() *structpb.Struct {
 	if x != nil {
 		return x.PodAnnotations
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetServiceAnnotations() *_struct.Struct {
+func (x *PilotConfig) GetServiceAnnotations() *structpb.Struct {
 	if x != nil {
 		return x.ServiceAnnotations
 	}
@@ -2886,7 +2886,7 @@ func (x *PilotConfig) GetHub() string {
 	return ""
 }
 
-func (x *PilotConfig) GetTag() *_struct.Value {
+func (x *PilotConfig) GetTag() *structpb.Value {
 	if x != nil {
 		return x.Tag
 	}
@@ -2970,7 +2970,7 @@ type PilotPolicyConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether Istio policy is applied to Pilot.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 }
 
 func (x *PilotPolicyConfig) Reset() {
@@ -3005,7 +3005,7 @@ func (*PilotPolicyConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *PilotPolicyConfig) GetEnabled() *wrappers.BoolValue {
+func (x *PilotPolicyConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -3019,7 +3019,7 @@ type TelemetryConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether telemetry is exported for Pilot.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Use telemetry v2.
 	V2 *TelemetryV2Config `protobuf:"bytes,3,opt,name=v2,proto3" json:"v2,omitempty"`
 }
@@ -3056,7 +3056,7 @@ func (*TelemetryConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{23}
 }
 
-func (x *TelemetryConfig) GetEnabled() *wrappers.BoolValue {
+func (x *TelemetryConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -3077,7 +3077,7 @@ type TelemetryV2Config struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether pilot will configure telemetry v2.
-	Enabled          *wrappers.BoolValue                     `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled          *wrapperspb.BoolValue                   `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	MetadataExchange *TelemetryV2MetadataExchangeConfig      `protobuf:"bytes,4,opt,name=metadata_exchange,json=metadataExchange,proto3" json:"metadata_exchange,omitempty"`
 	Prometheus       *TelemetryV2PrometheusConfig            `protobuf:"bytes,2,opt,name=prometheus,proto3" json:"prometheus,omitempty"`
 	Stackdriver      *TelemetryV2StackDriverConfig           `protobuf:"bytes,3,opt,name=stackdriver,proto3" json:"stackdriver,omitempty"`
@@ -3116,7 +3116,7 @@ func (*TelemetryV2Config) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{24}
 }
 
-func (x *TelemetryV2Config) GetEnabled() *wrappers.BoolValue {
+func (x *TelemetryV2Config) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -3157,7 +3157,7 @@ type TelemetryV2MetadataExchangeConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether enabled WebAssembly runtime for metadata exchange filter.
-	WasmEnabled *wrappers.BoolValue `protobuf:"bytes,2,opt,name=wasmEnabled,proto3" json:"wasmEnabled,omitempty"`
+	WasmEnabled *wrapperspb.BoolValue `protobuf:"bytes,2,opt,name=wasmEnabled,proto3" json:"wasmEnabled,omitempty"`
 }
 
 func (x *TelemetryV2MetadataExchangeConfig) Reset() {
@@ -3192,7 +3192,7 @@ func (*TelemetryV2MetadataExchangeConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{25}
 }
 
-func (x *TelemetryV2MetadataExchangeConfig) GetWasmEnabled() *wrappers.BoolValue {
+func (x *TelemetryV2MetadataExchangeConfig) GetWasmEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.WasmEnabled
 	}
@@ -3206,9 +3206,9 @@ type TelemetryV2PrometheusConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether stats envoyfilter would be enabled or not.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Controls whether enabled WebAssembly runtime for stats filter.
-	WasmEnabled *wrappers.BoolValue `protobuf:"bytes,2,opt,name=wasmEnabled,proto3" json:"wasmEnabled,omitempty"`
+	WasmEnabled *wrapperspb.BoolValue `protobuf:"bytes,2,opt,name=wasmEnabled,proto3" json:"wasmEnabled,omitempty"`
 	// Overrides default telemetry v2 filter configuration.
 	ConfigOverride *TelemetryV2PrometheusConfig_ConfigOverride `protobuf:"bytes,3,opt,name=config_override,json=configOverride,proto3" json:"config_override,omitempty"`
 }
@@ -3245,14 +3245,14 @@ func (*TelemetryV2PrometheusConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{26}
 }
 
-func (x *TelemetryV2PrometheusConfig) GetEnabled() *wrappers.BoolValue {
+func (x *TelemetryV2PrometheusConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
 	return nil
 }
 
-func (x *TelemetryV2PrometheusConfig) GetWasmEnabled() *wrappers.BoolValue {
+func (x *TelemetryV2PrometheusConfig) GetWasmEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.WasmEnabled
 	}
@@ -3272,14 +3272,14 @@ type TelemetryV2StackDriverConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Deprecated: Do not use.
-	Logging    *wrappers.BoolValue `protobuf:"bytes,2,opt,name=logging,proto3" json:"logging,omitempty"`
-	Monitoring *wrappers.BoolValue `protobuf:"bytes,3,opt,name=monitoring,proto3" json:"monitoring,omitempty"`
+	Logging    *wrapperspb.BoolValue `protobuf:"bytes,2,opt,name=logging,proto3" json:"logging,omitempty"`
+	Monitoring *wrapperspb.BoolValue `protobuf:"bytes,3,opt,name=monitoring,proto3" json:"monitoring,omitempty"`
 	// Deprecated: Do not use.
-	Topology              *wrappers.BoolValue                        `protobuf:"bytes,4,opt,name=topology,proto3" json:"topology,omitempty"`
-	DisableOutbound       *wrappers.BoolValue                        `protobuf:"bytes,6,opt,name=disableOutbound,proto3" json:"disableOutbound,omitempty"`
-	ConfigOverride        *_struct.Struct                            `protobuf:"bytes,5,opt,name=configOverride,proto3" json:"configOverride,omitempty"`
+	Topology              *wrapperspb.BoolValue                      `protobuf:"bytes,4,opt,name=topology,proto3" json:"topology,omitempty"`
+	DisableOutbound       *wrapperspb.BoolValue                      `protobuf:"bytes,6,opt,name=disableOutbound,proto3" json:"disableOutbound,omitempty"`
+	ConfigOverride        *structpb.Struct                           `protobuf:"bytes,5,opt,name=configOverride,proto3" json:"configOverride,omitempty"`
 	OutboundAccessLogging TelemetryV2StackDriverConfig_AccessLogging `protobuf:"varint,7,opt,name=outboundAccessLogging,proto3,enum=v1alpha1.TelemetryV2StackDriverConfig_AccessLogging" json:"outboundAccessLogging,omitempty"`
 	InboundAccessLogging  TelemetryV2StackDriverConfig_AccessLogging `protobuf:"varint,8,opt,name=inboundAccessLogging,proto3,enum=v1alpha1.TelemetryV2StackDriverConfig_AccessLogging" json:"inboundAccessLogging,omitempty"`
 }
@@ -3316,7 +3316,7 @@ func (*TelemetryV2StackDriverConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{27}
 }
 
-func (x *TelemetryV2StackDriverConfig) GetEnabled() *wrappers.BoolValue {
+func (x *TelemetryV2StackDriverConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -3324,14 +3324,14 @@ func (x *TelemetryV2StackDriverConfig) GetEnabled() *wrappers.BoolValue {
 }
 
 // Deprecated: Do not use.
-func (x *TelemetryV2StackDriverConfig) GetLogging() *wrappers.BoolValue {
+func (x *TelemetryV2StackDriverConfig) GetLogging() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Logging
 	}
 	return nil
 }
 
-func (x *TelemetryV2StackDriverConfig) GetMonitoring() *wrappers.BoolValue {
+func (x *TelemetryV2StackDriverConfig) GetMonitoring() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Monitoring
 	}
@@ -3339,21 +3339,21 @@ func (x *TelemetryV2StackDriverConfig) GetMonitoring() *wrappers.BoolValue {
 }
 
 // Deprecated: Do not use.
-func (x *TelemetryV2StackDriverConfig) GetTopology() *wrappers.BoolValue {
+func (x *TelemetryV2StackDriverConfig) GetTopology() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Topology
 	}
 	return nil
 }
 
-func (x *TelemetryV2StackDriverConfig) GetDisableOutbound() *wrappers.BoolValue {
+func (x *TelemetryV2StackDriverConfig) GetDisableOutbound() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.DisableOutbound
 	}
 	return nil
 }
 
-func (x *TelemetryV2StackDriverConfig) GetConfigOverride() *_struct.Struct {
+func (x *TelemetryV2StackDriverConfig) GetConfigOverride() *structpb.Struct {
 	if x != nil {
 		return x.ConfigOverride
 	}
@@ -3380,8 +3380,8 @@ type TelemetryV2AccessLogPolicyFilterConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Enabled           *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	LogWindowDuration *duration.Duration  `protobuf:"bytes,2,opt,name=logWindowDuration,proto3" json:"logWindowDuration,omitempty"`
+	Enabled           *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	LogWindowDuration *durationpb.Duration  `protobuf:"bytes,2,opt,name=logWindowDuration,proto3" json:"logWindowDuration,omitempty"`
 }
 
 func (x *TelemetryV2AccessLogPolicyFilterConfig) Reset() {
@@ -3416,14 +3416,14 @@ func (*TelemetryV2AccessLogPolicyFilterConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{28}
 }
 
-func (x *TelemetryV2AccessLogPolicyFilterConfig) GetEnabled() *wrappers.BoolValue {
+func (x *TelemetryV2AccessLogPolicyFilterConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
 	return nil
 }
 
-func (x *TelemetryV2AccessLogPolicyFilterConfig) GetLogWindowDuration() *duration.Duration {
+func (x *TelemetryV2AccessLogPolicyFilterConfig) GetLogWindowDuration() *durationpb.Duration {
 	if x != nil {
 		return x.LogWindowDuration
 	}
@@ -3584,7 +3584,7 @@ type ProxyConfig struct {
 	// Enables core dumps for newly injected sidecars.
 	//
 	// If set, newly injected sidecars will have core dumps enabled.
-	EnableCoreDump *wrappers.BoolValue `protobuf:"bytes,9,opt,name=enableCoreDump,proto3" json:"enableCoreDump,omitempty"`
+	EnableCoreDump *wrapperspb.BoolValue `protobuf:"bytes,9,opt,name=enableCoreDump,proto3" json:"enableCoreDump,omitempty"`
 	// Specifies the Istio ingress ports not to capture.
 	ExcludeInboundPorts string `protobuf:"bytes,12,opt,name=excludeInboundPorts,proto3" json:"excludeInboundPorts,omitempty"`
 	// Lists the excluded IP ranges of Istio egress traffic that the sidecar captures.
@@ -3605,7 +3605,7 @@ type ProxyConfig struct {
 	// Enables privileged securityContext for the istio-proxy container.
 	//
 	// See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
-	Privileged *wrappers.BoolValue `protobuf:"bytes,19,opt,name=privileged,proto3" json:"privileged,omitempty"`
+	Privileged *wrapperspb.BoolValue `protobuf:"bytes,19,opt,name=privileged,proto3" json:"privileged,omitempty"`
 	// Sets the initial delay for readiness probes in seconds.
 	ReadinessInitialDelaySeconds uint32 `protobuf:"varint,20,opt,name=readinessInitialDelaySeconds,proto3" json:"readinessInitialDelaySeconds,omitempty"`
 	// Sets the interval between readiness probes in seconds.
@@ -3619,18 +3619,18 @@ type ProxyConfig struct {
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
 	//
 	// Deprecated: Do not use.
-	Resources            *Resources      `protobuf:"bytes,24,opt,name=resources,proto3" json:"resources,omitempty"`
-	Tracer               Tracer          `protobuf:"varint,25,opt,name=tracer,proto3,enum=v1alpha1.Tracer" json:"tracer,omitempty"`
-	ExcludeOutboundPorts string          `protobuf:"bytes,28,opt,name=excludeOutboundPorts,proto3" json:"excludeOutboundPorts,omitempty"`
-	Lifecycle            *_struct.Struct `protobuf:"bytes,36,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
+	Resources            *Resources       `protobuf:"bytes,24,opt,name=resources,proto3" json:"resources,omitempty"`
+	Tracer               Tracer           `protobuf:"varint,25,opt,name=tracer,proto3,enum=v1alpha1.Tracer" json:"tracer,omitempty"`
+	ExcludeOutboundPorts string           `protobuf:"bytes,28,opt,name=excludeOutboundPorts,proto3" json:"excludeOutboundPorts,omitempty"`
+	Lifecycle            *structpb.Struct `protobuf:"bytes,36,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
 	// Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
 	//
 	// Deprecated: replaced by ProxyConfig setting which allows per-pod configuration of this behavior.
 	//
 	// Deprecated: Do not use.
-	HoldApplicationUntilProxyStarts *wrappers.BoolValue `protobuf:"bytes,37,opt,name=holdApplicationUntilProxyStarts,proto3" json:"holdApplicationUntilProxyStarts,omitempty"`
-	IncludeInboundPorts             string              `protobuf:"bytes,38,opt,name=includeInboundPorts,proto3" json:"includeInboundPorts,omitempty"`
-	IncludeOutboundPorts            string              `protobuf:"bytes,39,opt,name=includeOutboundPorts,proto3" json:"includeOutboundPorts,omitempty"`
+	HoldApplicationUntilProxyStarts *wrapperspb.BoolValue `protobuf:"bytes,37,opt,name=holdApplicationUntilProxyStarts,proto3" json:"holdApplicationUntilProxyStarts,omitempty"`
+	IncludeInboundPorts             string                `protobuf:"bytes,38,opt,name=includeInboundPorts,proto3" json:"includeInboundPorts,omitempty"`
+	IncludeOutboundPorts            string                `protobuf:"bytes,39,opt,name=includeOutboundPorts,proto3" json:"includeOutboundPorts,omitempty"`
 }
 
 func (x *ProxyConfig) Reset() {
@@ -3686,7 +3686,7 @@ func (x *ProxyConfig) GetComponentLogLevel() string {
 	return ""
 }
 
-func (x *ProxyConfig) GetEnableCoreDump() *wrappers.BoolValue {
+func (x *ProxyConfig) GetEnableCoreDump() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.EnableCoreDump
 	}
@@ -3728,7 +3728,7 @@ func (x *ProxyConfig) GetLogLevel() string {
 	return ""
 }
 
-func (x *ProxyConfig) GetPrivileged() *wrappers.BoolValue {
+func (x *ProxyConfig) GetPrivileged() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Privileged
 	}
@@ -3785,7 +3785,7 @@ func (x *ProxyConfig) GetExcludeOutboundPorts() string {
 	return ""
 }
 
-func (x *ProxyConfig) GetLifecycle() *_struct.Struct {
+func (x *ProxyConfig) GetLifecycle() *structpb.Struct {
 	if x != nil {
 		return x.Lifecycle
 	}
@@ -3793,7 +3793,7 @@ func (x *ProxyConfig) GetLifecycle() *_struct.Struct {
 }
 
 // Deprecated: Do not use.
-func (x *ProxyConfig) GetHoldApplicationUntilProxyStarts() *wrappers.BoolValue {
+func (x *ProxyConfig) GetHoldApplicationUntilProxyStarts() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.HoldApplicationUntilProxyStarts
 	}
@@ -3940,7 +3940,7 @@ type SDSConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Deprecated: Do not use.
-	Token *_struct.Struct `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"`
+	Token *structpb.Struct `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"`
 }
 
 func (x *SDSConfig) Reset() {
@@ -3976,7 +3976,7 @@ func (*SDSConfig) Descriptor() ([]byte, []int) {
 }
 
 // Deprecated: Do not use.
-func (x *SDSConfig) GetToken() *_struct.Struct {
+func (x *SDSConfig) GetToken() *structpb.Struct {
 	if x != nil {
 		return x.Token
 	}
@@ -4055,10 +4055,10 @@ type ServiceConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Annotations  *_struct.Struct `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
-	ExternalPort uint32          `protobuf:"varint,2,opt,name=externalPort,proto3" json:"externalPort,omitempty"`
-	Name         string          `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Type         string          `protobuf:"bytes,18,opt,name=type,proto3" json:"type,omitempty"`
+	Annotations  *structpb.Struct `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
+	ExternalPort uint32           `protobuf:"varint,2,opt,name=externalPort,proto3" json:"externalPort,omitempty"`
+	Name         string           `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Type         string           `protobuf:"bytes,18,opt,name=type,proto3" json:"type,omitempty"`
 }
 
 func (x *ServiceConfig) Reset() {
@@ -4093,7 +4093,7 @@ func (*ServiceConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{36}
 }
 
-func (x *ServiceConfig) GetAnnotations() *_struct.Struct {
+func (x *ServiceConfig) GetAnnotations() *structpb.Struct {
 	if x != nil {
 		return x.Annotations
 	}
@@ -4128,22 +4128,22 @@ type SidecarInjectorConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Enables sidecar auto-injection in namespaces by default.
-	EnableNamespacesByDefault *wrappers.BoolValue `protobuf:"bytes,2,opt,name=enableNamespacesByDefault,proto3" json:"enableNamespacesByDefault,omitempty"`
+	EnableNamespacesByDefault *wrapperspb.BoolValue `protobuf:"bytes,2,opt,name=enableNamespacesByDefault,proto3" json:"enableNamespacesByDefault,omitempty"`
 	// Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
 	//
 	// Annotations in the pods have higher precedence than the label selectors.
 	// Order of evaluation: Pod Annotations → NeverInjectSelector → AlwaysInjectSelector → Default Policy.
 	// See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
-	NeverInjectSelector []*_struct.Struct `protobuf:"bytes,11,rep,name=neverInjectSelector,proto3" json:"neverInjectSelector,omitempty"`
+	NeverInjectSelector []*structpb.Struct `protobuf:"bytes,11,rep,name=neverInjectSelector,proto3" json:"neverInjectSelector,omitempty"`
 	// See NeverInjectSelector.
-	AlwaysInjectSelector []*_struct.Struct `protobuf:"bytes,12,rep,name=alwaysInjectSelector,proto3" json:"alwaysInjectSelector,omitempty"`
+	AlwaysInjectSelector []*structpb.Struct `protobuf:"bytes,12,rep,name=alwaysInjectSelector,proto3" json:"alwaysInjectSelector,omitempty"`
 	//  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
-	RewriteAppHTTPProbe *wrappers.BoolValue `protobuf:"bytes,16,opt,name=rewriteAppHTTPProbe,proto3" json:"rewriteAppHTTPProbe,omitempty"`
+	RewriteAppHTTPProbe *wrapperspb.BoolValue `protobuf:"bytes,16,opt,name=rewriteAppHTTPProbe,proto3" json:"rewriteAppHTTPProbe,omitempty"`
 	// injectedAnnotations are additional annotations that will be added to the pod spec after injection
 	// This is primarily to support PSP annotations.
-	InjectedAnnotations *_struct.Struct `protobuf:"bytes,19,opt,name=injectedAnnotations,proto3" json:"injectedAnnotations,omitempty"`
+	InjectedAnnotations *structpb.Struct `protobuf:"bytes,19,opt,name=injectedAnnotations,proto3" json:"injectedAnnotations,omitempty"`
 	// Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
-	ObjectSelector *_struct.Struct `protobuf:"bytes,21,opt,name=objectSelector,proto3" json:"objectSelector,omitempty"`
+	ObjectSelector *structpb.Struct `protobuf:"bytes,21,opt,name=objectSelector,proto3" json:"objectSelector,omitempty"`
 	// Configure the injection url for sidecar injector webhook
 	InjectionURL string `protobuf:"bytes,22,opt,name=injectionURL,proto3" json:"injectionURL,omitempty"`
 	// Templates defines a set of custom injection templates that can be used. For example, defining:
@@ -4157,7 +4157,7 @@ type SidecarInjectorConfig struct {
 	// Then starting a pod with the `inject.istio.io/templates: hello` annotation, will result in the pod
 	// being injected with the hello=world labels.
 	// This is intended for advanced configuration only; most users should use the built in template
-	Templates *_struct.Struct `protobuf:"bytes,23,opt,name=templates,proto3" json:"templates,omitempty"`
+	Templates *structpb.Struct `protobuf:"bytes,23,opt,name=templates,proto3" json:"templates,omitempty"`
 	// defaultTemplates: ["sidecar", "hello"]
 	DefaultTemplates []string `protobuf:"bytes,24,rep,name=defaultTemplates,proto3" json:"defaultTemplates,omitempty"`
 	// If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
@@ -4165,7 +4165,7 @@ type SidecarInjectorConfig struct {
 	// This is option is intended for migration purposes only and will be removed in Istio 1.10.
 	//
 	// Deprecated: Do not use.
-	UseLegacySelectors *wrappers.BoolValue `protobuf:"bytes,4,opt,name=useLegacySelectors,proto3" json:"useLegacySelectors,omitempty"`
+	UseLegacySelectors *wrapperspb.BoolValue `protobuf:"bytes,4,opt,name=useLegacySelectors,proto3" json:"useLegacySelectors,omitempty"`
 }
 
 func (x *SidecarInjectorConfig) Reset() {
@@ -4200,42 +4200,42 @@ func (*SidecarInjectorConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{37}
 }
 
-func (x *SidecarInjectorConfig) GetEnableNamespacesByDefault() *wrappers.BoolValue {
+func (x *SidecarInjectorConfig) GetEnableNamespacesByDefault() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.EnableNamespacesByDefault
 	}
 	return nil
 }
 
-func (x *SidecarInjectorConfig) GetNeverInjectSelector() []*_struct.Struct {
+func (x *SidecarInjectorConfig) GetNeverInjectSelector() []*structpb.Struct {
 	if x != nil {
 		return x.NeverInjectSelector
 	}
 	return nil
 }
 
-func (x *SidecarInjectorConfig) GetAlwaysInjectSelector() []*_struct.Struct {
+func (x *SidecarInjectorConfig) GetAlwaysInjectSelector() []*structpb.Struct {
 	if x != nil {
 		return x.AlwaysInjectSelector
 	}
 	return nil
 }
 
-func (x *SidecarInjectorConfig) GetRewriteAppHTTPProbe() *wrappers.BoolValue {
+func (x *SidecarInjectorConfig) GetRewriteAppHTTPProbe() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.RewriteAppHTTPProbe
 	}
 	return nil
 }
 
-func (x *SidecarInjectorConfig) GetInjectedAnnotations() *_struct.Struct {
+func (x *SidecarInjectorConfig) GetInjectedAnnotations() *structpb.Struct {
 	if x != nil {
 		return x.InjectedAnnotations
 	}
 	return nil
 }
 
-func (x *SidecarInjectorConfig) GetObjectSelector() *_struct.Struct {
+func (x *SidecarInjectorConfig) GetObjectSelector() *structpb.Struct {
 	if x != nil {
 		return x.ObjectSelector
 	}
@@ -4249,7 +4249,7 @@ func (x *SidecarInjectorConfig) GetInjectionURL() string {
 	return ""
 }
 
-func (x *SidecarInjectorConfig) GetTemplates() *_struct.Struct {
+func (x *SidecarInjectorConfig) GetTemplates() *structpb.Struct {
 	if x != nil {
 		return x.Templates
 	}
@@ -4264,7 +4264,7 @@ func (x *SidecarInjectorConfig) GetDefaultTemplates() []string {
 }
 
 // Deprecated: Do not use.
-func (x *SidecarInjectorConfig) GetUseLegacySelectors() *wrappers.BoolValue {
+func (x *SidecarInjectorConfig) GetUseLegacySelectors() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.UseLegacySelectors
 	}
@@ -4512,7 +4512,7 @@ type TracerStackdriverConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// enables trace output to stdout.
-	Debug *wrappers.BoolValue `protobuf:"bytes,1,opt,name=debug,proto3" json:"debug,omitempty"`
+	Debug *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=debug,proto3" json:"debug,omitempty"`
 	// The global default max number of attributes per span.
 	MaxNumberOfAttributes uint32 `protobuf:"varint,2,opt,name=maxNumberOfAttributes,proto3" json:"maxNumberOfAttributes,omitempty"`
 	// The global default max number of annotation events per span.
@@ -4553,7 +4553,7 @@ func (*TracerStackdriverConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{42}
 }
 
-func (x *TracerStackdriverConfig) GetDebug() *wrappers.BoolValue {
+func (x *TracerStackdriverConfig) GetDebug() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Debug
 	}
@@ -4587,11 +4587,11 @@ type BaseConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// For Helm2 use, adds the CRDs to templates.
-	EnableCRDTemplates *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enableCRDTemplates,proto3" json:"enableCRDTemplates,omitempty"`
+	EnableCRDTemplates *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enableCRDTemplates,proto3" json:"enableCRDTemplates,omitempty"`
 	// URL to use for validating webhook.
 	ValidationURL string `protobuf:"bytes,2,opt,name=validationURL,proto3" json:"validationURL,omitempty"`
 	// For istioctl usage to disable istio config crds in base
-	EnableIstioConfigCRDs *wrappers.BoolValue `protobuf:"bytes,3,opt,name=enableIstioConfigCRDs,proto3" json:"enableIstioConfigCRDs,omitempty"`
+	EnableIstioConfigCRDs *wrapperspb.BoolValue `protobuf:"bytes,3,opt,name=enableIstioConfigCRDs,proto3" json:"enableIstioConfigCRDs,omitempty"`
 }
 
 func (x *BaseConfig) Reset() {
@@ -4626,7 +4626,7 @@ func (*BaseConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{43}
 }
 
-func (x *BaseConfig) GetEnableCRDTemplates() *wrappers.BoolValue {
+func (x *BaseConfig) GetEnableCRDTemplates() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.EnableCRDTemplates
 	}
@@ -4640,7 +4640,7 @@ func (x *BaseConfig) GetValidationURL() string {
 	return ""
 }
 
-func (x *BaseConfig) GetEnableIstioConfigCRDs() *wrappers.BoolValue {
+func (x *BaseConfig) GetEnableIstioConfigCRDs() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.EnableIstioConfigCRDs
 	}
@@ -4720,7 +4720,7 @@ type Values struct {
 	Revision               string                 `protobuf:"bytes,21,opt,name=revision,proto3" json:"revision,omitempty"`
 	OwnerName              string                 `protobuf:"bytes,22,opt,name=ownerName,proto3" json:"ownerName,omitempty"`
 	// TODO can this import the real mesh config API?
-	MeshConfig      *_struct.Value      `protobuf:"bytes,36,opt,name=meshConfig,proto3" json:"meshConfig,omitempty"`
+	MeshConfig      *structpb.Value     `protobuf:"bytes,36,opt,name=meshConfig,proto3" json:"meshConfig,omitempty"`
 	Base            *BaseConfig         `protobuf:"bytes,37,opt,name=base,proto3" json:"base,omitempty"`
 	IstiodRemote    *IstiodRemoteConfig `protobuf:"bytes,38,opt,name=istiodRemote,proto3" json:"istiodRemote,omitempty"`
 	RevisionTags    []string            `protobuf:"bytes,39,rep,name=revisionTags,proto3" json:"revisionTags,omitempty"`
@@ -4822,7 +4822,7 @@ func (x *Values) GetOwnerName() string {
 	return ""
 }
 
-func (x *Values) GetMeshConfig() *_struct.Value {
+func (x *Values) GetMeshConfig() *structpb.Value {
 	if x != nil {
 		return x.MeshConfig
 	}
@@ -4864,8 +4864,8 @@ type ZeroVPNConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether ZeroVPN is enabled.
-	Enabled *wrappers.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Suffix  string              `protobuf:"bytes,2,opt,name=suffix,proto3" json:"suffix,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Suffix  string                `protobuf:"bytes,2,opt,name=suffix,proto3" json:"suffix,omitempty"`
 }
 
 func (x *ZeroVPNConfig) Reset() {
@@ -4900,7 +4900,7 @@ func (*ZeroVPNConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{46}
 }
 
-func (x *ZeroVPNConfig) GetEnabled() *wrappers.BoolValue {
+func (x *ZeroVPNConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
 	}
@@ -4928,9 +4928,9 @@ type IntOrString struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type   int64                 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
-	IntVal *wrappers.Int32Value  `protobuf:"bytes,2,opt,name=intVal,proto3" json:"intVal,omitempty"`
-	StrVal *wrappers.StringValue `protobuf:"bytes,3,opt,name=strVal,proto3" json:"strVal,omitempty"`
+	Type   int64                   `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
+	IntVal *wrapperspb.Int32Value  `protobuf:"bytes,2,opt,name=intVal,proto3" json:"intVal,omitempty"`
+	StrVal *wrapperspb.StringValue `protobuf:"bytes,3,opt,name=strVal,proto3" json:"strVal,omitempty"`
 }
 
 func (x *IntOrString) Reset() {
@@ -4972,14 +4972,14 @@ func (x *IntOrString) GetType() int64 {
 	return 0
 }
 
-func (x *IntOrString) GetIntVal() *wrappers.Int32Value {
+func (x *IntOrString) GetIntVal() *wrapperspb.Int32Value {
 	if x != nil {
 		return x.IntVal
 	}
 	return nil
 }
 
-func (x *IntOrString) GetStrVal() *wrappers.StringValue {
+func (x *IntOrString) GetStrVal() *wrapperspb.StringValue {
 	if x != nil {
 		return x.StrVal
 	}
@@ -4992,11 +4992,11 @@ type TelemetryV2PrometheusConfig_ConfigOverride struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Overrides default gateway telemetry v2 configuration.
-	Gateway *_struct.Struct `protobuf:"bytes,1,opt,name=gateway,proto3" json:"gateway,omitempty"`
+	Gateway *structpb.Struct `protobuf:"bytes,1,opt,name=gateway,proto3" json:"gateway,omitempty"`
 	// Overrides default inbound sidecar telemetry v2 configuration.
-	InboundSidecar *_struct.Struct `protobuf:"bytes,2,opt,name=inboundSidecar,proto3" json:"inboundSidecar,omitempty"`
+	InboundSidecar *structpb.Struct `protobuf:"bytes,2,opt,name=inboundSidecar,proto3" json:"inboundSidecar,omitempty"`
 	// Overrides default outbound sidecar telemetry v2 configuration.
-	OutboundSidecar *_struct.Struct `protobuf:"bytes,3,opt,name=outboundSidecar,proto3" json:"outboundSidecar,omitempty"`
+	OutboundSidecar *structpb.Struct `protobuf:"bytes,3,opt,name=outboundSidecar,proto3" json:"outboundSidecar,omitempty"`
 }
 
 func (x *TelemetryV2PrometheusConfig_ConfigOverride) Reset() {
@@ -5031,21 +5031,21 @@ func (*TelemetryV2PrometheusConfig_ConfigOverride) Descriptor() ([]byte, []int) 
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{26, 0}
 }
 
-func (x *TelemetryV2PrometheusConfig_ConfigOverride) GetGateway() *_struct.Struct {
+func (x *TelemetryV2PrometheusConfig_ConfigOverride) GetGateway() *structpb.Struct {
 	if x != nil {
 		return x.Gateway
 	}
 	return nil
 }
 
-func (x *TelemetryV2PrometheusConfig_ConfigOverride) GetInboundSidecar() *_struct.Struct {
+func (x *TelemetryV2PrometheusConfig_ConfigOverride) GetInboundSidecar() *structpb.Struct {
 	if x != nil {
 		return x.InboundSidecar
 	}
 	return nil
 }
 
-func (x *TelemetryV2PrometheusConfig_ConfigOverride) GetOutboundSidecar() *_struct.Struct {
+func (x *TelemetryV2PrometheusConfig_ConfigOverride) GetOutboundSidecar() *structpb.Struct {
 	if x != nil {
 		return x.OutboundSidecar
 	}
@@ -6217,12 +6217,12 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_goTypes = []interface{}{
 	nil,                                                // 54: v1alpha1.EgressGatewayConfig.LabelsEntry
 	nil,                                                // 55: v1alpha1.IngressGatewayConfig.LabelsEntry
 	(*TelemetryV2PrometheusConfig_ConfigOverride)(nil), // 56: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride
-	(*wrappers.BoolValue)(nil),                         // 57: google.protobuf.BoolValue
-	(*_struct.Value)(nil),                              // 58: google.protobuf.Value
-	(*_struct.Struct)(nil),                             // 59: google.protobuf.Struct
-	(*duration.Duration)(nil),                          // 60: google.protobuf.Duration
-	(*wrappers.Int32Value)(nil),                        // 61: google.protobuf.Int32Value
-	(*wrappers.StringValue)(nil),                       // 62: google.protobuf.StringValue
+	(*wrapperspb.BoolValue)(nil),                       // 57: google.protobuf.BoolValue
+	(*structpb.Value)(nil),                             // 58: google.protobuf.Value
+	(*structpb.Struct)(nil),                            // 59: google.protobuf.Struct
+	(*durationpb.Duration)(nil),                        // 60: google.protobuf.Duration
+	(*wrapperspb.Int32Value)(nil),                      // 61: google.protobuf.Int32Value
+	(*wrapperspb.StringValue)(nil),                     // 62: google.protobuf.StringValue
 }
 var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	57,  // 0: v1alpha1.CNIConfig.enabled:type_name -> google.protobuf.BoolValue

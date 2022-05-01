@@ -29,6 +29,26 @@ var _ Target = Instances{}
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
 
+func (i Instances) ServiceName() string {
+	return i.Config().Service
+}
+
+func (i Instances) NamespaceName() string {
+	return i.Config().NamespaceName()
+}
+
+func (i Instances) ServiceAccountName() string {
+	return i.Config().ServiceAccountName()
+}
+
+func (i Instances) ClusterLocalFQDN() string {
+	return i.Config().ClusterLocalFQDN()
+}
+
+func (i Instances) ClusterSetLocalFQDN() string {
+	return i.Config().ClusterSetLocalFQDN()
+}
+
 func (i Instances) NamespacedName() NamespacedName {
 	return i.Config().NamespacedName()
 }

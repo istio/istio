@@ -190,6 +190,26 @@ func (c *instance) PortForName(name string) echo.Port {
 	return c.cfg.Ports.MustForName(name)
 }
 
+func (c *instance) ServiceName() string {
+	return c.cfg.Service
+}
+
+func (c *instance) NamespaceName() string {
+	return c.cfg.NamespaceName()
+}
+
+func (c *instance) ServiceAccountName() string {
+	return c.cfg.ServiceAccountName()
+}
+
+func (c *instance) ClusterLocalFQDN() string {
+	return c.cfg.ClusterLocalFQDN()
+}
+
+func (c *instance) ClusterSetLocalFQDN() string {
+	return c.cfg.ClusterSetLocalFQDN()
+}
+
 func (c *instance) Config() echo.Config {
 	return c.cfg
 }

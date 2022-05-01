@@ -167,6 +167,11 @@ type computedTelemetries struct {
 }
 
 type TracingConfig struct {
+	ServerSpec TracingSpec
+	ClientSpec TracingSpec
+}
+
+type TracingSpec struct {
 	Provider                     *meshconfig.MeshConfig_ExtensionProvider
 	Disabled                     bool
 	RandomSamplingPercentage     float64
@@ -179,16 +184,33 @@ type LoggingConfig struct {
 	Filter    *tpb.AccessLogging_Filter
 }
 
-// AccessLogging returns the logging configuration for a given proxy. If nil is returned, access logs
-// are not configured via Telemetry and should use fallback mechanisms. If a non-nil but empty configuration
-// is passed, access logging is explicitly disabled.
-func (t *Telemetries) AccessLogging(proxy *Proxy) *LoggingConfig {
+func workloadMode(class networking.ListenerClass) tpb.WorkloadMode {
+	switch class {
+	case networking.ListenerClassGateway:
+		return tpb.WorkloadMode_CLIENT
+	case networking.ListenerClassSidecarInbound:
+		return tpb.WorkloadMode_SERVER
+	case networking.ListenerClassSidecarOutbound:
+		return tpb.WorkloadMode_CLIENT
+	case networking.ListenerClassUndefined:
+		// this should not happened, just in case
+		return tpb.WorkloadMode_CLIENT
+	}
+
+	return tpb.WorkloadMode_CLIENT
+}
+
+// AccessLogging returns the logging configuration for a given proxy and listener class.
+// If nil is returned, access logs are not configured via Telemetry and should use fallback mechanisms.
+// If a non-nil but empty configuration is passed, access logging is explicitly disabled.
+func (t *Telemetries) AccessLogging(proxy *Proxy, class networking.ListenerClass) *LoggingConfig {
 	ct := t.applicableTelemetries(proxy)
 	if len(ct.Logging) == 0 && len(t.meshConfig.GetDefaultProviders().GetAccessLogging()) == 0 {
 		return nil
 	}
+
 	cfg := LoggingConfig{}
-	providers, f := mergeLogs(ct.Logging, t.meshConfig)
+	providers, f := mergeLogs(ct.Logging, t.meshConfig, workloadMode(class))
 	cfg.Filter = f
 	for _, p := range providers.SortedList() {
 		fp := t.fetchProvider(p)
@@ -206,67 +228,83 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	ct := t.applicableTelemetries(proxy)
 
 	providerNames := t.meshConfig.GetDefaultProviders().GetTracing()
-	for _, m := range ct.Tracing {
-		currentNames := getProviderNames(m.Providers)
-		// If we set providers are current level, use that. Otherwise, keep parent providers
-		if len(currentNames) > 0 {
-			providerNames = currentNames
-		}
-	}
-	if len(providerNames) == 0 {
-		// No providers set at all, use fallback
+	hasDefaultProvider := len(providerNames) > 0
+
+	if len(ct.Tracing) == 0 && !hasDefaultProvider {
 		return nil
 	}
-	if len(providerNames) > 1 {
-		// User can set multiple, but we don't actually support it, so we will pick the first one
-		log.Debugf("invalid tracing configure; only one provider supported: %v", providerNames)
-	}
-	supportedProvider := providerNames[0]
 
-	cfg := TracingConfig{
-		Provider:                     t.fetchProvider(supportedProvider),
-		UseRequestIDForTraceSampling: true,
+	clientSpec := TracingSpec{UseRequestIDForTraceSampling: true}
+	serverSpec := TracingSpec{UseRequestIDForTraceSampling: true}
+
+	if hasDefaultProvider {
+		// todo: what do we want to do with more than one default provider?
+		// for now, use only the first provider.
+		fetched := t.fetchProvider(providerNames[0])
+		clientSpec.Provider = fetched
+		serverSpec.Provider = fetched
 	}
-	if cfg.Provider == nil {
-		cfg.Disabled = true
-		return &cfg
-	}
+
 	for _, m := range ct.Tracing {
 		names := getProviderNames(m.Providers)
 
-		// We need to figure out if the tracing config at this level is relevant. For example, if we selected
-		// provider X but this config applies to provider Y, we should ignore it.
-		includeConfig := false
-		// If there is no provider set it applies to the default.
-		if len(names) == 0 {
-			includeConfig = true
-		}
-		// Otherwise, make sure one of the configured providers is our selected provider.
-		for _, n := range names {
-			if n == supportedProvider {
-				includeConfig = true
-				break
+		specs := []*TracingSpec{&clientSpec, &serverSpec}
+		if m.Match != nil {
+			switch m.Match.Mode {
+			case tpb.WorkloadMode_CLIENT:
+				specs = []*TracingSpec{&clientSpec}
+			case tpb.WorkloadMode_SERVER:
+				specs = []*TracingSpec{&serverSpec}
 			}
 		}
-		if !includeConfig {
-			break
+
+		if len(names) > 0 {
+			// NOTE: we only support a single provider per mode
+			// so, choosing the first provider returned in the list
+			// is the "safest"
+			fetched := t.fetchProvider(names[0])
+			for _, spec := range specs {
+				spec.Provider = fetched
+			}
 		}
 
 		// Now merge in any overrides
 		if m.DisableSpanReporting != nil {
-			cfg.Disabled = m.DisableSpanReporting.GetValue()
+			for _, spec := range specs {
+				spec.Disabled = m.DisableSpanReporting.GetValue()
+			}
 		}
 		// TODO: metrics overrides do a deep merge, but here we do a shallow merge.
 		// We should consider if we want to reconcile the two.
 		if m.CustomTags != nil {
-			cfg.CustomTags = m.CustomTags
+			for _, spec := range specs {
+				spec.CustomTags = m.CustomTags
+			}
 		}
 		if m.RandomSamplingPercentage != nil {
-			cfg.RandomSamplingPercentage = m.RandomSamplingPercentage.GetValue()
+			for _, spec := range specs {
+				spec.RandomSamplingPercentage = m.RandomSamplingPercentage.GetValue()
+			}
 		}
 		if m.UseRequestIdForTraceSampling != nil {
-			cfg.UseRequestIDForTraceSampling = m.UseRequestIdForTraceSampling.Value
+			for _, spec := range specs {
+				spec.UseRequestIDForTraceSampling = m.UseRequestIdForTraceSampling.Value
+			}
 		}
+	}
+
+	// If no provider is configured (and retrieved) for the tracing specs,
+	// then we will disable the configuration.
+	if clientSpec.Provider == nil {
+		clientSpec.Disabled = true
+	}
+	if serverSpec.Provider == nil {
+		serverSpec.Disabled = true
+	}
+
+	cfg := TracingConfig{
+		ClientSpec: clientSpec,
+		ServerSpec: serverSpec,
 	}
 	return &cfg
 }
@@ -369,7 +407,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
 	log.Debugf("merged metrics, proxyID: %s metrics: %+v", proxy.ID, tmm)
 	// Additionally, fetch relevant access logging configurations
-	tml, logsFilter := mergeLogs(c.Logging, t.meshConfig)
+	tml, logsFilter := mergeLogs(c.Logging, t.meshConfig, workloadMode(class))
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
@@ -411,9 +449,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 }
 
 // mergeLogs returns the set of providers for the given logging configuration.
-// This currently is just the names of providers as there is no access logging configuration, but
-// in the future it will likely be extended
-func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set, *tpb.AccessLogging_Filter) {
+func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig, mode tpb.WorkloadMode) (sets.Set, *tpb.AccessLogging_Filter) {
 	providers := sets.New()
 
 	if len(logs) == 0 {
@@ -450,15 +486,33 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 				// This occurs when a top level provider is later disabled by a lower level
 				continue
 			}
+
+			if !matchWorkloadMode(m.Match, mode) {
+				continue
+			}
+
 			if m.GetDisabled().GetValue() {
 				providers.Delete(provider)
 				continue
 			}
+
 			providers.Insert(provider)
 		}
 	}
 
 	return providers, loggingFilter
+}
+
+func matchWorkloadMode(selector *tpb.AccessLogging_LogSelector, mode tpb.WorkloadMode) bool {
+	if selector == nil {
+		return true
+	}
+
+	if selector.Mode == tpb.WorkloadMode_CLIENT_AND_SERVER {
+		return true
+	}
+
+	return selector.Mode == mode
 }
 
 func (t *Telemetries) namespaceWideTelemetryConfig(namespace string) Telemetry {

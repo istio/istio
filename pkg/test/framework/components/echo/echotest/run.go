@@ -53,10 +53,25 @@ func (t *T) Run(testFn oneToOneTest) {
 	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v",
 		t.sources.Services().NamespacedNames().NamesWithNamespacePrefix(),
 		t.destinations.Services().NamespacedNames().NamesWithNamespacePrefix())
+
+	// Build and apply any completed configuration that does not require to/from params.
+	t.cfg.BuildCompleteSources().Apply()
+
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, from echo.Instances) {
+		// Build and apply per-source configuration.
+		// TODO(nmittler): Consider merging this with t.setup below.
+		callers := from.Callers()
+		firstCaller := echo.Callers{callers[0]}
+		t.cfg.Context(ctx).BuildFrom(firstCaller...).Apply()
+
+		// Run setup functions for the callers.
 		t.setup(ctx, from.Callers())
+
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, to echo.Instances) {
-			t.setupPair(ctx, from.Callers(), echo.Services{to})
+			// Build and apply per-destination config
+			t.cfg.Context(ctx).BuildFromAndTo(firstCaller, to.Services()).Apply()
+
+			t.setupPair(ctx, callers, echo.Services{to})
 			t.fromEachWorkloadCluster(ctx, from, func(ctx framework.TestContext, from echo.Instance) {
 				filteredDst := t.applyCombinationFilters(from, to)
 				if len(filteredDst) == 0 {
@@ -128,11 +143,18 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 }
 
 func (t *T) RunViaIngress(testFn ingressTest) {
-	i := istio.GetOrFail(t.rootCtx, t.rootCtx)
+	// Build and apply any completed configuration that does not require to/from params.
+	t.cfg.BuildCompleteSources().Apply()
+
+	istioInstance := istio.GetOrFail(t.rootCtx, t.rootCtx)
 	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
-		t.setupPair(ctx, i.Ingresses().Callers(), echo.Services{dstInstances})
+		// Build and apply per-destination config
+		callers := istioInstance.Ingresses().Callers()
+		t.cfg.Context(ctx).BuildFromAndTo(callers, dstInstances.Services()).Apply()
+
+		t.setupPair(ctx, callers, echo.Services{dstInstances})
 		doTest := func(ctx framework.TestContext, fromCluster cluster.Cluster, dst echo.Instances) {
-			ingr := i.IngressFor(fromCluster)
+			ingr := istioInstance.IngressFor(fromCluster)
 			if ingr == nil {
 				ctx.Skipf("no ingress for %s", fromCluster.StableName())
 			}

@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/telemetry"
 )
@@ -197,7 +197,7 @@ func createDryRunPolicy(t framework.TestContext, authz string) {
 	t.Helper()
 	ns := EchoNsInst.Name()
 	args := map[string]string{"Namespace": ns}
-	t.ConfigIstio().EvalFile(ns, args, authz).ApplyOrFail(t, resource.Wait)
+	t.ConfigIstio().EvalFile(ns, args, authz).ApplyOrFail(t, apply.Wait)
 }
 
 func verifyAccessLog(t framework.TestContext, cltInstance echo.Instance, wantLog string) error {

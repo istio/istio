@@ -149,7 +149,8 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.ConfigIstio().File(ratelimitNs.Name(), filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml")).Apply()
+	err = ctx.ConfigIstio().File(ratelimitNs.Name(), filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml")).
+		Apply()
 	if err != nil {
 		return
 	}

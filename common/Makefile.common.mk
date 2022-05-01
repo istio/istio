@@ -60,9 +60,6 @@ lint-sass:
 lint-typescript:
 	@${FINDFILES} -name '*.ts' -print0 | ${XARGS} tslint -c common/config/tslint.json
 
-lint-protos:
-	@if test -d common-protos; then $(FINDFILES) -name '*.proto' -print0 | $(XARGS) -L 1 prototool lint --protoc-bin-path=/usr/bin/protoc --protoc-wkt-path=common-protos; fi
-
 lint-licenses:
 	@if test -d licenses; then license-lint --config common/config/license-lint.yml; fi
 
@@ -107,14 +104,6 @@ update-common:
 	@cp -a $(TMP)/common-files/files/* $(shell pwd)
 	@rm -fr $(TMP)/common-files
 
-update-common-protos:
-	@mkdir -p $(TMP)
-	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/istio/common-files $(TMP)/common-files
-	@cd $(TMP)/common-files ; git rev-parse HEAD > common-protos/.commonfiles.sha
-	@rm -fr common-protos
-	@cp -a $(TMP)/common-files/common-protos $(shell pwd)
-	@rm -fr $(TMP)/common-files
-
 check-clean-repo:
 	@common/scripts/check_clean_repo.sh
 
@@ -125,4 +114,4 @@ tidy-docker:
 help: ## Show this help
 	@egrep -h '^[a-zA-Z_\.-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort  | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: lint-dockerfiles lint-scripts lint-yaml lint-copyright-banner lint-go lint-python lint-helm lint-markdown lint-sass lint-typescript lint-protos lint-all format-go format-python format-protos update-common update-common-protos lint-licenses dump-licenses dump-licenses-csv check-clean-repo tidy-docker help tidy-go mod-download-go
+.PHONY: lint-dockerfiles lint-scripts lint-yaml lint-copyright-banner lint-go lint-python lint-helm lint-markdown lint-sass lint-typescript lint-protos lint-all format-go format-python format-protos update-common lint-licenses dump-licenses dump-licenses-csv check-clean-repo tidy-docker help tidy-go mod-download-go

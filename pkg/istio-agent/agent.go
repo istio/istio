@@ -576,7 +576,7 @@ func (a *Agent) Check() (err error) {
 }
 
 func (a *Agent) GetDNSTable() *dnsProto.NameTable {
-	if a.localDNSServer != nil {
+	if a.localDNSServer != nil && a.localDNSServer.NameTable() != nil {
 		nt := a.localDNSServer.NameTable()
 		nt = proto.Clone(nt).(*dnsProto.NameTable)
 		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []net.IP, ipv6 []net.IP, _ []string) {

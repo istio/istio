@@ -20,13 +20,14 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -56,11 +57,8 @@ type TestContext interface {
 	// SkipDumping will skip dumping debug logs/configs/etc for this scope only (child scopes are not skipped).
 	SkipDumping()
 
-	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
-	// allocated resources.
-	Done()
-
 	// Methods for interacting with the underlying *testing.T.
+
 	Error(args ...interface{})
 	Errorf(format string, args ...interface{})
 	Failed() bool
@@ -99,48 +97,7 @@ type testContext struct {
 	workDir string
 }
 
-// Before executing a new context, we should wait for existing contexts to terminate if they are NOT parents of this context.
-// This is to workaround termination of functions run with RunParallel. When this is used, child tests will not run until the parent
-// has terminated. This means that the parent cannot synchronously cleanup, or it would block its children. However, if we do async cleanup,
-// then new tests can unexpectedly start during the cleanup of another. This may lead to odd results, like a test cleanup undoing the setup of a future test.
-// To workaround this, we maintain a set of all contexts currently terminating. Before starting the context, we will search this set;
-// if any non-parent contexts are found, we will wait.
-func waitForParents(test *testImpl) {
-	iterations := 0
-	for {
-		iterations++
-		done := true
-		globalParentLock.Range(func(key, value interface{}) bool {
-			k := key.(*testImpl)
-			current := test
-			for current != nil {
-				if current == k {
-					return true
-				}
-				current = current.parent
-
-			}
-			// We found an item in the list, and we are *not* a child of it. This means another test hierarchy has exclusive access right now
-			// Wait until they are finished before proceeding
-			done = false
-			return true
-		})
-		if done {
-			return
-		}
-		time.Sleep(time.Millisecond * 50)
-		// Add some logging in case something locks up so we can debug
-		if iterations%10 == 0 {
-			globalParentLock.Range(func(key, value interface{}) bool {
-				scopes.Framework.Warnf("Stuck waiting for parent test suites to terminate... %v is blocking", key.(*testImpl).goTest.Name())
-				return true
-			})
-		}
-	}
-}
-
 func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentScope *scope, labels label.Set) *testContext {
-	waitForParents(test)
 	id := s.allocateContextID(goTest.Name())
 
 	allLabels := s.suiteLabels.Merge(labels)
@@ -174,7 +131,7 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 	}
 
 	scopeID := fmt.Sprintf("[%s]", id)
-	return &testContext{
+	ctx := &testContext{
 		id:         id,
 		test:       test,
 		T:          goTest,
@@ -183,6 +140,11 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 		workDir:    workDir,
 		FileWriter: yml.NewFileWriter(workDir),
 	}
+
+	// Register the cleanup handler for the context.
+	goTest.Cleanup(ctx.close)
+
+	return ctx
 }
 
 func (c *testContext) Settings() *resource.Settings {
@@ -257,12 +219,12 @@ func (c *testContext) SkipDumping() {
 	c.scope.skipDumping()
 }
 
-func (c *testContext) ConfigKube(clusters ...cluster.Cluster) resource.ConfigManager {
-	return newConfigManager(c, clusters)
+func (c *testContext) ConfigKube(clusters ...cluster.Cluster) config.Factory {
+	return newConfigFactory(c, clusters)
 }
 
-func (c *testContext) ConfigIstio() resource.ConfigManager {
-	return newConfigManager(c, c.Clusters().Configs())
+func (c *testContext) ConfigIstio() config.Factory {
+	return newConfigFactory(c, c.Clusters().Configs())
 }
 
 func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {
@@ -298,21 +260,33 @@ func (c *testContext) NewSubTestf(format string, a ...interface{}) Test {
 	return c.NewSubTest(fmt.Sprintf(format, a...))
 }
 
-func (c *testContext) ConditionalCleanup(fn func()) {
-	c.scope.addCloser(&closer{fn: func() error {
-		fn()
-		return nil
-	}, noskip: true})
+func (c *testContext) CleanupConditionally(fn func()) {
+	c.CleanupStrategy(cleanup.Conditionally, fn)
 }
 
 func (c *testContext) Cleanup(fn func()) {
-	c.scope.addCloser(&closer{fn: func() error {
-		fn()
-		return nil
-	}})
+	c.CleanupStrategy(cleanup.Always, fn)
 }
 
-func (c *testContext) Done() {
+func (c *testContext) CleanupStrategy(strategy cleanup.Strategy, fn func()) {
+	switch strategy {
+	case cleanup.Always:
+		c.scope.addCloser(&closer{fn: func() error {
+			fn()
+			return nil
+		}})
+	case cleanup.Conditionally:
+		c.scope.addCloser(&closer{fn: func() error {
+			fn()
+			return nil
+		}, noskip: true})
+	default:
+		// No cleanup.
+		return
+	}
+}
+
+func (c *testContext) close() {
 	if c.Failed() && c.Settings().CIMode {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
 		// make sure we dump suite-level resources, but don't dump sibling tests or their children
@@ -414,7 +388,7 @@ func (c *closer) Close() error {
 	return c.fn()
 }
 
-func (c *testContext) RecordTraceEvent(key string, value interface{}) {
+func (c *testContext) RecordTraceEvent(string, interface{}) {
 	// Currently, only supported at suite level.
 	panic("TODO: implement tracing in test context")
 }

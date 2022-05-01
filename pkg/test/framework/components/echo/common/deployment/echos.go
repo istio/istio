@@ -17,7 +17,6 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -52,6 +51,11 @@ type Config struct {
 	// ExternalNamespace the namespace to use for the external deployment. If nil, a namespace
 	// will be generated unless NoExternalNamespace is specified.
 	ExternalNamespace namespace.Instance
+
+	// IncludeExtAuthz if enabled, an additional ext-authz container will be included in the deployment.
+	// This is mainly used to test the CUSTOM authorization policy when the ext-authz server is deployed
+	// locally with the application container in the same pod.
+	IncludeExtAuthz bool
 }
 
 func (c *Config) fillDefaults(ctx resource.Context) error {
@@ -109,6 +113,18 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 	return g.Wait()
 }
 
+// View of an Echos deployment.
+type View interface {
+	// Echos returns the underlying Echos deployment for this view.
+	Echos() *Echos
+}
+
+var (
+	_ View = &SingleNamespaceView{}
+	_ View = &TwoNamespaceView{}
+	_ View = &Echos{}
+)
+
 // SingleNamespaceView is a simplified view of Echos for tests that only require a single namespace.
 type SingleNamespaceView struct {
 	// Include the echos at the top-level, so there is no need for accessing sub-structures.
@@ -119,6 +135,12 @@ type SingleNamespaceView struct {
 
 	// All echo instances
 	All echo.Services
+
+	echos *Echos
+}
+
+func (v *SingleNamespaceView) Echos() *Echos {
+	return v.echos
 }
 
 // TwoNamespaceView is a simplified view of Echos for tests that require 2 namespaces.
@@ -137,6 +159,12 @@ type TwoNamespaceView struct {
 
 	// All echo instances
 	All echo.Services
+
+	echos *Echos
+}
+
+func (v *TwoNamespaceView) Echos() *Echos {
+	return v.echos
 }
 
 // Echos is a common set of echo deployments to support integration testing.
@@ -149,6 +177,10 @@ type Echos struct {
 
 	// All echo instances.
 	All echo.Services
+}
+
+func (e *Echos) Echos() *Echos {
+	return e
 }
 
 // New echo deployment with the given configuration.
@@ -166,7 +198,7 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 
 	builder := deployment.New(ctx).WithClusters(ctx.Clusters()...)
 	for _, n := range apps.NS {
-		builder = n.build(ctx, builder)
+		builder = n.build(ctx, builder, cfg)
 	}
 
 	if !cfg.NoExternalNamespace {
@@ -212,43 +244,26 @@ func NewOrFail(t test.Failer, ctx resource.Context, cfg Config) *Echos {
 }
 
 // SingleNamespaceView converts this Echos into a SingleNamespaceView.
-func (d Echos) SingleNamespaceView() SingleNamespaceView {
+func (e *Echos) SingleNamespaceView() SingleNamespaceView {
 	return SingleNamespaceView{
-		EchoNamespace: d.NS[0],
-		External:      d.External,
-		All:           d.NS[0].All.Append(d.External.All.Services()),
+		EchoNamespace: e.NS[0],
+		External:      e.External,
+		All:           e.NS[0].All.Append(e.External.All.Services()),
+		echos:         e,
 	}
 }
 
 // TwoNamespaceView converts this Echos into a TwoNamespaceView.
-func (d Echos) TwoNamespaceView() TwoNamespaceView {
-	ns1AndNs2 := d.NS[0].All.Append(d.NS[1].All)
+func (e *Echos) TwoNamespaceView() TwoNamespaceView {
+	ns1AndNs2 := e.NS[0].All.Append(e.NS[1].All)
 	return TwoNamespaceView{
-		Ns1:       d.NS[0],
-		Ns2:       d.NS[1],
+		Ns1:       e.NS[0],
+		Ns2:       e.NS[1],
 		Ns1AndNs2: ns1AndNs2,
-		External:  d.External,
-		All:       ns1AndNs2.Append(d.External.All.Services()),
+		External:  e.External,
+		All:       ns1AndNs2.Append(e.External.All.Services()),
+		echos:     e,
 	}
-}
-
-func (d Echos) namespaces(excludes ...namespace.Instance) []string {
-	var out []string
-	for _, n := range d.NS {
-		include := true
-		for _, e := range excludes {
-			if n.Namespace.Name() == e.Name() {
-				include = false
-				break
-			}
-		}
-		if include {
-			out = append(out, n.Namespace.Name())
-		}
-	}
-
-	sort.Strings(out)
-	return out
 }
 
 func serviceEntryPorts() []echo.Port {
@@ -265,11 +280,12 @@ func serviceEntryPorts() []echo.Port {
 }
 
 // SetupSingleNamespace calls Setup and returns a SingleNamespaceView.
-func SetupSingleNamespace(view *SingleNamespaceView) resource.SetupFn {
+func SetupSingleNamespace(view *SingleNamespaceView, cfg Config) resource.SetupFn {
+	cfg.NamespaceCount = 1
 	return func(ctx resource.Context) error {
 		// Perform a setup with 1 namespace.
 		var apps Echos
-		if err := Setup(&apps, Config{NamespaceCount: 1})(ctx); err != nil {
+		if err := Setup(&apps, cfg)(ctx); err != nil {
 			return err
 		}
 
@@ -280,11 +296,12 @@ func SetupSingleNamespace(view *SingleNamespaceView) resource.SetupFn {
 }
 
 // SetupTwoNamespaces calls Setup and returns a TwoNamespaceView.
-func SetupTwoNamespaces(view *TwoNamespaceView) resource.SetupFn {
+func SetupTwoNamespaces(view *TwoNamespaceView, cfg Config) resource.SetupFn {
+	cfg.NamespaceCount = 2
 	return func(ctx resource.Context) error {
 		// Perform a setup with 2 namespaces.
 		var apps Echos
-		if err := Setup(&apps, Config{NamespaceCount: 2})(ctx); err != nil {
+		if err := Setup(&apps, cfg)(ctx); err != nil {
 			return err
 		}
 

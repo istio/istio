@@ -17,6 +17,7 @@ package echotest
 import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/config"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 )
 
@@ -33,6 +34,8 @@ type T struct {
 	sourceDeploymentSetup      []srcSetupFn
 	deploymentPairSetup        []svcPairSetupFn
 	destinationDeploymentSetup []dstSetupFn
+
+	cfg *config.Builder
 }
 
 // New creates a *T using the given applications as sources and destinations for each subtest.
@@ -40,7 +43,12 @@ func New(ctx framework.TestContext, instances echo.Instances) *T {
 	s, d := make(echo.Instances, len(instances)), make(echo.Instances, len(instances))
 	copy(s, instances)
 	copy(d, instances)
-	t := &T{rootCtx: ctx, sources: s, destinations: d}
+	t := &T{
+		rootCtx:      ctx,
+		cfg:          config.New(ctx),
+		sources:      s,
+		destinations: d,
+	}
 	if ctx.Settings().Skip(echo.VM) {
 		t = t.FromMatch(match.NotVM).ToMatch(match.NotVM)
 	}

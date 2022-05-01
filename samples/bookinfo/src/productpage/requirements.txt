@@ -8,8 +8,8 @@ Flask-Bootstrap==3.3.7.1
 Flask-JSON==0.3.3
 future==0.17.1
 futures==3.1.1
-gevent==1.4.0
-greenlet==0.4.15
+gevent==1.5.0
+greenlet==0.4.17
 idna==2.8
 itsdangerous==1.1.0
 jaeger-client==3.13.0
