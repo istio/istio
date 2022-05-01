@@ -1051,6 +1051,14 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 		if err != nil {
 			return nil, fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
+
+		for _, ta := range s.environment.Mesh().TrustDomainAliases {
+			err := peerCertVerifier.AddMappingFromPEM(ta, rootCertBytes)
+			if err != nil {
+				return nil, fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
+			}
+		}
+
 	}
 
 	if features.SpiffeBundleEndpoints != "" {
