@@ -27,7 +27,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -90,7 +90,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			})
 
 			fcc := inboundChainConfig{
-				telemetryMetadata: util.TelemetryMetadata{InstanceHostname: "v0.default.example.org"},
+				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: "v0.default.example.org"},
 				clusterName:       "inbound|8888||",
 			}
 

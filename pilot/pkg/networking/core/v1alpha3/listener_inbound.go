@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -72,7 +73,7 @@ type inboundChainConfig struct {
 	bindToPort bool
 
 	// telemetryMetadata defines additional information about the chain for telemetry purposes.
-	telemetryMetadata util.TelemetryMetadata
+	telemetryMetadata telemetry.FilterChainMetadata
 }
 
 // StatPrefix returns the stat prefix for the config
@@ -271,7 +272,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			}
 
 			cc := inboundChainConfig{
-				telemetryMetadata: util.TelemetryMetadata{InstanceHostname: i.Service.Hostname},
+				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: i.Service.Hostname},
 				port:              port,
 				clusterName:       model.BuildInboundSubsetKey(int(port.TargetPort)),
 				bind:              "0.0.0.0", // TODO ipv6
@@ -308,7 +309,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 
 			cc := inboundChainConfig{
 				// Sidecar config doesn't have a real hostname. In order to give some telemetry info, make a synthetic hostname.
-				telemetryMetadata: util.TelemetryMetadata{
+				telemetryMetadata: telemetry.FilterChainMetadata{
 					InstanceHostname: host.Name(lb.node.SidecarScope.Name + "." + lb.node.SidecarScope.Namespace),
 				},
 				port:        port,
@@ -681,7 +682,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	statPrefix := fcc.clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
-		statPrefix = util.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", fcc.port.Port, fcc.port.Name)
+		statPrefix = telemetry.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", fcc.port.Port, fcc.port.Name)
 	}
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
