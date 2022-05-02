@@ -102,7 +102,24 @@ func TestGetRevisionFromPodAnnotation(t *testing.T) {
 		},
 		{
 			anno: k8s_labels.Set{
-				apiannotation.SidecarStatus.Name: `{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"1-13-2"}`,
+				apiannotation.SidecarStatus.Name: `
+				{
+					"initContainers": [
+						"istio-init"
+					],
+					"containers": [
+						"istio-proxy"
+					],
+					"volumes": [
+						"istio-envoy",
+						"istio-data",
+						"istio-podinfo",
+						"istio-token",
+						"istiod-ca-cert"
+					],
+					"imagePullSecrets": null,
+					"revision": "1-13-2"
+				}`,
 			},
 			expected: "1-13-2",
 		},
