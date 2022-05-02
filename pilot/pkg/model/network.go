@@ -482,14 +482,41 @@ func stringSliceEqual(a, b []string) bool {
 
 // resolve gets all the A and AAAA records for the given name
 func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration) {
-	// TODO figure out how to query only A + AAAA
-	res := n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dns.TypeANY))
-	if res == nil || len(res.Answer) == 0 {
+	var wg sync.WaitGroup
+	var resA, resAAAA *dns.Msg
+
+	wg.Add(2)
+	go func() {
+		resA = n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dns.TypeA))
+		wg.Done()
+	}()
+	go func() {
+		resAAAA = n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dns.TypeAAAA))
+		wg.Done()
+	}()
+	wg.Wait()
+
+	numRRs := 0
+	if resA != nil {
+		numRRs += len(resA.Answer)
+	}
+	if resAAAA != nil {
+		numRRs += len(resAAAA.Answer)
+	}
+	if numRRs == 0 {
 		return nil, 0
 	}
+	allRRs := make([]dns.RR, 0, numRRs)
+	if resA != nil {
+		allRRs = append(allRRs, resA.Answer...)
+	}
+	if resAAAA != nil {
+		allRRs = append(allRRs, resAAAA.Answer...)
+	}
+
 	ttl := uint32(math.MaxUint32)
 	var out []string
-	for _, rr := range res.Answer {
+	for _, rr := range allRRs {
 		switch v := rr.(type) {
 		case *dns.A:
 			out = append(out, v.A.String())
@@ -544,15 +571,31 @@ func newClient() (*dnsClient, error) {
 	return c, nil
 }
 
+func reqNames(req *dns.Msg) []string {
+	names := make([]string, 0, 1)
+	for _, qq := range req.Question {
+		names = append(names, qq.Name)
+	}
+	return names
+}
+
 func (c *dnsClient) Query(req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
 	for _, upstream := range c.resolvConfServers {
 		cResponse, _, err := c.Exchange(req, upstream)
 		if err == nil {
 			response = cResponse
-			break
+			code := response.MsgHdr.Rcode
+			if code == dns.RcodeSuccess {
+				break
+			} else {
+				codeString := dns.RcodeToString[code]
+				// TODO make Debug as to not spam the logs on retries?
+				log.Infof("upstream dns error: %v: %v: %v", upstream, reqNames(req), codeString)
+			}
+		} else {
+			log.Infof("upstream dns failure: %v: %v: %v", upstream, reqNames(req), err)
 		}
-		log.Infof("upstream dns failure: %v", err)
 	}
 	if response == nil {
 		response = new(dns.Msg)
