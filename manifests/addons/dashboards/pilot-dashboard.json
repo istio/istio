@@ -35,7 +35,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "fill": 1,
       "gridPos": {
         "h": 5,
@@ -133,7 +133,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "fill": 1,
       "gridPos": {
         "h": 7,
@@ -285,7 +285,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "fill": 1,
       "gridPos": {
         "h": 7,
@@ -388,7 +388,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "fill": 1,
       "gridPos": {
         "h": 7,
@@ -482,7 +482,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "fill": 1,
       "gridPos": {
         "h": 7,
@@ -581,7 +581,7 @@
       "bars": true,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "description": "Shows the rate of pilot pushes",
       "fill": 1,
       "gridPos": {
@@ -703,7 +703,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "description": "Captures a variety of pilot errors",
       "fill": 1,
       "gridPos": {
@@ -854,7 +854,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "description": "Shows the total time it takes to push a config update to a proxy",
       "fill": 1,
       "gridPos": {
@@ -961,7 +961,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -1073,7 +1073,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -1185,7 +1185,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "description": "Shows details about Envoy proxies in the mesh",
       "fill": 1,
       "gridPos": {
@@ -1287,7 +1287,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -1373,7 +1373,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "$datasource",
       "description": "Shows the size of XDS requests and responses",
       "fill": 1,
       "gridPos": {
@@ -1693,11 +1693,6 @@
   "templating": {
     "list": [
       {
-        "current": {
-          "selected": true,
-          "text": "default",
-          "value": "default"
-        },
         "hide": 0,
         "includeAll": false,
         "label": null,
