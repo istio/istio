@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - https://github.com/istio/istio/issues/36114
+releaseNotes:
+  - |
+    **Fixed** an issue in webhook analysis which would make helm reconciler complain about overlapping webhooks
