@@ -285,16 +285,6 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				ll := &listener.Listener{
 					Name: net.JoinHostPort(matchedHost, sPort),
-					Address: &core.Address{
-						Address: &core.Address_SocketAddress{
-							SocketAddress: &core.SocketAddress{
-								Address: sv.GetAddressForProxy(node),
-								PortSpecifier: &core.SocketAddress_PortValue{
-									PortValue: uint32(p.Port),
-								},
-							},
-						},
-					},
 					ApiListener: &listener.ApiListener{
 						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
 							HttpFilters: supportedFilters,
