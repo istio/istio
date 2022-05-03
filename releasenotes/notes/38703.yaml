@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 35657
+
+releaseNotes:
+  - |
+    **Fixed** the in-cluster operator can't create resources on recreation of same IstioOperator resource
+
