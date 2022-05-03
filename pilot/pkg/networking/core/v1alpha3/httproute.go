@@ -380,7 +380,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		if svc == nil {
 			domains = []string{util.IPv6Compliant(hostname), name}
 		} else {
-			domains, altHosts = generateVirtualHostDomains(svc, vhwrapper.Port, node, push.IsClusterLocal(svc))
+			domains, altHosts = generateVirtualHostDomains(svc, vhwrapper.Port, node)
 		}
 		dl := len(domains)
 		domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
@@ -503,8 +503,8 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
-func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy, isLocal bool) ([]string, []string) {
-	altHosts := GenerateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain, isLocal)
+func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
+	altHosts := GenerateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
 	domains := []string{util.IPv6Compliant(string(service.Hostname)), util.DomainName(string(service.Hostname), port)}
 	domains = append(domains, altHosts...)
 
@@ -538,9 +538,20 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 //
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
-func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string, serviceIsLocal bool) []string {
-	if strings.Contains(proxyDomain, ".svc.") && serviceIsLocal {
-		return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
+func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
+
+	// If the service hostname could possibly be a kube service following the <ns>.svc.<suffix>
+	// naming convention, check the suffix.  Assume that hostnames that match the local dns/proxy domain
+	// are indeed kubernetes services
+	if strings.Contains(proxyDomain, ".svc.") {
+
+		if strings.HasSuffix(hostname, removeSvcNamespace(proxyDomain)) {
+			return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
+		}
+
+		// Hostname is not a kube service.  Since it contains a `.svc.`, it is not safe to expand the
+		// hostname as it could conflict with other kube services.
+		return nil
 	}
 
 	var vhosts []string
@@ -674,4 +685,73 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 		partsShared = reverseArray(sharedSuffixesInReverse)
 	}
 	return
+}
+
+func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
+	if util.IsAllowAnyOutbound(node) {
+		egressCluster := util.PassthroughCluster
+		notimeout := durationpb.New(0)
+
+		// no need to check for nil value as the previous if check has checked
+		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
+			// user has provided an explicit destination for all the unknown traffic.
+			// build a cluster out of this destination
+			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
+				nil, 0)
+		}
+
+		routeAction := &route.RouteAction{
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
+			// Disable timeout instead of assuming some defaults.
+			Timeout: notimeout,
+			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+			// nolint: staticcheck
+			MaxGrpcTimeout: notimeout,
+		}
+
+		return &route.VirtualHost{
+			Name:    util.Passthrough,
+			Domains: []string{"*"},
+			Routes: []*route.Route{
+				{
+					Name: util.Passthrough,
+					Match: &route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &route.Route_Route{
+						Route: routeAction,
+					},
+				},
+			},
+			IncludeRequestAttemptCount: true,
+		}
+	}
+
+	return &route.VirtualHost{
+		Name:    util.BlackHole,
+		Domains: []string{"*"},
+		Routes: []*route.Route{
+			{
+				Name: util.BlackHole,
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+				},
+				Action: &route.Route_DirectResponse{
+					DirectResponse: &route.DirectResponseAction{
+						Status: 502,
+					},
+				},
+			},
+		},
+		IncludeRequestAttemptCount: true,
+	}
+}
+
+// Simply removes everything before .svc, if present
+func removeSvcNamespace(domain string) string {
+	if !strings.Contains(domain, ".svc.") {
+		return domain
+	}
+
+	return domain[strings.Index(domain, ".svc."):]
 }
