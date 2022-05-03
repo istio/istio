@@ -396,7 +396,9 @@ func (r *JwksResolver) refresher() {
 			r.refreshTicker.Stop()
 			return
 		case <-jwksuriChannel:
+			r.retryInterval = 10 * time.Millisecond
 			lastHasError = r.refreshCache(lastHasError)
+			r.retryInterval = JwtPubKeyRetryInterval
 		}
 	}
 }
@@ -575,16 +577,4 @@ func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error)
 	// If we aren't able to compare using keys, we should return true
 	// since we already checked exact equality of the responses
 	return true, nil
-}
-
-func (r *JwksResolver) CheckPubKeyExistInCache(issuer string, jwksURI string) bool {
-	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
-	if val, found := r.keyEntries.Load(key); found {
-		e := val.(jwtPubKeyEntry)
-		r.keyEntries.Store(key, e)
-		if e.pubKey != "" {
-			return true
-		}
-	}
-	return false
 }
