@@ -871,18 +871,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 }
 
 // nolint
-// Synced checks if the type has been synced, meaning the most recent push was ACKed
-func (conn *Connection) Synced(typeUrl string) (bool, bool) {
-	conn.proxy.RLock()
-	defer conn.proxy.RUnlock()
-	acked := conn.proxy.WatchedResources[typeUrl].NonceAcked
-	sent := conn.proxy.WatchedResources[typeUrl].NonceSent
-	nacked := conn.proxy.WatchedResources[typeUrl].NonceNacked != ""
-	sendTime := conn.proxy.WatchedResources[typeUrl].LastSent
-	return nacked || acked == sent, time.Since(sendTime) > features.FlowControlTimeout
-}
-
-// nolint
 func (conn *Connection) NonceAcked(typeUrl string) string {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()

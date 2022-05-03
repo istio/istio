@@ -494,12 +494,6 @@ var (
 	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
-	FlowControlTimeout = env.RegisterDurationVar(
-		"PILOT_FLOW_CONTROL_TIMEOUT",
-		15*time.Second,
-		"If set, the max amount of time to delay a push by. Depends on PILOT_ENABLE_FLOW_CONTROL.",
-	).Get()
-
 	EnableDestinationRuleInheritance = env.RegisterBoolVar(
 		"PILOT_ENABLE_DESTINATION_RULE_INHERITANCE",
 		false,
