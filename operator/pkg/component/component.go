@@ -65,7 +65,7 @@ type IstioComponent interface {
 	Namespace() string
 	// Enabled reports whether the component is enabled.
 	Enabled() bool
-	// Run starts the component. Must me called before the component is used.
+	// Run starts the component. Must be called before the component is used.
 	Run() error
 	// RenderManifest returns a string with the rendered manifest for the component.
 	RenderManifest() (string, error)
