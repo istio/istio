@@ -405,7 +405,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey2,
+												InlineString: test.JwtPubKey1,
 											},
 										},
 									},
@@ -607,7 +607,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey2,
+												InlineString: test.JwtPubKey1,
 											},
 										},
 									},
@@ -676,7 +676,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey2,
+												InlineString: test.JwtPubKey1,
 											},
 										},
 									},
@@ -691,6 +691,7 @@ func TestJwtFilter(t *testing.T) {
 			},
 		},
 	}
+
 	push := model.NewPushContext()
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
@@ -704,15 +705,6 @@ func TestJwtFilter(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			istiotest.SetBoolForTest(t, &features.EnableRemoteJwks, c.enableRemoteJwks)
-			NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter()
-			for _, config := range c.in {
-				for _, jwtRule := range config.Spec.(*v1beta1.RequestAuthentication).JwtRules {
-					retryToCheckCache(5, 20*time.Millisecond, func() bool {
-						return push.JwtKeyResolver.CheckPubKeyExistInCache(jwtRule.Issuer, jwtRule.JwksUri)
-					})
-				}
-			}
-
 			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
@@ -1027,12 +1019,6 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			convertToEnvoyJwtConfig(c.in, push)
-			for _, config := range c.in {
-				retryToCheckCache(5, 20*time.Millisecond, func() bool {
-					return push.JwtKeyResolver.CheckPubKeyExistInCache(config.Issuer, config.JwksUri)
-				})
-			}
 			if got := convertToEnvoyJwtConfig(c.in, push); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
@@ -2123,16 +2109,4 @@ func TestGetMutualTLSMode(t *testing.T) {
 			}
 		})
 	}
-}
-
-func retryToCheckCache(attempts int, sleep time.Duration, fn func() bool) bool {
-	if presentInCache := fn(); !presentInCache {
-		attempts--
-		if attempts > 0 {
-			time.Sleep(sleep)
-			return retryToCheckCache(attempts, sleep, fn)
-		}
-		return false
-	}
-	return true
 }
