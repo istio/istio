@@ -29,17 +29,14 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
 
 func TestGatewayHostnames(t *testing.T) {
-	origMinGatewayTTL := model.MinGatewayTTL
-	model.MinGatewayTTL = 30 * time.Millisecond
-	t.Cleanup(func() {
-		model.MinGatewayTTL = origMinGatewayTTL
-	})
+	test.SetDurationForTest(t, &model.MinGatewayTTL, 30*time.Millisecond)
 
 	gwHost := "test.gw.istio.io"
 	dnsServer := newFakeDNSServer(":0", 1, sets.New(gwHost))
