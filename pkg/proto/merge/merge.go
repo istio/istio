@@ -100,8 +100,10 @@ func Merge(dst, src proto.Message) proto.Message {
 
 // Merge Code of proto.Merge with modifications to support custom types
 func merge(dst, src proto.Message, opts ...OptionFn) proto.Message {
-	mo := mergeOptions{customMergeFn: map[protoreflect.FullName]MergeFunction{},
-		customCloneFn: map[protoreflect.FullName]CloneFunction{}}
+	mo := mergeOptions{
+		customMergeFn: map[protoreflect.FullName]MergeFunction{},
+		customCloneFn: map[protoreflect.FullName]CloneFunction{},
+	}
 	for _, opt := range opts {
 		mo = opt(mo)
 	}

@@ -812,7 +812,7 @@ func (node *Proxy) BuildCatchAllVirtualHost() {
 	// Build CatchAllVirtualHost and cache it. This depends on sidecar scope config.
 	allowAny := false
 	egressDestination := ""
-	if node.SidecarScope.OutboundTrafficPolicy != nil {
+	if node.SidecarScope != nil && node.SidecarScope.OutboundTrafficPolicy != nil {
 		if node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY {
 			allowAny = true
 		}
