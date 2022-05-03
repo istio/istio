@@ -636,7 +636,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		}
 		opt.fc.ListenerProtocol = listenerOpts.protocol
 		listenerOpts.tlsSettings.CipherSuites = filteredSidecarCipherSuites(listenerOpts.tlsSettings.CipherSuites)
-		opt.fc.TLSContext = configgen.BuildListenerTLSContext(listenerOpts.tlsSettings, in.Node, istionetworking.TransportProtocolTCP)
+		opt.fc.TLSContext = configgen.BuildListenerTLSContext(listenerOpts.tlsSettings, in.Node, istionetworking.TransportProtocolTCP, false)
 		newOpts = append(newOpts, &opt)
 	}
 

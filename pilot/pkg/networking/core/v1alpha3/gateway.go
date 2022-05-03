@@ -661,7 +661,7 @@ func buildGatewayListenerTLSContext(
 	}
 
 	server.Tls.CipherSuites = filteredGatewayCipherSuites(server)
-	return configgen.BuildListenerTLSContext(server.Tls, proxy, transportProtocol)
+	return configgen.BuildListenerTLSContext(server.Tls, proxy, transportProtocol, gateway.IsTCPServerWithTLSTermination(server))
 }
 
 func convertTLSProtocol(in networking.ServerTLSSettings_TLSProtocol) tls.TlsParameters_TlsProtocol {
