@@ -14,7 +14,6 @@
 package xds_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -185,8 +184,6 @@ func TestEds(t *testing.T) {
 		if len(clusters) == 0 {
 			t.Error("No clusters in ADS response")
 		}
-		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
-		_ = os.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0o644)
 	})
 }
 
