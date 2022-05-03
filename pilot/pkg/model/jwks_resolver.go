@@ -225,10 +225,10 @@ func newJwksResolverWithCABundlePaths(
 
 var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")
 
-// GetOrUpdatePublicKey returns the  JWT public key if it is available in the cache
+// GetPublicKey returns the  JWT public key if it is available in the cache
 // or fetch with from jwksuri if there is a error while fetching then it adds the
 // jwksURI in the cache to fetch the public key in the background process
-func (r *JwksResolver) GetOrUpdatePublicKey(issuer string, jwksURI string) (string, error) {
+func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, error) {
 	now := time.Now()
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
 	if val, found := r.keyEntries.Load(key); found {
@@ -277,7 +277,7 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 	if jwtPubKey == "" {
 		// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
 		// workflow, where the JWT key resolver should have already been initialized on server creation.
-		jwtPubKey, err = r.GetOrUpdatePublicKey(jwtIssuer, jwksURI)
+		jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI)
 		if err != nil {
 			log.Infof("The JWKS key is not yet fetched for issuer %s (%s), using a fake JWKS for now", jwtIssuer, jwksURI)
 			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
