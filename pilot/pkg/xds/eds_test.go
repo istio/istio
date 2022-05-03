@@ -14,7 +14,6 @@
 package xds_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
