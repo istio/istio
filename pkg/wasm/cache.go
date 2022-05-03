@@ -202,10 +202,7 @@ func (c *LocalFileCache) Get(
 	// Hex-Encoded sha256 checksum of binary.
 	var dChecksum string
 	var binaryFetcher func() ([]byte, error)
-	insecure := false
-	if c.insecureRegistries.Contains(u.Host) {
-		insecure = true
-	}
+	insecure := c.insecureRegistries.Contains(u.Host)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
