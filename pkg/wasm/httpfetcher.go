@@ -74,6 +74,10 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 		if err != nil {
 			lastError = err
 			wasmLog.Debugf("wasm module download request failed: %v", err)
+			if ctx.Err() != nil {
+				// If there is context timeout, exit this loop.
+				return nil, fmt.Errorf("wasm module download failed after %v attempts, last error: %v", attempts, lastError)
+			}
 			time.Sleep(b.NextBackOff())
 			continue
 		}
@@ -93,7 +97,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 		resp.Body.Close()
 		break
 	}
-	return nil, fmt.Errorf("wasm module download failed, last error: %v", lastError)
+	return nil, fmt.Errorf("wasm module download failed after %v attempts, last error: %v", attempts, lastError)
 }
 
 func retryable(code int) bool {

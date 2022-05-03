@@ -152,7 +152,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:          DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:       DefaultWasmModuleExpiry,
 			requestTimeout:         time.Second * 10,
-			wantErrorMsgPrefix:     "wasm module download failed, last error: Get \"https://dummyurl\"",
+			wantErrorMsgPrefix:     "wasm module download failed after 5 attempts, last error: Get \"https://dummyurl\"",
 			wantVisitServer:        false,
 		},
 		{

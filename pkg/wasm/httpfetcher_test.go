@@ -62,7 +62,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 			},
 			timeout:        5 * time.Second,
 			wantNumRequest: 5,
-			wantErrorRegex: "wasm module download failed, last error: wasm module download request failed: status code 500",
+			wantErrorRegex: "wasm module download failed after 5 attempts, last error: wasm module download request failed: status code 500",
 		},
 		{
 			name: "download is never tried by immediate context timeout",
@@ -71,7 +71,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 			},
 			timeout:        0, // Immediately timeout in the context level.
 			wantNumRequest: 0, // Should not retried because it is already timed out.
-			wantErrorRegex: "wasm module download failed, last error: Get \".*\": context deadline exceeded",
+			wantErrorRegex: "wasm module download failed after 1 attempts, last error: Get \"[^\"]+\": context deadline exceeded",
 		},
 	}
 
@@ -95,7 +95,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 			if c.wantErrorRegex != "" {
 				if err == nil {
 					t.Errorf("Wasm download got no error, want error regex `%v`", c.wantErrorRegex)
-				} else if matched, err := regexp.MatchString(c.wantErrorRegex, err.Error()); err != nil || !matched {
+				} else if matched, regexErr := regexp.MatchString(c.wantErrorRegex, err.Error()); regexErr != nil || !matched {
 					t.Errorf("Wasm download got error `%v`, want error regex `%v`", err, c.wantErrorRegex)
 				}
 			} else if string(b) != wantWasmModule {
