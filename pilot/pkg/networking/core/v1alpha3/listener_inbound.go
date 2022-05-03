@@ -163,7 +163,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
 			opts = getTLSFilterChainMatchOptions(lp)
-			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, istionetworking.TransportProtocolTCP)
+			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, istionetworking.TransportProtocolTCP, false)
 			mtls.HTTP = mtls.TCP
 		} else {
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
