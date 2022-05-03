@@ -372,6 +372,7 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 
 	for i := 0; i < retry; i++ {
 		body, err := getPublicKey()
+		fmt.Println(r.retryInterval)
 		if err == nil {
 			return body, nil
 		}
@@ -396,9 +397,7 @@ func (r *JwksResolver) refresher() {
 			r.refreshTicker.Stop()
 			return
 		case <-jwksuriChannel:
-			r.retryInterval = 10 * time.Millisecond
 			lastHasError = r.refreshCache(lastHasError)
-			r.retryInterval = JwtPubKeyRetryInterval
 		}
 	}
 }
