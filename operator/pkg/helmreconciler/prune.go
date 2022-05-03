@@ -408,11 +408,10 @@ func (h *HelmReconciler) deleteResource(obj *object.K8sObject, componentName, oh
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return err
-		} else {
-			// do not return error if resources are not found
-			h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
-			return nil
 		}
+		// do not return error if resources are not found
+		h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
+		return nil
 	}
 	if componentName != "" {
 		h.removeFromObjectCache(componentName, oh)
