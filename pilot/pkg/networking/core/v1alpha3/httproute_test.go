@@ -38,12 +38,11 @@ import (
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
-		name             string
-		service          *model.Service
-		isNotKubeService bool
-		port             int
-		node             *model.Proxy
-		want             []string
+		name    string
+		service *model.Service
+		port    int
+		node    *model.Proxy
+		want    []string
 	}{
 		{
 			name: "same domain",
@@ -118,8 +117,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				Hostname:     "foo.default.svc.bar.baz",
 				MeshExternal: false,
 			},
-			isNotKubeService: true,
-			port:             8123,
+			port: 8123,
 			node: &model.Proxy{
 				DNSDomain: "default.svc.cluster.local",
 			},
@@ -233,8 +231,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		},
 	}
 
-	testFn := func(service *model.Service, port int, node *model.Proxy, isNotk8sService bool, want []string) error {
-		out, _ := generateVirtualHostDomains(service, port, node, !isNotk8sService)
+	testFn := func(service *model.Service, port int, node *model.Proxy, want []string) error {
+		out, _ := generateVirtualHostDomains(service, port, node)
 		if !reflect.DeepEqual(out, want) {
 			return fmt.Errorf("unexpected virtual hosts:\ngot  %v\nwant %v", out, want)
 		}
@@ -244,7 +242,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			if err := testFn(c.service, c.port, c.node, c.isNotKubeService, c.want); err != nil {
+			if err := testFn(c.service, c.port, c.node, c.want); err != nil {
 				t.Error(err)
 			}
 		})
