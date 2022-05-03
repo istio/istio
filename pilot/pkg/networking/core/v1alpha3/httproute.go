@@ -380,7 +380,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		if svc == nil {
 			domains = []string{util.IPv6Compliant(hostname), name}
 		} else {
-			domains, altHosts = generateVirtualHostDomains(svc, vhwrapper.Port, node)
+			domains, altHosts = generateVirtualHostDomains(svc, vhwrapper.Port, node, push.IsClusterLocal(svc))
 		}
 		dl := len(domains)
 		domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
@@ -503,8 +503,8 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
-func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
-	altHosts := GenerateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
+func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy, isLocal bool) ([]string, []string) {
+	altHosts := GenerateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain, isLocal)
 	domains := []string{util.IPv6Compliant(string(service.Hostname)), util.DomainName(string(service.Hostname), port)}
 	domains = append(domains, altHosts...)
 
@@ -538,8 +538,8 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 //
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
-func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
-	if strings.Contains(proxyDomain, ".svc.") {
+func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string, serviceIsLocal bool) []string {
+	if strings.Contains(proxyDomain, ".svc.") && serviceIsLocal {
 		return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
 	}
 
