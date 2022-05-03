@@ -1,4 +1,4 @@
-# The following policy applies the CUSTOM action with the ext-authz-http provider on workload b for path /custom.
+# The following policy applies the CUSTOM action with the HTTP provider on workload b for path /custom.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -11,14 +11,14 @@ spec:
       "app": "b"
   action: CUSTOM
   provider:
-    name: ext-authz-http
+    name: "{{ .HTTPProviderName }}"
   rules:
-  - to:
-    - operation:
-        paths: ["/custom"]
+    - to:
+        - operation:
+            paths: ["/custom"]
 ---
 
-# The following policy applies the CUSTOM action with the ext-authz-grpc provider on workload c for path /custom.
+# The following policy applies the CUSTOM action with the GRPC provider on workload c for path /custom.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -31,14 +31,14 @@ spec:
       "app": "c"
   action: CUSTOM
   provider:
-    name: ext-authz-grpc
+    name: "{{ .GRPCProviderName }}"
   rules:
-  - to:
-    - operation:
-        paths: ["/custom"]
+    - to:
+        - operation:
+            paths: ["/custom"]
 ---
 
-# The following policy applies the CUSTOM action with the ext-authz-http-local provider on workload d for path /custom.
+# The following policy applies the CUSTOM action with the local HTTP provider on workload d for path /custom.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -51,14 +51,14 @@ spec:
       "app": "d"
   action: CUSTOM
   provider:
-    name: ext-authz-http-local
+    name: "{{ .LocalHTTPProviderName }}"
   rules:
   - to:
     - operation:
         paths: ["/custom"]
 ---
 
-# The following policy applies the CUSTOM action with the ext-authz-grpc-local provider on workload e for path /custom.
+# The following policy applies the CUSTOM action with the local GRPC provider on workload e for path /custom.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -71,14 +71,14 @@ spec:
       "app": "e"
   action: CUSTOM
   provider:
-    name: ext-authz-grpc-local
+    name: "{{ .LocalGRPCProviderName }}"
   rules:
   - to:
     - operation:
         paths: ["/custom"]
 ---
 
-# The following policy applies the CUSTOM action with the ext-authz-tcp provider on workload f for port 8092.
+# The following policy applies the CUSTOM action with the GRPC provider on workload f for TCP port 8092.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -91,7 +91,7 @@ spec:
       "app": "f"
   action: CUSTOM
   provider:
-    name: ext-authz-grpc
+    name: "{{ .GRPCProviderName }}"
   rules:
   - to:
     - operation:
@@ -99,7 +99,7 @@ spec:
 
 ---
 
-# The following policy applies the CUSTOM action with the ext-authz-http provider on ingress gateway for path /custom.
+# The following policy applies the CUSTOM action with the HTTP provider on ingress gateway for path /custom.
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -112,47 +112,11 @@ spec:
       "app": "istio-ingressgateway"
   action: CUSTOM
   provider:
-    name: ext-authz-http
+    name: "{{ .HTTPProviderName }}"
   rules:
   - to:
     - operation:
         paths: ["/custom"]
----
-
-# Define the service entry for the local ext-authz service on port 8000.
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: httpbin-ext-authz-http
-  namespace: "{{ .Namespace }}"
-spec:
-  hosts:
-  - "ext-authz-http.local"
-  endpoints:
-  - address: "127.0.0.1"
-  ports:
-  - name: http
-    number: 8000
-    protocol: HTTP
-  resolution: STATIC
----
-
-# Define the service entry for the local ext-authz service on port 9000.
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: httpbin-ext-authz-grpc
-  namespace: "{{ .Namespace }}"
-spec:
-  hosts:
-  - "ext-authz-grpc.local"
-  endpoints:
-  - address: "127.0.0.1"
-  ports:
-  - name: grpc
-    number: 9000
-    protocol: GRPC
-  resolution: STATIC
 ---
 
 # The following gateway allows request to "*.company.com"

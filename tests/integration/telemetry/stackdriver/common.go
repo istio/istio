@@ -32,8 +32,6 @@ import (
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -49,6 +47,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/integration/telemetry"
 )
 
@@ -88,11 +87,11 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.ConfigKube().EvalFile(map[string]interface{}{
+	err = ctx.ConfigKube().EvalFile(EchoNsInst.Name(), map[string]interface{}{
 		"StackdriverAddress": SDInst.Address(),
 		"EchoNamespace":      EchoNsInst.Name(),
 		"UseRealSD":          stackdriver.UseRealStackdriver(),
-	}, filepath.Join(env.IstioSrc, stackdriverBootstrapOverride)).Apply(EchoNsInst.Name())
+	}, filepath.Join(env.IstioSrc, stackdriverBootstrapOverride)).Apply()
 	if err != nil {
 		return
 	}
@@ -161,7 +160,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	}
 
 	Clt = servicePrefix("clt").GetMatches(echos)
-	Srv = match.ServiceName(model.NamespacedName{Name: "srv", Namespace: EchoNsInst.Name()}).GetMatches(echos)
+	Srv = match.ServiceName(echo.NamespacedName{Name: "srv", Namespace: EchoNsInst}).GetMatches(echos)
 	return nil
 }
 
@@ -350,7 +349,7 @@ func logDiff(t test.Failer, tp string, query map[string]string, entries []map[st
 		return
 	}
 	allMismatches := []map[string]string{}
-	seen := sets.NewSet()
+	seen := sets.New()
 	for _, s := range entries {
 		b, _ := json.Marshal(s)
 		ss := string(b)

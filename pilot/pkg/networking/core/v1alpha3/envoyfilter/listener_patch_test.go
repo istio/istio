@@ -20,23 +20,24 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
+	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	gogojsonpb "github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -56,14 +57,14 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-var testMesh = meshconfig.MeshConfig{
-	ConnectTimeout: &types.Duration{
+var testMesh = &meshconfig.MeshConfig{
+	ConnectTimeout: &durationpb.Duration{
 		Seconds: 10,
 		Nanos:   1,
 	},
 }
 
-func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.IstioConfigStore {
+func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.ConfigStore {
 	store := model.MakeIstioStore(memory.Make(collections.Pilot))
 
 	for i, cp := range configPatches {
@@ -81,9 +82,9 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 	return store
 }
 
-func buildPatchStruct(config string) *types.Struct {
-	val := &types.Struct{}
-	_ = gogojsonpb.Unmarshal(strings.NewReader(config), val)
+func buildPatchStruct(config string) *structpb.Struct {
+	val := &structpb.Struct{}
+	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
 	return val
 }
 
@@ -94,12 +95,12 @@ func buildGolangPatchStruct(config string) *structpb.Struct {
 	return val
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig meshconfig.MeshConfig,
-	configStore model.IstioConfigStore) *model.Environment {
+func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *meshconfig.MeshConfig,
+	configStore model.ConfigStore) *model.Environment {
 	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(&meshConfig),
+		ConfigStore:      configStore,
+		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
 	e.PushContext = model.NewPushContext()
@@ -258,6 +259,28 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value:     buildPatchStruct(`{"filter_chain_match": { "server_names": ["foo.com"] }}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{Name: wellknown.RedisProxy},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+{"name": "envoy.filters.network.redis_proxy",
+"typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.redis_proxy.v3.RedisProxy",
+        "settings": {"op_timeout": "0.2s"}
+}
+}`),
 			},
 		},
 		{
@@ -849,6 +872,30 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 		{
+			Name: "redis-proxy",
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrapperspb.UInt32Value{
+							Value: 9999,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.RedisProxy,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
+									Settings: &redis.RedisProxy_ConnPoolSettings{
+										OpTimeout: durationpb.New(time.Second * 5),
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			Name: "network-filter-to-be-replaced-not-found",
 			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
@@ -1047,10 +1094,10 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: "envoy.redis_proxy",
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
 									StatPrefix: "redis_stats",
-									PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
-										CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
+									PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
+										CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{
 											Cluster: "custom-redis-cluster",
 										},
 									},
@@ -1058,6 +1105,30 @@ func TestApplyListenerPatches(t *testing.T) {
 							},
 						},
 						{Name: "filter2"},
+					},
+				},
+			},
+		},
+		{
+			Name: "redis-proxy",
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrapperspb.UInt32Value{
+							Value: 9999,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.RedisProxy,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
+									Settings: &redis.RedisProxy_ConnPoolSettings{
+										OpTimeout: durationpb.New(time.Millisecond * 200),
+									},
+								}),
+							},
+						},
 					},
 				},
 			},
@@ -1628,10 +1699,10 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: "envoy.redis_proxy",
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
 									StatPrefix: "redis_stats",
-									PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
-										CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
+									PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
+										CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{
 											Cluster: "custom-redis-cluster",
 										},
 									},

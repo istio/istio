@@ -30,6 +30,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
@@ -162,7 +163,7 @@ func (wc *WebhookController) Run(stopCh <-chan struct{}) {
 		// upsertSecret to update and insert secret
 		// it throws error if the secret cache is not synchronized, but the secret exists in the system.
 		// Hence waiting for the cache is synced.
-		if !cache.WaitForCacheSync(stopCh, wc.scrtController.HasSynced) {
+		if !kube.WaitForCacheSync(stopCh, wc.scrtController.HasSynced) {
 			log.Error("failed to wait for cache sync")
 		}
 	}
@@ -209,9 +210,8 @@ func (wc *WebhookController) upsertSecret(secretName, dnsName, secretNamespace s
 				log.Infof("Istio secret \"%s\" in namespace \"%s\" already exists", secretName, secretNamespace)
 			}
 			break
-		} else {
-			log.Warnf("failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
 		}
+		log.Warnf("failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
 		time.Sleep(time.Second)
 	}
 

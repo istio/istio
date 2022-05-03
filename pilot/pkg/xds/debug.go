@@ -44,6 +44,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
@@ -108,18 +109,20 @@ type AdsClients struct {
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
-	ClusterID     string `json:"cluster_id,omitempty"`
-	ProxyID       string `json:"proxy,omitempty"`
-	ProxyVersion  string `json:"proxy_version,omitempty"`
-	IstioVersion  string `json:"istio_version,omitempty"`
-	ClusterSent   string `json:"cluster_sent,omitempty"`
-	ClusterAcked  string `json:"cluster_acked,omitempty"`
-	ListenerSent  string `json:"listener_sent,omitempty"`
-	ListenerAcked string `json:"listener_acked,omitempty"`
-	RouteSent     string `json:"route_sent,omitempty"`
-	RouteAcked    string `json:"route_acked,omitempty"`
-	EndpointSent  string `json:"endpoint_sent,omitempty"`
-	EndpointAcked string `json:"endpoint_acked,omitempty"`
+	ClusterID            string `json:"cluster_id,omitempty"`
+	ProxyID              string `json:"proxy,omitempty"`
+	ProxyVersion         string `json:"proxy_version,omitempty"`
+	IstioVersion         string `json:"istio_version,omitempty"`
+	ClusterSent          string `json:"cluster_sent,omitempty"`
+	ClusterAcked         string `json:"cluster_acked,omitempty"`
+	ListenerSent         string `json:"listener_sent,omitempty"`
+	ListenerAcked        string `json:"listener_acked,omitempty"`
+	RouteSent            string `json:"route_sent,omitempty"`
+	RouteAcked           string `json:"route_acked,omitempty"`
+	EndpointSent         string `json:"endpoint_sent,omitempty"`
+	EndpointAcked        string `json:"endpoint_acked,omitempty"`
+	ExtesionConfigSent   string `json:"extensionconfig_sent,omitempty"`
+	ExtensionConfigAcked string `json:"extensionconfig_acked,omitempty"`
 }
 
 // SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
@@ -268,17 +271,19 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 		node := con.proxy
 		if node != nil {
 			syncz = append(syncz, SyncStatus{
-				ProxyID:       node.ID,
-				ClusterID:     node.Metadata.ClusterID.String(),
-				IstioVersion:  node.Metadata.IstioVersion,
-				ClusterSent:   con.NonceSent(v3.ClusterType),
-				ClusterAcked:  con.NonceAcked(v3.ClusterType),
-				ListenerSent:  con.NonceSent(v3.ListenerType),
-				ListenerAcked: con.NonceAcked(v3.ListenerType),
-				RouteSent:     con.NonceSent(v3.RouteType),
-				RouteAcked:    con.NonceAcked(v3.RouteType),
-				EndpointSent:  con.NonceSent(v3.EndpointType),
-				EndpointAcked: con.NonceAcked(v3.EndpointType),
+				ProxyID:              node.ID,
+				ClusterID:            node.Metadata.ClusterID.String(),
+				IstioVersion:         node.Metadata.IstioVersion,
+				ClusterSent:          con.NonceSent(v3.ClusterType),
+				ClusterAcked:         con.NonceAcked(v3.ClusterType),
+				ListenerSent:         con.NonceSent(v3.ListenerType),
+				ListenerAcked:        con.NonceAcked(v3.ListenerType),
+				RouteSent:            con.NonceSent(v3.RouteType),
+				RouteAcked:           con.NonceAcked(v3.RouteType),
+				EndpointSent:         con.NonceSent(v3.EndpointType),
+				EndpointAcked:        con.NonceAcked(v3.EndpointType),
+				ExtesionConfigSent:   con.NonceSent(v3.ExtensionConfigurationType),
+				ExtensionConfigAcked: con.NonceSent(v3.ExtensionConfigurationType),
 			})
 		}
 	}
@@ -297,9 +302,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 // the full push.
 func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	s.mutex.RLock()
-	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
-	s.mutex.RUnlock()
+	out, _ := json.MarshalIndent(s.EndpointIndex.Shardz(), " ", " ")
 	_, _ = w.Write(out)
 }
 
@@ -398,11 +401,11 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
 					ProxyID: con.proxy.ID,
-					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ClusterType),
+					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.ClusterType),
 						resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ListenerType),
+					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.ListenerType),
 						resourceID, knownVersions),
-					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.RouteType),
+					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.RouteType),
 						resourceID, knownVersions),
 				})
 			}
@@ -458,8 +461,8 @@ func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	configs := make([]kubernetesConfig, 0)
-	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
-		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().GroupVersionKind(), "")
+	s.Env.ConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
+		cfg, _ := s.Env.ConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
 			configs = append(configs, kubernetesConfig{c})
 		}
@@ -523,9 +526,9 @@ func (s *DiscoveryServer) connectionsHandler(w http.ResponseWriter, req *http.Re
 
 	for _, c := range connections {
 		adsClient := AdsClient{
-			ConnectionID: c.ConID,
-			ConnectedAt:  c.Connect,
-			PeerAddress:  c.PeerAddr,
+			ConnectionID: c.conID,
+			ConnectedAt:  c.connectedAt,
+			PeerAddress:  c.peerAddr,
 		}
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
@@ -557,9 +560,9 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	adsClients.Total = len(connections)
 	for _, c := range connections {
 		adsClient := AdsClient{
-			ConnectionID: c.ConID,
-			ConnectedAt:  c.Connect,
-			PeerAddress:  c.PeerAddr,
+			ConnectionID: c.conID,
+			ConnectedAt:  c.connectedAt,
+			PeerAddress:  c.peerAddr,
 			Metadata:     c.proxy.Metadata,
 			Watches:      map[string][]string{},
 		}
@@ -600,7 +603,10 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, r, nil)
+		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, r, &model.PushRequest{
+			Full: true,
+			Push: con.proxy.LastPushContext,
+		})
 		if len(resource) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(fmt.Sprintf("ExtensionConfigurationType not found, proxyID: %s\n", proxyID)))
@@ -620,11 +626,6 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-const (
-	apiTypePrefix      = "type.googleapis.com/"
-	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
-)
-
 func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 	tce := &core.TypedExtensionConfig{}
 	if err := r.GetResource().UnmarshalTo(tce); err != nil {
@@ -632,10 +633,17 @@ func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 	}
 
 	switch tce.TypedConfig.TypeUrl {
-	case wasmHTTPFilterType:
+	case xds.WasmHTTPFilterType:
 		w := &wasm.Wasm{}
 		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
 			return nil, err
+		}
+		// Redact Wasm secret env variable.
+		vmenvs := w.GetConfig().GetVmConfig().EnvironmentVariables
+		if vmenvs != nil {
+			if _, found := vmenvs.KeyValues[model.WasmSecretEnv]; found {
+				vmenvs.KeyValues[model.WasmSecretEnv] = "<Redacted>"
+			}
 		}
 		return w, nil
 	}
@@ -869,7 +877,9 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.Generators[v3.NameTableType] != nil {
-		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, nil)
+		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, &model.PushRequest{
+			Push: con.proxy.LastPushContext,
+		})
 		if len(nds) == 0 {
 			return
 		}
@@ -910,7 +920,7 @@ func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Reque
 
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	for _, con := range s.Clients() {
-		if strings.Contains(con.ConID, proxyID) {
+		if strings.Contains(con.conID, proxyID) {
 			return con
 		}
 	}

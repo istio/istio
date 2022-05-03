@@ -63,7 +63,7 @@ type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
 	network         network.ID
-	networkView     map[network.ID]bool
+	proxyView       model.ProxyView
 	clusterID       cluster.ID
 	locality        *core.Locality
 	destinationRule *config.Config
@@ -87,12 +87,12 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 
 	var dr *config.Config
 	if svc != nil {
-		dr = proxy.SidecarScope.DestinationRule(svc.Hostname)
+		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 	}
 	b := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
-		networkView:     proxy.GetNetworkView(),
+		proxyView:       proxy.GetView(),
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,
@@ -141,13 +141,8 @@ func (b EndpointBuilder) Key() string {
 	if b.service != nil {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
-	if b.networkView != nil {
-		nv := make([]string, 0, len(b.networkView))
-		for nw := range b.networkView {
-			nv = append(nv, string(nw))
-		}
-		sort.Strings(nv)
-		params = append(params, nv...)
+	if b.proxyView != nil {
+		params = append(params, b.proxyView.String())
 	}
 	hash := md5.New()
 	for _, param := range params {
@@ -179,13 +174,6 @@ var edsDependentTypes = []config.GroupVersionKind{gvk.PeerAuthentication}
 
 func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
 	return edsDependentTypes
-}
-
-func (b *EndpointBuilder) canViewNetwork(network network.ID) bool {
-	if b.networkView == nil {
-		return true
-	}
-	return b.networkView[network]
 }
 
 // TODO(lambdai): Receive port value(15009 by default), builder to cover wide cases.
@@ -267,7 +255,7 @@ func (e *LocLbEndpointsAndOptions) AssertInvarianceInTest() {
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
-	shards *EndpointShards,
+	shards *model.EndpointShards,
 	svcPort *model.Port,
 ) []*LocLbEndpointsAndOptions {
 	localityEpMap := make(map[string]*LocLbEndpointsAndOptions)
@@ -278,25 +266,15 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	// and should, therefore, not be accessed from outside the cluster.
 	isClusterLocal := b.clusterLocal
 
-	shards.mutex.Lock()
-	// Extract shard keys so we can iterate in order. This ensures a stable EDS output. Since
-	// len(shards) ~= number of remote clusters which isn't too large, doing this sort shouldn't be
-	// too problematic. If it becomes an issue we can cache it in the EndpointShards struct.
-	keys := make([]model.ShardKey, 0, len(shards.Shards))
-	for k := range shards.Shards {
-		keys = append(keys, k)
-	}
-	if len(keys) >= 2 {
-		sort.Slice(keys, func(i, j int) bool {
-			return keys[i] < keys[j]
-		})
-	}
+	shards.Lock()
+	// Extract shard keys so we can iterate in order. This ensures a stable EDS output.
+	keys := shards.Keys()
 	// The shards are updated independently, now need to filter and merge for this cluster
 	for _, shardKey := range keys {
 		endpoints := shards.Shards[shardKey]
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (shardKey.Cluster() != b.clusterID) {
+		if isClusterLocal && (shardKey.Cluster != b.clusterID) {
 			continue
 		}
 		for _, ep := range endpoints {
@@ -308,7 +286,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				continue
 			}
 			// Port labels
-			if !epLabels.HasSubsetOf(ep.Labels) {
+			if !epLabels.SubsetOf(ep.Labels) {
 				continue
 			}
 
@@ -343,7 +321,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 		}
 	}
-	shards.mutex.Unlock()
+	shards.Unlock()
 
 	locEps := make([]*LocLbEndpointsAndOptions, 0, len(localityEpMap))
 	locs := make([]string, 0, len(localityEpMap))
@@ -499,7 +477,7 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 			return value
 		}
 		c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
-			NewPolicyApplier(c.push, ep.Namespace, labels.Collection{ep.Labels}).
+			NewPolicyApplier(c.push, ep.Namespace, ep.Labels).
 			GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
 		return c.peerAuthDisabledMTLS[peerAuthnKey]
 	}

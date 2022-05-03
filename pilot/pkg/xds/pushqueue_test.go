@@ -78,7 +78,7 @@ func ExpectDequeue(t *testing.T, p *PushQueue, expected *Connection) {
 func TestProxyQueue(t *testing.T) {
 	proxies := make([]*Connection, 0, 100)
 	for p := 0; p < 100; p++ {
-		proxies = append(proxies, &Connection{ConID: fmt.Sprintf("proxy-%d", p)})
+		proxies = append(proxies, &Connection{conID: fmt.Sprintf("proxy-%d", p)})
 	}
 
 	t.Run("simple add and remove", func(t *testing.T) {
@@ -202,7 +202,7 @@ func TestProxyQueue(t *testing.T) {
 		if !reflect.DeepEqual(model.ConfigsOfKind(info.ConfigsUpdated, gvk.ServiceEntry), expectedEds) {
 			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, model.ConfigsOfKind(info.ConfigsUpdated, gvk.ServiceEntry))
 		}
-		if info.Full != false {
+		if info.Full {
 			t.Errorf("Expected full to be false, got true")
 		}
 	})
@@ -244,7 +244,7 @@ func TestProxyQueue(t *testing.T) {
 		p := NewPushQueue()
 		defer p.ShutDown()
 
-		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.ConID, eds) }
+		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.conID, eds) }
 
 		// We will trigger many pushes for eds services to each proxy. In the end we will expect
 		// all of these to be dequeue, but order is not deterministic.
@@ -300,7 +300,7 @@ func TestProxyQueue(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
 		defer p.ShutDown()
-		con := &Connection{ConID: "proxy-test"}
+		con := &Connection{conID: "proxy-test"}
 
 		// We will trigger many pushes for eds services to the proxy. In the end we will expect
 		// all of these to be dequeue, but order is deterministic.

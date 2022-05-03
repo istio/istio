@@ -109,7 +109,6 @@ type Options struct {
 	// MeshServiceController is a mesh-wide service Controller.
 	MeshServiceController *aggregate.Controller
 
-	ResyncPeriod time.Duration
 	DomainSuffix string
 
 	// ClusterID identifies the remote cluster in a multicluster env.
@@ -140,24 +139,14 @@ type Options struct {
 	// Maximum burst for throttle when communicating with the kubernetes API
 	KubernetesAPIBurst int
 
-	// Duration to wait for cache syncs
-	SyncInterval time.Duration
-
-	// SyncTimeout, if set, causes HasSynced to be returned when marked true.
-	SyncTimeout *atomic.Bool
+	// SyncTimeout, if set, causes HasSynced to be returned when timeout.
+	SyncTimeout time.Duration
 
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 }
 
-func (o Options) GetSyncInterval() time.Duration {
-	if o.SyncInterval != 0 {
-		return o.SyncInterval
-	}
-	return time.Millisecond * 100
-}
-
-// EnableEndpointSliceController determines whether to use Endpoints or EndpointSlice based on the
+// DetectEndpointMode determines whether to use Endpoints or EndpointSlice based on the
 // feature flag and/or Kubernetes version
 func DetectEndpointMode(kubeClient kubelib.Client) EndpointMode {
 	useEndpointslice, ok := features.EnableEndpointSliceController()
@@ -730,7 +719,7 @@ func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj interfa
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	return (c.opts.SyncTimeout != nil && c.opts.SyncTimeout.Load()) || c.initialSync.Load()
+	return c.initialSync.Load()
 }
 
 func (c *Controller) informersSynced() bool {
@@ -829,6 +818,14 @@ func (c *Controller) syncEndpoints() error {
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
+	if c.opts.SyncTimeout != 0 {
+		time.AfterFunc(c.opts.SyncTimeout, func() {
+			if !c.informerInit.Load() {
+				log.Warnf("kube controller for %s initial sync timed out", c.opts.ClusterID)
+				c.informerInit.Store(true)
+			}
+		})
+	}
 	st := time.Now()
 	if c.opts.NetworksWatcher != nil {
 		c.opts.NetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
@@ -837,7 +834,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	}
 	c.informerInit.Store(true)
 
-	kubelib.WaitForCacheSyncInterval(stop, c.opts.GetSyncInterval(), c.informersSynced)
+	kubelib.WaitForCacheSync(stop, c.informersSynced)
 	// after informer caches sync the first time, process resources in order
 	if err := c.SyncAll(); err != nil {
 		log.Errorf("one or more errors force-syncing resources: %v", err)
@@ -911,9 +908,9 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 }
 
 // InstancesByPort implements a service catalog operation
-func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
+func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labels labels.Instance) []*model.ServiceInstance {
 	// First get k8s standard service instances and the workload entry instances
-	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labels)
 	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
@@ -1179,7 +1176,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 					continue
 				}
 				// Similar code as UpdateServiceShards in eds.go
-				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
+				instances := c.InstancesByPort(service, port.Port, nil)
 				for _, inst := range instances {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
@@ -1366,10 +1363,10 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 	return out
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	pod := c.pods.getPodByProxy(proxy)
 	if pod != nil {
-		return labels.Collection{pod.Labels}
+		return pod.Labels
 	}
 	return nil
 }

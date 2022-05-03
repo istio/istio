@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -28,14 +29,16 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 
+	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -47,6 +50,7 @@ type sdsservice struct {
 	XdsServer  *xds.DiscoveryServer
 	stop       chan struct{}
 	rootCaPath string
+	pkpConf    *mesh.PrivateKeyProvider
 }
 
 // Assert we implement the generator interface
@@ -73,7 +77,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 			return false
 		}
 
-		names := sets.NewSet(resources...)
+		names := sets.New(resources...)
 		found := false
 		for name := range model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret) {
 			if names.Contains(name.Name) {
@@ -88,10 +92,11 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
-func newSDSService(st security.SecretManager, options *security.Options) *sdsservice {
+func newSDSService(st security.SecretManager, options *security.Options, pkpConf *mesh.PrivateKeyProvider) *sdsservice {
 	ret := &sdsservice{
-		st:   st,
-		stop: make(chan struct{}),
+		st:      st,
+		stop:    make(chan struct{}),
+		pkpConf: pkpConf,
 	}
 	ret.XdsServer = NewXdsServer(ret.stop, ret)
 
@@ -151,7 +156,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
 		}
 
-		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath))
+		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath, s.pkpConf))
 		resources = append(resources, &discovery.Resource{
 			Name:     resourceName,
 			Resource: res,
@@ -171,7 +176,7 @@ func (s *sdsservice) Generate(proxy *model.Proxy, w *model.WatchedResource, upda
 		return resp, pushLog(w.ResourceNames), err
 	}
 	names := []string{}
-	watched := sets.NewSet(w.ResourceNames...)
+	watched := sets.New(w.ResourceNames...)
 	for i := range updates.ConfigsUpdated {
 		if i.Kind == gvk.Secret && watched.Contains(i.Name) {
 			names = append(names, i.Name)
@@ -205,7 +210,7 @@ func (s *sdsservice) Close() {
 }
 
 // toEnvoySecret converts a security.SecretItem to an Envoy tls.Secret
-func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
+func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.PrivateKeyProvider) *tls.Secret {
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
@@ -227,22 +232,49 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
 			},
 		}
 	} else {
-		secret.Type = &tls.Secret_TlsCertificate{
-			TlsCertificate: &tls.TlsCertificate{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: s.CertificateChain,
-					},
-				},
+		switch pkpConf.GetProvider().(type) {
+		case *mesh.PrivateKeyProvider_Cryptomb:
+			crypto := pkpConf.GetCryptomb()
+			msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
+				PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
 				PrivateKey: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
 						InlineBytes: s.PrivateKey,
 					},
 				},
-			},
+			})
+			secret.Type = &tls.Secret_TlsCertificate{
+				TlsCertificate: &tls.TlsCertificate{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: s.CertificateChain,
+						},
+					},
+					PrivateKeyProvider: &tls.PrivateKeyProvider{
+						ProviderName: "cryptomb",
+						ConfigType: &tls.PrivateKeyProvider_TypedConfig{
+							TypedConfig: msg,
+						},
+					},
+				},
+			}
+		default:
+			secret.Type = &tls.Secret_TlsCertificate{
+				TlsCertificate: &tls.TlsCertificate{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: s.CertificateChain,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: s.PrivateKey,
+						},
+					},
+				},
+			}
 		}
 	}
-
 	return secret
 }
 

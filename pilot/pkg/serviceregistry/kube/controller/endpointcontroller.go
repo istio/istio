@@ -36,7 +36,7 @@ type kubeEndpointsController interface {
 	Run(stopCh <-chan struct{})
 	getInformer() filter.FilteredSharedIndexInformer
 	onEvent(curr interface{}, event model.Event) error
-	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance
+	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Instance) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
 	buildIstioEndpointsWithService(name, namespace string, host host.Name, clearCache bool) []*model.IstioEndpoint
@@ -90,7 +90,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 
 func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event model.Event) {
 	namespacedName := epc.getServiceNamespacedName(ep)
-	log.Debugf("Handle EDS endpoint %s %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
+	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
 	var forgottenEndpointsByHost map[host.Name][]*model.IstioEndpoint
 	if event == model.EventDelete {
 		forgottenEndpointsByHost = epc.forgetEndpoint(ep)

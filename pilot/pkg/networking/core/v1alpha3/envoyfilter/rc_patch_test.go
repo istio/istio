@@ -15,6 +15,7 @@
 package envoyfilter
 
 import (
+	"reflect"
 	"testing"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -741,7 +742,7 @@ func TestCatchAllVirtualHostMerge(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value:     buildPatchStruct(`{"domains":["domain:80"]}`),
+				Value:     buildPatchStruct(`{"domains":["domain:80", "domain:90"]}`),
 			},
 		},
 	}
@@ -790,6 +791,13 @@ func TestCatchAllVirtualHostMerge(t *testing.T) {
 	// Validate that CatchAllVirtualHost is not modified.
 	if diff := cmp.Diff(istionetworking.BuildCatchAllVirtualHost(true, ""), sidecarNode.CatchAllVirtualHost, protocmp.Transform()); diff != "" {
 		t.Errorf("catch all virtualhost is modified after applying patch. mismatch (-want +got):\n%s", diff)
+	}
+
+	expectedDomains := []string{"*", "domain:80", "domain:90"}
+
+	// Validate that merge is successful.
+	if !reflect.DeepEqual(sidecarOutboundRC.VirtualHosts[1].Domains, expectedDomains) {
+		t.Errorf("catch all virtualhost is not merged properly. expected domains %v, got %v", expectedDomains, sidecarOutboundRC.VirtualHosts[1].Domains)
 	}
 }
 

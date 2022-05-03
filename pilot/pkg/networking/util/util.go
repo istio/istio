@@ -28,11 +28,9 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -41,11 +39,11 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
@@ -91,13 +89,6 @@ const (
 	// level QUIC transport socket configuration
 	EnvoyQUICSocketName = wellknown.TransportSocketQuic
 
-	// StatName patterns
-	serviceStatPattern         = "%SERVICE%"
-	serviceFQDNStatPattern     = "%SERVICE_FQDN%"
-	servicePortStatPattern     = "%SERVICE_PORT%"
-	servicePortNameStatPattern = "%SERVICE_PORT_NAME%"
-	subsetNameStatPattern      = "%SUBSET_NAME%"
-
 	// Well-known header names
 	AltSvcHeader = "alt-svc"
 )
@@ -135,6 +126,9 @@ var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
 
 // ALPNDownstream advertises that Proxy is going to talk http2 or http 1.1.
 var ALPNDownstream = []string{"h2", "http/1.1"}
+
+// RegexEngine is the default google RE2 regex engine.
+var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -233,18 +227,6 @@ func MessageToAny(msg proto.Message) *anypb.Any {
 	return out
 }
 
-// GogoDurationToDuration converts from gogo proto duration to time.duration
-func GogoDurationToDuration(d *types.Duration) *durationpb.Duration {
-	if d == nil {
-		return nil
-	}
-
-	return &durationpb.Duration{
-		Seconds: d.Seconds,
-		Nanos:   d.Nanos,
-	}
-}
-
 // SortVirtualHosts sorts a slice of virtual hosts by name.
 //
 // Envoy computes a hash of RDS to see if things have changed - hash is affected by order of elements in the filter. Therefore
@@ -256,6 +238,12 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
+}
+
+// IsIstioVersionGE114 checks whether the given Istio version is greater than or equals 1.14.
+func IsIstioVersionGE114(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 14, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -445,7 +433,7 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 	}
 
 	// Merge the two typed protos
-	proto.Merge(dstX, srcX)
+	merge.Merge(dstX, srcX)
 	var retVal *anypb.Any
 
 	// Convert the merged proto back to dst
@@ -557,25 +545,6 @@ func IsAllowAnyOutbound(node *model.Proxy) bool {
 		node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }
 
-// BuildStatPrefix builds a stat prefix based on the stat pattern.
-func BuildStatPrefix(statPattern string, host string, subset string, port *model.Port, attributes *model.ServiceAttributes) string {
-	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
-	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, host)
-	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
-	prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(port.Port))
-	prefix = strings.ReplaceAll(prefix, servicePortNameStatPattern, port.Name)
-	return prefix
-}
-
-// shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
-// For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
-func shortHostName(host string, attributes *model.ServiceAttributes) string {
-	if attributes.ServiceRegistry == provider.Kubernetes {
-		return attributes.Name + "." + attributes.Namespace
-	}
-	return host
-}
-
 func StringToExactMatch(in []string) []*matcher.StringMatcher {
 	if len(in) == 0 {
 		return nil
@@ -600,6 +569,37 @@ func StringToPrefixMatch(in []string) []*matcher.StringMatcher {
 		})
 	}
 	return res
+}
+
+func ConvertToEnvoyMatches(in []*networking.StringMatch) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+
+	for _, im := range in {
+		if em := ConvertToEnvoyMatch(im); em != nil {
+			res = append(res, em)
+		}
+	}
+
+	return res
+}
+
+func ConvertToEnvoyMatch(in *networking.StringMatch) *matcher.StringMatcher {
+	switch m := in.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		return &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}}
+	case *networking.StringMatch_Prefix:
+		return &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: m.Prefix}}
+	case *networking.StringMatch_Regex:
+		return &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: RegexEngine,
+					Regex:      m.Regex,
+				},
+			},
+		}
+	}
+	return nil
 }
 
 func StringSliceEqual(a, b []string) bool {
@@ -682,7 +682,7 @@ func ByteCount(b int) string {
 		float64(b)/float64(div), "kMGTPE"[exp])
 }
 
-// IPv6 addresses are enclosed in square brackets followed by port number in Host header/URIs
+// IPv6Compliant encloses ipv6 addresses in square brackets followed by port number in Host header/URIs
 func IPv6Compliant(host string) string {
 	if strings.Contains(host, ":") {
 		return "[" + host + "]"
@@ -693,10 +693,4 @@ func IPv6Compliant(host string) string {
 // DomainName builds the domain name for a given host and port
 func DomainName(host string, port int) string {
 	return net.JoinHostPort(host, strconv.Itoa(port))
-}
-
-// TraceOperation builds the string format: "%s:%d/*" for a given host and port
-func TraceOperation(host string, port int) string {
-	// Format : "%s:%d/*"
-	return DomainName(host, port) + "/*"
 }

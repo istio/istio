@@ -25,14 +25,14 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -67,9 +67,9 @@ func TestMultiVersionRevision(t *testing.T) {
 
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)
-			t.ConditionalCleanup(func() {
+			t.CleanupConditionally(func() {
 				for _, config := range configs {
-					_ = t.ConfigIstio().YAML(config).Delete("istio-system")
+					_ = t.ConfigIstio().YAML("istio-system", config).Delete()
 				}
 			})
 
@@ -122,7 +122,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			}
 			instances := builder.BuildOrFail(t)
 			// add an existing pod from apps to the rotation to avoid an extra deployment
-			instances = append(instances, apps.PodA[0])
+			instances = append(instances, apps.A[0])
 
 			testAllEchoCalls(t, instances)
 		})
@@ -141,7 +141,7 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 				t.NewSubTest(fmt.Sprintf("%s-%s->%s", trafficType, from.Config().Service, to.Config().Service)).
 					Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
-							resp, err := from.Call(echo.CallOptions{
+							result, err := from.Call(echo.CallOptions{
 								To: to,
 								Port: echo.Port{
 									Name: trafficType,
@@ -152,7 +152,7 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 							})
 							return check.And(
 								check.NoError(),
-								check.OK()).Check(resp, err)
+								check.OK()).Check(result, err)
 						}, retry.Delay(time.Millisecond*150))
 					})
 			}
@@ -169,7 +169,7 @@ func installRevisionOrFail(t framework.TestContext, version string, configs map[
 		t.Fatalf("could not read installation config: %v", err)
 	}
 	configs[version] = config
-	if err := t.ConfigIstio().YAML(config).Apply(i.Settings().SystemNamespace, resource.NoCleanup); err != nil {
+	if err := t.ConfigIstio().YAML(i.Settings().SystemNamespace, config).Apply(apply.NoCleanup); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -63,8 +63,8 @@ func TestIsAWS(t *testing.T) {
 		handlers map[string]handlerFunc
 		want     bool
 	}{
-		{"not aws", map[string]handlerFunc{"/instance-id": errorHandler}, false},
-		{"aws", map[string]handlerFunc{"/instance-id": instanceHandler}, true},
+		{"not aws", map[string]handlerFunc{"/iam/info": errorHandler}, false},
+		{"aws", map[string]handlerFunc{"/iam/info": iamInfoHandler}, true},
 	}
 
 	for _, v := range cases {
@@ -74,7 +74,7 @@ func TestIsAWS(t *testing.T) {
 			awsMetadataIPv4URL = url.String()
 			aws := IsAWS(false)
 			if !reflect.DeepEqual(aws, v.want) {
-				t.Errorf("unexpected locality. want :%v, got :%v", v.want, aws)
+				t.Errorf("unexpected iam info. want :%v, got :%v", v.want, aws)
 			}
 		})
 	}
@@ -94,9 +94,10 @@ func zoneHandler(writer http.ResponseWriter, _ *http.Request) {
 	writer.Write([]byte("us-west-2b"))
 }
 
-func instanceHandler(writer http.ResponseWriter, _ *http.Request) {
+func iamInfoHandler(writer http.ResponseWriter, _ *http.Request) {
 	writer.WriteHeader(http.StatusOK)
-	writer.Write([]byte("i-0a26ab14a846dbf6f"))
+	// nolint: lll
+	writer.Write([]byte("{\n\"Code\" : \"Success\",\n\"LastUpdated\" : \"2022-03-18T05:04:31Z\",\n\"InstanceProfileArn\" : \"arn:aws:iam::614624372165:instance-profile/sam-processing0000120190916053337315200000004\",\n\"InstanceProfileId\" : \"AIPAY6GTXUXC3LLJY7OG7\"\n\t  }"))
 }
 
 func setupHTTPServer(handlers map[string]handlerFunc) (*httptest.Server, *url.URL) {

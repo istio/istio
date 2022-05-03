@@ -18,9 +18,7 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
@@ -97,6 +95,11 @@ var _ echo.Instance = fakeInstance{}
 // fakeInstance wraps echo.Config for test-framework internals tests where we don't actually make calls
 type fakeInstance echo.Config
 
+func (f fakeInstance) WithWorkloads(wl ...echo.Workload) echo.Instance {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (f fakeInstance) Instances() echo.Instances {
 	return echo.Instances{f}
 }
@@ -105,7 +108,7 @@ func (f fakeInstance) ID() resource.ID {
 	panic("implement me")
 }
 
-func (f fakeInstance) NamespacedName() model.NamespacedName {
+func (f fakeInstance) NamespacedName() echo.NamespacedName {
 	return f.Config().NamespacedName()
 }
 
@@ -117,6 +120,26 @@ func (f fakeInstance) Config() echo.Config {
 	cfg := echo.Config(f)
 	_ = cfg.FillDefaults(nil)
 	return cfg
+}
+
+func (f fakeInstance) ServiceName() string {
+	return f.Config().Service
+}
+
+func (f fakeInstance) NamespaceName() string {
+	return f.Config().NamespaceName()
+}
+
+func (f fakeInstance) ServiceAccountName() string {
+	return f.Config().ServiceAccountName()
+}
+
+func (f fakeInstance) ClusterLocalFQDN() string {
+	return f.Config().ClusterLocalFQDN()
+}
+
+func (f fakeInstance) ClusterSetLocalFQDN() string {
+	return f.Config().ClusterSetLocalFQDN()
 }
 
 func (f fakeInstance) Address() string {
@@ -143,11 +166,11 @@ func (f fakeInstance) Clusters() cluster.Clusters {
 	panic("implement me")
 }
 
-func (f fakeInstance) Call(echo.CallOptions) (echoClient.Responses, error) {
+func (f fakeInstance) Call(echo.CallOptions) (echo.CallResult, error) {
 	panic("implement me")
 }
 
-func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echoClient.Responses {
+func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echo.CallResult {
 	panic("implement me")
 }
 

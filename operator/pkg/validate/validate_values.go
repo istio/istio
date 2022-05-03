@@ -17,13 +17,10 @@ package validate
 import (
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"sigs.k8s.io/yaml"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 // DefaultValuesValidations maps a data path to a validation function.
@@ -35,31 +32,13 @@ var DefaultValuesValidations = map[string]ValidatorFunc{
 	"meshConfig":                       validateMeshConfig,
 }
 
-func ToYAMLGeneric(root interface{}) ([]byte, error) {
-	var vs []byte
-	if proto, ok := root.(proto.Message); ok {
-		v, err := gogoprotomarshal.ToYAML(proto)
-		if err != nil {
-			return nil, err
-		}
-		vs = []byte(v)
-	} else {
-		v, err := yaml.Marshal(root)
-		if err != nil {
-			return nil, err
-		}
-		vs = v
-	}
-	return vs, nil
-}
-
 // CheckValues validates the values in the given tree, which follows the Istio values.yaml schema.
 func CheckValues(root interface{}) util.Errors {
 	v := reflect.ValueOf(root)
 	if root == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
 		return nil
 	}
-	vs, err := ToYAMLGeneric(root)
+	vs, err := util.ToYAMLGeneric(root)
 	if err != nil {
 		return util.Errors{err}
 	}
@@ -67,7 +46,7 @@ func CheckValues(root interface{}) util.Errors {
 	if err := util.UnmarshalWithJSONPB(string(vs), val, false); err != nil {
 		return util.Errors{err}
 	}
-	return ValuesValidate(DefaultValuesValidations, v1alpha1.AsMap(root.(*types.Struct)), nil)
+	return ValuesValidate(DefaultValuesValidations, root.(*structpb.Struct).AsMap(), nil)
 }
 
 // ValuesValidate validates the values of the tree using the supplied Func

@@ -112,6 +112,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 		v3.RouteType,
 		v3.EndpointType,
 		v3.ClusterType,
+		v3.ExtensionConfigurationType,
 	}
 
 	for _, con := range sg.Server.Clients() {
@@ -133,7 +134,8 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 			}
 			clientConfig := &status.ClientConfig{
 				Node: &core.Node{
-					Id: con.proxy.ID,
+					Id:       con.proxy.ID,
+					Metadata: con.proxy.Metadata.ToStruct(),
 				},
 				GenericXdsConfigs: xdsConfigs,
 			}

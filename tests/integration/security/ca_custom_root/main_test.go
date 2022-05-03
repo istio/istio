@@ -26,7 +26,6 @@ import (
 	"path"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -250,14 +249,14 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	apps.A = match.ServiceName(model.NamespacedName{Name: ASvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
-	apps.B = match.ServiceName(model.NamespacedName{Name: BSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
-	apps.Client = match.ServiceName(model.NamespacedName{Name: "client", Namespace: apps.Namespace.Name()}).GetMatches(echos)
-	apps.ServerNakedFoo = match.ServiceName(model.NamespacedName{Name: "server-naked-foo", Namespace: apps.Namespace.Name()}).GetMatches(echos)
-	apps.ServerNakedBar = match.ServiceName(model.NamespacedName{Name: "server-naked-bar", Namespace: apps.Namespace.Name()}).GetMatches(echos)
-	apps.ServerNakedFooAlt = match.ServiceName(model.NamespacedName{Name: "server-naked-foo-alt", Namespace: apps.Namespace.Name()}).GetMatches(echos)
-	apps.Naked = match.ServiceName(model.NamespacedName{Name: "naked", Namespace: apps.Namespace.Name()}).GetMatches(echos)
-	apps.Server = match.ServiceName(model.NamespacedName{Name: "server", Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Client = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: apps.Namespace}).GetMatches(echos)
+	apps.ServerNakedFoo = match.ServiceName(echo.NamespacedName{Name: "server-naked-foo", Namespace: apps.Namespace}).GetMatches(echos)
+	apps.ServerNakedBar = match.ServiceName(echo.NamespacedName{Name: "server-naked-bar", Namespace: apps.Namespace}).GetMatches(echos)
+	apps.ServerNakedFooAlt = match.ServiceName(echo.NamespacedName{Name: "server-naked-foo-alt", Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Naked = match.ServiceName(echo.NamespacedName{Name: "naked", Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: apps.Namespace}).GetMatches(echos)
 	return nil
 }
 

@@ -16,24 +16,20 @@ package extension
 
 import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking"
-	securitymodel "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/util/sets"
 
 	// include for registering wasm logging scope
 	_ "istio.io/istio/pkg/wasm"
-)
-
-const (
-	wasmFilterType  = "envoy.extensions.filters.http.wasm.v3.Wasm"
-	statsFilterName = "istio.stats"
+	"istio.io/pkg/log"
 )
 
 var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
@@ -46,94 +42,25 @@ var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
 	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
 }
 
-// AddWasmPluginsToMutableObjects adds WasmPlugins to HTTP filterChains
-// Note that the slices in the map must already be ordered by plugin
-// priority! This will be the case for maps returned by PushContext.WasmPlugin()
-func AddWasmPluginsToMutableObjects(
-	mutable *networking.MutableObjects,
-	extensionsMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
-) {
-	if mutable == nil {
-		return
-	}
-
-	for fcIndex, fc := range mutable.FilterChains {
-		// we currently only support HTTP
-		if fc.ListenerProtocol != networking.ListenerProtocolHTTP {
-			continue
-		}
-		mutable.FilterChains[fcIndex].HTTP = injectExtensions(fc.HTTP, extensionsMap)
-	}
-}
-
-func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.PluginPhase][]*model.WasmPluginWrapper) []*hcm_filter.HttpFilter {
-	// copy map as we'll manipulate it in the loop
-	extMap := make(map[extensions.PluginPhase][]*model.WasmPluginWrapper)
-	for phase, list := range exts {
-		extMap[phase] = []*model.WasmPluginWrapper{}
-		extMap[phase] = append(extMap[phase], list...)
-	}
-	newHTTPFilters := make([]*hcm_filter.HttpFilter, 0)
-	// The following algorithm tries to make as few assumptions as possible about the filter
-	// chain - it might contain any number of filters that will have to retain their ordering.
-	// The one assumption we make is about the ordering of the builtin filters. This is used to
-	// position WasmPlugins relatively to the builtin filters according to their phase: when
-	// we see the Stats filter, we know that all WasmPlugins with phases AUTHN, AUTHZ and STATS
-	// must be injected before it. This method allows us to inject WasmPlugins in the right spots
-	// while retaining any filters that were unknown at the time of writing this algorithm,
-	// in linear time. The assumed ordering of builtin filters is:
-	//
-	// 1. Istio JWT, 2. Istio AuthN, 3. RBAC, 4. Stats, 5. Metadata Exchange
-	//
-	// TODO: how to deal with ext-authz? RBAC will be in the chain twice in that case
-	for _, httpFilter := range filterChain {
-		switch httpFilter.Name {
-		case securitymodel.EnvoyJwtFilterName:
-			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
-			newHTTPFilters = append(newHTTPFilters, httpFilter)
-		case securitymodel.AuthnFilterName:
-			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
-			newHTTPFilters = append(newHTTPFilters, httpFilter)
-		case wellknown.HTTPRoleBasedAccessControl:
-			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
-			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
-			newHTTPFilters = append(newHTTPFilters, httpFilter)
-		case statsFilterName:
-			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
-			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
-			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_STATS)
-			newHTTPFilters = append(newHTTPFilters, httpFilter)
-		default:
-			newHTTPFilters = append(newHTTPFilters, httpFilter)
-		}
-	}
-	// append all remaining extensions at the end. This is required because not all builtin filters
-	// are always present (e.g. RBAC is only present when an AuthorizationPolicy was created), so
-	// we might not have emptied all slices in the map.
-	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
-	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
-	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_STATS)
-	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_UNSPECIFIED_PHASE)
-	return newHTTPFilters
-}
-
-func popAppend(list []*hcm_filter.HttpFilter,
+// PopAppend takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
+// plugins of a provided phase from the WASM plugin set and append them to the list of filters
+func PopAppend(list []*hcm_filter.HttpFilter,
 	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	phase extensions.PluginPhase) []*hcm_filter.HttpFilter {
 	for _, ext := range filterMap[phase] {
 		list = append(list, toEnvoyHTTPFilter(ext))
 	}
-	filterMap[phase] = []*model.WasmPluginWrapper{}
+	delete(filterMap, phase)
 	return list
 }
 
 func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilter {
 	return &hcm_filter.HttpFilter{
-		Name: wasmPlugin.ExtensionConfiguration.Name,
+		Name: wasmPlugin.ResourceName,
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
-				TypeUrls:     []string{"type.googleapis.com/" + wasmFilterType},
+				TypeUrls:     []string{xds.WasmHTTPFilterType},
 			},
 		},
 	}
@@ -142,18 +69,43 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 // InsertedExtensionConfigurations returns pre-generated extension configurations added via WasmPlugin.
 func InsertedExtensionConfigurations(
 	wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper,
-	names []string) []*envoy_config_core_v3.TypedExtensionConfig {
+	names []string, pullSecrets map[string][]byte) []*envoy_config_core_v3.TypedExtensionConfig {
 	result := make([]*envoy_config_core_v3.TypedExtensionConfig, 0)
 	if len(wasmPlugins) == 0 {
 		return result
 	}
-	hasName := sets.NewSet(names...)
+	hasName := sets.New(names...)
 	for _, list := range wasmPlugins {
 		for _, p := range list {
-			if !hasName.Contains(p.ExtensionConfiguration.Name) {
+			if !hasName.Contains(p.ResourceName) {
 				continue
 			}
-			result = append(result, proto.Clone(p.ExtensionConfiguration).(*envoy_config_core_v3.TypedExtensionConfig))
+			wasmExtensionConfig := proto.Clone(p.WasmExtensionConfig).(*extensionsv3.Wasm)
+			// Find the pull secret resource name from wasm vm env variables.
+			// The Wasm extension config should already have a `ISTIO_META_WASM_IMAGE_PULL_SECRET` env variable
+			// at in the VM env variables, with value being the secret resource name. We try to find the actual
+			// secret, and replace the env variable value with it. When ECDS config update reaches the proxy,
+			// agent will extract out the secret from env variable, use it for image pulling, and strip the
+			// env variable from VM config before forwarding it to envoy.
+			envs := wasmExtensionConfig.GetConfig().GetVmConfig().GetEnvironmentVariables().GetKeyValues()
+			secretName := envs[model.WasmSecretEnv]
+			if secretName != "" {
+				if sec, found := pullSecrets[secretName]; found {
+					envs[model.WasmSecretEnv] = string(sec)
+				} else {
+					envs[model.WasmSecretEnv] = ""
+				}
+			}
+			typedConfig, err := anypb.New(wasmExtensionConfig)
+			if err != nil {
+				log.Warnf("wasmplugin %s/%s failed to marshal to TypedExtensionConfig: %s", p.Namespace, p.Name, err)
+				continue
+			}
+			ec := &envoy_config_core_v3.TypedExtensionConfig{
+				Name:        p.ResourceName,
+				TypedConfig: typedConfig,
+			}
+			result = append(result, ec)
 		}
 	}
 	return result

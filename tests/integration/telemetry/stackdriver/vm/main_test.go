@@ -171,10 +171,10 @@ func testSetup(ctx resource.Context) error {
 	}
 	sdtest.SDInst = sdInst
 
-	if err = ctx.ConfigKube().EvalFile(map[string]interface{}{
+	if err = ctx.ConfigKube().EvalFile(ns.Name(), map[string]interface{}{
 		"StackdriverAddress": sdInst.Address(),
 		"EchoNamespace":      ns.Name(),
-	}, stackdriverBootstrapOverride).Apply(ns.Name()); err != nil {
+	}, stackdriverBootstrapOverride).Apply(); err != nil {
 		return err
 	}
 
@@ -189,7 +189,7 @@ func testSetup(ctx resource.Context) error {
 		"CANONICAL_SERVICE":                                      "vm-server",
 		"CANONICAL_REVISION":                                     "v1",
 		// we must supply a bootstrap override to get the test endpoint uri into the tracing configuration
-		"ISTIO_BOOTSTRAP_OVERRIDE": "/etc/istio/custom-bootstrap/custom_bootstrap.json",
+		"ISTIO_BOOTSTRAP_OVERRIDE": "/etc/istio-custom-bootstrap/custom_bootstrap.json",
 	}
 	if sdtest.GCEInst != nil {
 		vmEnv["GCE_METADATA_HOST"] = sdtest.GCEInst.Address()

@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/check"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -93,7 +93,7 @@ func doIstioMutualTest(
 	deployment.New(ctx).
 		With(&client, util.EchoConfig("client", ns, false, nil)).
 		BuildOrFail(ctx)
-	ctx.ConfigIstio().File(configPath).ApplyOrFail(ctx, ns.Name())
+	ctx.ConfigIstio().File(ns.Name(), configPath).ApplyOrFail(ctx)
 
 	// give the configuration a moment to kick in
 	time.Sleep(time.Second * 20)
@@ -108,7 +108,11 @@ func doIstioMutualTest(
 
 		if err := check.And(
 			check.NoError(),
-			check.Status(expectedCode)).Check(responses, err); err != nil {
+			check.Status(expectedCode)).Check(echo.CallResult{
+			From:      client,
+			Opts:      echo.CallOptions{},
+			Responses: responses,
+		}, err); err != nil {
 			ctx.Fatal(err)
 		}
 	}
@@ -133,7 +137,7 @@ func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
 	}
 
 	for _, c := range configFiles {
-		if err := ctx.ConfigIstio().File(c).Apply(ns.Name()); err != nil {
+		if err := ctx.ConfigIstio().File(ns.Name(), c).Apply(); err != nil {
 			ctx.Fatalf("failed to apply configuration file %s; err: %v", c, err)
 		}
 	}

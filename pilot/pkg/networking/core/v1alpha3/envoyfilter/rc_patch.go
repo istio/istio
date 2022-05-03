@@ -24,7 +24,8 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/proto/merge"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -56,7 +57,7 @@ func ApplyRouteConfigurationPatches(
 		}
 		if commonConditionMatch(patchContext, rp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) {
-			safeMerge(routeConfiguration.Name, routeConfiguration, rp.Value)
+			merge.Merge(routeConfiguration, rp.Value)
 			IncrementEnvoyFilterMetric(rp.Key(), Route, true)
 		} else {
 			IncrementEnvoyFilterMetric(rp.Key(), Route, false)
@@ -69,9 +70,8 @@ func ApplyRouteConfigurationPatches(
 
 func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap,
-) {
-	removedVirtualHosts := sets.NewSet()
+	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap) {
+	removedVirtualHosts := sets.New()
 	// first do removes/merges/replaces
 	for i := range routeConfiguration.VirtualHosts {
 		if patchVirtualHost(patchContext, patches, routeConfiguration, routeConfiguration.VirtualHosts, i, portMap) {
@@ -120,7 +120,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				return true
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				safeMerge(virtualHosts[idx].Name, virtualHosts[idx], rp.Value)
+				virtualHosts[idx] = merge.Merge(virtualHosts[idx], rp.Value).(*route.VirtualHost)
 			} else if rp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 				virtualHosts[idx] = proto.Clone(rp.Value).(*route.VirtualHost)
 			}
@@ -256,7 +256,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 				*routesRemoved = true
 				return
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				safeMerge(virtualHost.Routes[routeIndex].Name, virtualHost.Routes[routeIndex], rp.Value)
+				merge.Merge(virtualHost.Routes[routeIndex], rp.Value)
 			}
 			applied = true
 		}

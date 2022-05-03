@@ -23,7 +23,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -36,10 +35,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/util/gogo"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
@@ -165,6 +164,114 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[1].Name).To(gomega.Equal("route.catch-all"))
 	})
 
+	t.Run("for internally generated virtual service with ingress semantics (istio version<1.14)", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		vs := virtualServiceWithCatchAllRoute
+		if vs.Annotations == nil {
+			vs.Annotations = make(map[string]string)
+		}
+		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsIngress
+
+		proxy := node(cg)
+		proxy.IstioVersion = &model.IstioVersion{
+			Major: 1,
+			Minor: 13,
+		}
+		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, vs,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: util.RegexEngine,
+				Regex:      `/route/v1((\/).*)?`,
+			},
+		}))
+		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
+			Prefix: "/",
+		}))
+	})
+
+	t.Run("for internally generated virtual service with gateway semantics (istio version<1.14)", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		vs := virtualServiceWithCatchAllRoute
+		if vs.Annotations == nil {
+			vs.Annotations = make(map[string]string)
+		}
+		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
+
+		proxy := node(cg)
+		proxy.IstioVersion = &model.IstioVersion{
+			Major: 1,
+			Minor: 13,
+		}
+		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, vs,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: util.RegexEngine,
+				Regex:      `/route/v1((\/).*)?`,
+			},
+		}))
+		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
+			Prefix: "/",
+		}))
+	})
+
+	t.Run("for internally generated virtual service with ingress semantics (istio version>=1.14)", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		vs := virtualServiceWithCatchAllRoute
+		if vs.Annotations == nil {
+			vs.Annotations = make(map[string]string)
+		}
+		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsIngress
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), vs,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_PathSeparatedPrefix{
+			PathSeparatedPrefix: "/route/v1",
+		}))
+		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
+			Prefix: "/",
+		}))
+	})
+
+	t.Run("for internally generated virtual service with gateway semantics (istio version>=1.14)", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		vs := virtualServiceWithCatchAllRoute
+		if vs.Annotations == nil {
+			vs.Annotations = make(map[string]string)
+		}
+		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), vs,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_PathSeparatedPrefix{
+			PathSeparatedPrefix: "/route/v1",
+		}))
+		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
+			Prefix: "/",
+		}))
+	})
+
 	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
@@ -226,9 +333,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
-		// nolint: staticcheck
-		// Update to not use the deprecated fields later.
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
 	})
 
 	t.Run("for virtual service with regex matching on without_header", func(t *testing.T) {
@@ -240,9 +345,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
-		// nolint: staticcheck
-		// Update to not use the deprecated fields later.
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(true))
 	})
 
@@ -319,7 +422,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
 		g := gomega.NewWithT(t)
-		ttl := types.Duration{Nanos: 100}
+		ttl := durationpb.Duration{Nanos: 100}
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 			Services: exampleService,
 			Configs: []config.Config{
@@ -362,7 +465,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
 				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie",
-					Ttl:  gogo.DurationToProtoDuration(&ttl),
+					Ttl:  &ttl,
 				},
 			},
 		}
@@ -961,7 +1064,7 @@ var virtualServiceWithTimeout = config.Config{
 						Weight: 100,
 					},
 				},
-				Timeout: &types.Duration{
+				Timeout: &durationpb.Duration{
 					Seconds: 10,
 				},
 			},
@@ -990,7 +1093,7 @@ var virtualServiceWithTimeoutDisabled = config.Config{
 						Weight: 100,
 					},
 				},
-				Timeout: &types.Duration{
+				Timeout: &durationpb.Duration{
 					Seconds: 0,
 				},
 			},
@@ -1680,7 +1783,6 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 }
 
 func TestCombineVHostRoutes(t *testing.T) {
-	// nolint: staticcheck
 	regexEngine := &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(10),
@@ -1715,9 +1817,11 @@ func TestCombineVHostRoutes(t *testing.T) {
 			},
 			Headers: []*envoyroute.HeaderMatcher{
 				{
-					Name:                 "foo",
-					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
-					InvertMatch:          false,
+					Name: "foo",
+					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_StringMatch{
+						StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: "bar"}},
+					},
+					InvertMatch: false,
 				},
 			},
 		}},
@@ -1749,9 +1853,11 @@ func TestCombineVHostRoutes(t *testing.T) {
 			},
 			Headers: []*envoyroute.HeaderMatcher{
 				{
-					Name:                 "foo",
-					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
-					InvertMatch:          false,
+					Name: "foo",
+					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_StringMatch{
+						StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: "bar"}},
+					},
+					InvertMatch: false,
 				},
 			},
 		}},

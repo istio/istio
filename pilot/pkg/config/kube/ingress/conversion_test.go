@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -42,6 +41,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube"
 )
 
 func TestGoldenConversion(t *testing.T) {
@@ -68,7 +68,7 @@ func TestGoldenConversion(t *testing.T) {
 			for _, obj := range input {
 				ingress := obj.(*v1beta1.Ingress)
 				m := mesh.DefaultMeshConfig()
-				gws := ConvertIngressV1alpha3(*ingress, &m, "mydomain")
+				gws := ConvertIngressV1alpha3(*ingress, m, "mydomain")
 				ordered = append(ordered, gws)
 			}
 
@@ -399,7 +399,7 @@ func TestIngressClass(t *testing.T) {
 				ing.Annotations["kubernetes.io/ingress.class"] = c.annotation
 			}
 
-			if c.shouldProcess != shouldProcessIngressWithClass(&mesh, &ing, c.ingressClass) {
+			if c.shouldProcess != shouldProcessIngressWithClass(mesh, &ing, c.ingressClass) {
 				t.Errorf("got %v, want %v",
 					!c.shouldProcess, c.shouldProcess)
 			}
@@ -486,6 +486,6 @@ func createFakeLister(ctx context.Context, objects ...runtime.Object) listerv1.S
 	informerFactory := informers.NewSharedInformerFactory(client, time.Hour)
 	svcInformer := informerFactory.Core().V1().Services().Informer()
 	go svcInformer.Run(ctx.Done())
-	cache.WaitForCacheSync(ctx.Done(), svcInformer.HasSynced)
+	kube.WaitForCacheSync(ctx.Done(), svcInformer.HasSynced)
 	return informerFactory.Core().V1().Services().Lister()
 }

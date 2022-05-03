@@ -29,11 +29,11 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/monitoring"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -47,9 +47,6 @@ var (
 )
 
 const (
-	// The size of a private key for a leaf certificate.
-	keySize = 2048
-
 	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
 	// non-retryable error in CSR request or while there is an error in reading file mounts.
 	firstRetryBackOffInMilliSec = 50
@@ -77,7 +74,7 @@ const (
 // Callers are expected to only call GenerateSecret when a new certificate is required. Generally,
 // this should be done a single time at startup, then repeatedly when the certificate is near
 // expiration. To help users handle certificate expiration, any certificates created by the caClient
-// will be monitored; when they are near expiration the notifyCallback function is triggered,
+// will be monitored; when they are near expiration the secretHandler function is triggered,
 // prompting the client to call GenerateSecret again, if they still care about the certificate. For
 // files, this callback is instead triggered on any change to the file (triggering on expiration
 // would not be helpful, as all we can do is re-read the same file).
@@ -88,7 +85,7 @@ type SecretManagerClient struct {
 	configOptions *security.Options
 
 	// callback function to invoke when detecting secret change.
-	notifyCallback func(resourceName string)
+	secretHandler func(resourceName string)
 
 	// Cache of workload certificate and root certificate. File based certs are never cached, as
 	// lookup is cheap.
@@ -166,7 +163,6 @@ type FileCert struct {
 }
 
 // NewSecretManagerClient creates a new SecretManagerClient.
-// Only ever used for secretcache_test.go? Everywhere else it is made directly
 func NewSecretManagerClient(caClient security.Client, options *security.Options) (*SecretManagerClient, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -201,17 +197,17 @@ func (sc *SecretManagerClient) Close() {
 	close(sc.stop)
 }
 
-func (sc *SecretManagerClient) SetUpdateCallback(f func(resourceName string)) {
+func (sc *SecretManagerClient) RegisterSecretHandler(h func(resourceName string)) {
 	sc.certMutex.Lock()
 	defer sc.certMutex.Unlock()
-	sc.notifyCallback = f
+	sc.secretHandler = h
 }
 
-func (sc *SecretManagerClient) CallUpdateCallback(resourceName string) {
+func (sc *SecretManagerClient) OnSecretUpdate(resourceName string) {
 	sc.certMutex.RLock()
 	defer sc.certMutex.RUnlock()
-	if sc.notifyCallback != nil {
-		sc.notifyCallback(resourceName)
+	if sc.secretHandler != nil {
+		sc.secretHandler(resourceName)
 	}
 }
 
@@ -315,7 +311,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 			cacheLog.Info("Root cert has changed, start rotating root cert")
 			// We store the oldRoot only for comparison and not for serving
 			sc.cache.SetRoot(ns.RootCert)
-			sc.CallUpdateCallback(security.RootCertReqResourceName)
+			sc.OnSecretUpdate(security.RootCertReqResourceName)
 		}
 	}
 
@@ -572,7 +568,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName.String())
 	options := pkiutil.CertOptions{
 		Host:       csrHostName.String(),
-		RSAKeySize: keySize,
+		RSAKeySize: sc.configOptions.WorkloadRSAKeySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
 	}
@@ -654,7 +650,7 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 		// Clear the cache so the next call generates a fresh certificate
 		sc.cache.SetWorkload(nil)
 
-		sc.CallUpdateCallback(item.ResourceName)
+		sc.OnSecretUpdate(item.ResourceName)
 		return nil
 	}, delay)
 }
@@ -682,7 +678,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
 			for k := range resources {
 				if k.Filename == event.Name {
-					sc.CallUpdateCallback(k.ResourceName)
+					sc.OnSecretUpdate(k.ResourceName)
 				}
 			}
 			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
@@ -745,7 +741,7 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 	}
 	sc.configTrustBundle = trustBundle
 	sc.configTrustBundleMutex.Unlock()
-	sc.CallUpdateCallback(security.RootCertReqResourceName)
+	sc.OnSecretUpdate(security.RootCertReqResourceName)
 	return nil
 }
 
@@ -760,7 +756,7 @@ func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte
 	sc.configTrustBundleMutex.RLock()
 	existingCerts := pkiutil.PemCertBytestoString(sc.configTrustBundle)
 	sc.configTrustBundleMutex.RUnlock()
-	anchors := sets.NewSet()
+	anchors := sets.New()
 	for _, cert := range existingCerts {
 		anchors.Insert(cert)
 	}

@@ -755,6 +755,21 @@ spec:
                                 type: string
                               type: array
                           type: object
+                        tunnel:
+                          properties:
+                            protocol:
+                              description: Specifies which protocol to use for tunneling
+                                the downstream connection.
+                              type: string
+                            targetHost:
+                              description: Specifies a host to which the downstream
+                                connection is tunneled.
+                              type: string
+                            targetPort:
+                              description: Specifies a port to which the downstream
+                                connection is tunneled.
+                              type: integer
+                          type: object
                       type: object
                   type: object
                 type: array
@@ -1319,6 +1334,28 @@ spec:
                         items:
                           type: string
                         type: array
+                    type: object
+                  tunnel:
+                    properties:
+                      protocol:
+                        description: Specifies which protocol to use for tunneling
+                          the downstream connection.
+                        type: string
+                      targetHost:
+                        description: Specifies a host to which the downstream connection
+                          is tunneled.
+                        type: string
+                      targetPort:
+                        description: Specifies a port to which the downstream connection
+                          is tunneled.
+                        type: integer
+                    type: object
+                type: object
+              workloadSelector:
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
                     type: object
                 type: object
             type: object
@@ -1943,6 +1980,21 @@ spec:
                                 type: string
                               type: array
                           type: object
+                        tunnel:
+                          properties:
+                            protocol:
+                              description: Specifies which protocol to use for tunneling
+                                the downstream connection.
+                              type: string
+                            targetHost:
+                              description: Specifies a host to which the downstream
+                                connection is tunneled.
+                              type: string
+                            targetPort:
+                              description: Specifies a port to which the downstream
+                                connection is tunneled.
+                              type: integer
+                          type: object
                       type: object
                   type: object
                 type: array
@@ -2507,6 +2559,28 @@ spec:
                         items:
                           type: string
                         type: array
+                    type: object
+                  tunnel:
+                    properties:
+                      protocol:
+                        description: Specifies which protocol to use for tunneling
+                          the downstream connection.
+                        type: string
+                      targetHost:
+                        description: Specifies a host to which the downstream connection
+                          is tunneled.
+                        type: string
+                      targetPort:
+                        description: Specifies a port to which the downstream connection
+                          is tunneled.
+                        type: integer
+                    type: object
+                type: object
+              workloadSelector:
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
                     type: object
                 type: object
             type: object
@@ -6168,6 +6242,17 @@ spec:
                             should be logged.
                           type: string
                       type: object
+                    match:
+                      description: Allows tailoring of logging behavior to specific
+                        conditions.
+                      properties:
+                        mode:
+                          enum:
+                          - CLIENT_AND_SERVER
+                          - CLIENT
+                          - SERVER
+                          type: string
+                      type: object
                     providers:
                       description: Optional.
                       items:
@@ -6225,8 +6310,6 @@ spec:
                                 - GRPC_RESPONSE_MESSAGES
                                 type: string
                               mode:
-                                description: 'Controls which mode of metrics generation
-                                  is selected: CLIENT and/or SERVER.'
                                 enum:
                                 - CLIENT_AND_SERVER
                                 - CLIENT
@@ -6306,8 +6389,6 @@ spec:
                                 type: string
                             type: object
                           header:
-                            description: RequestHeader adds the value of an header
-                              from the request to each span.
                             properties:
                               defaultValue:
                                 description: Optional.
@@ -6332,6 +6413,16 @@ spec:
                       description: Controls span reporting.
                       nullable: true
                       type: boolean
+                    match:
+                      description: Allows tailoring of behavior to specific conditions.
+                      properties:
+                        mode:
+                          enum:
+                          - CLIENT_AND_SERVER
+                          - CLIENT
+                          - SERVER
+                          type: string
+                      type: object
                     providers:
                       description: Optional.
                       items:

@@ -22,9 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -90,39 +88,39 @@ func TestMain(m *testing.M) {
 
 func TestDeployments(t *testing.T) {
 	if diff := cmp.Diff(
-		all.Services().ServiceNames(),
-		echo.ServiceNameList{
+		all.Services().NamespacedNames(),
+		echo.NamespacedNames{
 			{
 				Name:      "a",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "a",
-				Namespace: echo2NS.Name(),
+				Namespace: echo2NS,
 			},
 			{
 				Name:      "b",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "c",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "external",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "headless",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "naked",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "vm",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 		},
 	); diff != "" {
@@ -330,6 +328,10 @@ func instanceKey(i echo.Instance) string {
 // fakeInstance wraps echo.Config for test-framework internals tests where we don't actually make calls
 type fakeInstance echo.Config
 
+func (f fakeInstance) WithWorkloads(wl ...echo.Workload) echo.Instance {
+	panic("implement me")
+}
+
 func (f fakeInstance) Instances() echo.Instances {
 	return echo.Instances{f}
 }
@@ -338,7 +340,7 @@ func (f fakeInstance) ID() resource.ID {
 	panic("implement me")
 }
 
-func (f fakeInstance) NamespacedName() model.NamespacedName {
+func (f fakeInstance) NamespacedName() echo.NamespacedName {
 	return f.Config().NamespacedName()
 }
 
@@ -350,6 +352,26 @@ func (f fakeInstance) Config() echo.Config {
 	cfg := echo.Config(f)
 	_ = cfg.FillDefaults(nil)
 	return cfg
+}
+
+func (f fakeInstance) ServiceName() string {
+	return f.Config().Service
+}
+
+func (f fakeInstance) NamespaceName() string {
+	return f.Config().NamespaceName()
+}
+
+func (f fakeInstance) ServiceAccountName() string {
+	return f.Config().ServiceAccountName()
+}
+
+func (f fakeInstance) ClusterLocalFQDN() string {
+	return f.Config().ClusterLocalFQDN()
+}
+
+func (f fakeInstance) ClusterSetLocalFQDN() string {
+	return f.Config().ClusterSetLocalFQDN()
 }
 
 func (f fakeInstance) Address() string {
@@ -376,11 +398,11 @@ func (f fakeInstance) Clusters() cluster.Clusters {
 	panic("implement me")
 }
 
-func (f fakeInstance) Call(echo.CallOptions) (echoClient.Responses, error) {
+func (f fakeInstance) Call(echo.CallOptions) (echo.CallResult, error) {
 	panic("implement me")
 }
 
-func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echoClient.Responses {
+func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echo.CallResult {
 	panic("implement me")
 }
 

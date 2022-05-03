@@ -30,15 +30,15 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var supportedFilters = []*hcm.HttpFilter{
@@ -71,7 +71,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		return nil
 	}
 	var out model.Resources
-	policyApplier := factory.NewPolicyApplier(push, node.Metadata.Namespace, labels.Collection{node.Metadata.Labels})
+	policyApplier := factory.NewPolicyApplier(push, node.Metadata.Namespace, node.Metadata.Labels)
 	serviceInstancesByPort := map[uint32]*model.ServiceInstance{}
 	for _, si := range node.ServiceInstances {
 		serviceInstancesByPort[si.Endpoint.EndpointPort] = si
@@ -122,6 +122,12 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, applier authn.PolicyApplier) []*listener.FilterChain {
 	mode := applier.GetMutualTLSModeForPort(si.Endpoint.EndpointPort)
 
+	// auto-mtls label is set - clients will attempt to connect using mtls, and
+	// gRPC doesn't support permissive.
+	if node.Metadata.Labels[label.SecurityTlsMode.Name] == "istio" && mode == model.MTLSPermissive {
+		mode = model.MTLSStrict
+	}
+
 	var tlsContext *tls.DownstreamTlsContext
 	if mode != model.MTLSDisable && mode != model.MTLSUnknown {
 		tlsContext = &tls.DownstreamTlsContext{
@@ -140,7 +146,8 @@ func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *mo
 	if mode == model.MTLSPermissive {
 		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
 		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
-		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
+		// No need to warn on each push - the behavior is still consistent with auto-mtls, which is the
+		// replacement for permissive.
 		mode = model.MTLSDisable
 	}
 
@@ -160,7 +167,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	fc := []*hcm.HttpFilter{}
 	// See security/authz/builder and grpc internal/xds/rbac
 	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
-	policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, labels.Collection{node.Metadata.Labels})
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Metadata.Labels)
 	if len(policies.Deny)+len(policies.Allow) > 0 {
 		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
 		if rules != nil && len(rules.Policies) > 0 {
@@ -335,7 +342,7 @@ func (ln *listenerName) includesPort(port string) bool {
 func (f listenerNames) includes(s string) (listenerName, bool) {
 	if len(f) == 0 {
 		// filter is empty, include everything
-		return listenerName{RequestedNames: sets.NewSet(s)}, true
+		return listenerName{RequestedNames: sets.New(s)}, true
 	}
 	n, ok := f[s]
 	return n, ok
@@ -356,7 +363,7 @@ func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
 	for _, name := range names {
 		// inbound, create a simple entry and move on
 		if strings.HasPrefix(name, grpcxds.ServerListenerNamePrefix) {
-			filter[name] = listenerName{RequestedNames: sets.NewSet(name)}
+			filter[name] = listenerName{RequestedNames: sets.New(name)}
 			continue
 		}
 
@@ -376,7 +383,7 @@ func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
 		for _, name := range allNames {
 			ln, ok := filter[name]
 			if !ok {
-				ln = listenerName{RequestedNames: sets.NewSet()}
+				ln = listenerName{RequestedNames: sets.New()}
 			}
 			ln.RequestedNames.Insert(requestedName)
 

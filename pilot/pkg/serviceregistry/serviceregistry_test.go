@@ -50,13 +50,14 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubeclient "istio.io/istio/pkg/kube"
+	istiotest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func setupTest(t *testing.T) (
 	*kubecontroller.Controller,
-	*serviceentry.ServiceEntryStore,
-	model.ConfigStoreCache,
+	*serviceentry.Controller,
+	model.ConfigStoreController,
 	kubernetes.Interface,
 	*xds.FakeXdsUpdater) {
 	t.Helper()
@@ -86,7 +87,7 @@ func setupTest(t *testing.T) (
 	go configController.Run(stop)
 
 	istioStore := model.MakeIstioStore(configController)
-	se := serviceentry.NewServiceDiscovery(configController, istioStore, xdsUpdater)
+	se := serviceentry.NewController(configController, istioStore, xdsUpdater)
 	client.RunAndWait(stop)
 
 	kc.AppendWorkloadHandler(se.WorkloadInstanceHandler)
@@ -101,7 +102,7 @@ func setupTest(t *testing.T) (
 // TestWorkloadInstances is effectively an integration test of composing the Kubernetes service registry with the
 // external service registry, which have cross-references by workload instances.
 func TestWorkloadInstances(t *testing.T) {
-	features.WorkloadEntryHealthChecks = true
+	istiotest.SetBoolForTest(t, &features.WorkloadEntryHealthChecks, true)
 	port := &networking.Port{
 		Name:     "http",
 		Number:   80,
@@ -280,6 +281,39 @@ func TestWorkloadInstances(t *testing.T) {
 				},
 			},
 		})
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       8080,
+		}}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+	})
+
+	t.Run("External only: the port name of the workloadEntry and serviceEntry does match, "+
+		"serviceEntry's targetPort not equal workloadEntry's, use workloadEntry port to override", func(t *testing.T) {
+		_, wc, store, _, _ := setupTest(t)
+		se := serviceEntry.Spec.(*networking.ServiceEntry).DeepCopy()
+		se.Ports[0].TargetPort = 8081 // respect wle port firstly, does not care about this value at all.
+
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workload",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					serviceEntry.Spec.(*networking.ServiceEntry).Ports[0].Name: 8080,
+				},
+			},
+		})
+
+		makeIstioObject(t, store, serviceEntry)
 
 		instances := []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,

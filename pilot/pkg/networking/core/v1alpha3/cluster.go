@@ -25,7 +25,6 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -36,18 +35,18 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
+	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/util/gogo"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
+var deltaConfigTypes = sets.New(gvk.ServiceEntry.Kind)
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -90,8 +89,8 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		return cl, nil, lg, false
 	}
 
-	deletedClusters := make([]string, 0)
-	services := make([]*model.Service, 0)
+	var deletedClusters []string
+	var services []*model.Service
 	// holds clusters per service, keyed by hostname.
 	serviceClusters := make(map[string]sets.Set)
 	// holds service ports, keyed by hostname.
@@ -100,10 +99,10 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 	for _, cluster := range watched.ResourceNames {
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
+		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>).
 		_, _, svcHost, port := model.ParseSubsetKey(cluster)
 		if serviceClusters[string(svcHost)] == nil {
-			serviceClusters[string(svcHost)] = sets.NewSet()
+			serviceClusters[string(svcHost)] = sets.New()
 		}
 		serviceClusters[string(svcHost)].Insert(cluster)
 		if servicePorts[string(svcHost)] == nil {
@@ -226,12 +225,12 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		locality:        cb.locality,
 		proxyClusterID:  cb.clusterID,
 		proxySidecar:    cb.sidecarProxy(),
-		networkView:     cb.networkView,
+		proxyView:       cb.proxyView,
 		http2:           port.Protocol.IsHTTP2(),
 		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
 		supportsIPv4:    cb.supportsIPv4,
 		service:         service,
-		destinationRule: proxy.SidecarScope.DestinationRule(service.Hostname),
+		destinationRule: proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname),
 		envoyFilterKeys: efKeys,
 		metadataCerts:   cb.metadataCerts,
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
@@ -257,12 +256,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 				hit += len(cached)
 				resources = append(resources, cached...)
 				continue
-			} else {
-				miss += len(cached)
 			}
+			miss += len(cached)
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
-			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.networkView, service, port.Port, nil)
+			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.proxyView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxyType, service)
@@ -272,12 +270,12 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 			// If stat name is configured, build the alternate stats name.
 			if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
+				defaultCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
 					string(service.Hostname), "", port, &service.Attributes)
 			}
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
-				clusterKey.networkView, clusterKey.destinationRule, clusterKey.serviceAccounts)
+				clusterKey.proxyView, clusterKey.destinationRule, clusterKey.serviceAccounts)
 
 			if patched := cp.applyResource(nil, defaultCluster.build()); patched != nil {
 				resources = append(resources, patched)
@@ -287,10 +285,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 			for _, ss := range subsetClusters {
 				if patched := cp.applyResource(nil, ss); patched != nil {
-					nk := *clusterKey
-					nk.clusterName = ss.Name
 					resources = append(resources, patched)
 					if features.EnableCDSCaching {
+						nk := *clusterKey
+						nk.clusterName = ss.Name
 						cb.cache.Add(&nk, cb.req, patched)
 					}
 				}
@@ -349,18 +347,19 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 	clusters := make([]*cluster.Cluster, 0)
 	cb := NewClusterBuilder(proxy, req, nil)
 
-	networkView := proxy.GetNetworkView()
+	proxyView := proxy.GetView()
 
 	for _, service := range proxy.SidecarScope.Services() {
 		if service.MeshExternal {
 			continue
 		}
-		destRule := proxy.SidecarScope.DestinationRule(service.Hostname)
+
+		destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
+			lbEndpoints := cb.buildLocalityLbEndpoints(proxyView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxyType, service)
@@ -371,7 +370,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if defaultCluster == nil {
 				continue
 			}
-			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView, destRule, nil)
+			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, proxyView, destRule, nil)
 			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
@@ -489,7 +488,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 		// Find the service instance that corresponds to this ingress listener by looking
 		// for a service instance that matches this ingress port as this will allow us
 		// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
-		instance := configgen.findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
+		instance := findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
 		instance.Endpoint.Address = endpointAddress
 		instance.ServicePort = listenPort
 		instance.Endpoint.ServicePortName = listenPort.Name
@@ -502,7 +501,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 	return clusters
 }
 
-func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*model.ServiceInstance,
+func findOrCreateServiceInstance(instances []*model.ServiceInstance,
 	ingressListener *networking.IstioIngressListener, sidecar string, sidecarns string) *model.ServiceInstance {
 	for _, realInstance := range instances {
 		if realInstance.Endpoint.EndpointPort == ingressListener.Port.Number {
@@ -586,23 +585,18 @@ type buildClusterOpts struct {
 	port             *model.Port
 	serviceAccounts  []string
 	serviceInstances []*model.ServiceInstance
-	// Used for traffic across multiple Istio clusters
-	// the ingress gateway in a remote cluster will use this value to route
+	// Used for traffic across multiple network clusters
+	// the east-west gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service
-	istioMtlsSni string
-	// This is used when the sidecar is sending simple TLS traffic
-	// to endpoints. This is different from the previous SNI
-	// because usually in this case the traffic is going to a
-	// non-sidecar workload that can only understand the service's
-	// hostname in the SNI.
-	simpleTLSSni    string
+	istioMtlsSni    string
 	clusterMode     ClusterMode
 	direction       model.TrafficDirection
 	meshExternal    bool
 	serviceMTLSMode model.MutualTLSMode
 	// Indicates the service registry of the cluster being built.
 	serviceRegistry provider.ID
-	cache           model.XdsCache
+	// Indicates if the destionationRule has a workloadSelector
+	isDrWithSelector bool
 }
 
 type upgradeTuple struct {
@@ -676,10 +670,10 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 
 	if outlier.Interval != nil {
-		out.Interval = gogo.DurationToProtoDuration(outlier.Interval)
+		out.Interval = outlier.Interval
 	}
 	if outlier.BaseEjectionTime != nil {
-		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
+		out.BaseEjectionTime = outlier.BaseEjectionTime
 	}
 	if outlier.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
@@ -749,6 +743,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
+	// nolint: staticcheck
 	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
 		ApplyLeastRequestLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_RANDOM:
@@ -792,9 +787,9 @@ func ApplyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.
 }
 
 // setSlowStartConfig will set the warmupDurationSecs for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
-func setSlowStartConfig(warmupDurationSecs *types.Duration) *cluster.Cluster_SlowStartConfig {
+func setSlowStartConfig(dur *durationpb.Duration) *cluster.Cluster_SlowStartConfig {
 	return &cluster.Cluster_SlowStartConfig{
-		SlowStartWindow: &durationpb.Duration{Seconds: warmupDurationSecs.GetSeconds()},
+		SlowStartWindow: dur,
 	}
 }
 

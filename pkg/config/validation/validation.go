@@ -29,7 +29,6 @@ import (
 
 	udpaa "github.com/cncf/xds/go/udpa/annotations"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwk"
 	"google.golang.org/protobuf/proto"
@@ -37,6 +36,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 	any "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -48,7 +48,6 @@ import (
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/constant"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -59,12 +58,16 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
 // Constants for duration fields
 const (
+	// nolint: revive
 	connectTimeoutMax = time.Second * 30
+	// nolint: revive
 	connectTimeoutMin = time.Millisecond
 
 	drainTimeMax          = time.Hour
@@ -560,9 +563,9 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		return
 	}
 
-	invalidCiphers := sets.NewSet()
-	validCiphers := sets.NewSet()
-	duplicateCiphers := sets.NewSet()
+	invalidCiphers := sets.New()
+	validCiphers := sets.New()
+	duplicateCiphers := sets.New()
 	for _, cs := range tls.CipherSuites {
 		if !security.IsValidCipherSuite(cs) {
 			invalidCiphers.Insert(cs)
@@ -646,10 +649,13 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to destination rule")
 		}
-
 		v := Validation{}
 		if features.EnableDestinationRuleInheritance {
 			if rule.Host == "" {
+				if rule.GetWorkloadSelector() != nil {
+					v = appendValidation(v,
+						fmt.Errorf("mesh/namespace destination rule cannot have workloadSelector configured"))
+				}
 				if len(rule.Subsets) != 0 {
 					v = appendValidation(v,
 						fmt.Errorf("mesh/namespace destination rule cannot have subsets"))
@@ -678,15 +684,18 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			}
 			v = appendValidation(v, validateSubset(subset))
 		}
+		v = appendValidation(v,
+			validateExportTo(cfg.Namespace, rule.ExportTo, false, rule.GetWorkloadSelector() != nil))
 
-		v = appendValidation(v, validateExportTo(cfg.Namespace, rule.ExportTo, false))
+		v = appendValidation(v, validateWorkloadSelector(rule.GetWorkloadSelector()))
+
 		return v.Unwrap()
 	})
 
-func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) (errs error) {
+func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, isDestinationRuleWithSelector bool) (errs error) {
 	if len(exportTo) > 0 {
 		// Make sure there are no duplicates
-		exportToMap := make(map[string]struct{})
+		exportToSet := sets.New()
 		for _, e := range exportTo {
 			key := e
 			if visibility.Instance(e) == visibility.Private {
@@ -694,7 +703,7 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 				// can check for duplicates like ., namespace
 				key = namespace
 			}
-			if _, exists := exportToMap[key]; exists {
+			if exportToSet.Contains(key) {
 				if key != e {
 					errs = appendErrors(errs, fmt.Errorf("duplicate entries in exportTo: . and current namespace %s", namespace))
 				} else {
@@ -705,19 +714,30 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 				// a service that is not even visible within the local namespace to anyone other
 				// than the proxies of that service.
 				if isServiceEntry && visibility.Instance(e) == visibility.None {
-					exportToMap[key] = struct{}{}
+					exportToSet.Insert(key)
 				} else {
 					if err := visibility.Instance(key).Validate(); err != nil {
 						errs = appendErrors(errs, err)
 					} else {
-						exportToMap[key] = struct{}{}
+						exportToSet.Insert(key)
 					}
 				}
 			}
 		}
 
+		// Make sure workloadSelector based destination rule does not use exportTo other than current namespace
+		if isDestinationRuleWithSelector && !exportToSet.IsEmpty() {
+			if exportToSet.Contains(namespace) {
+				if len(exportToSet) > 1 {
+					errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector cannot have multiple entries in exportTo"))
+				}
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector cannot have exportTo beyond current namespace"))
+			}
+		}
+
 		// Make sure we have only one of . or *
-		if _, public := exportToMap[string(visibility.Public)]; public {
+		if exportToSet.Contains(string(visibility.Public)) {
 			// make sure that there are no other entries in the exportTo
 			// i.e. no point in saying ns1,ns2,*. Might as well say *
 			if len(exportTo) > 1 {
@@ -726,7 +746,7 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 		}
 
 		// if this is a service entry, then we need to disallow * and ~ together. Or ~ and other namespaces
-		if _, none := exportToMap[string(visibility.None)]; none {
+		if exportToSet.Contains(string(visibility.None)) {
 			if len(exportTo) > 1 {
 				errs = appendErrors(errs, fmt.Errorf("cannot export service entry to no one (~) and someone"))
 			}
@@ -769,30 +789,30 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 
 		for _, cp := range rule.ConfigPatches {
 			if cp == nil {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: golint,stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: stylecheck
 				continue
 			}
 			if cp.ApplyTo == networking.EnvoyFilter_INVALID {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: golint,stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: stylecheck
 				continue
 			}
 			if cp.Patch == nil {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch")) // nolint: golint,stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch")) // nolint: stylecheck
 				continue
 			}
 			if cp.Patch.Operation == networking.EnvoyFilter_Patch_INVALID {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: golint,stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: stylecheck
 				continue
 			}
 			if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: golint,stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: stylecheck
 				continue
 			}
 
 			// ensure that the supplied regex for proxy version compiles
 			if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
 				if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
-					errs = appendValidation(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: golint,stylecheck
+					errs = appendValidation(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: stylecheck
 					continue
 				}
 			}
@@ -804,7 +824,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				networking.EnvoyFilter_HTTP_FILTER:
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetListener() == nil {
-						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: golint,stylecheck
+						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: stylecheck
 						continue
 					}
 					listenerMatch := cp.Match.GetListener()
@@ -813,27 +833,27 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 							if cp.ApplyTo == networking.EnvoyFilter_LISTENER || cp.ApplyTo == networking.EnvoyFilter_FILTER_CHAIN {
 								// This would be an error but is a warning for backwards compatibility
 								errs = appendValidation(errs, WrapWarning(
-									fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: golint,stylecheck
+									fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: stylecheck
 							}
 							// filter names are required if network filter matches are being made
 							if listenerMatch.FilterChain.Filter.Name == "" {
-								errs = appendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: golint,stylecheck
+								errs = appendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: stylecheck
 								continue
 							} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
 								// sub filter match is supported only for applyTo HTTP_FILTER
 								if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
-									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: golint,stylecheck
+									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: stylecheck
 									continue
 								}
 								// sub filter match requires the network filter to match to envoy http connection manager
 								if listenerMatch.FilterChain.Filter.Name != wellknown.HTTPConnectionManager &&
 									listenerMatch.FilterChain.Filter.Name != "envoy.http_connection_manager" {
-									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: golint,stylecheck
+									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: stylecheck
 										wellknown.HTTPConnectionManager))
 									continue
 								}
 								if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
-									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: golint,stylecheck
+									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: stylecheck
 									continue
 								}
 							}
@@ -847,14 +867,14 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetRouteConfiguration() == nil {
 						errs = appendValidation(errs,
-							fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) // nolint: golint,stylecheck
+							fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) // nolint: stylecheck
 					}
 				}
 
 			case networking.EnvoyFilter_CLUSTER:
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetCluster() == nil {
-						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: golint,stylecheck
+						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: stylecheck
 					}
 				}
 			}
@@ -872,6 +892,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				// Append any deprecation notices
 				if obj != nil {
 					errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
+					errs = appendValidation(errs, validateMissingTypedConfigFilterTypes(obj))
 				}
 			}
 		}
@@ -927,6 +948,43 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 	return deprecatedTypes, topError
 }
 
+// recurseMissingTypedConfig checks that configured filters do not rely on `name` and elide `typed_config`.
+// This is temporarily enabled in Envoy by the envoy.reloadable_features.no_extension_lookup_by_name flag, but in the future will be removed.
+func recurseMissingTypedConfig(message protoreflect.Message) []string {
+	var deprecatedTypes []string
+	if message == nil {
+		return nil
+	}
+	// First, iterate over the fields to find the 'name' field to help with reporting errors.
+	var name string
+	for i := 0; i < message.Type().Descriptor().Fields().Len(); i++ {
+		field := message.Type().Descriptor().Fields().Get(i)
+		if field.JSONName() == "name" {
+			name = fmt.Sprintf("%v", message.Get(field).Interface())
+		}
+	}
+
+	// Now go through fields again
+	for i := 0; i < message.Type().Descriptor().Fields().Len(); i++ {
+		field := message.Type().Descriptor().Fields().Get(i)
+		set := message.Has(field)
+		// If it has a typedConfig field, it must be set.
+		// Note: it is possible there is some API that has typedConfig but has a non-deprecated alternative,
+		// but I couldn't find any. Worst case, this is a warning, not an error, so a false positive is not so bad.
+		if field.JSONName() == "typedConfig" && !set {
+			deprecatedTypes = append(deprecatedTypes, name)
+		}
+		if set {
+			// If the field was set and is a message, recurse into it to check children
+			m, isMessage := message.Get(field).Interface().(protoreflect.Message)
+			if isMessage {
+				deprecatedTypes = append(deprecatedTypes, recurseMissingTypedConfig(m)...)
+			}
+		}
+	}
+	return deprecatedTypes
+}
+
 func validateDeprecatedFilterTypes(obj proto.Message) error {
 	deprecated, err := recurseDeprecatedTypes(obj.ProtoReflect())
 	if err != nil {
@@ -934,6 +992,14 @@ func validateDeprecatedFilterTypes(obj proto.Message) error {
 	}
 	if len(deprecated) > 0 {
 		return WrapWarning(fmt.Errorf("using deprecated type_url(s); %v", strings.Join(deprecated, ", ")))
+	}
+	return nil
+}
+
+func validateMissingTypedConfigFilterTypes(obj proto.Message) error {
+	missing := recurseMissingTypedConfig(obj.ProtoReflect())
+	if len(missing) > 0 {
+		return WrapWarning(fmt.Errorf("using deprecated types by name without typed_config; %v", strings.Join(missing, ", ")))
 	}
 	return nil
 }
@@ -1072,7 +1138,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				}
 				errs = appendValidation(errs, validateTLSOptions(i.Tls))
 			}
-
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -1155,7 +1220,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					errs = appendValidation(errs, WrapWarning(fmt.Errorf("`*/*` host select all resources, no other hosts can be added")))
 				}
 			}
-
 		}
 
 		errs = appendValidation(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
@@ -1261,6 +1325,7 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Valida
 	if outlier.BaseEjectionTime != nil {
 		errs = appendValidation(errs, ValidateDuration(outlier.BaseEjectionTime))
 	}
+	// nolint: staticcheck
 	if outlier.ConsecutiveErrors != 0 {
 		warn := "outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead"
 		scope.Warnf(warn)
@@ -1425,11 +1490,8 @@ func ValidateProxyAddress(hostAddr string) error {
 }
 
 // ValidateDuration checks that a proto duration is well-formed
-func ValidateDuration(pd *types.Duration) error {
-	dur, err := types.DurationFromProto(pd)
-	if err != nil {
-		return err
-	}
+func ValidateDuration(pd *durationpb.Duration) error {
+	dur := pd.AsDuration()
 	if dur < time.Millisecond {
 		return errors.New("duration must be greater than 1ms")
 	}
@@ -1449,7 +1511,7 @@ func ValidateDurationRange(dur, min, max time.Duration) error {
 }
 
 // ValidateParentAndDrain checks that parent and drain durations are valid
-func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs error) {
+func ValidateParentAndDrain(drainTime, parentShutdown *durationpb.Duration) (errs error) {
 	if err := ValidateDuration(drainTime); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
 	}
@@ -1460,8 +1522,8 @@ func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs err
 		return
 	}
 
-	drainDuration, _ := types.DurationFromProto(drainTime)
-	parentShutdownDuration, _ := types.DurationFromProto(parentShutdown)
+	drainDuration := drainTime.AsDuration()
+	parentShutdownDuration := parentShutdown.AsDuration()
 
 	if drainDuration%time.Second != 0 {
 		errs = multierror.Append(errs,
@@ -1506,6 +1568,16 @@ func ValidateLightstepCollector(ls *meshconfig.Tracing_Lightstep) error {
 	return errs
 }
 
+// validateCustomTags validates that tracing CustomTags map does not contain any nil items
+func validateCustomTags(tags map[string]*meshconfig.Tracing_CustomTag) error {
+	for tagName, tagVal := range tags {
+		if tagVal == nil {
+			return fmt.Errorf("encountered nil value for custom tag: %s", tagName)
+		}
+	}
+	return nil
+}
+
 // ValidateZipkinCollector validates the configuration for sending envoy spans to Zipkin
 func ValidateZipkinCollector(z *meshconfig.Tracing_Zipkin) error {
 	return ValidateProxyAddress(strings.Replace(z.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
@@ -1518,22 +1590,18 @@ func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
 }
 
 // ValidateConnectTimeout validates the envoy connection timeout
-func ValidateConnectTimeout(timeout *types.Duration) error {
+func ValidateConnectTimeout(timeout *durationpb.Duration) error {
 	if err := ValidateDuration(timeout); err != nil {
 		return err
 	}
 
-	timeoutDuration, _ := types.DurationFromProto(timeout)
-	err := ValidateDurationRange(timeoutDuration, connectTimeoutMin, connectTimeoutMax)
+	err := ValidateDurationRange(timeout.AsDuration(), connectTimeoutMin, connectTimeoutMax)
 	return err
 }
 
 // ValidateProtocolDetectionTimeout validates the envoy protocol detection timeout
-func ValidateProtocolDetectionTimeout(timeout *types.Duration) error {
-	dur, err := types.DurationFromProto(timeout)
-	if err != nil {
-		return err
-	}
+func ValidateProtocolDetectionTimeout(timeout *durationpb.Duration) error {
+	dur := timeout.AsDuration()
 	// 0s is a valid value if trying to disable protocol detection timeout
 	if dur == time.Second*0 {
 		return nil
@@ -1623,6 +1691,32 @@ func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
 	return
 }
 
+func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
+	var errs error
+	if pkpConf.GetProvider() == nil {
+		errs = multierror.Append(errs, errors.New("private key provider confguration is required"))
+	}
+
+	switch pkpConf.GetProvider().(type) {
+	case *meshconfig.PrivateKeyProvider_Cryptomb:
+		cryptomb := pkpConf.GetCryptomb()
+		if cryptomb == nil {
+			errs = multierror.Append(errs, errors.New("cryptomb confguration is required"))
+		} else {
+			pollDelay := cryptomb.GetPollDelay()
+			if pollDelay == nil {
+				errs = multierror.Append(errs, errors.New("pollDelay is required"))
+			} else if pollDelay.GetSeconds() == 0 && pollDelay.GetNanos() == 0 {
+				errs = multierror.Append(errs, errors.New("pollDelay must be non zero"))
+			}
+		}
+	default:
+		errs = multierror.Append(errs, errors.New("unknown private key provider"))
+	}
+
+	return errs
+}
+
 // ValidateMeshConfigProxyConfig checks that the mesh config is well-formed
 func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.ConfigPath == "" {
@@ -1681,17 +1775,24 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		}
 	}
 
+	if tracerCustomTags := config.GetTracing().GetCustomTags(); tracerCustomTags != nil {
+		if err := validateCustomTags(tracerCustomTags); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid tracing custom tags:"))
+		}
+	}
+
 	if config.StatsdUdpAddress != "" {
 		if err := ValidateProxyAddress(config.StatsdUdpAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid statsd udp address %q:", config.StatsdUdpAddress)))
 		}
 	}
 
+	// nolint: staticcheck
 	if config.EnvoyMetricsServiceAddress != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
 		} else {
-			scope.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.") // nolint: golint,stylecheck
+			scope.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.") // nolint: stylecheck
 		}
 	}
 
@@ -1717,6 +1818,12 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 
 	if err := ValidatePort(int(config.StatusPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid status port:"))
+	}
+
+	if pkpConf := config.GetPrivateKeyProvider(); pkpConf != nil {
+		if err := validatePrivateKeyProvider(pkpConf); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid private key provider confguration:"))
+		}
 	}
 
 	return
@@ -2086,7 +2193,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendValidation(errs, validateTCPRoute(tcpRoute))
 		}
 
-		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false))
+		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false, false))
 
 		warnUnused := func(ruleno, reason string) {
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
@@ -2298,9 +2405,8 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 				duplicateMatches++
 				// no need to handle for totally duplicated match rules
 				continue
-			} else {
-				matchesEncountered[asJSON(match)] = rulen
 			}
+			matchesEncountered[asJSON(match)] = rulen
 			// build the match rules into struct OverlappingMatchValidationForHTTPRoute based on current match
 			matchHTTPRoute := genMatchHTTPRoutes(route, match, rulen, matchn)
 			if matchHTTPRoute != nil {
@@ -2404,9 +2510,10 @@ func asJSON(data interface{}) string {
 	switch mr := data.(type) {
 	case *networking.HTTPMatchRequest:
 		if mr != nil && mr.Name != "" {
-			unnamed := *mr
-			unnamed.Name = ""
-			data = &unnamed
+			cl := &networking.HTTPMatchRequest{}
+			protomarshal.ShallowCopy(cl, mr)
+			cl.Name = ""
+			data = cl
 		}
 	}
 
@@ -2423,7 +2530,6 @@ func routeName(route interface{}, routen int) string {
 		if r.Name != "" {
 			return fmt.Sprintf("%q", r.Name)
 		}
-
 		// TCP and TLS routes have no names
 	}
 
@@ -2436,7 +2542,6 @@ func requestName(match interface{}, matchn int) string {
 		if mr != nil && mr.Name != "" {
 			return fmt.Sprintf("%q", mr.Name)
 		}
-
 		// TCP and TLS matches have no names
 	}
 
@@ -3098,7 +3203,6 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 					}
 				}
 				errs = appendValidation(errs, labels.Instance(endpoint.Labels).Validate())
-
 			}
 			if unixEndpoint && len(serviceEntry.Ports) != 1 {
 				errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))
@@ -3167,7 +3271,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 		}
 
-		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true))
+		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true, false))
 		return errs.Unwrap()
 	})
 
@@ -3507,6 +3611,10 @@ func validateTelemetryTracing(tracing []*telemetry.Tracing) (v Validation) {
 			if name == "" {
 				v = appendErrorf(v, "tag name may not be empty")
 			}
+			if tag == nil {
+				v = appendErrorf(v, "tag '%s' may not have a nil value", name)
+				continue
+			}
 			switch t := tag.Type.(type) {
 			case *telemetry.Tracing_CustomTag_Literal:
 				if t.Literal.GetValue() == "" {
@@ -3634,7 +3742,7 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 		return nil
 	}
 
-	keys := sets.NewSet()
+	keys := sets.New()
 	for _, env := range vm.Env {
 		if env == nil {
 			continue

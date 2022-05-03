@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
@@ -99,7 +99,7 @@ var (
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
-			if out, err := gogoprotomarshal.ToYAML(proxyConfig); err != nil {
+			if out, err := protomarshal.ToYAML(proxyConfig); err != nil {
 				log.Infof("Failed to serialize to YAML: %v", err)
 			} else {
 				log.Infof("Effective config: %s", out)
@@ -221,7 +221,7 @@ func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *mesh
 
 func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
 	localHostAddr := localHostIPv4
-	if network.IsIPv6Proxy(proxy.IPAddresses) {
+	if proxy.IsIPv6() {
 		localHostAddr = localHostIPv6
 	}
 	stsServer, err := stsserver.NewServer(stsserver.Config{
@@ -236,7 +236,7 @@ func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*sts
 
 func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
-		domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
+		domain = podNamespace + ".svc." + constants.DefaultClusterLocalDomain
 	}
 	return domain
 }
@@ -283,6 +283,9 @@ func initProxy(args []string) (*model.Proxy, error) {
 	if len(proxy.IPAddresses) == 0 {
 		proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
 	}
+
+	// After IP addresses are set, let us discover IPMode.
+	proxy.DiscoverIPMode()
 
 	// Extract pod variables.
 	podName := options.PodNameVar.Get()

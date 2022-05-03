@@ -27,16 +27,16 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/pilot/pkg/controller/workloadentry"
+	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
@@ -68,15 +68,15 @@ type DeltaDiscoveryClient = discovery.AggregatedDiscoveryService_DeltaAggregated
 
 // Connection holds information about connected client.
 type Connection struct {
-	// PeerAddr is the address of the client, from network layer.
-	PeerAddr string
+	// peerAddr is the address of the client, from network layer.
+	peerAddr string
 
 	// Time of connection, for debugging
-	Connect time.Time
+	connectedAt time.Time
 
-	// ConID is the connection identifier, used as a key in the connection table.
+	// conID is the connection conID, used as a key in the connection table.
 	// Currently based on the node name and a counter.
-	ConID string
+	conID string
 
 	// proxy is the client to which this connection is established.
 	proxy *model.Proxy
@@ -106,11 +106,6 @@ type Connection struct {
 
 	// errorChan is used to process error during discovery request processing.
 	errorChan chan error
-
-	// blockedPushes is a map of TypeUrl to push request. This is set when we attempt to push to a busy Envoy
-	// (last push not ACKed). When we get an ACK from Envoy, if the type is populated here, we will trigger
-	// the push.
-	blockedPushes map[string]*model.PushRequest
 }
 
 // Event represents a config or registry event that results in a push.
@@ -124,15 +119,14 @@ type Event struct {
 
 func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	return &Connection{
-		pushChannel:   make(chan *Event),
-		initialized:   make(chan struct{}),
-		stop:          make(chan struct{}),
-		reqChan:       make(chan *discovery.DiscoveryRequest, 1),
-		errorChan:     make(chan error, 1),
-		PeerAddr:      peerAddr,
-		Connect:       time.Now(),
-		stream:        stream,
-		blockedPushes: map[string]*model.PushRequest{},
+		pushChannel: make(chan *Event),
+		initialized: make(chan struct{}),
+		stop:        make(chan struct{}),
+		reqChan:     make(chan *discovery.DiscoveryRequest, 1),
+		errorChan:   make(chan error, 1),
+		peerAddr:    peerAddr,
+		connectedAt: time.Now(),
+		stream:      stream,
 	}
 }
 
@@ -153,11 +147,11 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 		req, err := con.stream.Recv()
 		if err != nil {
 			if istiogrpc.IsExpectedGRPCError(err) {
-				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				log.Infof("ADS: %q %s terminated", con.peerAddr, con.conID)
 				return
 			}
 			con.errorChan <- err
-			log.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
+			log.Errorf("ADS: %q %s terminated with error: %v", con.peerAddr, con.conID, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
@@ -165,7 +159,7 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 		if firstRequest {
 			// probe happens before envoy sends first xDS request
 			if req.TypeUrl == v3.HealthInfoType {
-				log.Warnf("ADS: %q %s send health check probe before normal xDS request", con.PeerAddr, con.ConID)
+				log.Warnf("ADS: %q %s send health check probe before normal xDS request", con.peerAddr, con.conID)
 				continue
 			}
 			firstRequest = false
@@ -178,13 +172,13 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 				return
 			}
 			defer s.closeConnection(con)
-			log.Infof("ADS: new connection for node:%s", con.ConID)
+			log.Infof("ADS: new connection for node:%s", con.conID)
 		}
 
 		select {
 		case con.reqChan <- req:
 		case <-con.stream.Context().Done():
-			log.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			log.Infof("ADS: %q %s terminated with stream closed", con.peerAddr, con.conID)
 			return
 		}
 	}
@@ -194,7 +188,8 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
-	if !s.shouldProcessRequest(con.proxy, req) {
+	if req.TypeUrl == v3.HealthInfoType {
+		s.handleWorkloadHealthcheck(con.proxy, req)
 		return nil
 	}
 
@@ -205,40 +200,30 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
+		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
 	}
-	shouldRespond := s.shouldRespond(con, req)
-
-	var request *model.PushRequest
-	push := con.proxy.LastPushContext
-	if shouldRespond {
-		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
-		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
-		request = &model.PushRequest{Full: true, Push: push}
-	} else {
-		// Check if we have a blocked push. If this was an ACK, we will send it.
-		// Either way we remove the blocked push as we will send a push.
-		haveBlockedPush := false
-		con.proxy.Lock()
-		request, haveBlockedPush = con.blockedPushes[req.TypeUrl]
-		delete(con.blockedPushes, req.TypeUrl)
-		con.proxy.Unlock()
-		if haveBlockedPush {
-			// we have a blocked push which we will use
-			log.Debugf("%s: DEQUEUE for node:%s", v3.GetShortType(req.TypeUrl), con.proxy.ID)
-		} else {
-			// This is an ACK, no delayed push
-			// Return immediately, no action needed
-			return nil
-		}
+	shouldRespond, delta := s.shouldRespond(con, req)
+	if !shouldRespond {
+		return nil
 	}
 
-	request.Reason = append(request.Reason, model.ProxyRequest)
-	request.Start = con.proxy.LastPushTime
+	request := &model.PushRequest{
+		Full:   true,
+		Push:   con.proxy.LastPushContext,
+		Reason: []model.TriggerReason{model.ProxyRequest},
+
+		// The usage of LastPushTime (rather than time.Now()), is critical here for correctness; This time
+		// is used by the XDS cache to determine if a entry is stale. If we use Now() with an old push context,
+		// we may end up overriding active cache entries with stale ones.
+		Start: con.proxy.LastPushTime,
+		Delta: delta,
+	}
+
 	// SidecarScope for the proxy may not have been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
-	// but before proxy's SidecarScope has been updated(s.updateProxy).
-	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != push.PushVersion {
+	// but proxy's SidecarScope has been updated(s.updateProxy) due to optimizations that skip sidecar scope
+	// computation.
+	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
 		s.computeProxyState(con.proxy, request)
 	}
 	return s.pushXds(con, con.Watched(req.TypeUrl), request)
@@ -339,9 +324,11 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	}
 }
 
+var emptyResourceDelta = model.ResourceDelta{}
+
 // shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
 // using WatchedResource for previous state and discovery request for the current state.
-func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
+func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) (bool, model.ResourceDelta) {
 	stype := v3.GetShortType(request.TypeUrl)
 
 	// If there is an error in request that means previous response is erroneous.
@@ -349,7 +336,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
 		errCode := codes.Code(request.ErrorDetail.Code)
-		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
+		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.conID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
 		if s.StatusGen != nil {
 			s.StatusGen.OnNack(con.proxy, request)
@@ -359,15 +346,15 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 			w.NonceNacked = request.ResponseNonce
 		}
 		con.proxy.Unlock()
-		return false
+		return false, emptyResourceDelta
 	}
 
 	if shouldUnsubscribe(request) {
-		log.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		log.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		delete(con.proxy.WatchedResources, request.TypeUrl)
 		con.proxy.Unlock()
-		return false
+		return false, emptyResourceDelta
 	}
 
 	con.proxy.RLock()
@@ -381,23 +368,23 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
 	if request.ResponseNonce == "" || previousInfo == nil {
-		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
 		con.proxy.Unlock()
-		return true
+		return true, emptyResourceDelta
 	}
 
 	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
 	if request.ResponseNonce != previousInfo.NonceSent {
 		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
-			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
+			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 		con.proxy.Unlock()
-		return false
+		return false, emptyResourceDelta
 	}
 
 	// If it comes here, that means nonce match. This an ACK. We should record
@@ -409,16 +396,23 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
 	con.proxy.Unlock()
 
+	prev := sets.New(previousResources...)
+	cur := sets.New(request.ResourceNames...)
+	removed := prev.Difference(cur)
+	added := cur.Difference(prev)
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
-	if listEqualUnordered(previousResources, request.ResourceNames) {
-		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
-		return false
+	if len(removed) == 0 && len(added) == 0 {
+		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
+		return false, emptyResourceDelta
 	}
-	log.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
-		previousResources, request.ResourceNames, con.ConID, request.VersionInfo, request.ResponseNonce)
+	log.Debugf("ADS:%s: RESOURCE CHANGE added %v removed %v %s %s %s", stype,
+		added, removed, con.conID, request.VersionInfo, request.ResponseNonce)
 
-	return true
+	return true, model.ResourceDelta{
+		Subscribed:   added,
+		Unsubscribed: removed,
+	}
 }
 
 // shouldUnsubscribe checks if we should unsubscribe. This is done when Envoy is
@@ -485,7 +479,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	// way only new push contexts will be registered for this proxy.
 	proxy.LastPushContext = s.globalPushContext()
 	// First request so initialize connection id and start tracking it.
-	con.ConID = connectionID(proxy.ID)
+	con.conID = connectionID(proxy.ID)
 	con.node = node
 	con.proxy = proxy
 
@@ -499,7 +493,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	// a better choice, it introduces a race condition; If we complete initialization of a new push
 	// context between initializeProxy and addCon, we would not get any pushes triggered for the new
 	// push context, leading the proxy to have a stale state until the next full push.
-	s.addCon(con.ConID, con)
+	s.addCon(con.conID, con)
 	// Register that initialization is complete. This triggers to calls that it is safe to access the
 	// proxy
 	defer close(con.initialized)
@@ -517,17 +511,17 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 }
 
 func (s *DiscoveryServer) closeConnection(con *Connection) {
-	if con.ConID == "" {
+	if con.conID == "" {
 		return
 	}
-	s.removeCon(con.ConID)
+	s.removeCon(con.conID)
 	if s.StatusGen != nil {
 		s.StatusGen.OnDisconnect(con)
 	}
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterDisconnect(con.ConID, AllEventTypesList)
+		s.StatusReporter.RegisterDisconnect(con.conID, AllEventTypesList)
 	}
-	s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
+	s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.connectedAt)
 }
 
 func connectionID(node string) string {
@@ -559,7 +553,7 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	proxy := con.proxy
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
-	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
+	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.connectedAt); err != nil {
 		return err
 	}
 	s.computeProxyState(proxy, nil)
@@ -586,7 +580,7 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	// add topology labels to proxy metadata labels
 	proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
-	proxy.DiscoverIPVersions()
+	proxy.DiscoverIPMode()
 
 	proxy.WatchedResources = map[string]*model.WatchedResource{}
 	// Based on node metadata and version, we can associate a different generator.
@@ -659,20 +653,16 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	}
 }
 
-// shouldProcessRequest returns whether or not to continue with the request.
-func (s *DiscoveryServer) shouldProcessRequest(proxy *model.Proxy, req *discovery.DiscoveryRequest) bool {
-	if req.TypeUrl != v3.HealthInfoType {
-		return true
-	}
+// handleWorkloadHealthcheck processes HealthInformation type Url.
+func (s *DiscoveryServer) handleWorkloadHealthcheck(proxy *model.Proxy, req *discovery.DiscoveryRequest) {
 	if features.WorkloadEntryHealthChecks {
-		event := workloadentry.HealthEvent{}
+		event := autoregistration.HealthEvent{}
 		event.Healthy = req.ErrorDetail == nil
 		if !event.Healthy {
 			event.Message = req.ErrorDetail.Message
 		}
 		s.WorkloadEntryController.QueueWorkloadEntryHealth(proxy, event)
 	}
-	return false
 }
 
 // DeltaAggregatedResources is not implemented.
@@ -696,10 +686,10 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
-		log.Debugf("Skipping push to %v, no updates required", con.ConID)
+		log.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version.
-			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, nil)
+			reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, nil)
 		}
 		return nil
 	}
@@ -708,42 +698,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// Each Generator is responsible for determining if the push event requires a push
 	wrl, ignoreEvents := con.pushDetails()
 	for _, w := range wrl {
-		if !features.EnableFlowControl {
-			// Always send the push if flow control disabled
-			if err := s.pushXds(con, w, pushRequest); err != nil {
-				return err
-			}
-			continue
-		}
-		// If flow control is enabled, we will only push if we got an ACK for the previous response
-		synced, timeout := con.Synced(w.TypeUrl)
-		if !synced && timeout {
-			// We are not synced, but we have been stuck for too long. We will trigger the push anyways to
-			// avoid any scenario where this may deadlock.
-			// This can possibly be removed in the future if we find this never causes issues
-			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
-			log.Warnf("%s: QUEUE TIMEOUT for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
-		}
-		if synced || timeout {
-			// Send the push now
-			if err := s.pushXds(con, w, pushRequest); err != nil {
-				return err
-			}
-		} else {
-			// The type is not yet synced. Instead of pushing now, which may overload Envoy,
-			// we will wait until the last push is ACKed and trigger the push. See
-			// https://github.com/istio/istio/issues/25685 for details on the performance
-			// impact of sending pushes before Envoy ACKs.
-			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
-			log.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
-			con.proxy.Lock()
-			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].CopyMerge(pushEv.pushRequest)
-			con.proxy.Unlock()
+		if err := s.pushXds(con, w, pushRequest); err != nil {
+			return err
 		}
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, ignoreEvents)
+		reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, ignoreEvents)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -903,7 +864,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			conn.proxy.Unlock()
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
-		log.Infof("Timeout writing %s", conn.ConID)
+		log.Infof("Timeout writing %s", conn.conID)
 		xdsResponseWriteTimeouts.Increment()
 	}
 	return err
@@ -986,7 +947,7 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set) {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	typeUrls := sets.NewSet()
+	typeUrls := sets.New()
 	for k := range conn.proxy.WatchedResources {
 		typeUrls.Insert(k)
 	}

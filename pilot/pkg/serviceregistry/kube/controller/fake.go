@@ -109,7 +109,7 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, _ string,
 
 func (fx *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
 	select {
-	case fx.Events <- FakeXdsEvent{Type: "removeShard", ID: string(shardKey)}:
+	case fx.Events <- FakeXdsEvent{Type: "removeShard", ID: shardKey.String()}:
 	default:
 	}
 }
@@ -174,7 +174,7 @@ type FakeController struct {
 	*Controller
 }
 
-func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, *FakeXdsUpdater) {
+func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*FakeController, *FakeXdsUpdater) {
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
 		xdsUpdater = NewFakeXDS()
@@ -201,7 +201,6 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		MeshWatcher:               opts.MeshWatcher,
 		EndpointMode:              opts.Mode,
 		ClusterID:                 opts.ClusterID,
-		SyncInterval:              time.Microsecond,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,
 	}
@@ -214,12 +213,18 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	c.stop = opts.Stop
 	if c.stop == nil {
 		c.stop = make(chan struct{})
+		// If we created the stop, clean it up. Otherwise, caller is responsible
+		t.Cleanup(func() {
+			c.Stop()
+		})
 	}
 	opts.Client.RunAndWait(c.stop)
 	var fx *FakeXdsUpdater
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
 		fx = x
 	}
+	go c.Run(c.stop)
+	kubelib.WaitForCacheSync(c.stop, c.HasSynced)
 
 	return &FakeController{c}, fx
 }

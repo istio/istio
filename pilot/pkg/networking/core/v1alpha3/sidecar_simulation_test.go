@@ -392,9 +392,7 @@ func TestInboundClusters(t *testing.T) {
 			name += "-disableinbound"
 		}
 		t.Run(name, func(t *testing.T) {
-			old := features.EnableInboundPassthrough
-			defer func() { features.EnableInboundPassthrough = old }()
-			features.EnableInboundPassthrough = !tt.disableInboundPassthrough
+			test.SetBoolForTest(t, &features.EnableInboundPassthrough, !tt.disableInboundPassthrough)
 			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services:  tt.services,
 				Instances: tt.instances,
@@ -482,9 +480,8 @@ func extractClusterMetadataServices(t test.Failer, c *cluster.Cluster) []string 
 	return res
 }
 
-func TestInbound(t *testing.T) {
-	mtlsMode := func(m string) string {
-		return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+func mtlsMode(m string) string {
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -493,7 +490,9 @@ spec:
   mtls:
     mode: %s
 `, m)
-	}
+}
+
+func TestInbound(t *testing.T) {
 	svc := `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -1192,7 +1191,7 @@ func TestPassthroughTraffic(t *testing.T) {
 				MeshConfig: func() *meshconfig.MeshConfig {
 					m := mesh.DefaultMeshConfig()
 					m.OutboundTrafficPolicy.Mode = tp
-					return &m
+					return m
 				}(),
 			}
 			expectedCluster := map[meshconfig.MeshConfig_OutboundTrafficPolicy_Mode]string{
@@ -1385,7 +1384,11 @@ spec:
 	}
 	expectedTLSContext := func(filterChain *listener.FilterChain) error {
 		tlsContext := &tls.DownstreamTlsContext{}
-		if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
+		ts := filterChain.GetTransportSocket().GetTypedConfig()
+		if ts == nil {
+			return fmt.Errorf("expected transport socket for chain %v", filterChain.GetName())
+		}
+		if err := ts.UnmarshalTo(tlsContext); err != nil {
 			return err
 		}
 		commonTLSContext := tlsContext.CommonTlsContext
@@ -1395,7 +1398,7 @@ spec:
 		if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:httpbin.pem~httpbinkey.pem" {
 			return fmt.Errorf("expected certificate httpbin.pem, actual %s", commonTLSContext.TlsCertificates[0].CertificateChain.String())
 		}
-		if tlsContext.RequireClientCertificate.Value == true {
+		if tlsContext.RequireClientCertificate.Value {
 			return fmt.Errorf("expected RequireClientCertificate to be false")
 		}
 		return nil
@@ -1568,7 +1571,7 @@ spec:
 		},
 	}
 	proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
-	features.EnableTLSOnSidecarIngress = true
+	test.SetBoolForTest(t, &features.EnableTLSOnSidecarIngress, true)
 	for _, tt := range cases {
 		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
 			name:   tt.name,
@@ -1591,6 +1594,7 @@ type Configer interface {
 type vsArgs struct {
 	Namespace string
 	Match     string
+	Matches   []string
 	Dest      string
 	Port      int
 	PortMatch int
@@ -1605,6 +1609,9 @@ func (args vsArgs) Config(variant string) string {
 	if args.PortMatch != 0 {
 		// TODO(v0.4.2) test port match
 		variant = "virtualservice"
+	}
+	if args.Matches == nil {
+		args.Matches = []string{args.Match}
 	}
 	switch variant {
 	case "httproute":
@@ -1622,7 +1629,9 @@ spec:
     port: {{.}}
 {{ end }}
   hostnames:
-  - "{{.Match}}"
+{{- range $val := .Matches }}
+  - "{{$val}}"
+{{ end }}
   rules:
   - backendRefs:
     - kind: Hostname
@@ -1639,7 +1648,9 @@ metadata:
   creationTimestamp: "{{.Time}}"
 spec:
   hosts:
-  - "{{.Match}}"
+{{- range $val := .Matches }}
+  - "{{$val}}"
+{{ end }}
   http:
   - route:
     - destination:
@@ -1957,6 +1968,10 @@ spec:
 				// Oldest wins
 				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
 			},
+			expectedGateway: map[string][]string{
+				// TODO: consumer namespace wins
+				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
+			},
 		},
 		{
 			name: "multiple rules 8080",
@@ -1986,7 +2001,8 @@ spec:
 				// Oldest wins
 				"known-default.example.com": {"outbound|8080||arbitrary.example.com"},
 			},
-			expectedGateway: map[string][]string{ // No implicit port matching for gateway
+			expectedGateway: map[string][]string{
+				// TODO: Consumer gateway wins. No implicit destination port for Gateway
 				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
 			},
 		},
@@ -2028,6 +2044,13 @@ spec:
 				// Matched an exact service, so we have no route for the wildcard
 				"*.example.com": nil,
 			},
+			expectedGateway: map[string][]string{
+				// Exact service matches do not get the wildcard applied
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				"known-default.example.com":     {"outbound|80||known-default.example.com"},
+				// The wildcard
+				"*.example.com": {"outbound|80||arbitrary.example.com"},
+			},
 		},
 		{
 			name: "wildcard first then explicit",
@@ -2053,6 +2076,14 @@ spec:
 				// Matched an exact service, so we have no route for the wildcard
 				"*.example.com": nil,
 			},
+			expectedGateway: map[string][]string{
+				// No overrides, use default
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				// Explicit has precedence
+				"known-default.example.com": {"outbound|80||explicit.example.com"},
+				// Last is our wildcard
+				"*.example.com": {"outbound|80||wild.example.com"},
+			},
 		},
 		{
 			name: "explicit first then wildcard",
@@ -2077,6 +2108,14 @@ spec:
 				"known-default.example.com":     {"outbound|80||explicit.example.com"}, // oldest wins
 				// Matched an exact service, so we have no route for the wildcard
 				"*.example.com": nil,
+			},
+			expectedGateway: map[string][]string{
+				// No overrides, use default
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				// Explicit has precedence
+				"known-default.example.com": {"outbound|80||explicit.example.com"},
+				// Last is our wildcard
+				"*.example.com": {"outbound|80||wild.example.com"},
 			},
 		},
 		{
@@ -2106,6 +2145,14 @@ spec:
 				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
 				"known-default.example.com":     {"outbound|80||wild.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+			expectedGateway: map[string][]string{
+				// No rule imported
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				// Imported rule
+				"known-default.example.com": {"outbound|80||explicit.example.com"},
+				// Not imported
 				"*.example.com": nil,
 			},
 		},
@@ -2162,7 +2209,14 @@ spec:
 				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
 				"known-default.example.com":     {"outbound|80||wild.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
-				"*.example.com": nil,
+				"*.com": nil,
+			},
+			expectedGateway: map[string][]string{
+				// Exact match wins
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				"known-default.example.com":     {"outbound|80||explicit.example.com"},
+				// Wildcard last
+				"*.com": {"outbound|80||wild.example.com"},
 			},
 		},
 		{
@@ -2227,6 +2281,37 @@ spec:
 			routeName: "80",
 			expected: map[string][]string{
 				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
+				"*.example.com":             nil,
+			},
+			expectedGateway: map[string][]string{
+				"known-default.example.com": {"outbound|80||known-default.example.com"},
+				"*.example.com":             nil,
+			},
+		},
+		{
+			name: "non-service wildcard match with explicit sidecar",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.example.org",
+					Dest:      "arbitrary.example.com",
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/explicit.example.org", "*/alt-known-default.example.com"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com":     nil,                                            // Not imported
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"}, // No change
+				"*.example.org":                 {"outbound|80||arbitrary.example.com"},
+			},
+			expectedGateway: map[string][]string{
+				"known-default.example.com":     nil,                                            // Not imported
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"}, // No change
+				"*.example.org":                 nil,                                            // Not imported
 			},
 		},
 		{
@@ -2256,6 +2341,101 @@ spec:
 				"explicit.example.com": nil,
 			},
 		},
+		{
+			name: "same namespace conflict",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "old.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "new.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||old.example.com"}, // oldest wins
+			},
+		},
+		{
+			name: "cross namespace conflict",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "not-default",
+					Match:     "known-default.example.com",
+					Dest:      "producer.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "consumer.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// oldest wins
+				"known-default.example.com": {"outbound|80||producer.example.com"},
+			},
+			expectedGateway: map[string][]string{
+				// TODO: consumer namespace wins
+				"known-default.example.com": {"outbound|80||producer.example.com"},
+			},
+		},
+		{
+			name: "import only a unknown service route",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "a.example.org",
+					Dest:      "example.com",
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/a.example.com"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected:  nil, // We do not even get a route as there is no service on the port
+		},
+		{
+			// https://github.com/istio/istio/issues/37087
+			name: "multi-host import single",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Matches:   []string{"a.example.org", "b.example.org"},
+					Dest:      "example.com",
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/known-default.example.com", "*/a.example.org"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// imported
+				"a.example.org": {"outbound|80||example.com"},
+				// Not imported but we include it anyway
+				"b.example.org": {"outbound|80||example.com"},
+			},
+			expectedGateway: map[string][]string{
+				// imported
+				"a.example.org": {"outbound|80||example.com"},
+				// Not imported but we include it anyway
+				"b.example.org": nil,
+			},
+		},
 	}
 	for _, variant := range []string{"httproute", "virtualservice"} {
 		t.Run(variant, func(t *testing.T) {
@@ -2271,14 +2451,15 @@ spec:
 					xdstest.ValidateRouteConfigurations(t, sim.Routes)
 					r := xdstest.ExtractRouteConfigurations(sim.Routes)
 					vh := r[tt.routeName]
-					if vh == nil {
-						t.Fatalf("route %q not found, have %v", tt.routeName, xdstest.MapKeys(r))
-					}
-					gotHosts := xdstest.ExtractVirtualHosts(r[tt.routeName])
 					exp := tt.expected
 					if variant == "httproute" && tt.expectedGateway != nil {
 						exp = tt.expectedGateway
 					}
+					if vh == nil && exp != nil {
+						t.Fatalf("route %q not found, have %v", tt.routeName, xdstest.MapKeys(r))
+					}
+					gotHosts := xdstest.ExtractVirtualHosts(vh)
+
 					for wk, wv := range exp {
 						got := gotHosts[wk]
 						if !reflect.DeepEqual(wv, got) {

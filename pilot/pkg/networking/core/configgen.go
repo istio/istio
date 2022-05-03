@@ -22,7 +22,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
@@ -48,13 +47,14 @@ type ConfigGenerator interface {
 	BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable
 
 	// BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names. This is the ECDS output.
-	BuildExtensionConfiguration(node *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig
+	BuildExtensionConfiguration(node *model.Proxy, push *model.PushContext, extensionConfigNames []string,
+		pullSecrets map[string][]byte) []*core.TypedExtensionConfig
 
 	// MeshConfigChanged is invoked when mesh config is changed, giving a chance to rebuild any cached config.
 	MeshConfigChanged(mesh *meshconfig.MeshConfig)
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator
-func NewConfigGenerator(plugins []string, cache model.XdsCache) ConfigGenerator {
-	return v1alpha3.NewConfigGenerator(registry.NewPlugins(plugins), cache)
+func NewConfigGenerator(cache model.XdsCache) ConfigGenerator {
+	return v1alpha3.NewConfigGenerator(cache)
 }

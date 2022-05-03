@@ -28,8 +28,8 @@ import (
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	pilot_util "istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // RouteFilter is used to pass filter information into route based config writer print functions
@@ -100,6 +100,12 @@ func describeRouteDomains(domains []string) string {
 	for _, d := range domains {
 		if !strings.Contains(d, ":") {
 			withoutPort = append(withoutPort, d)
+			// if the domain contains IPv6, such as [fd00:10:96::7fc7] and [fd00:10:96::7fc7]:8090
+		} else if strings.Count(d, ":") > 2 {
+			// if the domain is only a IPv6 address, such as [fd00:10:96::7fc7], append it
+			if strings.HasSuffix(d, "]") {
+				withoutPort = append(withoutPort, d)
+			}
 		}
 	}
 	withoutPort = unexpandDomains(withoutPort)
@@ -111,8 +117,8 @@ func describeRouteDomains(domains []string) string {
 }
 
 func unexpandDomains(domains []string) []string {
-	unique := sets.NewSet(domains...)
-	shouldDelete := sets.NewSet()
+	unique := sets.New(domains...)
+	shouldDelete := sets.New()
 	for _, h := range domains {
 		stripFull := strings.TrimSuffix(h, ".svc.cluster.local")
 		if _, f := unique[stripFull]; f && stripFull != h {

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 37415
+releaseNotes:
+- |
+  **Added** a new analyzer for envoy filter patch operations to address issue 37415

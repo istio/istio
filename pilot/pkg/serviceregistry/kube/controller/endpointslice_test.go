@@ -20,14 +20,12 @@ import (
 	"time"
 
 	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 )
 
 func TestGetLocalityFromTopology(t *testing.T) {
@@ -78,10 +76,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 		appName = "prod-app"
 	)
 
-	controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointSliceOnly})
-	go controller.Run(controller.stop)
-	cache.WaitForCacheSync(controller.stop, controller.HasSynced)
-	defer controller.Stop()
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointSliceOnly})
 
 	node := generateNode("node1", map[string]string{
 		NodeZoneLabel:              "zone1",
@@ -119,7 +114,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	}
 
 	// Ensure that getting by port returns no ServiceInstances.
-	instances := controller.InstancesByPort(svc, svc.Ports[0].Port, labels.Collection{})
+	instances := controller.InstancesByPort(svc, svc.Ports[0].Port, nil)
 	if len(instances) != 0 {
 		t.Fatalf("should be 0 instances: len(instances) = %v", len(instances))
 	}

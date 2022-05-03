@@ -23,13 +23,14 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
@@ -50,9 +51,9 @@ func TestJWTHTTPS(t *testing.T) {
 			ns := apps.Namespace1
 			istioSystemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
-			t.ConfigKube().EvalFile(map[string]string{
+			t.ConfigKube().EvalFile(istioSystemNS.Name(), map[string]string{
 				"Namespace": istioSystemNS.Name(),
-			}, filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")).ApplyOrFail(t, istioSystemNS.Name())
+			}, filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")).ApplyOrFail(t)
 
 			for _, cluster := range t.AllClusters() {
 				fetchFn := kube.NewSinglePodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
@@ -71,17 +72,17 @@ func TestJWTHTTPS(t *testing.T) {
 			cases := []struct {
 				name          string
 				policyFile    string
-				customizeCall func(opts *echo.CallOptions)
+				customizeCall func(t resource.Context, from echo.Instance, opts *echo.CallOptions)
 			}{
 				{
 					name:       "valid-token-forward-remote-jwks",
 					policyFile: "./testdata/remotehttps.yaml.tmpl",
-					customizeCall: func(opts *echo.CallOptions) {
+					customizeCall: func(t resource.Context, from echo.Instance, opts *echo.CallOptions) {
 						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(opts),
+							scheck.ReachedClusters(t.AllClusters(), opts),
 							check.RequestHeaders(map[string]string{
 								headers.Authorization: "Bearer " + jwt.TokenIssuer1,
 								"X-Test-Payload":      payload1,
@@ -98,14 +99,13 @@ func TestJWTHTTPS(t *testing.T) {
 								"Namespace": ns.Name(),
 								"dst":       to.Config().Service,
 							}
-							return t.ConfigIstio().EvalFile(args, c.policyFile).
-								Apply(ns.Name(), resource.Wait)
+							return t.ConfigIstio().EvalFile(ns.Name(), args, c.policyFile).Apply(apply.Wait)
 						}).
 						FromMatch(
 							// TODO(JimmyCYJ): enable VM for all test cases.
-							util.SourceMatcher(ns.Name(), true)).
+							util.SourceMatcher(ns, true)).
 						ConditionallyTo(echotest.ReachableDestinations).
-						ToMatch(util.DestMatcher(ns.Name(), true)).
+						ToMatch(util.DestMatcher(ns, true)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							opts := echo.CallOptions{
 								To: to,
@@ -115,7 +115,7 @@ func TestJWTHTTPS(t *testing.T) {
 								Count: util.CallsPerCluster * to.WorkloadsOrFail(t).Len(),
 							}
 
-							c.customizeCall(&opts)
+							c.customizeCall(t, from, &opts)
 
 							from.CallOrFail(t, opts)
 						})

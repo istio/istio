@@ -26,9 +26,9 @@ import (
 	"github.com/miekg/dns"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // NetworkGateway is the gateway of a network
@@ -169,7 +169,7 @@ func (mgr *NetworkManager) reload() NetworkGatewaySet {
 func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway]struct{}) {
 	// filter the list of gateways to resolve
 	hostnameGateways := map[string][]NetworkGateway{}
-	names := sets.NewSet()
+	names := sets.New()
 	for gw := range gatewaySet {
 		if gwIP := net.ParseIP(gw.Addr); gwIP != nil {
 			continue
@@ -515,7 +515,7 @@ type dnsClient struct {
 }
 
 // NetworkGatewayTestDNSServers if set will ignore resolv.conf and use the given DNS servers for tests.
-var NetworkGatewayTestDNSServers []string = nil
+var NetworkGatewayTestDNSServers []string
 
 func newClient() (*dnsClient, error) {
 	servers := NetworkGatewayTestDNSServers
@@ -551,9 +551,8 @@ func (c *dnsClient) Query(req *dns.Msg) *dns.Msg {
 		if err == nil {
 			response = cResponse
 			break
-		} else {
-			log.Infof("upstream dns failure: %v", err)
 		}
+		log.Infof("upstream dns failure: %v", err)
 	}
 	if response == nil {
 		response = new(dns.Msg)

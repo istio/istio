@@ -25,11 +25,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	metadatafake "k8s.io/client-go/metadata/fake"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -40,8 +38,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCache, kube.ExtendedClient) {
-	features.EnableGatewayAPI = true
+func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.ExtendedClient) {
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
 		createCRD(t, fake, s.Resource())
@@ -53,7 +50,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCach
 	}
 	go config.Run(stop)
 	fake.RunAndWait(stop)
-	cache.WaitForCacheSync(stop, config.HasSynced)
+	kube.WaitForCacheSync(stop, config.HasSynced)
 	t.Cleanup(func() {
 		close(stop)
 	})

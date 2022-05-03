@@ -27,8 +27,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/proto/merge"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -118,7 +119,7 @@ func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 			// terminate the function here as we have nothing more do to for this listener
 			return
 		} else if lp.Operation == networking.EnvoyFilter_Patch_MERGE {
-			proto.Merge(listener, lp.Value)
+			merge.Merge(listener, lp.Value)
 		}
 	}
 	patchFilterChains(patchContext, patches, listener)
@@ -187,7 +188,7 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 			if !merged {
-				proto.Merge(fc, lp.Value)
+				merge.Merge(fc, lp.Value)
 			}
 		}
 	}
@@ -229,17 +230,17 @@ func mergeTransportSocketListener(fc *xdslistener.FilterChain, lp *model.EnvoyFi
 			}
 
 			// Merge the above result with the whole listener
-			proto.Merge(dstListener, retVal)
+			merge.Merge(dstListener, retVal)
 		}
 	}
-	// If we already applied the patch, we skip proto.Merge() in the outer function
+	// If we already applied the patch, we skip merge.Merge() in the outer function
 	return applyPatch, nil
 }
 
 func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain) {
-	removedFilters := sets.NewSet()
+	removedFilters := sets.New()
 	for i, filter := range fc.Filters {
 		if patchNetworkFilter(patchContext, patches, listener, fc, fc.Filters[i]) {
 			removedFilters.Insert(filter.Name)
@@ -381,7 +382,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 				// user has any typed struct
 				// The type may not match up exactly. For example, if we use v2 internally but they use v3.
 				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
-				// If we did not do this, proto.Merge below will panic (which is recovered), so even though this
+				// If we did not do this, merge.Merge below will panic (which is recovered), so even though this
 				// is not 100% reliable its better than doing nothing
 				if userFilter.GetTypedConfig().TypeUrl != filter.GetTypedConfig().TypeUrl {
 					userFilter.ConfigType.(*xdslistener.Filter_TypedConfig).TypedConfig.TypeUrl = filter.GetTypedConfig().TypeUrl
@@ -564,7 +565,7 @@ func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 				// user has any typed struct
 				// The type may not match up exactly. For example, if we use v2 internally but they use v3.
 				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
-				// If we did not do this, proto.Merge below will panic (which is recovered), so even though this
+				// If we did not do this, merge.Merge below will panic (which is recovered), so even though this
 				// is not 100% reliable its better than doing nothing
 				if userHTTPFilter.GetTypedConfig().TypeUrl != httpFilter.GetTypedConfig().TypeUrl {
 					userHTTPFilter.ConfigType.(*hcm.HttpFilter_TypedConfig).TypedConfig.TypeUrl = httpFilter.GetTypedConfig().TypeUrl

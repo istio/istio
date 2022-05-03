@@ -32,11 +32,11 @@ DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=1c9e6f499bb4040efb907a40b4067ce956665653
+BUILDER_SHA=7f1056aa6c4e5a892242a605eebb890ffa1f4d59
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
-NEXT_VERSION=1.14
+NEXT_VERSION=1.15
 TAG=$(git rev-parse HEAD)
 VERSION="${NEXT_VERSION}-alpha.${TAG}"
 
@@ -65,9 +65,6 @@ ${DEPENDENCIES:-$(cat <<EOD
     auto: modules
   client-go:
     git: https://github.com/istio/client-go
-    branch: master
-  gogo-genproto:
-    git: https://github.com/istio/gogo-genproto
     branch: master
   test-infra:
     git: https://github.com/istio/test-infra

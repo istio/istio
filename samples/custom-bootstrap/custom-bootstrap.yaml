@@ -5,15 +5,16 @@ metadata:
   namespace: default
 data:
   custom_bootstrap.json: |
-    {
-      "tracing": {
-        "http": {
-          "name": "envoy.zipkin",
-          "config": {
-            "collector_cluster": "zipkin",
-            "collector_endpoint": "/api/v1/spans/custom",
-            "trace_id_128bit": "true"
-          }
+    "tracing": {
+      "http": {
+        "name": "envoy.tracers.zipkin",
+        "typed_config": {
+          "@type": "type.googleapis.com/envoy.config.trace.v3.ZipkinConfig",
+          "collector_cluster": "zipkin",
+          "collector_endpoint": "/api/v1/spans/custom",
+          "collector_endpoint_version": "HTTP_JSON",
+          "trace_id_128bit": true,
+          "shared_span_context": false
         }
       }
     }

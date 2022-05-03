@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/tests/integration/security/util/scheck"
 )
@@ -75,7 +75,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 			}
 			testNS := apps.Namespace
 
-			t.ConfigIstio().YAML(POLICY).ApplyOrFail(t, testNS.Name())
+			t.ConfigIstio().YAML(testNS.Name(), POLICY).ApplyOrFail(t)
 
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
@@ -96,7 +96,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 								Scheme:  s,
 							}
 							if success {
-								opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+								opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 							} else {
 								opts.Check = scheck.NotOK()
 							}

@@ -23,10 +23,10 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
@@ -63,8 +63,8 @@ func TestStrictMTLS(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace.Name()
 			args := map[string]string{"AppNamespace": ns}
-			t.ConfigIstio().Eval(args, PeerAuthenticationConfig).ApplyOrFail(t, ns, resource.Wait)
-			t.ConfigIstio().Eval(args, DestinationRuleConfigIstioMutual).ApplyOrFail(t, ns, resource.Wait)
+			t.ConfigIstio().Eval(ns, args, PeerAuthenticationConfig).ApplyOrFail(t, apply.Wait)
+			t.ConfigIstio().Eval(ns, args, DestinationRuleConfigIstioMutual).ApplyOrFail(t, apply.Wait)
 
 			apps.Client.CallOrFail(t, echo.CallOptions{
 				To: apps.Server,

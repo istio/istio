@@ -19,13 +19,12 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/network"
 	istioagent "istio.io/istio/pkg/istio-agent"
 )
 
 func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, agent *istioagent.Agent) *status.Options {
 	return &status.Options{
-		IPv6:           network.IsIPv6Proxy(proxy.IPAddresses),
+		IPv6:           proxy.IsIPv6(),
 		PodIP:          InstanceIPVar.Get(),
 		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
 		StatusPort:     uint16(proxyConfig.StatusPort),

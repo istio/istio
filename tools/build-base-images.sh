@@ -23,13 +23,23 @@ ROOT=$(dirname "$WD")
 
 set -ex
 
+toJson () {
+        python3 -c '
+import sys, yaml, json
+yml = list(y for y in yaml.safe_load_all(sys.stdin) if y)
+if len(yml) == 1: yml = yml[0]
+json.dump(yml, sys.stdout, indent=4)
+'
+}
+
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 buildx-create
 
 HUBS="${HUBS:?specify a space seperated list of hubs}"
 TAG="${TAG:?specify a tag}"
-DOCKER_TARGETS="${DOCKER_TARGETS:-base,distroless,app_sidecar_base_debian_9,app_sidecar_base_debian_10,app_sidecar_base_ubuntu_xenial,app_sidecar_base_ubuntu_bionic,app_sidecar_base_ubuntu_focal,app_sidecar_base_centos_7,app_sidecar_base_centos_8}"
+defaultTargets="$(< "${ROOT}/tools/docker.yaml" toJson | toJson | jq '[.images[] | select(.base) | .name] | join(",")' -r)"
+DOCKER_TARGETS="${DOCKER_TARGETS:-${defaultTargets}}"
 
 # For multi architecture building:
 # See https://medium.com/@artur.klauser/building-multi-architecture-docker-images-with-buildx-27d80f7e2408 for more info

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"testing"
 
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
@@ -35,7 +34,7 @@ func TestTproxy(t *testing.T) {
 			if t.Settings().Skip(echo.TProxy) {
 				t.Skip()
 			}
-			workloads, err := apps.PodA[0].Workloads()
+			workloads, err := apps.A[0].Workloads()
 			if err != nil {
 				t.Errorf("failed to get Subsets: %v", err)
 				return
@@ -45,15 +44,15 @@ func TestTproxy(t *testing.T) {
 			for _, w := range workloads {
 				srcIps = append(srcIps, w.Address())
 			}
-			checkOriginalSrcIP(t, apps.PodA[0], apps.PodTproxy[0], srcIps)
+			checkOriginalSrcIP(t, apps.A[0], apps.Tproxy[0], srcIps)
 		})
 }
 
 func checkOriginalSrcIP(t framework.TestContext, from echo.Caller, to echo.Target, expected []string) {
 	t.Helper()
-	checker := func(resp echoClient.Responses, inErr error) error {
+	checker := func(result echo.CallResult, inErr error) error {
 		// Check that each response saw one of the workload IPs for the src echo instance
-		for _, r := range resp {
+		for _, r := range result.Responses {
 			found := false
 			for _, ip := range expected {
 				if r.IP == ip {

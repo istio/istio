@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package v1alpha3
 
 import (
@@ -24,8 +23,8 @@ import (
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/tests/fuzz/utils"
@@ -43,7 +42,7 @@ func ValidateTestOptions(to TestOptions) error {
 	}
 	for _, csc := range to.ConfigStoreCaches {
 		if csc == nil {
-			return errors.New("a ConfigStoreCache was nil")
+			return errors.New("a ConfigStoreController was nil")
 		}
 	}
 	for _, sr := range to.ServiceRegistries {
@@ -68,6 +67,9 @@ func InternalFuzzbuildGatewayListeners(data []byte) int {
 	}
 	err = f.GenerateStruct(proxy)
 	if err != nil {
+		return 0
+	}
+	if !proxyValid(proxy) {
 		return 0
 	}
 	lb := &ListenerBuilder{}
@@ -98,6 +100,9 @@ func InternalFuzzbuildSidecarOutboundHTTPRouteConfig(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if !proxyValid(proxy) {
+		return 0
+	}
 	req := &model.PushRequest{}
 	err = f.GenerateStruct(req)
 	if err != nil {
@@ -115,9 +120,12 @@ func InternalFuzzbuildSidecarOutboundHTTPRouteConfig(data []byte) int {
 
 func InternalFuzzbuildSidecarInboundListeners(data []byte) int {
 	f := fuzz.NewConsumer(data)
-	proxy := model.Proxy{}
-	err := f.GenerateStruct(&proxy)
+	proxy := &model.Proxy{}
+	err := f.GenerateStruct(proxy)
 	if err != nil {
+		return 0
+	}
+	if !proxyValid(proxy) {
 		return 0
 	}
 
@@ -174,7 +182,7 @@ func InternalFuzzbuildSidecarInboundListeners(data []byte) int {
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 
 	fmt.Println("Calling our target:")
-	listeners := cg.buildSidecarInboundListeners(&proxy, env.PushContext)
+	listeners := cg.buildSidecarInboundListeners(proxy, env.PushContext)
 	_ = listeners
 	return 1
 }
@@ -196,9 +204,19 @@ func InternalFuzzbuildSidecarOutboundListeners(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if !proxyValid(proxy) {
+		return 0
+	}
 	cg := NewConfigGenTest(t, to)
 	p := cg.SetupProxy(proxy)
 	listeners := cg.ConfigGen.buildSidecarOutboundListeners(p, cg.env.PushContext)
 	_ = listeners
 	return 1
+}
+
+func proxyValid(p *model.Proxy) bool {
+	if len(p.IPAddresses) == 0 {
+		return false
+	}
+	return true
 }

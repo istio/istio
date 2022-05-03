@@ -82,7 +82,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 
 // Run starts the NamespaceController until a value is sent to stopCh.
 func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, nc.namespacesInformer.HasSynced, nc.configMapInformer.HasSynced) {
+	if !kube.WaitForCacheSync(stopCh, nc.namespacesInformer.HasSynced, nc.configMapInformer.HasSynced) {
 		log.Error("Failed to sync namespace controller cache")
 		return
 	}

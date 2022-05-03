@@ -24,13 +24,12 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -98,7 +97,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 		Features(feature).
 		Run(func(t framework.TestContext) {
 			// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
-			t.ConfigIstio().YAML(PeerAuthenticationConfig).ApplyOrFail(t, ist.Settings().SystemNamespace)
+			t.ConfigIstio().YAML(ist.Settings().SystemNamespace, PeerAuthenticationConfig).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
 				cltInstance := cltInstance
@@ -152,9 +151,9 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			for _, prom := range mockProm {
 				st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, server)
 				prom.CallOrFail(t, echo.CallOptions{
-					Address: st.WorkloadsOrFail(t)[0].Address(),
-					Scheme:  scheme.HTTPS,
-					Port:    echo.Port{ServicePort: 15014},
+					ToWorkload: st,
+					Scheme:     scheme.HTTPS,
+					Port:       echo.Port{ServicePort: 15014},
 					HTTP: echo.HTTP{
 						Path: "/metrics",
 					},
@@ -310,10 +309,10 @@ proxyMetadata:
 	for _, c := range ctx.Clusters() {
 		ingr = append(ingr, ist.IngressFor(c))
 	}
-	client = match.ServiceName(model.NamespacedName{Name: "client", Namespace: appNsInst.Name()}).GetMatches(echos)
-	server = match.ServiceName(model.NamespacedName{Name: "server", Namespace: appNsInst.Name()}).GetMatches(echos)
-	nonInjectedServer = match.ServiceName(model.NamespacedName{Name: "server-no-sidecar", Namespace: appNsInst.Name()}).GetMatches(echos)
-	mockProm = match.ServiceName(model.NamespacedName{Name: "mock-prom", Namespace: appNsInst.Name()}).GetMatches(echos)
+	client = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: appNsInst}).GetMatches(echos)
+	server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: appNsInst}).GetMatches(echos)
+	nonInjectedServer = match.ServiceName(echo.NamespacedName{Name: "server-no-sidecar", Namespace: appNsInst}).GetMatches(echos)
+	mockProm = match.ServiceName(echo.NamespacedName{Name: "mock-prom", Namespace: appNsInst}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return

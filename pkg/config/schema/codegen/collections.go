@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config/schema/ast"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const staticResourceTemplate = `
@@ -219,18 +220,18 @@ func StaticCollections(packageName string, m *ast.Metadata, filter func(name str
 		entries = append(entries, e)
 	}
 	// Single instance and sort names
-	names := make(map[string]struct{})
+	names := sets.New()
 
 	for _, r := range m.Resources {
 		if r.ProtoPackage != "" {
-			names[r.ProtoPackage] = struct{}{}
+			names.Insert(r.ProtoPackage)
 		}
 		if r.StatusProtoPackage != "" {
-			names[r.StatusProtoPackage] = struct{}{}
+			names.Insert(r.StatusProtoPackage)
 		}
 	}
 
-	packages := make([]packageImport, 0, len(names))
+	packages := make([]packageImport, 0, names.Len())
 	for p := range names {
 		packages = append(packages, packageImport{p, toImport(p)})
 	}

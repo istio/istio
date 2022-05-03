@@ -42,11 +42,12 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -164,7 +165,7 @@ spec:
 {{- end }}
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
-        image: gcr.io/istio-testing/ext-authz:0.7
+        image: {{ $.ImageHub }}/ext-authz:{{ $.ImageTag }}
         imagePullPolicy: {{ $.ImagePullPolicy }}
         ports:
         - containerPort: 8000
@@ -357,6 +358,13 @@ spec:
         - bash
         - -c
         - |-
+          # To support image builders which cannot do RUN, do the run commands at startup.
+          # This exploits the fact the images remove the installer once its installed.
+          # This is a horrible idea for production images, but these are just for tests.
+          [[ -f /tmp/istio-sidecar-centos-7.rpm ]] && sudo rpm -vi /tmp/istio-sidecar-centos-7.rpm && sudo rm /tmp/istio-sidecar-centos-7.rpm
+          [[ -f /tmp/istio-sidecar.rpm ]] && sudo rpm -vi /tmp/istio-sidecar.rpm && sudo rm /tmp/istio-sidecar.rpm
+          [[ -f /tmp/istio-sidecar.deb ]] && sudo dpkg -i /tmp/istio-sidecar.deb && sudo rm /tmp/istio-sidecar.deb
+
           # Read root cert from and place signed certs here (can't mount directly or the dir would be unwritable)
           sudo mkdir -p /var/run/secrets/istio
 
@@ -415,7 +423,7 @@ spec:
           name: istio-vm-bootstrap
         {{- range $name, $value := $subset.Annotations }}
         {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
-        - mountPath: /etc/istio/custom-bootstrap
+        - mountPath: /etc/istio-custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
         {{- end }}
@@ -493,7 +501,9 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 	}
 
 	// Apply the deployment to the configured cluster.
-	if err = ctx.ConfigKube(cfg.Cluster).YAML(deploymentYAML).Apply(cfg.Namespace.Name(), resource.NoCleanup); err != nil {
+	if err = ctx.ConfigKube(cfg.Cluster).
+		YAML(cfg.Namespace.Name(), deploymentYAML).
+		Apply(apply.NoCleanup); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
 			cfg.ClusterLocalFQDN(), cfg.Cluster.Name(), err)
 	}
@@ -543,7 +553,9 @@ func (d *deployment) WorkloadReady(w *workload) {
 
 	// Deploy the workload entry to the primary cluster. We will read WorkloadEntry across clusters.
 	wle := d.workloadEntryYAML(w)
-	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).YAML(wle).Apply(d.cfg.Namespace.Name(), resource.NoCleanup); err != nil {
+	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).
+		YAML(d.cfg.Namespace.Name(), wle).
+		Apply(apply.NoCleanup); err != nil {
 		log.Warnf("failed deploying echo WLE for %s/%s to primary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
@@ -557,7 +569,7 @@ func (d *deployment) WorkloadNotReady(w *workload) {
 	}
 
 	wle := d.workloadEntryYAML(w)
-	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).YAML(wle).Delete(d.cfg.Namespace.Name()); err != nil {
+	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).YAML(d.cfg.Namespace.Name(), wle).Delete(); err != nil {
 		log.Warnf("failed deleting echo WLE for %s/%s from primary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
@@ -613,13 +625,19 @@ func GenerateService(cfg echo.Config) (string, error) {
 
 var VMImages = map[echo.VMDistro]string{
 	echo.UbuntuXenial: "app_sidecar_ubuntu_xenial",
-	echo.UbuntuFocal:  "app_sidecar_ubuntu_focal",
-	echo.UbuntuBionic: "app_sidecar_ubuntu_bionic",
-	echo.Debian9:      "app_sidecar_debian_9",
-	echo.Debian10:     "app_sidecar_debian_10",
+	echo.UbuntuJammy:  "app_sidecar_ubuntu_jammy",
+	echo.Debian11:     "app_sidecar_debian_11",
 	echo.Centos7:      "app_sidecar_centos_7",
-	echo.Centos8:      "app_sidecar_centos_8",
+	// echo.Rockylinux8:  "app_sidecar_rockylinux_8", TODO(https://github.com/istio/istio/issues/38224)
 }
+
+var RevVMImages = func() map[string]echo.VMDistro {
+	r := map[string]echo.VMDistro{}
+	for k, v := range VMImages {
+		r[v] = k
+	}
+	return r
+}()
 
 func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]interface{}, error) {
 	if settings == nil {
@@ -633,8 +651,13 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 
 	vmImage := VMImages[cfg.VMDistro]
+	_, knownImage := RevVMImages[cfg.VMDistro]
 	if vmImage == "" {
-		vmImage = VMImages[echo.DefaultVMDistro]
+		if knownImage {
+			vmImage = cfg.VMDistro
+		} else {
+			vmImage = VMImages[echo.DefaultVMDistro]
+		}
 		log.Debugf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
 	}
 	namespace := ""
@@ -737,7 +760,9 @@ spec:
 
 	// Push the WorkloadGroup for auto-registration
 	if cfg.AutoRegisterVM {
-		if err := ctx.ConfigKube(cfg.Cluster).YAML(wg).Apply(cfg.Namespace.Name(), resource.NoCleanup); err != nil {
+		if err := ctx.ConfigKube(cfg.Cluster).
+			YAML(cfg.Namespace.Name(), wg).
+			Apply(apply.NoCleanup); err != nil {
 			return err
 		}
 	}
@@ -872,10 +897,10 @@ func patchProxyConfigFile(file string, overrides string) error {
 	}
 	overrideYAML := "defaultConfig:\n"
 	overrideYAML += istio.Indent(overrides, "  ")
-	if err := gogoprotomarshal.ApplyYAML(overrideYAML, config.DefaultConfig); err != nil {
+	if err := protomarshal.ApplyYAML(overrideYAML, config.DefaultConfig); err != nil {
 		return err
 	}
-	outYAML, err := gogoprotomarshal.ToYAML(config)
+	outYAML, err := protomarshal.ToYAML(config)
 	if err != nil {
 		return err
 	}
@@ -888,7 +913,7 @@ func readMeshConfig(file string) (*meshconfig.MeshConfig, error) {
 		return nil, err
 	}
 	config := &meshconfig.MeshConfig{}
-	if err := gogoprotomarshal.ApplyYAML(string(baseYAML), config); err != nil {
+	if err := protomarshal.ApplyYAML(string(baseYAML), config); err != nil {
 		return nil, err
 	}
 	return config, nil

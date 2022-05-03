@@ -73,7 +73,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	scopes.Framework.Info("=== BEGIN: Deploy Stackdriver ===")
 	defer func() {
 		if err != nil {
-			err = fmt.Errorf("stackdriver deployment failed: %v", err) // nolint:golint
+			err = fmt.Errorf("stackdriver deployment failed: %v", err)
 			scopes.Framework.Infof("=== FAILED: Deploy Stackdriver ===")
 			_ = c.Close()
 		} else {

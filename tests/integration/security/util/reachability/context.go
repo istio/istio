@@ -23,13 +23,13 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/scheck"
@@ -110,13 +110,13 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 			}
 
 			// Apply the policy.
-			cfg := t.ConfigIstio().File(filepath.Join("./testdata", c.ConfigFile))
+			cfg := t.ConfigIstio().File(c.Namespace.Name(), filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(t, func() error {
 				t.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return cfg.Apply(c.Namespace.Name(), resource.Wait)
+				return cfg.Apply(apply.Wait)
 			})
-			for _, clients := range []echo.Instances{apps.A, match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B), apps.Headless, apps.Naked, apps.HeadlessNaked} {
+			for _, clients := range []echo.Instances{apps.A, match.Namespace(apps.Namespace1).GetMatches(apps.B), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, from := range clients {
 					from := from
 					t.NewSubTest(fmt.Sprintf("%s in %s",
@@ -169,6 +169,8 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 
 								// TODO(https://github.com/istio/istio/issues/37629) go back to converge
 								opts.Retry.Options = []retry.Option{retry.Converge(1)}
+								// TODO(https://github.com/istio/istio/issues/37629) go back to 5s
+								opts.Timeout = time.Second * 10
 
 								expectSuccess := c.ExpectSuccess(from, opts)
 								expectMTLS := c.ExpectMTLS(from, opts)
@@ -177,7 +179,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 									tpe = "positive"
 									opts.Check = check.And(
 										check.OK(),
-										scheck.ReachedClusters(&opts))
+										scheck.ReachedClusters(t.AllClusters(), &opts))
 									if expectMTLS {
 										opts.Check = check.And(opts.Check,
 											check.MTLSForHTTP())
@@ -200,7 +202,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 										tpe)
 
 									t.NewSubTest(subTestName).
-										RunParallel(func(t framework.TestContext) {
+										Run(func(t framework.TestContext) {
 											// TODO: fix Multiversion related test in multicluster
 											if t.Clusters().IsMulticluster() && apps.Multiversion.ContainsTarget(to) {
 												t.Skip("https://github.com/istio/istio/issues/37307")

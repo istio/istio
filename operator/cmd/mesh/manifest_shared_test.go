@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -30,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -236,7 +235,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 // fakeInstallOperator installs the operator manifest resources into a cluster using the given reconciler.
 // The installation is for testing with a kubebuilder fake cluster only, since no functional Deployment will be
 // created.
-func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType, iop proto.Message) error {
+func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType, iop *v1alpha1.IstioOperator) error {
 	ocArgs := &operatorCommonArgs{
 		manifestsPath:     string(chartSource),
 		istioNamespace:    istioDefaultNamespace,
@@ -254,11 +253,11 @@ func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource 
 	if err := applyWithReconciler(reconciler, mstr); err != nil {
 		return err
 	}
-	iopStr, err := util.MarshalWithJSONPB(iop)
+	iopStr, err := yaml.Marshal(iop)
 	if err != nil {
 		return err
 	}
-	if err := saveIOPToCluster(reconciler, iopStr); err != nil {
+	if err := saveIOPToCluster(reconciler, string(iopStr)); err != nil {
 		return err
 	}
 

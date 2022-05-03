@@ -54,7 +54,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -71,7 +71,7 @@ type ExternalInjector struct {
 	injectorAddress string
 }
 
-func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
+func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, error) {
 	cc := e.clientConfig
 	if cc == nil {
 		return nil, nil
@@ -138,6 +138,9 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 		},
 	}
 	podBytes, err := json.Marshal(pod)
+	if pod.Namespace != "" {
+		deploymentNS = pod.Namespace
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +162,7 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 			RequestResource:    nil,
 			RequestSubResource: "",
 			Name:               pod.Name,
-			Namespace:          pod.Namespace,
+			Namespace:          deploymentNS,
 		},
 		Response: nil,
 	}
@@ -314,7 +317,7 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTempla
 	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
-			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-sidecar-injector configmap exists",
+			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace>` and ensure istio-sidecar-injector configmap exists",
 			injectConfigMapName, istioNamespace, err)
 	}
 	// values in the data are strings, while proto might use a
@@ -452,14 +455,14 @@ func getIOPConfigs() (string, *meshconfig.MeshConfig, error) {
 			return "", nil, err
 		}
 		if iop.Spec.Values != nil {
-			values, err := gogoprotomarshal.ToJSON(iop.Spec.Values)
+			values, err := protomarshal.ToJSON(iop.Spec.Values)
 			if err != nil {
 				return "", nil, err
 			}
 			valuesConfig = values
 		}
 		if iop.Spec.MeshConfig != nil {
-			meshConfigYaml, err := gogoprotomarshal.ToYAML(iop.Spec.MeshConfig)
+			meshConfigYaml, err := protomarshal.ToYAML(iop.Spec.MeshConfig)
 			if err != nil {
 				return "", nil, err
 			}
@@ -590,6 +593,12 @@ It's best to do kube-inject when the resource is initially created.
 			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev, injectorAddress)
 			if err != nil {
 				return err
+			}
+			if injector.client == nil && meshConfig == nil {
+				return fmt.Errorf(
+					"failed to get injection config from mutatingWebhookConfigurations and injection configmap - " +
+						"check injection configmap or pass --revision flag",
+				)
 			}
 			var warnings []string
 			templs, err := inject.ParseTemplates(sidecarTemplate)

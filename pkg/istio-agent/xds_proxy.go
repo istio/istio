@@ -30,7 +30,6 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	gogotypes "github.com/gogo/protobuf/types"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -54,7 +53,6 @@ import (
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/uds"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
@@ -170,8 +168,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
 		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
-			var pc meshconfig.ProxyConfig
-			if err := gogotypes.UnmarshalAny(gogo.ConvertAny(resp), &pc); err != nil {
+			pc := &meshconfig.ProxyConfig{}
+			if err := resp.UnmarshalTo(pc); err != nil {
 				log.Errorf("failed to unmarshal proxy config: %v", err)
 				return err
 			}
@@ -652,7 +650,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(defaultInitialWindowSize))
 	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize))
 	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
-	// Make sure the dial is blocking as we dont want any other operation to resume until the
+	// Make sure the dial is blocking as we don't want any other operation to resume until the
 	// connection to upstream has been made.
 	dialOptions := []grpc.DialOption{
 		tlsOpts,

@@ -28,11 +28,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/controller/workloadentry"
+	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
@@ -80,7 +80,7 @@ func TestVmOSPost(t *testing.T) {
 			for i, image := range images {
 				i, image := i, image
 				t.NewSubTest(image).RunParallel(func(t framework.TestContext) {
-					for _, tt := range common.VMTestCases(echo.Instances{instances[i]}, apps) {
+					for _, tt := range common.VMTestCases(t, echo.Instances{instances[i]}, &apps) {
 						tt.Run(t, apps.Namespace.Name())
 					}
 				})
@@ -99,7 +99,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				t.Skip()
 			}
 			scaleDeploymentOrFail(t, "istiod", i.Settings().SystemNamespace, 2)
-			client := match.Cluster(t.Clusters().Default()).FirstOrFail(t, apps.PodA)
+			client := match.Cluster(t.Clusters().Default()).FirstOrFail(t, apps.A)
 			// TODO test multi-network (must be shared control plane but on different networks)
 			var autoVM echo.Instance
 			_ = deployment.New(t).
@@ -112,7 +112,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				}).BuildOrFail(t)
 			t.NewSubTest("initial registration").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
-					res, err := client.Call(echo.CallOptions{
+					result, err := client.Call(echo.CallOptions{
 						To:   autoVM,
 						Port: autoVM.Config().Ports[0],
 						Retry: echo.Retry{
@@ -121,7 +121,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 					})
 					return check.And(
 						check.NoError(),
-						check.OK()).Check(res, err)
+						check.OK()).Check(result, err)
 				}, retry.Timeout(15*time.Second))
 			})
 			t.NewSubTest("reconnect reuses WorkloadEntry").Run(func(t framework.TestContext) {
@@ -146,7 +146,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				initialWLE := entries[0]
 
 				// keep force-disconnecting until we observe a reconnect to a different istiod instance
-				initialPilot := initialWLE.Annotations[workloadentry.WorkloadControllerAnnotation]
+				initialPilot := initialWLE.Annotations[autoregistration.WorkloadControllerAnnotation]
 				disconnectProxy(t, initialPilot, autoVM)
 				retry.UntilSuccessOrFail(t, func() error {
 					entries := getWorkloadEntriesOrFail(t, autoVM)
@@ -154,7 +154,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 						t.Fatalf("WorkloadEntry was cleaned up unexpectedly")
 					}
 
-					currentPilot := entries[0].Annotations[workloadentry.WorkloadControllerAnnotation]
+					currentPilot := entries[0].Annotations[autoregistration.WorkloadControllerAnnotation]
 					if currentPilot == initialPilot || !strings.HasPrefix(currentPilot, "istiod-") {
 						disconnectProxy(t, currentPilot, autoVM)
 						return errors.New("expected WorkloadEntry to be updated by other pilot")
@@ -200,7 +200,7 @@ func scaleDeploymentOrFail(t framework.TestContext, name, namespace string, scal
 	}
 }
 
-func getWorkloadEntriesOrFail(t framework.TestContext, vm echo.Instance) []v1alpha3.WorkloadEntry {
+func getWorkloadEntriesOrFail(t framework.TestContext, vm echo.Instance) []*v1alpha3.WorkloadEntry {
 	res, err := t.Clusters().Default().Istio().NetworkingV1alpha3().
 		WorkloadEntries(vm.Config().Namespace.Name()).
 		List(context.TODO(), metav1.ListOptions{LabelSelector: "app=" + vm.Config().Service})

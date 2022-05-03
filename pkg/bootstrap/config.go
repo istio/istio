@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -114,7 +115,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
+	if network.AllIPv6(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
@@ -282,6 +283,7 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 		"envoy.reloadable_features.require_strict_1xx_and_204_response_headers":                                "false",
 		"re2.max_program_size.error_level":                                                                     "32768",
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
+		"envoy.reloadable_features.no_extension_lookup_by_name":                                                "false",
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
@@ -412,7 +414,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 		opts = append(opts, option.EnvoyMetricsServiceAddress(config.EnvoyMetricsService.Address),
 			option.EnvoyMetricsServiceTLS(config.EnvoyMetricsService.TlsSettings, metadata),
 			option.EnvoyMetricsServiceTCPKeepalive(config.EnvoyMetricsService.TcpKeepalive))
-	} else if config.EnvoyMetricsServiceAddress != "" {
+	} else if config.EnvoyMetricsServiceAddress != "" { // nolint: staticcheck
 		opts = append(opts, option.EnvoyMetricsServiceAddress(config.EnvoyMetricsService.Address))
 	}
 
@@ -426,7 +428,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 	return opts, nil
 }
 
-func getInt64ValueOrDefault(src *types.Int64Value, defaultVal int64) int64 {
+func getInt64ValueOrDefault(src *wrapperspb.Int64Value, defaultVal int64) int64 {
 	val := defaultVal
 	if src != nil {
 		val = src.Value
@@ -728,11 +730,11 @@ func ParseDownwardAPI(i string) (map[string]string, error) {
 }
 
 func removeDuplicates(values []string) []string {
-	set := make(map[string]struct{})
+	set := sets.New()
 	newValues := make([]string, 0, len(values))
 	for _, v := range values {
-		if _, ok := set[v]; !ok {
-			set[v] = struct{}{}
+		if !set.Contains(v) {
+			set.Insert(v)
 			newValues = append(newValues, v)
 		}
 	}

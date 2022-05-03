@@ -20,9 +20,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -81,7 +81,8 @@ var (
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
 	// TODO enable by default once https://github.com/istio/istio/issues/28315 is resolved
 	// Currently this may cause a bug when we go from N clusters -> 0 clusters -> N clusters
-	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false, "").Get()
+	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
+		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
 
 	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
@@ -342,10 +343,11 @@ var (
 		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
 		"but larger numbers may impact CPU in high scale environments.").Get()
 
-	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
-	// for examples: istiod.mycompany.com
+	// IstiodServiceCustomHost allow user to bring a custom address or multiple custom addresses for istiod server
+	// for examples: 1. istiod.mycompany.com  2. istiod.mycompany.com,istiod-canary.mycompany.com
 	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
-		"Custom host name of istiod that istiod signs the server cert.").Get()
+		"Custom host name of istiod that istiod signs the server cert. "+
+			"Multiple custom host names are supported, and multiple values are separated by commas.").Get()
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
 		"The provider of Pilot DNS certificate.").Get()
@@ -382,7 +384,7 @@ var (
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
-	ExternalIstiod = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
+	ExternalIstiod = env.RegisterBoolVar("EXTERNAL_ISTIOD", true,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
@@ -492,14 +494,6 @@ var (
 	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
-	EnableFlowControl = env.RegisterBoolVar(
-		"PILOT_ENABLE_FLOW_CONTROL",
-		false,
-		"If enabled, pilot will wait for the completion of a receive operation before"+
-			"executing a push operation. This is a form of flow control and is useful in"+
-			"environments with high rates of push requests to each gateway. By default,"+
-			"this is false.").Get()
-
 	FlowControlTimeout = env.RegisterDurationVar(
 		"PILOT_FLOW_CONTROL_TIMEOUT",
 		15*time.Second,
@@ -545,9 +539,22 @@ var (
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
 
+	// EnableUnsafeDeltaTest enables runtime checks to test Delta XDS efficiency. This should never be enabled in
+	// production.
+	EnableUnsafeDeltaTest = env.RegisterBoolVar(
+		"UNSAFE_PILOT_ENABLE_DELTA_TEST",
+		false,
+		"If enabled, addition runtime tests for Delta XDS efficiency are added. "+
+			"These checks are extremely expensive, so this should be used only for testing, not production.",
+	).Get()
+
 	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
+
+	PartialFullPushes = env.RegisterBoolVar("PILOT_PARTIAL_FULL_PUSHES", true,
+		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
+			"This occurs for EDS in many cases regardless of this setting.").Get()
 
 	EnableLegacyIstioMutualCredentialName = env.RegisterBoolVar("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,
@@ -605,6 +612,9 @@ var (
 	EnableTLSOnSidecarIngress = env.RegisterBoolVar("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
 		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
 
+	EnableAutoSni = env.RegisterBoolVar("ENABLE_AUTO_SNI", false,
+		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
+
 	InsecureKubeConfigOptions = func() sets.Set {
 		v := env.RegisterStringVar(
 			"PILOT_INSECURE_MULTICLUSTER_KUBECONFIG_OPTIONS",
@@ -612,7 +622,7 @@ var (
 			"Comma separated list of potentially insecure kubeconfig authentication options that are allowed for multicluster authentication."+
 				"Support values: all authProviders (`gcp`, `azure`, `exec`, `openstack`), "+
 				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
-		return sets.NewSet(strings.Split(v, ",")...)
+		return sets.New(strings.Split(v, ",")...)
 	}()
 
 	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", true,

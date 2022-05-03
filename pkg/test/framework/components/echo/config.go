@@ -23,7 +23,6 @@ import (
 	"github.com/mitchellh/copystructure"
 	"gopkg.in/yaml.v3"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
@@ -44,8 +43,25 @@ type Cluster interface {
 type Configurable interface {
 	Config() Config
 
-	// NamespacedName is a short form for Config().NamespacedName().
-	NamespacedName() model.NamespacedName
+	// ServiceName is the name of this service within the namespace.
+	ServiceName() string
+
+	// NamespaceName returns the name of the namespace or "" if the Namespace is nil.
+	NamespaceName() string
+
+	// NamespacedName returns the namespaced name for this service.
+	// Short form for Config().NamespacedName().
+	NamespacedName() NamespacedName
+
+	// ServiceAccountName returns the service account string for this service.
+	ServiceAccountName() string
+
+	// ClusterLocalFQDN returns the fully qualified domain name for cluster-local host.
+	ClusterLocalFQDN() string
+
+	// ClusterSetLocalFQDN returns the fully qualified domain name for the Kubernetes
+	// Multi-Cluster Services (MCS) Cluster Set host.
+	ClusterSetLocalFQDN() string
 
 	// PortForName is a short form for Config().Ports.MustForName().
 	PortForName(name string) Port
@@ -55,14 +71,12 @@ type VMDistro = string
 
 const (
 	UbuntuXenial VMDistro = "UbuntuXenial"
-	UbuntuFocal  VMDistro = "UbuntuFocal"
-	UbuntuBionic VMDistro = "UbuntuBionic"
-	Debian9      VMDistro = "Debian9"
-	Debian10     VMDistro = "Debian10"
+	UbuntuJammy  VMDistro = "UbuntuJammy"
+	Debian11     VMDistro = "Debian9"
 	Centos7      VMDistro = "Centos7"
-	Centos8      VMDistro = "Centos8"
+	Rockylinux8  VMDistro = "Centos8"
 
-	DefaultVMDistro = UbuntuBionic
+	DefaultVMDistro = UbuntuJammy
 )
 
 // Config defines the options for creating an Echo component.
@@ -153,12 +167,22 @@ type Config struct {
 	IPFamilyPolicy string
 }
 
+// NamespaceName returns the string name of the namespace.
+func (c Config) NamespaceName() string {
+	return c.NamespacedName().NamespaceName()
+}
+
 // NamespacedName returns the namespaced name for the service.
-func (c Config) NamespacedName() model.NamespacedName {
-	return model.NamespacedName{
+func (c Config) NamespacedName() NamespacedName {
+	return NamespacedName{
 		Name:      c.Service,
-		Namespace: c.Namespace.Name(),
+		Namespace: c.Namespace,
 	}
+}
+
+// ServiceAccountName returns the service account name for this service.
+func (c Config) ServiceAccountName() string {
+	return "cluster.local/ns/" + c.NamespaceName() + "/sa/" + c.Service
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
@@ -279,7 +303,7 @@ const (
 	defaultService   = "echo"
 	defaultVersion   = "v1"
 	defaultNamespace = "echo"
-	defaultDomain    = constants.DefaultKubernetesDomain
+	defaultDomain    = constants.DefaultClusterLocalDomain
 )
 
 func (c *Config) FillDefaults(ctx resource.Context) (err error) {

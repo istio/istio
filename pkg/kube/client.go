@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -30,6 +31,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -48,7 +50,6 @@ import (
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
@@ -60,7 +61,6 @@ import (
 	metadatafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/restmapper"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -69,9 +69,9 @@ import (
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
-	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned/fake"
-	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
+	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
 	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
@@ -83,8 +83,10 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	"istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/pkg/version"
 )
 
@@ -97,7 +99,7 @@ const (
 // clients using a shared config. It is expected that all of Istiod can share the same set of clients and
 // informers. Sharing informers is especially important for load on the API server/Istiod itself.
 type Client interface {
-	// TODO - stop embedding this, it will conflict with future additions. Use Kube() instead is preferred
+	// TODO: stop embedding this, it will conflict with future additions. Use Kube() instead is preferred
 	kubernetes.Interface
 	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
 	RESTConfig() *rest.Config
@@ -367,7 +369,10 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	if err != nil {
 		return nil, err
 	}
-	c.mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(c.discoveryClient))
+	c.mapper, err = clientFactory.ToRESTMapper()
+	if err != nil {
+		return nil, err
+	}
 
 	c.Interface, err = kubernetes.NewForConfig(c.config)
 	c.kube = c.Interface
@@ -407,6 +412,12 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	c.extInformer = kubeExtInformers.NewSharedInformerFactory(c.extSet, resyncInterval)
 
 	return &c, nil
+}
+
+// NewDefaultClient returns a default client, using standard Kubernetes config resolution to determine
+// the cluster to access.
+func NewDefaultClient() (ExtendedClient, error) {
+	return NewExtendedClient(BuildClientCmd("", ""), "")
 }
 
 // NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
@@ -566,6 +577,48 @@ func fastWaitForCacheSync(stop <-chan struct{}, informerFactory reflectInformerS
 	})
 }
 
+// WaitForCacheSync waits until all caches are synced. This will return true only if things synced
+// successfully before the stop channel is closed. This function also lives in the Kubernetes cache
+// library. However, that library will poll with 100ms fixed interval. Often the cache syncs in a few
+// ms, but we are delayed a full 100ms. This is especially apparent in tests, which previously spent
+// most of their time just in the 100ms wait interval.
+//
+// To optimize this, this function performs exponential backoff. This is generally safe because
+// cache.InformerSynced functions are ~always quick to run. However, if the sync functions do perform
+// expensive checks this function may not be suitable.
+func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+	max := time.Millisecond * 100
+	delay := time.Millisecond
+	f := func() bool {
+		for _, syncFunc := range cacheSyncs {
+			if !syncFunc() {
+				return false
+			}
+		}
+		return true
+	}
+	for {
+		select {
+		case <-stop:
+			return false
+		default:
+		}
+		res := f()
+		if res {
+			return true
+		}
+		delay *= 2
+		if delay > max {
+			delay = max
+		}
+		select {
+		case <-stop:
+			return false
+		case <-time.After(delay):
+		}
+	}
+}
+
 func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
@@ -582,21 +635,6 @@ func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicIn
 		}
 		return true, nil
 	})
-}
-
-// WaitForCacheSyncInterval waits for caches to populate, with explicitly configured interval
-func WaitForCacheSyncInterval(stopCh <-chan struct{}, interval time.Duration, cacheSyncs ...cache.InformerSynced) bool {
-	err := wait.PollImmediateUntil(interval,
-		func() (bool, error) {
-			for _, syncFunc := range cacheSyncs {
-				if !syncFunc() {
-					return false, nil
-				}
-			}
-			return true, nil
-		},
-		stopCh)
-	return err == nil
 }
 
 func (c *client) Revision() string {
@@ -881,24 +919,28 @@ func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSel
 }
 
 func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
+	g, _ := errgroup.WithContext(context.TODO())
 	for _, f := range removeEmptyFiles(yamlFiles) {
-		if err := c.applyYAMLFile(namespace, false, f); err != nil {
-			return err
-		}
+		f := f
+		g.Go(func() error {
+			return c.applyYAMLFile(namespace, false, f)
+		})
 	}
-	return nil
+	return g.Wait()
 }
 
 func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) error {
+	g, _ := errgroup.WithContext(context.TODO())
 	for _, f := range removeEmptyFiles(yamlFiles) {
-		if err := c.applyYAMLFile(namespace, true, f); err != nil {
-			return err
-		}
+		f := f
+		g.Go(func() error {
+			return c.applyYAMLFile(namespace, true, f)
+		})
 	}
-	return nil
+	return g.Wait()
 }
 
-func (c *client) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
+func (c *client) CreatePerRPCCredentials(_ context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
 	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
 	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds, 60)
 }
@@ -967,21 +1009,48 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		s := stdout.String() + stderr.String()
 		return fmt.Errorf("%v: %s", err, s)
 	}
+	// If we are changing CRDs, invalidate the discovery client so future calls will not fail
+	if !dryRun {
+		f, _ := ioutil.ReadFile(file)
+		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
+			c.discoveryClient.Invalidate()
+		}
+	}
 	return nil
 }
 
 func (c *client) DeleteYAMLFiles(namespace string, yamlFiles ...string) (err error) {
-	for _, f := range removeEmptyFiles(yamlFiles) {
-		err = multierror.Append(err, c.deleteFile(namespace, false, f)).ErrorOrNil()
+	yamlFiles = removeEmptyFiles(yamlFiles)
+
+	// Run each delete concurrently and collect the errors.
+	errs := make([]error, len(yamlFiles))
+	g, _ := errgroup.WithContext(context.TODO())
+	for i, f := range yamlFiles {
+		i, f := i, f
+		g.Go(func() error {
+			errs[i] = c.deleteFile(namespace, false, f)
+			return errs[i]
+		})
 	}
-	return err
+	_ = g.Wait()
+	return multierror.Append(nil, errs...).ErrorOrNil()
 }
 
 func (c *client) DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) (err error) {
-	for _, f := range removeEmptyFiles(yamlFiles) {
-		err = multierror.Append(err, c.deleteFile(namespace, true, f)).ErrorOrNil()
+	yamlFiles = removeEmptyFiles(yamlFiles)
+
+	// Run each delete concurrently and collect the errors.
+	errs := make([]error, len(yamlFiles))
+	g, _ := errgroup.WithContext(context.TODO())
+	for i, f := range yamlFiles {
+		i, f := i, f
+		g.Go(func() error {
+			errs[i] = c.deleteFile(namespace, true, f)
+			return errs[i]
+		})
 	}
-	return err
+	_ = g.Wait()
+	return multierror.Append(nil, errs...).ErrorOrNil()
 }
 
 func (c *client) deleteFile(namespace string, dryRun bool, file string) error {

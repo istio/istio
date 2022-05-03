@@ -44,10 +44,11 @@ var (
 
 // kubeNamespace represents a Kubernetes namespace. It is tracked as a resource.
 type kubeNamespace struct {
-	id     resource.ID
-	name   string
-	prefix string
-	ctx    resource.Context
+	id           resource.ID
+	name         string
+	prefix       string
+	cleanupFuncs []func() error
+	ctx          resource.Context
 }
 
 func (n *kubeNamespace) Dump(ctx resource.Context) {
@@ -120,14 +121,27 @@ func (n *kubeNamespace) ID() resource.ID {
 
 // Close implements io.Closer
 func (n *kubeNamespace) Close() (err error) {
-	if n.name != "" {
-		scopes.Framework.Debugf("%s deleting namespace", n.id)
-		ns := n.name
-		n.name = ""
-
-		for _, c := range n.ctx.Clusters().Kube() {
-			err = c.CoreV1().Namespaces().Delete(context.TODO(), ns, kube2.DeleteOptionsForeground())
+	// Get non-nil cleanup funcs.
+	var cleanupFuncs []func() error
+	for _, fn := range n.cleanupFuncs {
+		if fn != nil {
+			cleanupFuncs = append(cleanupFuncs, fn)
 		}
+	}
+
+	// Clear out the cleanup funcs and name to mark this namespace as closed.
+	n.cleanupFuncs = nil
+	n.name = ""
+
+	if len(cleanupFuncs) > 0 {
+		scopes.Framework.Debugf("%s deleting namespace", n.id)
+
+		g := multierror.Group{}
+		for _, cleanup := range cleanupFuncs {
+			g.Go(cleanup)
+		}
+
+		err = g.Wait().ErrorOrNil()
 	}
 
 	scopes.Framework.Debugf("%s close complete (err:%v)", n.id, err)
@@ -135,47 +149,80 @@ func (n *kubeNamespace) Close() (err error) {
 }
 
 func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
-	for _, cluster := range ctx.Clusters().Kube() {
-		if !kube2.NamespaceExists(cluster, nsConfig.Prefix) {
-			if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   nsConfig.Prefix,
-					Labels: createNamespaceLabels(ctx, nsConfig),
-				},
-			}, metav1.CreateOptions{}); err != nil {
-				return nil, err
-			}
+	clusters := ctx.Clusters().Kube()
+	n := &kubeNamespace{
+		ctx:          ctx,
+		prefix:       nsConfig.Prefix,
+		name:         nsConfig.Prefix,
+		cleanupFuncs: make([]func() error, len(clusters)),
+	}
+
+	id := ctx.TrackResource(n)
+	n.id = id
+	name := nsConfig.Prefix
+
+	g := multierror.Group{}
+	for i, cluster := range clusters {
+		i := i
+		cluster := cluster
+		if !kube2.NamespaceExists(cluster, name) {
+			g.Go(func() error {
+				if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   name,
+						Labels: createNamespaceLabels(ctx, nsConfig),
+					},
+				}, metav1.CreateOptions{}); err != nil {
+					return err
+				}
+
+				n.cleanupFuncs[i] = func() error {
+					return cluster.CoreV1().Namespaces().Delete(context.TODO(), name, kube2.DeleteOptionsForeground())
+				}
+				return nil
+			})
 		}
 	}
-	return &kubeNamespace{prefix: nsConfig.Prefix, name: nsConfig.Prefix, ctx: ctx}, nil
+
+	return n, nil
 }
 
 // setNamespaceLabel labels a namespace with the given key, value pair
 func (n *kubeNamespace) setNamespaceLabel(key, value string) error {
 	// need to convert '/' to '~1' as per the JSON patch spec http://jsonpatch.com/#operations
 	jsonPatchEscapedKey := strings.ReplaceAll(key, "/", "~1")
+	name := n.name
+
+	g := multierror.Group{}
 	for _, cluster := range n.ctx.Clusters().Kube() {
+		cluster := cluster
 		nsLabelPatch := fmt.Sprintf(`[{"op":"replace","path":"/metadata/labels/%s","value":"%s"}]`, jsonPatchEscapedKey, value)
-		if _, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), n.name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{}); err != nil {
+		g.Go(func() error {
+			_, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{})
 			return err
-		}
+		})
 	}
 
-	return nil
+	return g.Wait().ErrorOrNil()
 }
 
 // removeNamespaceLabel removes namespace label with the given key
 func (n *kubeNamespace) removeNamespaceLabel(key string) error {
 	// need to convert '/' to '~1' as per the JSON patch spec http://jsonpatch.com/#operations
 	jsonPatchEscapedKey := strings.ReplaceAll(key, "/", "~1")
+	name := n.name
+
+	g := multierror.Group{}
 	for _, cluster := range n.ctx.Clusters().Kube() {
+		cluster := cluster
 		nsLabelPatch := fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s"}]`, jsonPatchEscapedKey)
-		if _, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), n.name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{}); err != nil {
+		g.Go(func() error {
+			_, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{})
 			return err
-		}
+		})
 	}
 
-	return nil
+	return g.Wait().ErrorOrNil()
 }
 
 // NewNamespace allocates a new testing namespace.
@@ -186,30 +233,48 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	r := rnd.Intn(99999)
 	mu.Unlock()
 
-	ns := fmt.Sprintf("%s-%d-%d", nsConfig.Prefix, nsid, r)
+	clusters := ctx.Clusters().Kube()
+	name := fmt.Sprintf("%s-%d-%d", nsConfig.Prefix, nsid, r)
 	n := &kubeNamespace{
-		name:   ns,
-		prefix: nsConfig.Prefix,
-		ctx:    ctx,
+		name:         name,
+		prefix:       nsConfig.Prefix,
+		ctx:          ctx,
+		cleanupFuncs: make([]func() error, len(clusters)),
 	}
 	id := ctx.TrackResource(n)
 	n.id = id
 
 	s := ctx.Settings()
-	for _, cluster := range n.ctx.Clusters().Kube() {
-		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   ns,
-				Labels: createNamespaceLabels(ctx, nsConfig),
-			},
-		}, metav1.CreateOptions{}); err != nil {
-			return nil, err
-		}
-		if s.Image.PullSecret != "" {
-			if err := cluster.ApplyYAMLFiles(n.name, s.Image.PullSecret); err != nil {
-				return nil, err
+	g := multierror.Group{}
+	for i, cluster := range clusters {
+		i := i
+		cluster := cluster
+
+		g.Go(func() error {
+			if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   name,
+					Labels: createNamespaceLabels(ctx, nsConfig),
+				},
+			}, metav1.CreateOptions{}); err != nil {
+				return err
 			}
-		}
+
+			n.cleanupFuncs[i] = func() error {
+				return cluster.CoreV1().Namespaces().Delete(context.TODO(), name, kube2.DeleteOptionsForeground())
+			}
+
+			if s.Image.PullSecret != "" {
+				if err := cluster.ApplyYAMLFiles(n.name, s.Image.PullSecret); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait().ErrorOrNil(); err != nil {
+		return nil, err
 	}
 
 	return n, nil

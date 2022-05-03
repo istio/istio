@@ -21,10 +21,9 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
-	echoclient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -40,7 +39,7 @@ const callCountMultiplier = 5
 
 type TrafficCall struct {
 	name string
-	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
+	call func(t test.Failer, options echo.CallOptions) echo.CallResult
 	opts echo.CallOptions
 }
 
@@ -58,14 +57,14 @@ type TrafficTestCase struct {
 	children []TrafficCall
 
 	// Single call. Cannot be used with children or workloadAgnostic tests.
-	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
+	call func(t test.Failer, options echo.CallOptions) echo.CallResult
 	// opts specifies the echo call options. When using RunForApps, the To will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
 	setupOpts func(src echo.Caller, opts *echo.CallOptions)
 	// check is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	check     func(src echo.Caller, opts *echo.CallOptions) check.Checker
-	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) check.Checker
+	check     func(src echo.Caller, opts *echo.CallOptions) echo.Checker
+	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) echo.Checker
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip skip
@@ -123,7 +122,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					"dstSvc": dsts[0][0].Config().Service,
 					// tests that use RunForN need all destination deployments
 					"dsts":    dsts,
-					"dstSvcs": dsts.ServiceNames().Names(),
+					"dstSvcs": dsts.NamespacedNames().Names(),
 				}
 				if len(src) > 0 {
 					tmplData["src"] = src
@@ -138,7 +137,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				// we only apply to config clusters
-				return t.ConfigIstio().YAML(cfg).Apply("")
+				return t.ConfigIstio().YAML("", cfg).Apply()
 			}).
 			WithDefaultFilters().
 			FromMatch(match.And(c.sourceMatchers...)).
@@ -210,7 +209,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(t, c.config, namespace)
 			// we only apply to config clusters
-			t.ConfigIstio().YAML(cfg).ApplyOrFail(t, "")
+			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -234,17 +233,17 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	}
 }
 
-func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDeployments) {
+func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *deployment.SingleNamespaceView) {
 	cases := map[string][]TrafficTestCase{}
 	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
 		cases["jwt-claim-route"] = jwtClaimRoute(apps)
 	}
-	cases["virtualservice"] = virtualServiceCases(t.Settings().Skip(echo.VM))
+	cases["virtualservice"] = virtualServiceCases(t, t.Settings().Skip(echo.VM))
 	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases()
-	cases["autopassthrough"] = autoPassthroughCases(apps)
+	cases["autopassthrough"] = autoPassthroughCases(t, apps)
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
@@ -263,14 +262,14 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["use-client-protocol"] = useClientProtocolCases(apps)
 	cases["destinationrule"] = destinationRuleCases(apps)
 	if !t.Settings().Skip(echo.VM) {
-		cases["vm"] = VMTestCases(apps.VM, apps)
+		cases["vm"] = VMTestCases(t, apps.VM, apps)
 	}
 	cases["dns"] = DNSTestCases(apps, i.Settings().EnableCNI)
 	for name, tts := range cases {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
 			for _, tt := range tts {
 				if tt.workloadAgnostic {
-					tt.RunForApps(t, apps.All, apps.Namespace.Name())
+					tt.RunForApps(t, apps.All.Instances(), apps.Namespace.Name())
 				} else {
 					tt.Run(t, apps.Namespace.Name())
 				}

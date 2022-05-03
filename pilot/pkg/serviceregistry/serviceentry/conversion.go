@@ -229,7 +229,7 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 	return out
 }
 
-func (s *ServiceEntryStore) convertEndpoint(service *model.Service, servicePort *networking.Port,
+func (s *Controller) convertEndpoint(service *model.Service, servicePort *networking.Port,
 	wle *networking.WorkloadEntry, configKey *configKey, clusterID cluster.ID) *model.ServiceInstance {
 	var instancePort uint32
 	addr := wle.GetAddress()
@@ -279,7 +279,7 @@ func (s *ServiceEntryStore) convertEndpoint(service *model.Service, servicePort 
 
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
-func (s *ServiceEntryStore) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
+func (s *Controller) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
 	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
@@ -290,7 +290,7 @@ func (s *ServiceEntryStore) convertWorkloadEntryToServiceInstances(wle *networki
 	return out
 }
 
-func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
+func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if serviceEntry == nil {
@@ -348,20 +348,26 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 
 // The workload instance has pointer to the service and its service port.
 // We need to create our own but we can retain the endpoint already created.
-func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpoint, serviceEntryServices []*model.Service,
+func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadInstance, serviceEntryServices []*model.Service,
 	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range serviceEntryServices {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			ep := *workloadInstance
-			ep.ServicePortName = serviceEntryPort.Name
-			// if target port is set, use the target port else fallback to the service port
-			// TODO: we need a way to get the container port map from k8s
-			if serviceEntryPort.TargetPort > 0 {
-				ep.EndpointPort = serviceEntryPort.TargetPort
+			// note: this is same as workloadentry handler
+			// endpoint port will first use the port defined in wle with same port name,
+			// if not port name not match, use the targetPort specified in ServiceEntry
+			// if both not matched, fallback to ServiceEntry port number.
+			var targetPort uint32
+			if port, ok := workloadInstance.PortMap[serviceEntryPort.Name]; ok && port > 0 {
+				targetPort = port
+			} else if serviceEntryPort.TargetPort > 0 {
+				targetPort = serviceEntryPort.TargetPort
 			} else {
-				ep.EndpointPort = serviceEntryPort.Number
+				targetPort = serviceEntryPort.Number
 			}
+			ep := *workloadInstance.Endpoint
+			ep.ServicePortName = serviceEntryPort.Name
+			ep.EndpointPort = targetPort
 			ep.EnvoyEndpoint = nil
 			out = append(out, &model.ServiceInstance{
 				Endpoint:    &ep,
@@ -375,7 +381,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this workload instance when selecting workload entries
-func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
+func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
 	we := convertWorkloadEntry(cfg)
 	addr := we.GetAddress()
 	dnsServiceEntryOnly := false

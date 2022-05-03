@@ -22,9 +22,10 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/gogo/protobuf/types"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/util"
 	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/labels"
@@ -170,11 +171,14 @@ func TestIsCatchAllRoute(t *testing.T) {
 					Headers: []*route.HeaderMatcher{
 						{
 							Name: "Authentication",
-							HeaderMatchSpecifier: &route.HeaderMatcher_SafeRegexMatch{
-								SafeRegexMatch: &matcher.RegexMatcher{
-									// nolint: staticcheck
-									EngineType: &matcher.RegexMatcher_GoogleRe2{},
-									Regex:      "*",
+							HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+								StringMatch: &matcher.StringMatcher{
+									MatchPattern: &matcher.StringMatcher_SafeRegex{
+										SafeRegex: &matcher.RegexMatcher{
+											EngineType: util.RegexEngine,
+											Regex:      "*",
+										},
+									},
 								},
 							},
 						},
@@ -295,7 +299,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			{
 				MatchPattern: &matcher.StringMatcher_SafeRegex{
 					SafeRegex: &matcher.RegexMatcher{
-						EngineType: regexEngine,
+						EngineType: util.RegexEngine,
 						Regex:      "regex",
 					},
 				},
@@ -325,7 +329,7 @@ func TestMirrorPercent(t *testing.T) {
 			name: "zero mirror percent",
 			route: &networking.HTTPRoute{
 				Mirror:        &networking.Destination{},
-				MirrorPercent: &types.UInt32Value{Value: 0.0},
+				MirrorPercent: &wrappers.UInt32Value{Value: 0.0},
 			},
 			want: nil,
 		},
@@ -345,7 +349,7 @@ func TestMirrorPercent(t *testing.T) {
 			name: "mirror with actual percent",
 			route: &networking.HTTPRoute{
 				Mirror:        &networking.Destination{},
-				MirrorPercent: &types.UInt32Value{Value: 50},
+				MirrorPercent: &wrappers.UInt32Value{Value: 50},
 			},
 			want: &core.RuntimeFractionalPercent{
 				DefaultValue: &xdstype.FractionalPercent{
@@ -379,7 +383,7 @@ func TestMirrorPercent(t *testing.T) {
 			name: "mirrorpercentage takes precedence when both are given",
 			route: &networking.HTTPRoute{
 				Mirror:           &networking.Destination{},
-				MirrorPercent:    &types.UInt32Value{Value: 40},
+				MirrorPercent:    &wrappers.UInt32Value{Value: 40},
 				MirrorPercentage: &networking.Percent{Value: 50.0},
 			},
 			want: &core.RuntimeFractionalPercent{
@@ -404,7 +408,7 @@ func TestMirrorPercent(t *testing.T) {
 func TestSourceMatchHTTP(t *testing.T) {
 	type args struct {
 		match          *networking.HTTPMatchRequest
-		proxyLabels    labels.Collection
+		proxyLabels    labels.Instance
 		gatewayNames   map[string]bool
 		proxyNamespace string
 	}

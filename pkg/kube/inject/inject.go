@@ -115,7 +115,7 @@ type (
 )
 
 type Injector interface {
-	Inject(pod *corev1.Pod) ([]byte, error)
+	Inject(pod *corev1.Pod, namespace string) ([]byte, error)
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -306,7 +306,7 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 
 	tag := ""
 	if global.GetTag() != nil { // Tag is an interface but we need the string form.
-		tag = fmt.Sprintf("%v", opconfig.AsInterface(global.GetTag()))
+		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
 	}
 
 	imageType := ""
@@ -336,7 +336,7 @@ func imageURL(hub, imageName, tag, imageType string) string {
 }
 
 // KnownImageTypes are image types that istio pubishes.
-var KnownImageTypes []string = []string{ImageTypeDistroless, ImageTypeDebug}
+var KnownImageTypes = []string{ImageTypeDistroless, ImageTypeDebug}
 
 func updateImageTypeIfPresent(tag string, imageType string) string {
 	if imageType == "" {
@@ -679,6 +679,10 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	if name == "" {
 		name = deploymentMetadata.Name
 	}
+	namespace := metadata.Namespace
+	if namespace == "" {
+		namespace = deploymentMetadata.Namespace
+	}
 
 	var fullName string
 	if deploymentMetadata.Namespace != "" {
@@ -731,7 +735,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	var patchBytes []byte
 	var err error
 	if injector != nil {
-		patchBytes, err = injector.Inject(pod)
+		patchBytes, err = injector.Inject(pod, namespace)
 	}
 	if err != nil {
 		return nil, err
@@ -740,11 +744,12 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	// the ProxyConfig CRs here.
 	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		var merr error
-		meshconfig, merr = mesh.ApplyProxyConfig(pca, *meshconfig)
+		meshconfig, merr = mesh.ApplyProxyConfig(pca, meshconfig)
 		if merr != nil {
 			return nil, merr
 		}
 	}
+
 	if patchBytes == nil {
 		if !injectRequired(IgnoredNamespaces.UnsortedList(), &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
 			warningStr := fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", fullName)

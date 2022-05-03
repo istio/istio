@@ -33,10 +33,10 @@ import (
 	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
@@ -62,7 +62,7 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
 func ExtractSecretResources(t test.Failer, rs []*any.Any) []string {
-	resourceNames := sets.NewSet()
+	resourceNames := sets.New()
 	for _, r := range rs {
 		switch r.TypeUrl {
 		case v3.ClusterType:
@@ -178,6 +178,34 @@ func ExtractFilterChain(name string, l *listener.Listener) *listener.FilterChain
 	return nil
 }
 
+func ExtractFilterChainNames(l *listener.Listener) []string {
+	res := []string{}
+	for _, f := range l.GetFilterChains() {
+		res = append(res, f.GetName())
+	}
+	return res
+}
+
+func ExtractFilterNames(t test.Failer, fcs *listener.FilterChain) ([]string, []string) {
+	nwFilters := []string{}
+	httpFilters := []string{}
+	for _, fc := range fcs.Filters {
+		if fc.Name == wellknown.HTTPConnectionManager {
+			h := &hcm.HttpConnectionManager{}
+			if fc.GetTypedConfig() != nil {
+				if err := fc.GetTypedConfig().UnmarshalTo(h); err != nil {
+					t.Fatalf("failed to unmarshal hcm: %v", err)
+				}
+			}
+			for _, hf := range h.HttpFilters {
+				httpFilters = append(httpFilters, hf.Name)
+			}
+		}
+		nwFilters = append(nwFilters, fc.Name)
+	}
+	return nwFilters, httpFilters
+}
+
 func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *tcpproxy.TcpProxy {
 	for _, fc := range fcs.Filters {
 		if fc.Name == wellknown.TCPProxy {
@@ -219,21 +247,40 @@ func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]
 	return got
 }
 
-func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
+// ExtractHealthEndpoints returns all health and unhealth endpoints
+func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []string) {
 	if cla == nil {
-		return nil
+		return nil, nil
 	}
-	got := []string{}
+	healthy := []string{}
+	unhealthy := []string{}
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
-			if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-				got = append(got, fmt.Sprintf("%s:%d", lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+			if lb.HealthStatus == core.HealthStatus_HEALTHY {
+				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
+					healthy = append(healthy, fmt.Sprintf("%s:%d",
+						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+				} else {
+					healthy = append(healthy, lb.GetEndpoint().Address.GetPipe().Path)
+				}
 			} else {
-				got = append(got, lb.GetEndpoint().Address.GetPipe().Path)
+				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
+					unhealthy = append(unhealthy, fmt.Sprintf("%s:%d",
+						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+				} else {
+					unhealthy = append(unhealthy, lb.GetEndpoint().Address.GetPipe().Path)
+				}
 			}
 		}
 	}
-	return got
+	return healthy, unhealthy
+}
+
+// ExtractEndpoints returns all endpoints in the load assignment (including unhealthy endpoints)
+func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
+	h, uh := ExtractHealthEndpoints(cla)
+	h = append(h, uh...)
+	return h
 }
 
 func ExtractClusters(cc []*cluster.Cluster) map[string]*cluster.Cluster {

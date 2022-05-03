@@ -15,9 +15,9 @@
 package match
 
 import (
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
 // Any doesn't filter out any echos.
@@ -58,18 +58,17 @@ func Not(m Matcher) Matcher {
 }
 
 // ServiceName matches instances with the given namespace and service name.
-func ServiceName(n model.NamespacedName) Matcher {
+func ServiceName(n echo.NamespacedName) Matcher {
 	return func(i echo.Instance) bool {
 		return n == i.NamespacedName()
 	}
 }
 
 // AnyServiceName matches instances if they have the same Service and Namespace as any of the provided instances.
-func AnyServiceName(expected echo.Instances) Matcher {
-	expectedNames := expected.Services().ServiceNames()
+func AnyServiceName(expected echo.NamespacedNames) Matcher {
 	return func(instance echo.Instance) bool {
 		serviceName := instance.NamespacedName()
-		for _, expectedName := range expectedNames {
+		for _, expectedName := range expected {
 			if serviceName == expectedName {
 				return true
 			}
@@ -79,9 +78,14 @@ func AnyServiceName(expected echo.Instances) Matcher {
 }
 
 // Namespace matches instances within the given namespace name.
-func Namespace(namespace string) Matcher {
+func Namespace(n namespace.Instance) Matcher {
+	return NamespaceName(n.Name())
+}
+
+// NamespaceName matches instances within the given namespace name.
+func NamespaceName(ns string) Matcher {
 	return func(i echo.Instance) bool {
-		return i.Config().Namespace.Name() == namespace
+		return i.Config().Namespace.Name() == ns
 	}
 }
 

@@ -15,13 +15,7 @@
 package v1alpha1
 
 import (
-	"encoding/json"
-	"math"
-
-	"github.com/gogo/protobuf/types"
-
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 const (
@@ -37,7 +31,7 @@ func Namespace(iops *v1alpha1.IstioOperatorSpec) string {
 	if iops.Values == nil {
 		return ""
 	}
-	v := AsMap(iops.Values)
+	v := iops.Values.AsMap()
 	if v[globalKey] == nil {
 		return ""
 	}
@@ -55,75 +49,4 @@ func SetNamespace(iops *v1alpha1.IstioOperatorSpec, namespace string) {
 		iops.Namespace = namespace
 	}
 	// TODO implement
-}
-
-func MustNewStruct(m map[string]interface{}) *types.Struct {
-	r, err := NewStruct(m)
-	if err != nil {
-		panic(err.Error())
-	}
-	return r
-}
-
-func NewStruct(m map[string]interface{}) (*types.Struct, error) {
-	b, err := json.Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-	s := &types.Struct{}
-	if err := gogoprotomarshal.ApplyJSON(string(b), s); err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
-func AsMap(x *types.Struct) map[string]interface{} {
-	vs := make(map[string]interface{})
-	for k, v := range x.GetFields() {
-		vs[k] = AsInterface(v)
-	}
-	return vs
-}
-
-func asSlice(x *types.ListValue) []interface{} {
-	vs := make([]interface{}, len(x.GetValues()))
-	for i, v := range x.GetValues() {
-		vs[i] = AsInterface(v)
-	}
-	return vs
-}
-
-func AsInterface(x *types.Value) interface{} {
-	switch v := x.GetKind().(type) {
-	case *types.Value_NumberValue:
-		if v != nil {
-			switch {
-			case math.IsNaN(v.NumberValue):
-				return "NaN"
-			case math.IsInf(v.NumberValue, +1):
-				return "Infinity"
-			case math.IsInf(v.NumberValue, -1):
-				return "-Infinity"
-			default:
-				return v.NumberValue
-			}
-		}
-	case *types.Value_StringValue:
-		if v != nil {
-			return v.StringValue
-		}
-	case *types.Value_BoolValue:
-		if v != nil {
-			return v.BoolValue
-		}
-	case *types.Value_StructValue:
-		if v != nil {
-			return AsMap(v.StructValue)
-		}
-	case *types.Value_ListValue:
-		if v != nil {
-			return asSlice(v.ListValue)
-		}
-	}
-	return nil
 }

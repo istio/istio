@@ -33,8 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -71,14 +69,11 @@ type TestOptions struct {
 	// Additional service registries to use. A ServiceEntry and memory registry will always be created.
 	ServiceRegistries []serviceregistry.Instance
 
-	// Additional ConfigStoreCache to use
-	ConfigStoreCaches []model.ConfigStoreCache
+	// Additional ConfigStoreController to use
+	ConfigStoreCaches []model.ConfigStoreController
 
-	// CreateConfigStore defines a function that, given a ConfigStoreCache, returns another ConfigStoreCache to use
-	CreateConfigStore func(c model.ConfigStoreCache) model.ConfigStoreCache
-
-	// ConfigGen plugins to use. If not set, all default plugins will be used
-	Plugins []plugin.Plugin
+	// CreateConfigStore defines a function that, given a ConfigStoreController, returns another ConfigStoreController to use
+	CreateConfigStore func(c model.ConfigStoreController) model.ConfigStoreController
 
 	// Mutex used for push context access. Should generally only be used by NewFakeDiscoveryServer
 	PushContextLock *sync.RWMutex
@@ -93,11 +88,11 @@ type TestOptions struct {
 type ConfigGenTest struct {
 	t                    test.Failer
 	pushContextLock      *sync.RWMutex
-	store                model.ConfigStoreCache
+	store                model.ConfigStoreController
 	env                  *model.Environment
 	ConfigGen            *ConfigGeneratorImpl
 	MemRegistry          *memregistry.ServiceDiscovery
-	ServiceEntryRegistry *serviceentry.ServiceEntryStore
+	ServiceEntryRegistry *serviceentry.Controller
 	Registry             model.Controller
 	initialConfigs       []config.Config
 	stop                 chan struct{}
@@ -114,7 +109,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	configStore := memory.MakeSkipValidation(collections.PilotGatewayAPI)
 
 	cc := memory.NewSyncController(configStore)
-	controllers := []model.ConfigStoreCache{cc}
+	controllers := []model.ConfigStoreController{cc}
 	if opts.CreateConfigStore != nil {
 		controllers = append(controllers, opts.CreateConfigStore(cc))
 	}
@@ -123,12 +118,11 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 
 	m := opts.MeshConfig
 	if m == nil {
-		def := mesh.DefaultMeshConfig()
-		m = &def
+		m = mesh.DefaultMeshConfig()
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
-	se := serviceentry.NewServiceDiscovery(
+	se := serviceentry.NewController(
 		configController, model.MakeIstioStore(configStore),
 		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
@@ -138,7 +132,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		msd.AddInstance(instance.Service.Hostname, instance)
 	}
 	msd.AddGateways(opts.Gateways...)
-	msd.ClusterID = string(provider.Mock)
+	msd.ClusterID = cluster2.ID(provider.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
 		ClusterID:        cluster2.ID(provider.Mock),
 		ProviderID:       provider.Mock,
@@ -155,13 +149,9 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
 	env.ServiceDiscovery = serviceDiscovery
-	env.IstioConfigStore = model.MakeIstioStore(configController)
+	env.ConfigStore = model.MakeIstioStore(configController)
 	env.NetworksWatcher = opts.NetworksWatcher
 	env.Init()
-
-	if opts.Plugins == nil {
-		opts.Plugins = registry.NewPlugins([]string{plugin.AuthzCustom, plugin.Authn, plugin.Authz})
-	}
 
 	fake := &ConfigGenTest{
 		t:                    t,
@@ -169,7 +159,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		env:                  env,
 		initialConfigs:       configs,
 		stop:                 stop,
-		ConfigGen:            NewConfigGenerator(opts.Plugins, &model.DisabledCache{}),
+		ConfigGen:            NewConfigGenerator(&model.DisabledCache{}),
 		MemRegistry:          msd,
 		Registry:             serviceDiscovery,
 		ServiceEntryRegistry: se,
@@ -216,7 +206,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.14.0"
+		p.Metadata.IstioVersion = "1.15.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)
@@ -245,11 +235,10 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	p.SetSidecarScope(pc)
 	p.SetServiceInstances(f.env.ServiceDiscovery)
 	p.SetGatewaysForProxy(pc)
-	p.DiscoverIPVersions()
+	p.DiscoverIPMode()
 	return p
 }
 
-// TODO do we need lock around push context?
 func (f *ConfigGenTest) Listeners(p *model.Proxy) []*listener.Listener {
 	return f.ConfigGen.BuildListeners(p, f.PushContext())
 }
@@ -287,8 +276,8 @@ func (f *ConfigGenTest) DeltaClusters(
 	return res, removed, delta
 }
 
-func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
-	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, xdstest.ExtractRoutesFromListeners(f.Listeners(p)))
+func (f *ConfigGenTest) RoutesFromListeners(p *model.Proxy, l []*listener.Listener) []*route.RouteConfiguration {
+	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, xdstest.ExtractRoutesFromListeners(l))
 	out := make([]*route.RouteConfiguration, 0, len(resources))
 	for _, resource := range resources {
 		routeConfig := &route.RouteConfiguration{}
@@ -296,6 +285,10 @@ func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
 		out = append(out, routeConfig)
 	}
 	return out
+}
+
+func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
+	return f.RoutesFromListeners(p, f.Listeners(p))
 }
 
 func (f *ConfigGenTest) PushContext() *model.PushContext {
@@ -310,7 +303,7 @@ func (f *ConfigGenTest) Env() *model.Environment {
 	return f.env
 }
 
-func (f *ConfigGenTest) Store() model.ConfigStoreCache {
+func (f *ConfigGenTest) Store() model.ConfigStoreController {
 	return f.store
 }
 

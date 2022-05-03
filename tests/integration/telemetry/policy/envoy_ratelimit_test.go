@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -144,12 +144,13 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.ConfigIstio().File("testdata/rate-limit-configmap.yaml").Apply(ratelimitNs.Name())
+	err = ctx.ConfigIstio().File(ratelimitNs.Name(), "testdata/rate-limit-configmap.yaml").Apply()
 	if err != nil {
 		return
 	}
 
-	err = ctx.ConfigIstio().File(filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml")).Apply(ratelimitNs.Name())
+	err = ctx.ConfigIstio().File(ratelimitNs.Name(), filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml")).
+		Apply()
 	if err != nil {
 		return
 	}
@@ -181,12 +182,12 @@ func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
 		ctx.Fatal(err)
 	}
 
-	err = ctx.ConfigIstio().YAML(con).Apply(ist.Settings().SystemNamespace)
+	err = ctx.ConfigIstio().YAML(ist.Settings().SystemNamespace, con).Apply()
 	if err != nil {
 		ctx.Fatal(err)
 	}
 	return func() {
-		ctx.ConfigIstio().YAML(con).DeleteOrFail(ctx, ist.Settings().SystemNamespace)
+		ctx.ConfigIstio().YAML(ist.Settings().SystemNamespace, con).DeleteOrFail(ctx)
 	}
 }
 
@@ -205,7 +206,7 @@ func sendTrafficAndCheckIfRatelimited(t framework.TestContext) {
 			},
 		}
 
-		responses, err := clt.Call(httpOpts)
-		return check.TooManyRequests().Check(responses, err)
+		result, err := clt.Call(httpOpts)
+		return check.TooManyRequests().Check(result, err)
 	}, retry.Delay(10*time.Second), retry.Timeout(60*time.Second))
 }

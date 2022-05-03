@@ -75,6 +75,8 @@ var (
 
 	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
 		"The grace period ratio for the cert rotation, by default 0.5.").Get()
+	workloadRSAKeySizeEnv = env.RegisterIntVar("WORKLOAD_RSA_KEY_SIZE", 2048,
+		"Specify the RSA key size to use for workload certificates.").Get()
 	pkcs8KeysEnv = env.RegisterBoolVar("PKCS8_KEY", false,
 		"Whether to generate PKCS#8 private keys").Get()
 	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()

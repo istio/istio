@@ -26,7 +26,6 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -178,7 +177,7 @@ func (t TrafficPolicy) String() string {
 // we can import only the service namespace, so the apps are not known
 func createSidecarScope(t framework.TestContext, tPolicy TrafficPolicy, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	args := map[string]string{"ImportNamespace": serviceNamespace.Name(), "TrafficPolicyMode": tPolicy.String()}
-	if err := t.ConfigIstio().Eval(args, SidecarScope).Apply(appsNamespace.Name()); err != nil {
+	if err := t.ConfigIstio().Eval(appsNamespace.Name(), args, SidecarScope).Apply(); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 }
@@ -197,7 +196,7 @@ func mustReadCert(t framework.TestContext, f string) string {
 func createGateway(t framework.TestContext, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	t.Helper()
 	b := tmpl.EvaluateOrFail(t, Gateway, map[string]string{"AppNamespace": appsNamespace.Name()})
-	if err := t.ConfigIstio().YAML(b).Apply(serviceNamespace.Name()); err != nil {
+	if err := t.ConfigIstio().YAML(serviceNamespace.Name(), b).Apply(); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, b)
 	}
 }
@@ -262,14 +261,14 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 							HTTP2:   tc.HTTP2,
 							Headers: headers.New().WithHost(tc.Host).Build(),
 						},
-						Check: func(rs echoClient.Responses, err error) error {
+						Check: func(result echo.CallResult, err error) error {
 							// the expected response from a blackhole test case will have err
 							// set; use the length of the expected code to ignore this condition
 							if err != nil && tc.Expected.StatusCode > 0 {
 								return fmt.Errorf("request failed: %v", err)
 							}
 							codeStr := strconv.Itoa(tc.Expected.StatusCode)
-							for i, r := range rs {
+							for i, r := range result.Responses {
 								if codeStr != r.Code {
 									return fmt.Errorf("response[%d] received status code %s, expected %d", i, r.Code, tc.Expected.StatusCode)
 								}
@@ -359,7 +358,7 @@ func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo
 			},
 		}).BuildOrFail(t)
 
-	if err := t.ConfigIstio().YAML(ServiceEntry).Apply(serviceNamespace.Name()); err != nil {
+	if err := t.ConfigIstio().YAML(serviceNamespace.Name(), ServiceEntry).Apply(); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 

@@ -23,9 +23,9 @@
 package proto
 
 import (
-	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
 )
@@ -225,7 +225,7 @@ type ForwardEchoRequest struct {
 	ServerName string `protobuf:"bytes,20,opt,name=serverName,proto3" json:"serverName,omitempty"`
 	// Expected response determines what string to look for in the response to validate TCP requests succeeded.
 	// If not set, defaults to "StatusCode=200"
-	ExpectedResponse *wrappers.StringValue `protobuf:"bytes,21,opt,name=expectedResponse,proto3" json:"expectedResponse,omitempty"`
+	ExpectedResponse *wrapperspb.StringValue `protobuf:"bytes,21,opt,name=expectedResponse,proto3" json:"expectedResponse,omitempty"`
 }
 
 func (x *ForwardEchoRequest) Reset() {
@@ -400,7 +400,7 @@ func (x *ForwardEchoRequest) GetServerName() string {
 	return ""
 }
 
-func (x *ForwardEchoRequest) GetExpectedResponse() *wrappers.StringValue {
+func (x *ForwardEchoRequest) GetExpectedResponse() *wrapperspb.StringValue {
 	if x != nil {
 		return x.ExpectedResponse
 	}
@@ -589,13 +589,13 @@ func file_test_echo_proto_echo_proto_rawDescGZIP() []byte {
 
 var file_test_echo_proto_echo_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_test_echo_proto_echo_proto_goTypes = []interface{}{
-	(*EchoRequest)(nil),          // 0: proto.EchoRequest
-	(*EchoResponse)(nil),         // 1: proto.EchoResponse
-	(*Header)(nil),               // 2: proto.Header
-	(*ForwardEchoRequest)(nil),   // 3: proto.ForwardEchoRequest
-	(*Alpn)(nil),                 // 4: proto.Alpn
-	(*ForwardEchoResponse)(nil),  // 5: proto.ForwardEchoResponse
-	(*wrappers.StringValue)(nil), // 6: google.protobuf.StringValue
+	(*EchoRequest)(nil),            // 0: proto.EchoRequest
+	(*EchoResponse)(nil),           // 1: proto.EchoResponse
+	(*Header)(nil),                 // 2: proto.Header
+	(*ForwardEchoRequest)(nil),     // 3: proto.ForwardEchoRequest
+	(*Alpn)(nil),                   // 4: proto.Alpn
+	(*ForwardEchoResponse)(nil),    // 5: proto.ForwardEchoResponse
+	(*wrapperspb.StringValue)(nil), // 6: google.protobuf.StringValue
 }
 var file_test_echo_proto_echo_proto_depIdxs = []int32{
 	2, // 0: proto.ForwardEchoRequest.headers:type_name -> proto.Header

@@ -78,7 +78,7 @@ func ConvertHostToFQDN(namespace resource.Namespace, host string) string {
 	// Convert to FQDN only if host is not a wildcard or a FQDN
 	if !strings.HasPrefix(host, "*") &&
 		!strings.Contains(host, ".") {
-		fqdn = host + "." + string(namespace) + "." + DefaultKubernetesDomain
+		fqdn = host + "." + string(namespace) + "." + DefaultClusterLocalDomain
 	}
 	return fqdn
 }

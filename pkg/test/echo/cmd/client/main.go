@@ -87,7 +87,7 @@ where the network configuration doesn't support gRPC to the source pod.'
 				UDS:     uds,
 			})
 			if err != nil {
-				log.Fatalf("Failed to create forwarder: %v", err)
+				log.Fatalf("Failed to create forwarder: %v", err) // nolint: revive
 				os.Exit(-1)
 			}
 
@@ -97,7 +97,7 @@ where the network configuration doesn't support gRPC to the source pod.'
 			}()
 			response, err := f.Run(context.Background())
 			if err != nil {
-				log.Fatalf("Error %s\n", err)
+				log.Fatalf("Error %s\n", err) // nolint: revive
 				os.Exit(-1)
 			}
 

@@ -23,7 +23,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -40,10 +39,11 @@ func init() {
 }
 
 type instance struct {
-	id        resource.ID
-	config    echo.Config
-	address   string
-	workloads echo.Workloads
+	id             resource.ID
+	config         echo.Config
+	address        string
+	workloads      echo.Workloads
+	workloadFilter []echo.Workload
 }
 
 func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, error) {
@@ -109,12 +109,32 @@ func (i *instance) ID() resource.ID {
 	return i.id
 }
 
-func (i *instance) NamespacedName() model.NamespacedName {
+func (i *instance) NamespacedName() echo.NamespacedName {
 	return i.config.NamespacedName()
 }
 
 func (i *instance) PortForName(name string) echo.Port {
 	return i.Config().Ports.MustForName(name)
+}
+
+func (i *instance) ServiceName() string {
+	return i.Config().Service
+}
+
+func (i *instance) NamespaceName() string {
+	return i.Config().NamespaceName()
+}
+
+func (i *instance) ServiceAccountName() string {
+	return i.Config().ServiceAccountName()
+}
+
+func (i *instance) ClusterLocalFQDN() string {
+	return i.Config().ClusterLocalFQDN()
+}
+
+func (i *instance) ClusterSetLocalFQDN() string {
+	return i.Config().ClusterSetLocalFQDN()
 }
 
 func (i *instance) Config() echo.Config {
@@ -129,8 +149,27 @@ func (i *instance) Addresses() []string {
 	return []string{i.address}
 }
 
+func (i *instance) WithWorkloads(wls ...echo.Workload) echo.Instance {
+	n := *i
+	i.workloadFilter = wls
+	return &n
+}
+
 func (i *instance) Workloads() (echo.Workloads, error) {
-	return i.workloads, nil
+	final := []echo.Workload{}
+	for _, wl := range i.workloads {
+		filtered := false
+		for _, filter := range i.workloadFilter {
+			if wl.Address() != filter.Address() {
+				filtered = true
+				break
+			}
+		}
+		if !filtered {
+			final = append(final, wl)
+		}
+	}
+	return final, nil
 }
 
 func (i *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
@@ -162,14 +201,18 @@ func (i *instance) Instances() echo.Instances {
 }
 
 func (i *instance) defaultClient() (*echoClient.Client, error) {
-	return i.workloads[0].(*workload).Client, nil
+	wl, err := i.Workloads()
+	if err != nil {
+		return nil, err
+	}
+	return wl[0].(*workload).Client, nil
 }
 
-func (i *instance) Call(opts echo.CallOptions) (echoClient.Responses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts)
+func (i *instance) Call(opts echo.CallOptions) (echo.CallResult, error) {
+	return common.ForwardEcho(i.Config().Service, i, opts, i.defaultClient)
 }
 
-func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echoClient.Responses {
+func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echo.CallResult {
 	t.Helper()
 	res, err := i.Call(opts)
 	if err != nil {

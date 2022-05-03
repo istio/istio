@@ -221,6 +221,11 @@ def getForwardHeaders(request):
 
         # Application-specific headers to forward.
         'user-agent',
+
+        # Context and session specific headers
+        'cookie',
+        'authorization',
+        'jwt',
     ]
     # For Zipkin, always propagate b3 headers.
     # For Lightstep, always propagate the x-ot-span-context header.

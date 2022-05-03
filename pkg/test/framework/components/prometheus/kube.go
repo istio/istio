@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -73,11 +74,11 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	if err := ctx.ConfigKube().YAML(yaml).Apply(ns, resource.NoCleanup); err != nil {
+	if err := ctx.ConfigKube().YAML(ns, yaml).Apply(apply.NoCleanup); err != nil {
 		return err
 	}
-	ctx.ConditionalCleanup(func() {
-		_ = ctx.ConfigKube().YAML(yaml).Delete(ns)
+	ctx.CleanupConditionally(func() {
+		_ = ctx.ConfigKube().YAML(ns, yaml).Delete()
 	})
 	return nil
 }

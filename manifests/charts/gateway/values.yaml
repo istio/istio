@@ -5,6 +5,8 @@ revision: ""
 
 replicaCount: 1
 
+kind: Deployment
+
 rbac:
   # If enabled, roles will be created to enable accessing certificates from Gateways. This is not needed
   # when using http://gateway-api.org/.
@@ -52,6 +54,7 @@ service:
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
   externalTrafficPolicy: ""
+  externalIPs: []
 
 resources:
   requests:

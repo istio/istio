@@ -27,7 +27,7 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pilot/pkg/controller/workloadentry"
+	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/security"
@@ -109,11 +108,9 @@ type DiscoveryServer struct {
 	// the push context, which means that the next push to a proxy will receive this configuration.
 	CommittedUpdates *atomic.Int64
 
-	// mutex used for protecting shards.
-	mutex sync.RWMutex
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
-	EndpointShardsByService map[string]map[string]*EndpointShards
+	EndpointIndex *model.EndpointIndex
 
 	// pushChannel is the buffer used for debouncing.
 	// after debouncing the pushRequest will be sent to pushQueue
@@ -139,7 +136,7 @@ type DiscoveryServer struct {
 
 	// StatusGen is notified of connect/disconnect/nack on all connections
 	StatusGen               *StatusGen
-	WorkloadEntryController *workloadentry.Controller
+	WorkloadEntryController *autoregistration.Controller
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
 	serverReady atomic.Bool
@@ -162,42 +159,21 @@ type DiscoveryServer struct {
 	ClusterAliases map[cluster.ID]cluster.ID
 }
 
-// EndpointShards holds the set of endpoint shards of a service. Registries update
-// individual shards incrementally. The shards are aggregated and split into
-// clusters when a push for the specific cluster is needed.
-type EndpointShards struct {
-	// mutex protecting below map.
-	mutex sync.RWMutex
-
-	// Shards is used to track the shards. EDS updates are grouped by shard.
-	// Current implementation uses the registry name as key - in multicluster this is the
-	// name of the k8s cluster, derived from the config (secret).
-	Shards map[model.ShardKey][]*model.IstioEndpoint
-
-	// ServiceAccounts has the concatenation of all service accounts seen so far in endpoints.
-	// This is updated on push, based on shards. If the previous list is different than
-	// current list, a full push will be forced, to trigger a secure naming update.
-	// Due to the larger time, it is still possible that connection errors will occur while
-	// CDS is updated.
-	ServiceAccounts sets.Set
-}
-
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string,
-	clusterAliases map[string]string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, instanceID string, clusterAliases map[string]string) *DiscoveryServer {
 	out := &DiscoveryServer{
-		Env:                     env,
-		Generators:              map[string]model.XdsResourceGenerator{},
-		ProxyNeedsPush:          DefaultProxyNeedsPush,
-		EndpointShardsByService: map[string]map[string]*EndpointShards{},
-		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
-		requestRateLimit:        rate.NewLimiter(rate.Limit(features.RequestLimit), 1),
-		InboundUpdates:          atomic.NewInt64(0),
-		CommittedUpdates:        atomic.NewInt64(0),
-		pushChannel:             make(chan *model.PushRequest, 10),
-		pushQueue:               NewPushQueue(),
-		debugHandlers:           map[string]string{},
-		adsClients:              map[string]*Connection{},
+		Env:                 env,
+		Generators:          map[string]model.XdsResourceGenerator{},
+		ProxyNeedsPush:      DefaultProxyNeedsPush,
+		EndpointIndex:       model.NewEndpointIndex(),
+		concurrentPushLimit: make(chan struct{}, features.PushThrottle),
+		requestRateLimit:    rate.NewLimiter(rate.Limit(features.RequestLimit), 1),
+		InboundUpdates:      atomic.NewInt64(0),
+		CommittedUpdates:    atomic.NewInt64(0),
+		pushChannel:         make(chan *model.PushRequest, 10),
+		pushQueue:           NewPushQueue(),
+		debugHandlers:       map[string]string{},
+		adsClients:          map[string]*Connection{},
 		debounceOptions: debounceOptions{
 			debounceAfter:     features.DebounceAfter,
 			debounceMax:       features.DebounceMax,
@@ -216,9 +192,11 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 
 	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
+		// clear the cache as endpoint shards are modified to avoid cache write race
+		out.EndpointIndex.SetCache(out.Cache)
 	}
 
-	out.ConfigGenerator = core.NewConfigGenerator(plugins, out.Cache)
+	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
 
 	return out
 }
@@ -549,7 +527,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 					return
 				case <-closed: // grpc stream was closed
 					doneFunc()
-					log.Infof("Client closed connection %v", client.ConID)
+					log.Infof("Client closed connection %v", client.conID)
 				}
 			}()
 		}
@@ -606,7 +584,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
 
-	s.Generators["api"] = apigen.NewGenerator(env.IstioConfigStore)
+	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen
 
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
@@ -666,7 +644,7 @@ func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery
 		go func() {
 			err := con.stream.Send(res)
 			if err != nil {
-				log.Errorf("Failed to send internal event %s: %v", con.ConID, err)
+				log.Errorf("Failed to send internal event %s: %v", con.conID, err)
 			}
 		}()
 	}

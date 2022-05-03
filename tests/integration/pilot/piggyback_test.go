@@ -34,8 +34,8 @@ func TestPiggyback(t *testing.T) {
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
 			out, _, err := t.Clusters()[0].PodExec(
-				apps.PodA[0].WorkloadsOrFail(t)[0].PodName(),
-				apps.PodA[0].Config().Namespace.Name(),
+				apps.A[0].WorkloadsOrFail(t)[0].PodName(),
+				apps.A.Config().Namespace.Name(),
 				"istio-proxy",
 				"pilot-agent request --debug-port 15004 GET /debug/syncz")
 			if err != nil {
