@@ -1,6 +1,9 @@
-{{- if .Values.autoscaling.enabled }}
+{{- if and (.Values.autoscaling.enabled) (eq .Values.kind "Deployment") }}
 {{- if (semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion)}}
 apiVersion: autoscaling/v2
+{{- else }}
+apiVersion: autoscaling/v2beta2
+{{- end }}
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "gateway.name" . }}
@@ -24,4 +27,5 @@ spec:
         target:
           averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
           type: Utilization
+    {{- end }}
 {{- end }}

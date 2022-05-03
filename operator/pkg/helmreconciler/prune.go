@@ -44,6 +44,8 @@ var (
 	// NamespacedResources orders non cluster scope resources types which should be deleted, first to last
 	NamespacedResources = []schema.GroupVersionKind{
 		{Group: "autoscaling", Version: "v2", Kind: name.HPAStr},
+		{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr},
+		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
 		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
 		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
 		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},

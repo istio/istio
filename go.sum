@@ -1779,8 +1779,8 @@ github.com/quasilyte/go-ruleguard/rules v0.0.0-20210428214800-545e0d2e0bf7/go.mo
 github.com/quasilyte/regex/syntax v0.0.0-20200407221936-30656e2c4a95/go.mod h1:rlzQ04UMyJXu/aOvhd8qT+hvDrFpiwqp8MRXDY9szc0=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/remyoudompheng/bigfft v0.0.0-20170806203942-52369c62f446/go.mod h1:uYEyJGbgTkfkS4+E/PavXkNJcbFIpEtjt2B0KDQ5+9M=
-github.com/richardwxn/api v0.0.1-5249a3a h1:c5TRRq9vdDP98GjhXh9UJHNaz5SyQKkYkjaku/a2Hvw=
-github.com/richardwxn/api v0.0.1-5249a3a/go.mod h1:00myJeQGWma4Y5pboJ+MM4P2uqEWulKA1duC8kYN5Wo=
+github.com/richardwxn/api v0.0.1-4abae4 h1:Lt3F0s/anL/qj0HRxCW4oaqzL5Imcvcf5YigkcwNSjU=
+github.com/richardwxn/api v0.0.1-4abae4/go.mod h1:00myJeQGWma4Y5pboJ+MM4P2uqEWulKA1duC8kYN5Wo=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
 github.com/rivo/uniseg v0.2.0 h1:S1pD9weZBuJdFmowNwbpi7BJ8TNftyUImj/0WQi72jY=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
@@ -3084,6 +3084,10 @@ istio.io/client-go v1.12.0-alpha.5.0.20220505221157-09ee06bb9680 h1:2NhH8stM75sw
 istio.io/client-go v1.12.0-alpha.5.0.20220505221157-09ee06bb9680/go.mod h1:VwfjCZpzueHSUURUfuQgy8Z1qWnlUAx2Masy35FkJeU=
 istio.io/pkg v0.0.0-20220503155136-6392f74eaba4 h1:yLkRtQkQS/7KtH/1aTRYgkmcLKiCnlMalyYrjU3S2f8=
 istio.io/pkg v0.0.0-20220503155136-6392f74eaba4/go.mod h1:kcBYN5TiyGFM2bs4b7K81j+YeDZ4JrINP+brV9ehZe0=
+istio.io/client-go v1.12.0-alpha.5.0.20220426031304-d6188ec78b20 h1:otgPhnSrs8ozVZTiMymIkcnOScw4QbxaJW1nOLJ2PFY=
+istio.io/client-go v1.12.0-alpha.5.0.20220426031304-d6188ec78b20/go.mod h1:V3KM7todZQDldKznJ4skgfEcn9ebWrybOYac7Tmv3tQ=
+istio.io/pkg v0.0.0-20220418200614-813ce651e422 h1:c5+z0k91ZUnPMR+akvTNRo9AnccsTRk50z4MJndXPto=
+istio.io/pkg v0.0.0-20220418200614-813ce651e422/go.mod h1:kcBYN5TiyGFM2bs4b7K81j+YeDZ4JrINP+brV9ehZe0=
 k8s.io/api v0.0.0-20180904230853-4e7be11eab3f/go.mod h1:iuAfoD4hCxJ8Onx9kaTIt30j7jUFS00AXQi6QMi99vA=
 k8s.io/api v0.17.4/go.mod h1:5qxx6vjmwUVG2nHQTKGlLts8Tbok8PzHl4vHtVFuZCA=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
