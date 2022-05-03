@@ -18,9 +18,11 @@
 package security
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
@@ -33,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/scheck"
@@ -47,9 +50,20 @@ func TestRequestAuthentication(t *testing.T) {
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			t.ConfigKube().EvalFile(ns.Name(), map[string]string{
+			// t.ConfigKube().EvalFile(ns.Name(), map[string]string{
+			// 	"Namespace": ns.Name(),
+			// }, "../../../samples/jwt-server/jwt-server.yaml").ApplyOrFail(t)
+			// fmt.Println(shell.Execute(true, fmt.Sprintf("kubectl apply -f %s", filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-secret.yaml"))))
+
+			jwtNs := "jwksns"
+			shell.Execute(false, fmt.Sprintf("kubectl create namespace %s", jwtNs))
+			cmd1 := fmt.Sprintf("kubectl label namespace %s istio-injection=enabled --overwrite", jwtNs)
+			shell.Execute(false, cmd1)
+
+			t.ConfigKube().EvalFile(jwtNs, map[string]string{
 				"Namespace": ns.Name(),
-			}, "../../../samples/jwt-server/jwt-server.yaml").ApplyOrFail(t)
+			}, "../../../samples/jwt-server/jwt-server2.yaml").ApplyOrFail(t)
+			time.Sleep(20 * time.Second)
 
 			type testCase struct {
 				name          string
@@ -230,22 +244,22 @@ func TestRequestAuthentication(t *testing.T) {
 				},
 			}))
 
-			t.NewSubTest("remote").Run(newTest("testdata/requestauthn/remote.yaml.tmpl", []testCase{
-				{
-					name: "valid-token-forward-remote-jwks",
-					customizeCall: func(t resource.Context, from echo.Instance, opts *echo.CallOptions) {
-						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
-						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
-						opts.Check = check.And(
-							check.OK(),
-							scheck.ReachedClusters(t.AllClusters(), opts),
-							check.RequestHeaders(map[string]string{
-								headers.Authorization: "Bearer " + jwt.TokenIssuer1,
-								"X-Test-Payload":      payload1,
-							}))
-					},
-				},
-			}))
+			// t.NewSubTest("remote").Run(newTest("testdata/requestauthn/remote.yaml.tmpl", []testCase{
+			// 	{
+			// 		name: "valid-token-forward-remote-jwks",
+			// 		customizeCall: func(t resource.Context, from echo.Instance, opts *echo.CallOptions) {
+			// 			opts.HTTP.Path = "/valid-token-forward-remote-jwks"
+			// 			opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+			// 			opts.Check = check.And(
+			// 				check.OK(),
+			// 				scheck.ReachedClusters(t.AllClusters(), opts),
+			// 				check.RequestHeaders(map[string]string{
+			// 					headers.Authorization: "Bearer " + jwt.TokenIssuer1,
+			// 					"X-Test-Payload":      payload1,
+			// 				}))
+			// 		},
+			// 	},
+			// }))
 
 			t.NewSubTest("aud").Run(newTest("testdata/requestauthn/aud.yaml.tmpl", []testCase{
 				{

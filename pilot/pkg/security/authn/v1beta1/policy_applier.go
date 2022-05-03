@@ -253,6 +253,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			_, cluster, err := extensionproviders.LookupCluster(push, host, port)
 
 			if err == nil && len(cluster) > 0 {
+				fmt.Println("-----fetching key from envoy------")
 				// This is a case of URI pointing to mesh cluster. Setup Remote Jwks and let Envoy fetch the key.
 				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
 					RemoteJwks: &envoy_jwt.RemoteJwks{
@@ -267,9 +268,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 					},
 				}
 			} else {
+				fmt.Println("-----fetching key from istiod1------")
 				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
 			}
 		} else {
+			fmt.Println("-----fetching key from istiod2------")
 			// Use inline jwks as existing flow, either jwtRule.jwks is non empty or let istiod to fetch the jwtRule.jwksUri
 			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks)
 		}

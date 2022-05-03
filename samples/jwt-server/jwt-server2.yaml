@@ -1,0 +1,132 @@
+# Copyright Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+# Example configurations for deploying a jwt-server server separately in the mesh.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: jwt-server
+  labels:
+    app: jwt-server
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  - name: https
+    port: 8443
+    targetPort: 8443
+  selector:
+    app: jwt-server
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-cert-key-secret
+# command to generate certificate
+# use the generated server.crt, server.key by following https://github.com/istio/istio/blob/master/samples/jwt-server/testdata/README.MD
+stringData: 
+  server.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDUTCCAjmgAwIBAgIUBgwKJzBNhcTSGu53UspoB0Hw/a8wDQYJKoZIhvcNAQEL
+    BQAwRjELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAkFaMRMwEQYDVQQKDApBY21lLCBJ
+    bmMuMRUwEwYDVQQDDAxBY21lIFJvb3QgQ0EwHhcNMjIwNDI5MjA0NDM0WhcNMzIw
+    NDI2MjA0NDM0WjA/MQswCQYDVQQGEwJVUzELMAkGA1UECAwCQVoxEzARBgNVBAoM
+    CkFjbWUsIEluYy4xDjAMBgNVBAMMBSouY29tMIIBIjANBgkqhkiG9w0BAQEFAAOC
+    AQ8AMIIBCgKCAQEAt0C030GFBm5r1rM3Lmrz1vVHXZGGcu+niqQ3T0/tvEfDgeA7
+    2uDdrYFgLw4ZlcoJKHDaWjPWH7uP75m/iFYeuP3R3E2z0ZyEAJf1959cmsL7E60s
+    o9/PSWS4V0L1J8SmUBnog7lrPeWdgULxE5rs9T9fjtsigDJm8xfisFgwYY+/nguU
+    tjOPadtsDU5FOCoQ2OJquj1C4NyM4nYYWplrt4HxgGOaDkvJX2mJUjCppJxWT9rZ
+    u6avLRbtbwzGoARdbvptJWQ1HUO1JF8PS3v3tI6fNZhbgSNNXstpMdHRWfiOlY6a
+    +ejhskikuTlzMg01sNSJGg9ngxjFTu9LMc8fyQIDAQABoz4wPDA6BgNVHREEMzAx
+    ggpqd3Qtc2VydmVygiNqd3Qtc2VydmVyLmp3a3Nucy5zdmMuY2x1c3Rlci5sb2Nh
+    bDANBgkqhkiG9w0BAQsFAAOCAQEAUpymRxKfYR2Ebm4J/rcKrMZ+NiRxySksfxgc
+    a58qD8FGeWWrRVTvYOqeDIffVoVlccIJryoQG7h0lAOVbqNLZhKu77topYm3BEGQ
+    uubgT/3SbTM+WP46MaCaqwqHxLCwxEw4Nl37qoVF5i2mjWhx86Q67C7eb57zWlBp
+    jqQ7jMAStOR8qb4CVnRLhsZk7lL9wft5ohyTFJZ6d9DoM76HI0e/8XcSi6GYCsW8
+    NgyQtee1X2nfV9gq2oQTT8CSUbqJA1IqTrHakrVObPKOvao0z2GZXnrYtbR9Xl/6
+    rFpEr87rWhjJTtUd6ya7PRWGu8YzsO5Zh1lraTgMZBZU4zDiUg==
+    -----END CERTIFICATE-----
+  server.key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC3QLTfQYUGbmvW
+    szcuavPW9UddkYZy76eKpDdPT+28R8OB4Dva4N2tgWAvDhmVygkocNpaM9Yfu4/v
+    mb+IVh64/dHcTbPRnIQAl/X3n1yawvsTrSyj389JZLhXQvUnxKZQGeiDuWs95Z2B
+    QvETmuz1P1+O2yKAMmbzF+KwWDBhj7+eC5S2M49p22wNTkU4KhDY4mq6PULg3Izi
+    dhhamWu3gfGAY5oOS8lfaYlSMKmknFZP2tm7pq8tFu1vDMagBF1u+m0lZDUdQ7Uk
+    Xw9Le/e0jp81mFuBI01ey2kx0dFZ+I6Vjpr56OGySKS5OXMyDTWw1IkaD2eDGMVO
+    70sxzx/JAgMBAAECggEBAI6Bxmab2CwRMNGNGwuA5tEye2YbZlf5YOwjGlQWT0WM
+    9VAJpeJn3lwwcTEGoQToUcjeQh/Fke2peZyVjuoiNtAbqtjMoFsQgWLIyeHgTy6X
+    FJPPpxhlUxi7N9O8YVOkzMUb8MKHLgu7hYnhGgLqBv4NY21/okvZZlADMil621zy
+    EOk1K7ROrCeEX/ZliPO1hEQgy6mcZBuM1i69PwIz69rtGwB+m1bGY7wwnpYF3OWY
+    7to4tnKMjtLzILeee5LE8/Chrwb8BYkHLj4QmgJ1nrNrQBaN+Ov/EHGYiaR0Uk5C
+    SvnfsIJxrVVydgMi/HH8C2bCPG1nei8nuzGc2rffbKUCgYEA2pP03h6ceiX9qlnW
+    YovSlleg2KUQWJ/8zQTkm3y8L3M5ARWCU5ozQDA/JM9aRT/MmWQ24C66e05CdKDQ
+    ft3RVkXDlM2s0tokgzCevHIa9Hh5G+BKeljrUlkcio5iQgqFhfDek5eCF3iolkdG
+    S3S61S6+A5enwvCmM+8hF3Jems8CgYEA1qB7zXweAABmIApKEDnfvTPrviSV/maz
+    8ySaKfGdfhg6V62u/YBy6wzvzMBWZm0CjIcPoW4Bd+ZvY71801phU7HAuDjMl/VZ
+    8DqxUcOLrDHsMiLyoiILn/DbiyUudQq4jTnb5Kyld/8/kPYPqw6ypZx++Zqi9Qh/
+    8pGRknvnYecCgYBSmxgv2eHJSBJWDx22oKE1sGhZeAh1dgFUekTrfnigditU/YwD
+    jINR/uneP38eLL5mOjmDACX589mpuh0R1UMIF9WSpyhph4fFDNrw3S7StbUPk/SR
+    yIkm1gazVpxL2S4dMKrtnJTNygvsv4MRgUwaxU+KjAYa5lfpyLX45oBagQKBgQCk
+    VZT1rUc7MRMBDV/QNL//mrWyjUjb1b+LOEdiPkIcvmhNogsOxz82gl1KJSsCmg0N
+    lIx/Sj+Nkr9PW1MscVN8ReoOJE9jOtV2fzouJM/ZNRBpAyFMy0yjVkSDsiB0NZVB
+    bT/VQ+weiS4ezIkKrOJUtBL1A1Yq0CtHi/YudvifmQKBgGR75qrXDEujA51LcGZv
+    W/bS13LB4ot036vIWK+ImTk0sCayn2UXJW37szX8ncsV+LMxc7upuflHGjeVRF17
+    bTwQ4mDWii4zjXugGRRKHlHcMBX880PTHwo66KGCtM0PzrwMRbsnqABoz9zkaTjk
+    vgHsvSYiDoqo2PXS73Uo5YTc
+    -----END PRIVATE KEY-----
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jwt-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jwt-server
+  template:
+    metadata:
+      labels:
+        app: jwt-server
+    spec:
+      containers:
+      - image: docker.io/istio/jwt-server:0.6
+        imagePullPolicy: IfNotPresent
+        name: jwt-server
+        volumeMounts:
+          - name: certkeysecretresource
+            mountPath: "/app/https/secretresources"
+            readOnly: true
+        args: ["-https", "8443", "-cert", "/app/https/secretresources/server.crt", "-key", "/app/https/secretresources/server.key"]
+        ports:
+        - containerPort: 8000
+        - containerPort: 8443
+      volumes:
+      - name: certkeysecretresource
+        secret:
+          secretName: jwt-cert-key-secret
+          defaultMode: 0400
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: jwks-server-rule
+spec:
+  host: jwt-server.jwksns.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
