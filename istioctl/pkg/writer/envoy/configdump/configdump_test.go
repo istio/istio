@@ -65,7 +65,6 @@ func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
 		callPrime      bool
 		wantErr        bool
 	}{
-		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
 		{
 			name:           "returns expected bootstrap dump from Envoy onto Stdout",
 			callPrime:      true,
