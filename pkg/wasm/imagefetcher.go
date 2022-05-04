@@ -20,7 +20,6 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -40,9 +39,6 @@ import (
 // This file implements the fetcher of "Wasm Image Specification" compatible container images.
 // The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
 // Basically, this supports fetching and unpackaging three types of container images containing a Wasm binary.
-
-var errWasmOCIImageDigestMismatch = errors.New("fetched image's digest does not match the expected one")
-
 type ImageFetcherOption struct {
 	// TODO(mathetake) Add signature verification stuff.
 	PullSecret []byte
@@ -88,8 +84,10 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 	}
 }
 
-// Fetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
-func (o *ImageFetcher) Fetch(url, expManifestDigest string) (ret []byte, actualDigest string, err error) {
+// PrepareFetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
+// Wasm binary is not fetched immediately, but returned by `binaryFetcher` function, which is returned by PrepareFetch.
+// By this way, we can have another chance to check cache with `actualDigest` without downloading the OCI image.
+func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, error), actualDigest string, err error) {
 	ref, err := name.ParseReference(url)
 	if err != nil {
 		err = fmt.Errorf("could not parse url in image reference: %v", err)
@@ -121,49 +119,44 @@ func (o *ImageFetcher) Fetch(url, expManifestDigest string) (ret []byte, actualD
 
 	// Check Manifest's digest if expManifestDigest is not empty.
 	d, _ := img.Digest()
-	if expManifestDigest != "" && d.Hex != expManifestDigest {
-		err = fmt.Errorf("%w: got %s, but want %s", errWasmOCIImageDigestMismatch, d.Hex, expManifestDigest)
-		return
-	}
 	actualDigest = d.Hex
-
-	manifest, err := img.Manifest()
-	if err != nil {
-		err = fmt.Errorf("could not retrieve manifest: %v", err)
-		return
-	}
-
-	if manifest.MediaType == types.DockerManifestSchema2 {
-		// This case, assume we have docker images with "application/vnd.docker.distribution.manifest.v2+json"
-		// as the manifest media type. Note that the media type of manifest is Docker specific and
-		// all OCI images would have an empty string in .MediaType field.
-		ret, err = extractDockerImage(img)
+	binaryFetcher = func() ([]byte, error) {
+		manifest, err := img.Manifest()
 		if err != nil {
-			err = fmt.Errorf("could not extract Wasm file from the image as Docker container %v", err)
-			return
+			return nil, fmt.Errorf("could not retrieve manifest: %v", err)
 		}
-		return
-	}
 
-	// We try to parse it as the "compat" variant image with a single "application/vnd.oci.image.layer.v1.tar+gzip" layer.
-	ret, errCompat := extractOCIStandardImage(img)
-	if errCompat == nil {
-		return
-	}
+		if manifest.MediaType == types.DockerManifestSchema2 {
+			// This case, assume we have docker images with "application/vnd.docker.distribution.manifest.v2+json"
+			// as the manifest media type. Note that the media type of manifest is Docker specific and
+			// all OCI images would have an empty string in .MediaType field.
+			ret, err := extractDockerImage(img)
+			if err != nil {
+				return nil, fmt.Errorf("could not extract Wasm file from the image as Docker container %v", err)
+			}
+			return ret, nil
+		}
 
-	// Otherwise, we try to parse it as the *oci* variant image with custom artifact media types.
-	ret, errOCI := extractOCIArtifactImage(img)
-	if errOCI == nil {
-		return
-	}
+		// We try to parse it as the "compat" variant image with a single "application/vnd.oci.image.layer.v1.tar+gzip" layer.
+		ret, errCompat := extractOCIStandardImage(img)
+		if errCompat == nil {
+			return ret, nil
+		}
 
-	// We failed to parse the image in any format, so wrap the errors and return.
-	err = fmt.Errorf("the given image is in invalid format as an OCI image: %v",
-		multierror.Append(err,
-			fmt.Errorf("could not parse as compat variant: %v", errCompat),
-			fmt.Errorf("could not parse as oci variant: %v", errOCI),
-		),
-	)
+		// Otherwise, we try to parse it as the *oci* variant image with custom artifact media types.
+		ret, errOCI := extractOCIArtifactImage(img)
+		if errOCI == nil {
+			return ret, nil
+		}
+
+		// We failed to parse the image in any format, so wrap the errors and return.
+		return nil, fmt.Errorf("the given image is in invalid format as an OCI image: %v",
+			multierror.Append(err,
+				fmt.Errorf("could not parse as compat variant: %v", errCompat),
+				fmt.Errorf("could not parse as oci variant: %v", errOCI),
+			),
+		)
+	}
 	return
 }
 
