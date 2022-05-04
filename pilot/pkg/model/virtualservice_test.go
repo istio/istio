@@ -1084,6 +1084,44 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			},
 		},
 		{
+			name: "url regex noconflict",
+			root: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+					},
+				},
+			},
+			delegate: []*networking.HTTPMatchRequest{
+				{},
+			},
+			expected: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+					},
+				},
+			},
+		},
+		{
+			name: "url regex conflict",
+			root: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+					},
+				},
+			},
+			delegate: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
 			name: "multi url match",
 			root: []*networking.HTTPMatchRequest{
 				{
@@ -1445,6 +1483,54 @@ func TestHasConflict(t *testing.T) {
 			leaf: &networking.HTTPMatchRequest{
 				Uri: &networking.StringMatch{
 					MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v2"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "regex uri in root and delegate does not have uri",
+			root: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+				},
+			},
+			leaf:     &networking.HTTPMatchRequest{},
+			expected: false,
+		},
+		{
+			name: "regex uri in delegate and root does not have uri",
+			root: &networking.HTTPMatchRequest{},
+			leaf: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "regex uri in root and delegate has conflicting uri match",
+			root: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "regex uri in delegate and root has conflicting uri match",
+			root: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
 				},
 			},
 			expected: true,

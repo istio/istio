@@ -156,25 +156,9 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 	} else {
 		for _, match := range http.Match {
 			if match != nil {
-				if containRegexMatch(match.Uri) {
-					errs = appendErrors(errs, errors.New("url match does not support regex match for delegating"))
-				}
-				if containRegexMatch(match.Scheme) {
-					errs = appendErrors(errs, errors.New("scheme match does not support regex match for delegating"))
-				}
-				if containRegexMatch(match.Method) {
-					errs = appendErrors(errs, errors.New("method match does not support regex match for delegating"))
-				}
-				if containRegexMatch(match.Authority) {
-					errs = appendErrors(errs, errors.New("authority match does not support regex match for delegating"))
-				}
-
 				for name, header := range match.Headers {
 					if header == nil {
 						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
-					}
-					if containRegexMatch(header) {
-						errs = appendErrors(errs, fmt.Errorf("header match %v does not support regex match for delegating", name))
 					}
 					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 				}
@@ -182,16 +166,10 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 					if param == nil {
 						errs = appendErrors(errs, fmt.Errorf("query param match %v cannot be null", name))
 					}
-					if containRegexMatch(param) {
-						errs = appendErrors(errs, fmt.Errorf("query param match %v does not support regex match for delegating", name))
-					}
 				}
 				for name, header := range match.WithoutHeaders {
 					if header == nil {
 						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v cannot be null", name))
-					}
-					if containRegexMatch(header) {
-						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v does not support regex match for delegating", name))
 					}
 					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 				}
@@ -256,18 +234,6 @@ func validateHTTPRouteConflict(http *networking.HTTPRoute, routeType HTTPRouteTy
 	}
 
 	return errs
-}
-
-func containRegexMatch(config *networking.StringMatch) bool {
-	if config == nil {
-		return false
-	}
-	switch config.GetMatchType().(type) {
-	case *networking.StringMatch_Regex:
-		return true
-	default:
-		return false
-	}
 }
 
 // isInternalHeader returns true if a header refers to an internal value that cannot be modified by Envoy

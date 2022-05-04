@@ -483,9 +483,17 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 	if root == nil || leaf == nil {
 		return false
 	}
-	// regex match is not allowed
-	if root.GetRegex() != "" || leaf.GetRegex() != "" {
-		return true
+	// If root regex match is specified, delegate should not have other matches.
+	if root.GetRegex() != "" {
+		if leaf.GetRegex() != "" || leaf.GetPrefix() != "" || leaf.GetExact() != "" {
+			return true
+		}
+	}
+	// If delgate regex match is specified, root should not have other matches.
+	if leaf.GetRegex() != "" {
+		if root.GetRegex() != "" || root.GetPrefix() != "" || root.GetExact() != "" {
+			return true
+		}
 	}
 	// root is exact match
 	if exact := root.GetExact(); exact != "" {
