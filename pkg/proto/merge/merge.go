@@ -25,6 +25,7 @@ package merge
 
 import (
 	"fmt"
+	"sync"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -74,6 +75,8 @@ var options = []OptionFn{
 	MergeFunctionOptionFn((&durationpb.Duration{}).ProtoReflect().Descriptor().FullName(), ReplaceMergeFn),
 }
 
+var mergeMutex = sync.Mutex{}
+
 // Merge does a proto merge by applying any custom merge functions.
 func Merge(dst, src proto.Message) proto.Message {
 	return merge(dst, src, options...)
@@ -82,10 +85,9 @@ func Merge(dst, src proto.Message) proto.Message {
 // MustClone registers a clone function that tells whether we should clone the message before merging.
 // This is used in cases where we cache proto messages that can be modified via Envoy filters.
 func MustClone(msg proto.Message, cloneFn CloneFunction) proto.Message {
-	copied := make([]OptionFn, 0)
-	copied = append(copied, options...)
-	copied = append(copied, CloneFunctionOptionFn(msg.ProtoReflect().Descriptor().FullName(), cloneFn))
-	options = copied
+	mergeMutex.Lock()
+	defer mergeMutex.Unlock()
+	options = append(options, CloneFunctionOptionFn(msg.ProtoReflect().Descriptor().FullName(), cloneFn))
 	return msg
 }
 
