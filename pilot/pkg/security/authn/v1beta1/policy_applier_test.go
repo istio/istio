@@ -486,73 +486,6 @@ func TestJwtFilter(t *testing.T) {
 			},
 		},
 		{
-			name: "JWT policy with bad Jwks URI",
-			in: []*config.Config{
-				{
-					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWTRule{
-							{
-								Issuer:  "https://secret.foo.com",
-								JwksUri: "http://site.not.exist",
-							},
-						},
-					},
-				},
-			},
-			expected: &http_conn.HttpFilter{
-				Name: "envoy.filters.http.jwt_authn",
-				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(
-						&envoy_jwt.JwtAuthentication{
-							Rules: []*envoy_jwt.RequirementRule{
-								{
-									Match: &route.RouteMatch{
-										PathSpecifier: &route.RouteMatch_Prefix{
-											Prefix: "/",
-										},
-									},
-									RequirementType: &envoy_jwt.RequirementRule_Requires{
-										Requires: &envoy_jwt.JwtRequirement{
-											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-												RequiresAny: &envoy_jwt.JwtRequirementOrList{
-													Requirements: []*envoy_jwt.JwtRequirement{
-														{
-															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
-																ProviderName: "origins-0",
-															},
-														},
-														{
-															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
-																AllowMissing: &emptypb.Empty{},
-															},
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-							Providers: map[string]*envoy_jwt.JwtProvider{
-								"origins-0": {
-									Issuer: "https://secret.foo.com",
-									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
-										LocalJwks: &core.DataSource{
-											Specifier: &core.DataSource_InlineString{
-												InlineString: model.CreateFakeJwks("http://site.not.exist"),
-											},
-										},
-									},
-									Forward:           false,
-									PayloadInMetadata: "https://secret.foo.com",
-								},
-							},
-							BypassCorsPreflight: true,
-						}),
-				},
-			},
-		},
-		{
 			name: "Forward original token",
 			in: []*config.Config{
 				{
@@ -683,6 +616,73 @@ func TestJwtFilter(t *testing.T) {
 									Forward:              true,
 									ForwardPayloadHeader: "x-foo",
 									PayloadInMetadata:    "https://secret.foo.com",
+								},
+							},
+							BypassCorsPreflight: true,
+						}),
+				},
+			},
+		},
+		{
+			name: "JWT policy with bad Jwks URI",
+			in: []*config.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "https://secret.foo.com",
+								JwksUri: "http://site.not.exist",
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									RequirementType: &envoy_jwt.RequirementRule_Requires{
+										Requires: &envoy_jwt.JwtRequirement{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+												RequiresAny: &envoy_jwt.JwtRequirementOrList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																ProviderName: "origins-0",
+															},
+														},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																AllowMissing: &emptypb.Empty{},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "https://secret.foo.com",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+										LocalJwks: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: model.CreateFakeJwks("http://site.not.exist"),
+											},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "https://secret.foo.com",
 								},
 							},
 							BypassCorsPreflight: true,
