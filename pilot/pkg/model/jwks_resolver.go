@@ -372,7 +372,6 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 
 	for i := 0; i < retry; i++ {
 		body, err := getPublicKey()
-		fmt.Println(r.retryInterval)
 		if err == nil {
 			return body, nil
 		}

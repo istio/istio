@@ -216,8 +216,8 @@ func TestGetPublicKeyUsingTLSWithoutCABundles(t *testing.T) {
 		testRetryInterval,
 		[]string{},
 	)
-
 	defer r.Close()
+
 	ms, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
 	defer ms.Stop()
 	if err != nil {
