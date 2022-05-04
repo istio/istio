@@ -26,7 +26,6 @@ package merge
 import (
 	"fmt"
 
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -35,7 +34,7 @@ import (
 type (
 	MergeFunction func(dst, src protoreflect.Message)
 
-	CloneFunction func(dst, src protoreflect.Message) protoreflect.ProtoMessage
+	CloneFunction func(src protoreflect.Message) bool
 
 	mergeOptions struct {
 		customMergeFn map[protoreflect.FullName]MergeFunction
@@ -70,32 +69,21 @@ var ReplaceMergeFn MergeFunction = func(dst, src protoreflect.Message) {
 	})
 }
 
-// CatchAllVirtualHostCloneFn creates a clone if src is a catchall virtual host.
-var CatchAllVirtualHostCloneFn CloneFunction = func(dst, src protoreflect.Message) protoreflect.ProtoMessage {
-	catchall := false
-	dst.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-		if v.String() == "allow_any" {
-			catchall = true
-			return false
-		}
-		return true
-	})
-	// If it is catchall virtual host, clone and merge so that cached value does not get modified.
-	if catchall {
-		return proto.Clone(dst.Interface())
-	}
-	return dst.Interface()
-}
-
 var options = []OptionFn{
 	// Workaround https://github.com/golang/protobuf/issues/1359, merge duration properly
 	MergeFunctionOptionFn((&durationpb.Duration{}).ProtoReflect().Descriptor().FullName(), ReplaceMergeFn),
-	// We cache the catch all virtual host for performance reasons. This helps not to mutate cached object.
-	CloneFunctionOptionFn((&route.VirtualHost{}).ProtoReflect().Descriptor().FullName(), CatchAllVirtualHostCloneFn),
 }
 
+// Merge does a proto merge by applying any custom merge functions.
 func Merge(dst, src proto.Message) proto.Message {
 	return merge(dst, src, options...)
+}
+
+// MustClone registers a clone function that tells whether we should clone the message before merging.
+// This is used in cases where we cache proto messages that can be modified via Envoy filters.
+func MustClone(msg proto.Message, cloneFn CloneFunction) proto.Message {
+	options = append(options, CloneFunctionOptionFn(msg.ProtoReflect().Descriptor().FullName(), cloneFn))
+	return msg
 }
 
 // Merge Code of proto.Merge with modifications to support custom types
@@ -124,9 +112,9 @@ func (o mergeOptions) mergeMessage(dst, src protoreflect.Message) proto.Message 
 		panic(fmt.Sprintf("cannot merge into invalid %v message", dst.Descriptor().FullName()))
 	}
 
-	// Check if there is a custom clone function for the main message.
-	if cloneFn, exists := o.customCloneFn[src.Descriptor().FullName()]; exists {
-		dst = cloneFn(dst, src).ProtoReflect()
+	// Check if we need to clone before merging the main message.
+	if cloneFn, exists := o.customCloneFn[src.Descriptor().FullName()]; exists && cloneFn(dst) {
+		dst = proto.Clone(dst.Interface()).ProtoReflect()
 	}
 
 	src.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
@@ -136,9 +124,9 @@ func (o mergeOptions) mergeMessage(dst, src protoreflect.Message) proto.Message 
 		case fd.IsMap():
 			o.mergeMap(dst.Mutable(fd).Map(), v.Map(), fd.MapValue())
 		case fd.Message() != nil:
-			// Check if there is a custom clone function for the  message.
-			if cloneFn, exists := o.customCloneFn[fd.Message().FullName()]; exists {
-				dst = cloneFn(dst.Mutable(fd).Message(), v.Message()).ProtoReflect()
+			// Check if we need to clone before merging this message.
+			if cloneFn, exists := o.customCloneFn[fd.Message().FullName()]; exists && cloneFn(dst.Mutable(fd).Message()) {
+				dst = proto.Clone(dst.Mutable(fd).Message().Interface()).ProtoReflect()
 			}
 			mergeFn, exists := o.customMergeFn[fd.Message().FullName()]
 			if exists {

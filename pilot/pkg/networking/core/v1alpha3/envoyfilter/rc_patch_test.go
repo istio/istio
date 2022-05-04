@@ -782,8 +782,11 @@ func TestCatchAllVirtualHostMerge(t *testing.T) {
 		},
 		RequestHeadersToRemove: []string{"h1", "h2"},
 	}
-	cav := istionetworking.BuildCatchAllVirtualHost(true, "")
-	sidecarNode.CatchAllVirtualHost = cav
+	sidecarNode.SidecarScope = &model.SidecarScope{
+		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{Mode: networking.OutboundTrafficPolicy_ALLOW_ANY},
+	}
+	sidecarNode.BuildCatchAllVirtualHost()
+	cav := sidecarNode.CatchAllVirtualHost
 	sidecarOutboundRC.VirtualHosts = append(sidecarOutboundRC.VirtualHosts, cav)
 	efw := push.EnvoyFilters(sidecarNode)
 	ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, sidecarNode, efw, sidecarOutboundRC)

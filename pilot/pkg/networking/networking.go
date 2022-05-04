@@ -24,11 +24,13 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/proto/merge"
 	"istio.io/pkg/log"
 )
 
@@ -241,7 +243,8 @@ func BuildCatchAllVirtualHost(allowAnyoutbound bool, sidecarDestination string) 
 			MaxGrpcTimeout: notimeout,
 		}
 
-		return &route.VirtualHost{
+		// Register catchall virtual host with merge logic, so that it clones while merging.
+		return merge.MustClone(&route.VirtualHost{
 			Name:    Passthrough,
 			Domains: []string{"*"},
 			Routes: []*route.Route{
@@ -256,7 +259,9 @@ func BuildCatchAllVirtualHost(allowAnyoutbound bool, sidecarDestination string) 
 				},
 			},
 			IncludeRequestAttemptCount: true,
-		}
+		}, func(src protoreflect.Message) bool {
+			return src.Interface().(*route.VirtualHost).Name == Passthrough
+		}).(*route.VirtualHost)
 	}
 
 	return &route.VirtualHost{
