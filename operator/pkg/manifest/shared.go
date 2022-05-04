@@ -430,8 +430,8 @@ func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (st
 }
 
 func getFSGroupOverlay(config kube.Client) string {
-	if kube.IsAtLeastVersion(config, 19) {
-		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=false"
+	if kube.IsLessThanVersion(config, 19) {
+		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=true"
 	}
 	return ""
 }
