@@ -535,7 +535,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
 	// If the dns/proxy domain contains `.svc`, only services following the <ns>.svc.<suffix>
 	// naming convention and that share a suffix with the domain should be expanded.
-	if strings.Contains(proxyDomain, ".svc.") && strings.Contains(hostname, ".svc.") {
+	if strings.Contains(proxyDomain, ".svc.") {
 
 		if strings.HasSuffix(hostname, removeSvcNamespace(proxyDomain)) {
 			return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
