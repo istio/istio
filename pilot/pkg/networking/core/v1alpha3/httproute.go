@@ -539,17 +539,17 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
-	// If the service hostname could possibly be a kube service following the <ns>.svc.<suffix>
-	// naming convention, check the suffix.  Assume that hostnames that match the local dns/proxy domain
-	// are indeed kubernetes services
-	if strings.Contains(proxyDomain, ".svc.") {
+	// If the dns/proxy domain contains `.svc`, only services following the <ns>.svc.<suffix>
+	// naming convention and that share a suffix with the domain should be expanded.
+	if strings.Contains(proxyDomain, ".svc.") && strings.Contains(hostname, ".svc.") {
 
 		if strings.HasSuffix(hostname, removeSvcNamespace(proxyDomain)) {
 			return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
 		}
 
-		// Hostname is not a kube service.  Since it contains a `.svc.`, it is not safe to expand the
-		// hostname as it could conflict with other kube services.
+		// Hostname is not a kube service.  It is not safe to expand the
+		// hostname as non-fully-qualified names could conflict with expansion of other kube service
+		// hostnames
 		return nil
 	}
 
