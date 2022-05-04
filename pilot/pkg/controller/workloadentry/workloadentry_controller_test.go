@@ -214,10 +214,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 }
 
 func TestUpdateHealthCondition(t *testing.T) {
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	ig, ig2, store := setup(t)
 	go ig.Run(stop)
 	go ig2.Run(stop)

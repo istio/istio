@@ -212,11 +212,8 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 	}
 	c.stop = opts.Stop
 	if c.stop == nil {
-		c.stop = make(chan struct{})
 		// If we created the stop, clean it up. Otherwise, caller is responsible
-		t.Cleanup(func() {
-			c.Stop()
-		})
+		c.stop = test.NewStop(t)
 	}
 	opts.Client.RunAndWait(c.stop)
 	var fx *FakeXdsUpdater

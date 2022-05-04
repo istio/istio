@@ -20,6 +20,7 @@ import (
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -29,12 +30,8 @@ func TestQueue(t *testing.T) {
 		handles.Inc()
 		return nil
 	}))
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
 	q.Add(types.NamespacedName{Name: "something"})
-	go q.Run(stop)
+	go q.Run(test.NewStop(t))
 	retry.UntilOrFail(t, q.HasSynced)
 	if got := handles.Load(); got != 1 {
 		t.Fatalf("expected 1 handle, got %v", got)
