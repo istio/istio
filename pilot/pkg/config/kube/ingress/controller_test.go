@@ -229,7 +229,7 @@ func TestIngressControllerWithDefaultIngressControllerMode(t *testing.T) {
 	}
 
 	// This time is enough for waiting the ingress event processed.
-	<-time.After(time.Second*2)
+	<-time.After(time.Second * 2)
 
 	// We should not store unmatched ingresses
 	if len(controller.ingresses) != len(ingressWithoutClass) {
@@ -276,7 +276,7 @@ func TestIngressControllerWithStrictIngressControllerMode(t *testing.T) {
 	}
 
 	// This time is enough for waiting the ingress event processed.
-	<-time.After(time.Second*2)
+	<-time.After(time.Second * 2)
 
 	// We should not store unmatched ingresses
 	if len(controller.ingresses) != len(ingressWithClass) {
