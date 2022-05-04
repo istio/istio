@@ -203,10 +203,6 @@ func initAndStartController(options ingressClassOptions, handler *configHandler,
 	client.RunAndWait(stopCh)
 
 	rawController := cacheStoreController.(*controller)
-	rawController.eventCompletedCallback = func() {
-		// Use empty config as event completed mark.
-		handler.notifyCh <- config.Config{}
-	}
 	return rawController, client
 }
 
@@ -221,20 +217,13 @@ func TestIngressControllerWithDefaultIngressControllerMode(t *testing.T) {
 	controller, client := initAndStartController(options, configHandler, stopCh)
 
 	wait := func() config.Config {
-		result := config.Config{}
-		for {
-			select {
-			case x := <-configHandler.notifyCh:
-				if x.Name != "" {
-					result = x
-				} else {
-					return result
-				}
-			case <-time.After(time.Second * 10):
-				t.Fatalf("timed out waiting for config")
-				return result
-			}
+		select {
+		case x := <-configHandler.notifyCh:
+			return x
+		case <-time.After(time.Second * 10):
+			t.Fatalf("timed out waiting for config")
 		}
+		return config.Config{}
 	}
 
 	for _, ingress := range ingressWithoutClass {
@@ -252,11 +241,10 @@ func TestIngressControllerWithDefaultIngressControllerMode(t *testing.T) {
 	// Apply unmatched ingresses
 	for _, ingress := range ingressWithClass {
 		client.NetworkingV1().Ingresses(ingress.Namespace).Create(context.TODO(), &ingress, metaV1.CreateOptions{})
-		vs := wait()
-		if vs.Name != "" || vs.Namespace != "" {
-			t.Fatalf("received unecpected config %v/%v", vs.Namespace, vs.Name)
-		}
 	}
+
+	// This time is enough for waiting the ingress event processed.
+	<-time.After(time.Second*2)
 
 	// We should not store unmatched ingresses
 	if len(controller.ingresses) != len(ingressWithoutClass) {
@@ -276,20 +264,13 @@ func TestIngressControllerWithStrictIngressControllerMode(t *testing.T) {
 	controller, client := initAndStartController(options, configHandler, stopCh)
 
 	wait := func() config.Config {
-		result := config.Config{}
-		for {
-			select {
-			case x := <-configHandler.notifyCh:
-				if x.Name != "" {
-					result = x
-				} else {
-					return result
-				}
-			case <-time.After(time.Second * 10):
-				t.Fatalf("timed out waiting for config")
-				return result
-			}
+		select {
+		case x := <-configHandler.notifyCh:
+			return x
+		case <-time.After(time.Second * 10):
+			t.Fatalf("timed out waiting for config")
 		}
+		return config.Config{}
 	}
 
 	for _, ingress := range ingressWithClass {
@@ -307,11 +288,10 @@ func TestIngressControllerWithStrictIngressControllerMode(t *testing.T) {
 	// Apply unmatched ingresses
 	for _, ingress := range ingressWithoutClass {
 		client.NetworkingV1().Ingresses(ingress.Namespace).Create(context.TODO(), &ingress, metaV1.CreateOptions{})
-		vs := wait()
-		if vs.Name != "" || vs.Namespace != "" {
-			t.Fatalf("received unecpected config %v/%v", vs.Namespace, vs.Name)
-		}
 	}
+
+	// This time is enough for waiting the ingress event processed.
+	<-time.After(time.Second*2)
 
 	// We should not store unmatched ingresses
 	if len(controller.ingresses) != len(ingressWithClass) {

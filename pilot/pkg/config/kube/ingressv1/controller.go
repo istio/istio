@@ -93,9 +93,6 @@ type controller struct {
 	serviceLister   listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
 	classes ingressinformer.IngressClassInformer
-
-	// Only use for test case.
-	eventCompletedCallback func()
 }
 
 // TODO: move to features ( and remove in 1.2 )
@@ -177,12 +174,6 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool,
 }
 
 func (c *controller) onEvent(item types.NamespacedName) error {
-	defer func() {
-		if c.eventCompletedCallback != nil {
-			c.eventCompletedCallback()
-		}
-	}()
-
 	event := model.EventUpdate
 	ing, err := c.ingressLister.Ingresses(item.Namespace).Get(item.Name)
 	if err != nil {
