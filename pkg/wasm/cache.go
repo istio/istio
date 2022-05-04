@@ -182,7 +182,9 @@ func (c *LocalFileCache) Get(
 	}
 
 	// First check if the cache entry is already downloaded and policy does not require to pull always.
-	if modulePath := c.getEntry(&key, pullIfNotPresent(pullPolicy, u)); modulePath != "" {
+	var modulePath string
+	modulePath, key.checksum = c.getEntry(key, pullIfNotPresent(pullPolicy, u))
+	if modulePath != "" {
 		return modulePath, nil
 	}
 
@@ -234,7 +236,7 @@ func (c *LocalFileCache) Get(
 	if key.checksum == "" {
 		key.checksum = dChecksum
 		// check again if the cache is having the checksum.
-		if modulePath := c.getEntry(&key, true); modulePath != "" {
+		if modulePath, _ := c.getEntry(key, true); modulePath != "" {
 			return modulePath, nil
 		}
 	} else if dChecksum != key.checksum {
@@ -317,9 +319,13 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 	return nil
 }
 
-func (c *LocalFileCache) getEntry(key *cacheKey, dontcareResourceVersion bool) string {
+// getEntry finds a cached module, and returns the path of the module and its checksum.
+func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (string, string) {
 	modulePath := ""
 	cacheHit := false
+
+	c.mux.Lock()
+	defer c.mux.Unlock()
 
 	// Only apply this for OCI image, not http/https because OCI image has ImagePullPolicy
 	// to control the pull policy, but http/https currently rely on existence of checksum.
@@ -336,7 +342,7 @@ func (c *LocalFileCache) getEntry(key *cacheKey, dontcareResourceVersion bool) s
 			// If no checksum, try the checksum cache.
 			// If the image was pulled before, there should be a checksum of the most recently pulled image.
 			if ce, found := c.checksums[key.downloadURL]; found {
-				if dontcareResourceVersion || key.resourceVersion == ce.resourceVersionByResource[key.resourceName] {
+				if ignoreResourceVersion || key.resourceVersion == ce.resourceVersionByResource[key.resourceName] {
 					key.checksum = ce.checksum
 				}
 				// update resource version here
@@ -345,8 +351,6 @@ func (c *LocalFileCache) getEntry(key *cacheKey, dontcareResourceVersion bool) s
 		}
 	}
 
-	c.mux.Lock()
-	defer c.mux.Unlock()
 	if ce, ok := c.modules[key.moduleKey]; ok {
 		// Update last touched time.
 		ce.last = time.Now()
@@ -354,7 +358,7 @@ func (c *LocalFileCache) getEntry(key *cacheKey, dontcareResourceVersion bool) s
 		cacheHit = true
 	}
 	wasmCacheLookupCount.With(hitTag.Value(strconv.FormatBool(cacheHit))).Increment()
-	return modulePath
+	return modulePath, key.checksum
 }
 
 // Purge periodically clean up the stale Wasm modules local file and the cache map.
