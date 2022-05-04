@@ -15,7 +15,6 @@
 package ra
 
 import (
-	"context"
 	"os"
 	"path"
 	"testing"
@@ -163,8 +162,7 @@ func createFakeCsr(t *testing.T) []byte {
 
 func initFakeKubeClient(t test.Failer, certificate []byte) kube.ExtendedClient {
 	client := kube.NewFakeClient()
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := test.NewContext(t)
 	w, _ := client.CertificatesV1().CertificateSigningRequests().Watch(ctx, metav1.ListOptions{})
 	go func() {
 		for {
