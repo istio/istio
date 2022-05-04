@@ -14,7 +14,7 @@
       }
     },
     "enabled": false,
-    "externalIstiod": false,
+    "externalIstiod": true,
     "hub": "gcr.io/istio-testing",
     "imagePullPolicy": "Never",
     "imagePullSecrets": [],
