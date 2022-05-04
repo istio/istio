@@ -141,62 +141,36 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		}
 	}
 
-	var allUslist []*unstructured.UnstructuredList
 	for _, c := range enabledComponents {
 		uslist, err := h.GetPrunedResources(iopSpec.Revision, false, c)
 		if err != nil {
 			return errStatus, err
 		}
-		allUslist = append(allUslist, uslist...)
-	}
-	if err := h.DeleteObjectsList(allUslist); err != nil {
-		return errStatus, err
+		err = h.DeleteObjectsList(uslist, c)
+		if err != nil {
+			return errStatus, err
+		}
 	}
 	return &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_HEALTHY}, nil
 }
 
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
-func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList) error {
+func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList, componentName string) error {
 	var errs util.Errors
 	deletedObjects := make(map[string]bool)
-	for _, objects := range objectsList {
-		for _, o := range objects.Items {
+	for _, ul := range objectsList {
+		for _, o := range ul.Items {
 			obj := object.NewK8sObject(&o, nil, nil)
 			oh := obj.Hash()
-			if h.opts.DryRun {
-				h.opts.Log.LogAndPrintf("Not deleting object %s because of dry run.", oh)
-				continue
-			}
+
 			// kube client does not differentiate API version when listing, added this check to deduplicate.
 			if deletedObjects[oh] {
 				continue
 			}
-			if o.GetKind() == name.IstioOperatorStr {
-				o.SetFinalizers([]string{})
-				if err := h.client.Patch(context.TODO(), &o, client.Merge); err != nil {
-					scope.Errorf("failed to patch IstioOperator CR: %s, %v", o.GetName(), err)
-				}
+			if err := h.deleteResource(obj, componentName, oh); err != nil {
+				errs = append(errs, err)
 			}
-			err := h.client.Delete(context.TODO(), &o,
-				client.PropagationPolicy(metav1.DeletePropagationBackground))
-			if err != nil {
-				if !kerrors.IsNotFound(err) {
-					errs = util.AppendErr(errs, err)
-				} else {
-					// do not return error if resources are not found
-					h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists",
-						obj.Hash())
-				}
-			} else {
-				deletedObjects[oh] = true
-				objGvk := o.GroupVersionKind()
-				metrics.ResourceDeletionTotal.
-					With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
-					Increment()
-				h.addPrunedKind(objGvk.GroupKind())
-				metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
-			}
-			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
+			deletedObjects[oh] = true
 		}
 	}
 
@@ -405,37 +379,52 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 				continue
 			}
 		}
-		if h.opts.DryRun {
-			h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
-			continue
+		if err := h.deleteResource(obj, componentName, oh); err != nil {
+			errs = append(errs, err)
 		}
-		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
-		scope.Infof("Deleting %s (%s/%v)", obj.Hash(), h.iop.Name, h.iop.Spec.Revision)
-		objGvk := o.GroupVersionKind()
-		if err != nil {
-			if !kerrors.IsNotFound(err) {
-				errs = util.AppendErr(errs, err)
-			} else {
-				// do not return error if resources are not found
-				h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
-				continue
-			}
-		}
-		if !all {
-			h.removeFromObjectCache(componentName, oh)
-		}
-		metrics.ResourceDeletionTotal.
-			With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
-			Increment()
-		h.addPrunedKind(objGvk.GroupKind())
-		metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
-		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	}
 	if all {
 		cache.FlushObjectCaches()
 	}
 
 	return errs.ToError()
+}
+
+func (h *HelmReconciler) deleteResource(obj *object.K8sObject, componentName, oh string) error {
+	if h.opts.DryRun {
+		h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
+		return nil
+	}
+	u := obj.UnstructuredObject()
+	if u.GetKind() == name.IstioOperatorStr {
+		u.SetFinalizers([]string{})
+		if err := h.client.Patch(context.TODO(), u, client.Merge); err != nil {
+			scope.Errorf("failed to patch IstioOperator CR: %s, %v", u.GetName(), err)
+		}
+	}
+	err := h.client.Delete(context.TODO(), u, client.PropagationPolicy(metav1.DeletePropagationBackground))
+	scope.Debugf("Deleting %s (%s/%v)", oh, h.iop.Name, h.iop.Spec.Revision)
+	objGvk := u.GroupVersionKind()
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			return err
+		}
+		// do not return error if resources are not found
+		h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
+		return nil
+	}
+	if componentName != "" {
+		h.removeFromObjectCache(componentName, oh)
+	} else {
+		cache.FlushObjectCaches()
+	}
+	metrics.ResourceDeletionTotal.
+		With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
+		Increment()
+	h.addPrunedKind(objGvk.GroupKind())
+	metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
+	h.opts.Log.LogAndPrintf("  Removed %s.", oh)
+	return nil
 }
 
 // RemoveObject removes object with objHash in componentName from the object cache.
