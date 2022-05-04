@@ -539,7 +539,6 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
-
 	// If the service hostname could possibly be a kube service following the <ns>.svc.<suffix>
 	// naming convention, check the suffix.  Assume that hostnames that match the local dns/proxy domain
 	// are indeed kubernetes services
@@ -749,9 +748,9 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 
 // Simply removes everything before .svc, if present
 func removeSvcNamespace(domain string) string {
-	if !strings.Contains(domain, ".svc.") {
-		return domain
+	if idx := strings.Index(domain, ".svc."); idx > 0 {
+		return domain[idx:]
 	}
 
-	return domain[strings.Index(domain, ".svc."):]
+	return domain
 }
