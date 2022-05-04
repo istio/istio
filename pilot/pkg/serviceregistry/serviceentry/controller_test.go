@@ -147,7 +147,7 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
-	stop := make(chan struct{})
+	stop := test.NewStop(t)
 	go configController.Run(stop)
 
 	eventch := make(chan Event, 100)
@@ -166,9 +166,7 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 
 	istioStore := model.MakeIstioStore(configController)
 	serviceController := NewController(configController, istioStore, xdsUpdater)
-	t.Cleanup(func() {
-		close(stop)
-	})
+
 	return istioStore, serviceController
 }
 

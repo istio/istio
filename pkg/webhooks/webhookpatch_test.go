@@ -26,6 +26,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -232,10 +233,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			stop := make(chan struct{})
-			t.Cleanup(func() {
-				close(stop)
-			})
+			stop := test.NewStop(t)
 			go whPatcher.informer.Run(stop)
 			client.RunAndWait(stop)
 			retry.UntilOrFail(t, whPatcher.informer.HasSynced)

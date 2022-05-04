@@ -80,10 +80,7 @@ func setupTest(t *testing.T) (
 	)
 	configController := memory.NewController(memory.Make(collections.Pilot))
 
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := istiotest.NewStop(t)
 	go configController.Run(stop)
 
 	istioStore := model.MakeIstioStore(configController)

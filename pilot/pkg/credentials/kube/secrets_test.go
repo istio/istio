@@ -28,6 +28,7 @@ import (
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -108,11 +109,7 @@ func TestSecretsController(t *testing.T) {
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewCredentialsController(client, "")
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
-	client.RunAndWait(stop)
+	client.RunAndWait(test.NewStop(t))
 	cases := []struct {
 		name            string
 		namespace       string
@@ -233,11 +230,7 @@ func TestDockerCredentials(t *testing.T) {
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewCredentialsController(client, "")
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
-	client.RunAndWait(stop)
+	client.RunAndWait(test.NewStop(t))
 	cases := []struct {
 		name                string
 		namespace           string

@@ -100,11 +100,6 @@ type ConfigGenTest struct {
 
 func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	t.Helper()
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
-
 	configs := getConfigs(t, opts)
 	configStore := memory.MakeSkipValidation(collections.PilotGatewayAPI)
 
@@ -158,7 +153,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		store:                configController,
 		env:                  env,
 		initialConfigs:       configs,
-		stop:                 stop,
+		stop:                 test.NewStop(t),
 		ConfigGen:            NewConfigGenerator(&model.DisabledCache{}),
 		MemRegistry:          msd,
 		Registry:             serviceDiscovery,

@@ -27,6 +27,7 @@ import (
 	"go.uber.org/atomic"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/reserveport"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -144,10 +145,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 		}, nil, []string{"127.0.0.1"}, false)
 		// Speed up tests
 		httpHealthChecker.config.CheckFrequency = time.Millisecond
-		quitChan := make(chan struct{})
-		t.Cleanup(func() {
-			close(quitChan)
-		})
+		quitChan := test.NewStop(t)
 		expectedHTTPEvents := [4]*ProbeEvent{
 			{Healthy: true},
 			{Healthy: false},

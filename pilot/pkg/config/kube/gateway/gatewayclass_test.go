@@ -26,16 +26,14 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestClassController(t *testing.T) {
 	client := kube.NewFakeClient()
 	cc := NewClassController(client)
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	client.RunAndWait(stop)
 	go cc.Run(stop)
 	createClass := func(name, controller string) {

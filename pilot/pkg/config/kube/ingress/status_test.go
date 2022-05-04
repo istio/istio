@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 )
 
 var (
@@ -116,11 +117,8 @@ func makeStatusSyncer(t *testing.T) *StatusSyncer {
 	client := kubelib.NewFakeClient()
 	setupFake(t, client)
 	sync := NewStatusSyncer(fakeMeshHolder("istio-ingress"), client)
-	stop := make(chan struct{})
+	stop := test.NewStop(t)
 	client.RunAndWait(stop)
-	t.Cleanup(func() {
-		close(stop)
-	})
 	return sync
 }
 

@@ -43,7 +43,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCont
 	for _, s := range schemas.All() {
 		createCRD(t, fake, s.Resource())
 	}
-	stop := make(chan struct{})
+	stop := test.NewStop(t)
 	config, err := New(fake, "", "")
 	if err != nil {
 		t.Fatal(err)
@@ -51,9 +51,6 @@ func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCont
 	go config.Run(stop)
 	fake.RunAndWait(stop)
 	kube.WaitForCacheSync(stop, config.HasSynced)
-	t.Cleanup(func() {
-		close(stop)
-	})
 	return config, fake
 }
 

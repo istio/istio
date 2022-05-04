@@ -115,10 +115,7 @@ type FakeDiscoveryServer struct {
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 
 	m := opts.MeshConfig
 	if m == nil {

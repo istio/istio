@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/mcs"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -62,10 +63,7 @@ func TestServiceExportController(t *testing.T) {
 		ClusterLocal: env.ClusterLocal(),
 	})
 
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	client.RunAndWait(stop)
 	sc.Run(stop)
 

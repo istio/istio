@@ -89,10 +89,7 @@ func Test_KubeSecretController(t *testing.T) {
 		return kube.NewFakeClient(), nil
 	}
 	clientset := kube.NewFakeClient()
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	s := server.New()
 	mc := NewMulticluster(
 		"pilot-abc-123",
@@ -141,10 +138,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	s := server.New()
 	certWatcher := keycertbundle.NewWatcher()
 	mc := NewMulticluster(

@@ -17,6 +17,8 @@ package test
 import (
 	"os"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 // SetEnvForTest sets an environment variable for the duration of a test, then resets it once the test is complete.
@@ -66,4 +68,20 @@ func SetDurationForTest(t Failer, vv *time.Duration, v time.Duration) {
 	t.Cleanup(func() {
 		*vv = old
 	})
+}
+
+// NewStop returns a stop channel that will automatically be closed when the test is complete
+func NewStop(t Failer) chan struct{} {
+	s := make(chan struct{})
+	t.Cleanup(func() {
+		close(s)
+	})
+	return s
+}
+
+// NewContext returns a context that will automatically be closed when the test is complete
+func NewContext(t Failer) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	return ctx
 }

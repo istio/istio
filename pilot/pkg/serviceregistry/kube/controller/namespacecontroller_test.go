@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -40,10 +41,7 @@ func TestNamespaceController(t *testing.T) {
 	watcher.SetAndNotify(nil, nil, caBundle)
 	nc := NewNamespaceController(client, watcher)
 	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	client.RunAndWait(stop)
 	go nc.Run(stop)
 	retry.UntilOrFail(t, nc.queue.HasSynced)
