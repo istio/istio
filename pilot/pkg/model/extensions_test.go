@@ -99,7 +99,8 @@ func TestBuildVMConfig(t *testing.T) {
 					Runtime: defaultRuntime,
 					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
 						KeyValues: map[string]string{
-							WasmSecretEnv: "secret-name",
+							WasmSecretEnv:          "secret-name",
+							WasmResourceVersionEnv: "dummy-resource-version",
 						},
 					},
 				},
@@ -126,8 +127,9 @@ func TestBuildVMConfig(t *testing.T) {
 					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
 						HostEnvKeys: []string{"POD_NAME"},
 						KeyValues: map[string]string{
-							"ENV1":        "VAL1",
-							WasmSecretEnv: "secret-name",
+							"ENV1":                 "VAL1",
+							WasmSecretEnv:          "secret-name",
+							WasmResourceVersionEnv: "dummy-resource-version",
 						},
 					},
 				},
@@ -142,8 +144,9 @@ func TestBuildVMConfig(t *testing.T) {
 					Runtime: defaultRuntime,
 					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
 						KeyValues: map[string]string{
-							WasmSecretEnv: "secret-name",
-							WasmPolicyEnv: extensions.PullPolicy_name[int32(extensions.PullPolicy_IfNotPresent)],
+							WasmSecretEnv:          "secret-name",
+							WasmPolicyEnv:          extensions.PullPolicy_name[int32(extensions.PullPolicy_IfNotPresent)],
+							WasmResourceVersionEnv: "dummy-resource-version",
 						},
 					},
 				},
