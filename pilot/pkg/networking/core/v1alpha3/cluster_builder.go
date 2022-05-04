@@ -1071,8 +1071,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
-		// Set auto-sni if sni field is not explicitly set
-		cb.setAutoSni(c, tls)
+
+		cb.setAutoSniAndAutoSanValidation(c, tls)
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
@@ -1111,8 +1111,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			Sni:              tls.Sni,
 		}
 
-		// Set auto-sni if sni field is not explicitly set
-		cb.setAutoSni(c, tls)
+		cb.setAutoSniAndAutoSanValidation(c, tls)
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
@@ -1161,15 +1160,24 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	return tlsContext, nil
 }
 
-func (cb *ClusterBuilder) setAutoSni(mc *MutableCluster, tls *networking.ClientTLSSettings) {
-	if mc != nil && features.EnableAutoSni && len(tls.Sni) == 0 {
-		if mc.httpProtocolOptions == nil {
-			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+// Set auto_sni if sni field is not explicitly set and if EnableAutoSni feature flag is enabled.
+// Set auto_san_validation if VerifyCertAtClient feature flag is enabled
+func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls *networking.ClientTLSSettings) {
+	if mc != nil && features.EnableAutoSni {
+		if len(tls.Sni) == 0 || (features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0) {
+			if mc.httpProtocolOptions == nil {
+				mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+			}
+			if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
+				mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
+			}
+			if len(tls.Sni) == 0 {
+				mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
+			}
+			if features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0 {
+				mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
+			}
 		}
-		if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
-			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
-		}
-		mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
 	}
 }
 
