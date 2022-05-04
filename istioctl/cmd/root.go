@@ -146,8 +146,9 @@ func GetRootCmd(args []string) *cobra.Command {
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
-		Run: func(cmd *cobra.Command, args []string) {
-			_ = cmd.Help()
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.HelpFunc()(cmd, args)
+			return nil
 		},
 		PersistentPreRunE: configureLogging,
 	}
