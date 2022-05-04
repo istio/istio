@@ -15,6 +15,7 @@
 package istioagent
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -687,13 +688,14 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 
 	a := NewAgent(resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
 	t.Cleanup(a.Close)
-	ctx := test.NewContext(t)
+	ctx, done := context.WithCancel(context.Background())
 	wait, err := a.Run(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// First signal to terminate, then wait for completion (reverse order semantics).
 	t.Cleanup(wait)
+	t.Cleanup(done)
 
 	resp.agent = a
 	return &resp
