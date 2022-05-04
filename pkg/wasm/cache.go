@@ -24,8 +24,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/go-containerregistry/pkg/name"
 
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -39,6 +42,12 @@ const (
 
 	// DefaultWasmModuleExpiry is the default duration for least recently touched Wasm module to become stale.
 	DefaultWasmModuleExpiry = 24 * time.Hour
+
+	// oci URL prefix
+	ociURLPrefix = "oci://"
+
+	// sha256 scheme prefix
+	sha256SchemePrefix = "sha256:"
 )
 
 // Cache models a Wasm module cache.
@@ -50,7 +59,9 @@ type Cache interface {
 // LocalFileCache for downloaded Wasm modules. Currently it stores the Wasm module as local file.
 type LocalFileCache struct {
 	// Map from Wasm module checksum to cache entry.
-	modules map[cacheKey]*cacheEntry
+	modules map[moduleKey]*cacheEntry
+	// Map from tagged URL to checksum
+	checksums map[string]string
 
 	// http fetcher fetches Wasm module with HTTP get.
 	httpFetcher *HTTPFetcher
@@ -72,25 +83,35 @@ type LocalFileCache struct {
 
 var _ Cache = &LocalFileCache{}
 
+type moduleKey struct {
+	// Identifier for the module. It should be neutral for the checksum.
+	// e.g.) oci://docker.io/test@sha256:0123456789 is not allowed.
+	//       oci://docker.io/test:latest (tagged form) is allowed.
+	name     string
+	checksum string
+}
+
 type cacheKey struct {
+	moduleKey
 	downloadURL string
-	checksum    string
 }
 
 // cacheEntry contains information about a Wasm module cache entry.
 type cacheEntry struct {
 	// File path to the downloaded wasm modules.
 	modulePath string
-
 	// Last time that this local Wasm module is referenced.
 	last time.Time
+	// set of URLs referencing this entry
+	referencingURLs sets.Set
 }
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
 func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
 	cache := &LocalFileCache{
 		httpFetcher:        NewHTTPFetcher(),
-		modules:            make(map[cacheKey]*cacheEntry),
+		modules:            make(map[moduleKey]*cacheEntry),
+		checksums:          make(map[string]string),
 		dir:                dir,
 		purgeInterval:      purgeInterval,
 		wasmModuleExpiry:   moduleExpiry,
@@ -103,12 +124,25 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, in
 	return cache
 }
 
+func urlAsResourceName(fullURLStr string) string {
+	if strings.HasPrefix(fullURLStr, ociURLPrefix) {
+		if tag, err := name.ParseReference(fullURLStr[len(ociURLPrefix):]); err == nil {
+			// remove tag or sha
+			return ociURLPrefix + tag.Context().Name()
+		}
+	}
+	return fullURLStr
+}
+
 // Get returns path the local Wasm module file.
 func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration, pullSecret []byte) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
-		checksum:    checksum,
+		moduleKey: moduleKey{
+			name:     urlAsResourceName(downloadURL),
+			checksum: checksum,
+		},
 	}
 
 	// First check if the cache entry is already downloaded.
@@ -206,13 +240,23 @@ func (c *LocalFileCache) Cleanup() {
 }
 
 func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) error {
+	// If OCI URL having a tag, we need to update checksum.
+	needChecksumUpdate := strings.HasPrefix(key.downloadURL, ociURLPrefix) && !strings.Contains(key.downloadURL, "@")
+
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
+	if needChecksumUpdate {
+		c.checksums[key.downloadURL] = key.checksum
+	}
+
 	// Check if the module has already been added. If so, avoid writing the file again.
-	if ce, ok := c.modules[key]; ok {
+	if ce, ok := c.modules[key.moduleKey]; ok {
 		// Update last touched time.
 		ce.last = time.Now()
+		if needChecksumUpdate {
+			ce.referencingURLs.Insert(key.downloadURL)
+		}
 		return nil
 	}
 
@@ -222,10 +266,14 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 	}
 
 	ce := cacheEntry{
-		modulePath: f,
-		last:       time.Now(),
+		modulePath:      f,
+		last:            time.Now(),
+		referencingURLs: sets.New(),
 	}
-	c.modules[key] = &ce
+	if needChecksumUpdate {
+		ce.referencingURLs.Insert(key.downloadURL)
+	}
+	c.modules[key.moduleKey] = &ce
 	wasmCacheEntries.Record(float64(len(c.modules)))
 	return nil
 }
@@ -233,9 +281,28 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 func (c *LocalFileCache) getEntry(key cacheKey) string {
 	modulePath := ""
 	cacheHit := false
+
+	// Only apply this for OCI image, not http/https because OCI image has ImagePullPolicy
+	// to control the pull policy, but http/https currently rely on existence of checksum.
+	// At this point, we don't need to break the current behavior for http/https.
+	if len(key.checksum) == 0 && strings.HasPrefix(key.downloadURL, ociURLPrefix) {
+		if d, err := name.NewDigest(key.downloadURL[len(ociURLPrefix):]); err == nil {
+			// If there is no checksum and the digest is suffixed in URL, use the digest.
+			dstr := d.DigestStr()
+			if strings.HasPrefix(dstr, sha256SchemePrefix) {
+				key.checksum = dstr[len(sha256SchemePrefix):]
+			}
+			// For other digest scheme, give up to use cache.
+		} else {
+			// If no checksum, try the checksum cache.
+			// If the image was pulled before, there should be a checksum of the most recently pulled image.
+			key.checksum = c.checksums[key.downloadURL]
+		}
+	}
+
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	if ce, ok := c.modules[key]; ok {
+	if ce, ok := c.modules[key.moduleKey]; ok {
 		// Update last touched time.
 		ce.last = time.Now()
 		modulePath = ce.modulePath
@@ -259,6 +326,9 @@ func (c *LocalFileCache) purge() {
 					if err := os.Remove(m.modulePath); err != nil {
 						wasmLog.Errorf("failed to purge Wasm module %v: %v", m.modulePath, err)
 					} else {
+						for downloadURL := range m.referencingURLs {
+							delete(c.checksums, downloadURL)
+						}
 						delete(c.modules, k)
 						wasmLog.Debugf("successfully removed stale Wasm module %v", m.modulePath)
 					}
