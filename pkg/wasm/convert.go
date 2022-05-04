@@ -25,6 +25,7 @@ import (
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/xds"
 )
@@ -117,6 +118,8 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	vm := wasmHTTPFilterConfig.Config.GetVmConfig()
 	envs := vm.GetEnvironmentVariables()
 	var pullSecret []byte
+	pullPolicy := extensions.PullPolicy_UNSPECIFIED_POLICY
+	resourceVersion := ""
 	if envs != nil {
 		if sec, found := envs.KeyValues[model.WasmSecretEnv]; found {
 			if sec == "" {
@@ -137,6 +140,14 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 				envs.KeyValues = nil
 			}
 		}
+
+		if ps, found := envs.KeyValues[model.WasmPolicyEnv]; found {
+			if p, found := extensions.PullPolicy_value[ps]; found {
+				pullPolicy = extensions.PullPolicy(p)
+			}
+		}
+
+		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]
 	}
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()
@@ -153,7 +164,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}
-	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, timeout, pullSecret)
+	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, wasmHTTPFilterConfig.Config.Name, resourceVersion, timeout, pullSecret, pullPolicy)
 	if err != nil {
 		status = fetchFailure
 		wasmLog.Errorf("cannot fetch Wasm module %v: %v", remote.GetHttpUri().GetUri(), err)
