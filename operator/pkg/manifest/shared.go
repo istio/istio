@@ -430,7 +430,12 @@ func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (st
 }
 
 func getFSGroupOverlay(config kube.Client) string {
-	if kube.IsLessThanVersion(config, 19) {
+	// ENABLE_LEGACY_FSGROUP_INJECTION has first-party-jwt as allowed because we only
+	// need the fsGroup configuration for the projected service account volume mount,
+	// which is only used by first-party-jwt. The installer will automatically
+	// configure this on Kubernetes 1.18 or older.
+	jwtPolicy, _ := util.DetectSupportedJWTPolicy(config)
+	if kube.IsLessThanVersion(config, 19) && jwtPolicy != util.FirstPartyJWT {
 		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=true"
 	}
 	return ""
