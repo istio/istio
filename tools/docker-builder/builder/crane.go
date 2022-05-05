@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 	"sync"
 	"time"
 
@@ -184,9 +185,18 @@ func Build(args Args, dests []string) error {
 		return err
 	}
 	sz := ByteCount(int64(buf.Len()))
+
+	// Over localhost, compression CPU can be the bottleneck. With remotes, compressing usually saves a lot of time.
+	compression := gzip.NoCompression
+	for _, d := range dests {
+		if !strings.HasPrefix(d, "localhost") {
+			compression = gzip.BestSpeed
+			break
+		}
+	}
 	l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
 		return ioutil.NopCloser(bytes.NewReader(buf.Bytes())), nil
-	}, tarball.WithCompressionLevel(gzip.NoCompression))
+	}, tarball.WithCompressionLevel(compression))
 	if err != nil {
 		return err
 	}
