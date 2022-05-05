@@ -229,11 +229,9 @@ func checkCACert(t framework.TestContext, testNamespace namespace.Instance) erro
 	}
 	t.Logf("CA certificate %v found", constants.CACertNamespaceConfigMapDataName)
 	if pluginCert, err = cert.ReadSampleCertFromFile("root-cert.pem"); err != nil {
-		fmt.Println("plugin cert issue")
 		return err
 	}
 	if string(pluginCert) != certData {
-		fmt.Println("data mismatch")
 		return fmt.Errorf("CA certificate (%v) not matching plugin cert (%v)", certData, string(pluginCert))
 	}
 
