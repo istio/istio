@@ -28,7 +28,6 @@ import (
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
@@ -82,7 +81,7 @@ func TestServiceExportController(t *testing.T) {
 		export := mcsapi.ServiceExport{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ServiceExport",
-				APIVersion: features.MCSAPIVersion,
+				APIVersion: mcsapi.GroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "exportable-ns",
