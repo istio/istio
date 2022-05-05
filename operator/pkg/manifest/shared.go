@@ -412,10 +412,6 @@ func overlayHubAndTag(yml string) (string, error) {
 func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (string, error) {
 	overlays := []string{}
 
-	fsgroup := getFSGroupOverlay(client)
-	if fsgroup != "" {
-		overlays = append(overlays, fsgroup)
-	}
 	jwt, err := getJwtTypeOverlay(client, l)
 	if err != nil {
 		if force {
@@ -426,15 +422,19 @@ func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (st
 	} else {
 		overlays = append(overlays, jwt)
 	}
+	fsgroup := getFSGroupOverlay(client, jwt)
+	if fsgroup != "" {
+		overlays = append(overlays, fsgroup)
+	}
 	return makeTreeFromSetList(overlays)
 }
 
-func getFSGroupOverlay(config kube.Client) string {
+func getFSGroupOverlay(config kube.Client, jwt string) string {
 	// Set ENABLE_LEGACY_FSGROUP_INJECTION to true only for Kubernetes 1.18 or older,
 	// together with third-party-jwt, as we need the fsGroup configuration for the projected
 	// service account volume mount, which is only used by third-party-jwt.
-	jwtPolicy, _ := util.DetectSupportedJWTPolicy(config)
-	if kube.IsLessThanVersion(config, 19) && jwtPolicy != util.FirstPartyJWT {
+	thirdPartyJwtStr := "values.global.jwtPolicy=" + string(util.ThirdPartyJWT)
+	if kube.IsLessThanVersion(config, 19) && jwt == thirdPartyJwtStr {
 		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=true"
 	}
 	return ""
