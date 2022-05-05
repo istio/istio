@@ -1446,13 +1446,6 @@ spec:
                       type: string
                     type: object
                 type: object
-              workloadSelector:
-                properties:
-                  matchLabels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                type: object
             type: object
           status:
             type: object
@@ -2669,13 +2662,6 @@ spec:
                         description: Specifies a port to which the downstream connection
                           is tunneled.
                         type: integer
-                    type: object
-                type: object
-              workloadSelector:
-                properties:
-                  matchLabels:
-                    additionalProperties:
-                      type: string
                     type: object
                 type: object
               workloadSelector:
@@ -10342,7 +10328,7 @@ subjects:
     name: istiod-service-account
     namespace: istio-system
 ---
-apiVersion: autoscaling/v2
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-egressgateway
@@ -10362,14 +10348,14 @@ spec:
     kind: Deployment
     name: istio-egressgateway
   metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 80
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
 ---
-apiVersion: autoscaling/v2
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -10389,14 +10375,14 @@ spec:
     kind: Deployment
     name: istio-ingressgateway
   metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 80
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
 ---
-apiVersion: autoscaling/v2
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod

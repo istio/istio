@@ -2987,7 +2987,7 @@ subjects:
     name: istiod
     namespace: istio-system
 ---
-apiVersion: autoscaling/v2
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod
