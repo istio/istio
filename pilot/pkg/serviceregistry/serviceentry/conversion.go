@@ -21,6 +21,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -208,7 +209,10 @@ func buildServices(hostAddresses []*HostAddress, name, namespace string, ports m
 	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
 	ctime time.Time, labels map[string]string) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
-	lbls := ensureCanonicalServiceLabels(name, labels)
+	lbls := labels
+	if features.CanonicalServiceForMeshExternalServiceEntry && location == networking.ServiceEntry_MESH_EXTERNAL {
+		lbls = ensureCanonicalServiceLabels(name, labels)
+	}
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
 			CreationTime:   ctime,
