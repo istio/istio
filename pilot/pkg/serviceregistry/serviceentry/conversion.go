@@ -232,6 +232,9 @@ func buildServices(hostAddresses []*HostAddress, name, namespace string, ports m
 }
 
 func ensureCanonicalServiceLabels(name string, srcLabels map[string]string) map[string]string {
+	if srcLabels == nil {
+		srcLabels = make(map[string]string)
+	}
 	_, svcLabelFound := srcLabels[model.IstioCanonicalServiceLabelName]
 	_, revLabelFound := srcLabels[model.IstioCanonicalServiceRevisionLabelName]
 	if svcLabelFound && revLabelFound {
