@@ -158,7 +158,7 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 		}
 		preCheckWarnings(cmd, uiArgs, uiArgs.revision, objectsList, nil, l)
 
-		if err := h.DeleteObjectsList(objectsList); err != nil {
+		if err := h.DeleteObjectsList(objectsList, ""); err != nil {
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 		}
 		opts.ProgressLog.SetState(progress.StateUninstallComplete)

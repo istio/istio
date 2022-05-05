@@ -137,10 +137,7 @@ func Test_SecretController(t *testing.T) {
 	}
 
 	// Start the secret controller and sleep to allow secret process to start.
-	stopCh := make(chan struct{})
-	t.Cleanup(func() {
-		close(stopCh)
-	})
+	stopCh := test.NewStop(t)
 	c := NewController(clientset, secretNamespace, "")
 	c.AddHandler(&handler{})
 	_ = c.Run(stopCh)

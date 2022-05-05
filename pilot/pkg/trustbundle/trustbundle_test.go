@@ -26,6 +26,7 @@ import (
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -270,8 +271,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get SystemCertPool: %v", err)
 	}
-	stop := make(chan struct{})
-	t.Cleanup(func() { close(stop) })
+	stop := test.NewStop(t)
 
 	// Mock response from TLS Spiffe Server
 	validHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

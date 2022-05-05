@@ -1808,6 +1808,13 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 			expected:      []*Service{serviceA8000},
 			namespace:     "a",
 		},
+		{
+			name:          "fall back to wildcard namespace",
+			listenerHosts: map[string][]host.Name{wildcardNamespace: {"host"}, "a": {"alt"}},
+			services:      allServices,
+			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace:     "a",
+		},
 	}
 
 	for _, tt := range tests {

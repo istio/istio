@@ -31,7 +31,6 @@ webhooks:
   - v1beta1
   - v1
   clientConfig:
-    caBundle: ""
     service:
       name: istiod
       namespace: istio-control
@@ -67,7 +66,6 @@ webhooks:
   - v1beta1
   - v1
   clientConfig:
-    caBundle: ""
     service:
       name: istiod
       namespace: istio-control
@@ -105,7 +103,6 @@ webhooks:
   - v1beta1
   - v1
   clientConfig:
-    caBundle: ""
     service:
       name: foo
       namespace: istio-control
@@ -139,7 +136,6 @@ webhooks:
   - v1beta1
   - v1
   clientConfig:
-    caBundle: ""
     service:
       name: istiod
       namespace: istio-control
