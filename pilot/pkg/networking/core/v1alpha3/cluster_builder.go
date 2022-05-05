@@ -599,8 +599,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 
 		labels := instance.Endpoint.Labels
 		ns := instance.Endpoint.Namespace
-		if service.MeshExternal {
-			ns = "mesh-external:" + service.Attributes.Namespace
+		if features.CanonicalServiceForMeshExternalServiceEntry && service.MeshExternal {
+			ns = service.Attributes.Namespace
 			svcLabels := service.Attributes.Labels
 			if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
 				labels = map[string]string{
