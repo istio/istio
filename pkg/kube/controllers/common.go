@@ -97,8 +97,9 @@ func EnqueueForParentHandler(q Queue, kind config.GroupVersionKind) func(obj Obj
 			if refGV == kind.Kubernetes().GroupVersion() {
 				// We found a parent we care about, add it to the queue
 				q.Add(types.NamespacedName{
+					// Reference doesn't have namespace, but its always same-namespace, so use objects
 					Namespace: obj.GetNamespace(),
-					Name:      obj.GetName(),
+					Name:      ref.Name,
 				})
 			}
 		}
