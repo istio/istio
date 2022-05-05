@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -32,7 +31,6 @@ import (
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
@@ -426,67 +424,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-// patchIstiodCustomHost sets the ISTIOD_CUSTOM_HOST to the given address,
-// to allow webhook connections to succeed when reaching webhook by IP.
-func patchIstiodCustomHost(istiodAddress net.TCPAddr, cfg Config, c cluster.Cluster) error {
-	scopes.Framework.Infof("patching custom host for cluster %s as %s", c.Name(), istiodAddress.IP.String())
-	patchOptions := kubeApiMeta.PatchOptions{
-		FieldManager: "istio-ci",
-		TypeMeta: kubeApiMeta.TypeMeta{
-			Kind:       "Deployment",
-			APIVersion: "apps/v1",
-		},
-	}
-	contents := fmt.Sprintf(`
-apiVersion: apps/v1
-kind: Deployment
-spec:
-  template:
-    spec:
-      containers:
-      - name: discovery
-        env:
-        - name: ISTIOD_CUSTOM_HOST
-          value: %s
-`, istiodAddress.IP.String())
-	if _, err := c.AppsV1().Deployments(cfg.SystemNamespace).Patch(context.TODO(), "istiod", types.ApplyPatchType,
-		[]byte(contents), patchOptions); err != nil {
-		return fmt.Errorf("failed to patch istiod with ISTIOD_CUSTOM_HOST: %v", err)
-	}
-
-	if err := retry.UntilSuccess(func() error {
-		pods, err := c.CoreV1().Pods(cfg.SystemNamespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: "app=istiod"})
-		if err != nil {
-			return err
-		}
-		if len(pods.Items) == 0 {
-			return fmt.Errorf("no istiod pods")
-		}
-		for _, p := range pods.Items {
-			for _, c := range p.Spec.Containers {
-				if c.Name != "discovery" {
-					continue
-				}
-				found := false
-				for _, envVar := range c.Env {
-					if envVar.Name == "ISTIOD_CUSTOM_HOST" {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return fmt.Errorf("%v does not have ISTIOD_CUSTOM_HOST set", p.Name)
-				}
-			}
-		}
-		return nil
-	}, componentDeployTimeout, componentDeployDelay); err != nil {
-		return fmt.Errorf("failed waiting for patched istiod pod to come up in %s: %v", c.Name(), err)
-	}
-
-	return nil
-}
-
 func initIOPFile(s *resource.Settings, cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOperatorSpec, error) {
 	operatorYaml := cfg.IstioOperatorConfigYAML(s, valuesYaml)
 
@@ -570,29 +507,16 @@ func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg 
 		if err := waitForIstioReady(i.ctx, c, cfg); err != nil {
 			return err
 		}
-	}
-
-	if !c.IsConfig() || settingsFromCommandline.IstiodlessRemotes {
-		// patch the ISTIOD_CUSTOM_HOST to allow using the webhook by IP (this is something we only do in tests)
-
-		// fetch after installing eastwest (for external istiod, this will be loadbalancer address of istiod directly)
+	} else {
+		// configure istioctl to run with an external control plane topology.
 		istiodAddress, err := i.RemoteDiscoveryAddressFor(c)
 		if err != nil {
 			return err
 		}
-
-		// TODO generate & install a valid cert in CI
-		if err := patchIstiodCustomHost(istiodAddress, cfg, c); err != nil {
+		_ = os.Setenv("ISTIOCTL_XDS_ADDRESS", istiodAddress.String())
+		_ = os.Setenv("ISTIOCTL_PREFER_EXPERIMENTAL", "true")
+		if err := cmd.ConfigAndEnvProcessing(); err != nil {
 			return err
-		}
-
-		// configure istioctl to run with an external control plane topology.
-		if !c.IsConfig() {
-			_ = os.Setenv("ISTIOCTL_XDS_ADDRESS", istiodAddress.String())
-			_ = os.Setenv("ISTIOCTL_PREFER_EXPERIMENTAL", "true")
-			if err := cmd.ConfigAndEnvProcessing(); err != nil {
-				return err
-			}
 		}
 	}
 
