@@ -171,7 +171,11 @@ spec:
         - containerPort: 9000
 {{- end }}
       - name: app
-        image: menghanl/interop-client:istio-echo-server
+{{- if $.ImageFullPath }}
+        image: {{ $.ImageFullPath }}
+{{- else }}
+        image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
+{{- end }}
         imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext:
           runAsUser: 1338
@@ -230,6 +234,23 @@ spec:
 {{- if $.ProxylessGRPC }}
         - name: EXPOSE_GRPC_ADMIN
           value: "true"
+{{- end }}
+{{- if $.ImageFullPath }}
+        readinessProbe:
+{{- if $.ReadinessTCPPort }}
+          tcpSocket:
+            port: {{ $.ReadinessTCPPort }}
+{{- else if $.ReadinessGRPCPort }}
+          grpc:
+            port: {{ $.ReadinessGRPCPort }}			
+{{- else }}
+          httpGet:
+            path: /
+            port: 8080
+{{- end }}
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
 {{- end }}
         livenessProbe:
           tcpSocket:
@@ -649,6 +670,7 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
 		"ImagePullPolicy":     settings.Image.PullPolicy,
 		"ImagePullSecretName": imagePullSecretName,
+		"ImageFullPath":       settings.TestEchoImage, // This overrides image hub/tag if it's not empty.
 		"Service":             cfg.Service,
 		"Version":             cfg.Version,
 		"Headless":            cfg.Headless,

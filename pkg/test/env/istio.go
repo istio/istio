@@ -50,6 +50,10 @@ var (
 	// nolint: golint, revive, stylecheck
 	PULL_POLICY Variable = "PULL_POLICY"
 
+	// TEST_ECHO_IMAGE is the image to use when deploying echo services.
+	// nolint: golint, revive, stylecheck
+	TEST_ECHO_IMAGE Variable = "TEST_ECHO_IMAGE"
+
 	// KUBECONFIG is the list of Kubernetes configuration files. If configuration files are specified on
 	// the command-line, that takes precedence.
 	// nolint: golint, revive, stylecheck
