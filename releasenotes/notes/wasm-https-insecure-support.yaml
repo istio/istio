@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: extensibility
+issue: []
+releaseNotes:
+  - |
+    **Added** WASM_INSECURE_REGISTRIES environment variable of istio-agent is also honored when the WasmPlugin is pointing http/https server.

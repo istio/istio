@@ -102,7 +102,7 @@ var (
 		"If set to true, agent retrieves dynamic proxy-config updates via xds channel").Get()
 
 	wasmInsecureRegistries = env.RegisterStringVar("WASM_INSECURE_REGISTRIES", "",
-		"allow agent pull wasm plugin from insecure registries, for example: 'localhost:5000,docker-registry:5000'").Get()
+		"allow agent pull wasm plugin from insecure registries or https server, for example: 'localhost:5000,docker-registry:5000'").Get()
 
 	// Ability of istio-agent to retrieve bootstrap via XDS
 	enableBootstrapXdsEnv = env.RegisterBoolVar("BOOTSTRAP_XDS_AGENT", false,
