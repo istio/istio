@@ -392,7 +392,7 @@ global:
   # Configure a remote cluster data plane controlled by an external istiod.
   # When set to true, istiod is not deployed locally and only a subset of the other
   # discovery charts are enabled.
-  externalIstiod: true
+  externalIstiod: false
 
   #  Configure a remote cluster as the config cluster for an external istiod.
   configCluster: false
