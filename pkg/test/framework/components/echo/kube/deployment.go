@@ -171,27 +171,25 @@ spec:
         - containerPort: 9000
 {{- end }}
       - name: app
-        image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
+        image: menghanl/interop-client:istio-echo-server
         imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext:
           runAsUser: 1338
           runAsGroup: 1338
         args:
           - --metrics=15014
-          - --cluster
-          - "{{ $cluster }}"
+          - --cluster="{{ $cluster }}"
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
 {{- if and $.ProxylessGRPC (ne $p.Port $.GRPCMagicPort) }}
           - --xds-grpc-server={{ $p.Port }}
 {{- end }}
-          - --grpc
+          - --grpc={{ $p.Port }}
 {{- else if eq .Protocol "TCP" }}
-          - --tcp
+          - --tcp={{ $p.Port }}
 {{- else }}
-          - --port
+          - --port={{ $p.Port }}
 {{- end }}
-          - "{{ $p.Port }}"
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
 {{- end }}
@@ -205,10 +203,8 @@ spec:
           - --bind-localhost={{ $p.Port }}
 {{- end }}
 {{- end }}
-          - --version
-          - "{{ $subset.Version }}"
-          - --istio-version
-          - "{{ $version }}"
+          - --version="{{ $subset.Version }}"
+          - --istio-version="{{ $version }}"
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
@@ -235,21 +231,6 @@ spec:
         - name: EXPOSE_GRPC_ADMIN
           value: "true"
 {{- end }}
-        readinessProbe:
-{{- if $.ReadinessTCPPort }}
-          tcpSocket:
-            port: {{ $.ReadinessTCPPort }}
-{{- else if $.ReadinessGRPCPort }}
-          grpc:
-            port: {{ $.ReadinessGRPCPort }}			
-{{- else }}
-          httpGet:
-            path: /
-            port: 8080
-{{- end }}
-          initialDelaySeconds: 1
-          periodSeconds: 2
-          failureThreshold: 10
         livenessProbe:
           tcpSocket:
             port: tcp-health-port
