@@ -106,10 +106,8 @@ func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.secure-naming").
 		Run(func(t framework.TestContext) {
-			if t.AllClusters().IsMulticluster() {
-				t.Skip("https://github.com/istio/istio/issues/37307")
-			}
 			istioCfg := istio.DefaultConfigOrFail(t, t)
+
 			testNamespace := apps.Namespace
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 			// Check that the CA certificate in the configmap of each namespace is as expected, which
@@ -231,9 +229,11 @@ func checkCACert(t framework.TestContext, testNamespace namespace.Instance) erro
 	}
 	t.Logf("CA certificate %v found", constants.CACertNamespaceConfigMapDataName)
 	if pluginCert, err = cert.ReadSampleCertFromFile("root-cert.pem"); err != nil {
+		fmt.Println("plugin cert issue")
 		return err
 	}
 	if string(pluginCert) != certData {
+		fmt.Println("data mismatch")
 		return fmt.Errorf("CA certificate (%v) not matching plugin cert (%v)", certData, string(pluginCert))
 	}
 
