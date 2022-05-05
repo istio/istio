@@ -43,26 +43,6 @@ func convertPort(port *networking.Port) *model.Port {
 	}
 }
 
-func getTargetPortFromServiceInstances(port *model.Port, svc *model.Service, serviceInstances []*model.ServiceInstance) []uint32 {
-	var arrEdPorts []uint32
-	if port == nil {
-		return arrEdPorts
-	}
-	if len(serviceInstances) == 0 {
-		return arrEdPorts
-	}
-
-	for _, instance := range serviceInstances {
-		if svc != instance.Service {
-			continue
-		}
-		if port.Name == instance.Endpoint.ServicePortName {
-			arrEdPorts = append(arrEdPorts, instance.Endpoint.EndpointPort)
-		}
-	}
-	return arrEdPorts
-}
-
 type HostAddress struct {
 	host    string
 	address string
@@ -73,7 +53,7 @@ type HostAddress struct {
 //
 // See convertServices() for the reverse conversion, used by Istio to handle ServiceEntry configs.
 // See kube.ConvertService for the conversion from K8S to internal Service.
-func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy, ps *model.PushContext) *config.Config {
+func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Config {
 	gvk := gvk.ServiceEntry
 	se := &networking.ServiceEntry{
 		// Host is fully qualified: name, namespace, domainSuffix
@@ -130,26 +110,31 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy, ps *model.Pus
 
 	// Port is mapped from ServicePort
 	for _, p := range svc.Ports {
-		serviceInstances := ps.ServiceInstancesByPort(svc, p.Port, nil)
-		targetPorts := getTargetPortFromServiceInstances(p, svc, serviceInstances)
-		deDupTargetProtsMap := make(map[uint32]bool)
-		for _, targetPort := range targetPorts {
-			deDupTargetProtsMap[targetPort] = false
+		var targetPorts []uint32
+		if len(svc.Attributes.ClusterTargetPorts) > 0 {
+			if tpVal, ok := svc.Attributes.ClusterTargetPorts[p.Name]; ok {
+				targetPorts = tpVal
+			}
 		}
 
-		for _, targetPort := range targetPorts {
-			// no duplicated port can be added to service entry
-			if _, ok := deDupTargetProtsMap[targetPort]; ok {
-				continue
+		if len(targetPorts) > 0 {
+			for _, targetPort := range targetPorts {
+				se.Ports = append(se.Ports, &networking.Port{
+					Number: uint32(p.Port),
+					Name:   p.Name,
+					// Protocol is converted to protocol.Instance - reverse conversion will use the name.
+					Protocol:   string(p.Protocol),
+					TargetPort: targetPort,
+				})
 			}
+		} else {
 			se.Ports = append(se.Ports, &networking.Port{
 				Number: uint32(p.Port),
 				Name:   p.Name,
 				// Protocol is converted to protocol.Instance - reverse conversion will use the name.
-				Protocol:   string(p.Protocol),
-				TargetPort: targetPort,
+				Protocol: string(p.Protocol),
+				// TODO: target port
 			})
-			deDupTargetProtsMap[targetPort] = true
 		}
 	}
 
@@ -233,13 +218,27 @@ func convertServices(cfg config.Config) []*model.Service {
 		}
 	}
 
+	// add target ports of Service Entry to Istio Service
+	targetPortsMap := make(map[string][]uint32)
+	for _, port := range serviceEntry.Ports {
+		if port.TargetPort == 0 {
+			continue
+		}
+		if tp, ok := targetPortsMap[port.Name]; !ok {
+			arrTP := []uint32{port.TargetPort}
+			targetPortsMap[port.Name] = arrTP
+		} else {
+			tp = append(tp, port.TargetPort)
+			targetPortsMap[port.Name] = tp
+		}
+	}
 	return buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, targetPortsMap)
 }
 
 func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string) []*model.Service {
+	ctime time.Time, labels map[string]string, targetPorts map[string][]uint32) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
@@ -250,12 +249,13 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 			Ports:          ports,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: provider.External,
-				Name:            ha.host,
-				Namespace:       namespace,
-				Labels:          labels,
-				ExportTo:        exportTo,
-				LabelSelectors:  selectors,
+				ServiceRegistry:    provider.External,
+				Name:               ha.host,
+				Namespace:          namespace,
+				Labels:             labels,
+				ExportTo:           exportTo,
+				LabelSelectors:     selectors,
+				ClusterTargetPorts: targetPorts,
 			},
 			ServiceAccounts: saccounts,
 		})

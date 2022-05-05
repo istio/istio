@@ -452,6 +452,11 @@ var dnsSelector = &config.Config{
 	},
 }
 
+type testPort struct {
+	Port       int `json:"port"`
+	TargetPort int `json:"target_port,omitempty"`
+}
+
 func createWorkloadEntry(name, namespace string, spec *networking.WorkloadEntry) *config.Config {
 	return &config.Config{
 		Meta: config.Meta{
@@ -473,7 +478,7 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 	return protocol.Parse(prefix)
 }
 
-func makeService(hostname host.Name, configNamespace, address string, ports map[string]int,
+func makeService(hostname host.Name, configNamespace, address string, ports map[string]*testPort,
 	external bool, resolution model.Resolution, serviceAccounts ...string) *model.Service {
 	svc := &model.Service{
 		CreationTime:    GlobalTime,
@@ -490,17 +495,29 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 	}
 
 	svcPorts := make(model.PortList, 0, len(ports))
+	targetPortsMap := make(map[string][]uint32)
 	for name, port := range ports {
 		svcPort := &model.Port{
 			Name:     name,
-			Port:     port,
+			Port:     port.Port,
 			Protocol: convertPortNameToProtocol(name),
 		}
 		svcPorts = append(svcPorts, svcPort)
+		if port.TargetPort == 0 {
+			continue
+		}
+		if tp, ok := targetPortsMap[name]; !ok {
+			arrTP := []uint32{uint32(port.TargetPort)}
+			targetPortsMap[name] = arrTP
+		} else {
+			tp = append(tp, uint32(port.TargetPort))
+			targetPortsMap[name] = tp
+		}
 	}
 
 	sortPorts(svcPorts)
 	svc.Ports = svcPorts
+	svc.Attributes.ClusterTargetPorts = targetPortsMap
 	return svc
 }
 
@@ -570,7 +587,7 @@ func TestConvertService(t *testing.T) {
 			externalSvc: httpNone,
 			services: []*model.Service{
 				makeService("*.google.com", "httpNone", constants.UnspecifiedIP,
-					map[string]int{"http-number": 80, "http2-number": 8080}, true, model.Passthrough),
+					map[string]*testPort{"http-number": {Port: 80}, "http2-number": {Port: 8080}}, true, model.Passthrough),
 			},
 		},
 		{
@@ -578,7 +595,7 @@ func TestConvertService(t *testing.T) {
 			externalSvc: tcpNone,
 			services: []*model.Service{
 				makeService("tcpnone.com", "tcpNone", "172.217.0.0/16",
-					map[string]int{"tcp-444": 444}, true, model.Passthrough),
+					map[string]*testPort{"tcp-444": {Port: 444}}, true, model.Passthrough),
 			},
 		},
 		{
@@ -586,7 +603,7 @@ func TestConvertService(t *testing.T) {
 			externalSvc: httpStatic,
 			services: []*model.Service{
 				makeService("*.google.com", "httpStatic", constants.UnspecifiedIP,
-					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.ClientSideLB),
+					map[string]*testPort{"http-port": {Port: 80}, "http-alt-port": {Port: 8080}}, true, model.ClientSideLB),
 			},
 		},
 		{
@@ -594,9 +611,9 @@ func TestConvertService(t *testing.T) {
 			externalSvc: httpDNSnoEndpoints,
 			services: []*model.Service{
 				makeService("google.com", "httpDNSnoEndpoints", constants.UnspecifiedIP,
-					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB, "google.com"),
+					map[string]*testPort{"http-port": {Port: 80}, "http-alt-port": {Port: 8080}}, true, model.DNSLB, "google.com"),
 				makeService("www.wikipedia.org", "httpDNSnoEndpoints", constants.UnspecifiedIP,
-					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB, "google.com"),
+					map[string]*testPort{"http-port": {Port: 80}, "http-alt-port": {Port: 8080}}, true, model.DNSLB, "google.com"),
 			},
 		},
 		{
@@ -604,7 +621,7 @@ func TestConvertService(t *testing.T) {
 			externalSvc: httpDNS,
 			services: []*model.Service{
 				makeService("*.google.com", "httpDNS", constants.UnspecifiedIP,
-					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+					map[string]*testPort{"http-port": {Port: 80}, "http-alt-port": {Port: 8080}}, true, model.DNSLB),
 			},
 		},
 		{
@@ -612,7 +629,7 @@ func TestConvertService(t *testing.T) {
 			externalSvc: dnsTargetPort,
 			services: []*model.Service{
 				makeService("google.com", "dnsTargetPort", constants.UnspecifiedIP,
-					map[string]int{"http-port": 80}, true, model.DNSLB),
+					map[string]*testPort{"http-port": {Port: 80, TargetPort: 8080}}, true, model.DNSLB),
 			},
 		},
 		{
@@ -620,7 +637,7 @@ func TestConvertService(t *testing.T) {
 			externalSvc: tcpDNS,
 			services: []*model.Service{
 				makeService("tcpdns.com", "tcpDNS", constants.UnspecifiedIP,
-					map[string]int{"tcp-444": 444}, true, model.DNSLB),
+					map[string]*testPort{"tcp-444": {Port: 444}}, true, model.DNSLB),
 			},
 		},
 		{
@@ -628,7 +645,7 @@ func TestConvertService(t *testing.T) {
 			externalSvc: tcpStatic,
 			services: []*model.Service{
 				makeService("tcpstatic.com", "tcpStatic", "172.217.0.1",
-					map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
+					map[string]*testPort{"tcp-444": {Port: 444}}, true, model.ClientSideLB),
 			},
 		},
 		{
@@ -636,7 +653,7 @@ func TestConvertService(t *testing.T) {
 			externalSvc: httpNoneInternal,
 			services: []*model.Service{
 				makeService("*.google.com", "httpNoneInternal", constants.UnspecifiedIP,
-					map[string]int{"http-number": 80, "http2-number": 8080}, false, model.Passthrough),
+					map[string]*testPort{"http-number": {Port: 80}, "http2-number": {Port: 8080}}, false, model.Passthrough),
 			},
 		},
 		{
@@ -644,7 +661,7 @@ func TestConvertService(t *testing.T) {
 			externalSvc: tcpNoneInternal,
 			services: []*model.Service{
 				makeService("tcpinternal.com", "tcpNoneInternal", "172.217.0.0/16",
-					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+					map[string]*testPort{"tcp-444": {Port: 444}}, false, model.Passthrough),
 			},
 		},
 		{
@@ -652,19 +669,19 @@ func TestConvertService(t *testing.T) {
 			externalSvc: multiAddrInternal,
 			services: []*model.Service{
 				makeService("tcp1.com", "multiAddrInternal", "1.1.1.0/16",
-					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+					map[string]*testPort{"tcp-444": {Port: 444}}, false, model.Passthrough),
 				makeService("tcp1.com", "multiAddrInternal", "2.2.2.0/16",
-					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+					map[string]*testPort{"tcp-444": {Port: 444}}, false, model.Passthrough),
 				makeService("tcp2.com", "multiAddrInternal", "1.1.1.0/16",
-					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+					map[string]*testPort{"tcp-444": {Port: 444}}, false, model.Passthrough),
 				makeService("tcp2.com", "multiAddrInternal", "2.2.2.0/16",
-					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+					map[string]*testPort{"tcp-444": {Port: 444}}, false, model.Passthrough),
 			},
 		},
 	}
 
 	selectorSvc := makeService("selector.com", "selector", "0.0.0.0",
-		map[string]int{"tcp-444": 444, "http-445": 445}, true, model.ClientSideLB)
+		map[string]*testPort{"tcp-444": {Port: 444}, "http-445": {Port: 445}}, true, model.ClientSideLB)
 	selectorSvc.Attributes.LabelSelectors = map[string]string{"app": "wle"}
 
 	serviceTests = append(serviceTests, struct {

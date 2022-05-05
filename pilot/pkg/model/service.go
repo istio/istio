@@ -564,6 +564,11 @@ type ServiceAttributes struct {
 	// The port that the user provides in the meshNetworks config is the service port.
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
+
+	// ClusterTargetPorts is a mapping of target ports for both Service Entry and K8s Service
+	// The map key is the key message of Service Entry or K8s Service, such as name + namespace of
+	// the resource and the map value are the target ports of the resource
+	ClusterTargetPorts map[string][]uint32
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
