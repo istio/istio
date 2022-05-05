@@ -27,6 +27,9 @@ type Instance interface {
 	// Address is the address of the service provided by the
 	// fake container registry server.
 	Address() string
+
+	// SetupTagMap posts the tag map to the faked containerregistry.
+	SetupTagMap(map[string]string) error
 }
 
 // Config defines the options for creating an fake container registry component.
