@@ -71,8 +71,8 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		s.Image.PullPolicy = env.PULL_POLICY.ValueOrDefault("Always")
 	}
 
-	if s.TestEchoImage == "" {
-		s.TestEchoImage = env.TEST_ECHO_IMAGE.ValueOrDefault("")
+	if s.EchoImage == "" {
+		s.EchoImage = env.ECHO_IMAGE.ValueOrDefault("")
 	}
 
 	if err = validate(s); err != nil {

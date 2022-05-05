@@ -671,7 +671,7 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
 		"ImagePullPolicy":     settings.Image.PullPolicy,
 		"ImagePullSecretName": imagePullSecretName,
-		"ImageFullPath":       settings.TestEchoImage, // This overrides image hub/tag if it's not empty.
+		"ImageFullPath":       settings.EchoImage, // This overrides image hub/tag if it's not empty.
 		"Service":             cfg.Service,
 		"Version":             cfg.Version,
 		"Headless":            cfg.Headless,
