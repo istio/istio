@@ -235,7 +235,6 @@ spec:
         - name: EXPOSE_GRPC_ADMIN
           value: "true"
 {{- end }}
-{{- if $.ImageFullPath }}
         readinessProbe:
 {{- if $.ReadinessTCPPort }}
           tcpSocket:
@@ -243,6 +242,9 @@ spec:
 {{- else if $.ReadinessGRPCPort }}
           grpc:
             port: {{ $.ReadinessGRPCPort }}			
+{{- else if $.ImageFullPath }}
+          tcpSocket:
+            port: tcp-health-port
 {{- else }}
           httpGet:
             path: /
@@ -251,7 +253,6 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 2
           failureThreshold: 10
-{{- end }}
         livenessProbe:
           tcpSocket:
             port: tcp-health-port
