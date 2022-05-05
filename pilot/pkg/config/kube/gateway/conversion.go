@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
@@ -781,7 +782,7 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
 		}, nil
 	}
-	if nilOrEqual((*string)(to.Group), features.MCSAPIGroup) && nilOrEqual((*string)(to.Kind), "ServiceImport") {
+	if nilOrEqual((*string)(to.Group), mcsapi.GroupName) && nilOrEqual((*string)(to.Kind), "ServiceImport") {
 		// Service import
 		name := fmt.Sprintf("%s.%s.svc.clusterset.local", to.Name, namespace)
 		if !features.EnableMCSHost {

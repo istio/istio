@@ -120,7 +120,7 @@ func newServiceExport() *unstructured.Unstructured {
 	se := &mcsapi.ServiceExport{
 		TypeMeta: v12.TypeMeta{
 			Kind:       "ServiceExport",
-			APIVersion: mcs.MCSSchemeGroupVersion.String(),
+			APIVersion: mcsapi.GroupVersion.String(),
 		},
 		ObjectMeta: v12.ObjectMeta{
 			Name:      serviceExportName,

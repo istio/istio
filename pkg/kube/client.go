@@ -72,6 +72,7 @@ import (
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
+	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
 	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
@@ -84,7 +85,6 @@ import (
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/pkg/version"
@@ -1152,7 +1152,7 @@ var FakeIstioScheme = func() *runtime.Scheme {
 func istioScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(kubescheme.AddToScheme(scheme))
-	utilruntime.Must(mcs.AddToScheme(scheme))
+	utilruntime.Must(mcsapi.AddToScheme(scheme))
 	utilruntime.Must(clientnetworkingalpha.AddToScheme(scheme))
 	utilruntime.Must(clientnetworkingbeta.AddToScheme(scheme))
 	utilruntime.Must(clientsecurity.AddToScheme(scheme))

@@ -15,39 +15,19 @@
 package mcs
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-
-	"istio.io/istio/pilot/pkg/features"
 )
 
 var (
-	schemeBuilder = &runtime.SchemeBuilder{}
-
-	// AddToScheme is used to register MCS CRDs to a runtime.Scheme
-	AddToScheme = schemeBuilder.AddToScheme
-
-	// MCSSchemeGroupVersion is group version used to register Kubernetes Multi-Cluster Services (MCS) objects
-	MCSSchemeGroupVersion = schema.GroupVersion{Group: features.MCSAPIGroup, Version: features.MCSAPIVersion}
-
-	ServiceExportGVR = MCSSchemeGroupVersion.WithResource("serviceexports")
-	ServiceImportGVR = MCSSchemeGroupVersion.WithResource("serviceimports")
+	ServiceExportGVR = schema.GroupVersionResource{
+		Group:    mcs.GroupName,
+		Version:  mcs.GroupVersion.Version,
+		Resource: "serviceexports",
+	}
+	ServiceImportGVR = schema.GroupVersionResource{
+		Group:    mcs.GroupName,
+		Version:  mcs.GroupVersion.Version,
+		Resource: "serviceimports",
+	}
 )
-
-func init() {
-	schemeBuilder.Register(addKnownTypes)
-}
-
-func addKnownTypes(scheme *runtime.Scheme) error {
-	// Register Kubernetes Multi-Cluster Services (MCS) objects.
-	scheme.AddKnownTypes(MCSSchemeGroupVersion,
-		&mcs.ServiceExport{},
-		&mcs.ServiceExportList{},
-		&mcs.ServiceImport{},
-		&mcs.ServiceImportList{})
-	metav1.AddToGroupVersion(scheme, MCSSchemeGroupVersion)
-
-	return nil
-}

@@ -18,6 +18,8 @@ import (
 	"context"
 	"time"
 
+	"istio.io/istio/pkg/kube/mcs"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +32,6 @@ import (
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -122,7 +123,7 @@ func (c *autoServiceExportController) createServiceExportIfNotPresent(svc *v1.Se
 	serviceExport := mcsapi.ServiceExport{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceExport",
-			APIVersion: mcs.MCSSchemeGroupVersion.String(),
+			APIVersion: mcsapi.GroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: svc.Namespace,
