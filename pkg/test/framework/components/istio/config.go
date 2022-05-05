@@ -85,7 +85,7 @@ var (
 		BaseIOPFile:             BaseIOP,
 		DeployEastWestGW:        true,
 		DumpKubernetesManifests: false,
-		IstiodlessRemotes:       false,
+		IstiodlessRemotes:       true,
 		EnableCNI:               false,
 	}
 )
