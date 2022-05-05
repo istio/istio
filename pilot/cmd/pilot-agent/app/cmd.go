@@ -79,6 +79,7 @@ func NewRootCommand() *cobra.Command {
 			UnknownFlags: true,
 		},
 	}
+
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -213,8 +214,8 @@ func addFlags(proxyCmd *cobra.Command) {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
-
 }
+
 func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
 	envoyPrometheusPort int, agent *istio_agent.Agent) error {
 	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
