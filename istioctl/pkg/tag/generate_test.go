@@ -88,7 +88,7 @@ var (
 			},
 		},
 	}
-	remoteInjectionURL             = "random.injection.url.com/inject/cluster/cluster1/net/net1"
+	remoteInjectionURL             = "random.host.com/inject/cluster/cluster1/net/net1"
 	revisionCanonicalWebhookRemote = admit_v1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector-revision",
@@ -111,7 +111,7 @@ var (
 			},
 		},
 	}
-	remoteValidationURL = "random.validation.url.com/validate"
+	remoteValidationURL = "random.host.com/validate"
 )
 
 func TestGenerateValidatingWebhook(t *testing.T) {
@@ -144,14 +144,6 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			istioNamespace: "istio-system",
 			webhook:        revisionCanonicalWebhookRemote,
 			whURL:          remoteValidationURL,
-			whSVC:          "",
-			whCA:           "ca",
-		},
-		{
-			name:           "webhook-configured-with-bad-url",
-			istioNamespace: "istio-system",
-			webhook:        revisionCanonicalWebhookRemote,
-			whURL:          remoteInjectionURL,
 			whSVC:          "",
 			whCA:           "ca",
 		},
@@ -194,12 +186,10 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 					if validationWhConf.URL == nil {
 						t.Fatalf("expected validation URL %s, got nil", tc.whURL)
 					}
-					if *validationWhConf.URL != tc.whURL {
-						validationURL, _ := url.Parse(*validationWhConf.URL)
-						configURL, _ := url.Parse(tc.whURL)
-						if !(validationURL.Host == configURL.Host && validationURL.Path == "/validate") {
-							t.Fatalf("expected validation URL %s, got %s", tc.whURL, *validationWhConf.URL)
-						}
+					validationURL, _ := url.Parse(*validationWhConf.URL)
+					configURL, _ := url.Parse(tc.whURL)
+					if validationURL.Path != "/validate" || validationURL.Host != configURL.Host {
+						t.Fatalf("expected validation URL %s, got %s", tc.whURL, *validationWhConf.URL)
 					}
 				}
 				if tc.whCA != "" {
