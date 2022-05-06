@@ -22,6 +22,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
 )
 
 var (
@@ -489,6 +491,14 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 		},
 	}
 
+	if external && features.CanonicalServiceForMeshExternalServiceEntry {
+		if svc.Attributes.Labels == nil {
+			svc.Attributes.Labels = make(map[string]string)
+		}
+		svc.Attributes.Labels["service.istio.io/canonical-name"] = configNamespace
+		svc.Attributes.Labels["service.istio.io/canonical-revision"] = "latest"
+	}
+
 	svcPorts := make(model.PortList, 0, len(ports))
 	for name, port := range ports {
 		svcPort := &model.Port{
@@ -561,6 +571,14 @@ func makeInstance(cfg *config.Config, address string, port int,
 }
 
 func TestConvertService(t *testing.T) {
+	testConvertServiceBody(t)
+	test.SetBoolForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
+	testConvertServiceBody(t)
+}
+
+func testConvertServiceBody(t *testing.T) {
+	t.Helper()
+
 	serviceTests := []struct {
 		externalSvc *config.Config
 		services    []*model.Service
