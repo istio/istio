@@ -186,7 +186,7 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 						t.Fatalf("expected validation URL %s, got nil", tc.whURL)
 					}
 					if *validationWhConf.URL != tc.whURL {
-						t.Fatalf("expected injection URL %s, got %s", tc.whURL, *validationWhConf.URL)
+						t.Fatalf("expected validation URL %s, got %s", tc.whURL, *validationWhConf.URL)
 					}
 				}
 				if tc.whCA != "" {
