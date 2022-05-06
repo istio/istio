@@ -310,7 +310,9 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	if err != nil {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
-
+	if checkLbEndpoint(llbOpts) {
+		return nil
+	}
 	// Apply the Split Horizon EDS filter, if applicable.
 	llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 
@@ -579,4 +581,16 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 		Incremental:    len(edsUpdatedServices) != 0,
 		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
 	}
+}
+
+func checkLbEndpoint(llbOpts []*LocLbEndpointsAndOptions) bool {
+	if len(llbOpts) == 0 {
+		return true
+	}
+	for _, llbOpt := range llbOpts {
+		if llbOpt.llbEndpoints.LbEndpoints == nil {
+			return true
+		}
+	}
+	return false
 }
