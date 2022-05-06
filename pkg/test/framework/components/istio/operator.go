@@ -910,15 +910,17 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		}
 
 		// Create the secret for the cacerts.
-		// if _, err := c.CoreV1().Secrets(cfg.SystemNamespace).Create(context.TODO(), secret,
-		// 	kubeApiMeta.CreateOptions{}); err != nil {
-		// 	// no need to do anything if cacerts is already present
-		// 	if !errors.IsAlreadyExists(err) {
-		// 		fmt.Println("---cacerts is there---")
-		// 		scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
-		// 			"multiple control planes. Error: %v", c.Name(), err)
-		// 	}
-		// }
+		if _, err := c.CoreV1().Secrets(cfg.SystemNamespace).Create(context.TODO(), secret,
+			kubeApiMeta.CreateOptions{}); err != nil {
+			// no need to do anything if cacerts is already present
+			if !errors.IsAlreadyExists(err) {
+				fmt.Println("---cacerts is there---")
+				scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
+					"multiple control planes. Error: %v", c.Name(), err)
+			} else {
+				fmt.Println("---cacerts is not there---")
+			}
+		}
 	}
 	return nil
 }
