@@ -18,7 +18,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
+	"k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -177,6 +179,34 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 	return errs.ToError()
 }
 
+// RemoveIstioCaRootCert remove the istio ca cert made by istio namespace controller
+func (h *HelmReconciler) RemoveIstioCaRootCert() error {
+	configMapName := "istio-ca-root-cert"
+	nsList, err := h.kubeClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	var wg sync.WaitGroup
+	for _, ns := range nsList.Items {
+		wg.Add(1)
+		go func(ns v1.Namespace) {
+			defer wg.Done()
+			// example "  Removed ConfigMap:istio-system:istio-sidecar-injector."
+			oh := fmt.Sprintf("ConfigMap:%s:%s", ns.Name, configMapName)
+			cmErr := h.kubeClient.CoreV1().ConfigMaps(ns.Name).Delete(context.TODO(), configMapName,
+				metav1.DeleteOptions{})
+			if cmErr != nil || !kerrors.IsNotFound(cmErr) {
+				// print error
+				h.opts.Log.LogAndErrorf("  Removed %s Error %s.", oh, cmErr)
+			} else {
+				h.opts.Log.LogAndPrintf("  Removed %s.", oh)
+			}
+		}(ns)
+	}
+	wg.Wait()
+	return nil
+}
+
 // GetPrunedResources get the list of resources to be removed
 // 1. if includeClusterResources is false, we list the namespaced resources by matching revision and component labels.
 // 2. if includeClusterResources is true, we list the namespaced and cluster resources by component labels only.
@@ -315,6 +345,9 @@ func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.Manifest
 		if err := h.deleteResources(nil, labels, cn, &unstructuredObjects, includeClusterResources); err != nil {
 			return fmt.Errorf("failed to delete resources: %v", err)
 		}
+	}
+	if err := h.RemoveIstioCaRootCert(); err != nil {
+		return fmt.Errorf("failed to delete resources: %v", err)
 	}
 	return nil
 }
