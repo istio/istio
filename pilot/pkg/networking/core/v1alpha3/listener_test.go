@@ -26,7 +26,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -41,10 +40,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
-	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -60,9 +56,7 @@ import (
 )
 
 const (
-	wildcardIP           = "0.0.0.0"
-	fakePluginHTTPFilter = "fake-plugin-http-filter"
-	fakePluginTCPFilter  = "fake-plugin-tcp-filter"
+	wildcardIP = "0.0.0.0"
 )
 
 func getProxy() *model.Proxy {
@@ -311,8 +305,7 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 		buildService("test2.com", "1.2.3.4", protocol.TCP, tnow),
 		buildService("test3.com", "1.2.3.4", protocol.TCP, tnow.Add(2*time.Second)),
 	}
-	p := &fakePlugin{}
-	listeners := buildOutboundListeners(t, p, getProxy(), nil, nil, services...)
+	listeners := buildOutboundListeners(t, getProxy(), nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -356,7 +349,6 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 				buildService("test.com", tt.CIDR, protocol.TCP, tnow),
 			}
 
-			p := &fakePlugin{}
 			virtualService := config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
@@ -365,7 +357,7 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 				},
 				Spec: virtualServiceSpec,
 			}
-			listeners := buildOutboundListeners(t, p, getProxy(), nil, &virtualService, services...)
+			listeners := buildOutboundListeners(t, getProxy(), nil, &virtualService, services...)
 
 			if len(listeners) != 1 {
 				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
@@ -411,7 +403,6 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 				buildService("test.com", tt.CIDR, protocol.TCP, tnow),
 			}
 
-			p := &fakePlugin{}
 			virtualService := config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
@@ -423,7 +414,7 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 			proxy := getProxy()
 			proxy.Metadata.InboundListenerExactBalance = true
 			proxy.Metadata.OutboundListenerExactBalance = true
-			listeners := buildOutboundListeners(t, p, proxy, nil, &virtualService, services...)
+			listeners := buildOutboundListeners(t, proxy, nil, &virtualService, services...)
 
 			if len(listeners) != 1 {
 				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
@@ -545,7 +536,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			proxy.Metadata.InboundListenerExactBalance = true
 			proxy.Metadata.OutboundListenerExactBalance = true
 
-			listeners := cg.ConfigGen.buildSidecarOutboundListeners(proxy, cg.env.PushContext)
+			listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(proxy, cg.env.PushContext)
 			listenersToCheck := make([]string, 0)
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
@@ -802,12 +793,10 @@ func TestOutboundTls(t *testing.T) {
 			},
 		},
 	}
-	p := &fakePlugin{}
-	buildOutboundListeners(t, p, getProxy(), &virtualService2, &virtualService, services...)
+	buildOutboundListeners(t, getProxy(), &virtualService2, &virtualService, services...)
 }
 
 func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
-	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
 			Name:             "sidecar-with-http-proxy",
@@ -831,7 +820,7 @@ func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 	}
 	services := []*model.Service{buildService("httpbin.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second))}
 
-	listeners := buildOutboundListeners(t, p, getProxy(), sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(t, getProxy(), sidecarConfig, nil, services...)
 
 	if expected := 1; len(listeners) != expected {
 		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
@@ -1096,8 +1085,7 @@ func testOutboundListenerConflictWithSniffingDisabled(t *testing.T, services ...
 
 	oldestService := getOldestService(services...)
 
-	p := &fakePlugin{}
-	listeners := buildOutboundListeners(t, p, getProxy(), nil, nil, services...)
+	listeners := buildOutboundListeners(t, getProxy(), nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -1108,16 +1096,11 @@ func testOutboundListenerConflictWithSniffingDisabled(t *testing.T, services ...
 	} else if oldestProtocol == protocol.HTTP && !isHTTPListener(listeners[0]) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
-
-	if len(p.outboundListenerParams) != 1 {
-		t.Fatalf("expected %d listener params, found %d", 1, len(p.outboundListenerParams))
-	}
 }
 
 func testOutboundListenerRoute(t *testing.T, services ...*model.Service) {
 	t.Helper()
-	p := &fakePlugin{}
-	listeners := buildOutboundListeners(t, p, getProxy(), nil, nil, services...)
+	listeners := buildOutboundListeners(t, getProxy(), nil, nil, services...)
 	if len(listeners) != 3 {
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
 	}
@@ -1158,8 +1141,7 @@ func testOutboundListenerRoute(t *testing.T, services ...*model.Service) {
 }
 
 func testOutboundListenerFilterTimeout(t *testing.T, services ...*model.Service) {
-	p := &fakePlugin{}
-	listeners := buildOutboundListeners(t, p, getProxy(), nil, nil, services...)
+	listeners := buildOutboundListeners(t, getProxy(), nil, nil, services...)
 	if len(listeners) != 2 {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 	}
@@ -1178,10 +1160,9 @@ func testOutboundListenerFilterTimeout(t *testing.T, services ...*model.Service)
 
 func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	oldestService := getOldestService(services...)
-	p := &fakePlugin{}
 	proxy := getProxy()
 	proxy.DiscoverIPMode()
-	listeners := buildOutboundListeners(t, p, getProxy(), nil, nil, services...)
+	listeners := buildOutboundListeners(t, getProxy(), nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -1297,8 +1278,7 @@ func getHTTPFilterChain(t *testing.T, l *listener.Listener) *listener.FilterChai
 
 func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
-	p := registry.NewPlugins([]string{plugin.Authn})
-	listeners := buildListeners(t, TestOptions{Plugins: p, Services: services}, proxy)
+	listeners := buildListeners(t, TestOptions{Services: services}, proxy)
 	verifyFilterChainMatch(t, xdstest.ExtractListener(model.VirtualInboundListenerName, listeners))
 }
 
@@ -1341,7 +1321,6 @@ func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, serv
 	listeners := buildListeners(t, TestOptions{
 		Services: services,
 		Configs:  []config.Config{sidecarConfig},
-		Plugins:  registry.NewPlugins([]string{plugin.Authn}),
 	}, proxy)
 	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 	verifyFilterChainMatch(t, l)
@@ -1372,7 +1351,6 @@ func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *mo
 	}
 	listeners := buildListeners(t, TestOptions{
 		Configs: []config.Config{sidecarConfig},
-		Plugins: registry.NewPlugins([]string{plugin.Authn}),
 	}, proxy)
 	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 	verifyFilterChainMatch(t, l)
@@ -1380,9 +1358,7 @@ func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *mo
 
 func testInboundListenerConfigWithoutService(t *testing.T, proxy *model.Proxy) {
 	t.Helper()
-	listeners := buildListeners(t, TestOptions{
-		Plugins: registry.NewPlugins([]string{plugin.Authn}),
-	}, proxy)
+	listeners := buildListeners(t, TestOptions{}, proxy)
 	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 	verifyFilterChainMatch(t, l)
 }
@@ -1440,7 +1416,6 @@ func isTCPFilterChain(fc *listener.FilterChain) bool {
 
 func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Service) {
 	t.Helper()
-	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
 			Name:             "foo",
@@ -1485,7 +1460,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	// enable mysql filter that is used here
 	test.SetBoolForTest(t, &features.EnableMysqlFilter, true)
 
-	listeners := buildOutboundListeners(t, p, getProxy(), sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(t, getProxy(), sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
 		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
 	}
@@ -1531,7 +1506,6 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 
 func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, services ...*model.Service) {
 	t.Helper()
-	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
 			Name:             "foo",
@@ -1568,7 +1542,7 @@ func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, ser
 	// enable mysql filter that is used here
 	test.SetBoolForTest(t, &features.EnableMysqlFilter, true)
 
-	listeners := buildOutboundListeners(t, p, getProxy(), sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(t, getProxy(), sidecarConfig, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -1580,7 +1554,6 @@ func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, ser
 
 func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, services ...*model.Service) {
 	t.Helper()
-	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
 			Name:             "foo",
@@ -1605,7 +1578,7 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 	// enable use remote address to true
 	test.SetBoolForTest(t, &features.UseRemoteAddress, true)
 
-	listeners := buildOutboundListeners(t, p, getProxy(), sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(t, getProxy(), sidecarConfig, nil, services...)
 
 	if l := findListenerByPort(listeners, 9090); !isHTTPListener(l) {
 		t.Fatalf("expected HTTP listener on port 9090, found TCP\n%v", l)
@@ -1622,7 +1595,6 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 
 func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, services ...*model.Service) {
 	t.Helper()
-	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
 			Name:             "foo",
@@ -1666,7 +1638,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 			},
 		},
 	}
-	listeners := buildOutboundListeners(t, p, getProxy(), sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(t, getProxy(), sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
 		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
 	}
@@ -2429,67 +2401,16 @@ func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	return nil
 }
 
-func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *config.Config,
+func buildOutboundListeners(t *testing.T, proxy *model.Proxy, sidecarConfig *config.Config,
 	virtualService *config.Config, services ...*model.Service) []*listener.Listener {
 	t.Helper()
 	cg := NewConfigGenTest(t, TestOptions{
 		Services:       services,
 		ConfigPointers: []*config.Config{sidecarConfig, virtualService},
-		Plugins:        []plugin.Plugin{p},
 	})
-	listeners := cg.ConfigGen.buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext)
+	listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext)
 	xdstest.ValidateListeners(t, listeners)
 	return listeners
-}
-
-type fakePlugin struct {
-	outboundListenerParams []*plugin.InputParams
-}
-
-var _ plugin.Plugin = (*fakePlugin)(nil)
-
-func (p *fakePlugin) OnOutboundListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
-	p.outboundListenerParams = append(p.outboundListenerParams, in)
-	return nil
-}
-
-func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
-	return nil
-}
-
-func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
-	for cnum, fc := range mutable.FilterChains {
-		switch fc.ListenerProtocol {
-		case istionetworking.ListenerProtocolTCP:
-			filter := &listener.Filter{
-				Name: fakePluginTCPFilter,
-			}
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
-		case istionetworking.ListenerProtocolHTTP:
-			filter := &hcm.HttpFilter{
-				Name: fakePluginHTTPFilter,
-			}
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
-		}
-	}
-	return nil
-}
-
-func (p *fakePlugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
-	var port uint32
-	if !passthrough {
-		port = in.ServiceInstance.Endpoint.EndpointPort
-	}
-	return []plugin.MTLSSettings{{
-		Port: port,
-		Mode: model.MTLSPermissive,
-		TCP: &tls.DownstreamTlsContext{
-			CommonTlsContext: &tls.CommonTlsContext{AlpnProtocols: []string{"foo"}},
-		},
-		HTTP: &tls.DownstreamTlsContext{
-			CommonTlsContext: &tls.CommonTlsContext{AlpnProtocols: []string{"foo"}},
-		},
-	}}
 }
 
 func isHTTPListener(listener *listener.Listener) bool {
@@ -2661,8 +2582,7 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			l := &listener.Listener{}
-			cg.ConfigGen.appendListenerFallthroughRouteForCompleteListener(l,
-				tt.node, cg.PushContext())
+			appendListenerFallthroughRouteForCompleteListener(l, tt.node, cg.PushContext())
 			if len(l.FilterChains) != 0 {
 				t.Errorf("Expected exactly 0 filter chain")
 			}

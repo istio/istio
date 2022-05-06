@@ -222,9 +222,10 @@ func buildAccessLogFilterFromTelemetry(spec *model.LoggingConfig) *accesslog.Acc
 	}
 }
 
-func (b *AccessLogBuilder) setHTTPAccessLog(opts buildListenerOpts, connectionManager *hcm.HttpConnectionManager) {
-	mesh := opts.push.Mesh
-	cfg := opts.push.Telemetry.AccessLogging(opts.proxy, opts.class)
+func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *model.Proxy,
+	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass) {
+	mesh := push.Mesh
+	cfg := push.Telemetry.AccessLogging(proxy, class)
 
 	if cfg == nil {
 		// No Telemetry API configured, fall back to legacy mesh config setting
@@ -238,7 +239,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(opts buildListenerOpts, connectionMa
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(opts.push, cfg, false); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(push, cfg, false); len(al) != 0 {
 		connectionManager.AccessLog = append(connectionManager.AccessLog, al...)
 	}
 }

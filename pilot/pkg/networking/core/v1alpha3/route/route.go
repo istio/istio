@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
+	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/constant"
@@ -270,7 +271,7 @@ func buildSidecarVirtualHostsForService(
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
-				traceOperation := util.TraceOperation(string(svc.Hostname), port.Port)
+				traceOperation := telemetry.TraceOperation(string(svc.Hostname), port.Port)
 				httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, mesh)
 
 				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless

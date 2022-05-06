@@ -30,8 +30,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -59,9 +57,6 @@ var (
 )
 
 func buildListeners(t *testing.T, o TestOptions, p *model.Proxy) []*listener.Listener {
-	if o.Plugins == nil {
-		o.Plugins = []plugin.Plugin{&fakePlugin{}}
-	}
 	cg := NewConfigGenTest(t, o)
 	// Hack up some instances for each Service
 	for _, s := range o.Services {
@@ -141,7 +136,6 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	if l == nil {
 		t.Fatalf("failed to find virtual inbound listener")
 	}
-	sawFakePluginFilter := false
 	sawIpv4PassthroughCluster := 0
 	sawIpv6PassthroughCluster := false
 	sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin := false
@@ -151,9 +145,6 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		}
 
 		if f := getTCPFilter(fc); f != nil && fc.Name == model.VirtualInboundListenerName {
-			if fc.Filters[0].Name == fakePluginTCPFilter {
-				sawFakePluginFilter = true
-			}
 			if ipLen := len(fc.FilterChainMatch.PrefixRanges); ipLen != 1 {
 				t.Fatalf("expect passthrough filter chain has 1 ip address, found %d", ipLen)
 			}
@@ -184,19 +175,11 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			if fc.TransportSocket == nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs) {
 				t.Fatalf("expect %v application protocols, found %v", plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 			}
-
-			if !strings.Contains(fc.Filters[1].GetTypedConfig().String(), fakePluginHTTPFilter) {
-				t.Errorf("failed to find the fake plugin HTTP filter: %v", fc.Filters[1].GetTypedConfig().String())
-			}
 		}
 	}
 
 	if sawIpv4PassthroughCluster != 3 {
 		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener, got %v: %v", sawIpv4PassthroughCluster, xdstest.Dump(t, l))
-	}
-
-	if !sawFakePluginFilter {
-		t.Fatalf("fail to find the fake plugin TCP filter in listener %v", l)
 	}
 
 	if !sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin {
@@ -602,9 +585,10 @@ func TestInboundListenerFilters(t *testing.T) {
 				// Should not see HTTP inspector if we declare ports
 				80: true,
 				82: true,
-				// But should see for passthrough or unnamed ports
-				81:   false,
-				1000: false,
+				// This is 'auto', but for STRICT we always get requests over TLS so HTTP inspector is not in play
+				81: true,
+				// Even for passthrough, we do not need HTTP inspector because it is handled by TLS inspector
+				1000: true,
 			},
 			tls: map[int]bool{
 				// strict mode: inspector is set everywhere.
@@ -625,7 +609,7 @@ func TestInboundListenerFilters(t *testing.T) {
 			listeners := cg.Listeners(cg.SetupProxy(nil))
 			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
 			filters := xdstest.ExtractListenerFilters(virtualInbound)
-			evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].FilterDisabled, tt.http)
+			evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].GetFilterDisabled(), tt.http)
 			if filters[wellknown.TlsInspector] == nil {
 				if len(tt.tls) > 0 {
 					t.Fatalf("Expected tls inspector, got none")
@@ -647,13 +631,22 @@ func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.Listener
 	}
 }
 
-type TestAuthnPlugin struct {
-	mtlsSettings []plugin.MTLSSettings
-}
-
 func TestSidecarInboundListenerFilters(t *testing.T) {
-	services := []*model.Service{
-		buildServiceWithPort("test.com", 80, protocol.HTTPS, tnow),
+	services := []*model.Service{buildServiceWithPort("test.com", 80, protocol.HTTPS, tnow)}
+
+	expectIstioMTLS := func(t test.Failer, filterChain *listener.FilterChain) {
+		tlsContext := &tls.DownstreamTlsContext{}
+		if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
+			t.Fatal(err)
+		}
+		commonTLSContext := tlsContext.CommonTlsContext
+		if len(commonTLSContext.TlsCertificateSdsSecretConfigs) == 0 {
+			t.Fatal("expected tls certificates")
+		}
+		if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "default" {
+			t.Fatalf("expected certificate default, actual %s",
+				commonTLSContext.TlsCertificates[0].CertificateChain.String())
+		}
 	}
 	instances := make([]*model.ServiceInstance, 0, len(services))
 	for _, s := range services {
@@ -669,8 +662,8 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 	cases := []struct {
 		name           string
 		sidecarScope   *model.SidecarScope
-		mtlsSettings   []plugin.MTLSSettings
-		expectedResult func(filterChain *listener.FilterChain)
+		mtlsMode       model.MutualTLSMode
+		expectedResult func(t test.Failer, filterChain *listener.FilterChain)
 	}{
 		{
 			name: "simulate peer auth disabled on port 80",
@@ -688,10 +681,8 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 					},
 				},
 			},
-			mtlsSettings: []plugin.MTLSSettings{{
-				Mode: model.MTLSDisable,
-			}},
-			expectedResult: func(filterChain *listener.FilterChain) {
+			mtlsMode: model.MTLSDisable,
+			expectedResult: func(t test.Failer, filterChain *listener.FilterChain) {
 				tlsContext := &tls.DownstreamTlsContext{}
 				if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
 					t.Fatal(err)
@@ -725,14 +716,8 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 					},
 				},
 			},
-			mtlsSettings: []plugin.MTLSSettings{{
-				Mode: model.MTLSStrict,
-			}},
-			expectedResult: func(filterChain *listener.FilterChain) {
-				if filterChain.GetTransportSocket() != nil {
-					t.Fatal("expected transport socket to be nil")
-				}
-			},
+			mtlsMode:       model.MTLSStrict,
+			expectedResult: expectIstioMTLS,
 		},
 		{
 			name: "simulate peer auth permissive",
@@ -750,55 +735,16 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 					},
 				},
 			},
-			mtlsSettings: []plugin.MTLSSettings{{
-				Mode: model.MTLSPermissive,
-			}},
-			expectedResult: func(filterChain *listener.FilterChain) {
-				if filterChain.GetTransportSocket() != nil {
-					t.Fatal("expected transport socket to be nil")
-				}
-			},
-		},
-		{
-			name: "simulate multiple mode returned in mtlssettings",
-			sidecarScope: &model.SidecarScope{
-				Sidecar: &networking.Sidecar{
-					Ingress: []*networking.IstioIngressListener{
-						{
-							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
-							Tls: &networking.ServerTLSSettings{
-								Mode:              networking.ServerTLSSettings_SIMPLE,
-								ServerCertificate: "cert.pem",
-								PrivateKey:        "privatekey.pem",
-							},
-						},
-					},
-				},
-			},
-			mtlsSettings: []plugin.MTLSSettings{
-				{
-					Mode: model.MTLSStrict,
-				},
-				{
-					Mode: model.MTLSDisable,
-				},
-			},
-			expectedResult: func(filterChain *listener.FilterChain) {
-				if filterChain.GetTransportSocket() != nil {
-					t.Fatal("expected transport socket to be nil")
-				}
-			},
+			mtlsMode:       model.MTLSPermissive,
+			expectedResult: expectIstioMTLS,
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			testPlugin := &TestAuthnPlugin{
-				mtlsSettings: tt.mtlsSettings,
-			}
 			cg := NewConfigGenTest(t, TestOptions{
-				Services:  services,
-				Instances: instances,
-				Plugins:   []plugin.Plugin{testPlugin},
+				Services:     services,
+				Instances:    instances,
+				ConfigString: mtlsMode(tt.mtlsMode.String()),
 			})
 			proxy := cg.SetupProxy(nil)
 			proxy.Metadata = &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}
@@ -807,23 +753,19 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 			listeners := cg.Listeners(proxy)
 			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
 			filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
-			tt.expectedResult(filterChain)
+			tt.expectedResult(t, filterChain)
 		})
 	}
 }
 
-func (t TestAuthnPlugin) OnOutboundListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
-	return nil
-}
-
-func (t TestAuthnPlugin) OnInboundListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
-	return nil
-}
-
-func (t TestAuthnPlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
-	return nil
-}
-
-func (t TestAuthnPlugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
-	return t.mtlsSettings
+func mtlsMode(m string) string {
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: %s
+`, m)
 }

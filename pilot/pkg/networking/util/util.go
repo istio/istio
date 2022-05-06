@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -89,13 +88,6 @@ const (
 	// EnvoyQUICSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level QUIC transport socket configuration
 	EnvoyQUICSocketName = wellknown.TransportSocketQuic
-
-	// StatName patterns
-	serviceStatPattern         = "%SERVICE%"
-	serviceFQDNStatPattern     = "%SERVICE_FQDN%"
-	servicePortStatPattern     = "%SERVICE_PORT%"
-	servicePortNameStatPattern = "%SERVICE_PORT_NAME%"
-	subsetNameStatPattern      = "%SUBSET_NAME%"
 
 	// Well-known header names
 	AltSvcHeader = "alt-svc"
@@ -552,25 +544,6 @@ func IsAllowAnyOutbound(node *model.Proxy) bool {
 		node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }
 
-// BuildStatPrefix builds a stat prefix based on the stat pattern.
-func BuildStatPrefix(statPattern string, host string, subset string, port *model.Port, attributes *model.ServiceAttributes) string {
-	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
-	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, host)
-	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
-	prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(port.Port))
-	prefix = strings.ReplaceAll(prefix, servicePortNameStatPattern, port.Name)
-	return prefix
-}
-
-// shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
-// For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
-func shortHostName(host string, attributes *model.ServiceAttributes) string {
-	if attributes.ServiceRegistry == provider.Kubernetes {
-		return attributes.Name + "." + attributes.Namespace
-	}
-	return host
-}
-
 func StringToExactMatch(in []string) []*matcher.StringMatcher {
 	if len(in) == 0 {
 		return nil
@@ -708,7 +681,7 @@ func ByteCount(b int) string {
 		float64(b)/float64(div), "kMGTPE"[exp])
 }
 
-// IPv6 addresses are enclosed in square brackets followed by port number in Host header/URIs
+// IPv6Compliant encloses ipv6 addresses in square brackets followed by port number in Host header/URIs
 func IPv6Compliant(host string) string {
 	if strings.Contains(host, ":") {
 		return "[" + host + "]"
@@ -719,10 +692,4 @@ func IPv6Compliant(host string) string {
 // DomainName builds the domain name for a given host and port
 func DomainName(host string, port int) string {
 	return net.JoinHostPort(host, strconv.Itoa(port))
-}
-
-// TraceOperation builds the string format: "%s:%d/*" for a given host and port
-func TraceOperation(host string, port int) string {
-	// Format : "%s:%d/*"
-	return DomainName(host, port) + "/*"
 }

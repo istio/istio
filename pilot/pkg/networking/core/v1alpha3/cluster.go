@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
+	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
@@ -269,7 +270,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 			// If stat name is configured, build the alternate stats name.
 			if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
+				defaultCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
 					string(service.Hostname), "", port, &service.Attributes)
 			}
 
@@ -487,7 +488,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 		// Find the service instance that corresponds to this ingress listener by looking
 		// for a service instance that matches this ingress port as this will allow us
 		// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
-		instance := configgen.findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
+		instance := findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
 		instance.Endpoint.Address = endpointAddress
 		instance.ServicePort = listenPort
 		instance.Endpoint.ServicePortName = listenPort.Name
@@ -500,7 +501,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 	return clusters
 }
 
-func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*model.ServiceInstance,
+func findOrCreateServiceInstance(instances []*model.ServiceInstance,
 	ingressListener *networking.IstioIngressListener, sidecar string, sidecarns string) *model.ServiceInstance {
 	for _, realInstance := range instances {
 		if realInstance.Endpoint.EndpointPort == ingressListener.Port.Number {
