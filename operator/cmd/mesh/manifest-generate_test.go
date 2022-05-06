@@ -430,6 +430,11 @@ func TestManifestGeneratePilot(t *testing.T) {
 			desc:       "pilot_disable_tracing",
 			diffSelect: "ConfigMap:*:istio$",
 		},
+		{
+			desc:       "deprecated_autoscaling_k8s_spec",
+			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
+			fileSelect: []string{"templates/autoscale.yaml"},
+		},
 	})
 }
 

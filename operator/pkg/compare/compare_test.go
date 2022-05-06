@@ -48,13 +48,13 @@ func TestYAMLCmp(t *testing.T) {
 		},
 		{
 			desc: "two additional",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   namespace: istio-system
   labels:
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -70,7 +70,7 @@ metadata:
 		},
 		{
 			desc: "two missing",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -78,7 +78,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   namespace: istio-system
@@ -92,7 +92,7 @@ metadata:
 		},
 		{
 			desc: "one missing",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -100,7 +100,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -114,14 +114,14 @@ metadata:
 		},
 		{
 			desc: "one additional",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
   namespace: istio-system
   labels:
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -136,7 +136,7 @@ metadata:
 		},
 		{
 			desc: "identical",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -144,7 +144,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -164,7 +164,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta2
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -172,12 +172,12 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			want: `apiVersion: autoscaling/v2beta1 -> autoscaling/v2beta2
+			want: `apiVersion: autoscaling/v2beta1 -> autoscaling/v2
 `,
 		},
 		{
 			desc: "nested item changed",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -185,7 +185,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -200,7 +200,7 @@ metadata:
 		},
 		{
 			desc: "one map value changed, order changed",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -219,8 +219,10 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: 80`,
-			b: `apiVersion: autoscaling/v2beta1
+        target:
+          type: Utilization
+          averageUtilization: 80`,
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   labels:
@@ -233,7 +235,9 @@ spec:
   metrics:
   - resource:
       name: cpu
-      targetAverageUtilization: 80
+      target:
+        type: Utilization
+        averageUtilization: 80
     type: Resource
   minReplicas: 1
   scaleTargetRef:
@@ -247,7 +251,7 @@ spec:
 		},
 		{
 			desc: "arrays with same items",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
@@ -257,7 +261,7 @@ metadata:
    - label2
    - label3
 `,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
@@ -271,7 +275,7 @@ metadata:
 		},
 		{
 			desc: "arrays with different items",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
@@ -281,7 +285,7 @@ metadata:
    - label2
    - label3
 `,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
@@ -299,7 +303,7 @@ metadata:
 		},
 		{
 			desc: "arrays with same items, order changed",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
@@ -309,7 +313,7 @@ metadata:
    - label2
    - label3
 `,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
@@ -327,7 +331,7 @@ metadata:
 		},
 		{
 			desc: "arrays with items",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -337,7 +341,7 @@ metadata:
     - label1
     - label2
 `,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -361,7 +365,7 @@ metadata:
 		},
 		{
 			desc: "arrays with additional items",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
@@ -371,7 +375,7 @@ metadata:
    - label2
    - label3
 `,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
@@ -391,7 +395,7 @@ metadata:
 		},
 		{
 			desc: "arrays with missing items",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
@@ -403,7 +407,7 @@ metadata:
    - label4
    - label5
 `,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
@@ -439,7 +443,7 @@ func TestYAMLCmpWithIgnore(t *testing.T) {
 	}{
 		{
 			desc: "identical",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -447,7 +451,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
@@ -460,7 +464,7 @@ metadata:
 		},
 		{
 			desc: "ignore checksum",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -470,7 +474,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -485,7 +489,7 @@ metadata:
 		},
 		{
 			desc: "ignore missing checksum value",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -495,7 +499,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -510,7 +514,7 @@ metadata:
 		},
 		{
 			desc: "ignore additional checksum value",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -520,7 +524,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -535,7 +539,7 @@ metadata:
 		},
 		{
 			desc: "show checksum not exist",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -545,7 +549,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -562,7 +566,7 @@ metadata:
 		},
 		{
 			desc: "ignore by wildcard",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -573,7 +577,7 @@ metadata:
     checksum/config-volume: 02ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -589,7 +593,7 @@ metadata:
 		},
 		{
 			desc: "ignore by wildcard negative",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -600,7 +604,7 @@ metadata:
     checksum/config-volume: 02ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
     app: istio-ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -620,7 +624,7 @@ metadata:
 		},
 		{
 			desc: "ignore multiple paths",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -630,7 +634,7 @@ metadata:
   labels:
     app: ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -648,7 +652,7 @@ metadata:
 		},
 		{
 			desc: "ignore multiple paths negative",
-			a: `apiVersion: autoscaling/v2beta1
+			a: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:
@@ -658,7 +662,7 @@ metadata:
   labels:
     app: ingressgateway
     release: istio`,
-			b: `apiVersion: autoscaling/v2beta1
+			b: `apiVersion: autoscaling/v2
 kind: Deployment
 metadata:
   annotations:

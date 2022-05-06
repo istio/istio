@@ -403,7 +403,7 @@ func compareInClusterAndGeneratedResources(t framework.TestContext, cs cluster.C
 				_, err = cs.PolicyV1beta1().PodDisruptionBudgets(ns).Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{})
 			case "HorizontalPodAutoscaler":
-				_, err = cs.AutoscalingV2beta1().HorizontalPodAutoscalers(ns).Get(context.TODO(), name,
+				_, err = cs.AutoscalingV2beta2().HorizontalPodAutoscalers(ns).Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{})
 			}
 			if err != nil && !expectRemoved {

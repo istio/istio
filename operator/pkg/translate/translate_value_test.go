@@ -89,7 +89,9 @@ components:
           metrics:
            - resource:
                name: cpu
-               targetAverageUtilization: 80
+               target:
+                 averageUtilization: 80
+                 type: Utilization
              type: Resource
        nodeSelector:
           kubernetes.io/os: linux
@@ -290,7 +292,9 @@ spec:
           - type: Resource
             resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -406,7 +410,9 @@ spec:
           - type: Resource
             resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -524,7 +530,9 @@ spec:
           - type: Resource
             resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -642,10 +650,12 @@ spec:
             kind: Deployment
             name: istiod
           metrics:
-          - type: Resource
-            resource:
+          - resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
+            type: Resource
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -771,10 +781,12 @@ spec:
             kind: Deployment
             name: istiod
           metrics:
-          - type: Resource
-            resource:
+          - resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
+            type: Resource
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -921,10 +933,12 @@ spec:
             kind: Deployment
             name: istiod-canary
           metrics:
-          - type: Resource
-            resource:
+          - resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
+            type: Resource
   values:
     pilot:
       autoscaleMin: 1
