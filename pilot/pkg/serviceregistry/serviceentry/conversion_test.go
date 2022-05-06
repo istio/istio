@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
 )
 
 var (
@@ -571,10 +572,7 @@ func makeInstance(cfg *config.Config, address string, port int,
 
 func TestConvertService(t *testing.T) {
 	testConvertServiceBody(t)
-	features.CanonicalServiceForMeshExternalServiceEntry = true
-	defer func() {
-		features.CanonicalServiceForMeshExternalServiceEntry = false
-	}()
+	test.SetBoolForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
 	testConvertServiceBody(t)
 }
 
