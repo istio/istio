@@ -149,7 +149,7 @@ spec:
 ---
 
 
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   labels:
@@ -165,7 +165,9 @@ spec:
   metrics:
   - resource:
       name: cpu
-      targetAverageUtilization: 444
+      target:
+        averageUtilization: 444
+        type: Utilization
     type: Resource
   minReplicas: 1
   scaleTargetRef:
