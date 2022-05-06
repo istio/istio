@@ -131,14 +131,9 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,
 		// to ease complexity when pointing default to revision without per-revision validating webhook,
 		// instead grab the endpoint information from the mutating webhook. This is not strictly correct.
-		if tagWhConfig.URL != "" {
-			webhookURL, err := url.Parse(tagWhConfig.URL)
-			if err == nil {
-				webhookURL.Path = "/validate"
-				tagWhConfig.URL = webhookURL.String()
-			}
-		}
-		vwhYAML, err := generateValidatingWebhook(tagWhConfig, opts.ManifestsPath)
+		validationWhConfig := fixWhConfig(tagWhConfig)
+
+		vwhYAML, err := generateValidatingWebhook(validationWhConfig, opts.ManifestsPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
@@ -148,6 +143,17 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	}
 
 	return tagWhYAML, nil
+}
+
+func fixWhConfig(injectionWhConfig *tagWebhookConfig) *tagWebhookConfig {
+	if injectionWhConfig.URL != "" {
+		webhookURL, err := url.Parse(injectionWhConfig.URL)
+		if err == nil {
+			webhookURL.Path = "/validate"
+			injectionWhConfig.URL = webhookURL.String()
+		}
+	}
+	return injectionWhConfig
 }
 
 // Create applies the given tag manifests.
