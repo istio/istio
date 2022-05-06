@@ -16,7 +16,6 @@ package tag
 
 import (
 	"fmt"
-	"net/url"
 	"path/filepath"
 	"testing"
 
@@ -88,7 +87,7 @@ var (
 			},
 		},
 	}
-	remoteInjectionURL             = "random.host.com/inject/cluster/cluster1/net/net1"
+	remoteInjectionURL             = "https://random.host.com/inject/cluster/cluster1/net/net1"
 	revisionCanonicalWebhookRemote = admit_v1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector-revision",
@@ -111,7 +110,7 @@ var (
 			},
 		},
 	}
-	remoteValidationURL = "random.host.com/validate"
+	remoteValidationURL = "https://random.host.com/validate"
 )
 
 func TestGenerateValidatingWebhook(t *testing.T) {
@@ -186,10 +185,8 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 					if validationWhConf.URL == nil {
 						t.Fatalf("expected validation URL %s, got nil", tc.whURL)
 					}
-					validationURL, _ := url.Parse(*validationWhConf.URL)
-					configURL, _ := url.Parse(tc.whURL)
-					if validationURL.Path != "/validate" || validationURL.Host != configURL.Host {
-						t.Fatalf("expected validation URL %s, got %s", tc.whURL, *validationWhConf.URL)
+					if *validationWhConf.URL != tc.whURL {
+						t.Fatalf("expected injection URL %s, got %s", tc.whURL, *validationWhConf.URL)
 					}
 				}
 				if tc.whCA != "" {

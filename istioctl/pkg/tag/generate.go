@@ -145,15 +145,15 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	return tagWhYAML, nil
 }
 
-func fixWhConfig(injectionWhConfig *tagWebhookConfig) *tagWebhookConfig {
-	if injectionWhConfig.URL != "" {
-		webhookURL, err := url.Parse(injectionWhConfig.URL)
+func fixWhConfig(whConfig *tagWebhookConfig) *tagWebhookConfig {
+	if whConfig.URL != "" {
+		webhookURL, err := url.Parse(whConfig.URL)
 		if err == nil {
 			webhookURL.Path = "/validate"
-			injectionWhConfig.URL = webhookURL.String()
+			whConfig.URL = webhookURL.String()
 		}
 	}
-	return injectionWhConfig
+	return whConfig
 }
 
 // Create applies the given tag manifests.
