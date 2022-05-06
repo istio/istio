@@ -68,6 +68,13 @@ var (
 			Kind: "{{ .Resource.Kind }}",
 			Plural: "{{ .Resource.Plural }}",
 			Version: "{{ .Resource.Version }}",
+			{{- if .Resource.VersionAliases }}
+            VersionAliases: []string{
+				{{- range $alias := .Resource.VersionAliases}}
+			        "{{$alias}}",
+		 	    {{- end}}
+			},
+			{{- end}}
 			Proto: "{{ .Resource.Proto }}",
 			{{- if ne .Resource.StatusProto "" }}StatusProto: "{{ .Resource.StatusProto }}",{{end}}
 			ReflectType: {{ .Type }},
