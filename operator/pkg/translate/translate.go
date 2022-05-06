@@ -320,18 +320,25 @@ func checkDeprecatedHPAFields(iop *v1alpha1.IstioOperatorSpec) bool {
 	for _, hpaSpec := range hpaSpecs {
 		if hpaSpec.GetMetrics() != nil {
 			for _, me := range hpaSpec.GetMetrics() {
+				// nolint: staticcheck
 				if me.GetObject().GetMetricName() != "" || me.GetObject().GetAverageValue() != nil ||
+					// nolint: staticcheck
 					me.GetObject().GetSelector() != nil || me.GetObject().GetTargetValue() != nil {
 					return true
 				}
+				// nolint: staticcheck
 				if me.GetPods().GetMetricName() != "" || me.GetPods().GetSelector() != nil ||
+					// nolint: staticcheck
 					me.GetPods().GetTargetAverageValue() != nil {
 					return true
 				}
+				// nolint: staticcheck
 				if me.GetResource().GetTargetAverageValue() != nil || me.GetResource().GetTargetAverageUtilization() != 0 {
 					return true
 				}
+				// nolint: staticcheck
 				if me.GetExternal().GetTargetAverageValue() != nil || me.GetExternal().GetTargetValue() != nil ||
+					// nolint: staticcheck
 					me.GetExternal().GetMetricName() != "" || me.GetExternal().GetMetricSelector() != nil {
 					return true
 				}

@@ -526,6 +526,7 @@ global:
   caName: ""
 
   # whether to use autoscaling/v2 template for HPA settings
+  # for internal usage only, not to be configured by users.
   autoscalingv2API: true
 
 base:
