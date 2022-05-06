@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - https://github.com/istio/istio/issues/36950
+releaseNotes:
+  - |
+    **Added** `allowed_client_headers_on_success` feature for istio external authz.
