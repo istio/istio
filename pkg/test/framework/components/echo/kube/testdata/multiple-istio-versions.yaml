@@ -53,20 +53,13 @@ spec:
           runAsGroup: 1338
         args:
           - --metrics=15014
-          - --cluster
-          - "cluster-0"
-          - --grpc
-          - "7070"
-          - --port
-          - "8090"
-          - --port
-          - "8080"
-          - --port
-          - "3333"
-          - --version
-          - "bar"
-          - --istio-version
-          - "1.9.0"
+          - --cluster=cluster-0
+          - --grpc=7070
+          - --port=8090
+          - --port=8080
+          - --port=3333
+          - --version=bar
+          - --istio-version=1.9.0
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
@@ -136,20 +129,13 @@ spec:
           runAsGroup: 1338
         args:
           - --metrics=15014
-          - --cluster
-          - "cluster-0"
-          - --grpc
-          - "7070"
-          - --port
-          - "8090"
-          - --port
-          - "8080"
-          - --port
-          - "3333"
-          - --version
-          - "bar"
-          - --istio-version
-          - "1.10.0"
+          - --cluster=cluster-0
+          - --grpc=7070
+          - --port=8090
+          - --port=8080
+          - --port=3333
+          - --version=bar
+          - --istio-version=1.10.0
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
