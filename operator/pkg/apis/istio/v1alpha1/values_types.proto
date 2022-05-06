@@ -437,7 +437,8 @@ message GlobalConfig {
   // mechanisms (e.g., environmental variable CA_PROVIDER).
   string caName = 65;
 
-  // The next available key is 66
+  google.protobuf.BoolValue autoscalingv2API = 66;
+  // The next available key is 67
 }
 
 // Configuration for Security Token Service (STS) server.

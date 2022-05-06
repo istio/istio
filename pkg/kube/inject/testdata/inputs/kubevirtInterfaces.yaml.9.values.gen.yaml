@@ -1,5 +1,6 @@
 {
   "global": {
+    "autoscalingv2API": true,
     "caAddress": "",
     "caName": "",
     "configCluster": false,
