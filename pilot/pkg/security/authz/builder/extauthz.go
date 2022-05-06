@@ -178,6 +178,7 @@ func buildExtAuthzHTTP(push *model.PushContext,
 	checkWildcard("IncludeRequestHeadersInCheck", config.IncludeRequestHeadersInCheck)
 	checkWildcard("IncludeHeadersInCheck", config.IncludeHeadersInCheck)
 	checkWildcard("HeadersToDownstreamOnDeny", config.HeadersToDownstreamOnDeny)
+	checkWildcard("HeadersToDownstreamOnAllow", config.HeadersToDownstreamOnAllow)
 	checkWildcard("HeadersToUpstreamOnAllow", config.HeadersToUpstreamOnAllow)
 
 	if errs != nil {
@@ -269,10 +270,12 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		}
 	}
 
-	if len(config.HeadersToUpstreamOnAllow) > 0 || len(config.HeadersToDownstreamOnDeny) > 0 {
+	if len(config.HeadersToUpstreamOnAllow) > 0 || len(config.HeadersToDownstreamOnDeny) > 0 ||
+		len(config.HeadersToDownstreamOnAllow) > 0 {
 		service.AuthorizationResponse = &extauthzhttp.AuthorizationResponse{
-			AllowedUpstreamHeaders: generateHeaders(config.HeadersToUpstreamOnAllow),
-			AllowedClientHeaders:   generateHeaders(config.HeadersToDownstreamOnDeny),
+			AllowedUpstreamHeaders:        generateHeaders(config.HeadersToUpstreamOnAllow),
+			AllowedClientHeaders:          generateHeaders(config.HeadersToDownstreamOnDeny),
+			AllowedClientHeadersOnSuccess: generateHeaders(config.HeadersToDownstreamOnAllow),
 		}
 	}
 	http := &extauthzhttp.ExtAuthz{
