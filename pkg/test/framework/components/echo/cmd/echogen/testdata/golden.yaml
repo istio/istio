@@ -78,52 +78,32 @@ spec:
           readOnlyRootFilesystem: false
       - args:
         - --metrics=15014
-        - --cluster
-        - fake
-        - --port
-        - "18080"
-        - --grpc
-        - "17070"
-        - --port
-        - "18085"
-        - --tcp
-        - "19090"
-        - --port
-        - "18443"
+        - --cluster=fake
+        - --port=18080
+        - --grpc=17070
+        - --port=18085
+        - --tcp=19090
+        - --port=18443
         - --tls=18443
-        - --tcp
-        - "16060"
+        - --tcp=16060
         - --server-first=16060
-        - --tcp
-        - "19091"
-        - --tcp
-        - "16061"
+        - --tcp=19091
+        - --tcp=16061
         - --server-first=16061
-        - --port
-        - "18081"
-        - --grpc
-        - "17071"
-        - --port
-        - "19443"
+        - --port=18081
+        - --grpc=17071
+        - --port=19443
         - --tls=19443
-        - --port
-        - "18082"
+        - --port=18082
         - --bind-ip=18082
-        - --port
-        - "18084"
+        - --port=18084
         - --bind-localhost=18084
-        - --tcp
-        - "19092"
-        - --port
-        - "18083"
-        - --port
-        - "8080"
-        - --port
-        - "3333"
-        - --version
-        - v1
-        - --istio-version
-        - ""
+        - --tcp=19092
+        - --port=18083
+        - --port=8080
+        - --port=3333
+        - --version=v1
+        - --istio-version=
         - --crt=/cert.crt
         - --key=/cert.key
         env:
