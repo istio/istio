@@ -78,7 +78,7 @@ spec:
           readOnlyRootFilesystem: false
       - args:
         - --metrics=15014
-        - --cluster="fake"
+        - --cluster=fake
         - --port=18080
         - --grpc=17070
         - --port=18085
@@ -102,8 +102,8 @@ spec:
         - --port=18083
         - --port=8080
         - --port=3333
-        - --version="v1"
-        - --istio-version=""
+        - --version=v1
+        - --istio-version=
         - --crt=/cert.crt
         - --key=/cert.key
         env:

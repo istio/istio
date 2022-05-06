@@ -182,7 +182,7 @@ spec:
           runAsGroup: 1338
         args:
           - --metrics=15014
-          - --cluster="{{ $cluster }}"
+          - --cluster={{ $cluster }}
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
 {{- if and $.ProxylessGRPC (ne $p.Port $.GRPCMagicPort) }}
@@ -207,8 +207,8 @@ spec:
           - --bind-localhost={{ $p.Port }}
 {{- end }}
 {{- end }}
-          - --version="{{ $subset.Version }}"
-          - --istio-version="{{ $version }}"
+          - --version={{ $subset.Version }}
+          - --istio-version={{ $version }}
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
