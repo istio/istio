@@ -145,6 +145,22 @@ func (s Schemas) FindByGroupVersionKind(gvk config.GroupVersionKind) (Schema, bo
 	return nil, false
 }
 
+// FindByGroupVersionAliasesKind searches and returns the first schema with the given GVK,
+// if not found, it will search for version aliases for the schema to see if there is a match.
+func (s Schemas) FindByGroupVersionAliasesKind(gvk config.GroupVersionKind) (Schema, bool) {
+	for _, rs := range s.byAddOrder {
+		if rs.Resource().GroupVersionKind() == gvk {
+			return rs, true
+		}
+		for _, va := range rs.Resource().GroupVersionAliasKinds() {
+			if va == gvk {
+				return rs, true
+			}
+		}
+	}
+	return nil, false
+}
+
 // FindByGroupVersionResource searches and returns the first schema with the given GVR
 func (s Schemas) FindByGroupVersionResource(gvr schema.GroupVersionResource) (Schema, bool) {
 	for _, rs := range s.byAddOrder {

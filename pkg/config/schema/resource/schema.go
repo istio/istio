@@ -54,6 +54,10 @@ type Schema interface {
 	// Version of this resource.
 	Version() string
 
+	// GroupVersionAliasKinds is the GVK of this resource,
+	// but the version is from its version aliases to perform version conversion.
+	GroupVersionAliasKinds() []config.GroupVersionKind
+
 	// APIVersion is a utility that returns a k8s API version string of the form "Group/Version".
 	APIVersion() string
 
@@ -104,6 +108,9 @@ type Builder struct {
 
 	// Version is the config proto version.
 	Version string
+
+	// VersionAliases is the config proto version aliases.
+	VersionAliases []string
 
 	// Proto refers to the protobuf message type name corresponding to the type
 	Proto string
@@ -162,6 +169,7 @@ func (b Builder) BuildNoValidate() Schema {
 		},
 		plural:         b.Plural,
 		apiVersion:     b.Group + "/" + b.Version,
+		versionAliases: b.VersionAliases,
 		proto:          b.Proto,
 		goPackage:      b.ProtoPackage,
 		reflectType:    b.ReflectType,
@@ -174,6 +182,7 @@ func (b Builder) BuildNoValidate() Schema {
 type schemaImpl struct {
 	clusterScoped  bool
 	gvk            config.GroupVersionKind
+	versionAliases []string
 	plural         string
 	apiVersion     string
 	proto          string
@@ -214,6 +223,15 @@ func (s *schemaImpl) Group() string {
 
 func (s *schemaImpl) Version() string {
 	return s.gvk.Version
+}
+
+func (s *schemaImpl) GroupVersionAliasKinds() []config.GroupVersionKind {
+	gvks := make([]config.GroupVersionKind, len(s.versionAliases))
+	for i, va := range s.versionAliases {
+		gvks[i] = s.gvk
+		gvks[i].Version = va
+	}
+	return gvks
 }
 
 func (s *schemaImpl) APIVersion() string {
