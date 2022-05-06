@@ -150,6 +150,9 @@ type Settings struct {
 
 	// Image settings
 	Image ImageSettings
+
+	// EchoImage is the app image to be used by echo deployments.
+	EchoImage string
 }
 
 func (s Settings) Skip(class string) bool {
