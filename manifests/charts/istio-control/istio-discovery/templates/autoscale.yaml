@@ -1,4 +1,5 @@
 {{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
+{{- if not .Values.global.autoscalingv2API }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -23,4 +24,36 @@ spec:
       name: cpu
       targetAverageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
 ---
+{{- else }}
+{{- if (semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion)}}
+apiVersion: autoscaling/v2
+{{- else }}
+apiVersion: autoscaling/v2beta2
+{{- end }}
+kind: HorizontalPodAutoscaler
+metadata:
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+spec:
+  maxReplicas: {{ .Values.pilot.autoscaleMax }}
+  minReplicas: {{ .Values.pilot.autoscaleMin }}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
+---
+{{- end }}
 {{- end }}
