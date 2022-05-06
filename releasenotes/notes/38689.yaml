@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 38689
+
+releaseNotes:
+  - |
+    **Fixed** an issue when network gateway names could not be properly resolved in some cases
