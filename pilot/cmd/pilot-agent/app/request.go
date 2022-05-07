@@ -76,7 +76,6 @@ var (
 )
 
 func init() {
-	
 	requestCmd.PersistentFlags().Int32Var(&debugRequestPort, "debug-port", debugRequestPort,
 		"Set the port to make a local request to. The default points to the Envoy admin API.")
 }
