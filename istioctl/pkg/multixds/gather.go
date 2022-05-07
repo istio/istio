@@ -151,7 +151,7 @@ func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptio
 }
 
 func getXdsAddressFromWebhooks(client kube.ExtendedClient) (string, error) {
-	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
+	webhooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,!istio.io/tag", label.IoIstioRev.Name, client.Revision()),
 	})
 	if err != nil {

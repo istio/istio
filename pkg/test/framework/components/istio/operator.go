@@ -207,21 +207,21 @@ func (i *operatorComponent) cleanupCluster(c cluster.Cluster, errG *multierror.G
 		// This includes things like leader election locks (allowing next test to start without 30s delay),
 		// custom cacerts, custom kubeconfigs, etc.
 		// We avoid deleting the whole namespace since its extremely slow in Kubernetes (30-60s+)
-		if e := c.CoreV1().Secrets(i.settings.SystemNamespace).DeleteCollection(
+		if e := c.Kube().CoreV1().Secrets(i.settings.SystemNamespace).DeleteCollection(
 			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
-		if e := c.CoreV1().ConfigMaps(i.settings.SystemNamespace).DeleteCollection(
+		if e := c.Kube().CoreV1().ConfigMaps(i.settings.SystemNamespace).DeleteCollection(
 			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
 		// Delete validating and mutating webhook configurations. These can be created outside of generated manifests
 		// when installing with istioctl and must be deleted separately.
-		if e := c.AdmissionregistrationV1().ValidatingWebhookConfigurations().DeleteCollection(
+		if e := c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().DeleteCollection(
 			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
-		if e := c.AdmissionregistrationV1().MutatingWebhookConfigurations().DeleteCollection(
+		if e := c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().DeleteCollection(
 			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
@@ -823,14 +823,14 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		if env.IsMultinetwork() {
 			nsLabels = map[string]string{label.TopologyNetwork.Name: c.NetworkName()}
 		}
-		if _, err := c.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+		if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Labels: nsLabels,
 				Name:   cfg.SystemNamespace,
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
 			if errors.IsAlreadyExists(err) {
-				if _, err := c.CoreV1().Namespaces().Update(context.TODO(), &kubeApiCore.Namespace{
+				if _, err := c.Kube().CoreV1().Namespaces().Update(context.TODO(), &kubeApiCore.Namespace{
 					ObjectMeta: kubeApiMeta.ObjectMeta{
 						Labels: nsLabels,
 						Name:   cfg.SystemNamespace,
@@ -846,10 +846,10 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		}
 
 		// Create the secret for the cacerts.
-		if _, err := c.CoreV1().Secrets(cfg.SystemNamespace).Create(context.TODO(), secret,
+		if _, err := c.Kube().CoreV1().Secrets(cfg.SystemNamespace).Create(context.TODO(), secret,
 			kubeApiMeta.CreateOptions{}); err != nil {
 			if errors.IsAlreadyExists(err) {
-				if _, err := c.CoreV1().Secrets(cfg.SystemNamespace).Update(context.TODO(), secret,
+				if _, err := c.Kube().CoreV1().Secrets(cfg.SystemNamespace).Update(context.TODO(), secret,
 					kubeApiMeta.UpdateOptions{}); err != nil {
 					scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
 						"multiple control planes. Error: %v", c.Name(), err)
@@ -877,7 +877,7 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 
 	scopes.Framework.Infof("configuring external control plane in %s to use config cluster %s", c.Name(), configCluster.Name())
 	// ensure system namespace exists
-	if _, err = c.CoreV1().Namespaces().
+	if _, err = c.Kube().CoreV1().Namespaces().
 		Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Name: cfg.SystemNamespace,
@@ -886,7 +886,7 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 		return err
 	}
 	// create kubeconfig secret
-	if _, err = c.CoreV1().Secrets(cfg.SystemNamespace).
+	if _, err = c.Kube().CoreV1().Secrets(cfg.SystemNamespace).
 		Create(context.TODO(), &kubeApiCore.Secret{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Name:      "istio-kubeconfig",
@@ -897,7 +897,7 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
 		if errors.IsAlreadyExists(err) { // Allow easier running locally when we run multiple tests in a row
-			if _, err := c.CoreV1().Secrets(cfg.SystemNamespace).Update(context.TODO(), &kubeApiCore.Secret{
+			if _, err := c.Kube().CoreV1().Secrets(cfg.SystemNamespace).Update(context.TODO(), &kubeApiCore.Secret{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
 					Name:      "istio-kubeconfig",
 					Namespace: cfg.SystemNamespace,

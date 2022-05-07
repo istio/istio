@@ -102,7 +102,7 @@ func TestServices(t *testing.T) {
 
 			var sds model.ServiceDiscovery = ctl
 			// "test", ports: http-example on 80
-			makeService(testService, ns, ctl.client, t)
+			makeService(testService, ns, ctl.client.Kube(), t)
 			<-fx.Events
 
 			eventually(t, func() bool {
@@ -1272,12 +1272,12 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 			nsB := "nsB"
 
 			// event handlers should only be triggered for services in namespaces selected for discovery
-			createNamespace(t, controller.client, nsA, map[string]string{"pilot-discovery": "enabled"})
-			createNamespace(t, controller.client, nsB, map[string]string{})
+			createNamespace(t, controller.client.Kube(), nsA, map[string]string{"pilot-discovery": "enabled"})
+			createNamespace(t, controller.client.Kube(), nsB, map[string]string{})
 
 			// wait for namespaces to be created
 			eventually(t, func() bool {
-				list, err := controller.client.CoreV1().Namespaces().List(context.TODO(), metaV1.ListOptions{})
+				list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metaV1.ListOptions{})
 				if err != nil {
 					t.Fatalf("error listing namespaces: %v", err)
 				}
@@ -1312,7 +1312,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 			})
 
 			// test updating namespace with adding discovery label
-			updateNamespace(t, controller.client, nsB, map[string]string{"env": "test"})
+			updateNamespace(t, controller.client.Kube(), nsB, map[string]string{"env": "test"})
 			// service event handlers should trigger for svc3 and svc4
 			if ev := fx.Wait("service"); ev == nil {
 				t.Fatal("Timeout creating service")
@@ -1327,7 +1327,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 			})
 
 			// test updating namespace by removing discovery label
-			updateNamespace(t, controller.client, nsA, map[string]string{"pilot-discovery": "disabled"})
+			updateNamespace(t, controller.client.Kube(), nsA, map[string]string{"pilot-discovery": "disabled"})
 			// service event handlers should trigger for svc1 and svc2
 			if ev := fx.Wait("service"); ev == nil {
 				t.Fatal("Timeout creating service")
@@ -1437,13 +1437,13 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 			nsB := "nsB"
 			nsC := "nsC"
 
-			createNamespace(t, controller.client, nsA, map[string]string{"app": "foo"})
-			createNamespace(t, controller.client, nsB, map[string]string{"app": "bar"})
-			createNamespace(t, controller.client, nsC, map[string]string{"app": "baz"})
+			createNamespace(t, controller.client.Kube(), nsA, map[string]string{"app": "foo"})
+			createNamespace(t, controller.client.Kube(), nsB, map[string]string{"app": "bar"})
+			createNamespace(t, controller.client.Kube(), nsC, map[string]string{"app": "baz"})
 
 			// wait for namespaces to be created
 			eventually(t, func() bool {
-				list, err := controller.client.CoreV1().Namespaces().List(context.TODO(), metaV1.ListOptions{})
+				list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metaV1.ListOptions{})
 				if err != nil {
 					t.Fatalf("error listing namespaces: %v", err)
 				}
@@ -1821,9 +1821,9 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 			Ports:     eps,
 		}},
 	}
-	if _, err := controller.client.CoreV1().Endpoints(namespace).Create(context.TODO(), endpoint, metaV1.CreateOptions{}); err != nil {
+	if _, err := controller.client.Kube().CoreV1().Endpoints(namespace).Create(context.TODO(), endpoint, metaV1.CreateOptions{}); err != nil {
 		if errors.IsAlreadyExists(err) {
-			_, err = controller.client.CoreV1().Endpoints(namespace).Update(context.TODO(), endpoint, metaV1.UpdateOptions{})
+			_, err = controller.client.Kube().CoreV1().Endpoints(namespace).Update(context.TODO(), endpoint, metaV1.UpdateOptions{})
 		}
 		if err != nil {
 			t.Fatalf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
@@ -1853,9 +1853,9 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 		Endpoints: sliceEndpoint,
 		Ports:     esps,
 	}
-	if _, err := controller.client.DiscoveryV1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice, metaV1.CreateOptions{}); err != nil {
+	if _, err := controller.client.Kube().DiscoveryV1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice, metaV1.CreateOptions{}); err != nil {
 		if errors.IsAlreadyExists(err) {
-			_, err = controller.client.DiscoveryV1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{})
+			_, err = controller.client.Kube().DiscoveryV1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{})
 		}
 		if err != nil {
 			t.Fatalf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
@@ -1885,7 +1885,7 @@ func updateEndpoints(controller *FakeController, name, namespace string, portNam
 			Ports:     eps,
 		}},
 	}
-	if _, err := controller.client.CoreV1().Endpoints(namespace).Update(context.TODO(), endpoint, metaV1.UpdateOptions{}); err != nil {
+	if _, err := controller.client.Kube().CoreV1().Endpoints(namespace).Update(context.TODO(), endpoint, metaV1.UpdateOptions{}); err != nil {
 		t.Fatalf("failed to update endpoints %s in namespace %s (error %v)", name, namespace, err)
 	}
 
@@ -1909,7 +1909,7 @@ func updateEndpoints(controller *FakeController, name, namespace string, portNam
 		},
 		Ports: esps,
 	}
-	if _, err := controller.client.DiscoveryV1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{}); err != nil {
+	if _, err := controller.client.Kube().DiscoveryV1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{}); err != nil {
 		t.Errorf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
 	}
 }
@@ -1930,7 +1930,7 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 		},
 	}
 
-	_, err := controller.client.CoreV1().Services(namespace).Create(context.TODO(), service, metaV1.CreateOptions{})
+	_, err := controller.client.Kube().CoreV1().Services(namespace).Create(context.TODO(), service, metaV1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
 	}
@@ -1960,14 +1960,14 @@ func createService(controller *FakeController, name, namespace string, annotatio
 		},
 	}
 
-	_, err := controller.client.CoreV1().Services(namespace).Create(context.TODO(), service, metaV1.CreateOptions{})
+	_, err := controller.client.Kube().CoreV1().Services(namespace).Create(context.TODO(), service, metaV1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
 	}
 }
 
 func getService(controller *FakeController, name, namespace string, t *testing.T) *coreV1.Service {
-	svc, err := controller.client.CoreV1().Services(namespace).Get(context.TODO(), name, metaV1.GetOptions{})
+	svc, err := controller.client.Kube().CoreV1().Services(namespace).Get(context.TODO(), name, metaV1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Cannot get service %s in namespace %s (error: %v)", name, namespace, err)
 	}
@@ -1975,7 +1975,7 @@ func getService(controller *FakeController, name, namespace string, t *testing.T
 }
 
 func updateService(controller *FakeController, svc *coreV1.Service, t *testing.T) *coreV1.Service {
-	svc, err := controller.client.CoreV1().Services(svc.Namespace).Update(context.TODO(), svc, metaV1.UpdateOptions{})
+	svc, err := controller.client.Kube().CoreV1().Services(svc.Namespace).Update(context.TODO(), svc, metaV1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Cannot update service %s in namespace %s (error: %v)", svc.Name, svc.Namespace, err)
 	}
@@ -2006,7 +2006,7 @@ func createServiceWithoutClusterIP(controller *FakeController, name, namespace s
 		},
 	}
 
-	_, err := controller.client.CoreV1().Services(namespace).Create(context.TODO(), service, metaV1.CreateOptions{})
+	_, err := controller.client.Kube().CoreV1().Services(namespace).Create(context.TODO(), service, metaV1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
 	}
@@ -2039,7 +2039,7 @@ func createExternalNameService(controller *FakeController, name, namespace strin
 		},
 	}
 
-	_, err := controller.client.CoreV1().Services(namespace).Create(context.TODO(), service, metaV1.CreateOptions{})
+	_, err := controller.client.Kube().CoreV1().Services(namespace).Create(context.TODO(), service, metaV1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
 	}
@@ -2051,7 +2051,7 @@ func deleteExternalNameService(controller *FakeController, name, namespace strin
 		<-xdsEvents
 	}()
 
-	err := controller.client.CoreV1().Services(namespace).Delete(context.TODO(), name, metaV1.DeleteOptions{})
+	err := controller.client.Kube().CoreV1().Services(namespace).Delete(context.TODO(), name, metaV1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("Cannot delete service %s in namespace %s (error: %v)", name, namespace, err)
 	}
@@ -2077,16 +2077,16 @@ func servicesEqual(svcList, expectedSvcList []*model.Service) bool {
 
 func addPods(t *testing.T, controller *FakeController, fx *FakeXdsUpdater, pods ...*coreV1.Pod) {
 	for _, pod := range pods {
-		p, _ := controller.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metaV1.GetOptions{})
+		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metaV1.GetOptions{})
 		var newPod *coreV1.Pod
 		var err error
 		if p == nil {
-			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metaV1.CreateOptions{})
+			newPod, err = controller.client.Kube().CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metaV1.CreateOptions{})
 			if err != nil {
 				t.Fatalf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
 			}
 		} else {
-			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metaV1.UpdateOptions{})
+			newPod, err = controller.client.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metaV1.UpdateOptions{})
 			if err != nil {
 				t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
 			}
@@ -2097,7 +2097,7 @@ func addPods(t *testing.T, controller *FakeController, fx *FakeXdsUpdater, pods 
 		// events - since PodIP will be "".
 		newPod.Status.PodIP = pod.Status.PodIP
 		newPod.Status.Phase = coreV1.PodRunning
-		_, _ = controller.client.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metaV1.UpdateOptions{})
+		_, _ = controller.client.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metaV1.UpdateOptions{})
 		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 			t.Fatal(err)
 		}
@@ -2169,9 +2169,9 @@ func generateNode(name string, labels map[string]string) *coreV1.Node {
 func addNodes(t *testing.T, controller *FakeController, nodes ...*coreV1.Node) {
 	fakeClient := controller.client
 	for _, node := range nodes {
-		_, err := fakeClient.CoreV1().Nodes().Create(context.TODO(), node, metaV1.CreateOptions{})
+		_, err := fakeClient.Kube().CoreV1().Nodes().Create(context.TODO(), node, metaV1.CreateOptions{})
 		if errors.IsAlreadyExists(err) {
-			if _, err := fakeClient.CoreV1().Nodes().Update(context.TODO(), node, metaV1.UpdateOptions{}); err != nil {
+			if _, err := fakeClient.Kube().CoreV1().Nodes().Update(context.TODO(), node, metaV1.UpdateOptions{}); err != nil {
 				t.Fatal(err)
 			}
 		} else if err != nil {
@@ -2211,7 +2211,7 @@ func TestEndpointUpdate(t *testing.T) {
 			}
 
 			// delete normal service
-			err := controller.client.CoreV1().Services("nsa").Delete(context.TODO(), "svc1", metaV1.DeleteOptions{})
+			err := controller.client.Kube().CoreV1().Services("nsa").Delete(context.TODO(), "svc1", metaV1.DeleteOptions{})
 			if err != nil {
 				t.Fatalf("Cannot delete service (error: %v)", err)
 			}
@@ -2257,7 +2257,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 				addPods(t, controller, fx, pod)
 			}
 			deletePod := func(name, ip string) {
-				if err := controller.client.CoreV1().Pods("nsA").Delete(context.TODO(), name, metaV1.DeleteOptions{}); err != nil {
+				if err := controller.client.Kube().CoreV1().Pods("nsA").Delete(context.TODO(), name, metaV1.DeleteOptions{}); err != nil {
 					t.Fatal(err)
 				}
 				retry.UntilSuccessOrFail(t, func() error {
@@ -2386,10 +2386,10 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			// completely remove the endpoint
 			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", "pod3"})
 			assertPendingResync(1)
-			if err := controller.client.CoreV1().Endpoints("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
+			if err := controller.client.Kube().CoreV1().Endpoints("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
 				t.Fatal(err)
 			}
-			if err := controller.client.DiscoveryV1().EndpointSlices("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
+			if err := controller.client.Kube().DiscoveryV1().EndpointSlices("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
 				t.Fatal(err)
 			}
 			assertPendingResync(0)

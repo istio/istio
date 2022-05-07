@@ -145,10 +145,10 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 		c := c
 		wg.Go(func() error {
 			secret := createSecret(ingressType, credName, ns, ingressCred, isCompoundAndNotGeneric)
-			_, err := c.CoreV1().Secrets(ns).Create(context.TODO(), secret, metav1.CreateOptions{})
+			_, err := c.Kube().CoreV1().Secrets(ns).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err != nil {
 				if errors.IsAlreadyExists(err) {
-					if _, err := c.CoreV1().Secrets(ns).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+					if _, err := c.Kube().CoreV1().Secrets(ns).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
 						return fmt.Errorf("failed to update secret (error: %s)", err)
 					}
 				} else {
@@ -157,7 +157,7 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 			}
 			// Check if Kubernetes secret is ready
 			return retry.UntilSuccess(func() error {
-				_, err := c.CoreV1().Secrets(ns).Get(context.TODO(), credName, metav1.GetOptions{})
+				_, err := c.Kube().CoreV1().Secrets(ns).Get(context.TODO(), credName, metav1.GetOptions{})
 				if err != nil {
 					return fmt.Errorf("secret %v not found: %v", credName, err)
 				}

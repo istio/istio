@@ -103,7 +103,7 @@ func NewCredentialsController(client kube.Client, clusterID cluster.ID) *Credent
 		secretInformer: informer,
 		secretLister:   listersv1.NewSecretLister(informer.GetIndexer()),
 
-		sar:                client.AuthorizationV1().SubjectAccessReviews(),
+		sar:                client.Kube().AuthorizationV1().SubjectAccessReviews(),
 		clusterID:          clusterID,
 		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
