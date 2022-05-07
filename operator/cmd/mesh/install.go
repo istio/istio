@@ -245,6 +245,11 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 			return fmt.Errorf("verification failed with the following error: %v", err)
 		}
 	}
+	
+	f !rootArgs.dryRun {
+		_, _ = fmt.Fprintln(cmd.OutOrStderr(), "\nThank you for installing Istio 1.14.  Please take a few minutes to "+
+			"tell us about your install/upgrade experience!  https://forms.gle/yEtCbt45FZ3VoDT5A")
+	}
 
 	return nil
 }
