@@ -623,6 +623,13 @@ var (
 
 	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", true,
 		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()
+
+	CanonicalServiceForMeshExternalServiceEntry = env.RegisterBoolVar("LABEL_CANONICAL_SERVICES_FOR_MESH_EXTERNAL_SERVICE_ENTRIES", false,
+		"If enabled, metadata representing canonical services for ServiceEntry resources with a location of mesh_external will be populated"+
+			"in the cluster metadata for those endpoints.").Get()
+
+	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
+		"If enabled, pilot will configure clusters/listeners/routes for dual stack capability.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
