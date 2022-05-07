@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Updated** default value of the feature flag `ENABLE_LEGACY_FSGROUP_INJECTION` to false.
+  This may cause issues with sidecars when installing on Helm on Kubernetes versions prior to 1.19.
+
