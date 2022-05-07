@@ -571,7 +571,8 @@ func newClient() (*dnsClient, error) {
 	return c, nil
 }
 
-func reqNames(req *dns.Msg) []string {
+// for more informative logging of dns errors
+func getReqNames(req *dns.Msg) []string {
 	names := make([]string, 0, 1)
 	for _, qq := range req.Question {
 		names = append(names, qq.Name)
@@ -588,13 +589,12 @@ func (c *dnsClient) Query(req *dns.Msg) *dns.Msg {
 			code := response.MsgHdr.Rcode
 			if code == dns.RcodeSuccess {
 				break
-			} else {
-				codeString := dns.RcodeToString[code]
-				// TODO make Debug as to not spam the logs on retries?
-				log.Infof("upstream dns error: %v: %v: %v", upstream, reqNames(req), codeString)
 			}
+			codeString := dns.RcodeToString[code]
+			// TODO make Debug as to not spam the logs on retries?
+			log.Infof("upstream dns error: %v: %v: %v", upstream, getReqNames(req), codeString)
 		} else {
-			log.Infof("upstream dns failure: %v: %v: %v", upstream, reqNames(req), err)
+			log.Infof("upstream dns failure: %v: %v: %v", upstream, getReqNames(req), err)
 		}
 	}
 	if response == nil {

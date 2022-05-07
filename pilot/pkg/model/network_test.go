@@ -39,16 +39,16 @@ func TestGatewayHostnames(t *testing.T) {
 	test.SetDurationForTest(t, &model.MinGatewayTTL, 30*time.Millisecond)
 
 	gwHost := "test.gw.istio.io"
-	workingDnsServer := newFakeDNSServer(":15353", 1, sets.New(gwHost))
-	failingDnsServer := newFakeDNSServer(":25353", 1, sets.NewWithLength(0))
+	workingDNSServer := newFakeDNSServer(":15353", 1, sets.New(gwHost))
+	failingDNSServer := newFakeDNSServer(":25353", 1, sets.NewWithLength(0))
 	model.NetworkGatewayTestDNSServers = []string{
 		// try resolving with the failing server first to make sure the next upstream is retried
-		failingDnsServer.Server.PacketConn.LocalAddr().String(),
-		workingDnsServer.Server.PacketConn.LocalAddr().String(),
+		failingDNSServer.Server.PacketConn.LocalAddr().String(),
+		workingDNSServer.Server.PacketConn.LocalAddr().String(),
 	}
 	t.Cleanup(func() {
-		errW := workingDnsServer.Shutdown()
-		errF := failingDnsServer.Shutdown()
+		errW := workingDNSServer.Shutdown()
+		errF := failingDNSServer.Shutdown()
 		if errW != nil || errF != nil {
 			t.Logf("failed shutting down fake dns servers")
 		}
