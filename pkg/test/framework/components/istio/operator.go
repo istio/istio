@@ -918,11 +918,6 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 				scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
 					"multiple control planes. Error: %v", c.Name(), err)
 			} else {
-				if _, err := c.CoreV1().Secrets(cfg.SystemNamespace).Update(context.TODO(), secret,
-					kubeApiMeta.UpdateOptions{}); err != nil {
-					scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
-						"multiple control planes. Error: %v", c.Name(), err)
-				}
 				fmt.Println("---cacerts is there---")
 				cmd1 := "kubectl get secret cacerts -n istio-system -o jsonpath='{.data}'"
 				output, err := shell.Execute(false, cmd1)
