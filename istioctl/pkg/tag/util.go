@@ -28,6 +28,35 @@ import (
 	"istio.io/api/label"
 )
 
+func GetNamespaceRevision(ctx context.Context, client kubernetes.Interface, selectedNamespace string) (string, error) {
+	ns, err := client.CoreV1().Namespaces().Get(context.TODO(), selectedNamespace, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	revOrTag, ok := ns.Labels[label.IoIstioRev.Name]
+	if !ok {
+		return "", nil
+	}
+
+	wh, err := GetWebhooksWithTag(ctx, client, revOrTag)
+	if err == nil && len(wh) != 0 {
+		rev, err := GetWebhookRevision(wh[0])
+		if err != nil {
+			return "", err
+		}
+
+		return rev, nil
+	}
+
+	_, err = GetWebhooksWithTag(ctx, client, revOrTag)
+	if err != nil {
+		return "", err
+	}
+
+	return revOrTag, nil
+}
+
 func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: IstioTagLabel,

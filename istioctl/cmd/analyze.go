@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/analysis"
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
+	"istio.io/pkg/log"
 )
 
 // AnalyzerFoundIssuesError indicates that at least one analyzer found problems.
@@ -188,7 +190,16 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				sa.AddRunningKubeSource(k)
+				if allNamespaces {
+					sa.AddRunningKubeSource(k)
+				} else {
+					rev, err := tag.GetNamespaceRevision(context.TODO(), k.Kube(), selectedNamespace)
+					if err != nil {
+						return err
+					}
+					log.Debugf("analyze namespace %s with revision %s", selectedNamespace, rev)
+					sa.AddRunningKubeSourceWithRevision(k, rev)
+				}
 			}
 
 			// If we explicitly specify mesh config, use it.
