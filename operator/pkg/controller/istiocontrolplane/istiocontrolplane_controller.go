@@ -288,6 +288,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 				return reconcile.Result{}, nil
 			} else if errors.IsConflict(finalizerError) {
 				scope.Infof("Could not remove finalizer from %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
+				return reconcile.Result{}, finalizerError
 			}
 			scope.Errorf(errdict.OperatorFailedToRemoveFinalizer, "error removing finalizer: %s", finalizerError)
 			return reconcile.Result{}, finalizerError
@@ -305,6 +306,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 				return reconcile.Result{}, nil
 			} else if errors.IsConflict(err) {
 				scope.Infof("Could not add finalizer to %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
+				return reconcile.Result{}, err
 			}
 			scope.Errorf(errdict.OperatorFailedToAddFinalizer, "Failed to add finalizer to IstioOperator CR %s: %s", iopName, err)
 			return reconcile.Result{}, err
