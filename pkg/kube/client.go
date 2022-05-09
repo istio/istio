@@ -374,6 +374,8 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 		return nil, err
 	}
 
+	config := rest.CopyConfig(c.config)
+	config.ContentType = runtime.ContentTypeProtobuf
 	c.Interface, err = kubernetes.NewForConfig(c.config)
 	c.kube = c.Interface
 	if err != nil {
