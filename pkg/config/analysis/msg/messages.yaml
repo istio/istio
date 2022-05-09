@@ -560,6 +560,29 @@ messages:
   - name: "EnvoyFilterUsesRelativeOperation"
     code: IST0151
     level: Warning
-    description: "This envoy filter does not have a priority and has a relative patch operation set which can cause the envoyFilter not to be applied. Using the INSERT_FIRST option or setting the priority may help in ensuring the envoyFilter is applied correctly"
-    template: "This envoy filter does not have a priority and has a relative patch operation set which can cause the envoyFilter not to be applied. Using the INSERT_FIRST option or setting the priority may help in ensuring the envoyFilter is applied correctly"
+    description: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
+    template: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST of ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
    
+  - name: "EnvoyFilterUsesReplaceOperationIncorrectly"
+    code: IST0152
+    level: Error
+    description: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
+    template: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
+    
+  - name: "EnvoyFilterUsesAddOperationIncorrectly"
+    code: IST0153
+    level: Error
+    description: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+    template: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+  
+  - name: "EnvoyFilterUsesRemoveOperationIncorrectly"
+    code: IST0154
+    level: Error
+    description: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+    template: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+    
+  - name: "EnvoyFilterUsesRelativeOperationWithProxyVersion"
+    code: IST0155
+    level: Warning
+    description: "This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
+    template: "This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
