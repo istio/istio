@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/version"
+	kubeVersion "k8s.io/apimachinery/pkg/version"
 )
 
 // IsAtLeastVersion returns true if the client is at least the specified version.
@@ -27,15 +28,7 @@ func IsAtLeastVersion(client Client, minorVersion uint) bool {
 	if err != nil {
 		return true
 	}
-	cv, err := version.ParseGeneric(fmt.Sprintf("v%s.%s.0", clusterVersion.Major, clusterVersion.Minor))
-	if err != nil {
-		return true
-	}
-	ev, err := version.ParseGeneric(fmt.Sprintf("v1.%d.0", minorVersion))
-	if err != nil {
-		return true
-	}
-	return cv.AtLeast(ev)
+	return IsKubeAtLeastOrLessThanVersion(clusterVersion, minorVersion, true)
 }
 
 // IsLessThanVersion returns true if the client version is less than the specified version.
@@ -45,6 +38,14 @@ func IsLessThanVersion(client Client, minorVersion uint) bool {
 	if err != nil {
 		return true
 	}
+	return IsKubeAtLeastOrLessThanVersion(clusterVersion, minorVersion, false)
+}
+
+// IsKubeAtLeastOrLessThanVersion returns if the kubernetes version is at least or less than the specified version.
+func IsKubeAtLeastOrLessThanVersion(clusterVersion *kubeVersion.Info, minorVersion uint, atLeast bool) bool {
+	if clusterVersion == nil {
+		return true
+	}
 	cv, err := version.ParseGeneric(fmt.Sprintf("v%s.%s.0", clusterVersion.Major, clusterVersion.Minor))
 	if err != nil {
 		return true
@@ -52,6 +53,9 @@ func IsLessThanVersion(client Client, minorVersion uint) bool {
 	ev, err := version.ParseGeneric(fmt.Sprintf("v1.%d.0", minorVersion))
 	if err != nil {
 		return true
+	}
+	if atLeast {
+		return cv.AtLeast(ev)
 	}
 	return cv.LessThan(ev)
 }
