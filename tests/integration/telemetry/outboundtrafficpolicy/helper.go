@@ -153,10 +153,12 @@ type TestCase struct {
 // prometheus to validate that expected telemetry information was gathered;
 // as well as the http response code
 type Expected struct {
-	Query          prometheus.Query
-	StatusCode     int
-	Protocol       string
-	RequestHeaders map[string]string
+	Query           prometheus.Query
+	StatusCode      int
+	Metric          string
+	PromQueryFormat string
+	Protocol        string
+	RequestHeaders  map[string]string
 }
 
 // TrafficPolicy is the mode of the outbound traffic policy to use
