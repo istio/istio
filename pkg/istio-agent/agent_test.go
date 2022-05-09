@@ -687,7 +687,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	}
 
 	a := NewAgent(resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
-	t.Cleanup(a.Close)
+	t.Cleanup(a.close)
 	ctx, done := context.WithCancel(context.Background())
 	wait, err := a.Run(ctx)
 	if err != nil {
