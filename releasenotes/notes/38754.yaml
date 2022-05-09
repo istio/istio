@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/38520
+releaseNotes:
+  - |
+    **Fixed** an issue set PILOT_ENABLE_METADATA_EXCHANGE to false does not remove tcp MX filter.
