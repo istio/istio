@@ -655,7 +655,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	dialOptions := []grpc.DialOption{
 		tlsOpts,
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
-		grpc.WithBlock,
+		grpc.WithBlock(),
 	}
 
 	dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
