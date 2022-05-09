@@ -21,6 +21,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -199,14 +201,18 @@ func convertServices(cfg config.Config) []*model.Service {
 		}
 	}
 
-	return buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
+	return buildServices(hostAddresses, cfg.Name, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
 		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
 }
 
-func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
+func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
 	ctime time.Time, labels map[string]string) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
+	lbls := labels
+	if features.CanonicalServiceForMeshExternalServiceEntry && location == networking.ServiceEntry_MESH_EXTERNAL {
+		lbls = ensureCanonicalServiceLabels(name, labels)
+	}
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
 			CreationTime:   ctime,
@@ -219,7 +225,7 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 				ServiceRegistry: provider.External,
 				Name:            ha.host,
 				Namespace:       namespace,
-				Labels:          labels,
+				Labels:          lbls,
 				ExportTo:        exportTo,
 				LabelSelectors:  selectors,
 			},
@@ -227,6 +233,20 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 		})
 	}
 	return out
+}
+
+func ensureCanonicalServiceLabels(name string, srcLabels map[string]string) map[string]string {
+	if srcLabels == nil {
+		srcLabels = make(map[string]string)
+	}
+	_, svcLabelFound := srcLabels[model.IstioCanonicalServiceLabelName]
+	_, revLabelFound := srcLabels[model.IstioCanonicalServiceRevisionLabelName]
+	if svcLabelFound && revLabelFound {
+		return srcLabels
+	}
+
+	srcLabels[model.IstioCanonicalServiceLabelName], srcLabels[model.IstioCanonicalServiceRevisionLabelName] = labels.CanonicalService(srcLabels, name)
+	return srcLabels
 }
 
 func (s *Controller) convertEndpoint(service *model.Service, servicePort *networking.Port,
