@@ -621,6 +621,9 @@ var (
 
 	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", true,
 		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()
+
+	InternalAddressMeshNetwork = env.RegisterStringVar("INTERNAL_ADDRESS_MESH_NETWORK", "",
+		"If specified, the network configured with this name is used for configuring internal addresses for mesh").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

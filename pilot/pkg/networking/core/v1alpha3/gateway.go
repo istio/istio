@@ -196,7 +196,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 		port := &networking.Port{Number: port.Number, Protocol: port.Protocol}
 		opts.filterChainOpts = []*filterChainOpts{
 			configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
-				proxyConfig, istionetworking.ListenerProtocolTCP),
+				proxyConfig, istionetworking.ListenerProtocolTCP, builder.push),
 		}
 		newFilterChains = append(newFilterChains, istionetworking.FilterChain{
 			ListenerProtocol: istionetworking.ListenerProtocolHTTP,
@@ -213,7 +213,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				routeName := mergedGateway.TLSServerInfo[server].RouteName
 				// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 				tcpFilterChainOpts = append(tcpFilterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
-					routeName, proxyConfig, istionetworking.TransportProtocolTCP))
+					routeName, proxyConfig, istionetworking.TransportProtocolTCP, builder.push))
 				newFilterChains = append(newFilterChains, istionetworking.FilterChain{
 					ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 				})
@@ -252,7 +252,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTP3FilterChains(
 		// server. So the same route name would be reused instead of creating new one.
 		routeName := mergedGateway.TLSServerInfo[server].RouteName
 		quicFilterChainOpts = append(quicFilterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
-			routeName, proxyConfig, istionetworking.TransportProtocolQUIC))
+			routeName, proxyConfig, istionetworking.TransportProtocolQUIC, builder.push))
 		newFilterChains = append(newFilterChains, istionetworking.FilterChain{
 			// Make sure that this is set to HTTP so that JWT and Authorization
 			// filters that are applied to HTTPS are also applied to this chain.
@@ -554,7 +554,8 @@ func routesEqual(a, b []*route.Route) bool {
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *model.Proxy, port *networking.Port, server *networking.Server,
-	routeName string, proxyConfig *meshconfig.ProxyConfig, transportProtocol istionetworking.TransportProtocol) *filterChainOpts {
+	routeName string, proxyConfig *meshconfig.ProxyConfig, transportProtocol istionetworking.TransportProtocol,
+	push *model.PushContext) *filterChainOpts {
 	serverProto := protocol.Parse(port.Protocol)
 
 	if serverProto.IsHTTP() {
@@ -567,7 +568,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 			httpOpts: &httpListenerOpts{
 				rds:               routeName,
 				useRemoteAddress:  true,
-				connectionManager: buildGatewayConnectionManager(proxyConfig, node, false /* http3SupportEnabled */),
+				connectionManager: buildGatewayConnectionManager(proxyConfig, node, false /* http3SupportEnabled */, push),
 				protocol:          serverProto,
 				class:             istionetworking.ListenerClassGateway,
 			},
@@ -587,7 +588,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		httpOpts: &httpListenerOpts{
 			rds:               routeName,
 			useRemoteAddress:  true,
-			connectionManager: buildGatewayConnectionManager(proxyConfig, node, http3Enabled),
+			connectionManager: buildGatewayConnectionManager(proxyConfig, node, http3Enabled, push),
 			protocol:          serverProto,
 			statPrefix:        server.Name,
 			http3Only:         http3Enabled,
@@ -596,7 +597,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 	}
 }
 
-func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *model.Proxy, http3SupportEnabled bool) *hcm.HttpConnectionManager {
+func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *model.Proxy, http3SupportEnabled bool, push *model.PushContext) *hcm.HttpConnectionManager {
 	httpProtoOpts := &core.Http1ProtocolOptions{}
 	if features.HTTP10 || enableHTTP10(node.Metadata.HTTP10) {
 		httpProtoOpts.AcceptHttp_10 = true
@@ -634,6 +635,18 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
 		httpConnManager.CodecType = hcm.HttpConnectionManager_HTTP3
 	}
+	if push.Networks != nil {
+		if internalnetwork, exists := push.Networks.Networks[features.InternalAddressMeshNetwork]; exists {
+			iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
+			for _, ne := range internalnetwork.Endpoints {
+				if cidr := util.ConvertAddressToCidr(ne.GetFromCidr()); cidr != nil {
+					iac.CidrRanges = append(iac.CidrRanges)
+				}
+			}
+			httpConnManager.InternalAddressConfig = iac
+		}
+	}
+
 	return httpConnManager
 }
 

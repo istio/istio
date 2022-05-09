@@ -1220,6 +1220,17 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	connectionManager.HttpFilters = filters
 	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)
 
+	if lb.push.Networks != nil {
+		if internalnetwork, exists := lb.push.Networks.Networks[features.InternalAddressMeshNetwork]; exists {
+			iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
+			for _, ne := range internalnetwork.Endpoints {
+				if cidr := util.ConvertAddressToCidr(ne.GetFromCidr()); cidr != nil {
+					iac.CidrRanges = append(iac.CidrRanges)
+				}
+			}
+			httpOpts.connectionManager.InternalAddressConfig = iac
+		}
+	}
 	return connectionManager
 }
 
