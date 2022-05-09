@@ -202,6 +202,8 @@ meshConfig:
   # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
   trustDomain: "cluster.local"
 
+  trustDomainAliases: []
+
   # TODO: the intent is to eventually have this enabled by default when security is used.
   # It is not clear if user should normally need to configure - the metadata is typically
   # used as an escape and to control testing and rollout, but it is not intended as a long-term
