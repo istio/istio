@@ -23,69 +23,73 @@ import (
 
 func TestNameMatches(t *testing.T) {
 	tests := []struct {
-		name string
-		a, b host.Name
-		out  bool
+		name           string
+		a, b           host.Name
+		out            bool
+		outSingleLabel bool
 	}{
-		{"empty", "", "", true},
-		{"first empty", "", "foo.com", false},
-		{"second empty", "foo.com", "", false},
+		{"empty", "", "", true, true},
+		{"first empty", "", "foo.com", false, false},
+		{"second empty", "foo.com", "", false, false},
 
 		{
 			"non-wildcard domain",
-			"foo.com", "foo.com", true,
+			"foo.com", "foo.com", true, true,
 		},
 		{
 			"non-wildcard domain",
-			"bar.com", "foo.com", false,
+			"bar.com", "foo.com", false, false,
 		},
 		{
 			"non-wildcard domain - order doesn't matter",
-			"foo.com", "bar.com", false,
+			"foo.com", "bar.com", false, false,
 		},
 
 		{
 			"domain does not match subdomain",
-			"bar.foo.com", "foo.com", false,
+			"bar.foo.com", "foo.com", false, false,
 		},
 		{
 			"domain does not match subdomain - order doesn't matter",
-			"foo.com", "bar.foo.com", false,
+			"foo.com", "bar.foo.com", false, false,
 		},
 
 		{
 			"wildcard matches subdomains",
-			"*.com", "foo.com", true,
+			"*.com", "foo.com", true, true,
 		},
 		{
 			"wildcard matches subdomains",
-			"*.com", "bar.com", true,
+			"foo.com", "*.com", true, true,
 		},
 		{
 			"wildcard matches subdomains",
-			"*.foo.com", "bar.foo.com", true,
+			"*.foo.com", "bar.foo.com", true, true,
 		},
 
-		{"wildcard matches anything", "*", "foo.com", true},
-		{"wildcard matches anything", "*", "*.com", true},
-		{"wildcard matches anything", "*", "com", true},
-		{"wildcard matches anything", "*", "*", true},
-		{"wildcard matches anything", "*", "", true},
+		{"wildcard matches anything", "*", "foo.com", true, false},
+		{"wildcard matches anything", "*", "*.com", true, false},
+		{"wildcard matches anything", "*", "com", true, false},
+		{"wildcard matches anything", "*", "*", true, true},
+		{"wildcard matches anything", "*", "", true, false},
 
-		{"wildcarded domain matches wildcarded subdomain", "*.com", "*.foo.com", true},
-		{"wildcarded sub-domain does not match domain", "foo.com", "*.foo.com", false},
-		{"wildcarded sub-domain does not match domain - order doesn't matter", "*.foo.com", "foo.com", false},
+		{"wildcarded domain matches wildcarded subdomain", "*.com", "*.foo.com", true, false},
+		{"wildcarded sub-domain does not match domain", "foo.com", "*.foo.com", false, false},
+		{"wildcarded sub-domain does not match domain - order doesn't matter", "*.foo.com", "foo.com", false, false},
 
-		{"long wildcard does not match short host", "*.foo.bar.baz", "baz", false},
-		{"long wildcard does not match short host - order doesn't matter", "baz", "*.foo.bar.baz", false},
-		{"long wildcard matches short wildcard", "*.foo.bar.baz", "*.baz", true},
-		{"long name matches short wildcard", "foo.bar.baz", "*.baz", true},
+		{"long wildcard does not match short host", "*.foo.bar.baz", "baz", false, false},
+		{"long wildcard does not match short host - order doesn't matter", "baz", "*.foo.bar.baz", false, false},
+		{"long wildcard matches short wildcard", "*.foo.bar.baz", "*.baz", true, false},
+		{"long name matches short wildcard", "foo.bar.baz", "*.baz", true, false},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			if tt.out != tt.a.Matches(tt.b) {
 				t.Fatalf("%q.Matches(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
+			}
+			if tt.outSingleLabel != tt.a.MatchesSingleLabel(tt.b) {
+				t.Fatalf("%q.MatchesSingleLabel(%q) = %t wanted %t", tt.a, tt.b, !tt.outSingleLabel, tt.outSingleLabel)
 			}
 		})
 	}

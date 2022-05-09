@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -497,6 +498,29 @@ func TestHumanReadableJoin(t *testing.T) {
 			if got := humanReadableJoin(tt.input); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestStrictestHost(t *testing.T) {
+	tests := []struct {
+		route   host.Name
+		gateway host.Name
+		want    string
+	}{
+		{"foo.com", "bar.com", ""},
+		{"foo.com", "foo.com", "foo.com"},
+		{"*.com", "foo.com", "foo.com"},
+		{"foo.com", "*.com", "foo.com"},
+		{"*.com", "*.com", "*.com"},
+		{"*.foo.com", "*.bar.com", ""},
+		{"*.foo.com", "*.com", ""},
+		{"*", "foo.com", "foo.com"},
+		{"bar.com", "", "bar.com"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v/%v", tt.route, tt.gateway), func(t *testing.T) {
+			assert.Equal(t, strictestHost(tt.route, tt.gateway), tt.want)
 		})
 	}
 }
