@@ -43,6 +43,7 @@ import (
 
 const (
 	autoscalingV2MinK8SVersion = 23
+	pdbV1MinK8SVersion         = 21
 )
 
 var (
@@ -91,14 +92,23 @@ var (
 		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: name.CRDStr},
 	)
 	autoScalingV2GVK = schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: name.HPAStr}
+	pdbV1GVK         = schema.GroupVersionKind{Group: "policy", Version: "v1", Kind: name.PDBStr}
 )
 
 // getPruneResourcesBasedOnK8SVersion gets specific pruning resources based on the k8s version
 func (h *HelmReconciler) getPruneResourcesBasedOnK8SVersion() []schema.GroupVersionKind {
 	var res []schema.GroupVersionKind
+	clusterVersion, err := h.kubeClient.GetKubernetesVersion()
+	if err != nil {
+		scope.Warnf("Failed to get kubernetes version: %v", err)
+	}
 	// autoscaling v2 API is available on >=1.23
-	if kube.IsAtLeastVersion(h.kubeClient, autoscalingV2MinK8SVersion) {
+	if kube.IsKubeAtLeastOrLessThanVersion(clusterVersion, autoscalingV2MinK8SVersion, true) {
 		res = append(res, autoScalingV2GVK)
+	}
+	// policy/v1 is available on >=1.21
+	if kube.IsKubeAtLeastOrLessThanVersion(clusterVersion, pdbV1MinK8SVersion, true) {
+		res = append(res, pdbV1GVK)
 	}
 	return res
 }
