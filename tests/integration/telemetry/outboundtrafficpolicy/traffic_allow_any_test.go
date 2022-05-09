@@ -178,7 +178,6 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			Name:     "TCP",
 			PortName: "tcp",
 			Expected: Expected{
-				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
 				StatusCode:      http.StatusOK,
@@ -189,7 +188,6 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			Name:     "TCP Conflict",
 			PortName: "tcp",
 			Expected: Expected{
-				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
 				StatusCode:      http.StatusOK,
