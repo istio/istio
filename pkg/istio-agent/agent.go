@@ -522,7 +522,7 @@ func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
 		select {
 		case gotEvent := <-a.caFileWatcher.Events(caFile):
 			log.Debugf("Receive file %s event %v", caFile, gotEvent)
-			if err := a.xdsProxy.InitIstiodDialOptions(a); err != nil {
+			if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
 				log.Warnf("Failed to init xds proxy dial options")
 			}
 		case <-ctx.Done():

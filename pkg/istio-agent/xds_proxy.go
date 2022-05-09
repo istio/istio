@@ -189,7 +189,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		return nil, err
 	}
 
-	if err = proxy.InitIstiodDialOptions(ia); err != nil {
+	if err = proxy.initIstiodDialOptions(ia); err != nil {
 		return nil, err
 	}
 
@@ -343,7 +343,7 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 	}
 	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
-	return p.HandleUpstream(ctx, con, xds)
+	return p.handleUpstream(ctx, con, xds)
 }
 
 func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, error) {
@@ -355,7 +355,7 @@ func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, err
 	return grpc.DialContext(ctx, p.istiodAddress, opts...)
 }
 
-func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
+func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
@@ -624,7 +624,7 @@ func (p *XdsProxy) initDownstreamServer() error {
 	return nil
 }
 
-func (p *XdsProxy) InitIstiodDialOptions(agent *Agent) error {
+func (p *XdsProxy) initIstiodDialOptions(agent *Agent) error {
 	opts, err := p.buildUpstreamClientDialOpts(agent)
 	if err != nil {
 		return err
@@ -655,6 +655,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	dialOptions := []grpc.DialOption{
 		tlsOpts,
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
+		grpc.WithBlock,
 	}
 
 	dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
