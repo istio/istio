@@ -5,4 +5,4 @@ issue:
   - 37415
 releaseNotes:
 - |
-  **Added** a new analyzer for envoy filter patch operations to address issue 37415
+  **Added** a new analyzer for envoy filter patch operations to provide warnings when relative patch operations are used without a priority set which can cause envoyFilters not to be applied correctly.
