@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 32005
+
+releaseNotes:
+- |
+  **Deprecated** Kubernetes Autoscaling v2beta1 API support for installation.
+  **Added** Kubernetes Autoscaling v2beta2/v2 API support for installation.

@@ -507,9 +507,32 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name: "host defined in virtualservice not found in the gateway",
+		name: "host defined in virtualservice not found in the gateway(beta version)",
+		inputFiles: []string{
+			"testdata/virtualservice_host_not_found_gateway_beta.yaml",
+		},
+		analyzer: &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-01"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-02"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-03"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-03-test-04"},
+		},
+	},
+	{
+		name: "host defined in virtualservice not found in the gateway with ns",
 		inputFiles: []string{
 			"testdata/virtualservice_host_not_found_gateway_with_ns_prefix.yaml",
+		},
+		analyzer: &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-01-test-01"},
+		},
+	},
+	{
+		name: "host defined in virtualservice not found in the gateway with ns(beta version)",
+		inputFiles: []string{
+			"testdata/virtualservice_host_not_found_gateway_with_ns_prefix_beta.yaml",
 		},
 		analyzer: &virtualservice.GatewayAnalyzer{},
 		expected: []message{

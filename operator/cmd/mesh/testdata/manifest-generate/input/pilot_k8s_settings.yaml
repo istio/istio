@@ -29,7 +29,9 @@ spec:
             - type: Resource
               resource:
                 name: cpu
-                targetAverageUtilization: 444
+                target:
+                  type: Utilization
+                  averageUtilization: 444
         readinessProbe:
           httpGet:
             path: /ready
