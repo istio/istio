@@ -87,7 +87,7 @@ var (
 			},
 		},
 	}
-	remoteInjectionURL             = "random.injection.url.com"
+	remoteInjectionURL             = "https://random.host.com/inject/cluster/cluster1/net/net1"
 	revisionCanonicalWebhookRemote = admit_v1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector-revision",
@@ -110,6 +110,7 @@ var (
 			},
 		},
 	}
+	remoteValidationURL = "https://random.host.com/validate"
 )
 
 func TestGenerateValidatingWebhook(t *testing.T) {
@@ -141,7 +142,7 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			name:           "webhook-pointing-to-url",
 			istioNamespace: "istio-system",
 			webhook:        revisionCanonicalWebhookRemote,
-			whURL:          remoteInjectionURL,
+			whURL:          remoteValidationURL,
 			whSVC:          "",
 			whCA:           "ca",
 		},
@@ -156,7 +157,7 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			if err != nil {
 				t.Fatalf("webhook parsing failed with error: %v", err)
 			}
-			webhookYAML, err := generateValidatingWebhook(webhookConfig, filepath.Join(env.IstioSrc, "manifests"))
+			webhookYAML, err := generateValidatingWebhook(fixWhConfig(webhookConfig), filepath.Join(env.IstioSrc, "manifests"))
 			if err != nil {
 				t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 			}
@@ -168,29 +169,29 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			wh := vwhObject.(*admit_v1.ValidatingWebhookConfiguration)
 
 			for _, webhook := range wh.Webhooks {
-				injectionWhConf := webhook.ClientConfig
+				validationWhConf := webhook.ClientConfig
 				if tc.whSVC != "" {
-					if injectionWhConf.Service == nil {
-						t.Fatalf("expected injection service %s, got nil", tc.whSVC)
+					if validationWhConf.Service == nil {
+						t.Fatalf("expected validation service %s, got nil", tc.whSVC)
 					}
-					if injectionWhConf.Service.Name != tc.whSVC {
-						t.Fatalf("expected injection service %s, got %s", tc.whSVC, injectionWhConf.Service.Name)
+					if validationWhConf.Service.Name != tc.whSVC {
+						t.Fatalf("expected validation service %s, got %s", tc.whSVC, validationWhConf.Service.Name)
 					}
-					if injectionWhConf.Service.Namespace != tc.istioNamespace {
-						t.Fatalf("expected injection service namespace %s, got %s", tc.istioNamespace, injectionWhConf.Service.Namespace)
+					if validationWhConf.Service.Namespace != tc.istioNamespace {
+						t.Fatalf("expected validation service namespace %s, got %s", tc.istioNamespace, validationWhConf.Service.Namespace)
 					}
 				}
 				if tc.whURL != "" {
-					if injectionWhConf.URL == nil {
-						t.Fatalf("expected injection URL %s, got nil", tc.whURL)
+					if validationWhConf.URL == nil {
+						t.Fatalf("expected validation URL %s, got nil", tc.whURL)
 					}
-					if *injectionWhConf.URL != tc.whURL {
-						t.Fatalf("expected injection URL %s, got %s", tc.whURL, *injectionWhConf.URL)
+					if *validationWhConf.URL != tc.whURL {
+						t.Fatalf("expected validation URL %s, got %s", tc.whURL, *validationWhConf.URL)
 					}
 				}
 				if tc.whCA != "" {
-					if string(injectionWhConf.CABundle) != tc.whCA {
-						t.Fatalf("expected CA bundle %q, got %q", tc.whCA, injectionWhConf.CABundle)
+					if string(validationWhConf.CABundle) != tc.whCA {
+						t.Fatalf("expected CA bundle %q, got %q", tc.whCA, validationWhConf.CABundle)
 					}
 				}
 			}
