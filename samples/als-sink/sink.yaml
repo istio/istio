@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: als-sink
+  namespace: istio-system
+  labels:
+    app: als-sink
+    service: als-sink
+spec:
+  ports:
+  - name: grpc
+    port: 9001
+  - name: admin-http
+    port: 16000 
+  selector:
+    app: als-sink  
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: als-sink
+  namespace: istio-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: als-sink
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: als-sink
+        version: v1
+    spec:
+      containers:
+      - name: als-sink
+        image: localhost:5000/als-sink:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9001
+        - containerPort: 16000

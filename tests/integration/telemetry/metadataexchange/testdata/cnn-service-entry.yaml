@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: cnn
+spec:
+  hosts:
+  - edition.cnn.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 443
+    name: tls
+    protocol: TLS
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
