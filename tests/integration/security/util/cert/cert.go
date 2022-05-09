@@ -20,11 +20,9 @@ package cert
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path"
 
-	kubeApiCore "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,7 +85,7 @@ func CreateCASecret(ctx resource.Context) error {
 		return err
 	}
 
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.AllClusters() {
 		secret := &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -99,18 +97,6 @@ func CreateCASecret(ctx resource.Context) error {
 				ca.CertChainFile:    certChain,
 				ca.RootCertFile:     rootCert,
 			},
-		}
-
-		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: systemNs.Name(),
-			},
-		}, metav1.CreateOptions{}); err != nil {
-			if !errors.IsAlreadyExists(err) {
-				return err
-			} else {
-				fmt.Println("istio-system is already there")
-			}
 		}
 
 		if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
