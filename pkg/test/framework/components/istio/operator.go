@@ -52,7 +52,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
@@ -917,17 +916,6 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 			if !errors.IsAlreadyExists(err) {
 				scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
 					"multiple control planes. Error: %v", c.Name(), err)
-			} else {
-				fmt.Println("---cacerts is there---")
-				cmd1 := "kubectl get secret cacerts -n istio-system -o jsonpath='{.data}'"
-				output, err := shell.Execute(false, cmd1)
-				if err != nil {
-					fmt.Println("unable to install oc", err)
-				} else {
-					fmt.Println("----output-----", output)
-					fmt.Println("---cluster----", c)
-				}
-
 			}
 		}
 	}
