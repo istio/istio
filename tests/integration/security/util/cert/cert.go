@@ -85,7 +85,7 @@ func CreateCASecret(ctx resource.Context) error {
 		return err
 	}
 
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.AllClusters() {
 		secret := &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
