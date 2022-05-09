@@ -279,6 +279,10 @@ global:
     # Setting this port to a non-zero value enables STS server.
     servicePort: 0
 
+  # whether to use autoscaling/v2 template for HPA settings
+  # for internal usage only, not to be configured by users.
+  autoscalingv2API: true
+
 meshConfig:
   enablePrometheusMerge: true
 

@@ -316,6 +316,8 @@ resources:
     plural: "virtualservices"
     group: "networking.istio.io"
     version: "v1alpha3"
+    versionAliases:
+      - "v1beta1"
     proto: "istio.networking.v1alpha3.VirtualService"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes v1alpha3 route rules"
@@ -326,6 +328,8 @@ resources:
     plural: "gateways"
     group: "networking.istio.io"
     version: "v1alpha3"
+    versionAliases:
+      - "v1beta1"
     proto: "istio.networking.v1alpha3.Gateway"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes a gateway (how a proxy is exposed on the network)"
@@ -336,6 +340,8 @@ resources:
     plural: "serviceentries"
     group: "networking.istio.io"
     version: "v1alpha3"
+    versionAliases:
+      - "v1beta1"
     proto: "istio.networking.v1alpha3.ServiceEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes service entries"
@@ -346,6 +352,8 @@ resources:
     plural: "workloadentries"
     group: "networking.istio.io"
     version: "v1alpha3"
+    versionAliases:
+      - "v1beta1"
     proto: "istio.networking.v1alpha3.WorkloadEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes workload entries"
@@ -356,6 +364,8 @@ resources:
     plural: "workloadgroups"
     group: "networking.istio.io"
     version: "v1alpha3"
+    versionAliases:
+      - "v1beta1"
     proto: "istio.networking.v1alpha3.WorkloadGroup"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes workload groups"
@@ -366,6 +376,8 @@ resources:
     plural: "destinationrules"
     group: "networking.istio.io"
     version: "v1alpha3"
+    versionAliases:
+      - "v1beta1"
     proto: "istio.networking.v1alpha3.DestinationRule"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes destination rules"
@@ -376,6 +388,8 @@ resources:
     plural: "envoyfilters"
     group: "networking.istio.io"
     version: "v1alpha3"
+    versionAliases:
+      - "v1beta1"
     proto: "istio.networking.v1alpha3.EnvoyFilter"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes additional envoy filters to be inserted by Pilot"
@@ -386,6 +400,8 @@ resources:
     plural: "sidecars"
     group: "networking.istio.io"
     version: "v1alpha3"
+    versionAliases:
+      - "v1beta1"
     proto: "istio.networking.v1alpha3.Sidecar"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes the listeners associated with sidecars in a namespace"

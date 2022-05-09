@@ -635,7 +635,7 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
 		httpConnManager.CodecType = hcm.HttpConnectionManager_HTTP3
 	}
-	if push.Networks != nil {
+	if push != nil && push.Networks != nil {
 		if internalnetwork, exists := push.Networks.Networks[features.InternalAddressMeshNetwork]; exists {
 			iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
 			for _, ne := range internalnetwork.Endpoints {
