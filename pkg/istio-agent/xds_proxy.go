@@ -189,7 +189,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		return nil, err
 	}
 
-	if err = proxy.InitIstiodDialOptions(ia); err != nil {
+	if err = proxy.initIstiodDialOptions(ia); err != nil {
 		return nil, err
 	}
 
@@ -626,7 +626,7 @@ func (p *XdsProxy) initDownstreamServer() error {
 	return nil
 }
 
-func (p *XdsProxy) InitIstiodDialOptions(agent *Agent) error {
+func (p *XdsProxy) initIstiodDialOptions(agent *Agent) error {
 	opts, err := p.buildUpstreamClientDialOpts(agent)
 	if err != nil {
 		return err
@@ -652,8 +652,6 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(defaultInitialWindowSize))
 	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize))
 	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
-	// Make sure the dial is blocking as we don't want any other operation to resume until the
-	// connection to upstream has been made.
 	dialOptions := []grpc.DialOption{
 		tlsOpts,
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
