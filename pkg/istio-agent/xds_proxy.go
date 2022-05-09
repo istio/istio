@@ -73,7 +73,7 @@ var connectionNumber = atomic.NewUint32(0)
 // resource.
 type ResponseHandler func(resp *any.Any) error
 
-// XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
+// XdsProxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
 // single tcp connection with multiple gRPC streams.
@@ -226,7 +226,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				},
 			}
 		}
-		proxy.PersistDeltaRequest(deltaReq)
+		proxy.persistDeltaRequest(deltaReq)
 	}, proxy.stopChan)
 
 	return proxy, nil
@@ -255,7 +255,7 @@ func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
 	}
 }
 
-func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
+func (p *XdsProxy) unregisterStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
 	if p.connected != nil && p.connected == c {
@@ -264,7 +264,7 @@ func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
 	}
 }
 
-func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
+func (p *XdsProxy) registerStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
 	if p.connected != nil {
@@ -274,6 +274,7 @@ func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
 	p.connected = c
 }
 
+// ProxyConnection represents connection to downstream proxy.
 type ProxyConnection struct {
 	conID              uint32
 	upstreamError      chan error
@@ -304,6 +305,7 @@ type adsStream interface {
 	Context() context.Context
 }
 
+// StreamAggregatedResources is an implementation of XDS API API used for proxying between Istiod and Envoy.
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
@@ -323,8 +325,8 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		downstream:      downstream,
 	}
 
-	p.RegisterStream(con)
-	defer p.UnregisterStream(con)
+	p.registerStream(con)
+	defer p.unregisterStream(con)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -343,7 +345,7 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 	}
 	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
-	return p.HandleUpstream(ctx, con, xds)
+	return p.handleUpstream(ctx, con, xds)
 }
 
 func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, error) {
@@ -355,7 +357,7 @@ func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, err
 	return grpc.DialContext(ctx, p.istiodAddress, opts...)
 }
 
-func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
+func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
