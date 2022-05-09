@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package app
 
 import (
 	"fmt"
@@ -81,6 +81,4 @@ func init() {
 	waitCmd.PersistentFlags().IntVar(&requestTimeoutMillis, "requestTimeoutMillis", 500, "number of milliseconds to wait for response")
 	waitCmd.PersistentFlags().IntVar(&periodMillis, "periodMillis", 500, "number of milliseconds to wait between attempts")
 	waitCmd.PersistentFlags().StringVar(&url, "url", "http://localhost:15021/healthz/ready", "URL to use in requests")
-
-	rootCmd.AddCommand(waitCmd)
 }
