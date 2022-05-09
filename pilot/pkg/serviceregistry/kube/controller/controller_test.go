@@ -609,7 +609,7 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					Name:       "tcp-port",
 					Port:       8080,
 					Protocol:   "http",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 8080},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 			},
 			wantEndpoints: []model.IstioEndpoint{
@@ -634,7 +634,7 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					Name:       "tcp-port",
 					Port:       8080,
 					Protocol:   "TCP",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 8080},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 			},
 			wantEndpoints: []model.IstioEndpoint{
@@ -654,13 +654,13 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					Name:       "tcp-port-1",
 					Port:       8080,
 					Protocol:   "http",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 8080},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 				{
 					Name:       "tcp-port-2",
 					Port:       9090,
 					Protocol:   "http",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 9090},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 9090},
 				},
 			},
 			wantEndpoints: []model.IstioEndpoint{
@@ -695,13 +695,13 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					Name:       "tcp-port",
 					Port:       8080,
 					Protocol:   "TCP",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 8080},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 				{
 					Name:       "http-port",
 					Port:       9090,
 					Protocol:   "TCP",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 8080},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 			},
 			wantEndpoints: []model.IstioEndpoint{
@@ -726,19 +726,19 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					Name:       "http-7442",
 					Port:       7442,
 					Protocol:   "TCP",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 7442},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
 				},
 				{
 					Name:       "tcp-8443",
 					Port:       8443,
 					Protocol:   "TCP",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 7442},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
 				},
 				{
 					Name:       "http-7557",
 					Port:       7557,
 					Protocol:   "TCP",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 7442},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
 				},
 			},
 			wantEndpoints: []model.IstioEndpoint{
@@ -763,13 +763,13 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					Name:       "tcp-port",
 					Port:       8080,
 					Protocol:   "TCP",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 8080},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 				{
 					Name:       "http-port",
 					Port:       9090,
 					Protocol:   "TCP",
-					TargetPort: intstr.Int32OrString{Type: intstr.Int, IntVal: 9090},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 9090},
 				},
 			},
 			wantEndpoints: []model.IstioEndpoint{
@@ -1574,7 +1574,7 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 				Name:       "http-port",
 				Port:       8080,
 				Protocol:   "TCP",
-				TargetPort: intstr.Int32OrString{Type: intstr.String, StrVal: "http"},
+				TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
 			},
 		},
 		map[string]string{"app": "ratings"}, t)

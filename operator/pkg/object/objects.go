@@ -546,7 +546,7 @@ func resolvePDBConflict(o *K8sObject) *K8sObject {
 	}
 	spec := o.object.Object["spec"].(map[string]interface{})
 	isDefault := func(item interface{}) bool {
-		var ii intstr.Int32OrString
+		var ii intstr.IntOrString
 		switch item := item.(type) {
 		case int:
 			ii = intstr.FromInt(item)

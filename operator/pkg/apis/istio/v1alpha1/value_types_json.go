@@ -66,7 +66,7 @@ func (this *Int32OrString) UnmarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.
 	return this.UnmarshalJSON(value)
 }
 
-func (this *Int32OrString) ToKubernetes() intstr.Int32OrString {
+func (this *Int32OrString) ToKubernetes() intstr.IntOrString {
 	if this.IntVal != nil {
 		return intstr.FromInt(int(this.GetIntVal().GetValue()))
 	}

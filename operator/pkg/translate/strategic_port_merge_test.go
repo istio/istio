@@ -27,24 +27,24 @@ var (
 		Name:       "https",
 		Protocol:   v1.ProtocolTCP,
 		Port:       443,
-		TargetPort: intstr.Int32OrString{IntVal: 8443},
+		TargetPort: intstr.IntOrString{IntVal: 8443},
 	}
 	quicPort = &v1.ServicePort{
 		Name:       "http3-quic",
 		Protocol:   v1.ProtocolUDP,
 		Port:       443,
-		TargetPort: intstr.Int32OrString{IntVal: 8443},
+		TargetPort: intstr.IntOrString{IntVal: 8443},
 	}
 	httpPort = &v1.ServicePort{
 		Name:       "http-port",
 		Protocol:   v1.ProtocolTCP,
 		Port:       80,
-		TargetPort: intstr.Int32OrString{IntVal: 8080},
+		TargetPort: intstr.IntOrString{IntVal: 8080},
 	}
 	httpNoProtoPort = &v1.ServicePort{
 		Name:       "http-port",
 		Port:       80,
-		TargetPort: intstr.Int32OrString{IntVal: 8080},
+		TargetPort: intstr.IntOrString{IntVal: 8080},
 	}
 	mysqlPort = &v1.ServicePort{
 		Name:     "mysql-port",

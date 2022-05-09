@@ -154,7 +154,7 @@ func TestConversion(t *testing.T) {
 									Path: "/test",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "foo",
-										ServicePort: intstr.Int32OrString{IntVal: 8000},
+										ServicePort: intstr.IntOrString{IntVal: 8000},
 									},
 								},
 								{
@@ -162,7 +162,7 @@ func TestConversion(t *testing.T) {
 									PathType: &prefix,
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "foo",
-										ServicePort: intstr.Int32OrString{IntVal: 8000},
+										ServicePort: intstr.IntOrString{IntVal: 8000},
 									},
 								},
 							},
@@ -178,7 +178,7 @@ func TestConversion(t *testing.T) {
 									Path: "/test1.*",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "bar",
-										ServicePort: intstr.Int32OrString{IntVal: 8000},
+										ServicePort: intstr.IntOrString{IntVal: 8000},
 									},
 								},
 							},
@@ -194,7 +194,7 @@ func TestConversion(t *testing.T) {
 									Path: "/test/*",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "bar",
-										ServicePort: intstr.Int32OrString{IntVal: 8000},
+										ServicePort: intstr.IntOrString{IntVal: 8000},
 									},
 								},
 							},
@@ -219,7 +219,7 @@ func TestConversion(t *testing.T) {
 									Path: "/test2",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "foo",
-										ServicePort: intstr.Int32OrString{IntVal: 8000},
+										ServicePort: intstr.IntOrString{IntVal: 8000},
 									},
 								},
 								{
@@ -227,7 +227,7 @@ func TestConversion(t *testing.T) {
 									PathType: &prefix,
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "foo",
-										ServicePort: intstr.Int32OrString{IntVal: 8000},
+										ServicePort: intstr.IntOrString{IntVal: 8000},
 									},
 								},
 								{
@@ -235,7 +235,7 @@ func TestConversion(t *testing.T) {
 									PathType: &exact,
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "foo",
-										ServicePort: intstr.Int32OrString{IntVal: 8000},
+										ServicePort: intstr.IntOrString{IntVal: 8000},
 									},
 								},
 							},
@@ -426,7 +426,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 									Path: "/test/*",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "foo",
-										ServicePort: intstr.Int32OrString{Type: intstr.String, StrVal: "test-svc-port"},
+										ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "test-svc-port"},
 									},
 								},
 							},
@@ -447,7 +447,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 					Name:     "test-svc-port",
 					Protocol: "TCP",
 					Port:     8888,
-					TargetPort: intstr.Int32OrString{
+					TargetPort: intstr.IntOrString{
 						Type:   intstr.String,
 						StrVal: "test-port",
 					},
