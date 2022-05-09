@@ -1094,11 +1094,11 @@ type EgressGatewayConfig struct {
 	// K8s rolling update strategy
 	//
 	// Deprecated: Do not use.
-	RollingMaxSurge *IntOrString `protobuf:"bytes,21,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
+	RollingMaxSurge *Int32OrString `protobuf:"bytes,21,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
 	// K8s rolling update strategy
 	//
 	// Deprecated: Do not use.
-	RollingMaxUnavailable *IntOrString          `protobuf:"bytes,22,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
+	RollingMaxUnavailable *Int32OrString          `protobuf:"bytes,22,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
 	ConfigVolumes         []*structpb.Struct    `protobuf:"bytes,23,rep,name=configVolumes,proto3" json:"configVolumes,omitempty"`
 	AdditionalContainers  []*structpb.Struct    `protobuf:"bytes,24,rep,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
 	RunAsRoot             *wrapperspb.BoolValue `protobuf:"bytes,26,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
@@ -1280,7 +1280,7 @@ func (x *EgressGatewayConfig) GetTolerations() []*structpb.Struct {
 }
 
 // Deprecated: Do not use.
-func (x *EgressGatewayConfig) GetRollingMaxSurge() *IntOrString {
+func (x *EgressGatewayConfig) GetRollingMaxSurge() *Int32OrString {
 	if x != nil {
 		return x.RollingMaxSurge
 	}
@@ -1288,7 +1288,7 @@ func (x *EgressGatewayConfig) GetRollingMaxSurge() *IntOrString {
 }
 
 // Deprecated: Do not use.
-func (x *EgressGatewayConfig) GetRollingMaxUnavailable() *IntOrString {
+func (x *EgressGatewayConfig) GetRollingMaxUnavailable() *Int32OrString {
 	if x != nil {
 		return x.RollingMaxUnavailable
 	}
@@ -2086,11 +2086,11 @@ type IngressGatewayConfig struct {
 	// K8s rolling update strategy
 	//
 	// Deprecated: Do not use.
-	RollingMaxSurge *IntOrString `protobuf:"bytes,31,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
+	RollingMaxSurge *Int32OrString `protobuf:"bytes,31,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
 	// K8s rolling update strategy
 	//
 	// Deprecated: Do not use.
-	RollingMaxUnavailable *IntOrString `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
+	RollingMaxUnavailable *Int32OrString `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
 	ExternalTrafficPolicy string       `protobuf:"bytes,34,opt,name=externalTrafficPolicy,proto3" json:"externalTrafficPolicy,omitempty"`
 	// Deprecated: Do not use.
 	Tolerations          []*structpb.Struct    `protobuf:"bytes,35,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
@@ -2297,7 +2297,7 @@ func (x *IngressGatewayConfig) GetZvpn() *IngressGatewayZvpnConfig {
 }
 
 // Deprecated: Do not use.
-func (x *IngressGatewayConfig) GetRollingMaxSurge() *IntOrString {
+func (x *IngressGatewayConfig) GetRollingMaxSurge() *Int32OrString {
 	if x != nil {
 		return x.RollingMaxSurge
 	}
@@ -2305,7 +2305,7 @@ func (x *IngressGatewayConfig) GetRollingMaxSurge() *IntOrString {
 }
 
 // Deprecated: Do not use.
-func (x *IngressGatewayConfig) GetRollingMaxUnavailable() *IntOrString {
+func (x *IngressGatewayConfig) GetRollingMaxUnavailable() *Int32OrString {
 	if x != nil {
 		return x.RollingMaxUnavailable
 	}
@@ -2628,11 +2628,11 @@ type PilotConfig struct {
 	// K8s rolling update strategy
 	//
 	// Deprecated: Do not use.
-	RollingMaxSurge *IntOrString `protobuf:"bytes,24,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
+	RollingMaxSurge *Int32OrString `protobuf:"bytes,24,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
 	// K8s rolling update strategy
 	//
 	// Deprecated: Do not use.
-	RollingMaxUnavailable *IntOrString `protobuf:"bytes,25,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
+	RollingMaxUnavailable *Int32OrString `protobuf:"bytes,25,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
 	//
 	//
 	// Deprecated: Do not use.
@@ -2814,7 +2814,7 @@ func (x *PilotConfig) GetEnv() *structpb.Struct {
 }
 
 // Deprecated: Do not use.
-func (x *PilotConfig) GetRollingMaxSurge() *IntOrString {
+func (x *PilotConfig) GetRollingMaxSurge() *Int32OrString {
 	if x != nil {
 		return x.RollingMaxSurge
 	}
@@ -2822,7 +2822,7 @@ func (x *PilotConfig) GetRollingMaxSurge() *IntOrString {
 }
 
 // Deprecated: Do not use.
-func (x *PilotConfig) GetRollingMaxUnavailable() *IntOrString {
+func (x *PilotConfig) GetRollingMaxUnavailable() *Int32OrString {
 	if x != nil {
 		return x.RollingMaxUnavailable
 	}
@@ -4922,16 +4922,15 @@ func (x *ZeroVPNConfig) GetSuffix() string {
 	return ""
 }
 
-// IntOrString is a type that can hold an int32 or a string.  When used in
+// Int32OrString is a type that can hold an int32 or a string.  When used in
 // JSON or YAML marshalling and unmarshalling, it produces or consumes the
 // inner type.  This allows you to have, for example, a JSON field that can
 // accept a name or number.
-// TODO: Rename to Int32OrString
 //
 // +protobuf=true
 // +protobuf.options.(gogoproto.goproto_stringer)=false
 // +k8s:openapi-gen=true
-type IntOrString struct {
+type Int32OrString struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -4941,8 +4940,8 @@ type IntOrString struct {
 	StrVal *wrapperspb.StringValue `protobuf:"bytes,3,opt,name=strVal,proto3" json:"strVal,omitempty"`
 }
 
-func (x *IntOrString) Reset() {
-	*x = IntOrString{}
+func (x *Int32OrString) Reset() {
+	*x = Int32OrString{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[47]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -4950,13 +4949,13 @@ func (x *IntOrString) Reset() {
 	}
 }
 
-func (x *IntOrString) String() string {
+func (x *Int32OrString) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*IntOrString) ProtoMessage() {}
+func (*Int32OrString) ProtoMessage() {}
 
-func (x *IntOrString) ProtoReflect() protoreflect.Message {
+func (x *Int32OrString) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[47]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -4968,26 +4967,26 @@ func (x *IntOrString) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use IntOrString.ProtoReflect.Descriptor instead.
-func (*IntOrString) Descriptor() ([]byte, []int) {
+// Deprecated: Use Int32OrString.ProtoReflect.Descriptor instead.
+func (*Int32OrString) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{47}
 }
 
-func (x *IntOrString) GetType() int64 {
+func (x *Int32OrString) GetType() int64 {
 	if x != nil {
 		return x.Type
 	}
 	return 0
 }
 
-func (x *IntOrString) GetIntVal() *wrapperspb.Int32Value {
+func (x *Int32OrString) GetIntVal() *wrapperspb.Int32Value {
 	if x != nil {
 		return x.IntVal
 	}
 	return nil
 }
 
-func (x *IntOrString) GetStrVal() *wrapperspb.StringValue {
+func (x *Int32OrString) GetStrVal() *wrapperspb.StringValue {
 	if x != nil {
 		return x.StrVal
 	}
@@ -6223,7 +6222,7 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_goTypes = []interface{}{
 	(*IstiodRemoteConfig)(nil),                         // 48: v1alpha1.IstiodRemoteConfig
 	(*Values)(nil),                                     // 49: v1alpha1.Values
 	(*ZeroVPNConfig)(nil),                              // 50: v1alpha1.ZeroVPNConfig
-	(*IntOrString)(nil),                                // 51: v1alpha1.IntOrString
+	(*Int32OrString)(nil),                                // 51: v1alpha1.Int32OrString
 	nil,                                                // 52: v1alpha1.Resources.LimitsEntry
 	nil,                                                // 53: v1alpha1.Resources.RequestsEntry
 	nil,                                                // 54: v1alpha1.EgressGatewayConfig.LabelsEntry
@@ -6270,8 +6269,8 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	59,  // 30: v1alpha1.EgressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
 	50,  // 31: v1alpha1.EgressGatewayConfig.zvpn:type_name -> v1alpha1.ZeroVPNConfig
 	59,  // 32: v1alpha1.EgressGatewayConfig.tolerations:type_name -> google.protobuf.Struct
-	51,  // 33: v1alpha1.EgressGatewayConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
-	51,  // 34: v1alpha1.EgressGatewayConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
+	51,  // 33: v1alpha1.EgressGatewayConfig.rollingMaxSurge:type_name -> v1alpha1.Int32OrString
+	51,  // 34: v1alpha1.EgressGatewayConfig.rollingMaxUnavailable:type_name -> v1alpha1.Int32OrString
 	59,  // 35: v1alpha1.EgressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
 	59,  // 36: v1alpha1.EgressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
 	57,  // 37: v1alpha1.EgressGatewayConfig.runAsRoot:type_name -> google.protobuf.BoolValue
@@ -6320,8 +6319,8 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	39,  // 80: v1alpha1.IngressGatewayConfig.secretVolumes:type_name -> v1alpha1.SecretVolume
 	59,  // 81: v1alpha1.IngressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
 	21,  // 82: v1alpha1.IngressGatewayConfig.zvpn:type_name -> v1alpha1.IngressGatewayZvpnConfig
-	51,  // 83: v1alpha1.IngressGatewayConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
-	51,  // 84: v1alpha1.IngressGatewayConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
+	51,  // 83: v1alpha1.IngressGatewayConfig.rollingMaxSurge:type_name -> v1alpha1.Int32OrString
+	51,  // 84: v1alpha1.IngressGatewayConfig.rollingMaxUnavailable:type_name -> v1alpha1.Int32OrString
 	59,  // 85: v1alpha1.IngressGatewayConfig.tolerations:type_name -> google.protobuf.Struct
 	59,  // 86: v1alpha1.IngressGatewayConfig.ingressPorts:type_name -> google.protobuf.Struct
 	59,  // 87: v1alpha1.IngressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
@@ -6343,8 +6342,8 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	57,  // 103: v1alpha1.PilotConfig.configMap:type_name -> google.protobuf.BoolValue
 	57,  // 104: v1alpha1.PilotConfig.useMCP:type_name -> google.protobuf.BoolValue
 	59,  // 105: v1alpha1.PilotConfig.env:type_name -> google.protobuf.Struct
-	51,  // 106: v1alpha1.PilotConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
-	51,  // 107: v1alpha1.PilotConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
+	51,  // 106: v1alpha1.PilotConfig.rollingMaxSurge:type_name -> v1alpha1.Int32OrString
+	51,  // 107: v1alpha1.PilotConfig.rollingMaxUnavailable:type_name -> v1alpha1.Int32OrString
 	59,  // 108: v1alpha1.PilotConfig.tolerations:type_name -> google.protobuf.Struct
 	57,  // 109: v1alpha1.PilotConfig.enableProtocolSniffingForOutbound:type_name -> google.protobuf.BoolValue
 	57,  // 110: v1alpha1.PilotConfig.enableProtocolSniffingForInbound:type_name -> google.protobuf.BoolValue
@@ -6410,8 +6409,8 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	47,  // 170: v1alpha1.Values.base:type_name -> v1alpha1.BaseConfig
 	48,  // 171: v1alpha1.Values.istiodRemote:type_name -> v1alpha1.IstiodRemoteConfig
 	57,  // 172: v1alpha1.ZeroVPNConfig.enabled:type_name -> google.protobuf.BoolValue
-	61,  // 173: v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
-	62,  // 174: v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
+	61,  // 173: v1alpha1.Int32OrString.intVal:type_name -> google.protobuf.Int32Value
+	62,  // 174: v1alpha1.Int32OrString.strVal:type_name -> google.protobuf.StringValue
 	59,  // 175: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.gateway:type_name -> google.protobuf.Struct
 	59,  // 176: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.inboundSidecar:type_name -> google.protobuf.Struct
 	59,  // 177: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.outboundSidecar:type_name -> google.protobuf.Struct
@@ -6993,7 +6992,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[47].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IntOrString); i {
+			switch v := v.(*Int32OrString); i {
 			case 0:
 				return &v.state
 			case 1:

@@ -821,7 +821,7 @@ func TestWorkloadInstances(t *testing.T) {
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:8080"})
 
-		newSvc.Spec.Ports[0].TargetPort = intstr.IntOrString{IntVal: 9090}
+		newSvc.Spec.Ports[0].TargetPort = intstr.Int32OrString{IntVal: 9090}
 		makeService(t, s.KubeClient(), newSvc)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:9090"})

@@ -465,7 +465,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 					Name:     "test-svc-port",
 					Protocol: "TCP",
 					Port:     8888,
-					TargetPort: intstr.IntOrString{
+					TargetPort: intstr.Int32OrString{
 						Type:   intstr.String,
 						StrVal: "test-port",
 					},

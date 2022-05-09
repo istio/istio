@@ -57,7 +57,7 @@ func TestIngressController(t *testing.T) {
 									Path: "/test",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+										ServicePort: intstr.Int32OrString{IntVal: 8000},
 									},
 								},
 							},
@@ -73,7 +73,7 @@ func TestIngressController(t *testing.T) {
 									Path: "/test1.*",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "bar",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+										ServicePort: intstr.Int32OrString{IntVal: 8000},
 									},
 								},
 							},
@@ -89,7 +89,7 @@ func TestIngressController(t *testing.T) {
 									Path: "/test/*",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "bar",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+										ServicePort: intstr.Int32OrString{IntVal: 8000},
 									},
 								},
 							},
@@ -116,7 +116,7 @@ func TestIngressController(t *testing.T) {
 									Path: "/test2",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+										ServicePort: intstr.Int32OrString{IntVal: 8000},
 									},
 								},
 							},

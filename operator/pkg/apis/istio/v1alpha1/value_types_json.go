@@ -27,10 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-var _ github_com_golang_protobuf_jsonpb.JSONPBUnmarshaler = &IntOrString{}
+var _ github_com_golang_protobuf_jsonpb.JSONPBUnmarshaler = &Int32OrString{}
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
-func (this *IntOrString) UnmarshalJSON(value []byte) error {
+func (this *Int32OrString) UnmarshalJSON(value []byte) error {
 	if value[0] == '"' {
 		this.Type = int64(intstr.String)
 		var s string
@@ -51,22 +51,22 @@ func (this *IntOrString) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-func (this *IntOrString) MarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.Marshaler) ([]byte, error) {
+func (this *Int32OrString) MarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.Marshaler) ([]byte, error) {
 	return this.MarshalJSON()
 }
 
-func (this *IntOrString) MarshalJSON() ([]byte, error) {
+func (this *Int32OrString) MarshalJSON() ([]byte, error) {
 	if this.IntVal != nil {
 		return json.Marshal(this.IntVal.GetValue())
 	}
 	return json.Marshal(this.StrVal.GetValue())
 }
 
-func (this *IntOrString) UnmarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.Unmarshaler, value []byte) error {
+func (this *Int32OrString) UnmarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.Unmarshaler, value []byte) error {
 	return this.UnmarshalJSON(value)
 }
 
-func (this *IntOrString) ToKubernetes() intstr.IntOrString {
+func (this *Int32OrString) ToKubernetes() intstr.Int32OrString {
 	if this.IntVal != nil {
 		return intstr.FromInt(int(this.GetIntVal().GetValue()))
 	}

@@ -241,10 +241,10 @@ message EgressGatewayConfig {
   repeated google.protobuf.Struct tolerations = 20 [deprecated=true];
 
   // K8s rolling update strategy
-  IntOrString rollingMaxSurge = 21 [deprecated=true];
+  Int32OrString rollingMaxSurge = 21 [deprecated=true];
 
   // K8s rolling update strategy
-  IntOrString rollingMaxUnavailable = 22 [deprecated=true];
+  Int32OrString rollingMaxUnavailable = 22 [deprecated=true];
 
   repeated google.protobuf.Struct configVolumes = 23;
 
@@ -535,10 +535,10 @@ message IngressGatewayConfig {
   IngressGatewayZvpnConfig zvpn = 30;
 
   // K8s rolling update strategy
-  IntOrString rollingMaxSurge = 31 [deprecated=true];
+  Int32OrString rollingMaxSurge = 31 [deprecated=true];
 
   // K8s rolling update strategy
-  IntOrString rollingMaxUnavailable = 32 [deprecated=true];
+  Int32OrString rollingMaxUnavailable = 32 [deprecated=true];
 
   string externalTrafficPolicy = 34;
 
@@ -674,10 +674,10 @@ message PilotConfig {
   google.protobuf.Struct env = 21;
 
   // K8s rolling update strategy
-  IntOrString rollingMaxSurge  = 24 [deprecated=true];
+  Int32OrString rollingMaxSurge  = 24 [deprecated=true];
 
   // K8s rolling update strategy
-  IntOrString rollingMaxUnavailable = 25 [deprecated=true];
+  Int32OrString rollingMaxUnavailable = 25 [deprecated=true];
 
   //
   repeated google.protobuf.Struct tolerations = 26 [deprecated=true];
@@ -1163,16 +1163,15 @@ message ZeroVPNConfig {
   string suffix = 2;
 }
 
-// IntOrString is a type that can hold an int32 or a string.  When used in
+// Int32OrString is a type that can hold an int32 or a string.  When used in
 // JSON or YAML marshalling and unmarshalling, it produces or consumes the
 // inner type.  This allows you to have, for example, a JSON field that can
 // accept a name or number.
-// TODO: Rename to Int32OrString
 //
 // +protobuf=true
 // +protobuf.options.(gogoproto.goproto_stringer)=false
 // +k8s:openapi-gen=true
-message IntOrString {
+message Int32OrString {
   int64 type = 1;
 
   google.protobuf.Int32Value intVal = 2;

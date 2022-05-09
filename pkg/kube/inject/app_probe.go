@@ -139,7 +139,7 @@ func DumpAppProbers(podSpec *corev1.PodSpec, targetPort int32) string {
 			return nil
 		}
 
-		var probePort *intstr.IntOrString
+		var probePort *intstr.Int32OrString
 		if p.HTTPGet != nil {
 			probePort = &p.HTTPGet.Port
 		} else {
