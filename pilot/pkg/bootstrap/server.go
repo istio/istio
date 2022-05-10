@@ -228,9 +228,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	// used for both initKubeRegistry and initClusterRegistries
 	args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.DetectEndpointMode(s.kubeClient)
-
-	enableEndpointSlice, _ := features.EnableEndpointSliceController()
-	if features.EnableDualStack && !enableEndpointSlice {
+	sEndpointMode := args.RegistryOptions.KubeOptions.EndpointMode.String()
+	if features.EnableDualStack && sEndpointMode != "EndpointSliceOnly" {
 		log.Error("setting ISTIO_DUAL_STACK to true requires PILOT_USE_ENDPOINT_SLICE be set to true")
 		return nil, fmt.Errorf("invalid configuration: setting ISTIO_DUAL_STACK to true requires PILOT_USE_ENDPOINT_SLICE be set to true")
 	}
