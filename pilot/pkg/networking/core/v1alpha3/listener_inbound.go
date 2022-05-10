@@ -659,18 +659,6 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 		}
 	}
 
-	if features.EnableHCMInternalNetworks && lb.push.Networks != nil {
-		for _, internalnetwork := range lb.push.Networks.Networks {
-			iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
-			for _, ne := range internalnetwork.Endpoints {
-				if cidr := util.ConvertAddressToCidr(ne.GetFromCidr()); cidr != nil {
-					iac.CidrRanges = append(iac.CidrRanges)
-				}
-			}
-			httpOpts.connectionManager.InternalAddressConfig = iac
-		}
-	}
-
 	return httpOpts
 }
 
