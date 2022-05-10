@@ -87,7 +87,7 @@ func TestAutoExport(t *testing.T) {
 
 							// Delete the echo Service and verify that the ServiceExport is automatically removed.
 							ctx.NewSubTest("delete").Run(func(ctx framework.TestContext) {
-								err := cluster.CoreV1().Services(echos.Namespace.Name()).Delete(
+								err := cluster.Kube().CoreV1().Services(echos.Namespace.Name()).Delete(
 									context.TODO(), common.ServiceB, v1.DeleteOptions{})
 								if err != nil {
 									ctx.Fatalf("failed deleting service %s/%s in cluster %s: %v",

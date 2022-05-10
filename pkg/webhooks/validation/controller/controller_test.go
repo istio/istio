@@ -208,7 +208,7 @@ func copyWithName(vwh *kubeApiAdmission.ValidatingWebhookConfiguration, newName 
 }
 
 func (fc *fakeController) ValidatingWebhookConfigurations() kubeTypedAdmission.ValidatingWebhookConfigurationInterface {
-	return fc.client.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+	return fc.client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations()
 }
 
 func reconcileHelper(t *testing.T, c *fakeController, whName string) {

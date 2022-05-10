@@ -66,7 +66,7 @@ func NewWebhookCertPatcher(
 	client kubelib.Client,
 	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher) (*WebhookCertPatcher, error) {
 	p := &WebhookCertPatcher{
-		client:          client,
+		client:          client.Kube(),
 		revision:        revision,
 		webhookName:     webhookName,
 		CABundleWatcher: caBundleWatcher,
@@ -74,7 +74,7 @@ func NewWebhookCertPatcher(
 	p.queue = controllers.NewQueue("webhook patcher",
 		controllers.WithReconciler(p.webhookPatchTask),
 		controllers.WithMaxAttempts(5))
-	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client, 0, cache.Indexers{}, func(options *metav1.ListOptions) {
+	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client.Kube(), 0, cache.Indexers{}, func(options *metav1.ListOptions) {
 		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
 	})
 	p.informer = informer

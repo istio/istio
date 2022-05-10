@@ -187,7 +187,7 @@ func testRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance
 				t.Fatalf("error while creating label selector for pods in namespace: %s, revision: %s",
 					nsName, rev)
 			}
-			podsForRev, err := t.Clusters().Default().
+			podsForRev, err := t.Clusters().Default().Kube().
 				CoreV1().Pods(nsName).
 				List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
 			if podsForRev == nil || err != nil { // nolint: staticcheck
@@ -294,7 +294,7 @@ func verifyComponentPodsForRevision(t framework.TestContext, component, rev stri
 	if err != nil {
 		t.Fatalf("unexpected error: failed to create label selector: %v", err)
 	}
-	componentPods, err := t.Clusters().Default().
+	componentPods, err := t.Clusters().Default().Kube().
 		CoreV1().Pods("").
 		List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {

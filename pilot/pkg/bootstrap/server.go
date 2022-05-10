@@ -323,7 +323,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// The k8s JWT authenticator requires the multicluster registry to be initialized,
 	// so we build it later.
 	authenticators = append(authenticators,
-		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
@@ -1107,7 +1107,7 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 		var err error
 		var corev1 v1.CoreV1Interface
 		if s.kubeClient != nil {
-			corev1 = s.kubeClient.CoreV1()
+			corev1 = s.kubeClient.Kube().CoreV1()
 		}
 		if useRemoteCerts.Get() {
 			if err = s.loadRemoteCACerts(caOpts, LocalCertDir.Get()); err != nil {

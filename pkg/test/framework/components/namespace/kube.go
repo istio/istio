@@ -85,7 +85,7 @@ func (n *kubeNamespace) Labels() (map[string]string, error) {
 	for i, cluster := range n.ctx.Clusters() {
 		i, cluster := i, cluster
 		errG.Go(func() error {
-			ns, err := cluster.CoreV1().Namespaces().Get(context.TODO(), n.Name(), metav1.GetOptions{})
+			ns, err := cluster.Kube().CoreV1().Namespaces().Get(context.TODO(), n.Name(), metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -165,9 +165,9 @@ func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	for i, cluster := range clusters {
 		i := i
 		cluster := cluster
-		if !kube2.NamespaceExists(cluster, name) {
+		if !kube2.NamespaceExists(cluster.Kube(), name) {
 			g.Go(func() error {
-				if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+				if _, err := cluster.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:   name,
 						Labels: createNamespaceLabels(ctx, nsConfig),
@@ -177,7 +177,7 @@ func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 				}
 
 				n.cleanupFuncs[i] = func() error {
-					return cluster.CoreV1().Namespaces().Delete(context.TODO(), name, kube2.DeleteOptionsForeground())
+					return cluster.Kube().CoreV1().Namespaces().Delete(context.TODO(), name, kube2.DeleteOptionsForeground())
 				}
 				return nil
 			})
@@ -198,7 +198,7 @@ func (n *kubeNamespace) setNamespaceLabel(key, value string) error {
 		cluster := cluster
 		nsLabelPatch := fmt.Sprintf(`[{"op":"replace","path":"/metadata/labels/%s","value":"%s"}]`, jsonPatchEscapedKey, value)
 		g.Go(func() error {
-			_, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{})
+			_, err := cluster.Kube().CoreV1().Namespaces().Patch(context.TODO(), name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{})
 			return err
 		})
 	}
@@ -217,7 +217,7 @@ func (n *kubeNamespace) removeNamespaceLabel(key string) error {
 		cluster := cluster
 		nsLabelPatch := fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s"}]`, jsonPatchEscapedKey)
 		g.Go(func() error {
-			_, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{})
+			_, err := cluster.Kube().CoreV1().Namespaces().Patch(context.TODO(), name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{})
 			return err
 		})
 	}
@@ -251,7 +251,7 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 		cluster := cluster
 
 		g.Go(func() error {
-			if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+			if _, err := cluster.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   name,
 					Labels: createNamespaceLabels(ctx, nsConfig),
@@ -261,7 +261,7 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 			}
 
 			n.cleanupFuncs[i] = func() error {
-				return cluster.CoreV1().Namespaces().Delete(context.TODO(), name, kube2.DeleteOptionsForeground())
+				return cluster.Kube().CoreV1().Namespaces().Delete(context.TODO(), name, kube2.DeleteOptionsForeground())
 			}
 
 			if s.Image.PullSecret != "" {

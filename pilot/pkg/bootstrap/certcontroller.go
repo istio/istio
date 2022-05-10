@@ -76,7 +76,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	// Provision and manage the certificates for non-Pilot services.
 	// If services are empty, the certificate controller will do nothing.
 	s.certController, err = chiron.NewWebhookController(defaultCertGracePeriodRatio, defaultMinCertGracePeriod,
-		k8sClient, defaultCACertPath, secretNames, dnsNames, args.Namespace, "")
+		k8sClient.Kube(), defaultCACertPath, secretNames, dnsNames, args.Namespace, "")
 	if err != nil {
 		return fmt.Errorf("failed to create certificate controller: %v", err)
 	}
@@ -114,7 +114,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 	if strings.HasPrefix(pilotCertProviderName, constants.CertProviderKubernetesSignerPrefix) && s.RA != nil {
 		signerName := strings.TrimPrefix(pilotCertProviderName, constants.CertProviderKubernetesSignerPrefix)
 		log.Infof("Generating K8S-signed cert for %v using signer %v", s.dnsNames, signerName)
-		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient,
+		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
 			strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, "", signerName, true, SelfSignedCACertTTL.Get())
 		if err != nil {
 			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)
@@ -127,7 +127,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 		s.environment.AddMeshHandler(func() {
 			newCaBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
 			if newCaBundle != nil && !bytes.Equal(newCaBundle, s.istiodCertBundleWatcher.GetKeyCertBundle().CABundle) {
-				newCertChain, newKeyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient,
+				newCertChain, newKeyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
 					strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, "", signerName, true, SelfSignedCACertTTL.Get())
 				if err != nil {
 					log.Fatalf("failed regenerating key and cert for istiod by kubernetes: %v", err)
@@ -137,7 +137,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 		})
 	} else if pilotCertProviderName == constants.CertProviderKubernetes {
 		log.Infof("Generating K8S-signed cert for %v", s.dnsNames)
-		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient,
+		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
 			strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
 		if err != nil {
 			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)

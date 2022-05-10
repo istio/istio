@@ -61,7 +61,7 @@ func outputPath(workDir string, cluster cluster.Cluster, prefix, suffix string) 
 func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 	errG := multierror.Group{}
 	for _, cluster := range ctx.AllClusters().Kube() {
-		deps, err := cluster.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
+		deps, err := cluster.Kube().AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			scopes.Framework.Warnf("Error getting deployments: %v", err)
 			return
@@ -83,7 +83,7 @@ func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 func DumpWebhooks(ctx resource.Context, workDir string) {
 	errG := multierror.Group{}
 	for _, cluster := range ctx.AllClusters().Kube() {
-		mwhs, err := cluster.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+		mwhs, err := cluster.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			scopes.Framework.Warnf("Error getting mutating webhook configurations: %v", err)
 			return
@@ -98,7 +98,7 @@ func DumpWebhooks(ctx resource.Context, workDir string) {
 				return os.WriteFile(outputPath(workDir, cluster, mwh.Name, "mutatingwebhook.yaml"), out, os.ModePerm)
 			})
 		}
-		vwhs, err := cluster.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+		vwhs, err := cluster.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			scopes.Framework.Warnf("Error getting validating webhook configurations: %v", err)
 			return
@@ -209,7 +209,7 @@ func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, name
 
 func podsOrFetch(a cluster.Cluster, pods []corev1.Pod, namespace string) []corev1.Pod {
 	if len(pods) == 0 {
-		podList, err := a.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+		podList, err := a.Kube().CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			scopes.Framework.Warnf("Error getting pods list via kubectl: %v", err)
 			return nil
@@ -242,7 +242,7 @@ func DumpPodEvents(_ resource.Context, c cluster.Cluster, workDir, namespace str
 	pods = podsOrFetch(c, pods, namespace)
 
 	for _, pod := range pods {
-		list, err := c.CoreV1().Events(namespace).List(context.TODO(),
+		list, err := c.Kube().CoreV1().Events(namespace).List(context.TODO(),
 			metav1.ListOptions{
 				FieldSelector: "involvedObject.name=" + pod.Name,
 			})

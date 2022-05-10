@@ -110,7 +110,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		}
 		pod := pods[0]
 
-		svc, err := cls.CoreV1().Services(cfg.TelemetryNamespace).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
+		svc, err := cls.Kube().CoreV1().Services(cfg.TelemetryNamespace).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
 		if err != nil {
 			return nil, err
 		}

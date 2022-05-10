@@ -47,7 +47,7 @@ func TestWebhook(t *testing.T) {
 			// clear the updated fields and verify istiod updates them
 			cluster := t.Clusters().Default()
 			retry.UntilSuccessOrFail(t, func() error {
-				got, err := getValidatingWebhookConfiguration(cluster, vwcName)
+				got, err := getValidatingWebhookConfiguration(cluster.Kube(), vwcName)
 				if err != nil {
 					return fmt.Errorf("error getting initial webhook: %v", err)
 				}
@@ -60,7 +60,7 @@ func TestWebhook(t *testing.T) {
 				ignore := kubeApiAdmission.Ignore // can't take the address of a constant
 				updated.Webhooks[0].FailurePolicy = &ignore
 
-				if _, err := cluster.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(),
+				if _, err := cluster.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(),
 					updated, kubeApiMeta.UpdateOptions{}); err != nil {
 					return fmt.Errorf("could not update validating webhook config %q: %v", updated.Name, err)
 				}
@@ -68,7 +68,7 @@ func TestWebhook(t *testing.T) {
 			})
 
 			retry.UntilSuccessOrFail(t, func() error {
-				got, err := getValidatingWebhookConfiguration(cluster, vwcName)
+				got, err := getValidatingWebhookConfiguration(cluster.Kube(), vwcName)
 				if err != nil {
 					t.Fatalf("error getting initial webhook: %v", err)
 				}

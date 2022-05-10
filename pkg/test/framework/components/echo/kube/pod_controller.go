@@ -44,7 +44,7 @@ type podController struct {
 
 func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 	s := newPodSelector(cfg)
-	podListWatch := cache.NewFilteredListWatchFromClient(cfg.Cluster.CoreV1().RESTClient(),
+	podListWatch := cache.NewFilteredListWatchFromClient(cfg.Cluster.Kube().CoreV1().RESTClient(),
 		"pods",
 		cfg.Namespace.Name(),
 		func(options *metav1.ListOptions) {

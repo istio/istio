@@ -136,7 +136,9 @@ func TestNewServerCertInit(t *testing.T) {
 				p.ShutdownDuration = 1 * time.Millisecond
 			})
 			g := NewWithT(t)
-			s, err := NewServer(args)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
 			g.Expect(err).To(Succeed())
 			stop := make(chan struct{})
 			g.Expect(s.Start(stop)).To(Succeed())
@@ -304,7 +306,9 @@ func TestNewServer(t *testing.T) {
 			})
 
 			g := NewWithT(t)
-			s, err := NewServer(args)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
 			g.Expect(err).To(Succeed())
 			stop := make(chan struct{})
 			g.Expect(s.Start(stop)).To(Succeed())

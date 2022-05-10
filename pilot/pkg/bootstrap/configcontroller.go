@@ -321,7 +321,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	})
 	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 		if writeStatus {
-			s.statusReporter.Start(s.kubeClient, args.Namespace, args.PodName, stop)
+			s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
 		}
 		return nil
 	})

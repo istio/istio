@@ -97,7 +97,7 @@ func newInstance(ctx resource.Context, config echo.Config) (echo.Instance, error
 }
 
 func getClusterIP(config echo.Config) (string, error) {
-	svc, err := config.Cluster.Primary().CoreV1().
+	svc, err := config.Cluster.Primary().Kube().CoreV1().
 		Services(config.Namespace.Name()).Get(context.TODO(), config.Service, metav1.GetOptions{})
 	if err != nil {
 		return "", err

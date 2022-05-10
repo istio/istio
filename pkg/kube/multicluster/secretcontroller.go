@@ -95,11 +95,11 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
-				return kubeclientset.CoreV1().Secrets(namespace).List(context.TODO(), opts)
+				return kubeclientset.Kube().CoreV1().Secrets(namespace).List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
-				return kubeclientset.CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
+				return kubeclientset.Kube().CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
 			},
 		},
 		&corev1.Secret{}, 0, cache.Indexers{},
@@ -443,7 +443,7 @@ func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 
 func (c *Controller) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interface {
 	if remoteCluster := c.cs.GetByID(clusterID); remoteCluster != nil {
-		return remoteCluster.Client
+		return remoteCluster.Client.Kube()
 	}
 	return nil
 }

@@ -112,7 +112,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	scopes.Framework.Debugf("initialized stackdriver port forwarder: %v", forwarder.Address())
 
 	var svc *kubeApiCore.Service
-	if svc, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster, c.ns.Name(), "stackdriver"); err != nil {
+	if svc, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), "stackdriver"); err != nil {
 		scopes.Framework.Infof("Error waiting for Stackdriver service to be available: %v", err)
 		return nil, err
 	}

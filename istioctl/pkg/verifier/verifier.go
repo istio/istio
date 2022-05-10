@@ -382,7 +382,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 
 // Find Istio injector matching revision.  ("" matches any revision.)
 func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.MutatingWebhookConfiguration, error) {
-	hooks, err := v.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), meta_v1.ListOptions{})
+	hooks, err := v.client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

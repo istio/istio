@@ -106,7 +106,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 
 	// wait for a ready pod
 	if err := retry.UntilSuccess(func() error {
-		pods, err := cluster.CoreV1().Pods(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{
+		pods, err := cluster.Kube().CoreV1().Pods(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{
 			LabelSelector: "istio=" + eastWestIngressIstioLabel,
 		})
 		if err != nil {

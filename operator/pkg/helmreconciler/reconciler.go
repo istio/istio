@@ -606,7 +606,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 
 // createNamespace creates a namespace using the given k8s client.
 func (h *HelmReconciler) createNamespace(namespace string, network string) error {
-	return CreateNamespace(h.kubeClient, namespace, network, h.opts.DryRun)
+	return CreateNamespace(h.kubeClient.Kube(), namespace, network, h.opts.DryRun)
 }
 
 func (h *HelmReconciler) networkName() string {

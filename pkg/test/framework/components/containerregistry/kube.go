@@ -75,7 +75,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", env.ContainerRegistryServerInstallFilePath, err)
 	}
 
-	if _, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster, c.ns.Name(), service); err != nil {
+	if _, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), service); err != nil {
 		scopes.Framework.Infof("Error waiting for container registry service to be available: %v", err)
 		return nil, err
 	}
