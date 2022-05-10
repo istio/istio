@@ -96,7 +96,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 							errs = append(errs, errAuditAll.Error())
 						}
 
-						entries, err := SDInst.ListLogEntries(stackdriver.ServerAuditLog, EchoNsInst.Name())
+						entries, err := SDInst.ListLogEntries(stackdriver.ServerAuditLog, EchoNsInst.Name(), "")
 						if err != nil {
 							errs = append(errs, err.Error())
 						} else {

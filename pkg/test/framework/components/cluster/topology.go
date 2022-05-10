@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/framework/config"
 )
 
 // Map can be given as a shared reference to multiple Topology/Cluster implementations.
@@ -35,6 +36,7 @@ func NewTopology(config Config, allClusters Map) Topology {
 		ConfigClusterName:  config.ConfigClusterName,
 		AllClusters:        allClusters,
 		Index:              len(allClusters),
+		ConfigMetadata:     config.Meta,
 	}
 }
 
@@ -49,7 +51,13 @@ type Topology struct {
 	ConfigClusterName  string
 	Index              int
 	// AllClusters should contain all AllClusters in the context
-	AllClusters Map
+	AllClusters    Map
+	ConfigMetadata config.Map
+}
+
+// MetadataValue provides the configured value for a metadata key in the the cluster configuration.
+func (c Topology) MetadataValue(key string) string {
+	return c.ConfigMetadata.String(key)
 }
 
 // NetworkName the cluster is on

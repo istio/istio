@@ -123,7 +123,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) ListTimeSeries(_ string) ([]*monitoringpb.TimeSeries, error) {
+func (c *kubeComponent) ListTimeSeries(_, _ string) ([]*monitoringpb.TimeSeries, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -144,7 +144,7 @@ func (c *kubeComponent) ListTimeSeries(_ string) ([]*monitoringpb.TimeSeries, er
 	return trimMetricLabels(&r), nil
 }
 
-func (c *kubeComponent) ListLogEntries(lt LogType, _ string) ([]*loggingpb.LogEntry, error) {
+func (c *kubeComponent) ListLogEntries(lt LogType, _, _ string) ([]*loggingpb.LogEntry, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -167,7 +167,7 @@ func (c *kubeComponent) ListLogEntries(lt LogType, _ string) ([]*loggingpb.LogEn
 	return trimLogLabels(&r, lt), nil
 }
 
-func (c *kubeComponent) ListTraces(_ string) ([]*cloudtracepb.Trace, error) {
+func (c *kubeComponent) ListTraces(_, _ string) ([]*cloudtracepb.Trace, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
