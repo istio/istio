@@ -80,4 +80,8 @@ type Cluster interface {
 
 	// HTTPProxy returns the HTTP proxy config to connect to the cluster
 	HTTPProxy() string
+
+	// Metadata returns the value for a given metadata key for the cluster.
+	// If the key is not found in the cluster metadata, an empty string is returned.
+	MetadataValue(key string) string
 }
