@@ -62,7 +62,7 @@ var (
 		},
 	}
 	RawBufferTransportSocket = &core.TransportSocket{
-		Name: util.EnvoyRawBufferSocketName,
+		Name: wellknown.TransportSocketRawBuffer,
 		ConfigType: &core.TransportSocket_TypedConfig{
 			TypedConfig: util.MessageToAny(&rawbuffer.RawBuffer{}),
 		},
