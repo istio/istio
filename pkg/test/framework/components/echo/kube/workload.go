@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -85,8 +86,8 @@ func (w *workload) Client() (c *echoClient.Client, err error) {
 	w.mutex.Lock()
 	c = w.client
 	if c == nil {
-		err = fmt.Errorf("attempt to use disconnected client for echo %s/%s",
-			w.pod.Namespace, w.pod.Name)
+		err = fmt.Errorf("attempt to use disconnected client for echo pod %s/%s (in cluster %s)",
+			w.pod.Namespace, w.pod.Name, w.cluster.Name())
 	}
 	w.mutex.Unlock()
 	return
@@ -102,6 +103,8 @@ func (w *workload) Update(pod kubeCore.Pod) error {
 			return err
 		}
 	} else if !isPodReady(pod) && w.isConnected() {
+		scopes.Framework.Infof("echo pod %s/%s (in cluster %s) transitioned to NOT READY. Pod Status=%s",
+			pod.Namespace, pod.Name, w.cluster.Name(), pod.Status)
 		w.pod = pod
 		return w.disconnect()
 	}

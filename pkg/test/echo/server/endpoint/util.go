@@ -15,13 +15,11 @@
 package endpoint
 
 import (
-	"bytes"
 	"crypto/tls"
 	"net"
 	"os"
 	"strconv"
 
-	"istio.io/istio/pkg/test/echo"
 	"istio.io/pkg/log"
 )
 
@@ -72,14 +70,4 @@ func listenOnUDS(uds string) (net.Listener, error) {
 	}
 
 	return ln, nil
-}
-
-// nolint: interfacer
-func writeField(out *bytes.Buffer, field echo.Field, value string) {
-	_, _ = out.WriteString(string(field) + "=" + value + "\n")
-}
-
-// nolint: interfacer
-func writeRequestHeader(out *bytes.Buffer, key, value string) {
-	writeField(out, echo.RequestHeaderField, key+":"+value)
 }

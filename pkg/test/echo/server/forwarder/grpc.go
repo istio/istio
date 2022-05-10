@@ -21,12 +21,14 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 )
@@ -34,87 +36,126 @@ import (
 var _ protocol = &grpcProtocol{}
 
 type grpcProtocol struct {
-	conn func() (conn *grpc.ClientConn, err error)
+	e *executor
 }
 
-func newGRPCProtocol(r *Config) (protocol, error) {
-	conn := func() (conn *grpc.ClientConn, err error) {
-		var opts []grpc.DialOption
+func newGRPCProtocol(e *executor) protocol {
+	return &grpcProtocol{e: e}
+}
 
-		// Force DNS lookup each time.
-		opts = append(opts, grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			return newDialer().DialContext(ctx, "tcp", addr)
-		}))
+type grpcConnectionGetter func() (*grpc.ClientConn, func(), error)
 
-		security := grpc.WithTransportCredentials(insecure.NewCredentials())
-		if r.getClientCertificate != nil {
-			security = grpc.WithTransportCredentials(credentials.NewTLS(r.tlsConfig))
+func (c *grpcProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.ForwardEchoResponse, error) {
+	var getConn grpcConnectionGetter
+	if cfg.newConnectionPerRequest {
+		// Create a new connection per request.
+		getConn = func() (*grpc.ClientConn, func(), error) {
+			conn, err := newGRPCConnection(cfg)
+			if err != nil {
+				return nil, nil, err
+			}
+			return conn, func() { _ = conn.Close() }, nil
 		}
-
-		// Strip off the scheme from the address (for regular gRPC).
-		address := r.Request.Url[len(r.scheme+"://"):]
-
-		// Connect to the GRPC server.
-		ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
-		defer cancel()
-		opts = append(opts, security, grpc.WithAuthority(r.headers.Get(hostHeader)))
-		return grpc.DialContext(ctx, address, opts...)
+	} else {
+		// Reuse the connection across all requests.
+		conn, err := newGRPCConnection(cfg)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = conn.Close() }()
+		getConn = func() (*grpc.ClientConn, func(), error) {
+			return conn, func() {}, nil
+		}
 	}
 
-	return &grpcProtocol{
-		conn: conn,
-	}, nil
-}
-
-func (c *grpcProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
-	conn, err := c.conn()
-	if err != nil {
-		return "", err
+	call := &grpcCall{
+		e:       c.e,
+		getConn: getConn,
 	}
-	defer func() { _ = conn.Close() }()
-
-	return makeGRPCRequest(ctx, conn, req)
+	return doForward(ctx, cfg, c.e, call.makeRequest)
 }
 
 func (c *grpcProtocol) Close() error {
 	return nil
 }
 
-func makeGRPCRequest(ctx context.Context, conn *grpc.ClientConn, req *request) (string, error) {
+type grpcCall struct {
+	e       *executor
+	getConn grpcConnectionGetter
+}
+
+func (c *grpcCall) makeRequest(ctx context.Context, cfg *Config, requestID int) (string, error) {
+	conn, closeConn, err := c.getConn()
+	if err != nil {
+		return "", err
+	}
+	defer closeConn()
+
 	// Set the per-request timeout.
-	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.timeout)
 	defer cancel()
 
 	// Add headers to the request context.
 	outMD := make(metadata.MD)
-	for k, v := range req.Header {
+	for k, v := range cfg.headers {
 		// Exclude the Host header from the GRPC context.
 		if !strings.EqualFold(hostHeader, k) {
 			outMD.Set(k, v...)
 		}
 	}
-	outMD.Set("X-Request-Id", strconv.Itoa(req.RequestID))
+	outMD.Set("X-Request-Id", strconv.Itoa(requestID))
 	ctx = metadata.NewOutgoingContext(ctx, outMD)
 
 	var outBuffer bytes.Buffer
 	grpcReq := &proto.EchoRequest{
-		Message: req.Message,
+		Message: cfg.Request.Message,
 	}
-	outBuffer.WriteString(fmt.Sprintf("[%d] grpcecho.Echo(%v)\n", req.RequestID, req))
+	// TODO(nmittler): This doesn't fit in with the field pattern. Do we need this?
+	outBuffer.WriteString(fmt.Sprintf("[%d] grpcecho.Echo(%v)\n", requestID, cfg.Request))
 
+	start := time.Now()
 	client := proto.NewEchoTestServiceClient(conn)
 	resp, err := client.Echo(ctx, grpcReq)
 	if err != nil {
 		return "", err
 	}
 
-	// when the underlying HTTP2 request returns status 404, GRPC
+	echo.LatencyField.WriteForRequest(&outBuffer, requestID, fmt.Sprintf("%v", time.Since(start)))
+	echo.ActiveRequestsField.WriteForRequest(&outBuffer, requestID, fmt.Sprintf("%d", c.e.ActiveRequests()))
+
+	// When the underlying HTTP2 request returns status 404, GRPC
 	// request does not return an error in grpc-go.
-	// instead it just returns an empty response
+	// Instead, it just returns an empty response
 	for _, line := range strings.Split(resp.GetMessage(), "\n") {
 		if line != "" {
-			outBuffer.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, line))
+			echo.WriteBodyLine(&outBuffer, requestID, line)
 		}
 	}
 	return outBuffer.String(), nil
+}
+
+func newGRPCConnection(cfg *Config) (*grpc.ClientConn, error) {
+	var security grpc.DialOption
+	if cfg.secure {
+		security = grpc.WithTransportCredentials(credentials.NewTLS(cfg.tlsConfig))
+	} else {
+		security = grpc.WithTransportCredentials(insecure.NewCredentials())
+	}
+
+	forceDNSLookup := cfg.forceDNSLookup
+	opts := []grpc.DialOption{
+		grpc.WithAuthority(cfg.hostHeader),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return newDialer(forceDNSLookup).DialContext(ctx, "tcp", addr)
+		}),
+		security,
+	}
+
+	// Strip off the scheme from the address (for regular gRPC).
+	address := cfg.Request.Url[len(cfg.scheme+"://"):]
+
+	// Connect to the GRPC server.
+	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+	defer cancel()
+	return grpc.DialContext(ctx, address, opts...)
 }

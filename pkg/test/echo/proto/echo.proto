@@ -74,6 +74,12 @@ message ForwardEchoRequest {
   // Expected response determines what string to look for in the response to validate TCP requests succeeded.
   // If not set, defaults to "StatusCode=200"
   google.protobuf.StringValue expectedResponse = 21;
+  // If set, a new connection will be made to the server for each individual request. If false, an attempt
+  // will be made to re-use the connection for the life of the forward request. This is automatically
+  // set for DNS, TCP, TLS, and WebSocket protocols.
+  bool newConnectionPerRequest = 22;
+  // If set, each request will force a DNS lookup. Only applies if newConnectionPerRequest is set.
+  bool forceDNSLookup = 23;
 }
 
 message Alpn {

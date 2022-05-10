@@ -157,12 +157,16 @@ func (i *operatorComponent) CustomIngressFor(c cluster.Cluster, serviceName, ist
 		i.ingress[c.Name()] = map[string]ingress.Instance{}
 	}
 	if _, ok := i.ingress[c.Name()][istioLabel]; !ok {
-		i.ingress[c.Name()][istioLabel] = newIngress(i.ctx, ingressConfig{
+		ingr := newIngress(i.ctx, ingressConfig{
 			Namespace:   i.settings.SystemNamespace,
 			Cluster:     c,
 			ServiceName: serviceName,
 			IstioLabel:  istioLabel,
 		})
+		if closer, ok := ingr.(io.Closer); ok {
+			i.ctx.Cleanup(func() { _ = closer.Close() })
+		}
+		i.ingress[c.Name()][istioLabel] = ingr
 	}
 	return i.ingress[c.Name()][istioLabel]
 }

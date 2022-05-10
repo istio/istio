@@ -20,41 +20,37 @@ import (
 	"encoding/pem"
 	"fmt"
 	"strings"
+	"time"
+
+	"istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/proto"
 )
 
 var _ protocol = &tlsProtocol{}
 
 type tlsProtocol struct {
-	// conn returns a new connection. This is not just a shared connection as we will
-	// not re-use the connection for multiple requests with TCP
-	conn func() (*tls.Conn, error)
+	e *executor
 }
 
-func newTLSProtocol(r *Config) (protocol, error) {
-	return &tlsProtocol{
-		conn: func() (*tls.Conn, error) {
-			address := r.Request.Url[len(r.scheme+"://"):]
-
-			con, err := tls.DialWithDialer(newDialer(), "tcp", address, r.tlsConfig)
-			if err != nil {
-				return nil, err
-			}
-			return con, nil
-		},
-	}, nil
+func newTLSProtocol(e *executor) protocol {
+	return &tlsProtocol{e: e}
 }
 
-func (c *tlsProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
-	conn, err := c.conn()
+func (c *tlsProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.ForwardEchoResponse, error) {
+	return doForward(ctx, cfg, c.e, c.makeRequest)
+}
+
+func (c *tlsProtocol) makeRequest(ctx context.Context, cfg *Config, requestID int) (string, error) {
+	conn, err := newTLSConnection(cfg)
 	if err != nil {
 		return "", err
 	}
 	defer func() { _ = conn.Close() }()
 	msgBuilder := strings.Builder{}
-	msgBuilder.WriteString(fmt.Sprintf("[%d] Url=%s\n", req.RequestID, req.URL))
+	echo.ForwarderURLField.WriteForRequest(&msgBuilder, requestID, cfg.Request.Url)
 
 	// Apply per-request timeout to calculate deadline for reads/writes.
-	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.timeout)
 	defer cancel()
 
 	// Apply the deadline to the connection.
@@ -71,25 +67,28 @@ func (c *tlsProtocol) makeRequest(ctx context.Context, req *request) (string, er
 	}
 	// Make sure the client writes something to the buffer
 	message := "HelloWorld"
-	if req.Message != "" {
-		message = req.Message
+	if cfg.Request.Message != "" {
+		message = cfg.Request.Message
 	}
+
+	start := time.Now()
 	if _, err := conn.Write([]byte(message + "\n")); err != nil {
 		fwLog.Warnf("TCP write failed: %v", err)
 		return msgBuilder.String(), err
 	}
 
 	cs := conn.ConnectionState()
-	msgBuilder.WriteString(fmt.Sprintf("[%d] Cipher=%s\n", req.RequestID, tls.CipherSuiteName(cs.CipherSuite)))
-	msgBuilder.WriteString(fmt.Sprintf("[%d] Version=%s\n", req.RequestID, versionName(cs.Version)))
-	msgBuilder.WriteString(fmt.Sprintf("[%d] ServerName=%s\n", req.RequestID, cs.ServerName))
-	msgBuilder.WriteString(fmt.Sprintf("[%d] Alpn=%s\n", req.RequestID, cs.NegotiatedProtocol))
+	echo.LatencyField.WriteForRequest(&msgBuilder, requestID, fmt.Sprintf("%v", time.Since(start)))
+	echo.CipherField.WriteForRequest(&msgBuilder, requestID, tls.CipherSuiteName(cs.CipherSuite))
+	echo.TLSVersionField.WriteForRequest(&msgBuilder, requestID, versionName(cs.Version))
+	echo.TLSServerName.WriteForRequest(&msgBuilder, requestID, cs.ServerName)
+	echo.AlpnField.WriteForRequest(&msgBuilder, requestID, cs.NegotiatedProtocol)
 	for n, i := range cs.PeerCertificates {
 		pemBlock := pem.Block{
 			Type:  "CERTIFICATE",
 			Bytes: i.Raw,
 		}
-		msgBuilder.WriteString(fmt.Sprintf("[%d body] Response%d=%q\n", req.RequestID, n, string(pem.EncodeToMemory(&pemBlock))))
+		echo.WriteBodyLine(&msgBuilder, requestID, fmt.Sprintf("Response%d=%q", n, string(pem.EncodeToMemory(&pemBlock))))
 	}
 
 	msg := msgBuilder.String()
@@ -113,4 +112,14 @@ func versionName(v uint16) string {
 
 func (c *tlsProtocol) Close() error {
 	return nil
+}
+
+func newTLSConnection(cfg *Config) (*tls.Conn, error) {
+	address := cfg.Request.Url[len(cfg.scheme+"://"):]
+
+	con, err := tls.DialWithDialer(newDialer(cfg.forceDNSLookup), "tcp", address, cfg.tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+	return con, nil
 }
