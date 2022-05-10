@@ -39,8 +39,11 @@ spec:
         app: container-registry
     spec:
       containers:
-      - image: gcr.io/istio-testing/fake-registry:1.0
+      - image: {{ or .RegistryRedirectorImage "gcr.io/istio-testing/fake-registry:1.0"}}
         name: container-registry
+        {{- if .TargetRegistry }}
+        args: ["--registry", {{ .TargetRegistry }}]
+        {{- end }}
         ports:
         - containerPort: 1338
         readinessProbe:

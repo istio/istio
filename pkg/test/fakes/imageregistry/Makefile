@@ -16,7 +16,8 @@
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MD_PATH := $(dir $(MKFILE_PATH))
-IMG := gcr.io/istio-testing/fake-registry
+HUB ?= gcr.io
+IMG := $(HUB)/istio-testing/fake-registry
 BIN_NAME := main
 
 # NOTE: TAG should be updated whenever changes are made in this directory
@@ -32,6 +33,8 @@ build: $(MD_PATH)/$(BIN_NAME)
 
 build_and_push:  $(MD_PATH)/$(BIN_NAME)
 	docker buildx build $(MD_PATH) -t $(IMG):$(TAG) --push
+	docker tag $(IMG):$(TAG) $(IMG):latest
+	docker push $(IMG):latest
 
 clean:
 	rm $(MD_PATH)/$(BIN_NAME)

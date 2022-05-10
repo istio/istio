@@ -126,7 +126,7 @@ func main() {
 			tagMap: make(map[string]string),
 		},
 	}
-	log.Infof("Fake containerregistry server is starting at %d", *port)
+	log.Infof("registryredirector server is starting at %d", *port)
 	if err := s.ListenAndServe(); err != nil {
 		log.Error(err)
 	}
