@@ -148,7 +148,7 @@ type JwksResolver struct {
 	// How many times refresh job failed to fetch the public key from network, used in unit test.
 	refreshJobFetchFailedCount uint64
 
-	// Whenever we fail to fetch pubkey from jwksuri in main flow this variable becomes true
+	// Whenever istiod fails to fetch the pubkey from jwksuri in main flow this variable becomes true for background trigger
 	jwksUribackgroundChannel bool
 }
 
