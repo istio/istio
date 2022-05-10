@@ -204,8 +204,6 @@ func TestUpdateServiceImportVIPs(t *testing.T) {
 
 func newTestServiceImportCache(t test.Failer, mode EndpointMode) (c *FakeController, ic *serviceImportCacheImpl) {
 	test.SetBoolForTest(t, &features.EnableMCSHost, true)
-	t.Cleanup(func() {
-	})
 
 	c, _ = NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: serviceImportCluster,
@@ -272,7 +270,7 @@ func (ic *serviceImportCacheImpl) createKubeService(t *testing.T, c *FakeControl
 
 func (ic *serviceImportCacheImpl) updateKubeService(t *testing.T) {
 	t.Helper()
-	svc, _ := ic.client.CoreV1().Services(serviceImportNamespace).Get(context.TODO(), serviceImportName, kubeMeta.GetOptions{})
+	svc, _ := ic.client.Kube().CoreV1().Services(serviceImportNamespace).Get(context.TODO(), serviceImportName, kubeMeta.GetOptions{})
 	if svc == nil {
 		t.Fatalf("failed to find k8s service: %s/%s", serviceImportNamespace, serviceImportName)
 	}
@@ -281,7 +279,7 @@ func (ic *serviceImportCacheImpl) updateKubeService(t *testing.T) {
 	svc.Labels = map[string]string{
 		"foo": "bar",
 	}
-	if _, err := ic.client.CoreV1().Services(serviceImportNamespace).Update(context.TODO(), svc, kubeMeta.UpdateOptions{}); err != nil {
+	if _, err := ic.client.Kube().CoreV1().Services(serviceImportNamespace).Update(context.TODO(), svc, kubeMeta.UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -309,11 +307,12 @@ func (ic *serviceImportCacheImpl) updateKubeService(t *testing.T) {
 func (ic *serviceImportCacheImpl) deleteKubeService(t *testing.T, anotherCluster *FakeController) {
 	t.Helper()
 
-	if err := anotherCluster.client.CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
+	if err := anotherCluster.client.Kube().
+		CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	// Wait for the resources to be processed by the controller.
-	if err := ic.client.CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
+	if err := ic.client.Kube().CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 

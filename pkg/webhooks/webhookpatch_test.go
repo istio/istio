@@ -26,6 +26,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -219,7 +220,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := kube.NewFakeClient()
 			for _, wh := range tc.configs.Items {
-				if _, err := client.AdmissionregistrationV1().
+				if _, err := client.Kube().AdmissionregistrationV1().
 					MutatingWebhookConfigurations().Create(context.Background(), wh.DeepCopy(), metav1.CreateOptions{}); err != nil {
 					t.Fatal(err)
 				}
@@ -232,16 +233,13 @@ func TestMutatingWebhookPatch(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			stop := make(chan struct{})
-			t.Cleanup(func() {
-				close(stop)
-			})
+			stop := test.NewStop(t)
 			go whPatcher.informer.Run(stop)
 			client.RunAndWait(stop)
 			retry.UntilOrFail(t, whPatcher.informer.HasSynced)
 
 			err = whPatcher.patchMutatingWebhookConfig(
-				client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+				client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations(),
 				tc.configName)
 			if (err != nil) != (tc.err != "") {
 				t.Fatalf("Wrong error: got %v want %v", err, tc.err)
@@ -251,7 +249,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 					t.Fatalf("Got %q, want %q", err, tc.err)
 				}
 			} else {
-				obj, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), tc.configName, metav1.GetOptions{})
+				obj, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), tc.configName, metav1.GetOptions{})
 				if err != nil {
 					t.Fatal(err)
 				}

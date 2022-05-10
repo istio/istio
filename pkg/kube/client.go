@@ -99,8 +99,6 @@ const (
 // clients using a shared config. It is expected that all of Istiod can share the same set of clients and
 // informers. Sharing informers is especially important for load on the API server/Istiod itself.
 type Client interface {
-	// TODO: stop embedding this, it will conflict with future additions. Use Kube() instead is preferred
-	kubernetes.Interface
 	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
 	RESTConfig() *rest.Config
 
@@ -214,9 +212,8 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
 	}
-	c.Interface = fake.NewSimpleClientset(objects...)
-	c.kube = c.Interface
-	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
+	c.kube = fake.NewSimpleClientset(objects...)
+	c.kubeInformer = informers.NewSharedInformerFactory(c.kube, resyncInterval)
 	s := FakeIstioScheme
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
@@ -306,8 +303,6 @@ type fakeClient interface {
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type client struct {
-	kubernetes.Interface
-
 	clientFactory util.Factory
 	config        *rest.Config
 
@@ -374,12 +369,14 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 		return nil, err
 	}
 
-	c.Interface, err = kubernetes.NewForConfig(c.config)
-	c.kube = c.Interface
+	config := rest.CopyConfig(c.config)
+	config.ContentType = runtime.ContentTypeProtobuf
+
+	c.kube, err = kubernetes.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
+	c.kubeInformer = informers.NewSharedInformerFactory(c.kube, resyncInterval)
 
 	c.metadata, err = metadata.NewForConfig(c.config)
 	if err != nil {
@@ -533,7 +530,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	c.versionOnce.Do(func() {
-		v, err := c.Discovery().ServerVersion()
+		v, err := c.kube.Discovery().ServerVersion()
 		if err == nil {
 			c.version = v
 		}
@@ -542,7 +539,7 @@ func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 		return c.version, nil
 	}
 	// Initial attempt failed, retry on each call to this function
-	v, err := c.Discovery().ServerVersion()
+	v, err := c.kube.Discovery().ServerVersion()
 	if err != nil {
 		c.version = v
 	}
@@ -701,7 +698,7 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 		Container: container,
 		Previous:  previousLog,
 	}
-	res, err := c.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
+	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -838,7 +835,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 
 		// :15014/version returns something like
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
-		result, err := c.CoreV1().Pods(pod.Namespace).ProxyGet("", pod.Name, "15014", "/version", nil).DoRaw(ctx)
+		result, err := c.kube.CoreV1().Pods(pod.Namespace).ProxyGet("", pod.Name, "15014", "/version", nil).DoRaw(ctx)
 		if err != nil {
 			bi, execErr := c.getIstioVersionUsingExec(&pod)
 			if execErr != nil {
@@ -913,7 +910,7 @@ func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort in
 }
 
 func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.PodList, error) {
-	return c.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+	return c.kube.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: strings.Join(labelSelectors, ","),
 	})
 }

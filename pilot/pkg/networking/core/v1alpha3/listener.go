@@ -123,12 +123,13 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
-	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *auth.DownstreamTlsContext {
+	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
 		alpnByTransport = util.ALPNHttp3OverQUIC
 	} else if transportProtocol == istionetworking.TransportProtocolTCP &&
-		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL &&
+		gatewayTCPServerWithTerminatingTLS {
 		alpnByTransport = util.ALPNDownstreamWithMxc
 	}
 
@@ -1688,7 +1689,7 @@ func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *c
 		return nil
 	}
 	return &core.TransportSocket{
-		Name:       util.EnvoyTLSSocketName,
+		Name:       wellknown.TransportSocketTls,
 		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
 	}
 }
@@ -1698,7 +1699,7 @@ func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *
 		return nil
 	}
 	return &core.TransportSocket{
-		Name: util.EnvoyQUICSocketName,
+		Name: wellknown.TransportSocketQuic,
 		ConfigType: &core.TransportSocket_TypedConfig{
 			TypedConfig: util.MessageToAny(&envoyquicv3.QuicDownstreamTransport{
 				DownstreamTlsContext: tlsContext,

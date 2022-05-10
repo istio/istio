@@ -41,10 +41,10 @@ func (con *ProxyConnection) sendDeltaRequest(req *discovery.DeltaDiscoveryReques
 	}
 }
 
-// requests from envoy
-// for aditya:
-// downstream -> envoy (anything "behind" xds proxy)
-// upstream -> istiod (in front of xds proxy)?
+// DeltaAggregatedResources is an implementation of Delta XDS API used for proxying between Istiod and Envoy.
+// Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
+// This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
+// as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	proxyLog.Debugf("accepted delta xds connection from envoy, forwarding to upstream")
 
@@ -56,8 +56,8 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 		stopChan:           make(chan struct{}),
 		downstreamDeltas:   downstream,
 	}
-	p.RegisterStream(con)
-	defer p.UnregisterStream(con)
+	p.registerStream(con)
+	defer p.unregisterStream(con)
 
 	// Handle downstream xds
 	initialRequestsSent := false
@@ -117,10 +117,10 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 	}
 	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
-	return p.HandleDeltaUpstream(ctx, con, xds)
+	return p.handleDeltaUpstream(ctx, con, xds)
 }
 
-func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
+func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
 	deltaUpstream, err := xds.DeltaAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
@@ -302,7 +302,7 @@ func sendDownstreamDelta(deltaDownstream discovery.AggregatedDiscoveryService_De
 	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
 }
 
-func (p *XdsProxy) PersistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {
+func (p *XdsProxy) persistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {
 	var ch chan *discovery.DeltaDiscoveryRequest
 	var stop chan struct{}
 

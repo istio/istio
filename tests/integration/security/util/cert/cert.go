@@ -85,7 +85,7 @@ func CreateCASecret(ctx resource.Context) error {
 		return err
 	}
 
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.AllClusters() {
 		secret := &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -99,9 +99,9 @@ func CreateCASecret(ctx resource.Context) error {
 			},
 		}
 
-		if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+		if _, err := cluster.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 			if errors.IsAlreadyExists(err) {
-				if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+				if _, err := cluster.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 			} else {
@@ -114,7 +114,7 @@ func CreateCASecret(ctx resource.Context) error {
 		// resources from a previous integration test, but sometimes
 		// the resources from a previous integration test are not deleted.
 		configMapName := "istio-ca-root-cert"
-		err = cluster.CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
+		err = cluster.Kube().CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
 			metav1.DeleteOptions{})
 		if err == nil {
 			log.Infof("configmap %v is deleted", configMapName)
@@ -175,10 +175,10 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 		},
 	}
 
-	_, err = kubeAccessor.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
+	_, err = kubeAccessor.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
-			_, err = kubeAccessor.CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{})
+			_, err = kubeAccessor.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{})
 			return err
 		}
 		return err

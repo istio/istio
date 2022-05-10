@@ -14,6 +14,11 @@
 
 package echo
 
+import (
+	"fmt"
+	"io"
+)
+
 // Field is a list of fields returned in responses from the Echo server.
 type Field string
 
@@ -21,20 +26,55 @@ func (f Field) String() string {
 	return string(f)
 }
 
+func (f Field) Write(out io.StringWriter, value string) {
+	_, _ = out.WriteString(fmt.Sprintf("%s=%s\n", f, value))
+}
+
+func (f Field) WriteKeyValue(out io.StringWriter, key, value string) {
+	f.Write(out, key+":"+value)
+}
+
+func (f Field) WriteForRequest(out io.StringWriter, requestID int, value string) {
+	_, _ = out.WriteString(fmt.Sprintf("[%d] %s=%s\n", requestID, f, value))
+}
+
+func (f Field) WriteKeyValueForRequest(out io.StringWriter, requestID int, key, value string) {
+	f.WriteForRequest(out, requestID, key+":"+value)
+}
+
+func WriteBodyLine(out io.StringWriter, requestID int, line string) {
+	_, _ = out.WriteString(fmt.Sprintf("[%d body] %s\n", requestID, line))
+}
+
+func WriteError(out io.StringWriter, requestID int, err error) {
+	_, _ = out.WriteString(fmt.Sprintf("[%d error] %v\n", requestID, err))
+}
+
 const (
-	RequestIDField      Field = "X-Request-Id"
-	ServiceVersionField Field = "ServiceVersion"
-	ServicePortField    Field = "ServicePort"
-	StatusCodeField     Field = "StatusCode"
-	URLField            Field = "URL"
-	HostField           Field = "Host"
-	HostnameField       Field = "Hostname"
-	MethodField         Field = "Method"
-	ProtocolField       Field = "Proto"
-	AlpnField           Field = "Alpn"
-	RequestHeaderField  Field = "RequestHeader"
-	ResponseHeaderField Field = "ResponseHeader"
-	ClusterField        Field = "Cluster"
-	IstioVersionField   Field = "IstioVersion"
-	IPField             Field = "IP" // The Requester’s IP Address.
+	RequestIDField        Field = "X-Request-Id"
+	ServiceVersionField   Field = "ServiceVersion"
+	ServicePortField      Field = "ServicePort"
+	StatusCodeField       Field = "StatusCode"
+	URLField              Field = "URL"
+	ForwarderURLField     Field = "Url"
+	ForwarderMessageField Field = "Echo"
+	ForwarderHeaderField  Field = "Header"
+	HostField             Field = "Host"
+	HostnameField         Field = "Hostname"
+	MethodField           Field = "Method"
+	ProtocolField         Field = "Proto"
+	AlpnField             Field = "Alpn"
+	RequestHeaderField    Field = "RequestHeader"
+	ResponseHeaderField   Field = "ResponseHeader"
+	ClusterField          Field = "Cluster"
+	IstioVersionField     Field = "IstioVersion"
+	IPField               Field = "IP" // The Requester’s IP Address.
+	LatencyField          Field = "Latency"
+	ActiveRequestsField   Field = "ActiveRequests"
+	DNSProtocolField      Field = "Protocol"
+	DNSQueryField         Field = "Query"
+	DNSServerField        Field = "DnsServer"
+	CipherField           Field = "Cipher"
+	TLSVersionField       Field = "Version"
+	TLSServerName         Field = "ServerName"
 )

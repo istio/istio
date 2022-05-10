@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"net/url"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -73,7 +75,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", env.ContainerRegistryServerInstallFilePath, err)
 	}
 
-	if _, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster, c.ns.Name(), service); err != nil {
+	if _, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), service); err != nil {
 		scopes.Framework.Infof("Error waiting for container registry service to be available: %v", err)
 		return nil, err
 	}
@@ -95,4 +97,16 @@ func (c *kubeComponent) Close() error {
 
 func (c *kubeComponent) Address() string {
 	return c.address
+}
+
+func (c *kubeComponent) SetupTagMap(tagMap map[string]string) error {
+	values := url.Values{}
+	for k, v := range tagMap {
+		values.Add(k, v)
+	}
+	_, err := http.PostForm(fmt.Sprintf("%s/admin/v1/tagmap", c.address), values)
+	if err != nil {
+		return err
+	}
+	return nil
 }

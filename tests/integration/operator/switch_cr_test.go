@@ -90,12 +90,12 @@ func TestController(t *testing.T) {
 			istioCtl.InvokeOrFail(t, initCmd)
 			t.TrackResource(&operatorDumper{rev: ""})
 
-			if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+			if _, err := cs.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
 					Name: IstioNamespace,
 				},
 			}, kubeApiMeta.CreateOptions{}); err != nil {
-				_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
+				_, err := cs.Kube().CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
 				if err == nil {
 					log.Info("istio namespace already exist")
 				} else {
@@ -131,10 +131,10 @@ func TestController(t *testing.T) {
 
 			retry.UntilSuccessOrFail(t, func() error {
 				for _, n := range []string{"istio-operator", "istio-operator-v2"} {
-					if svc, _ := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); svc.Name != "" {
+					if svc, _ := cs.Kube().CoreV1().Services(OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); svc.Name != "" {
 						return fmt.Errorf("got operator service: %s from cluster, expected to be removed", svc.Name)
 					}
-					if dp, _ := cs.AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); dp.Name != "" {
+					if dp, _ := cs.Kube().AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); dp.Name != "" {
 						return fmt.Errorf("got operator deployment %s from cluster, expected to be removed", dp.Name)
 					}
 				}
@@ -152,20 +152,20 @@ func cleanupIstioResources(t framework.TestContext, cs cluster.Cluster, istioCtl
 	out, _ := istioCtl.InvokeOrFail(t, unInstallCmd)
 	t.Logf("uninstall command output: %s", out)
 	// clean up operator namespace
-	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
+	if err := cs.Kube().CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
 		kube2.DeleteOptionsForeground()); err != nil {
 		t.Logf("failed to delete operator namespace: %v", err)
 	}
-	if err := kube2.WaitForNamespaceDeletion(cs, OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
+	if err := kube2.WaitForNamespaceDeletion(cs.Kube(), OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
 		t.Logf("failed waiting for operator namespace to be deleted: %v", err)
 	}
 	var err error
 	// clean up dynamically created secret and configmaps
-	if e := cs.CoreV1().Secrets(IstioNamespace).DeleteCollection(
+	if e := cs.Kube().CoreV1().Secrets(IstioNamespace).DeleteCollection(
 		context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 		err = multierror.Append(err, e)
 	}
-	if e := cs.CoreV1().ConfigMaps(IstioNamespace).DeleteCollection(
+	if e := cs.Kube().CoreV1().ConfigMaps(IstioNamespace).DeleteCollection(
 		context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 		err = multierror.Append(err, e)
 	}
@@ -191,7 +191,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 		}
 		usIOPStatus := us.UnstructuredContent()["status"]
 		if usIOPStatus == nil {
-			if _, err := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), revName("istio-operator", revision),
+			if _, err := cs.Kube().CoreV1().Services(OperatorNamespace).Get(context.TODO(), revName("istio-operator", revision),
 				kubeApiMeta.GetOptions{}); err != nil {
 				return fmt.Errorf("istio operator svc is not ready: %v", err)
 			}
@@ -379,19 +379,19 @@ func compareInClusterAndGeneratedResources(t framework.TestContext, cs cluster.C
 			var err error
 			switch kind {
 			case "Service":
-				_, err = cs.CoreV1().Services(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+				_, err = cs.Kube().CoreV1().Services(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 			case "ServiceAccount":
-				_, err = cs.CoreV1().ServiceAccounts(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+				_, err = cs.Kube().CoreV1().ServiceAccounts(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 			case "Deployment":
-				_, err = cs.AppsV1().Deployments(IstioNamespace).Get(context.TODO(), name,
+				_, err = cs.Kube().AppsV1().Deployments(IstioNamespace).Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{})
 			case "ConfigMap":
-				_, err = cs.CoreV1().ConfigMaps(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+				_, err = cs.Kube().CoreV1().ConfigMaps(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 			case "ValidatingWebhookConfiguration":
-				_, err = cs.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
+				_, err = cs.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
 					name, kubeApiMeta.GetOptions{})
 			case "MutatingWebhookConfiguration":
-				_, err = cs.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(),
+				_, err = cs.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(),
 					name, kubeApiMeta.GetOptions{})
 			case "CustomResourceDefinition":
 				_, err = cs.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), name,
@@ -400,10 +400,10 @@ func compareInClusterAndGeneratedResources(t framework.TestContext, cs cluster.C
 				_, err = cs.Dynamic().Resource(efgvr).Namespace(ns).Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{})
 			case "PodDisruptionBudget":
-				_, err = cs.PolicyV1beta1().PodDisruptionBudgets(ns).Get(context.TODO(), name,
+				_, err = cs.Kube().PolicyV1beta1().PodDisruptionBudgets(ns).Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{})
 			case "HorizontalPodAutoscaler":
-				_, err = cs.AutoscalingV2beta1().HorizontalPodAutoscalers(ns).Get(context.TODO(), name,
+				_, err = cs.Kube().AutoscalingV2beta2().HorizontalPodAutoscalers(ns).Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{})
 			}
 			if err != nil && !expectRemoved {

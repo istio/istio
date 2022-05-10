@@ -32,6 +32,7 @@ import (
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/xds"
@@ -39,9 +40,12 @@ import (
 
 type mockCache struct {
 	wantSecret []byte
+	wantPolicy extensions.PullPolicy
 }
 
-func (c *mockCache) Get(downloadURL, checksum string, timeout time.Duration, pullSecret []byte) (string, error) {
+func (c *mockCache) Get(
+	downloadURL, checksum, resourceName, resourceVersion string,
+	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
 	url, _ := url.Parse(downloadURL)
 	query := url.Query()
 
@@ -54,6 +58,10 @@ func (c *mockCache) Get(downloadURL, checksum string, timeout time.Duration, pul
 	if c.wantSecret != nil && !reflect.DeepEqual(c.wantSecret, pullSecret) {
 		return "", fmt.Errorf("wrong secret for %v, got %q want %q", downloadURL, string(pullSecret), c.wantSecret)
 	}
+	if c.wantPolicy != pullPolicy {
+		return "", fmt.Errorf("wrong pull policy for %v, got %v want %v", downloadURL, pullPolicy, c.wantPolicy)
+	}
+
 	return module, err
 }
 func (c *mockCache) Cleanup() {}

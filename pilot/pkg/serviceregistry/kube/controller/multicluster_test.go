@@ -56,14 +56,14 @@ func createMultiClusterSecret(k8s kube.Client, sname, cname string) error {
 
 	data[cname] = []byte("Test")
 	secret.Data = data
-	_, err := k8s.CoreV1().Secrets(testSecretNameSpace).Create(context.TODO(), &secret, metav1.CreateOptions{})
+	_, err := k8s.Kube().CoreV1().Secrets(testSecretNameSpace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 	return err
 }
 
 func deleteMultiClusterSecret(k8s kube.Client, sname string) error {
 	var immediate int64
 
-	return k8s.CoreV1().Secrets(testSecretNameSpace).Delete(
+	return k8s.Kube().CoreV1().Secrets(testSecretNameSpace).Delete(
 		context.TODO(),
 		sname, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
@@ -89,14 +89,11 @@ func Test_KubeSecretController(t *testing.T) {
 		return kube.NewFakeClient(), nil
 	}
 	clientset := kube.NewFakeClient()
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	s := server.New()
 	mc := NewMulticluster(
 		"pilot-abc-123",
-		clientset,
+		clientset.Kube(),
 		testSecretNameSpace,
 		Options{
 			ClusterID:             "cluster-1",
@@ -141,15 +138,12 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	s := server.New()
 	certWatcher := keycertbundle.NewWatcher()
 	mc := NewMulticluster(
 		"pilot-abc-123",
-		clientset,
+		clientset.Kube(),
 		testSecretNameSpace,
 		Options{
 			ClusterID:             "cluster-1",

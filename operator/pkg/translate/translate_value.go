@@ -434,7 +434,9 @@ func translateHPASpec(inPath string, outPath string, valueTree map[string]interf
 - type: Resource
   resource:
     name: cpu
-    targetAverageUtilization: %f`
+    target:
+      type: Utilization
+      averageUtilization: %f`
 
 		rsString := fmt.Sprintf(rsVal, asVal)
 		if err = yaml.Unmarshal([]byte(rsString), &rs); err != nil {

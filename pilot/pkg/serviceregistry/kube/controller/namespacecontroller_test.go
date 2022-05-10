@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -40,10 +41,7 @@ func TestNamespaceController(t *testing.T) {
 	watcher.SetAndNotify(nil, nil, caBundle)
 	nc := NewNamespaceController(client, watcher)
 	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	client.RunAndWait(stop)
 	go nc.Run(stop)
 	retry.UntilOrFail(t, nc.queue.HasSynced)
@@ -51,11 +49,11 @@ func TestNamespaceController(t *testing.T) {
 	expectedData := map[string]string{
 		constants.CACertNamespaceConfigMapDataName: string(caBundle),
 	}
-	createNamespace(t, client, "foo", nil)
+	createNamespace(t, client.Kube(), "foo", nil)
 	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, "foo", expectedData)
 
 	// Make sure random configmap does not get updated
-	cmData := createConfigMap(t, client, "not-root", "foo", "k")
+	cmData := createConfigMap(t, client.Kube(), "not-root", "foo", "k")
 	expectConfigMap(t, nc.configmapLister, "not-root", "foo", cmData)
 
 	newCaBundle := []byte("caBundle-new")
@@ -65,14 +63,14 @@ func TestNamespaceController(t *testing.T) {
 	}
 	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, "foo", newData)
 
-	deleteConfigMap(t, client, "foo")
+	deleteConfigMap(t, client.Kube(), "foo")
 	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, "foo", newData)
 
 	for _, namespace := range inject.IgnoredNamespaces.UnsortedList() {
 		// Create namespace in ignored list, make sure its not created
-		createNamespace(t, client, namespace, newData)
+		createNamespace(t, client.Kube(), namespace, newData)
 		// Configmap in that namespace should not do anything either
-		createConfigMap(t, client, "not-root", namespace, "k")
+		createConfigMap(t, client.Kube(), "not-root", namespace, "k")
 		expectConfigMapNotExist(t, nc.configmapLister, namespace)
 	}
 }

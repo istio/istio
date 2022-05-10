@@ -88,7 +88,7 @@ func TestValidateIOPCAConfig(t *testing.T) {
 
 	for i, tt := range tests {
 		k8sClient := kube.NewFakeClient()
-		k8sClient.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &version.Info{
+		k8sClient.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &version.Info{
 			Major: tt.major,
 			Minor: tt.minor,
 		}

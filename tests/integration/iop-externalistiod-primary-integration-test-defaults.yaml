@@ -12,6 +12,10 @@ spec:
       k8s:
         service:
           type: LoadBalancer
+          ports:
+          - port: 15017
+            name: tcp-webhook-testing
+            protocol: TCP
         overlays:
         - kind: Deployment
           name: istiod

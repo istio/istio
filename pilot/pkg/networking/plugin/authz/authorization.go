@@ -54,7 +54,7 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 }
 
 func (b *Builder) BuildTCP() []*tcppb.Filter {
-	if b.builder == nil {
+	if b == nil || b.builder == nil {
 		return nil
 	}
 	if b.tcpBuilt {
@@ -67,7 +67,7 @@ func (b *Builder) BuildTCP() []*tcppb.Filter {
 }
 
 func (b *Builder) BuildHTTP(class networking.ListenerClass) []*httppb.HttpFilter {
-	if b.builder == nil {
+	if b == nil || b.builder == nil {
 		return nil
 	}
 	if class == networking.ListenerClassSidecarOutbound {

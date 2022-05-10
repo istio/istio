@@ -38,6 +38,7 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/pkg/webhooks/util"
@@ -207,7 +208,7 @@ func copyWithName(vwh *kubeApiAdmission.ValidatingWebhookConfiguration, newName 
 }
 
 func (fc *fakeController) ValidatingWebhookConfigurations() kubeTypedAdmission.ValidatingWebhookConfigurationInterface {
-	return fc.client.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+	return fc.client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations()
 }
 
 func reconcileHelper(t *testing.T, c *fakeController, whName string) {
@@ -272,10 +273,7 @@ func TestBackoff(t *testing.T) {
 	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, kubeApiMeta.CreateOptions{})
 	_ = c.configStore.Add(unpatchedWebhookConfig)
 
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	go c.Run(stop)
 	// This is fairly difficult to properly test. Basically what we do is setup the queue to retry 5x quickly, then extremely slowly.
 	// This ensures that we are actually retrying using the provided rate limiter.

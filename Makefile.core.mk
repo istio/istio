@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 export VERSION ?= 1.15-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2022-04-29T19-00-55
+BASE_VERSION ?= master-2022-05-05T19-01-00
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -333,6 +333,9 @@ update-golden: refresh-goldens
 gen-charts:
 	@echo "This target is no longer required and will be removed in the future"
 
+gen-addons:
+	manifests/addons/gen.sh
+
 gen: \
 	mod-download-go \
 	go-gen \
@@ -342,6 +345,7 @@ gen: \
 	proto \
 	copy-templates \
 	gen-kustomize \
+	gen-addons \
 	update-golden ## Update all generated code.
 
 gen-check: gen check-clean-repo

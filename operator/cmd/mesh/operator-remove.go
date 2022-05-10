@@ -69,7 +69,7 @@ func operatorRemove(args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
-	installed, err := isControllerInstalled(kubeClient, orArgs.operatorNamespace, orArgs.revision)
+	installed, err := isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, orArgs.revision)
 	if installed && err != nil {
 		l.LogAndFatal(err)
 	}
@@ -98,7 +98,7 @@ func operatorRemove(args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	if err != nil {
 		l.LogAndFatal(err)
 	}
-	if err := reconciler.DeleteObjectsList(rs); err != nil {
+	if err := reconciler.DeleteObjectsList(rs, string(name.IstioOperatorComponentName)); err != nil {
 		l.LogAndFatal(err)
 	}
 

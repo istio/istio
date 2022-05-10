@@ -240,12 +240,6 @@ func mergeTransportSocketListener(fc *xdslistener.FilterChain, lp *model.EnvoyFi
 func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain) {
-	removedFilters := sets.New()
-	for i, filter := range fc.Filters {
-		if patchNetworkFilter(patchContext, patches, listener, fc, fc.Filters[i]) {
-			removedFilters.Insert(filter.Name)
-		}
-	}
 	for _, lp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
 		if !commonConditionMatch(patchContext, lp) ||
 			!listenerMatch(listener, lp) ||
@@ -328,6 +322,12 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 			fc.Filters[replacePosition] = proto.Clone(lp.Value).(*xdslistener.Filter)
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, applied)
+	}
+	removedFilters := sets.New()
+	for i, filter := range fc.Filters {
+		if patchNetworkFilter(patchContext, patches, listener, fc, fc.Filters[i]) {
+			removedFilters.Insert(filter.Name)
+		}
 	}
 	if len(removedFilters) > 0 {
 		tempArray := make([]*xdslistener.Filter, 0, len(fc.Filters)-len(removedFilters))
@@ -412,12 +412,6 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 			return
 			// todo: figure out a non noisy logging option here
 			//  as this loop will be called very frequently
-		}
-	}
-	removedFilters := sets.Set{}
-	for _, httpFilter := range httpconn.HttpFilters {
-		if patchHTTPFilter(patchContext, patches, listener, fc, filter, httpFilter) {
-			removedFilters.Insert(httpFilter.Name)
 		}
 	}
 	for _, lp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
@@ -506,6 +500,12 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 			httpconn.HttpFilters[replacePosition] = clonedVal
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
+	}
+	removedFilters := sets.Set{}
+	for _, httpFilter := range httpconn.HttpFilters {
+		if patchHTTPFilter(patchContext, patches, listener, fc, filter, httpFilter) {
+			removedFilters.Insert(httpFilter.Name)
+		}
 	}
 	if len(removedFilters) > 0 {
 		tempArray := make([]*hcm.HttpFilter, 0, len(httpconn.HttpFilters)-len(removedFilters))

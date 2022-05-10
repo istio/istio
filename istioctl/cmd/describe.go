@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -37,6 +38,7 @@ import (
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
+	apiannotation "istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
@@ -108,8 +110,10 @@ the configuration objects that affect that pod.`,
 			writer := cmd.OutOrStdout()
 
 			podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
+			annotations := k8s_labels.Set(pod.ObjectMeta.Annotations)
+			opts.Revision = getRevisionFromPodAnnotation(annotations)
 
-			printPod(writer, pod)
+			printPod(writer, pod, opts.Revision)
 
 			svcs, err := client.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
@@ -169,6 +173,16 @@ the configuration objects that affect that pod.`,
 		"Suppress warnings for unmeshed pods")
 	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
+}
+
+func getRevisionFromPodAnnotation(anno k8s_labels.Set) string {
+	statusString := anno.Get(apiannotation.SidecarStatus.Name)
+	var injectionStatus inject.SidecarInjectionStatus
+	if err := json.Unmarshal([]byte(statusString), &injectionStatus); err != nil {
+		return ""
+	}
+
+	return injectionStatus.Revision
 }
 
 func describe() *cobra.Command {
@@ -405,7 +419,7 @@ func renderMatch(match *v1alpha3.HTTPMatchRequest) string {
 	return strings.TrimSpace(retval)
 }
 
-func printPod(writer io.Writer, pod *v1.Pod) {
+func printPod(writer io.Writer, pod *v1.Pod, revision string) {
 	ports := []string{}
 	UserID := int64(1337)
 	for _, container := range pod.Spec.Containers {
@@ -428,6 +442,7 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 	}
 
 	fmt.Fprintf(writer, "Pod: %s\n", kname(pod.ObjectMeta))
+	fmt.Fprintf(writer, "   Pod Revision: %s\n", revision)
 	if len(ports) > 0 {
 		fmt.Fprintf(writer, "   Pod Ports: %s\n", strings.Join(ports, ", "))
 	} else {
@@ -1299,7 +1314,7 @@ func getMeshConfig(kubeClient kube.ExtendedClient) (*meshconfig.MeshConfig, erro
 		meshConfigMapName = fmt.Sprintf("%s-%s", defaultMeshConfigMapName, rev)
 	}
 
-	meshConfigMap, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := kubeClient.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, istioNamespace, err)
 	}

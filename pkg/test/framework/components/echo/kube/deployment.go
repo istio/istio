@@ -172,27 +172,29 @@ spec:
         - containerPort: 9000
 {{- end }}
       - name: app
+{{- if $.ImageFullPath }}
+        image: {{ $.ImageFullPath }}
+{{- else }}
         image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
+{{- end }}
         imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext:
           runAsUser: 1338
           runAsGroup: 1338
         args:
           - --metrics=15014
-          - --cluster
-          - "{{ $cluster }}"
+          - --cluster={{ $cluster }}
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
 {{- if and $.ProxylessGRPC (ne $p.Port $.GRPCMagicPort) }}
           - --xds-grpc-server={{ $p.Port }}
 {{- end }}
-          - --grpc
+          - --grpc={{ $p.Port }}
 {{- else if eq .Protocol "TCP" }}
-          - --tcp
+          - --tcp={{ $p.Port }}
 {{- else }}
-          - --port
+          - --port={{ $p.Port }}
 {{- end }}
-          - "{{ $p.Port }}"
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
 {{- end }}
@@ -206,10 +208,8 @@ spec:
           - --bind-localhost={{ $p.Port }}
 {{- end }}
 {{- end }}
-          - --version
-          - "{{ $subset.Version }}"
-          - --istio-version
-          - "{{ $version }}"
+          - --version={{ $subset.Version }}
+          - --istio-version={{ $version }}
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
@@ -243,6 +243,9 @@ spec:
 {{- else if $.ReadinessGRPCPort }}
           grpc:
             port: {{ $.ReadinessGRPCPort }}			
+{{- else if $.ImageFullPath }}
+          tcpSocket:
+            port: tcp-health-port
 {{- else }}
           httpGet:
             path: /
@@ -673,6 +676,7 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
 		"ImagePullPolicy":     settings.Image.PullPolicy,
 		"ImagePullSecretName": imagePullSecretName,
+		"ImageFullPath":       settings.EchoImage, // This overrides image hub/tag if it's not empty.
 		"Service":             cfg.Service,
 		"Version":             cfg.Version,
 		"Headless":            cfg.Headless,
@@ -769,7 +773,7 @@ spec:
 
 	if cfg.ServiceAccount {
 		// create service account, the next workload command will use it to generate a token
-		err = createServiceAccount(cfg.Cluster, cfg.Namespace.Name(), serviceAccount(cfg))
+		err = createServiceAccount(cfg.Cluster.Kube(), cfg.Namespace.Name(), serviceAccount(cfg))
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			return err
 		}
@@ -857,7 +861,7 @@ spec:
 		}
 		cmName := fmt.Sprintf("%s-%s-vm-bootstrap", cfg.Service, subset.Version)
 		cm := &kubeCore.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName}, BinaryData: cmData}
-		_, err = cfg.Cluster.CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
+		_, err = cfg.Cluster.Kube().CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed creating configmap %s: %v", cm.Name, err)
 		}
@@ -877,9 +881,9 @@ spec:
 			"istio-token": token,
 		},
 	}
-	if _, err := cfg.Cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+	if _, err := cfg.Cluster.Kube().CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 		if kerrors.IsAlreadyExists(err) {
-			if _, err := cfg.Cluster.CoreV1().Secrets(cfg.Namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+			if _, err := cfg.Cluster.Kube().CoreV1().Secrets(cfg.Namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("failed updating secret %s: %v", secret.Name, err)
 			}
 		} else {

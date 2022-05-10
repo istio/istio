@@ -37,6 +37,7 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/bootstrap"
@@ -88,10 +89,15 @@ const (
 )
 
 const (
-	MetadataClientCertKey   = "ISTIO_META_TLS_CLIENT_KEY"
+	// MetadataClientCertKey is ISTIO_META env var used for client key.
+	MetadataClientCertKey = "ISTIO_META_TLS_CLIENT_KEY"
+	// MetadataClientCertChain is ISTIO_META env var used for client cert chain.
 	MetadataClientCertChain = "ISTIO_META_TLS_CLIENT_CERT_CHAIN"
-	MetadataClientRootCert  = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
+	// MetadataClientRootCert is ISTIO_META env var used for client root cert.
+	MetadataClientRootCert = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
 )
+
+var _ ready.Prober = &Agent{}
 
 // Agent contains the configuration of the agent, based on the injected
 // environment:
@@ -522,7 +528,7 @@ func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
 		select {
 		case gotEvent := <-a.caFileWatcher.Events(caFile):
 			log.Debugf("Receive file %s event %v", caFile, gotEvent)
-			if err := a.xdsProxy.InitIstiodDialOptions(a); err != nil {
+			if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
 				log.Warnf("Failed to init xds proxy dial options")
 			}
 		case <-ctx.Done():
@@ -565,6 +571,7 @@ func (a *Agent) generateGRPCBootstrap() error {
 	return nil
 }
 
+// Check is used in to readiness check of agent to ensure DNSServer is ready.
 func (a *Agent) Check() (err error) {
 	// we dont need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
@@ -575,6 +582,7 @@ func (a *Agent) Check() (err error) {
 	return nil
 }
 
+// GetDNSTable builds DNS table used in debugging interface.
 func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	if a.localDNSServer != nil && a.localDNSServer.NameTable() != nil {
 		nt := a.localDNSServer.NameTable()
@@ -601,7 +609,7 @@ func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	return nil
 }
 
-func (a *Agent) Close() {
+func (a *Agent) close() {
 	if a.xdsProxy != nil {
 		a.xdsProxy.close()
 	}

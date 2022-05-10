@@ -30,6 +30,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
@@ -43,6 +44,13 @@ const (
 	// DefaultWasmModuleExpiry is the default duration for least recently touched Wasm module to become stale.
 	DefaultWasmModuleExpiry = 24 * time.Hour
 
+	// Default timeout per a HTTP/HTTPS request for HTTP/HTTPS-based wasm pulling.
+	DefaultWasmHTTPRequestTimeout = 5 * time.Second
+
+	// Default maximum number of HTTP/HTTPS request retries for HTTP/HTTPS-based wasm pulling.
+	// Note that, if the timeout specified in WasmPlugin is reaching out, then the pulling is stopped even though the retry count is still less than this value.
+	DefaultWasmHTTPRequestMaxRetries = 5
+
 	// oci URL prefix
 	ociURLPrefix = "oci://"
 
@@ -52,7 +60,7 @@ const (
 
 // Cache models a Wasm module cache.
 type Cache interface {
-	Get(url, checksum string, timeout time.Duration, pullSecret []byte) (string, error)
+	Get(url, checksum, resourceName, resourceVersion string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error)
 	Cleanup()
 }
 
@@ -61,7 +69,7 @@ type LocalFileCache struct {
 	// Map from Wasm module checksum to cache entry.
 	modules map[moduleKey]*cacheEntry
 	// Map from tagged URL to checksum
-	checksums map[string]string
+	checksums map[string]*checksumEntry
 
 	// http fetcher fetches Wasm module with HTTP get.
 	httpFetcher *HTTPFetcher
@@ -83,6 +91,12 @@ type LocalFileCache struct {
 
 var _ Cache = &LocalFileCache{}
 
+type checksumEntry struct {
+	checksum string
+	// Keeps the resource version per each resource for dealing with multiple resources which pointing the same image.
+	resourceVersionByResource map[string]string
+}
+
 type moduleKey struct {
 	// Identifier for the module. It should be neutral for the checksum.
 	// e.g.) oci://docker.io/test@sha256:0123456789 is not allowed.
@@ -94,6 +108,11 @@ type moduleKey struct {
 type cacheKey struct {
 	moduleKey
 	downloadURL string
+	// Resource name of WasmPlugin resource. This should be a fully-qualified name.
+	resourceName string
+	// Resource version of WasmPlugin resource. Even though PullPolicy is Always,
+	// if there is no change of resource state, a cached entry is used instead of pulling newly.
+	resourceVersion string
 }
 
 // cacheEntry contains information about a Wasm module cache entry.
@@ -109,9 +128,9 @@ type cacheEntry struct {
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
 func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
 	cache := &LocalFileCache{
-		httpFetcher:        NewHTTPFetcher(),
+		httpFetcher:        NewHTTPFetcher(DefaultWasmHTTPRequestTimeout),
 		modules:            make(map[moduleKey]*cacheEntry),
-		checksums:          make(map[string]string),
+		checksums:          make(map[string]*checksumEntry),
 		dir:                dir,
 		purgeInterval:      purgeInterval,
 		wasmModuleExpiry:   moduleExpiry,
@@ -134,8 +153,25 @@ func urlAsResourceName(fullURLStr string) string {
 	return fullURLStr
 }
 
+func pullIfNotPresent(pullPolicy extensions.PullPolicy, u *url.URL) bool {
+	if u.Scheme == "oci" {
+		switch pullPolicy {
+		case extensions.PullPolicy_Always:
+			return false
+		case extensions.PullPolicy_IfNotPresent:
+			return true
+		default:
+			return !strings.HasSuffix(u.Path, ":latest")
+		}
+	}
+	// If http/https is used, it has `always` semantics at this time.
+	return false
+}
+
 // Get returns path the local Wasm module file.
-func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration, pullSecret []byte) (string, error) {
+func (c *LocalFileCache) Get(
+	downloadURL, checksum, resourceName, resourceVersion string,
+	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -143,28 +179,37 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 			name:     urlAsResourceName(downloadURL),
 			checksum: checksum,
 		},
+		resourceName:    resourceName,
+		resourceVersion: resourceVersion,
 	}
 
-	// First check if the cache entry is already downloaded.
-	if modulePath := c.getEntry(key); modulePath != "" {
-		return modulePath, nil
-	}
-
-	// If not, fetch images.
 	u, err := url.Parse(downloadURL)
 	if err != nil {
 		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s", downloadURL)
 	}
+
+	// First check if the cache entry is already downloaded and policy does not require to pull always.
+	var modulePath string
+	modulePath, key.checksum = c.getEntry(key, pullIfNotPresent(pullPolicy, u))
+	if modulePath != "" {
+		return modulePath, nil
+	}
+
+	// If not, fetch images.
 
 	// Byte array of Wasm binary.
 	var b []byte
 	// Hex-Encoded sha256 checksum of binary.
 	var dChecksum string
 	var binaryFetcher func() ([]byte, error)
+	insecure := c.insecureRegistries.Contains(u.Host)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	switch u.Scheme {
 	case "http", "https":
 		// Download the Wasm module with http fetcher.
-		b, err = c.httpFetcher.Fetch(downloadURL, timeout)
+		b, err = c.httpFetcher.Fetch(ctx, downloadURL, insecure)
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
 			return "", err
@@ -174,13 +219,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		sha := sha256.Sum256(b)
 		dChecksum = hex.EncodeToString(sha[:])
 	case "oci":
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
 
-		insecure := false
-		if c.insecureRegistries.Contains(u.Host) {
-			insecure = true
-		}
 		// TODO: support imagePullSecret and pass it to ImageFetcherOption.
 		imgFetcherOps := ImageFetcherOption{
 			Insecure: insecure,
@@ -202,7 +241,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	if key.checksum == "" {
 		key.checksum = dChecksum
 		// check again if the cache is having the checksum.
-		if modulePath := c.getEntry(key); modulePath != "" {
+		if modulePath, _ := c.getEntry(key, true); modulePath != "" {
 			return modulePath, nil
 		}
 	} else if dChecksum != key.checksum {
@@ -247,7 +286,14 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 	defer c.mux.Unlock()
 
 	if needChecksumUpdate {
-		c.checksums[key.downloadURL] = key.checksum
+		ce := c.checksums[key.downloadURL]
+		if ce == nil {
+			ce = new(checksumEntry)
+			ce.resourceVersionByResource = make(map[string]string)
+			c.checksums[key.downloadURL] = ce
+		}
+		ce.checksum = key.checksum
+		ce.resourceVersionByResource[key.resourceName] = key.resourceVersion
 	}
 
 	// Check if the module has already been added. If so, avoid writing the file again.
@@ -278,9 +324,13 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 	return nil
 }
 
-func (c *LocalFileCache) getEntry(key cacheKey) string {
+// getEntry finds a cached module, and returns the path of the module and its checksum.
+func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (string, string) {
 	modulePath := ""
 	cacheHit := false
+
+	c.mux.Lock()
+	defer c.mux.Unlock()
 
 	// Only apply this for OCI image, not http/https because OCI image has ImagePullPolicy
 	// to control the pull policy, but http/https currently rely on existence of checksum.
@@ -296,12 +346,16 @@ func (c *LocalFileCache) getEntry(key cacheKey) string {
 		} else {
 			// If no checksum, try the checksum cache.
 			// If the image was pulled before, there should be a checksum of the most recently pulled image.
-			key.checksum = c.checksums[key.downloadURL]
+			if ce, found := c.checksums[key.downloadURL]; found {
+				if ignoreResourceVersion || key.resourceVersion == ce.resourceVersionByResource[key.resourceName] {
+					key.checksum = ce.checksum
+				}
+				// update resource version here
+				ce.resourceVersionByResource[key.resourceName] = key.resourceVersion
+			}
 		}
 	}
 
-	c.mux.Lock()
-	defer c.mux.Unlock()
 	if ce, ok := c.modules[key.moduleKey]; ok {
 		// Update last touched time.
 		ce.last = time.Now()
@@ -309,7 +363,7 @@ func (c *LocalFileCache) getEntry(key cacheKey) string {
 		cacheHit = true
 	}
 	wasmCacheLookupCount.With(hitTag.Value(strconv.FormatBool(cacheHit))).Increment()
-	return modulePath
+	return modulePath, key.checksum
 }
 
 // Purge periodically clean up the stale Wasm modules local file and the cache map.
