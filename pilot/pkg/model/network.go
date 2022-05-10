@@ -482,19 +482,9 @@ func stringSliceEqual(a, b []string) bool {
 
 // resolve gets all the A and AAAA records for the given name
 func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration) {
-	var wg sync.WaitGroup
 	var resA, resAAAA *dns.Msg
-
-	wg.Add(2)
-	go func() {
-		resA = n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dns.TypeA))
-		wg.Done()
-	}()
-	go func() {
-		resAAAA = n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dns.TypeAAAA))
-		wg.Done()
-	}()
-	wg.Wait()
+	resA = n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dns.TypeA))
+	resAAAA = n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dns.TypeAAAA))
 
 	numRRs := 0
 	if resA != nil {
