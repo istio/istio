@@ -39,7 +39,7 @@ type Config struct {
 	// Upstream registry. Default is "gcr.io".
 	TargetRegistry string
 	// Docker image location of the fake registry. Default is "gcr.io/istio-testing/fake-registry:x.x".
-	// Please refer to container_registry_server.yaml for the exact default image.
+	// Please refer to registry_redirector_server.yaml for the exact default image.
 	RegistryRedirectorImage string
 }
 

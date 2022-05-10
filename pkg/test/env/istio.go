@@ -79,7 +79,7 @@ var (
 	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("gcemetadata/gce_metadata_server.yaml"))
 
 	// RegistryRedirectorServerInstallFilePath is the registry redirector installation file.
-	RegistryRedirectorServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("registryredirector/container_registry_server.yaml"))
+	RegistryRedirectorServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("registryredirector/registry_redirector_server.yaml"))
 )
 
 var (

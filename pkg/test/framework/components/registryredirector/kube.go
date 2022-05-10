@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	service = "container-registry"
-	ns      = "container-registry"
+	service = "registry-redirector"
+	ns      = "registry-redirector"
 )
 
 var (
