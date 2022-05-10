@@ -618,8 +618,8 @@ var (
 	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", true,
 		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()
 
-	InternalAddressMeshNetwork = env.RegisterStringVar("INTERNAL_ADDRESS_MESH_NETWORK", "",
-		"If specified, the network configured with this name is used for configuring internal addresses for mesh").Get()
+	EnableHCMInternalNetworks = env.RegisterBoolVar("ENABLE_HCM_INTERNAL_NETWORKS", false,
+		"If enable, endpoints defined in mesh networks will be configured as internal addresses in Http Connection Manager").Get()
 
 	CanonicalServiceForMeshExternalServiceEntry = env.RegisterBoolVar("LABEL_CANONICAL_SERVICES_FOR_MESH_EXTERNAL_SERVICE_ENTRIES", false,
 		"If enabled, metadata representing canonical services for ServiceEntry resources with a location of mesh_external will be populated"+

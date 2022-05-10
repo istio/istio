@@ -119,7 +119,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileW
 		s.environment.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
 	s.environment.AddNetworksHandler(func() {
-		oldNetworks := s.environment.NetworksWatcher.LastNetworks()
+		oldNetworks := s.environment.NetworksWatcher.PrevNetworks()
 		currNetworks := s.environment.NetworksWatcher.Networks()
 
 		oldEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)

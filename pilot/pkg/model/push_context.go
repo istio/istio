@@ -1105,7 +1105,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Mesh = env.Mesh()
-	ps.Networks = env.NetworksWatcher.Networks()
+	ps.Networks = env.MeshNetworks()
 	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first

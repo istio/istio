@@ -29,7 +29,7 @@ import (
 type NetworksHolder interface {
 	SetNetworks(*meshconfig.MeshNetworks)
 	Networks() *meshconfig.MeshNetworks
-	LastNetworks() *meshconfig.MeshNetworks
+	PrevNetworks() *meshconfig.MeshNetworks
 }
 
 // NetworksWatcher watches changes to the mesh networks config.
@@ -45,7 +45,7 @@ type internalNetworkWatcher struct {
 	mutex        sync.RWMutex
 	handlers     []func()
 	networks     *meshconfig.MeshNetworks
-	lastNetworks *meshconfig.MeshNetworks
+	prevNetworks *meshconfig.MeshNetworks
 }
 
 // NewFixedNetworksWatcher creates a new NetworksWatcher that always returns the given config.
@@ -93,14 +93,14 @@ func (w *internalNetworkWatcher) Networks() *meshconfig.MeshNetworks {
 	return w.networks
 }
 
-// LastNetworks returns the previous network configuration for the mesh.
-func (w *internalNetworkWatcher) LastNetworks() *meshconfig.MeshNetworks {
+// PrevNetworks returns the previous network configuration for the mesh.
+func (w *internalNetworkWatcher) PrevNetworks() *meshconfig.MeshNetworks {
 	if w == nil {
 		return nil
 	}
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	return w.lastNetworks
+	return w.prevNetworks
 }
 
 // SetNetworks will use the given value for mesh networks and notify all handlers of the change
@@ -113,7 +113,7 @@ func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetwor
 		log.Infof("mesh networks configuration updated to: %s", networksdump)
 
 		// Store the new config.
-		w.lastNetworks = w.networks
+		w.prevNetworks = w.networks
 		w.networks = meshNetworks
 		handlers = append([]func(){}, w.handlers...)
 	}
