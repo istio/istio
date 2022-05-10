@@ -97,7 +97,7 @@ func PromDump(cluster cluster.Cluster, prometheus prometheus.Instance, query pro
 
 // Get trust domain of the cluster.
 func GetTrustDomain(cluster cluster.Cluster, istioNamespace string) string {
-	meshConfigMap, err := cluster.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), "istio", metav1.GetOptions{})
+	meshConfigMap, err := cluster.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), "istio", metav1.GetOptions{})
 	defaultTrustDomain := mesh.DefaultMeshConfig().TrustDomain
 	if err != nil {
 		return defaultTrustDomain

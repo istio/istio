@@ -993,7 +993,7 @@ func getPodsWithSelector(client kube.ExtendedClient, ns string, selector *meta_v
 	if err != nil {
 		return []v1.Pod{}, err
 	}
-	podList, err := client.CoreV1().Pods(ns).List(context.TODO(),
+	podList, err := client.Kube().CoreV1().Pods(ns).List(context.TODO(),
 		meta_v1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
 		return []v1.Pod{}, err

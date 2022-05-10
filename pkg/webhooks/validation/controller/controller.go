@@ -200,11 +200,11 @@ func newController(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
-				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
+				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
-				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
+				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
 			},
 		},
 		&kubeApiAdmission.ValidatingWebhookConfiguration{}, 0, cache.Indexers{},
@@ -316,7 +316,8 @@ func (c *Controller) updateAll() {
 func (c *Controller) reconcileRequest(req reconcileRequest) (bool, error) {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
-	configuration, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), req.webhookName, metav1.GetOptions{})
+	configuration, err := c.client.Kube().
+		AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), req.webhookName, metav1.GetOptions{})
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
 			scope.Infof("Skip patching webhook, webhook %q not found", req.webhookName)
@@ -425,7 +426,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmiss
 		updated.Webhooks[i].FailurePolicy = &failurePolicy
 	}
 
-	latest, err := c.client.AdmissionregistrationV1().
+	latest, err := c.client.Kube().AdmissionregistrationV1().
 		ValidatingWebhookConfigurations().Update(context.TODO(), updated, metav1.UpdateOptions{})
 	if err != nil {
 		scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
