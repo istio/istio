@@ -581,8 +581,7 @@ func (c *dnsClient) Query(req *dns.Msg) *dns.Msg {
 				break
 			}
 			codeString := dns.RcodeToString[code]
-			// TODO make Debug as to not spam the logs on retries?
-			log.Infof("upstream dns error: %v: %v: %v", upstream, getReqNames(req), codeString)
+			log.Debugf("upstream dns error: %v: %v: %v", upstream, getReqNames(req), codeString)
 		} else {
 			log.Infof("upstream dns failure: %v: %v: %v", upstream, getReqNames(req), err)
 		}
