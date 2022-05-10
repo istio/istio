@@ -137,7 +137,7 @@ func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonS
 
 func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {
 	retry.UntilSuccessOrFail(t, func() error {
-		pods, err := cluster.CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
+		pods, err := cluster.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -159,7 +159,7 @@ func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster, ns
 
 func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {
 	retry.UntilSuccessOrFail(t, func() error {
-		pods, err := cluster.CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
+		pods, err := cluster.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}

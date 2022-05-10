@@ -59,7 +59,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		}
 	} else if s.kubeClient != nil {
 		configMapName := getInjectorConfigMapName(args.Revision)
-		cms := s.kubeClient.CoreV1().ConfigMaps(args.Namespace)
+		cms := s.kubeClient.Kube().CoreV1().ConfigMaps(args.Namespace)
 		if _, err := cms.Get(context.TODO(), configMapName, metav1.GetOptions{}); err != nil {
 			if errors.IsNotFound(err) {
 				log.Infof("Skipping sidecar injector, template not found")
