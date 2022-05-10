@@ -17,6 +17,7 @@ metadata:
   name: registry-redirector
   labels:
     app: registry-redirector
+    uuid: {{ .InstanceId }}
 spec:
   ports:
   - name: http
@@ -33,13 +34,15 @@ spec:
   selector:
     matchLabels:
       app: registry-redirector
+      uuid: {{ .InstanceId }}
   template:
     metadata:
       labels:
         app: registry-redirector
+        uuid: {{ .InstanceId }}
     spec:
       containers:
-      - image: {{ or .Image "gcr.io/istio-testing/fake-registry:1.0"}}
+      - image: {{ or .Image "gcr.io/istio-testing/fake-registry:1.1"}}
         name: registry-redirector
         {{- if .TargetRegistry }}
         args: ["--registry", {{ .TargetRegistry }}]
