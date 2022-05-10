@@ -78,8 +78,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		args["TargetRegistry"] = cfg.TargetRegistry
 	}
 
-	if len(cfg.RegistryRedirectorImage) != 0 {
-		args["RegistryRedirectorImage"] = cfg.RegistryRedirectorImage
+	if len(cfg.Image) != 0 {
+		args["Image"] = cfg.Image
 	}
 
 	// apply YAML

@@ -40,7 +40,7 @@ type Config struct {
 	TargetRegistry string
 	// Docker image location of the fake registry. Default is "gcr.io/istio-testing/fake-registry:x.x".
 	// Please refer to registry_redirector_server.yaml for the exact default image.
-	RegistryRedirectorImage string
+	Image string
 }
 
 // New returns a new instance of registry redirector.
