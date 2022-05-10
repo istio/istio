@@ -75,7 +75,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	var svc *kubeApiCore.Service
-	if svc, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster, c.ns.Name(), "gce-metadata-server"); err != nil {
+	if svc, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), "gce-metadata-server"); err != nil {
 		scopes.Framework.Infof("Error waiting for GCE Metadata service to be available: %v", err)
 		return nil, err
 	}

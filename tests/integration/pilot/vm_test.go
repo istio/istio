@@ -127,7 +127,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 			t.NewSubTest("reconnect reuses WorkloadEntry").Run(func(t framework.TestContext) {
 				// ensure we have two pilot instances, other tests can pass before the second one comes up
 				retry.UntilSuccessOrFail(t, func() error {
-					pilotRes, err := t.Clusters().Default().CoreV1().Pods(i.Settings().SystemNamespace).
+					pilotRes, err := t.Clusters().Default().Kube().CoreV1().Pods(i.Settings().SystemNamespace).
 						List(context.TODO(), metav1.ListOptions{LabelSelector: "istio=pilot"})
 					if err != nil {
 						return err
@@ -187,13 +187,13 @@ func disconnectProxy(t framework.TestContext, pilot string, instance echo.Instan
 }
 
 func scaleDeploymentOrFail(t framework.TestContext, name, namespace string, scale int32) {
-	s, err := t.Clusters().Default().AppsV1().Deployments(namespace).
+	s, err := t.Clusters().Default().Kube().AppsV1().Deployments(namespace).
 		GetScale(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.Spec.Replicas = scale
-	_, err = t.Clusters().Default().AppsV1().Deployments(namespace).
+	_, err = t.Clusters().Default().Kube().AppsV1().Deployments(namespace).
 		UpdateScale(context.TODO(), name, s, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatal(err)

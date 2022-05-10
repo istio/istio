@@ -109,7 +109,7 @@ func TestPodCache(t *testing.T) {
 
 func TestHostNetworkPod(t *testing.T) {
 	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
-	initTestEnv(t, c.client, fx)
+	initTestEnv(t, c.client.Kube(), fx)
 	createPod := func(ip, name string) {
 		addPods(t, c, fx, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
 	}
@@ -133,7 +133,7 @@ func TestHostNetworkPod(t *testing.T) {
 // Regression test for https://github.com/istio/istio/issues/20676
 func TestIPReuse(t *testing.T) {
 	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
-	initTestEnv(t, c.client, fx)
+	initTestEnv(t, c.client.Kube(), fx)
 
 	createPod := func(ip, name string) {
 		addPods(t, c, fx, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
@@ -165,7 +165,7 @@ func TestIPReuse(t *testing.T) {
 		t.Fatalf("unexpected pod: %v", p)
 	}
 
-	err := c.client.CoreV1().Pods("ns").Delete(context.TODO(), "another-pod", metav1.DeleteOptions{})
+	err := c.client.Kube().CoreV1().Pods("ns").Delete(context.TODO(), "another-pod", metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("Cannot delete pod: %v", err)
 	}
@@ -203,7 +203,7 @@ func testPodCache(t *testing.T) {
 		WatchedNamespaces: "nsa,nsb",
 	})
 
-	initTestEnv(t, c.client, fx)
+	initTestEnv(t, c.client.Kube(), fx)
 
 	// Namespace must be lowercase (nsA doesn't work)
 	pods := []*v1.Pod{

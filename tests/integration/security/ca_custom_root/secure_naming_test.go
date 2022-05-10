@@ -218,7 +218,7 @@ func verifyCertificatesWithPluginCA(t framework.TestContext, certs []string) {
 
 func checkCACert(t framework.TestContext, testNamespace namespace.Instance) error {
 	configMapName := "istio-ca-root-cert"
-	cm, err := t.Clusters().Default().CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
+	cm, err := t.Clusters().Default().Kube().CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
 		kubeApiMeta.GetOptions{})
 	if err != nil {
 		return err

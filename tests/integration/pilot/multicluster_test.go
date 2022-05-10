@@ -189,7 +189,7 @@ func TestBadRemoteSecret(t *testing.T) {
 				pod = "istiod-bad-secrets-test"
 			)
 			t.Logf("creating service account %s/%s", ns, sa)
-			if _, err := remote.CoreV1().ServiceAccounts(ns).Create(context.TODO(), &corev1.ServiceAccount{
+			if _, err := remote.Kube().CoreV1().ServiceAccounts(ns).Create(context.TODO(), &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{Name: sa},
 			}, metav1.CreateOptions{}); err != nil {
 				t.Fatal(err)
@@ -245,7 +245,7 @@ stringData:
 
 			// create a new istiod pod using the template from the deployment, but not managed by the deployment
 			t.Logf("creating pod %s/%s", ns, pod)
-			deps, err := primary.AppsV1().
+			deps, err := primary.Kube().AppsV1().
 				Deployments(ns).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=istiod"})
 			if err != nil {
 				t.Fatal(err)
@@ -253,7 +253,7 @@ stringData:
 			if len(deps.Items) == 0 {
 				t.Skip("no deployments with label app=istiod")
 			}
-			pods := primary.CoreV1().Pods(ns)
+			pods := primary.Kube().CoreV1().Pods(ns)
 			podMeta := deps.Items[0].Spec.Template.ObjectMeta
 			podMeta.Name = pod
 			_, err = pods.Create(context.TODO(), &corev1.Pod{

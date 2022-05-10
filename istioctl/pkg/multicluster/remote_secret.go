@@ -255,7 +255,7 @@ func getOrCreateServiceAccountSecret(
 
 	// manually specified secret, make sure it references the ServiceAccount
 	if opt.SecretName != "" {
-		secret, err := client.CoreV1().Secrets(opt.Namespace).Get(ctx, opt.SecretName, metav1.GetOptions{})
+		secret, err := client.Kube().CoreV1().Secrets(opt.Namespace).Get(ctx, opt.SecretName, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("could not get specified secret %s/%s: %v",
 				opt.Namespace, opt.SecretName, err)
@@ -268,7 +268,7 @@ func getOrCreateServiceAccountSecret(
 
 	// first try to find an existing secret that references the SA
 	// TODO will the SA have any reference to secrets anymore, can we avoid this list?
-	allSecrets, err := client.CoreV1().Secrets(opt.Namespace).List(ctx, metav1.ListOptions{})
+	allSecrets, err := client.Kube().CoreV1().Secrets(opt.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed listing secrets in %s: %v", opt.Namespace, err)
 	}
@@ -282,7 +282,7 @@ func getOrCreateServiceAccountSecret(
 	// finally, create the sa token secret manually
 	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#manually-create-a-service-account-api-token
 	// TODO ephemeral time-based tokens are preferred; we should re-think this
-	return client.CoreV1().Secrets(opt.Namespace).Create(ctx, &v1.Secret{
+	return client.Kube().CoreV1().Secrets(opt.Namespace).Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        tokenSecretName(serviceAccount.Name),
 			Annotations: map[string]string{v1.ServiceAccountNameKey: serviceAccount.Name},
@@ -341,11 +341,11 @@ func legacyGetServiceAccountSecret(
 	if secretNamespace == "" {
 		secretNamespace = opt.Namespace
 	}
-	return client.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	return client.Kube().CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 }
 
 func getOrCreateServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptions) (*v1.ServiceAccount, error) {
-	if sa, err := client.CoreV1().ServiceAccounts(opt.Namespace).Get(
+	if sa, err := client.Kube().CoreV1().ServiceAccounts(opt.Namespace).Get(
 		context.TODO(), opt.ServiceAccountName, metav1.GetOptions{}); err == nil {
 		return sa, nil
 	} else if !opt.CreateServiceAccount {
@@ -363,7 +363,7 @@ func getOrCreateServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptio
 	}
 
 	// Return the newly created service account.
-	sa, err := client.CoreV1().ServiceAccounts(opt.Namespace).Get(
+	sa, err := client.Kube().CoreV1().ServiceAccounts(opt.Namespace).Get(
 		context.TODO(), opt.ServiceAccountName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed retrieving service account %s.%s after creating it: %v",
@@ -453,8 +453,8 @@ func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 }
 
 func createNamespaceIfNotExist(client kube.Client, ns string) error {
-	if _, err := client.CoreV1().Namespaces().Get(context.TODO(), ns, metav1.GetOptions{}); err != nil {
-		if _, err := client.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
+	if _, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), ns, metav1.GetOptions{}); err != nil {
+		if _, err := client.Kube().CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: ns,
 			},
@@ -655,7 +655,7 @@ type Warning error
 func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env Environment) (*v1.Secret, Warning, error) {
 	// generate the clusterName if not specified
 	if opt.ClusterName == "" {
-		uid, err := clusterUID(client)
+		uid, err := clusterUID(client.Kube())
 		if err != nil {
 			return nil, nil, err
 		}

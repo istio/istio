@@ -134,7 +134,7 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				_, err = client.CoreV1().Namespaces().Get(context.TODO(), namespace, v1.GetOptions{})
+				_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, v1.GetOptions{})
 				if errors.IsNotFound(err) {
 					fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", namespace)
 					return nil

@@ -1314,7 +1314,7 @@ func getMeshConfig(kubeClient kube.ExtendedClient) (*meshconfig.MeshConfig, erro
 		meshConfigMapName = fmt.Sprintf("%s-%s", defaultMeshConfigMapName, rev)
 	}
 
-	meshConfigMap, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := kubeClient.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, istioNamespace, err)
 	}

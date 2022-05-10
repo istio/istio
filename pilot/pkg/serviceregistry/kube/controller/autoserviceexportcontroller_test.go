@@ -68,12 +68,12 @@ func TestServiceExportController(t *testing.T) {
 	sc.Run(stop)
 
 	t.Run("exportable", func(t *testing.T) {
-		createSimpleService(t, client, "exportable-ns", "foo")
+		createSimpleService(t, client.Kube(), "exportable-ns", "foo")
 		assertServiceExport(t, client, "exportable-ns", "foo", true)
 	})
 
 	t.Run("unexportable", func(t *testing.T) {
-		createSimpleService(t, client, "unexportable-ns", "foo")
+		createSimpleService(t, client.Kube(), "unexportable-ns", "foo")
 		assertServiceExport(t, client, "unexportable-ns", "foo", false)
 	})
 
@@ -105,7 +105,7 @@ func TestServiceExportController(t *testing.T) {
 
 		// create the associated service
 		// no need for assertions, just trying to ensure no errors
-		createSimpleService(t, client, "exportable-ns", "manual-export")
+		createSimpleService(t, client.Kube(), "exportable-ns", "manual-export")
 
 		// assert that we didn't wipe out the pre-existing serviceexport status
 		assertServiceExportHasCondition(t, client, "exportable-ns", "manual-export",

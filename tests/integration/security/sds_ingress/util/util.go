@@ -145,10 +145,10 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 		c := c
 		wg.Go(func() error {
 			secret := createSecret(ingressType, credName, ns, ingressCred, isCompoundAndNotGeneric)
-			_, err := c.CoreV1().Secrets(ns).Create(context.TODO(), secret, metav1.CreateOptions{})
+			_, err := c.Kube().CoreV1().Secrets(ns).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err != nil {
 				if errors.IsAlreadyExists(err) {
-					if _, err := c.CoreV1().Secrets(ns).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+					if _, err := c.Kube().CoreV1().Secrets(ns).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
 						return fmt.Errorf("failed to update secret (error: %s)", err)
 					}
 				} else {
@@ -157,7 +157,7 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 			}
 			// Check if Kubernetes secret is ready
 			return retry.UntilSuccess(func() error {
-				_, err := c.CoreV1().Secrets(ns).Get(context.TODO(), credName, metav1.GetOptions{})
+				_, err := c.Kube().CoreV1().Secrets(ns).Get(context.TODO(), credName, metav1.GetOptions{})
 				if err != nil {
 					return fmt.Errorf("secret %v not found: %v", credName, err)
 				}
@@ -180,7 +180,7 @@ func deleteKubeSecret(ctx framework.TestContext, credName string) {
 	// Create Kubernetes secret for ingress gateway
 	c := ctx.Clusters().Default()
 	var immediate int64
-	err := c.CoreV1().Secrets(systemNS.Name()).Delete(context.TODO(), credName,
+	err := c.Kube().CoreV1().Secrets(systemNS.Name()).Delete(context.TODO(), credName,
 		metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 	if err != nil && !errors.IsNotFound(err) {
 		ctx.Fatalf("Failed to delete secret (error: %s)", err)
@@ -340,17 +340,17 @@ func RotateSecrets(ctx framework.TestContext, credName string, // nolint:interfa
 	c := ctx.Clusters().Default()
 	ist := istio.GetOrFail(ctx, ctx)
 	systemNS := namespace.ClaimOrFail(ctx, ctx, ist.Settings().SystemNamespace)
-	scrt, err := c.CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), credName, metav1.GetOptions{})
+	scrt, err := c.Kube().CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), credName, metav1.GetOptions{})
 	if err != nil {
 		ctx.Errorf("Failed to get secret %s:%s (error: %s)", systemNS.Name(), credName, err)
 	}
 	scrt = updateSecret(ingressType, scrt, ingressCred, isCompoundAndNotGeneric)
-	if _, err = c.CoreV1().Secrets(systemNS.Name()).Update(context.TODO(), scrt, metav1.UpdateOptions{}); err != nil {
+	if _, err = c.Kube().CoreV1().Secrets(systemNS.Name()).Update(context.TODO(), scrt, metav1.UpdateOptions{}); err != nil {
 		ctx.Errorf("Failed to update secret %s:%s (error: %s)", scrt.Namespace, scrt.Name, err)
 	}
 	// Check if Kubernetes secret is ready
 	retry.UntilSuccessOrFail(ctx, func() error {
-		_, err := c.CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), credName, metav1.GetOptions{})
+		_, err := c.Kube().CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), credName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("secret %v not found: %v", credName, err)
 		}
