@@ -147,6 +147,9 @@ type JwksResolver struct {
 
 	// How many times refresh job failed to fetch the public key from network, used in unit test.
 	refreshJobFetchFailedCount uint64
+
+	// Whenever we fail to fetch pubkey from jwksuri in main flow this variable becomes true
+	jwksUribackgroundChannel bool
 }
 
 func init() {
@@ -391,12 +394,16 @@ func (r *JwksResolver) refresher() {
 	for {
 		select {
 		case <-r.refreshTicker.C:
-			lastHasError = r.refreshCache(lastHasError)
+			if !r.jwksUribackgroundChannel {
+				lastHasError = r.refreshCache(lastHasError)
+			}
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return
 		case <-jwksuriChannel:
+			r.jwksUribackgroundChannel = true
 			lastHasError = r.refreshCache(lastHasError)
+			r.jwksUribackgroundChannel = false
 		}
 	}
 }
@@ -430,6 +437,10 @@ func (r *JwksResolver) refresh() bool {
 		now := time.Now()
 		k := key.(jwtKey)
 		e := value.(jwtPubKeyEntry)
+
+		if e.pubKey != "" && r.jwksUribackgroundChannel {
+			return true
+		}
 		// Remove cached item for either of the following 2 situations
 		// 1) it hasn't been used for a while
 		// 2) it hasn't been refreshed successfully for a while
