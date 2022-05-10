@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
@@ -217,11 +216,15 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 	return nil
 }
 
-func clusterProject(c cluster.Cluster) string {
-	if c == nil {
+func clusterProject(t framework.TestContext, clusterName string) string {
+	cluster := t.Clusters().GetByName(clusterName)
+	if cluster == nil {
+		t.Logf("cluster lookup failed: using empty cluster project value")
 		return ""
 	}
-	return c.MetadataValue(platform.GCPProject)
+	proj := cluster.MetadataValue(platform.GCPProject)
+	t.Logf("using cluster project: %q", proj)
+	return proj
 }
 
 func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, clName, trustDomain string) error {
@@ -235,7 +238,7 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 		return fmt.Errorf("metrics: error generating wanted client request: %v", err)
 	}
 
-	ts, err := SDInst.ListTimeSeries(EchoNsInst.Name(), clusterProject(t.Clusters().GetByName(clName)))
+	ts, err := SDInst.ListTimeSeries(EchoNsInst.Name(), clusterProject(t, clName))
 	if err != nil {
 		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
 	}
@@ -303,7 +306,7 @@ func ValidateLogs(t framework.TestContext, srvLogEntry, clName, trustDomain stri
 	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName, trustDomain); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
-	return ValidateLogEntry(t, &wantLog, filter, clusterProject(t.Clusters().GetByName(clName)))
+	return ValidateLogEntry(t, &wantLog, filter, clusterProject(t, clName))
 }
 
 func ValidateLogEntry(t framework.TestContext, want *loggingpb.LogEntry, filter stackdriver.LogType, project string) error {
