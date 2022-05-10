@@ -56,6 +56,42 @@ func TestInferPodInfo(t *testing.T) {
 			wantPodName:   "istio-security-post-install-1.2.2-bm9w2",
 			wantNamespace: "istio-system",
 		},
+		{
+			proxyName:     "service/istiod",
+			namespace:     "",
+			wantPodName:   "service/istiod",
+			wantNamespace: "",
+		},
+		{
+			proxyName:     "service/istiod",
+			namespace:     "namespace",
+			wantPodName:   "service/istiod",
+			wantNamespace: "namespace",
+		},
+		{
+			proxyName:     "service/istiod.istio-system",
+			namespace:     "namespace",
+			wantPodName:   "service/istiod",
+			wantNamespace: "istio-system",
+		},
+		{
+			proxyName:     "gateway.gateway.networking.k8s.io/istiod",
+			namespace:     "",
+			wantPodName:   "gateway.gateway.networking.k8s.io/istiod",
+			wantNamespace: "",
+		},
+		{
+			proxyName:     "gateway.gateway.networking.k8s.io/istiod",
+			namespace:     "namespace",
+			wantPodName:   "gateway.gateway.networking.k8s.io/istiod",
+			wantNamespace: "namespace",
+		},
+		{
+			proxyName:     "gateway.gateway.networking.k8s.io/istiod.istio-system",
+			namespace:     "namespace",
+			wantPodName:   "gateway.gateway.networking.k8s.io/istiod",
+			wantNamespace: "istio-system",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(strings.Split(tt.proxyName, ".")[0], func(t *testing.T) {

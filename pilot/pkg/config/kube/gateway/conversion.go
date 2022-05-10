@@ -1159,7 +1159,7 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 				message: "Listeners valid",
 			},
 		}
-		if isManaged(kgw) {
+		if IsManaged(kgw) {
 			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
 				error: &ConfigError{
 					Reason:  "ResourcesPending",
@@ -1301,7 +1301,9 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 	return result, gwMap, namespaceLabelReferences
 }
 
-// isManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
+const GatewayNameLabel = "istio.io/gateway-name"
+
+// IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
 // This is based on the address field of the spec. If address is set with a Hostname type, it should point to an existing
 // Service that handles the gateway traffic. If it is not set, or refers to only a single IP, we will consider it managed and provision the Service.
 // If there is an IP, we will set the `loadBalancerIP` type.
@@ -1319,7 +1321,7 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 // Mixed hostname and IP - doesn't make sense; user should define the IP in service
 // NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations,
 //   which users can add to the Gateway.
-func isManaged(gw *k8s.GatewaySpec) bool {
+func IsManaged(gw *k8s.GatewaySpec) bool {
 	if len(gw.Addresses) == 0 {
 		return true
 	}
@@ -1333,7 +1335,7 @@ func isManaged(gw *k8s.GatewaySpec) bool {
 }
 
 func extractGatewayServices(r *KubernetesResources, kgw *k8s.GatewaySpec, obj config.Config) ([]string, []string) {
-	if isManaged(kgw) {
+	if IsManaged(kgw) {
 		return []string{fmt.Sprintf("%s.%s.svc.%v", obj.Name, obj.Namespace, r.Domain)}, nil
 	}
 	gatewayServices := []string{}
