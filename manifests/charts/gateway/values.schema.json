@@ -42,6 +42,9 @@
         },
         "targetCPUUtilizationPercentage": {
           "type": "integer"
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer"
         }
       }
     },

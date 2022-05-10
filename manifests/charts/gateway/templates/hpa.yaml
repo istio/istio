@@ -28,4 +28,12 @@ spec:
           averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
           type: Utilization
     {{- end }}
+    {{- if .Values.autoscaling.targetMemoryUtilization }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          averageUtilization: {{ .Values.autoscaling.targetMemoryUtilization }}
+          type: Utilization
+    {{- end }}
 {{- end }}
