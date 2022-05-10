@@ -1142,23 +1142,34 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	return tlsContext, nil
 }
 
-// Set auto_sni if sni field is not explicitly set and if EnableAutoSni feature flag is enabled.
-// Set auto_san_validation if VerifyCertAtClient feature flag is enabled
+// Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
+// Set auto_san_validation if VerifyCertAtClient feature flag is enabled and if there is no explicit SubjectAltNames specified  in DR.
 func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls *networking.ClientTLSSettings) {
-	if mc != nil && features.EnableAutoSni {
-		if len(tls.Sni) == 0 || (features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0) {
-			if mc.httpProtocolOptions == nil {
-				mc.httpProtocolOptions = &http.HttpProtocolOptions{}
-			}
-			if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
-				mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
-			}
-			if len(tls.Sni) == 0 {
-				mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
-			}
-			if features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0 {
-				mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
-			}
+	if mc == nil || !features.EnableAutoSni {
+		return
+	}
+
+	setAutoSni := false
+	setAutoSanValidation := false
+	if len(tls.Sni) == 0 {
+		setAutoSni = true
+	}
+	if features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0 {
+		setAutoSanValidation = true
+	}
+
+	if setAutoSni || setAutoSanValidation {
+		if mc.httpProtocolOptions == nil {
+			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+		}
+		if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
+		}
+		if setAutoSni {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
+		}
+		if setAutoSanValidation {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
 		}
 	}
 }
