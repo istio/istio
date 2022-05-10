@@ -557,9 +557,8 @@ var testGrid = []testCase{
 			"testdata/serviceentry-missing-addresses-protocol.yaml",
 		},
 		meshConfigFile: "testdata/serviceentry-missing-addresses-protocol-mesh-cfg.yaml",
-		analyzer: &serviceentry.ProtocolAdressesAnalyzer{},
-		expected: []message{
-		},
+		analyzer:       &serviceentry.ProtocolAdressesAnalyzer{},
+		expected:       []message{},
 	},
 	{
 		name: "certificate duplication in Gateway",

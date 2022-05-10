@@ -56,25 +56,23 @@ func (serviceEntry *ProtocolAdressesAnalyzer) Analyze(context analysis.Context) 
 	})
 
 	context.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), func(resource *resource.Instance) bool {
-		serviceEntry.analyzeProtocolAddresses(resource, autoAllocated, context)
+		serviceEntry.analyzeProtocolAddresses(resource, context, autoAllocated)
 		return true
 	})
 }
 
-func (serviceEntry *ProtocolAdressesAnalyzer) analyzeProtocolAddresses(resource *resource.Instance,
-	metaDNSAutoAllocated bool, context analysis.Context) {
-	se := resource.Message.(*v1alpha3.ServiceEntry)
-
+func (serviceEntry *ProtocolAdressesAnalyzer) analyzeProtocolAddresses(r *resource.Instance, ctx analysis.Context, metaDNSAutoAllocated bool) {
+	se := r.Message.(*v1alpha3.ServiceEntry)
 	if se.Addresses == nil && !metaDNSAutoAllocated {
 		for index, port := range se.Ports {
 			if port.Protocol == "" || port.Protocol == "TCP" {
-				message := msg.NewServiceEntryAddressesRequired(resource)
+				message := msg.NewServiceEntryAddressesRequired(r)
 
-				if line, ok := util.ErrorLine(resource, fmt.Sprintf(util.ServiceEntryPort, index)); ok {
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.ServiceEntryPort, index)); ok {
 					message.Line = line
 				}
 
-				context.Report(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), message)
+				ctx.Report(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), message)
 			}
 		}
 	}
