@@ -686,66 +686,6 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 	return
 }
 
-func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
-	if util.IsAllowAnyOutbound(node) {
-		egressCluster := util.PassthroughCluster
-		notimeout := durationpb.New(0)
-
-		// no need to check for nil value as the previous if check has checked
-		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
-			// user has provided an explicit destination for all the unknown traffic.
-			// build a cluster out of this destination
-			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
-				nil, 0)
-		}
-
-		routeAction := &route.RouteAction{
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
-			// Disable timeout instead of assuming some defaults.
-			Timeout: notimeout,
-			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-			// nolint: staticcheck
-			MaxGrpcTimeout: notimeout,
-		}
-
-		return &route.VirtualHost{
-			Name:    util.Passthrough,
-			Domains: []string{"*"},
-			Routes: []*route.Route{
-				{
-					Name: util.Passthrough,
-					Match: &route.RouteMatch{
-						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-					},
-					Action: &route.Route_Route{
-						Route: routeAction,
-					},
-				},
-			},
-			IncludeRequestAttemptCount: true,
-		}
-	}
-
-	return &route.VirtualHost{
-		Name:    util.BlackHole,
-		Domains: []string{"*"},
-		Routes: []*route.Route{
-			{
-				Name: util.BlackHole,
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-				},
-				Action: &route.Route_DirectResponse{
-					DirectResponse: &route.DirectResponseAction{
-						Status: 502,
-					},
-				},
-			},
-		},
-		IncludeRequestAttemptCount: true,
-	}
-}
-
 // Simply removes everything before .svc, if present
 func removeSvcNamespace(domain string) string {
 	if idx := strings.Index(domain, ".svc."); idx > 0 {
