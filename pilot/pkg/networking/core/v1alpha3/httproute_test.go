@@ -112,6 +112,21 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 		},
 		{
+			name: "non-k8s service",
+			service: &model.Service{
+				Hostname:     "foo.default.svc.bar.baz",
+				MeshExternal: false,
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "default.svc.cluster.local",
+			},
+			want: []string{
+				"foo.default.svc.bar.baz",
+				"foo.default.svc.bar.baz:8123",
+			},
+		},
+		{
 			name: "k8s service with default domain and different namespace",
 			service: &model.Service{
 				Hostname:     "echo.default.svc.cluster.local",

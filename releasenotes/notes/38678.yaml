@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 38678
+releaseNotes:
+  - |
+    **Fixed** some ServiceEntry hostnames can cause non-deterministic Envoy routes.
