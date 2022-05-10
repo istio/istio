@@ -1689,7 +1689,7 @@ func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *c
 		return nil
 	}
 	return &core.TransportSocket{
-		Name:       util.EnvoyTLSSocketName,
+		Name:       wellknown.TransportSocketTls,
 		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
 	}
 }
@@ -1699,7 +1699,7 @@ func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *
 		return nil
 	}
 	return &core.TransportSocket{
-		Name: util.EnvoyQUICSocketName,
+		Name: wellknown.TransportSocketQuic,
 		ConfigType: &core.TransportSocket_TypedConfig{
 			TypedConfig: util.MessageToAny(&envoyquicv3.QuicDownstreamTransport{
 				DownstreamTlsContext: tlsContext,

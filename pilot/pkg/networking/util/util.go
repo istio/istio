@@ -77,18 +77,6 @@ const (
 	// which determines the endpoint level transport socket configuration.
 	EnvoyTransportSocketMetadataKey = "envoy.transport_socket_match"
 
-	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
-	// endpoint level plantext transport socket configuration
-	EnvoyRawBufferSocketName = wellknown.TransportSocketRawBuffer
-
-	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
-	// level tls transport socket configuration
-	EnvoyTLSSocketName = wellknown.TransportSocketTls
-
-	// EnvoyQUICSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
-	// level QUIC transport socket configuration
-	EnvoyQUICSocketName = wellknown.TransportSocketQuic
-
 	// Well-known header names
 	AltSvcHeader = "alt-svc"
 )
