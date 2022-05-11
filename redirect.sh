@@ -68,8 +68,8 @@ fi
 for node in $(kind get nodes --name "${1:-kind}" | grep worker); do
 docker exec -i "$node" sh <<EOF
   if ! command -v ipset; then
-    "$node" apt update
-    "$node" apt install ipset -y
+    apt update
+    apt install ipset -y
   fi
 EOF
 done

@@ -47,7 +47,7 @@ kubectl apply -f pilot/cmd/uproxy/daemonset.kind.yaml
 ## Test it out
 
 ```shell
-# First, make sure the redirection is turned off (it breaks k exec/logs)
+# Optionally, make sure the redirection is turned off
 ./redirect.sh ambient clean
 
 # Deploy helloworld and sleep client
