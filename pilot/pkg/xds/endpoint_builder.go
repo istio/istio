@@ -282,7 +282,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if !ep.IsDiscoverableFromProxy(b.proxy) {
 				continue
 			}
-			if svcPort.Name != ep.ServicePortName {
+			if svcPort.Port != int(ep.EndpointPort) {
 				continue
 			}
 			// Port labels
