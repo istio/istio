@@ -30,7 +30,6 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
@@ -262,28 +261,7 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
-	for _, tag := range listRevision(c).UnsortedList() {
-		sa.AddRunningKubeSourceWithRevision(c, tag)
-	}
-}
-
-func listRevision(c kubelib.Client) sets.Set {
-	revisions := sets.New("default")
-	tagWebhooks, err := tag.GetTagWebhooks(context.Background(), c.Kube())
-	if err != nil {
-		return revisions
-	}
-
-	for _, wh := range tagWebhooks {
-		tagName, err := tag.GetWebhookTagName(wh)
-		if err != nil {
-			continue
-		}
-
-		revisions.Insert(tagName)
-	}
-
-	return revisions
+	sa.AddRunningKubeSourceWithRevision(c, "default")
 }
 
 func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
