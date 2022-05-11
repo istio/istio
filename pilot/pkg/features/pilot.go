@@ -79,8 +79,6 @@ var (
 	).Get()
 
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
-	// TODO enable by default once https://github.com/istio/istio/issues/28315 is resolved
-	// Currently this may cause a bug when we go from N clusters -> 0 clusters -> N clusters
 	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
 		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
 
