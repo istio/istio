@@ -195,6 +195,26 @@
           }
         }
       }
+    },
+    "deploymentStrategy": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Recreate", "RollingUpdate"]
+        },
+        "rollingUpdateDeployment": {
+          "type": "object",
+          "properties": {
+            "maxSurge": {
+              "type": "integer"
+            },
+            "maxUnavailable": {
+              "type": "integer"
+            }
+          }
+        }
+      }
     }
   }
 }
