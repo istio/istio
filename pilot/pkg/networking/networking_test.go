@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -105,6 +105,22 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			false,
 			ListenerProtocolAuto,
 		},
+		{
+			"UDP to UDP",
+			protocol.UDP,
+			core.TrafficDirection_INBOUND,
+			true,
+			false,
+			ListenerProtocolUnknown,
+		},
+		{
+			"Unkown protocal",
+			"Bad Protocal",
+			core.TrafficDirection_INBOUND,
+			true,
+			false,
+			ListenerProtocolAuto,
+		},
 	}
 
 	for _, tt := range tests {
@@ -115,5 +131,51 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 				t.Errorf("ModelProtocolToListenerProtocol() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestMakeTunnelAbility(t *testing.T) {
+	td := MakeTunnelAbility(H2Tunnel, NoTunnel)
+	if td == 0 {
+		t.Fatalf("failed to get MakeTunnelAbility")
+	}
+}
+
+func TestMessageToAny(t *testing.T) {
+	tcpMessage := &tcp.TcpProxy{}
+	if err := MessageToAny(tcpMessage); err == nil {
+		t.Fatalf("failed to get MessageToAny")
+	}
+}
+
+func TestToString(t *testing.T) {
+	h2 := H2Tunnel.ToString()
+	no := NoTunnel.ToString()
+	if h2 == no {
+		t.Fatalf("failed to get ToString")
+	}
+}
+
+func TestSupportH2Tunnel(t *testing.T) {
+	ta := TunnelAbility.SupportH2Tunnel(TunnelAbility(NoTunnel))
+	if ta {
+		t.Fatalf("failed to get SupportH2Tunnel")
+	}
+}
+
+func TestToEnvoySocketProtocol(t *testing.T) {
+	tp := TransportProtocol.ToEnvoySocketProtocol(TransportProtocol(NoTunnel))
+	tpH2 := TransportProtocol.ToEnvoySocketProtocol(TransportProtocol(H2Tunnel))
+	if tp != 0 && tpH2 == 0 {
+		t.Fatalf("failed to get ToEnvoySocketProtocol")
+	}
+}
+
+func TestString(t *testing.T) {
+	tcp := TransportProtocol.String(TransportProtocolTCP)
+	quic := TransportProtocol.String(TransportProtocolQUIC)
+	no := TransportProtocol.String(3)
+	if tcp != "" && quic != "" && no == "" {
+		t.Fatalf("failed to get String")
 	}
 }
