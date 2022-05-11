@@ -91,3 +91,5 @@ affinity: {}
 networkGateway: ""
 
 imagePullSecrets: []
+
+additionalContainers: []

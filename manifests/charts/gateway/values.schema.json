@@ -195,6 +195,12 @@
           }
         }
       }
+    },
+    "additionalContainers": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
     }
   }
 }
