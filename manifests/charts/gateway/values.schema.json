@@ -45,6 +45,17 @@
         }
       }
     },
+    "podDisruptionBudget": {
+      "type": "object",
+      "properties": {
+        "minAvailable": {
+          "type": ["integer", "null"]
+        },
+        "maxUnavailable": {
+          "type": ["integer", "null"]
+        }
+      }
+    },
     "env": {
       "type": "object"
     },

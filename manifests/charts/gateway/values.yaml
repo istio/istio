@@ -70,6 +70,8 @@ autoscaling:
   maxReplicas: 5
   targetCPUUtilizationPercentage: 80
 
+podDisruptionBudget: {}
+
 # Pod environment variables
 env: {}
 
