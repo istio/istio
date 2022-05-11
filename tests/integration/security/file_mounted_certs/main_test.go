@@ -78,84 +78,10 @@ components:
   egressGateways:
   - enabled: true
     name: istio-egressgateway
-    k8s:
-      overlays:
-        - kind: Deployment
-          name: istio-egressgateway
-          patches:
-            - path: spec.template.spec.volumes[100]
-              value: |-
-                name: server-certs
-                secret:
-                  secretName: ` + PilotSecretName + `
-                  defaultMode: 420
-            - path: spec.template.spec.volumes[101]
-              value: |-
-                name: client-certs
-                secret:
-                  secretName: ` + PilotSecretName + `
-                  defaultMode: 420
-            - path: spec.template.spec.containers[0].volumeMounts[100]
-              value: |-
-                name: server-certs
-                mountPath: /server-certs
-            - path: spec.template.spec.containers[0].volumeMounts[101]
-              value: |-
-                name: client-certs
-                mountPath: /client-certs
 
   ingressGateways:
   - enabled: true
     name: istio-ingressgateway
-    k8s:
-      overlays:
-        - kind: Deployment
-          name: istio-ingressgateway
-          patches:
-            - path: spec.template.spec.volumes[100]
-              value: |-
-                name: server-certs
-                secret:
-                  secretName: ` + PilotSecretName + `
-                  defaultMode: 420
-            - path: spec.template.spec.volumes[101]
-              value: |-
-                name: client-certs
-                secret:
-                  secretName: ` + PilotSecretName + `
-                  defaultMode: 420
-            - path: spec.template.spec.containers[0].volumeMounts[100]
-              value: |-
-                name: server-certs
-                mountPath: /server-certs
-            - path: spec.template.spec.containers[0].volumeMounts[101]
-              value: |-
-                name: client-certs
-                mountPath: /client-certs
-
-  pilot:
-    enabled: true
-    k8s:
-      overlays:
-        - kind: Deployment
-          name: istiod
-          patches:
-            - path: spec.template.spec.containers.[name:discovery].args[1001]
-              value: "--caCertFile=/server-certs/root-cert.pem"
-            - path: spec.template.spec.containers.[name:discovery].args[1002]
-              value: "--tlsCertFile=/server-certs/cert-chain.pem"
-            - path: spec.template.spec.containers.[name:discovery].args[1003]
-              value: "--tlsKeyFile=/server-certs/key.pem"
-            - path: spec.template.spec.volumes[-1]
-              value: |-
-                name: server-certs
-                secret:
-                  secretName: ` + PilotSecretName + `
-                  defaultMode: 420
-            - path: spec.template.spec.containers[name:discovery].volumeMounts[-1]
-              value: |-
-                name: server-certs
-                mountPath: /server-certs
 
 meshConfig:
   defaultConfig:
@@ -173,6 +99,35 @@ values:
       # Unauthorized XDS: 10.1.0.159:41960 with identity [spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]:
       #    no identities ([spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]) matched istio-fd-sds-1-4523/default
       XDS_AUTH: "false"
+    extraVolumes:
+      - name: server-certs
+        secret:
+          secretName: ` + PilotSecretName + `
+          defaultMode: 420
+    extraVolumeMounts:
+      - name: server-certs
+        mountPath: /server-certs
+    extraArgs:
+      - --caCertFile=/server-certs/root-cert.pem
+      - --tlsCertFile=/server-certs/cert-chain.pem
+      - --tlsKeyFile=/server-certs/key.pem
+  gateways:
+    istio-ingressgateway:
+      secretVolumes:
+        - name: server-certs
+          mountPath: /server-certs
+          secretName: ` + PilotSecretName + `
+        - name: client-certs
+          mountPath: /client-certs
+          secretName: ` + PilotSecretName + `
+    istio-egressgateway:
+      secretVolumes:
+        - name: server-certs
+          mountPath: /server-certs
+          secretName: ` + PilotSecretName + `
+        - name: client-certs
+          mountPath: /client-certs
+          secretName: ` + PilotSecretName + `
 `
 	cfg.DeployEastWestGW = false
 }

@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue: 
+ - https://github.com/istio/istio/issues/36916
+
+docs: []
+
+releaseNotes:
+- |
+  **Added** values to the Istio Pilot Helm chart to add extra arguments and extra volume mounts to the Deployment.
+
+upgradeNotes: []
+
+securityNotes: []

@@ -706,6 +706,9 @@ message PilotConfig {
   string hub = 34;
 
   google.protobuf.Value tag = 35;
+  google.protobuf.ListValue extraArgs = 38;
+  repeated google.protobuf.Struct extraVolumeMounts = 39;
+  repeated google.protobuf.Struct extraVolumes = 40;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
