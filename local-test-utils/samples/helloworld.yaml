@@ -30,7 +30,7 @@ spec:
       labels:
         app: helloworld
         version: v1
-        asm-type: workload
+        ambient-type: workload
     spec:
       nodeSelector:
         kubernetes.io/hostname: ambient-worker2
@@ -59,7 +59,7 @@ spec:
       labels:
         app: helloworld
         version: v2
-        asm-type: workload
+        ambient-type: workload
     spec:
       nodeSelector:
         kubernetes.io/hostname: ambient-worker

@@ -17,14 +17,14 @@ spec:
     metadata:
       labels:
         app: uproxy
-        asm-type: proxy
+        ambient-type: uproxy
     spec:
       serviceAccountName: uproxy
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       initContainers:
       - name: istio-init
-        image: localhost:5000/uproxy:ambient-oss
+        image: localhost:5000/proxyv2:ambient-oss
         securityContext:
           privileged: true
           capabilities:
@@ -46,7 +46,7 @@ spec:
               fieldPath: status.podIP
       containers:
       - name: istio-proxy
-        image: localhost:5000/uproxy:ambient-oss
+        image: localhost:5000/proxyv2:ambient-oss
         imagePullPolicy: Always
         readinessProbe:
           httpGet:
@@ -57,13 +57,13 @@ spec:
         - sidecar
         env:
         - name: PROXY_CONFIG
-          value: '{"discoveryAddress": "docker.for.mac.localhost:15012", "tracing": {"disabled": {}}}'
-        - name: ISTIO_BOOTSTRAP
-          value: ./var/lib/istio/envoy/uproxy_bootstrap_tmpl.json
+          value: '{"discoveryAddress": "docker.for.mac.localhost:15012"}'
         - name: CA_ADDR
           value: docker.for.mac.localhost:15012
         - name: ISTIO_META_GENERATOR
           value: "uproxy-envoy"
+        - name: ISTIO_META_SIDECARLESS_TYPE
+          value: "uproxy"
         - name: POD_NAME
           valueFrom:
             fieldRef:

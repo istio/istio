@@ -70,7 +70,7 @@ type UProxyConfigGenerator struct {
 }
 
 func isUproxyableWorkload(pod *corev1.Pod) bool {
-	if !controller.IsPodReady(pod) || pod.Spec.HostNetwork || pod.Namespace == "kube-system" || pod.Labels["asm-type"] != "workload" {
+	if !controller.IsPodReady(pod) || pod.Spec.HostNetwork || pod.Namespace == "kube-system" || pod.Labels["ambient-type"] != "workload" {
 		return false
 	}
 	return true

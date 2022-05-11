@@ -47,7 +47,7 @@ metadata:
   namespace: ns1
   labels:
     app: sleep
-    asm-type: workload
+    ambient-type: workload
 spec:
   nodeName: worker-1
   serviceAccountName: sleep
@@ -85,7 +85,7 @@ metadata:
   namespace: ns1
   labels:
     app: helloworld
-    asm-type: workload
+    ambient-type: workload
 spec:
   nodeName: worker-1
   serviceAccountName: default
@@ -102,7 +102,7 @@ metadata:
   namespace: ns1
   labels:
     app: helloworld
-    asm-type: workload
+    ambient-type: workload
 spec:
   nodeName: worker-2
   serviceAccountName: default

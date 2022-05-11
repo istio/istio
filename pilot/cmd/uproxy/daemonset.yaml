@@ -17,12 +17,12 @@ spec:
     metadata:
       labels:
         app: uproxy
-        asm-type: proxy
+        ambient-type: uproxy
     spec:
       serviceAccountName: uproxy
       initContainers:
       - name: istio-init
-        image: gcr.io/landow-istio-dev/uproxy:ambient-oss
+        image: gcr.io/landow-istio-dev/proxyv2:ambient-oss
         securityContext:
           privileged: true
           capabilities:
@@ -54,7 +54,7 @@ spec:
               fieldPath: status.podIP
       containers:
       - name: istio-proxy
-        image: gcr.io/landow-istio-dev/uproxy:ambient-oss
+        image: gcr.io/landow-istio-dev/proxyv2:ambient-oss
         imagePullPolicy: Always
         readinessProbe:
           httpGet:
@@ -64,12 +64,10 @@ spec:
         - proxy
         - sidecar
         env:
-        - name: PROXY_CONFIG
-          value: '{"tracing": {"disabled": {}}}'
-        - name: ISTIO_BOOTSTRAP
-          value: ./var/lib/istio/envoy/uproxy_bootstrap_tmpl.json
         - name: ISTIO_META_GENERATOR
           value: "uproxy-envoy"
+        - name: ISTIO_META_SIDECARLESS_TYPE
+          value: "uproxy"
         - name: POD_NAME
           valueFrom:
             fieldRef:

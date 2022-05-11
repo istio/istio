@@ -17,14 +17,14 @@ spec:
     metadata:
       labels:
         app: uproxy
-        asm-type: proxy
+        ambient-type: uproxy
     spec:
       serviceAccountName: uproxy
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
     #  initContainers:
     #  - name: istio-init
-    #    image: localhost:5000/uproxy:ambient-oss
+    #    image: localhost:5000/proxyv2:ambient-oss
     #    securityContext:
     #      privileged: true
     #      capabilities:
@@ -47,8 +47,8 @@ spec:
 
       containers:
       - name: istio-proxy
-        image: localhost:5000/uproxy:ambient-oss
-        imagePullPolicy: IfNotPresent
+        image: localhost:5000/proxyv2:ambient-oss
+        imagePullPolicy: Always
         securityContext:
           capabilities:
             add:
@@ -61,12 +61,10 @@ spec:
         - proxy
         - sidecar
         env:
-        - name: PROXY_CONFIG
-          value: '{"tracing": {"disabled": {}}}'
-        - name: ISTIO_BOOTSTRAP
-          value: ./var/lib/istio/envoy/uproxy_bootstrap_tmpl.json
         - name: ISTIO_META_GENERATOR
           value: "uproxy-envoy"
+        - name: ISTIO_META_SIDECARLESS_TYPE
+          value: "uproxy"
         - name: POD_NAME
           valueFrom:
             fieldRef:

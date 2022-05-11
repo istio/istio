@@ -3,14 +3,11 @@
 ## Build
 
 ```shell
-./local-test-utils/download-uproxy.sh
 ./local-test-utils/kind-registry.sh
 
 export ISTIO_ENVOY_BASE_URL ?= https://storage.googleapis.com/solo-istio-build/proxy
 HUB=localhost:5000 # local registry in docker (helps avoid permissions issues from private registry)
 TAG=ambient-oss
-# Build Istiod and proxy
-ISTIO_ENVOY_LOCAL="out/uproxy" HUB="${HUB}" TAG="${TAG}" make docker.uproxy
 tools/docker --targets=pilot,proxyv2 --hub=$HUB --tag=$TAG --push
 ```
 

@@ -47,7 +47,7 @@ spec:
     metadata:
       labels:
         app: sleep
-        asm-type: workload
+        ambient-type: workload
     spec:
       nodeSelector:
         kubernetes.io/hostname: ambient-worker

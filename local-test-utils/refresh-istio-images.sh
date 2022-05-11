@@ -20,7 +20,7 @@ TAG=${TAG:-ambient-oss}
 function pull_to_local_registry() {
   local REMOTE
   local LOCAL
-  for i in pilot proxyv2 uproxy; do
+  for i in pilot proxyv2; do
     REMOTE="${HUB}/${i}:${TAG}"
     LOCAL="localhost:5000/${i}:${TAG}"
     docker pull "${REMOTE}"
