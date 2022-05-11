@@ -15,8 +15,10 @@
 package framework
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -109,6 +111,9 @@ type Suite interface {
 	RequireMinVersion(minorVersion uint) Suite
 	// RequireMaxVersion validates the environment meets a maximum version
 	RequireMaxVersion(minorVersion uint) Suite
+	// RequireDualStackCluster is a utility method that requires that there be exactly 1 cluster in the environment
+	// and it is configured in dual-stack mode
+	RequireDualStackCluster() Suite
 	// Setup runs enqueues the given setup function to run before test execution.
 	Setup(fn resource.SetupFn) Suite
 	// Run the suite. This method calls os.Exit and does not return.
@@ -300,6 +305,39 @@ func (s *suiteImpl) RequireMaxVersion(minorVersion uint) Suite {
 
 	s.requireFns = append(s.requireFns, fn)
 	return s
+}
+
+func (s *suiteImpl) RequireDualStackCluster() Suite {
+	fn := func(ctx resource.Context) error {
+		for _, c := range ctx.Clusters().Kube() {
+			pods, err := c.PodsForSelector(context.TODO(), "kube-system", "k8s-app=kube-proxy")
+			if err != nil {
+				return err
+			}
+			for _, pod := range pods.Items {
+				foundIPv4, foundIPv6 := false, false
+				for _, ip := range pod.Status.PodIPs {
+					if r := net.ParseIP(ip.IP); r != nil {
+						if r.To4() != nil {
+							foundIPv4 = true
+						}
+						if r.To16() != nil {
+							foundIPv6 = true
+						}
+					} else {
+						return fmt.Errorf("pod has an invalid ip: %v", ip)
+					}
+				}
+				if !(foundIPv6 && foundIPv4) {
+					return fmt.Errorf("kube-proxy is not running in dual-stack mode")
+				}
+			}
+		}
+		return nil
+	}
+
+	s.requireFns = append(s.requireFns, fn)
+	return s.RequireMinVersion(20).RequireSingleCluster()
 }
 
 func (s *suiteImpl) Setup(fn resource.SetupFn) Suite {

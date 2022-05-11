@@ -69,6 +69,7 @@ const (
 	ClusterField          Field = "Cluster"
 	IstioVersionField     Field = "IstioVersion"
 	IPField               Field = "IP" // The Requester’s IP Address.
+	IPFamily              Field = "IPFamily"
 	LatencyField          Field = "Latency"
 	ActiveRequestsField   Field = "ActiveRequests"
 	DNSProtocolField      Field = "Protocol"

@@ -115,6 +115,10 @@ func (s *suiteAnalyzer) RequireMaxVersion(minorVersion uint) Suite {
 	return s
 }
 
+func (s *suiteAnalyzer) RequireDualStackCluster() Suite {
+	return s
+}
+
 func (s *suiteAnalyzer) Setup(fn resource.SetupFn) Suite {
 	// TODO track setup fns?
 	return s
