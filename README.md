@@ -40,6 +40,9 @@ kubectl apply -f pilot/cmd/uproxy/daemonset.kind.yaml
 # Turn mesh on
 ./redirect.sh ambient
 
+# Update pod membership (will move to CNI). can stop it after it does 1 iteration if pods don't change
+./tmp-update-pod-set.sh
+
 # Turn mesh off
 ./redirect.sh ambient clean
 ```

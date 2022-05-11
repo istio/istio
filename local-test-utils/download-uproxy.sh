@@ -41,6 +41,7 @@ fi
 if [ -z "${SKIP_COPY_ENVOY}" ]; then
   echo "Copying envoy from ${ENVOY_PATH} to out/uproxy. Use out/uproxy in ISTIO_ENVOY_LOCAL."
   cp "${ENVOY_PATH}" "out/uproxy"
+  mkdir -p out/linux_amd64
   cp "out/uproxy" "out/linux_amd64/envoy"
   cp "out/uproxy" "out/linux_amd64/release/envoy"
 fi

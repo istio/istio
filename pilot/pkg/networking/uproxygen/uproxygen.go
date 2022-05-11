@@ -33,6 +33,7 @@ import (
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	routerfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
+	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
 	httpconn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
@@ -153,6 +154,12 @@ const (
 	UproxyOutboundCapturePort         uint32 = 15001
 	UproxyInboundNodeLocalCapturePort uint32 = 15088
 	UproxyInboundCapturePort          uint32 = 15008
+	// TODO: this needs to match the mark in the iptables rules.
+	// And also not clash with any other mark on the host level.
+	// either figure out a way to not hardcode it, or a way to not use it.
+	// i think the best solution is to have this mark configurable and run the
+	// iptables rules from the code, so we are sure the mark matches.
+	OriginalSrcMark uint32 = 1234
 )
 
 func (g *UProxyConfigGenerator) BuildListeners(proxy *model.Proxy, push *model.PushContext, names []string, workloads *uproxyWorkloads) (out model.Resources) {
@@ -232,16 +239,24 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 	l := &listener.Listener{
 		Name:           "uproxy_outbound",
 		UseOriginalDst: wrappers.Bool(true),
+		Transparent:    wrappers.Bool(true),
 		AccessLog:      accessLogString("outbound capture listener"),
 		ListenerFilters: []*listener.ListenerFilter{{
 			Name: wellknown.OriginalDestination,
 			ConfigType: &listener.ListenerFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
 			},
+		}, {
+			Name: wellknown.OriginalSource,
+			ConfigType: &listener.ListenerFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+					Mark: OriginalSrcMark,
+				}),
+			},
 		}},
 		Address: &core.Address{Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
-				Address: "0.0.0.0",
+				Address: "127.0.0.1",
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: UproxyOutboundCapturePort,
 				},
@@ -538,15 +553,26 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 	l := &listener.Listener{
 		Name:           "uproxy_inbound",
 		UseOriginalDst: wrappers.Bool(true),
+		Transparent:    wrappers.Bool(true),
 		ListenerFilters: []*listener.ListenerFilter{{
 			Name: wellknown.OriginalDestination,
 			ConfigType: &listener.ListenerFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
 			},
+		}, {
+			Name: wellknown.OriginalSource,
+			ConfigType: &listener.ListenerFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+					Mark: OriginalSrcMark,
+				}),
+			},
 		}},
 		AccessLog: accessLogString("capture inbound listener"),
 		Address: &core.Address{Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
+				// because of the port 15088 workaround, we need to use a redirect rule,
+				// which means we can't bind to localhost. once we remove that workaround,
+				// this can be changed back to 127.0.0.1
 				Address: "0.0.0.0",
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: UproxyInboundCapturePort,

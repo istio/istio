@@ -22,33 +22,37 @@ spec:
       serviceAccountName: uproxy
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      initContainers:
-      - name: istio-init
-        image: localhost:5000/uproxy:ambient-oss
-        securityContext:
-          privileged: true
-          capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-        command:
-        - sh
-        - -c
-        - |
-          # DPv2 won't redirect the node-local traffic for us, so we send it to a different tunnel port as a way to differentiate it.
-          # Here we redirect the special "node-local tunnel (15088)" to the regular HBONE port (15008).
-          # TODO: instead, we should elide the tunnel completely for node-local.
-          iptables -t nat -I OUTPUT 1 -p tcp -o veth+ --dport 15088 -j REDIRECT --to-port 15008
-        env:
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
+    #  initContainers:
+    #  - name: istio-init
+    #    image: localhost:5000/uproxy:ambient-oss
+    #    securityContext:
+    #      privileged: true
+    #      capabilities:
+    #        add:
+    #        - NET_ADMIN
+    #        - NET_RAW
+    #    command:
+    #    - sh
+    #    - -c
+    #    - |
+    #      # DPv2 won't redirect the node-local traffic for us, so we send it to a different tunnel port as a way to differentiate it.
+    #      # Here we redirect the special "node-local tunnel (15088)" to the regular HBONE port (15008).
+    #      # TODO: instead, we should elide the tunnel completely for node-local.
+    #      iptables -t nat -I OUTPUT 1 -p tcp -o veth+ --dport 15088 -j REDIRECT --to-port 15008
+    #    env:
+    #    - name: INSTANCE_IP
+    #      valueFrom:
+    #        fieldRef:
+    #          fieldPath: status.podIP
 
       containers:
       - name: istio-proxy
         image: localhost:5000/uproxy:ambient-oss
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
         readinessProbe:
           httpGet:
             port: 15021
