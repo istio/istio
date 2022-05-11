@@ -15,6 +15,7 @@
 package credentialfetcher
 
 import (
+	"context"
 	"testing"
 
 	"istio.io/istio/pkg/security"
@@ -86,7 +87,7 @@ func TestNewCredFetcher(t *testing.T) {
 					t.Errorf("%s: GetIdentityProvider returned %s, expected %s", id, idp, tc.expectedIdp)
 				}
 				if tc.fetcherType == security.Mock {
-					token, err := cf.GetPlatformCredential()
+					token, err := cf.GetPlatformCredential(context.Background())
 					if err != nil {
 						t.Errorf("%s: unexpected error calling GetPlatformCredential: %v", id, err)
 					}

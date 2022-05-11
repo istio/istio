@@ -124,7 +124,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, "pilot-123", map[string]string{})
-	s.InitGenerators(s.Env, "istio-system")
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
 		s.pushQueue.ShutDown()
@@ -167,8 +166,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
-	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
-	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
@@ -234,6 +231,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if err := s.Env.InitNetworksManager(s); err != nil {
 		t.Fatal(err)
 	}
+	// Generators may rely on Env. Reinitialize them now that we have the actual env.
+	s.InitGenerators(s.Env, "istio-system")
+	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
+	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
+
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	s.MemRegistry = cg.MemRegistry

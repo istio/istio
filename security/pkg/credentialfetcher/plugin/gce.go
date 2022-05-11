@@ -17,6 +17,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -103,7 +104,7 @@ func (p *GCEPlugin) startTokenRotationJob() {
 
 func (p *GCEPlugin) rotate() {
 	if p.shouldRotate(time.Now()) {
-		if _, err := p.GetPlatformCredential(); err != nil {
+		if _, err := p.GetPlatformCredential(context.Background()); err != nil {
 			gcecredLog.Errorf("credential refresh failed: %+v", err)
 		}
 	}
@@ -131,7 +132,7 @@ func (p *GCEPlugin) shouldRotate(now time.Time) bool {
 // and write it to jwtPath. The local copy of the token in jwtPath is used by both
 // Envoy STS client and istio agent to fetch certificate and access token.
 // Note: this function only works in a GCE VM environment.
-func (p *GCEPlugin) GetPlatformCredential() (string, error) {
+func (p *GCEPlugin) GetPlatformCredential(ctx context.Context) (string, error) {
 	p.tokenMutex.Lock()
 	defer p.tokenMutex.Unlock()
 

@@ -97,14 +97,12 @@ func (r *GoogleCASClient) createCertReq(name string, csrPEM []byte, lifetime tim
 }
 
 // CSR Sign calls Google CAS to sign a CSR.
-func (r *GoogleCASClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
+func (r *GoogleCASClient) CSRSign(ctx context.Context, csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	certChain := []string{}
 
 	rand.Seed(time.Now().UnixNano())
 	name := fmt.Sprintf("csr-workload-%s", rand.String(8))
 	creq := r.createCertReq(name, csrPEM, time.Duration(certValidTTLInSec)*time.Second)
-
-	ctx := context.Background()
 
 	cresp, err := r.caClient.CreateCertificate(ctx, creq)
 	if err != nil {

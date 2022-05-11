@@ -17,6 +17,7 @@ package cache
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
+	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
@@ -145,7 +147,8 @@ func (s *secretCache) GetWorkload() *security.SecretItem {
 	if s.workload == nil {
 		return nil
 	}
-	return s.workload
+	// TODO(ambient) return s.workload
+	return nil
 }
 
 func (s *secretCache) SetWorkload(value *security.SecretItem) {
@@ -559,10 +562,23 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	t0 := time.Now()
 	logPrefix := cacheLogPrefix(resourceName)
 
-	csrHostName := &spiffe.Identity{
+	csrHostName := spiffe.Identity{
 		TrustDomain:    sc.configOptions.TrustDomain,
 		Namespace:      sc.configOptions.WorkloadNamespace,
 		ServiceAccount: sc.configOptions.ServiceAccount,
+	}
+	var uid string
+	var podName string
+	if override, err := spiffe.ParseIdentity(resourceName); err == nil {
+		// resource name is a direct spiffe identity, so we should use that
+		// TODO: should we check that we have permissions here?
+		if strings.Contains(override.ServiceAccount, "~") {
+			spl := strings.SplitN(override.ServiceAccount, "~", 3)
+			override.ServiceAccount = spl[0]
+			podName = spl[1]
+			uid = spl[2]
+		}
+		csrHostName = override
 	}
 
 	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName.String())
@@ -581,8 +597,15 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	}
 
 	numOutgoingRequests.With(RequestType.Value(monitoring.CSR)).Increment()
+
+	ctx := metadata.NewOutgoingContext(context.Background(),
+		metadata.Pairs(
+			"SAN", csrHostName.String(),
+			"UID", uid,
+			"POD", podName,
+		))
 	timeBeforeCSR := time.Now()
-	certChainPEM, err := sc.caClient.CSRSign(csrPEM, int64(sc.configOptions.SecretTTL.Seconds()))
+	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, int64(sc.configOptions.SecretTTL.Seconds()))
 	if err == nil {
 		trustBundlePEM, err = sc.caClient.GetRootCertBundle()
 	}
@@ -605,7 +628,8 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 		return nil, fmt.Errorf("failed to extract expire time from server certificate in CSR response: %v", err)
 	}
 
-	cacheLog.WithLabels("latency", time.Since(t0), "ttl", time.Until(expireTime)).Info("generated new workload certificate")
+	cacheLog.WithLabels("latency", time.Since(t0), "ttl", time.Until(expireTime), "resource", resourceName).
+		Info("generated new workload certificate")
 
 	if len(trustBundlePEM) > 0 {
 		rootCertPEM = concatCerts(trustBundlePEM)

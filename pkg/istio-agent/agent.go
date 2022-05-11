@@ -202,6 +202,8 @@ type AgentOptions struct {
 	DisableEnvoy          bool
 	DownstreamGrpcOptions []grpc.ServerOption
 
+	UProxy bool
+
 	IstiodSAN string
 
 	WASMInsecureRegistries []string

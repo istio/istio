@@ -81,7 +81,7 @@ var (
 		"Whether to generate PKCS#8 private keys").Get()
 	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
 	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
-	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", security.JWT,
+	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", security.TokenRequest,
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 	credIdentityProvider = env.RegisterStringVar("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
 		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
@@ -119,6 +119,9 @@ var (
 
 	disableEnvoyEnv = env.RegisterBoolVar("DISABLE_ENVOY", false,
 		"Disables all Envoy agent features.").Get()
+
+	uproxyEnv = env.RegisterBoolVar("UPROXY", true,
+		"Use uProxy, instead of Envoy").Get()
 
 	// certSigner is cert signer for workload cert
 	certSigner = env.RegisterStringVar("ISTIO_META_CERT_SIGNER", "",

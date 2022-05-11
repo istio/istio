@@ -31,6 +31,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -2401,6 +2402,10 @@ type localServiceDiscovery struct {
 	serviceInstances []*ServiceInstance
 
 	NetworkGatewaysHandler
+}
+
+func (l *localServiceDiscovery) PodInformation() []*corev1.Pod {
+	return nil
 }
 
 var _ ServiceDiscovery = &localServiceDiscovery{}

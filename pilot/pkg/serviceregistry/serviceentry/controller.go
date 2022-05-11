@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -105,6 +106,10 @@ type Controller struct {
 	workloadEntryController bool
 
 	model.NetworkGatewaysHandler
+}
+
+func (s *Controller) PodInformation() []*corev1.Pod {
+	return nil
 }
 
 type Option func(*Controller)

@@ -15,6 +15,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -130,7 +131,7 @@ func getTokenFromServer(t *testing.T, p *GCEPlugin, callReps int) ([]string, []e
 	var tokens []string
 	var errs []error
 	for i := 0; i < callReps; i++ {
-		token, err := p.GetPlatformCredential()
+		token, err := p.GetPlatformCredential(context.Background())
 		tokens = append(tokens, token)
 		errs = append(errs, err)
 	}

@@ -85,7 +85,7 @@ func NewGoogleCAClient(endpoint string, tls bool, provider *caclient.TokenProvid
 }
 
 // CSR Sign calls Google CA to sign a CSR.
-func (cl *googleCAClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
+func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	req := &gcapb.MeshCertificateRequest{
 		RequestId: uuid.New().String(),
 		Csr:       string(csrPEM),
@@ -102,7 +102,7 @@ func (cl *googleCAClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]str
 		out["x-goog-request-params"] = []string{fmt.Sprintf("location=locations/%s", zone)}
 	}
 
-	ctx := metadata.NewOutgoingContext(context.Background(), out)
+	ctx = metadata.NewOutgoingContext(ctx, out)
 	resp, err := cl.client.CreateCertificate(ctx, req)
 	if err != nil {
 		googleCAClientLog.Errorf("Failed to create certificate: %v", err)

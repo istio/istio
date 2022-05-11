@@ -17,6 +17,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -45,7 +46,7 @@ func CreateMockPlugin(token string) *MockPlugin {
 }
 
 // GetPlatformCredential returns a constant token string.
-func (p *MockPlugin) GetPlatformCredential() (string, error) {
+func (p *MockPlugin) GetPlatformCredential(ctx context.Context) (string, error) {
 	mockcredLog.Debugf("mock plugin returns a constant token.")
 	return p.token, nil
 }

@@ -1,0 +1,51 @@
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=debug
+
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
+
+# The following section is used as base image if BASE_DISTRIBUTION=debug
+FROM gcr.io/istio-release/base:${BASE_VERSION} as debug
+
+# The following section is used as base image if BASE_DISTRIBUTION=distroless
+# This image is a custom built debian11 distroless image with multiarchitecture support.
+# It is built on the base distroless image, with iptables binary and libraries added
+# The source can be found at https://github.com/istio/distroless/tree/iptables
+# This version is from commit 105e1319a176a5156205b9e351b4e2016363f00d.
+FROM gcr.io/istio-release/iptables@sha256:bae9287d64be13179b7bc794ec3db26bd5c5fe3fb591c484992366314c9a7d3d as distroless
+
+# This will build the final image based on either debug or distroless from above
+# hadolint ignore=DL3006
+FROM ${BASE_DISTRIBUTION:-debug}
+
+WORKDIR /
+
+ARG proxy_version
+ARG istio_version
+ARG SIDECAR=envoy
+
+# Copy Envoy bootstrap templates used by pilot-agent
+COPY envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
+# TODO(ambient)
+COPY uproxy_bootstrap.json /var/lib/istio/envoy/uproxy_bootstrap_tmpl.json
+
+# Install Envoy.
+ARG TARGETARCH
+COPY ${TARGETARCH:-amd64}/${SIDECAR} /usr/local/bin/${SIDECAR}
+
+# Environment variable indicating the exact proxy sha - for debugging or version-specific configs 
+ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
+# Environment variable indicating the exact build, for debugging
+ENV ISTIO_META_ISTIO_VERSION $istio_version
+
+ARG TARGETARCH
+COPY ${TARGETARCH:-amd64}/pilot-agent /usr/local/bin/pilot-agent
+
+COPY stats-filter.wasm /etc/istio/extensions/stats-filter.wasm
+COPY stats-filter.compiled.wasm /etc/istio/extensions/stats-filter.compiled.wasm
+COPY metadata-exchange-filter.wasm /etc/istio/extensions/metadata-exchange-filter.wasm
+COPY metadata-exchange-filter.compiled.wasm /etc/istio/extensions/metadata-exchange-filter.compiled.wasm
+
+# The pilot-agent will bootstrap Envoy.
+ENTRYPOINT ["/usr/local/bin/pilot-agent"]

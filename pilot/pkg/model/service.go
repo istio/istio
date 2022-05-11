@@ -30,6 +30,7 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/networking"
@@ -638,6 +639,14 @@ type ServiceDiscovery interface {
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
+	PodInformation() []*corev1.Pod
+}
+
+type PodInfo struct {
+	Address  string
+	Identity string
+	Protocol string
+	VIPs     map[string]string
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This

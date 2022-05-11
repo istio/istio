@@ -8,6 +8,9 @@ exclude k8s.io/kubernetes v1.13.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
+// TODO merge https://github.com/envoyproxy/envoy/pull/19435
+replace github.com/envoyproxy/go-control-plane => github.com/stevenctl/go-control-plane v0.10.2-0.20220426172517-14a8eb229f41
+
 require (
 	cloud.google.com/go/compute v1.6.1
 	cloud.google.com/go/security v1.3.0

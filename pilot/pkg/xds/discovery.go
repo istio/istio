@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
+	"istio.io/istio/pilot/pkg/networking/uproxygen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -583,6 +584,11 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.ListenerType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
+
+	s.Generators["uproxy-envoy"] = &uproxygen.UProxyConfigGenerator{EndpointIndex: s.EndpointIndex, ServiceDiscovery: s.Env}
+	s.Generators["uproxy-envoy/"+v3.ListenerType] = s.Generators["uproxy-envoy"]
+	s.Generators["uproxy-envoy/"+v3.ClusterType] = s.Generators["uproxy-envoy"]
+	s.Generators["uproxy-envoy/"+v3.EndpointType] = s.Generators["uproxy-envoy"]
 
 	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen

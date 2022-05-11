@@ -86,7 +86,7 @@ func (c *CitadelClient) Close() {
 }
 
 // CSRSign calls Citadel to sign a CSR.
-func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
+func (c *CitadelClient) CSRSign(ctx context.Context, csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	crMetaStruct := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			security.CertSigner: {
@@ -104,7 +104,7 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]strin
 		return nil, err
 	}
 
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", c.opts.ClusterID))
+	ctx = metadata.AppendToOutgoingContext(ctx, "ClusterID", c.opts.ClusterID)
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create certificate: %v", err)

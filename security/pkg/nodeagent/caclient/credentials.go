@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/security"
@@ -55,7 +56,7 @@ func (t *TokenProvider) GetRequestMetadata(ctx context.Context, uri ...string) (
 	if t == nil {
 		return nil, nil
 	}
-	token, err := t.GetToken()
+	token, err := t.GetToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +83,11 @@ func (t *TokenProvider) RequireTransportSecurity() bool {
 // token is missing (for example, on a VM that has rebooted, causing the token to be removed from
 // volatile memory), we can still proceed and allow other authentication methods to potentially
 // handle the request, such as mTLS.
-func (t *TokenProvider) GetToken() (string, error) {
+func (t *TokenProvider) GetToken(ctx context.Context) (string, error) {
 	if t.opts.CredFetcher == nil {
 		return "", nil
 	}
-	token, err := t.opts.CredFetcher.GetPlatformCredential()
+	token, err := t.opts.CredFetcher.GetPlatformCredential(ctx)
 	if err != nil {
 		return "", fmt.Errorf("fetch platform credential: %v", err)
 	}
@@ -105,6 +106,18 @@ func (t *TokenProvider) exchangeCAToken(token string) (string, error) {
 		return token, nil
 	}
 	return t.opts.TokenExchanger.ExchangeToken(token)
+}
+
+// Token : Method implemented to enable TokenProvider to be used as an oAuth Token source
+func (t *TokenProvider) Token() (*oauth2.Token, error) {
+	if t == nil {
+		return nil, nil
+	}
+	token, err := t.GetToken(context.Background())
+	if err != nil || token == "" {
+		return nil, err
+	}
+	return &oauth2.Token{AccessToken: token}, nil
 }
 
 func (t *TokenProvider) exchangeXDSToken(token string) (string, error) {

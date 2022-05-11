@@ -18,6 +18,8 @@ import (
 	"sort"
 	"sync"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -50,6 +52,14 @@ type Controller struct {
 	handlers          model.ControllerHandlers
 	handlersByCluster map[cluster.ID]*model.ControllerHandlers
 	model.NetworkGatewaysHandler
+}
+
+func (c *Controller) PodInformation() []*corev1.Pod {
+	var i []*corev1.Pod
+	for _, p := range c.registries {
+		i = append(i, p.PodInformation()...)
+	}
+	return i
 }
 
 type registryEntry struct {

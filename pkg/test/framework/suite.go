@@ -61,6 +61,9 @@ var (
 		// This allows us to trim test IDs on the istio.io/istio.io repo.
 		".*/istio.io/istio.io/",
 
+		".*/istio.io/istio-sidecarless/tests/integration/",
+		".*/istio.io/istio-sidecarless/",
+
 		// These allow us to trim test IDs on istio.io/istio repo.
 		".*/istio.io/istio/tests/integration/",
 		".*/istio.io/istio/",

@@ -530,6 +530,9 @@ type NodeMetadata struct {
 	// Namespace is the namespace in which the workload instance is running.
 	Namespace string `json:"NAMESPACE,omitempty"`
 
+	// NodeName is the name of the kubernetes node on which the workload instance is running.
+	NodeName string `json:"NODE_NAME,omitempty"`
+
 	// InterceptionMode is the name of the metadata variable that carries info about
 	// traffic interception mode at the proxy
 	InterceptionMode TrafficInterceptionMode `json:"INTERCEPTION_MODE,omitempty"`

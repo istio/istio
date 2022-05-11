@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -78,6 +80,10 @@ type ServiceDiscovery struct {
 
 	// Single mutex for now - it's for debug only.
 	mutex sync.Mutex
+}
+
+func (sd *ServiceDiscovery) PodInformation() []*corev1.Pod {
+	return nil
 }
 
 var _ model.ServiceDiscovery = &ServiceDiscovery{}

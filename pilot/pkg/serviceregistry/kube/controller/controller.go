@@ -26,6 +26,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -272,6 +273,14 @@ type Controller struct {
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
 	initialSync *atomic.Bool
+}
+
+func (c *Controller) PodInformation() []*v1.Pod {
+	c.pods.Lock()
+	defer c.pods.Unlock()
+	// TODO cache/index by node
+	pods, _ := listerv1.NewPodLister(c.pods.informer.GetIndexer()).Pods(metav1.NamespaceAll).List(klabels.Everything())
+	return pods
 }
 
 // NewController creates a new Kubernetes controller

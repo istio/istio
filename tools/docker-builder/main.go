@@ -202,7 +202,8 @@ func VerboseCommand(name string, arg ...string) *exec.Cmd {
 
 func StandardEnv(args Args) []string {
 	env := os.Environ()
-	if len(sets.New(args.Targets...).Delete("proxyv2")) <= 1 {
+	// TODO(ambient)
+	if len(sets.New(args.Targets...).Delete("proxyv2").Delete("uproxy")) <= 1 {
 		// If we are building multiple, it is faster to build all binaries in a single invocation
 		// Otherwise, build just the single item. proxyv2 is special since it is always built separately with tag=agent.
 		// Ideally we would just always build the targets we need but our Makefile is not that smart

@@ -29,6 +29,8 @@ func NewCredFetcher(credtype, trustdomain, jwtPath, identityProvider string) (se
 	case security.JWT, "":
 		// If unset, also default to JWT for backwards compatibility
 		return plugin.CreateTokenPlugin(jwtPath), nil
+	case security.TokenRequest:
+		return plugin.TokenRequest(trustdomain, identityProvider, plugin.CreateTokenPlugin(jwtPath))
 	case security.Mock: // for test only
 		return plugin.CreateMockPlugin("test_token"), nil
 	default:

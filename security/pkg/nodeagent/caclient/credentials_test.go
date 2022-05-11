@@ -15,6 +15,7 @@
 package caclient_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -125,7 +126,7 @@ func TestGetTokenForXDS(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			secOpts.XdsAuthProvider = tt.provider
 			provider := caclient.NewXDSTokenProvider(secOpts)
-			token, err := provider.GetToken()
+			token, err := provider.GetToken(context.Background())
 			if err != nil {
 				t.Errorf("failed to get token: %v", err)
 			}
