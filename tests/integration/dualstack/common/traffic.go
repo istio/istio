@@ -37,15 +37,6 @@ import (
 	promMetric "istio.io/istio/tests/integration/telemetry"
 )
 
-// Slow down retries to allow for delayed_close_timeout. Also require 3 successive successes.
-var retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Converge(3)}
-
-type TrafficCall struct {
-	name string
-	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echo.CallResult
-	opts echo.CallOptions
-}
-
 type TrafficTestCase struct {
 	name string
 	// destination app
@@ -97,7 +88,6 @@ func (c TrafficTestCase) Run(ctx framework.TestContext, namespace string) {
 	} else {
 		job(ctx)
 	}
-
 }
 
 func RunAllTrafficTests(ctx framework.TestContext, apps map[string]*EchoDeployments) {
