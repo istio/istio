@@ -175,6 +175,7 @@ func NewServer(config Options) (*Server, error) {
 		})
 	}
 
+	log.Infof("XXXXXXX PROBE ", config.GRPCBootstrap)
 	if config.GRPCBootstrap != "" {
 		probes = append(probes, grpcready.NewProbe(config.GRPCBootstrap))
 	}
