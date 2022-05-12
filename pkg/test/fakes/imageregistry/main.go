@@ -16,6 +16,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -80,25 +81,24 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/admin/v1/tagmap" {
 		switch r.Method {
 		case http.MethodPost:
-			err := r.ParseForm()
+			m := map[string]string{}
+			err := json.NewDecoder(r.Body).Decode(&m)
 			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			h.tagMap = make(map[string]string)
-			for k, v := range r.PostForm {
-				if len(v) > 0 {
-					h.tagMap[k] = v[0]
-				}
-			}
+			h.tagMap = m
 			w.WriteHeader(http.StatusOK)
 		case http.MethodGet:
-			w.WriteHeader(http.StatusOK)
-			for k, v := range h.tagMap {
-				fmt.Fprintf(w, "%s -> %s", k, v)
+			if jsEncodedMap, err := json.Marshal(h.tagMap); err == nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprintf(w, "%s", jsEncodedMap)
+			} else {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 		default:
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 		return
 	}
@@ -126,7 +126,7 @@ func main() {
 			tagMap: make(map[string]string),
 		},
 	}
-	log.Infof("Fake containerregistry server is starting at %d", *port)
+	log.Infof("registryredirector server is starting at %d", *port)
 	if err := s.ListenAndServe(); err != nil {
 		log.Error(err)
 	}

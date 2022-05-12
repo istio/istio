@@ -28,13 +28,13 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/containerregistry"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
@@ -47,7 +47,7 @@ var (
 	client, server echo.Instances
 	appNsInst      namespace.Instance
 	promInst       prometheus.Instance
-	registry       containerregistry.Instance
+	registry       registryredirector.Instance
 )
 
 const (
@@ -139,7 +139,7 @@ spec:
 		return err
 	}
 
-	registry, err = containerregistry.New(ctx, containerregistry.Config{Cluster: ctx.AllClusters().Default()})
+	registry, err = registryredirector.New(ctx, registryredirector.Config{Cluster: ctx.AllClusters().Default()})
 	if err != nil {
 		return
 	}
