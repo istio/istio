@@ -128,8 +128,8 @@ func (c *clientFactory) UnstructuredClientForMapping(mapping *meta.RESTMapping) 
 	return c.factory.UnstructuredClientForMapping(mapping)
 }
 
-func (c *clientFactory) Validator(validate bool) (validation.Schema, error) {
-	return c.factory.Validator(validate)
+func (c *clientFactory) Validator(validationDirective string, verifier *resource.QueryParamVerifier) (validation.Schema, error) {
+	return c.factory.Validator(validationDirective, verifier)
 }
 
 func (c *clientFactory) OpenAPISchema() (openapi.Resources, error) {
