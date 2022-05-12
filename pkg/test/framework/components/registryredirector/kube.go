@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package containerregistry
+package registryredirector
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"net/url"
+	"time"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -30,8 +32,8 @@ import (
 )
 
 const (
-	service = "container-registry"
-	ns      = "container-registry"
+	service = "registry-redirector"
+	ns      = "registry-redirector"
 )
 
 var (
@@ -52,14 +54,14 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
-	scopes.Framework.Info("=== BEGIN: Deploy container registry server ===")
+	scopes.Framework.Info("=== BEGIN: Deploy registry redirector server ===")
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("container registry deployment failed: %v", err)
-			scopes.Framework.Infof("=== FAILED: Deploy container registry server ===")
+			scopes.Framework.Infof("=== FAILED: Deploy registry redirector server ===")
 			_ = c.Close()
 		} else {
-			scopes.Framework.Info("=== SUCCEEDED: Deploy container registry server ===")
+			scopes.Framework.Info("=== SUCCEEDED: Deploy registry redirector server ===")
 		}
 	}()
 
@@ -67,12 +69,22 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		Prefix: ns,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not create %q namespace for container registry server install; err: %v", ns, err)
+		return nil, fmt.Errorf("could not create %q namespace for registry redirector server install; err: %v", ns, err)
+	}
+
+	args := map[string]interface{}{}
+
+	if len(cfg.TargetRegistry) != 0 {
+		args["TargetRegistry"] = cfg.TargetRegistry
+	}
+
+	if len(cfg.Image) != 0 {
+		args["Image"] = cfg.Image
 	}
 
 	// apply YAML
-	if err := c.cluster.ApplyYAMLFiles(c.ns.Name(), env.ContainerRegistryServerInstallFilePath); err != nil {
-		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", env.ContainerRegistryServerInstallFilePath, err)
+	if err := ctx.ConfigKube(c.cluster).EvalFile(c.ns.Name(), args, env.RegistryRedirectorServerInstallFilePath).Apply(); err != nil {
+		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", env.RegistryRedirectorServerInstallFilePath, err)
 	}
 
 	if _, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), service); err != nil {
@@ -81,7 +93,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	c.address = net.JoinHostPort(fmt.Sprintf("%s.%s", service, c.ns.Name()), "1338")
-	scopes.Framework.Infof("container registry server in-cluster address: %s", c.address)
+	scopes.Framework.Infof("registry redirector server in-cluster address: %s", c.address)
 
 	return c, nil
 }
@@ -100,11 +112,14 @@ func (c *kubeComponent) Address() string {
 }
 
 func (c *kubeComponent) SetupTagMap(tagMap map[string]string) error {
-	values := url.Values{}
-	for k, v := range tagMap {
-		values.Add(k, v)
+	client := &http.Client{
+		Timeout: 10 * time.Second,
 	}
-	_, err := http.PostForm(fmt.Sprintf("%s/admin/v1/tagmap", c.address), values)
+	body, err := json.Marshal(tagMap)
+	if err != nil {
+		return err
+	}
+	_, err = client.Post(fmt.Sprintf("%s/admin/v1/tagmap", c.address), "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}

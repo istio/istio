@@ -1,3 +1,3 @@
 FROM scratch
 COPY ./main /registry
-CMD ["/registry"]
+ENTRYPOINT ["/registry"]
