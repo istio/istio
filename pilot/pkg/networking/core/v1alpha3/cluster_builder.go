@@ -173,7 +173,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	var subsetClusterName string
 	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
-		subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
+		subsetClusterName = model.BuildSubsetKey(opts.direction, subset.Name, service.Hostname, opts.port.Port)
 		defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
 	} else {
 		subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
@@ -271,6 +271,58 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	maybeApplyEdsConfig(mc.cluster)
 
 	if cb.proxyType == model.Router || opts.direction == model.TrafficDirectionOutbound {
+		cb.applyMetadataExchange(opts.mutable.cluster)
+	}
+
+	if destRule != nil {
+		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
+	}
+	subsetClusters := make([]*cluster.Cluster, 0)
+	for _, subset := range destinationRule.GetSubsets() {
+		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, proxyView)
+		if subsetCluster != nil {
+			subsetClusters = append(subsetClusters, subsetCluster)
+		}
+	}
+	return subsetClusters
+}
+
+// applyDestinationRuleWithDualStack applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
+// applies the destination rule.
+func (cb *ClusterBuilder) applyDestinationRuleWithDualStack(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
+	port *model.Port, proxyView model.ProxyView, destRule *config.Config, serviceAccounts []string, traffic model.TrafficDirection) []*cluster.Cluster {
+	destinationRule := CastDestinationRule(destRule)
+	// merge applicable port level traffic policy settings
+	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
+	opts := buildClusterOpts{
+		mesh:             cb.req.Push.Mesh,
+		serviceInstances: cb.serviceInstances,
+		mutable:          mc,
+		policy:           trafficPolicy,
+		port:             port,
+		clusterMode:      clusterMode,
+		direction:        traffic,
+	}
+
+	if clusterMode == DefaultClusterMode {
+		opts.serviceAccounts = serviceAccounts
+		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+		opts.meshExternal = service.MeshExternal
+		opts.serviceRegistry = service.Attributes.ServiceRegistry
+		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
+	}
+
+	if destRule != nil {
+		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
+	}
+	// Apply traffic policy for the main default cluster.
+	cb.applyTrafficPolicy(opts)
+
+	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
+	// discovery type.
+	maybeApplyEdsConfig(mc.cluster)
+
+	if cb.proxyType == model.Router || (opts.direction == model.TrafficDirectionOutbound || opts.direction == model.TrafficDirectionOutbound6) {
 		cb.applyMetadataExchange(opts.mutable.cluster)
 	}
 
@@ -491,7 +543,11 @@ func (t clusterCache) Cacheable() bool {
 // Sidecar.Ingress allows these to be different.
 func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
 	proxy *model.Proxy, instance *model.ServiceInstance, allInstance []*model.ServiceInstance) *MutableCluster {
-	clusterName := model.BuildInboundSubsetKey(clusterPort)
+	dualIP := false
+	if proxy != nil && proxy.SupportsIPv6() && proxy.SupportsIPv4() && bind == LocalhostIPv6Address {
+		dualIP = true
+	}
+	clusterName := model.BuildInboundSubsetKeyWithDualStack(clusterPort, dualIP)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	clusterType := cluster.Cluster_ORIGINAL_DST
 	if len(localityLbEndpoints) > 0 {
