@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - 38148
-releaseNotes:
-  - |
-    **Fixed** istioctl should add kubernetes resource in all revisions when running analyze.

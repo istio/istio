@@ -178,7 +178,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
-	if !isManaged(&gw.Spec) {
+	if !IsManaged(&gw.Spec) {
 		log.Debug("skip unmanaged gateway")
 		return nil
 	}
