@@ -140,6 +140,11 @@ func (b EndpointBuilder) Key() string {
 	}
 	if b.service != nil {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
+		if b.service.Ports != nil {
+			for _, port := range b.service.Ports {
+				params = append(params, port.Name)
+			}
+		}
 	}
 	if b.proxyView != nil {
 		params = append(params, b.proxyView.String())
