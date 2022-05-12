@@ -39,11 +39,9 @@ func NewProbe(bootstrapPath string) ready.Prober {
 
 func (p *probe) Check() error {
 	// TODO file watch?
-	fmt.Println("XXX Starting grpc bootstrap probe")
 	if p.getBootstrap() == nil {
 		bootstrap, err := grpcxds.LoadBootstrap(p.bootstrapPath)
 		if err != nil {
-			fmt.Println("XXX failed ", err)
 			return fmt.Errorf("failed loading %s: %v", p.bootstrapPath, err)
 		}
 		p.setBootstrap(bootstrap)
@@ -52,13 +50,11 @@ func (p *probe) Check() error {
 		if fwp := bootstrap.FileWatcherProvider(); fwp != nil {
 			for _, path := range fwp.FilePaths() {
 				if !file.Exists(path) {
-					fmt.Println("XXX cert not found ", path)
 					return fmt.Errorf("%s does not exist", path)
 				}
 			}
 		}
 	}
-	fmt.Println("XXX grpc bootstrap ok")
 	return nil
 }
 
