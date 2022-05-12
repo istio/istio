@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** behavior for `istioctl create-remote-secret` on Kubernetes 1.24+. In these versions,
+  a Secret containing a ServiceAccount API token is no longer automatically created, so istioctl
+  will [create one](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#manually-create-a-service-account-api-token). 
