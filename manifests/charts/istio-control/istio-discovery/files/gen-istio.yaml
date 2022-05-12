@@ -1083,6 +1083,7 @@ data:
                   command:
                   - pilot-agent
                   - wait
+                  - --url=http://localhost:15020/healthz/ready
             env:
             - name: ISTIO_META_GENERATOR
               value: grpc
@@ -1179,7 +1180,7 @@ data:
             readinessProbe:
               httpGet:
                 path: /healthz/ready
-                port: 15021
+                port: 15020
               initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
               periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
               timeoutSeconds: 3

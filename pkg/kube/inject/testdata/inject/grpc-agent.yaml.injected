@@ -112,6 +112,7 @@ spec:
               command:
               - pilot-agent
               - wait
+              - --url=http://localhost:15020/healthz/ready
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -121,7 +122,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15021
+            port: 15020
           initialDelaySeconds: 1
           periodSeconds: 2
           timeoutSeconds: 3
