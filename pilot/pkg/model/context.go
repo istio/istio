@@ -626,6 +626,9 @@ type NodeMetadata struct {
 	// redirected tcp listeners. This does not change the virtualOutbound listener.
 	OutboundListenerExactBalance StringBool `json:"OUTBOUND_LISTENER_EXACT_BALANCE,omitempty"`
 
+	// SidecarlessType can be one of ambient.NodeType TODO(stevenctl,ambient) make the type ambient.NodeType
+	SidecarlessType string `json:"SIDECARLESS_TYPE,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`
