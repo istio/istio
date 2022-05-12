@@ -132,3 +132,21 @@ for _, sourceApp := range apps {
 				}
 			})
 	}
+
+
+
+
+	// Multiple calls. Cannot be used with call/opts
+	children []TrafficCall
+
+
+RUN FUNCTION:
+if c.call != nil && len(c.children) > 0 {
+			ctx.Fatal("TrafficTestCase: must not specify both call and children")
+		}
+
+for _, child := range c.children {
+			ctx.NewSubTest(child.name).Run(func(ctx framework.TestContext) {
+				child.call(ctx, child.opts, retryOptions...)
+			})
+		}

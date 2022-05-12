@@ -35,6 +35,8 @@ const (
 )
 
 type EchoDeployments struct {
+	// Service Name
+	ServiceName string
 	// IPFamily of echo app only if single-stack IPv4 or IPv6
 	IPFamily int
 	// Namespace echo apps will be deployed
@@ -87,6 +89,8 @@ func SetupApps(ctx resource.Context, apps map[string]*EchoDeployments) error {
 		case "IPv6":
 			apps[deploy.Name].IPFamily = IPv6
 		}
+
+		apps[deploy.Name].ServiceName = deploy.Service
 
 		apps[deploy.Name].Namespace, err = namespace.New(ctx, namespace.Config{
 			Prefix: deploy.Name,

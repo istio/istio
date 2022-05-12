@@ -23,15 +23,14 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test"
-	echoclient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
@@ -43,20 +42,19 @@ var retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Co
 
 type TrafficCall struct {
 	name string
-	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.Response
+	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echo.CallResult
 	opts echo.CallOptions
 }
 
 type TrafficTestCase struct {
 	name string
+	// destination app
+	destinationApp string
 	// config can optionally be templated using the params src, dst (each are []echo.Instance)
 	config string
 
-	// Multiple calls. Cannot be used with call/opts
-	children []TrafficCall
-
 	// Single call. Cannot be used with children.
-	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
+	call func(t test.Failer, options echo.CallOptions) echo.CallResult
 	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
 	opts echo.CallOptions
 
@@ -72,31 +70,34 @@ func (c TrafficTestCase) Run(ctx framework.TestContext, namespace string) {
 		if len(c.config) > 0 {
 			scopes.Framework.Debugf("apply configuration %+s", c.config)
 			cfg := yml.MustApplyNamespace(ctx, c.config, namespace)
-			ctx.ConfigIstio().YAML(namespace, cfg).ApplyOrFail(ctx, resource.Wait)
+			ctx.ConfigIstio().YAML(namespace, cfg).ApplyOrFail(ctx, apply.Wait)
 			ctx.Cleanup(func() {
 				_ = ctx.ConfigIstio().YAML(cfg).Delete()
 			})
 		}
 
-		if c.call != nil && len(c.children) > 0 {
-			ctx.Fatal("TrafficTestCase: must not specify both call and children")
-		}
 		if c.call != nil {
 			// Call the function with a few custom retry options.
 			c.call(ctx, c.opts)
 		}
 
-		for _, child := range c.children {
-			ctx.NewSubTest(child.name).Run(func(ctx framework.TestContext) {
-				child.call(ctx, child.opts, retryOptions...)
-			})
+		// Verify that the proxy is not sending http requests
+		promCase := prometheus.Query{
+			Metric:      "istio_requests_total",
+			Aggregation: "sum",
+			Labels: map[string]string{
+				"destination_app": c.destinationApp,
+				"response_code":   "200",
+			},
 		}
+		ValidateMetric(ctx, ctx.Clusters().Default(), prom, promCase, 0)
 	}
 	if c.name != "" {
 		ctx.NewSubTest(c.name).Run(job)
 	} else {
 		job(ctx)
 	}
+
 }
 
 func RunAllTrafficTests(ctx framework.TestContext, apps map[string]*EchoDeployments) {
@@ -109,18 +110,6 @@ func RunAllTrafficTests(ctx framework.TestContext, apps map[string]*EchoDeployme
 				tt.Run(ctx, "echoNS")
 			}
 		})
-
-	// Verify that the proxy is not sending http requests
-	for _, destApp := range deploymentConfigs {
-		promCase := prometheus.Query{
-			Metric:      "istio_requests_total",
-			Aggregation: "sum",
-			Labels: map[string]string{
-				"app": destApp.Service,
-			},
-		}
-		ValidateMetric(ctx, ctx.Clusters().Default(), prom, promCase, 0)
-	}
 }
 
 func setupTrafficTest(ctx framework.TestContext) map[string]*EchoDeployments {
@@ -142,7 +131,7 @@ func setupTrafficTest(ctx framework.TestContext) map[string]*EchoDeployments {
 	for _, echoIPVersion := range ipVersions {
 		lowercaseIPVersion := strings.ToLower(echoIPVersion)
 		echoConfigs = append(echoConfigs, echo.Config{
-			Service:        "client" + lowercaseIPVersion,
+			Service:        "client-" + lowercaseIPVersion,
 			Namespace:      testNs,
 			Ports:          []echo.Port{},
 			IPFamilies:     echoIPVersion,
@@ -175,12 +164,13 @@ func httpTraffic(sourceApp map[string]*EchoDeployments, apps map[string]*EchoDep
 	for ipVersion, client := range sourceApp {
 		for _, dest := range apps {
 			expectedResponse := check.OK()
-			if dest.IPFamily > 0 && dest.IPFamily != client.IPFamily {
+			if len(dest.EchoPod.Addresses()) == 1 && dest.IPFamily != client.IPFamily {
 				expectedResponse = check.Error()
 			}
 			cases = append(cases, TrafficTestCase{
-				name: fmt.Sprintf("%s_http_call_to_%s", ipVersion, dest.EchoPod.Config().Service),
-				call: client.EchoPod.CallOrFail,
+				name:           fmt.Sprintf("%s_http_call_to_%s", ipVersion, dest.EchoPod.Config().Service),
+				destinationApp: client.ServiceName,
+				call:           client.EchoPod.CallOrFail,
 				opts: echo.CallOptions{
 					To: dest.EchoPod,
 					Port: echo.Port{
@@ -191,8 +181,9 @@ func httpTraffic(sourceApp map[string]*EchoDeployments, apps map[string]*EchoDep
 			})
 			if len(dest.EchoPod.Addresses()) > 1 {
 				cases = append(cases, TrafficTestCase{
-					name: fmt.Sprintf("%s_http_call_to_%s", ipVersion, dest.EchoPod.Addresses()[1]),
-					call: client.EchoPod.CallOrFail,
+					name:           fmt.Sprintf("%s_http_call_to_%s", ipVersion, dest.EchoPod.Addresses()[1]),
+					destinationApp: client.ServiceName,
+					call:           client.EchoPod.CallOrFail,
 					opts: echo.CallOptions{
 						To:      dest.EchoPod,
 						Address: dest.EchoPod.Addresses()[1],
@@ -214,11 +205,11 @@ func ValidateMetric(t framework.TestContext, cluster cluster.Cluster, prometheus
 	err := retry.UntilSuccess(func() error {
 		got, err := prometheus.QuerySum(cluster, query)
 		t.Logf("%s: %f", query.Metric, got)
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), "value not found") {
 			return err
 		}
 		if got != want {
-			return fmt.Errorf("bad metric value: got %f, want at least %f", got, want)
+			return fmt.Errorf("bad metric value: got %f, want %f", got, want)
 		}
 		return nil
 	}, retry.Delay(time.Second), retry.Timeout(time.Second*20))
