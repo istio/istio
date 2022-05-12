@@ -934,7 +934,7 @@ func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config) 
 		cfg.RemoteClusterValues = cfg.ControlPlaneValues
 	}
 
-	configFiles.remoteIopFile = filepath.Join(workDir, "remote.yaml")
+	configFiles.remoteIopFile = filepath.Join(workDir, "external.yaml")
 	if configFiles.remoteOperatorSpec, err = initIOPFile(s, cfg, configFiles.remoteIopFile, cfg.RemoteClusterValues); err != nil {
 		return configFiles, err
 	}
