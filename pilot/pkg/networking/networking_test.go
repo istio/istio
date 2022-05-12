@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	"google.golang.org/protobuf/types/known/anypb"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -135,47 +135,164 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 }
 
 func TestMakeTunnelAbility(t *testing.T) {
-	td := MakeTunnelAbility(H2Tunnel, NoTunnel)
-	if td == 0 {
-		t.Fatalf("failed to get MakeTunnelAbility")
+	tests := []struct {
+		name  string
+		value TunnelType
+		want  TunnelAbility
+	}{
+		{
+			"tunnelAbility H2Tunnel",
+			H2Tunnel,
+			1,
+		},
+		{
+			"tunnelAbility NoTunnel",
+			NoTunnel,
+			0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := MakeTunnelAbility(tt.value); got != tt.want {
+				t.Errorf("Failed to get MakeTunnelAbility: got = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
 func TestMessageToAny(t *testing.T) {
-	tcpMessage := &tcp.TcpProxy{}
-	if err := MessageToAny(tcpMessage); err == nil {
-		t.Fatalf("failed to get MessageToAny")
+	tests := []struct {
+		name  string
+		value anypb.Any
+		want  *anypb.Any
+	}{
+		{
+			"messageToAny TcpProxy",
+			anypb.Any{},
+			&anypb.Any{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := MessageToAny(&tt.value); got == tt.want {
+				t.Errorf("Failed to get MessageToAny: got = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
 func TestToString(t *testing.T) {
-	h2 := H2Tunnel.ToString()
-	no := NoTunnel.ToString()
-	if h2 == no {
-		t.Fatalf("failed to get ToString")
+	tests := []struct {
+		name  string
+		value TunnelType
+		want  string
+	}{
+		{
+			"H2Tunnel",
+			H2Tunnel,
+			H2Tunnel.ToString(),
+		},
+		{
+			"NoTunnel",
+			NoTunnel,
+			NoTunnel.ToString(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.value.ToString(); got != tt.want {
+				t.Errorf("Failed to get ToString: got = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
 func TestSupportH2Tunnel(t *testing.T) {
-	ta := TunnelAbility.SupportH2Tunnel(TunnelAbility(NoTunnel))
-	if ta {
-		t.Fatalf("failed to get SupportH2Tunnel")
+	tests := []struct {
+		name  string
+		value TunnelType
+		want  bool
+	}{
+		{
+			"Support NoTunnel",
+			NoTunnel,
+			false,
+		},
+		{
+			"Support H2Tunnel",
+			H2Tunnel,
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TunnelAbility.SupportH2Tunnel(TunnelAbility(tt.value)); got != tt.want {
+				t.Errorf("Failed to get SupportH2Tunnel:: got = %v, want = %v", got, tt.want)
+			}
+		})
 	}
 }
 
 func TestToEnvoySocketProtocol(t *testing.T) {
-	tp := TransportProtocol.ToEnvoySocketProtocol(TransportProtocol(NoTunnel))
-	tpH2 := TransportProtocol.ToEnvoySocketProtocol(TransportProtocol(H2Tunnel))
-	if tp != 0 && tpH2 == 0 {
-		t.Fatalf("failed to get ToEnvoySocketProtocol")
+	tests := []struct {
+		name  string
+		value TunnelType
+		want  core.SocketAddress_Protocol
+	}{
+		{
+			"envoySocketProtocol Notunnel",
+			NoTunnel,
+			0,
+		},
+		{
+			"envoySocketProtocol H2Tunnel",
+			H2Tunnel,
+			1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TransportProtocol.ToEnvoySocketProtocol(TransportProtocol(tt.value)); got != tt.want {
+				t.Errorf("Failed to get ToEnvoySocketProtocol:: got = %v, want = %v", got, tt.want)
+			}
+		})
 	}
 }
 
 func TestString(t *testing.T) {
-	tcp := TransportProtocol.String(TransportProtocolTCP)
-	quic := TransportProtocol.String(TransportProtocolQUIC)
-	no := TransportProtocol.String(3)
-	if tcp != "" && quic != "" && no == "" {
-		t.Fatalf("failed to get String")
+
+	tests := []struct {
+		name  string
+		value uint
+		want  string
+	}{
+		{
+			"tcp protocal",
+			TransportProtocolTCP,
+			"tcp",
+		},
+		{
+			"quic protocal",
+			TransportProtocolQUIC,
+			"quic",
+		},
+		{
+			"invalid protocal",
+			3,
+			"unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TransportProtocol.String(TransportProtocol(tt.value)); got != tt.want {
+				t.Errorf("Failed to get TransportProtocol.String :: got = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
