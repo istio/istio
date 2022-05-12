@@ -680,9 +680,8 @@ var testGrid = []testCase{
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
 		expected: []message{
 			{msg.EnvoyFilterUsesReplaceOperationIncorrectly, "EnvoyFilter bookinfo/test-replace-1"},
-			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-replace-2"},
-			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-replace-4"},
-			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-replace-4"},
+			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-replace-3"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-replace-3"},
 		},
 	},
 	{
@@ -712,7 +711,7 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-merge-1"},
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-merge-3"},
-			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-merge-4"},
+			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-merge-3"},
 		},
 	},
 }
