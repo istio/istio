@@ -710,7 +710,7 @@ users:
 		c := &cases[i]
 		secName := remoteSecretNameFromClusterName(c.clusterName)
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemoteSecretFromTokenAndServer(c.in, c.clusterName, c.server, secName)
+			got, err := createRemoteSecretFromTokenAndServer(nil, c.in, c.clusterName, c.server, secName)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)

@@ -231,7 +231,7 @@ func createRemoteSecretFromTokenAndServer(client kube.ExtendedClient, tokenSecre
 
 func waitForTokenData(client kube.ExtendedClient, secret *v1.Secret) (ca, token []byte, err error) {
 	ca, token, err = tokenDataFromSecret(secret)
-	if err == nil {
+	if err == nil || client == nil {
 		return
 	}
 
