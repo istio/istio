@@ -1587,13 +1587,11 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sidecarConfigWithSelector := make([]config.Config, 0)
 	sidecarConfigWithoutSelector := make([]config.Config, 0)
-	sidecarsWithoutSelectorByNamespace := sets.New()
 	for _, sidecarConfig := range sidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
 			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
 		} else {
-			sidecarsWithoutSelectorByNamespace.Insert(sidecarConfig.Namespace)
 			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
 		}
 	}

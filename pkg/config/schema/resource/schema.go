@@ -231,6 +231,7 @@ func (s *schemaImpl) GroupVersionAliasKinds() []config.GroupVersionKind {
 		gvks[i] = s.gvk
 		gvks[i].Version = va
 	}
+	gvks = append(gvks, s.GroupVersionKind())
 	return gvks
 }
 
