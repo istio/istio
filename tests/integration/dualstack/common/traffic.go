@@ -163,9 +163,11 @@ func httpTraffic(sourceApp map[string]*EchoDeployments, apps map[string]*EchoDep
 
 	for ipVersion, client := range sourceApp {
 		for _, dest := range apps {
+			skip := false
 			expectedResponse := check.OK()
 			if len(dest.EchoPod.Addresses()) == 1 && dest.IPFamily != client.IPFamily {
 				expectedResponse = check.Error()
+				skip = true
 			}
 			cases = append(cases, TrafficTestCase{
 				name:           fmt.Sprintf("%s_http_call_to_%s", ipVersion, dest.EchoPod.Config().Service),
@@ -178,6 +180,7 @@ func httpTraffic(sourceApp map[string]*EchoDeployments, apps map[string]*EchoDep
 					},
 					Check: expectedResponse,
 				},
+				skip: skip,
 			})
 			if len(dest.EchoPod.Addresses()) > 1 {
 				cases = append(cases, TrafficTestCase{
@@ -192,6 +195,7 @@ func httpTraffic(sourceApp map[string]*EchoDeployments, apps map[string]*EchoDep
 						},
 						Check: check.OK(),
 					},
+					skip: skip,
 				})
 			}
 		}
