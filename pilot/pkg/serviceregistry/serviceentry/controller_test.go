@@ -137,8 +137,8 @@ func waitForEvent(t testing.TB, ch chan Event) Event {
 	}
 }
 
-func initServiceDiscovery() (model.ConfigStore, *Controller, chan Event, func()) {
-	return initServiceDiscoveryWithOpts(false)
+func initServiceDiscovery(t test.Failer) (model.ConfigStore, *Controller, chan Event) {
+	return initServiceDiscoveryWithOpts(t, false)
 }
 
 // initServiceDiscoveryWithoutEvents initializes a test setup with no events. This avoids excessive attempts to push
@@ -170,11 +170,11 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 	return istioStore, serviceController
 }
 
-func initServiceDiscoveryWithOpts(workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, chan Event, func()) {
+func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, chan Event) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
-	stop := make(chan struct{})
+	stop := test.NewStop(t)
 	go configController.Run(stop)
 
 	eventch := make(chan Event, 100)
@@ -190,14 +190,11 @@ func initServiceDiscoveryWithOpts(workloadOnly bool, opts ...Option) (model.Conf
 		controller = NewWorkloadEntryController(configController, istioStore, xdsUpdater, opts...)
 	}
 	go controller.Run(stop)
-	return istioStore, controller, eventch, func() {
-		close(stop)
-	}
+	return istioStore, controller, eventch
 }
 
 func TestServiceDiscoveryServices(t *testing.T) {
-	store, sd, eventCh, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd, eventCh := initServiceDiscovery(t)
 	expectedServices := []*model.Service{
 		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB),
 		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
@@ -236,8 +233,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	hostname := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
-	store, sd, eventCh, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd, eventCh := initServiceDiscovery(t)
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
 	waitForEvent(t, eventCh)
@@ -259,8 +255,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 // TestServiceDiscoveryServiceUpdate test various add/update/delete events for ServiceEntry
 // nolint: lll
 func TestServiceDiscoveryServiceUpdate(t *testing.T) {
-	store, sd, events, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd, events := initServiceDiscovery(t)
 	// httpStaticOverlayUpdated is the same as httpStaticOverlay but with an extra endpoint added to test updates
 	httpStaticOverlayUpdated := func() *config.Config {
 		c := httpStaticOverlay.DeepCopy()
@@ -570,8 +565,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 }
 
 func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
-	store, sd, events, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd, events := initServiceDiscovery(t)
 
 	// Setup a couple workload entries for test. These will be selected by the `selector` SE
 	wle := createWorkloadEntry("wl", selector.Name,
@@ -770,8 +764,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 }
 
 func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
-	store, sd, events, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd, events := initServiceDiscovery(t)
 
 	wle := createWorkloadEntry("wl", selector.Name,
 		&networking.WorkloadEntry{
@@ -891,8 +884,7 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 }
 
 func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
-	store, sd, events, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd, events := initServiceDiscovery(t)
 
 	// Setup a couple of workload instances for test. These will be selected by the `selector` SE
 	fi1 := &model.WorkloadInstance{
@@ -1123,8 +1115,7 @@ func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, po
 }
 
 func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
-	store, sd, _, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd, _ := initServiceDiscovery(t)
 
 	createConfigs([]*config.Config{httpStatic, tcpStatic}, store, t)
 
@@ -1137,8 +1128,7 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 
 // Keeping this test for legacy - but it never happens in real life.
 func TestServiceDiscoveryInstances(t *testing.T) {
-	store, sd, _, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd, _ := initServiceDiscovery(t)
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
 
@@ -1154,8 +1144,7 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 
 // Keeping this test for legacy - but it never happens in real life.
 func TestServiceDiscoveryInstances1Port(t *testing.T) {
-	store, sd, _, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd, _ := initServiceDiscovery(t)
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
 
@@ -1167,8 +1156,7 @@ func TestServiceDiscoveryInstances1Port(t *testing.T) {
 }
 
 func TestNonServiceConfig(t *testing.T) {
-	store, sd, _, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd, _ := initServiceDiscovery(t)
 
 	// Create a non-service configuration element. This should not affect the service registry at all.
 	cfg := config.Config{
@@ -1573,8 +1561,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 }
 
 func TestWorkloadEntryOnlyMode(t *testing.T) {
-	store, registry, _, cleanup := initServiceDiscoveryWithOpts(true)
-	defer cleanup()
+	store, registry, _ := initServiceDiscoveryWithOpts(t, true)
 	createConfigs([]*config.Config{httpStatic}, store, t)
 	svcs := registry.Services()
 	if len(svcs) > 0 {
