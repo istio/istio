@@ -198,24 +198,8 @@ var (
 	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Warning, "IST0150", "Port name for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly")
 
 	// EnvoyFilterUsesRelativeOperation defines a diag.MessageType for message "EnvoyFilterUsesRelativeOperation".
-	// Description: This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly.
-	EnvoyFilterUsesRelativeOperation = diag.NewMessageType(diag.Warning, "IST0151", "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST of ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly.")
-
-	// EnvoyFilterUsesReplaceOperationIncorrectly defines a diag.MessageType for message "EnvoyFilterUsesReplaceOperationIncorrectly".
-	// Description: The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER.
-	EnvoyFilterUsesReplaceOperationIncorrectly = diag.NewMessageType(diag.Error, "IST0152", "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER.")
-
-	// EnvoyFilterUsesAddOperationIncorrectly defines a diag.MessageType for message "EnvoyFilterUsesAddOperationIncorrectly".
-	// Description: The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.
-	EnvoyFilterUsesAddOperationIncorrectly = diag.NewMessageType(diag.Error, "IST0153", "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.")
-
-	// EnvoyFilterUsesRemoveOperationIncorrectly defines a diag.MessageType for message "EnvoyFilterUsesRemoveOperationIncorrectly".
-	// Description: The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.
-	EnvoyFilterUsesRemoveOperationIncorrectly = diag.NewMessageType(diag.Error, "IST0154", "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.")
-
-	// EnvoyFilterUsesRelativeOperationWithProxyVersion defines a diag.MessageType for message "EnvoyFilterUsesRelativeOperationWithProxyVersion".
-	// Description: This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly.
-	EnvoyFilterUsesRelativeOperationWithProxyVersion = diag.NewMessageType(diag.Warning, "IST0155", "This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly.")
+	// Description: This envoy filter does not have a priority and has a relative patch operation set which can cause the envoyFilter not to be applied. Using the INSERT_FIRST option or setting the priority may help in ensuring the envoyFilter is applied correctly
+	EnvoyFilterUsesRelativeOperation = diag.NewMessageType(diag.Warning, "IST0151", "This envoy filter does not have a priority and has a relative patch operation set which can cause the envoyFilter not to be applied. Using the INSERT_FIRST option or setting the priority may help in ensuring the envoyFilter is applied correctly")
 )
 
 // All returns a list of all known message types.
@@ -269,10 +253,6 @@ func All() []*diag.MessageType {
 		JwtClaimBasedRoutingWithoutRequestAuthN,
 		ExternalNameServiceTypeInvalidPortName,
 		EnvoyFilterUsesRelativeOperation,
-		EnvoyFilterUsesReplaceOperationIncorrectly,
-		EnvoyFilterUsesAddOperationIncorrectly,
-		EnvoyFilterUsesRemoveOperationIncorrectly,
-		EnvoyFilterUsesRelativeOperationWithProxyVersion,
 	}
 }
 
@@ -750,38 +730,6 @@ func NewExternalNameServiceTypeInvalidPortName(r *resource.Instance) diag.Messag
 func NewEnvoyFilterUsesRelativeOperation(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		EnvoyFilterUsesRelativeOperation,
-		r,
-	)
-}
-
-// NewEnvoyFilterUsesReplaceOperationIncorrectly returns a new diag.Message based on EnvoyFilterUsesReplaceOperationIncorrectly.
-func NewEnvoyFilterUsesReplaceOperationIncorrectly(r *resource.Instance) diag.Message {
-	return diag.NewMessage(
-		EnvoyFilterUsesReplaceOperationIncorrectly,
-		r,
-	)
-}
-
-// NewEnvoyFilterUsesAddOperationIncorrectly returns a new diag.Message based on EnvoyFilterUsesAddOperationIncorrectly.
-func NewEnvoyFilterUsesAddOperationIncorrectly(r *resource.Instance) diag.Message {
-	return diag.NewMessage(
-		EnvoyFilterUsesAddOperationIncorrectly,
-		r,
-	)
-}
-
-// NewEnvoyFilterUsesRemoveOperationIncorrectly returns a new diag.Message based on EnvoyFilterUsesRemoveOperationIncorrectly.
-func NewEnvoyFilterUsesRemoveOperationIncorrectly(r *resource.Instance) diag.Message {
-	return diag.NewMessage(
-		EnvoyFilterUsesRemoveOperationIncorrectly,
-		r,
-	)
-}
-
-// NewEnvoyFilterUsesRelativeOperationWithProxyVersion returns a new diag.Message based on EnvoyFilterUsesRelativeOperationWithProxyVersion.
-func NewEnvoyFilterUsesRelativeOperationWithProxyVersion(r *resource.Instance) diag.Message {
-	return diag.NewMessage(
-		EnvoyFilterUsesRelativeOperationWithProxyVersion,
 		r,
 	)
 }
