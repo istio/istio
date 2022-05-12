@@ -47,7 +47,7 @@ spec:
         filterChain:
           sni: app.example.com
           filter:
-            name: "envoy.filters.network.http_connection_manager"
+            name: "envoy.filters.network.http_connection_manager.InternalAddressConfig"
     patch:
       operation: MERGE
       value:
@@ -67,7 +67,7 @@ spec:
   workloadSelector:
     labels:
       istio: ingressgateway
-      app: merge3
+      appp: merge4
   configPatches:
   - applyTo: NETWORK_FILTER # http connection manager is a filter in Envoy
     match:
@@ -87,19 +87,6 @@ spec:
           xff_num_trusted_hops: 5
           common_http_protocol_options:
             idle_timeout: 30s
-
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: test-merge-4
-  namespace: bookinfo
-spec:
-  workloadSelector:
-    labels:
-      istio: ingressgateway
-      appp: merge4
-  configPatches:
   - applyTo: NETWORK_FILTER # http connection manager is a filter in Envoy
     match:
       context: GATEWAY
