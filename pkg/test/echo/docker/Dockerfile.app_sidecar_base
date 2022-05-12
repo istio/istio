@@ -14,6 +14,8 @@ RUN apt-get update && \
     iptables \
     iproute2 \
     sudo \
+    curl \
+    net-tools \
     ca-certificates \
     && apt-get upgrade -y \
     && apt-get clean \
