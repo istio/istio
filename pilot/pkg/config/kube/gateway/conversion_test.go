@@ -118,6 +118,10 @@ func TestConvertResources(t *testing.T) {
 			output.AllowedReferences = nil       // Not tested here
 			output.ReferencedNamespaceKeys = nil // Not tested here
 
+			// sort virtual services to make the order deterministic
+			sort.Slice(output.VirtualService, func(i, j int) bool {
+				return output.VirtualService[i].Namespace+"/"+output.VirtualService[i].Name < output.VirtualService[j].Namespace+"/"+output.VirtualService[j].Name
+			})
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
 			if util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
@@ -130,9 +134,6 @@ func TestConvertResources(t *testing.T) {
 			// sort virtual services to make the order deterministic
 			sort.Slice(golden.VirtualService, func(i, j int) bool {
 				return golden.VirtualService[i].Namespace+"/"+golden.VirtualService[i].Name < golden.VirtualService[j].Namespace+"/"+golden.VirtualService[j].Name
-			})
-			sort.Slice(output.VirtualService, func(i, j int) bool {
-				return output.VirtualService[i].Namespace+"/"+output.VirtualService[i].Name < output.VirtualService[j].Namespace+"/"+output.VirtualService[j].Name
 			})
 			assert.Equal(t, golden, output)
 
