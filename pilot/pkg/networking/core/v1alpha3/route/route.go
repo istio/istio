@@ -16,6 +16,7 @@ package route
 
 import (
 	"fmt"
+	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -310,6 +311,35 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port)
 }
 
+// GetDestinationClusterWithDualStack generates a cluster name for the route, or error if no cluster
+// can be found. Called by translateRule to determine if
+func GetDestinationClusterWithDualStack(destination *networking.Destination, service *model.Service, listenerPort int) []string {
+	port := listenerPort
+	if destination.GetPort() != nil {
+		port = int(destination.GetPort().GetNumber())
+	} else if service != nil && len(service.Ports) == 1 {
+		// if service only has one port defined, use that as the port, otherwise use default listenerPort
+		port = service.Ports[0].Port
+
+		// Do not return blackhole cluster for service==nil case as there is a legitimate use case for
+		// calling this function with nil service: to route to a pre-defined statically configured cluster
+		// declared as part of the bootstrap.
+		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
+	}
+
+	var clusterNames []string
+	clusterNames = append(clusterNames, model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port))
+	if service != nil && len(service.DefaultAddresses) > 1 {
+		for _, addr := range service.DefaultAddresses {
+			if net.ParseIP(addr) != nil && net.ParseIP(addr).To4() == nil && net.ParseIP(addr).To16() != nil {
+				clusterNames = append(clusterNames, model.BuildSubsetKey(model.TrafficDirectionOutbound6, destination.Subset, host.Name(destination.Host), port))
+			}
+		}
+	}
+
+	return clusterNames
+}
+
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
@@ -347,6 +377,65 @@ func BuildHTTPRoutesForVirtualService(
 			for _, match := range http.Match {
 				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry,
 					hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh); r != nil {
+					out = append(out, r)
+					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
+					// As an optimization, we can just top sending any more routes here.
+					if isCatchAllMatch(match) {
+						catchall = true
+						break
+					}
+				}
+			}
+		}
+		if catchall {
+			break
+		}
+	}
+
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no routes matched")
+	}
+	return out, nil
+}
+
+// BuildHTTPRoutesForVirtualServiceWithDualStack creates data plane HTTP routes from the virtual service spec.
+// The rule should be adapted to destination names (outbound clusters).
+// Each rule is guarded by source labels.
+//
+// This is called for each port to compute virtual hosts.
+// Each VirtualService is tried, with a list of Services that listen on the port.
+// Error indicates the given virtualService can't be used on the port.
+// This function is used by both the gateway and the sidecar
+func BuildHTTPRoutesForVirtualServiceWithDualStack(
+	node *model.Proxy,
+	virtualService config.Config,
+	serviceRegistry map[host.Name]*model.Service,
+	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
+	listenPort int,
+	gatewayNames map[string]bool,
+	isHTTP3AltSvcHeaderNeeded bool,
+	mesh *meshconfig.MeshConfig,
+	vskey string,
+) ([]*route.Route, error) {
+	vs, ok := virtualService.Spec.(*networking.VirtualService)
+	if !ok { // should never happen
+		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
+	}
+
+	out := make([]*route.Route, 0, len(vs.Http))
+
+	catchall := false
+	for _, http := range vs.Http {
+		if len(http.Match) == 0 {
+			if r := translateRouteWithDualStack(node, http, nil, listenPort, virtualService, serviceRegistry,
+				hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh, vskey); r != nil {
+				out = append(out, r)
+			}
+			catchall = true
+		} else {
+			for _, match := range http.Match {
+				if r := translateRouteWithDualStack(node, http, match, listenPort, virtualService, serviceRegistry,
+					hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh, vskey); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
@@ -438,6 +527,77 @@ func translateRoute(
 		applyRedirect(out, in.Redirect, listenPort)
 	} else {
 		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
+	}
+
+	out.Decorator = &route.Decorator{
+		Operation: getRouteOperation(out, virtualService.Name, listenPort),
+	}
+	if in.Fault != nil {
+		out.TypedPerFilterConfig = make(map[string]*any.Any)
+		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
+	}
+
+	if isHTTP3AltSvcHeaderNeeded {
+		http3AltSvcHeader := buildHTTP3AltSvcHeader(listenPort, util.ALPNHttp3OverQUIC)
+		if out.ResponseHeadersToAdd == nil {
+			out.ResponseHeadersToAdd = make([]*core.HeaderValueOption, 0)
+		}
+		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, http3AltSvcHeader)
+	}
+
+	return out
+}
+
+// translateRouteWithDualStack translates HTTP routes
+func translateRouteWithDualStack(
+	node *model.Proxy,
+	in *networking.HTTPRoute,
+	match *networking.HTTPMatchRequest,
+	listenPort int,
+	virtualService config.Config,
+	serviceRegistry map[host.Name]*model.Service,
+	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
+	gatewayNames map[string]bool,
+	isHTTP3AltSvcHeaderNeeded bool,
+	mesh *meshconfig.MeshConfig,
+	vskey string,
+) *route.Route {
+	// When building routes, it's okay if the target cluster cannot be
+	// resolved Traffic to such clusters will blackhole.
+
+	// Match by the destination port specified in the match condition
+	if match != nil && match.Port != 0 && match.Port != uint32(listenPort) {
+		return nil
+	}
+	// Match by source labels/gateway names inside the match condition
+	if !sourceMatchHTTP(match, node.Metadata.Labels, gatewayNames, node.Metadata.Namespace) {
+		return nil
+	}
+
+	routeName := in.Name
+	if match != nil && match.Name != "" {
+		routeName = routeName + "." + match.Name
+	}
+
+	out := &route.Route{
+		Name:     routeName,
+		Match:    translateRouteMatch(node, virtualService, match),
+		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
+	}
+	authority := ""
+	if in.Headers != nil {
+		operations := translateHeadersOperations(in.Headers)
+		out.RequestHeadersToAdd = operations.requestHeadersToAdd
+		out.ResponseHeadersToAdd = operations.responseHeadersToAdd
+		out.RequestHeadersToRemove = operations.requestHeadersToRemove
+		out.ResponseHeadersToRemove = operations.responseHeadersToRemove
+		authority = operations.authority
+	}
+
+	if in.Redirect != nil {
+		applyRedirect(out, in.Redirect, listenPort)
+	} else {
+		applyHTTPRouteDestinationWithDualStack(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination, vskey)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -574,6 +734,165 @@ func applyHTTPRouteDestination(
 				HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
 			}
 		}
+	} else {
+		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
+			WeightedClusters: &route.WeightedCluster{
+				Clusters: weighted,
+			},
+		}
+	}
+}
+
+func applyHTTPRouteDestinationWithDualStack(
+	out *route.Route,
+	node *model.Proxy,
+	in *networking.HTTPRoute,
+	mesh *meshconfig.MeshConfig,
+	authority string,
+	serviceRegistry map[host.Name]*model.Service,
+	listenerPort int,
+	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
+	vskey string,
+) {
+	policy := in.Retries
+	if policy == nil {
+		// No VS policy set, use mesh defaults
+		policy = mesh.GetDefaultHttpRetryPolicy()
+	}
+	action := &route.RouteAction{
+		Cors:        translateCORSPolicy(in.CorsPolicy),
+		RetryPolicy: retry.ConvertPolicy(policy),
+	}
+
+	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
+	action.Timeout = features.DefaultRequestTimeout
+	if in.Timeout != nil {
+		action.Timeout = in.Timeout
+	}
+	if node.IsProxylessGrpc() {
+		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
+		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: action.Timeout}
+	} else {
+		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+		// nolint: staticcheck
+		action.MaxGrpcTimeout = action.Timeout
+	}
+
+	out.Action = &route.Route_Route{Route: action}
+
+	if in.Rewrite != nil {
+		action.PrefixRewrite = in.Rewrite.GetUri()
+		if in.Rewrite.GetAuthority() != "" {
+			authority = in.Rewrite.GetAuthority()
+		}
+	}
+	if authority != "" {
+		action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+			HostRewriteLiteral: authority,
+		}
+	}
+
+	if in.Mirror != nil {
+		if mp := mirrorPercent(in); mp != nil {
+			dualStackNode := node.SupportsIPv4() && node.SupportsIPv6()
+			clusterNames := GetDestinationClusterWithDualStack(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort)
+			for _, clusterName := range clusterNames {
+				if len(in.Mirror.Host) > 0 && serviceRegistry[host.Name(in.Mirror.Host)] != nil &&
+					len(serviceRegistry[host.Name(in.Mirror.Host)].DefaultAddresses) > 1 {
+					if dualStackNode && (strings.HasSuffix(vskey, constants.IPv6Suffix) &&
+						!strings.HasPrefix(clusterName, string(model.TrafficDirectionOutbound6))) ||
+						(!strings.HasSuffix(vskey, constants.IPv6Suffix) && strings.HasPrefix(clusterName, string(model.TrafficDirectionOutbound6))) {
+						continue
+					}
+				} else if (strings.Contains(clusterName, string(model.TrafficDirectionOutbound6)) &&
+					net.ParseIP(serviceRegistry[host.Name(in.Mirror.Host)].DefaultAddress).To4() != nil) ||
+					(!strings.Contains(clusterName, string(model.TrafficDirectionOutbound6)) &&
+						len(in.Mirror.Host) > 0 && serviceRegistry[host.Name(in.Mirror.Host)] != nil &&
+						net.ParseIP(serviceRegistry[host.Name(in.Mirror.Host)].DefaultAddress).To4() == nil) {
+					continue
+				}
+				log.Debugf("append clusterName %s", clusterName)
+				action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
+					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort),
+					RuntimeFraction: mp,
+					TraceSampled:    &wrappers.BoolValue{Value: false},
+				}}
+			}
+		}
+	}
+
+	// TODO: eliminate this logic and use the total_weight option in envoy route
+	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
+	for _, dst := range in.Route {
+		weight := &wrappers.UInt32Value{Value: uint32(dst.Weight)}
+		if dst.Weight == 0 {
+			// Ignore 0 weighted clusters if there are other clusters in the route.
+			// But if this is the only cluster in the route, then add it as a cluster with weight 100
+			if len(in.Route) == 1 {
+				weight.Value = uint32(100)
+			} else {
+				continue
+			}
+		}
+		hostname := host.Name(dst.GetDestination().GetHost())
+		n := GetDestinationClusterWithDualStack(dst.Destination, serviceRegistry[hostname], listenerPort)
+		for _, clusterName := range n {
+			if serviceRegistry != nil && serviceRegistry[hostname] != nil {
+				if len(serviceRegistry[hostname].DefaultAddresses) > 1 {
+					if (strings.HasSuffix(vskey, constants.IPv6Suffix) && !strings.HasPrefix(clusterName, string(model.TrafficDirectionOutbound6))) ||
+						(!strings.HasSuffix(vskey, constants.IPv6Suffix) && strings.HasPrefix(clusterName, string(model.TrafficDirectionOutbound6))) {
+						continue
+					}
+				} else if (strings.HasSuffix(vskey, constants.IPv6Suffix) && net.ParseIP(serviceRegistry[hostname].DefaultAddress).To4() != nil) ||
+					(features.EnableDualStack && !strings.HasSuffix(vskey, constants.IPv6Suffix) && net.ParseIP(serviceRegistry[hostname].DefaultAddress).To4() == nil) {
+					continue
+				}
+			}
+			clusterWeight := &route.WeightedCluster_ClusterWeight{
+				Name:   clusterName,
+				Weight: weight,
+			}
+			if dst.Headers != nil {
+				operations := translateHeadersOperations(dst.Headers)
+				clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
+				clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
+				clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
+				clusterWeight.ResponseHeadersToRemove = operations.responseHeadersToRemove
+				if operations.authority != "" {
+					clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
+						HostRewriteLiteral: operations.authority,
+					}
+				}
+			}
+
+			weighted = append(weighted, clusterWeight)
+		}
+		hash := hashByDestination[dst]
+		hashPolicy := consistentHashToHashPolicy(hash)
+		if hashPolicy != nil {
+			action.HashPolicy = append(action.HashPolicy, hashPolicy)
+		}
+	}
+
+	// rewrite to a single cluster if there is only weighted cluster
+	if len(weighted) == 1 {
+		action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
+		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
+		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
+		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
+		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
+		if weighted[0].HostRewriteSpecifier != nil && action.HostRewriteSpecifier == nil {
+			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
+			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
+			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
+			// behavior to be consistent with a single cluster and multiple clusters.
+			// As a result, we only override if the top level rewrite is not set
+			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+				HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
+			}
+		}
+	} else if len(weighted) == 0 {
+		return
 	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
