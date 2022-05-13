@@ -20,6 +20,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -105,6 +106,107 @@ components:
 
 			got := skipReplicaCountWithAutoscaleEnabled(iop, tt.component)
 			assert.Equal(t, tt.expectSkip, got)
+		})
+	}
+}
+
+func Test_translateDeprecatedAutoscalingAPI(t *testing.T) {
+	const iopString1 = `
+components:
+  ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        hpaSpec:
+          metrics:
+          - object: 
+              metricName: test1
+`
+	const iopString2 = `
+components:
+  pilot:
+      k8s:
+        hpaSpec:
+          metrics:
+          - resource: 
+              targetAverageUtilization: 80
+`
+	const iopString3 = `
+components:
+  egressGateways:
+    - name: istio-egressgateway
+      enabled: true
+      k8s:
+        hpaSpec:
+          metrics:
+          - pods: 
+              targetAverageValue: 100m
+`
+	const iopString4 = `
+components:
+  pilot:
+      enabled: true
+      k8s:
+        hpaSpec:
+          scaleTargetRef:
+            apiVersion: extensions/v1beta1
+            kind: Deployment
+            name: istiod
+          minReplicas: 1
+          maxReplicas: 5
+          metrics:
+           - resource:
+               name: cpu
+               target:
+                 averageUtilization: 80
+                 type: Utilization
+             type: Resource
+`
+	cases := []struct {
+		name        string
+		iopString   string
+		expectFound bool
+	}{
+		{
+			name:        "found deprecated fields ingress",
+			iopString:   iopString1,
+			expectFound: true,
+		},
+		{
+			name:        "found deprecated fields pilot",
+			iopString:   iopString2,
+			expectFound: true,
+		},
+		{
+			name:        "found deprecated fields egress",
+			iopString:   iopString3,
+			expectFound: true,
+		},
+		{
+			name:        "no deprecated fields",
+			iopString:   iopString4,
+			expectFound: false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			var iop *v1alpha1.IstioOperatorSpec
+			if tt.iopString != "" {
+				iop = &v1alpha1.IstioOperatorSpec{}
+				if err := util.UnmarshalWithJSONPB(tt.iopString, iop, true); err != nil {
+					t.Fatal(err)
+				}
+			}
+			translator := NewTranslator()
+			values := make(map[string]interface{})
+			_ = translator.translateDeprecatedAutoscalingFields(values, iop)
+			val, found, _ := tpath.GetFromStructPath(values, "global.autoscalingv2API")
+			if tt.expectFound {
+				assert.Equal(t, found, true)
+				assert.Equal(t, val, false)
+			} else {
+				assert.Equal(t, found, false)
+			}
 		})
 	}
 }

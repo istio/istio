@@ -1,0 +1,36 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  hub: docker.io/istio
+  tag: 1.1.4
+  meshConfig:
+    rootNamespace: istio-control
+  components:
+    pilot:
+      enabled: true
+      namespace: istio-control
+      k8s:
+        hpaSpec:
+          maxReplicas: 333
+          scaleTargetRef:
+            name: istio-pilot
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 444
+    ingressGateways:
+    - namespace: istio-system
+      name: istio-ingressgateway
+      enabled: true
+      k8s:
+        hpaSpec:
+          maxReplicas: 222
+          scaleTargetRef:
+            name: istio-ingressgateway
+          metrics:
+          - type: Resource
+            object:
+              metricName: cpu
+              averageValue: 111

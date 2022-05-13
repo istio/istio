@@ -450,6 +450,9 @@ global:
   # The default value is "" and when caName="", the CA will be configured by other
   # mechanisms (e.g., environmental variable CA_PROVIDER).
   caName: ""
+  # whether to use autoscaling/v2 template for HPA settings
+  # for internal usage only, not to be configured by users.
+  autoscalingv2API: true
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true

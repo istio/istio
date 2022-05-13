@@ -7,5 +7,7 @@ deployment:
   accessible_namespaces:
   - '**'
   ingress_enabled: false
+  hpa:
+    api_version: autoscaling/v2beta2
 login_token:
   signing_key: CHANGEME00000000
