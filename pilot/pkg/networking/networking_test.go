@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"google.golang.org/protobuf/types/known/anypb"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -98,6 +97,14 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			ListenerProtocolAuto,
 		},
 		{
+			"Outbound unknown to Auto (disable sniffing for outbound)",
+			protocol.Unsupported,
+			core.TrafficDirection_OUTBOUND,
+			true,
+			false,
+			ListenerProtocolTCP,
+		},
+		{
 			"Inbound unknown to Auto (disable sniffing for outbound)",
 			protocol.Unsupported,
 			core.TrafficDirection_INBOUND,
@@ -141,12 +148,12 @@ func TestMakeTunnelAbility(t *testing.T) {
 		want  TunnelAbility
 	}{
 		{
-			"tunnelAbility H2Tunnel",
+			"test TunnelAbility method for H2Tunnel",
 			H2Tunnel,
 			1,
 		},
 		{
-			"tunnelAbility NoTunnel",
+			"test TunnelAbility method for NoTunnel",
 			NoTunnel,
 			0,
 		},
@@ -161,28 +168,6 @@ func TestMakeTunnelAbility(t *testing.T) {
 	}
 }
 
-func TestMessageToAny(t *testing.T) {
-	tests := []struct {
-		name  string
-		value anypb.Any
-		want  *anypb.Any
-	}{
-		{
-			"messageToAny TcpProxy",
-			anypb.Any{},
-			&anypb.Any{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := MessageToAny(&tt.value); got == tt.want {
-				t.Errorf("Failed to get MessageToAny: got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestToString(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -190,14 +175,14 @@ func TestToString(t *testing.T) {
 		want  string
 	}{
 		{
-			"H2Tunnel",
+			"test ToString method for H2Tunnel",
 			H2Tunnel,
-			H2Tunnel.ToString(),
+			"H2Tunnel",
 		},
 		{
-			"NoTunnel",
+			"test ToString method for NoTunnel",
 			NoTunnel,
-			NoTunnel.ToString(),
+			"notunnel",
 		},
 	}
 
@@ -217,12 +202,12 @@ func TestSupportH2Tunnel(t *testing.T) {
 		want  bool
 	}{
 		{
-			"Support NoTunnel",
+			"test SupportH2Tunnel method for NoTunnel",
 			NoTunnel,
 			false,
 		},
 		{
-			"Support H2Tunnel",
+			"test SupportH2Tunnel method for H2Tunnel",
 			H2Tunnel,
 			true,
 		},
@@ -244,12 +229,12 @@ func TestToEnvoySocketProtocol(t *testing.T) {
 		want  core.SocketAddress_Protocol
 	}{
 		{
-			"envoySocketProtocol Notunnel",
+			"test ToEnvoySocketProtocol method for Notunnel",
 			NoTunnel,
 			0,
 		},
 		{
-			"envoySocketProtocol H2Tunnel",
+			"test ToEnvoySocketProtocol method for H2Tunnel",
 			H2Tunnel,
 			1,
 		},
@@ -272,17 +257,17 @@ func TestString(t *testing.T) {
 		want  string
 	}{
 		{
-			"tcp protocal",
+			"test String method for tcp transport protocal",
 			TransportProtocolTCP,
 			"tcp",
 		},
 		{
-			"quic protocal",
+			"test String method for quic transport protocal",
 			TransportProtocolQUIC,
 			"quic",
 		},
 		{
-			"invalid protocal",
+			"test String method for invalid transport protocal",
 			3,
 			"unknown",
 		},
