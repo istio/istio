@@ -246,7 +246,6 @@ func TestTraceOperation(t *testing.T) {
 }
 
 func TestBuildInboundStatPrefix(t *testing.T) {
-	//statPattern string, tm FilterChainMetadata, subset string, port uint32, portName string)
 	tests := []struct {
 		name        string
 		statPattern string
