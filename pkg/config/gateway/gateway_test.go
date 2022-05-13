@@ -78,9 +78,9 @@ func TestIsTLSServerForNonHTTP(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := IsTLSServerForNonHTTP(tc.server)
+			actual := IsNonHTTPTLSServer(tc.server)
 			if actual != tc.expected {
-				t.Errorf("IsTLSServerForNonHTTP(%s) => %t, want %t",
+				t.Errorf("IsNonHTTPTLSServer(%s) => %t, want %t",
 					tc.server, actual, tc.expected)
 			}
 		})

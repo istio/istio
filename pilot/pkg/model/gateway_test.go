@@ -142,14 +142,12 @@ func TestMergeGateways(t *testing.T) {
 				t.Errorf("Incorrect number of routes. Expected: %v Got: %d", len(tt.serversForRouteNum), len(mgw.ServersByRouteName))
 			}
 			for k, v := range mgw.ServersByRouteName {
-				fmt.Println("----route  ", k, "servers ", v)
 				if tt.serversForRouteNum[k] != len(v) {
 					t.Errorf("for route %v expected %v servers got %v", k, tt.serversForRouteNum[k], len(v))
 				}
 			}
 			ns := 0
 			for _, ms := range mgw.MergedServers {
-				fmt.Println("-----", ms.Servers)
 				ns += len(ms.Servers)
 			}
 			if ns != tt.serverNum {
