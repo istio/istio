@@ -407,7 +407,6 @@ func (c *LocalFileCache) purge() {
 						delete(c.checksums, downloadURL)
 					}
 					delete(c.modules, k)
-					log.Infof("modules :%v", c.modules)
 					wasmLog.Debugf("successfully removed stale Wasm module %v", m.modulePath)
 				}
 			}
