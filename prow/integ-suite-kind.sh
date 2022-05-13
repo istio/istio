@@ -40,8 +40,7 @@ TOPOLOGY=SINGLE_CLUSTER
 NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.24.0-0.13.0"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
-go install sigs.k8s.io/kind@v0.13.0
-kind version
+
 export FAST_VM_BUILDS=true
 export ISTIO_DOCKER_BUILDER=crane
 
