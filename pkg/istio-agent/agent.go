@@ -505,16 +505,13 @@ func (a *Agent) initSdsServer() error {
 		a.secOpts.KeyFilePath = security.WorkloadIdentityKeyPath
 
 		a.secretCache, err = cache.NewSecretManagerClient(nil, a.secOpts)
-		if err != nil {
-			return fmt.Errorf("failed to start workload secret manager %v", err)
-		}
 	} else {
 		a.secretCache, err = a.newSecretManager()
-		if err != nil {
-			return fmt.Errorf("failed to start workload secret manager %v", err)
-		}
 	}
 
+	if err != nil {
+		return fmt.Errorf("failed to start workload secret manager %v", err)
+	}
 	pkpConf := a.proxyConfig.GetPrivateKeyProvider()
 	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache, pkpConf)
 	a.secretCache.RegisterSecretHandler(a.sdsServer.OnSecretUpdate)

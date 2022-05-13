@@ -85,6 +85,7 @@ func (s *Server) initWorkloadSdsService() {
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions()...)
 	s.workloadSds.register(s.grpcWorkloadServer)
 	var err error
+	s.grpcWorkloadListener, err = uds.NewListener(security.WorkloadIdentitySocketPath)
 	go func() {
 		sdsServiceLog.Info("Starting SDS grpc server")
 		waitTime := time.Second
