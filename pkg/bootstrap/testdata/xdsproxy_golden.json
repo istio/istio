@@ -239,7 +239,15 @@
     }
   },
   "admin": {
-    "access_log_path": "/dev/null",
+    "access_log": [
+      {
+        "name": "envoy.access_loggers.file",
+        "typed_config": {
+          "@type": "type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog",
+          "path": "/dev/null"
+        }
+      }
+    ],
     "profile_path": "/var/lib/istio/data/envoy.prof",
     "address": {
       "socket_address": {
