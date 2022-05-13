@@ -1335,6 +1335,12 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 	}] = map[k8s.SectionName]*parentInfo{
 		"": {
 			InternalName: "mesh",
+			// Mesh has no configurable AllowedKinds, so allow all supported
+			AllowedKinds: []k8s.RouteGroupKind{
+				{Group: (*k8s.Group)(StrPointer(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)},
+				{Group: (*k8s.Group)(StrPointer(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)},
+				{Group: (*k8s.Group)(StrPointer(gvk.TLSRoute.Group)), Kind: k8s.Kind(gvk.TLSRoute.Kind)},
+			},
 		},
 	}
 	return result, gwMap, namespaceLabelReferences

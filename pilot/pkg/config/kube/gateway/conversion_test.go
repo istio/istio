@@ -136,6 +136,7 @@ func TestConvertResources(t *testing.T) {
 			sort.Slice(golden.VirtualService, func(i, j int) bool {
 				return golden.VirtualService[i].Namespace+"/"+golden.VirtualService[i].Name < golden.VirtualService[j].Namespace+"/"+golden.VirtualService[j].Name
 			})
+
 			assert.Equal(t, golden, output)
 
 			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.TLSRoute, kr.TCPRoute)
