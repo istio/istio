@@ -174,18 +174,3 @@ func (s Set) Len() int {
 func (s Set) IsEmpty() bool {
 	return len(s) == 0
 }
-
-// Diff takes a pair of Sets, and returns the elements that occur only on the left and right set.
-func (s Set) Diff(other Set) (left []string, right []string) {
-	for k := range s {
-		if _, f := other[k]; !f {
-			left = append(left, k)
-		}
-	}
-	for k := range other {
-		if _, f := s[k]; !f {
-			right = append(right, k)
-		}
-	}
-	return
-}
