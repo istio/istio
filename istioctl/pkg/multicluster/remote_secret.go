@@ -240,6 +240,9 @@ func waitForTokenData(client kube.ExtendedClient, secret *v1.Secret) (ca, token 
 	err = backoff.Retry(
 		func() error {
 			secret, err = client.Kube().CoreV1().Secrets(secret.Namespace).Get(context.TODO(), secret.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
 			ca, token, err = tokenDataFromSecret(secret)
 			return err
 		},
