@@ -728,7 +728,7 @@ func TestWasmCache(t *testing.T) {
 			if diff := cmp.Diff(cache.checksums, c.wantCachedChecksums,
 				cmp.AllowUnexported(checksumEntry{}),
 			); diff != "" {
-				t.Errorf("unexpected checksums is resulted:(+want, -got)\n%v", diff)
+				t.Errorf("unexpected checksums: (+want, -got)\n%v", diff)
 			}
 
 			cache.mux.Unlock()
