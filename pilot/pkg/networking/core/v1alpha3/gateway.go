@@ -209,7 +209,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 		// This process typically yields multiple filter chain matches (with SNI) [if TLS is used]
 		tcpFilterChainOpts := make([]*filterChainOpts, 0)
 		for _, server := range serversForPort.Servers {
-			if gateway.IsTLSServer(server) && gateway.IsHTTPServer(server) {
+			if gateway.IsHTTPSServerWithTLSTermination(server) {
 				routeName := mergedGateway.TLSServerInfo[server].RouteName
 				// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 				tcpFilterChainOpts = append(tcpFilterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
