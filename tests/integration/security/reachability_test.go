@@ -58,6 +58,9 @@ func TestReachability(t *testing.T) {
 			Never := func(echo.Instance, echo.CallOptions) bool {
 				return false
 			}
+			SameNetwork := func(from echo.Instance, to echo.Target) echo.Instances {
+				return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+			}
 			testCases := []reachability.TestCase{
 				{
 					ConfigFile: "beta-mtls-on.yaml",
@@ -89,17 +92,15 @@ func TestReachability(t *testing.T) {
 					Include:       Always,
 					ExpectSuccess: Always,
 					ExpectMTLS:    Never,
-					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
-						// Without TLS we can't perform SNI routing required for multi-network
-						return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
-					},
+					// Without TLS we can't perform SNI routing required for multi-network
+					ExpectDestinations: SameNetwork,
 				},
 				{
 					ConfigFile: "beta-mtls-automtls-workload.yaml",
 					Namespace:  apps.Namespace1,
 					Include: func(from echo.Instance, opts echo.CallOptions) bool {
 						return (apps.B.Contains(from) || apps.IsNaked(from)) &&
-							(apps.A.ContainsTarget(opts.To) || apps.B.ContainsTarget(opts.To))
+							(apps.A.ContainsTarget(opts.To) || apps.B.ContainsTarget(opts.To)) && !(apps.B.ContainsTarget(opts.To) && opts.Port.Name == "http")
 					},
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
 						// Sidecar injected client always succeed.
@@ -115,19 +116,12 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS: func(from echo.Instance, opts echo.CallOptions) bool {
 						return apps.B.Contains(from) && opts.Port.Name != "http" && !apps.A.ContainsTarget(opts.To)
 					},
+					// TLS disabled on A
 					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
-						// TLS disabled on A
 						if apps.A.ContainsTarget(to) {
 							return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
 						}
 						return to.Instances()
-					},
-					ExpectReached: func(opts echo.CallOptions) bool {
-						// TLS disabled on B port 8090
-						if apps.B.ContainsTarget(opts.To) && opts.Port.Name == "http" {
-							return false
-						}
-						return true
 					},
 				},
 				{
@@ -136,11 +130,9 @@ func TestReachability(t *testing.T) {
 					Include:       Always,
 					ExpectSuccess: Always,
 					ExpectMTLS:    Never,
-					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
-						// Since we are only sending plaintext and Without TLS
-						// we can't perform SNI routing required for multi-network
-						return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
-					},
+					// Since we are only sending plaintext and Without TLS
+					// we can't perform SNI routing required for multi-network
+					ExpectDestinations: SameNetwork,
 				},
 				{
 					ConfigFile: "beta-per-port-mtls.yaml",
@@ -153,11 +145,9 @@ func TestReachability(t *testing.T) {
 						return opts.Port.Name != "http"
 					},
 					ExpectMTLS: Never,
-					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
-						// Since we are only sending plaintext and Without TLS
-						// we can't perform SNI routing required for multi-network
-						return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
-					},
+					// Since we are only sending plaintext and Without TLS
+					// we can't perform SNI routing required for multi-network
+					ExpectDestinations: SameNetwork,
 				},
 				{
 					ConfigFile: "beta-mtls-automtls.yaml",

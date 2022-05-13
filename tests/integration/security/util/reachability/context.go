@@ -56,9 +56,6 @@ type TestCase struct {
 	// Allows filtering the destinations we expect to reach (optional).
 	ExpectDestinations func(from echo.Instance, to echo.Target) echo.Instances
 
-	// Allows filtering the destinations based on port we expect to reach (optional).
-	ExpectReached func(opts echo.CallOptions) bool
-
 	// Indicates whether the test should expect a MTLS response.
 	ExpectMTLS func(from echo.Instance, opts echo.CallOptions) bool
 
@@ -165,9 +162,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 								// Set the target on the call options.
 								opts.To = to
 								opts.Count = callCount
-								if c.ExpectReached != nil && !c.ExpectReached(opts) {
-									continue
-								}
+
 								// TODO(https://github.com/istio/istio/issues/37629) go back to converge
 								opts.Retry.Options = []retry.Option{retry.Converge(1)}
 								// TODO(https://github.com/istio/istio/issues/37629) go back to 5s
