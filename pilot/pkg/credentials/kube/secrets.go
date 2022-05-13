@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	sa "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -64,8 +65,6 @@ type CredentialsController struct {
 	secretLister   listersv1.SecretLister
 	sar            authorizationv1client.SubjectAccessReviewInterface
 
-	clusterID cluster.ID
-
 	mu                 sync.RWMutex
 	authorizationCache map[authorizationKey]authorizationResponse
 }
@@ -100,17 +99,11 @@ func NewCredentialsController(client kube.Client, clusterID cluster.ID) *Credent
 	})
 
 	return &CredentialsController{
-		secretInformer: informer,
-		secretLister:   listersv1.NewSecretLister(informer.GetIndexer()),
-
+		secretInformer:     informer,
+		secretLister:       listersv1.NewSecretLister(informer.GetIndexer()),
 		sar:                client.Kube().AuthorizationV1().SubjectAccessReviews(),
-		clusterID:          clusterID,
 		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
-}
-
-func toUser(serviceAccount, namespace string) string {
-	return fmt.Sprintf("system:serviceaccount:%s:%s", namespace, serviceAccount)
 }
 
 const cacheTTL = time.Minute
@@ -168,7 +161,7 @@ func DisableAuthorizationForTest(fake *fake.Clientset) {
 }
 
 func (s *CredentialsController) Authorize(serviceAccount, namespace string) error {
-	user := toUser(serviceAccount, namespace)
+	user := sa.MakeUsername(namespace, serviceAccount)
 	if cached, f := s.cachedAuthorization(user); f {
 		return cached
 	}
