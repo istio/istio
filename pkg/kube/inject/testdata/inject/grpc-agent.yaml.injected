@@ -48,6 +48,8 @@ spec:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
         env:
         - name: ISTIO_META_GENERATOR
@@ -91,8 +93,6 @@ spec:
           value: traffic
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        - name: ISTIO_META_INTERCEPTION_MODE
-          value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
           value: grpc
         - name: ISTIO_META_OWNER
@@ -106,7 +106,18 @@ spec:
         - name: DISABLE_ENVOY
           value: "true"
         image: gcr.io/istio-testing/proxyv2:latest
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - pilot-agent
+              - wait
+              - --url=http://localhost:15020/healthz/ready
         name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
         readinessProbe:
           failureThreshold: 30
           httpGet:
@@ -137,11 +148,11 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      securityContext:
+        fsGroup: 1337
       volumes:
-      - emptyDir: {}
-        name: workload-socket
-      - emptyDir: {}
-        name: workload-certs
+      - name: workload-socket
+      - name: workload-certs
       - emptyDir:
           medium: Memory
         name: istio-xds
