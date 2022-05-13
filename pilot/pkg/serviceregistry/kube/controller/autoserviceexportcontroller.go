@@ -88,7 +88,7 @@ func (c *autoServiceExportController) onServiceAdd(obj interface{}) {
 			return nil
 		}
 
-		svc, err := convertToService(obj)
+		svc, err := extractService(obj)
 		if err != nil {
 			log.Warnf("%s failed converting service: %v", c.logPrefix(), err)
 			return err

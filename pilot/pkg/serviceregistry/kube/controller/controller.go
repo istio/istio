@@ -497,7 +497,7 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
-	svc, err := convertToService(curr)
+	svc, err := extractService(curr)
 	if err != nil {
 		log.Errorf(err)
 		return nil
