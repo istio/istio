@@ -84,12 +84,15 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS:    mtlsOnExpect,
 				},
 				{
-					ConfigFile:             "beta-mtls-off.yaml",
-					Namespace:              systemNM,
-					Include:                Always,
-					ExpectSuccess:          Always,
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ConfigFile:    "beta-mtls-off.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
+						// Without TLS we can't perform SNI routing required for multi-network
+						return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+					},
 				},
 				{
 					ConfigFile: "beta-mtls-automtls-workload.yaml",
@@ -112,15 +115,32 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS: func(from echo.Instance, opts echo.CallOptions) bool {
 						return apps.B.Contains(from) && opts.Port.Name != "http" && !apps.A.ContainsTarget(opts.To)
 					},
-					SkippedForMulticluster: true,
+					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
+						// TLS disabled on A
+						if apps.A.ContainsTarget(to) {
+							return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+						}
+						return to.Instances()
+					},
+					ExpectReached: func(opts echo.CallOptions) bool {
+						// TLS disabled on B port 8090
+						if apps.B.ContainsTarget(opts.To) && opts.Port.Name == "http" {
+							return false
+						}
+						return true
+					},
 				},
 				{
-					ConfigFile:             "plaintext-to-permissive.yaml",
-					Namespace:              systemNM,
-					Include:                Always,
-					ExpectSuccess:          Always,
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ConfigFile:    "plaintext-to-permissive.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
+						// Since we are only sending plaintext and Without TLS
+						// we can't perform SNI routing required for multi-network
+						return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+					},
 				},
 				{
 					ConfigFile: "beta-per-port-mtls.yaml",
@@ -132,8 +152,12 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(_ echo.Instance, opts echo.CallOptions) bool {
 						return opts.Port.Name != "http"
 					},
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ExpectMTLS: Never,
+					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
+						// Since we are only sending plaintext and Without TLS
+						// we can't perform SNI routing required for multi-network
+						return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+					},
 				},
 				{
 					ConfigFile: "beta-mtls-automtls.yaml",
@@ -187,9 +211,12 @@ func TestReachability(t *testing.T) {
 						}
 						return mtlsOnExpect(from, opts)
 					},
-					// Since we are doing passthrough, only single cluster is relevant here, as we
-					// are bypassing any Istio cluster load balancing
-					SkippedForMulticluster: true,
+
+					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
+						// Since we are doing passthrough, only single cluster is relevant here, as we
+						// are bypassing any Istio cluster load balancing
+						return match.Cluster(from.Config().Cluster).GetMatches(to.Instances())
+					},
 				},
 				// --------start of auto mtls partial test cases ---------------
 				// The follow three consecutive test together ensures the auto mtls works as intended
