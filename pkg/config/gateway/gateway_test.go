@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
-func TestIsTLSServerForNonHTTP(t *testing.T) {
+func TestIsNonHTTPTLSServer(t *testing.T) {
 	cases := []struct {
 		name     string
 		server   *v1alpha3.Server
@@ -39,7 +39,7 @@ func TestIsTLSServerForNonHTTP(t *testing.T) {
 				},
 				Tls: &v1alpha3.ServerTLSSettings{HttpsRedirect: true},
 			},
-			expected: true,
+			expected: false,
 		},
 		{
 			name: "tls non nil and TCP as transport protocol",
