@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -32,6 +31,8 @@ import (
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -77,9 +78,9 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("could not create %q namespace for registry redirector server install; err: %v", ns, err)
 	}
 
-	instanceId := uuid.NewString()
+	instanceID := uuid.NewString()
 	args := map[string]interface{}{
-		"InstanceId": fmt.Sprintf("%q", instanceId),
+		"InstanceID": fmt.Sprintf("%q", instanceID),
 	}
 
 	if len(cfg.TargetRegistry) != 0 {
@@ -95,7 +96,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", env.RegistryRedirectorServerInstallFilePath, err)
 	}
 
-	fetchFn := testKube.NewPodFetch(ctx.Clusters().Default(), c.ns.Name(), podSelector, fmt.Sprintf("uuid=%s", instanceId))
+	fetchFn := testKube.NewPodFetch(ctx.Clusters().Default(), c.ns.Name(), podSelector, fmt.Sprintf("uuid=%s", instanceID))
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err

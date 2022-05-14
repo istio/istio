@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -43,16 +42,10 @@ import (
 var (
 	client, server echo.Instances
 	appNsInst      namespace.Instance
-	promInst       prometheus.Instance
 	registry       registryredirector.Instance
 )
 
 const (
-	removedTag            = "source_principal"
-	requestCountMultipler = 3
-	httpProtocol          = "http"
-	grpcProtocol          = "grpc"
-
 	// Same user name and password as specified at pkg/test/fakes/imageregistry
 	registryUser   = "user"
 	registryPasswd = "passwd"
@@ -105,7 +98,8 @@ func applyAndTestWasm(t framework.TestContext, c wasmTestConfigs) {
 
 		value := result.Responses[0].ResponseHeaders.Get(injectedHeader)
 		if value != c.expectedVersion {
-			return fmt.Errorf("[generation: %d] unexpected values for the header %q with the policy %q: given %q, got %q, want %q", generation, injectedHeader, c.policy, c.upstreamVersion, value, c.expectedVersion)
+			return fmt.Errorf("[generation: %d] unexpected values for the header %q with the policy %q: given %q, got %q, want %q",
+				generation, injectedHeader, c.policy, c.upstreamVersion, value, c.expectedVersion)
 		}
 
 		return nil
@@ -156,7 +150,8 @@ func TestWasmPluginPullPolicy(t *testing.T) {
 				tag:             "latest",
 				policy:          "",
 				upstreamVersion: "0.0.1",
-				expectedVersion: "0.0.1"})
+				expectedVersion: "0.0.1",
+			})
 
 			resetWasm(t, "wasm-test-module")
 			applyAndTestWasm(t, wasmTestConfigs{
@@ -165,7 +160,8 @@ func TestWasmPluginPullPolicy(t *testing.T) {
 				tag:             "latest",
 				policy:          "IfNotPresent",
 				upstreamVersion: "0.0.2",
-				expectedVersion: "0.0.1"})
+				expectedVersion: "0.0.1",
+			})
 
 			// Intentionally, do not reset here to see the upgrade from 0.0.1.
 			applyAndTestWasm(t, wasmTestConfigs{
@@ -174,7 +170,8 @@ func TestWasmPluginPullPolicy(t *testing.T) {
 				tag:             "latest",
 				policy:          "",
 				upstreamVersion: "0.0.2",
-				expectedVersion: "0.0.2"})
+				expectedVersion: "0.0.2",
+			})
 			resetWasm(t, "wasm-test-module")
 
 			applyAndTestWasm(t, wasmTestConfigs{
@@ -183,7 +180,8 @@ func TestWasmPluginPullPolicy(t *testing.T) {
 				tag:             "test-tag-1",
 				policy:          "",
 				upstreamVersion: "0.0.1",
-				expectedVersion: "0.0.1"})
+				expectedVersion: "0.0.1",
+			})
 
 			resetWasm(t, "wasm-test-module-test-tag-1")
 			applyAndTestWasm(t, wasmTestConfigs{
@@ -192,7 +190,8 @@ func TestWasmPluginPullPolicy(t *testing.T) {
 				tag:             "test-tag-1",
 				policy:          "IfNotPresent",
 				upstreamVersion: "0.0.2",
-				expectedVersion: "0.0.1"})
+				expectedVersion: "0.0.1",
+			})
 
 			resetWasm(t, "wasm-test-module-test-tag-1")
 			applyAndTestWasm(t, wasmTestConfigs{
@@ -201,7 +200,8 @@ func TestWasmPluginPullPolicy(t *testing.T) {
 				tag:             "test-tag-1",
 				policy:          "",
 				upstreamVersion: "0.0.2",
-				expectedVersion: "0.0.1"})
+				expectedVersion: "0.0.1",
+			})
 
 			// Intentionally, do not reset here to see the upgrade from 0.0.1.
 			applyAndTestWasm(t, wasmTestConfigs{
@@ -210,8 +210,8 @@ func TestWasmPluginPullPolicy(t *testing.T) {
 				tag:             "test-tag-1",
 				policy:          "Always",
 				upstreamVersion: "0.0.2",
-				expectedVersion: "0.0.2"})
-
+				expectedVersion: "0.0.2",
+			})
 		})
 }
 
