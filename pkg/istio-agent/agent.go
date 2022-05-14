@@ -494,11 +494,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 
 func (a *Agent) initSdsServer() error {
 	var err error
-	// If proxy is using file mounted certs, we do not have to connect to CA.
-	if a.secOpts.FileMountedCerts {
-		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
-		a.secretCache, err = cache.NewSecretManagerClient(nil, a.secOpts)
-	} else if security.CheckWorkloadCertificate(security.WorkloadIdentityCertChainPath, security.WorkloadIdentityKeyPath, security.WorkloadIdentityRootCertPath) {
+	if security.CheckWorkloadCertificate(security.WorkloadIdentityCertChainPath, security.WorkloadIdentityKeyPath, security.WorkloadIdentityRootCertPath) {
 		log.Info("workload certificate files detected, creating secret manager without caClient")
 		a.secOpts.RootCertFilePath = security.WorkloadIdentityRootCertPath
 		a.secOpts.CertChainFilePath = security.WorkloadIdentityCertChainPath
@@ -796,6 +792,11 @@ func getKeyCertInner(certPath string) (string, string) {
 
 // newSecretManager creates the SecretManager for workload secrets
 func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
+	// If proxy is using file mounted certs, we do not have to connect to CA.
+	if a.secOpts.FileMountedCerts {
+		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
+		return cache.NewSecretManagerClient(nil, a.secOpts)
+	}
 	log.Infof("CA Endpoint %s, provider %s", a.secOpts.CAEndpoint, a.secOpts.CAProviderName)
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
