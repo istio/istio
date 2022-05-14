@@ -96,7 +96,7 @@ func init() {
 	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 }
 
-// readinessProbe defines a function that will be used indicate whether a server is ready.
+// readinessProbe defines a function that indicates whether a server is ready.
 type readinessProbe func() (bool, error)
 
 // Server contains the runtime configuration for the Pilot discovery service.
