@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -31,8 +33,6 @@ import (
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-
-	"github.com/google/uuid"
 )
 
 const (
