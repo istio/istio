@@ -4,7 +4,6 @@ go 1.17
 
 require (
 	github.com/envoyproxy/go-control-plane v0.10.2-0.20220420171917-689c2bccf0ec
-	github.com/ghodss/yaml v1.0.0
 	google.golang.org/grpc v1.45.0
 )
 
@@ -17,5 +16,4 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/genproto v0.0.0-20220329172620-7be39ac1afc7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
-	gopkg.in/yaml.v2 v2.2.3 // indirect
 )

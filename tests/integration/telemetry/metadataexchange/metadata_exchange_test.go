@@ -57,6 +57,7 @@ type Metadata struct {
 
 func TestHTTPMetadataExchangeBetweenSidecars(t *testing.T) {
 	framework.NewTest(t).
+		Features("observability.telemetry.tracing.server").
 		Run(func(t framework.TestContext) {
 			resetAlsSinkServer(t)
 			err := retry.UntilSuccess(func() error {
@@ -79,6 +80,7 @@ func TestHTTPMetadataExchangeBetweenSidecars(t *testing.T) {
 
 func TestTCPMetadataExchangeBetweenSidecars(t *testing.T) {
 	framework.NewTest(t).
+		Features("observability.telemetry.tracing.server").
 		Run(func(t framework.TestContext) {
 			resetAlsSinkServer(t)
 			err := retry.UntilSuccess(func() error {
@@ -101,6 +103,7 @@ func TestTCPMetadataExchangeBetweenSidecars(t *testing.T) {
 
 func TestTCPMetadataExchangeBetweenSidecarAndGateway(t *testing.T) {
 	framework.NewTest(t).
+		Features("observability.telemetry.metadataexchange").
 		Run(func(t framework.TestContext) {
 			resetAlsSinkServer(t)
 			err := retry.UntilSuccess(func() error {
@@ -124,6 +127,7 @@ func TestTCPMetadataExchangeBetweenSidecarAndGateway(t *testing.T) {
 
 func TestHTTPMetadataExchangeBetweenSidecarAndGateway(t *testing.T) {
 	framework.NewTest(t).
+		Features("observability.telemetry.tracing.server").
 		Run(func(t framework.TestContext) {
 			resetAlsSinkServer(t)
 			err := retry.UntilSuccess(func() error {
