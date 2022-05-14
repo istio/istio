@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
       - name: als-sink
-        image: localhost:5000/als-sink:latest
+        image: vikaschoudhary16/als-sink:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 9001
