@@ -541,11 +541,10 @@ func (c *Controller) deleteService(svc *model.Service) {
 }
 
 func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service, event model.Event, updateEDSCache bool) {
-	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
 	if !svcConv.Attributes.ClusterExternalAddresses.IsEmpty() {
-		needsFullPush = c.extractGatewaysFromService(svcConv)
+		c.extractGatewaysFromService(svcConv)
 	} else if isNodePortGatewayService(svc) {
 		// We need to know which services are using node selectors because during node events,
 		// we have to update all the node port services accordingly.
@@ -554,7 +553,7 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 		// only add when it is nodePort gateway service
 		c.nodeSelectorsForServices[svcConv.Hostname] = nodeSelector
 		c.Unlock()
-		needsFullPush = c.updateServiceNodePortAddresses(svcConv)
+		c.updateServiceNodePortAddresses(svcConv)
 	}
 
 	// instance conversion is only required when service is added/updated.
@@ -565,11 +564,6 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 		c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 	}
 	c.Unlock()
-
-	if needsFullPush {
-		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
-	}
 
 	shard := model.ShardKeyFromRegistry(c)
 	ns := svcConv.Attributes.Namespace
