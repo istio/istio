@@ -140,7 +140,7 @@ func resetWasm(t framework.TestContext, pluginName string) {
 	}, retry.Delay(1*time.Second), retry.Timeout(100*time.Second))
 }
 
-func TestWasmPluginPullPolicy(t *testing.T) {
+func TestImagePullPolicy(t *testing.T) {
 	framework.NewTest(t).
 		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {

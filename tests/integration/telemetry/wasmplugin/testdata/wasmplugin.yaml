@@ -14,7 +14,7 @@ spec:
   {{- if .TestWasmModuleURL }}
   url: {{ .TestWasmModuleURL }}
   {{- end }}
-  imagePullSecret: regcred
+  imagePullSecret: reg-cred
   {{- if .ImagePullPolicy }}
   imagePullPolicy: {{ .ImagePullPolicy }}
   {{- end }}
