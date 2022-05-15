@@ -48,7 +48,6 @@ func NewServer(options *security.Options, workloadSecretCache security.SecretMan
 	s := &Server{stopped: atomic.NewBool(false)}
 	s.workloadSds = newSDSService(workloadSecretCache, options, pkpConf)
 	s.initWorkloadSdsService()
-	sdsServiceLog.Infof("SDS server for workload certificates started, listening on %q", security.WorkloadIdentitySocketPath)
 	return s
 }
 
@@ -85,13 +84,8 @@ func (s *Server) Stop() {
 func (s *Server) initWorkloadSdsService() {
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions()...)
 	s.workloadSds.register(s.grpcWorkloadServer)
-
 	var err error
 	s.grpcWorkloadListener, err = uds.NewListener(security.WorkloadIdentitySocketPath)
-	if err != nil {
-		sdsServiceLog.Errorf("Failed to set up UDS path: %v", err)
-	}
-
 	go func() {
 		sdsServiceLog.Info("Starting SDS grpc server")
 		waitTime := time.Second
@@ -115,7 +109,7 @@ func (s *Server) initWorkloadSdsService() {
 				}
 			}
 			if serverOk && setUpUdsOK {
-				sdsServiceLog.Info("SDS grpc server started")
+				sdsServiceLog.Infof("SDS server for workload certificates started, listening on %q", security.WorkloadIdentitySocketPath)
 				started = true
 				break
 			}
