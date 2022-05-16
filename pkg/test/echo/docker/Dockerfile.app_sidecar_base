@@ -15,6 +15,9 @@ RUN apt-get update && \
     iproute2 \
     sudo \
     curl \
+    netcat \
+    tcpdump \
+    conntrack \
     net-tools \
     ca-certificates \
     && apt-get upgrade -y \
