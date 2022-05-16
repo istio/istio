@@ -72,7 +72,7 @@ const (
 	// How many times should we retry the failed network fetch on refresh flow. The refresh flow
 	// means it's called when the periodically refresh job is triggered. We can retry more aggressively
 	// as it's running separately from the main flow.
-	networkFetchRetryCountOnRefreshFlow = 3
+	networkFetchRetryCountOnRefreshFlow = 7
 
 	// jwksExtraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
 	jwksExtraRootCABundlePath = "/cacerts/extra.pem"
@@ -93,6 +93,9 @@ var (
 
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
 	JwtPubKeyRefreshInterval = features.PilotJwtPubKeyRefreshInterval
+
+	// channel for making jwksuri request aynsc
+	jwksuriChannel = make(chan jwtKey, 5)
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -144,6 +147,9 @@ type JwksResolver struct {
 
 	// How many times refresh job failed to fetch the public key from network, used in unit test.
 	refreshJobFetchFailedCount uint64
+
+	// Whenever istiod fails to fetch the pubkey from jwksuri in main flow this variable becomes true for background trigger
+	jwksUribackgroundChannel bool
 }
 
 func init() {
@@ -222,7 +228,9 @@ func newJwksResolverWithCABundlePaths(
 
 var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")
 
-// GetPublicKey gets JWT public key and cache the key for future use.
+// GetPublicKey returns the  JWT public key if it is available in the cache
+// or fetch with from jwksuri if there is a error while fetching then it adds the
+// jwksURI in the cache to fetch the public key in the background process
 func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, error) {
 	now := time.Now()
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
@@ -259,20 +267,22 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		lastRefreshedTime: now,
 		lastUsedTime:      now,
 	})
-
+	if err != nil {
+		// fetching the public key in the background
+		jwksuriChannel <- key
+	}
 	return pubKey, err
 }
 
 // BuildLocalJwks builds local Jwks by fetching the Jwt Public Key from the URL passed if it is empty.
 func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *envoy_jwt.JwtProvider_LocalJwks {
+	var err error
 	if jwtPubKey == "" {
-		var err error
-
 		// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
 		// workflow, where the JWT key resolver should have already been initialized on server creation.
 		jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI)
 		if err != nil {
-			log.Errorf("Failed to fetch jwt public key from issuer %q, jwks uri %q: %s", jwtIssuer, jwksURI, err)
+			log.Infof("The JWKS key is not yet fetched for issuer %s (%s), using a fake JWKS for now", jwtIssuer, jwksURI)
 			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
 			jwtPubKey = CreateFakeJwks(jwksURI)
@@ -384,41 +394,53 @@ func (r *JwksResolver) refresher() {
 	for {
 		select {
 		case <-r.refreshTicker.C:
-			currentHasError := r.refresh()
-			if currentHasError {
-				if lastHasError {
-					// update to exponential backoff if last time also failed.
-					r.refreshInterval *= 2
-					if r.refreshInterval > JwtPubKeyRefreshIntervalOnFailureResetThreshold {
-						r.refreshInterval = JwtPubKeyRefreshIntervalOnFailureResetThreshold
-					}
-				} else {
-					// change to the refreshIntervalOnFailure if failed for the first time.
-					r.refreshInterval = r.refreshIntervalOnFailure
-				}
-			} else {
-				// reset the refresh interval if success.
-				r.refreshInterval = r.refreshDefaultInterval
+			if !r.jwksUribackgroundChannel {
+				lastHasError = r.refreshCache(lastHasError)
 			}
-			lastHasError = currentHasError
-			r.refreshTicker.Reset(r.refreshInterval)
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return
+		case <-jwksuriChannel:
+			r.jwksUribackgroundChannel = true
+			lastHasError = r.refreshCache(lastHasError)
+			r.jwksUribackgroundChannel = false
 		}
 	}
+}
+
+func (r *JwksResolver) refreshCache(lastHasError bool) bool {
+	currentHasError := r.refresh()
+	if currentHasError {
+		if lastHasError {
+			// update to exponential backoff if last time also failed.
+			r.refreshInterval *= 2
+			if r.refreshInterval > JwtPubKeyRefreshIntervalOnFailureResetThreshold {
+				r.refreshInterval = JwtPubKeyRefreshIntervalOnFailureResetThreshold
+			}
+		} else {
+			// change to the refreshIntervalOnFailure if failed for the first time.
+			r.refreshInterval = r.refreshIntervalOnFailure
+		}
+	} else {
+		// reset the refresh interval if success.
+		r.refreshInterval = r.refreshDefaultInterval
+	}
+	r.refreshTicker.Reset(r.refreshInterval)
+	return currentHasError
 }
 
 func (r *JwksResolver) refresh() bool {
 	var wg sync.WaitGroup
 	hasChange := false
 	hasErrors := false
-
 	r.keyEntries.Range(func(key interface{}, value interface{}) bool {
 		now := time.Now()
 		k := key.(jwtKey)
 		e := value.(jwtPubKeyEntry)
 
+		if e.pubKey != "" && r.jwksUribackgroundChannel {
+			return true
+		}
 		// Remove cached item for either of the following 2 situations
 		// 1) it hasn't been used for a while
 		// 2) it hasn't been refreshed successfully for a while
@@ -432,7 +454,6 @@ func (r *JwksResolver) refresh() bool {
 		}
 
 		oldPubKey := e.pubKey
-
 		// Increment the WaitGroup counter.
 		wg.Add(1)
 
@@ -449,13 +470,17 @@ func (r *JwksResolver) refresh() bool {
 					atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
 					return
 				}
+				r.keyEntries.Delete(k)
+				k.jwksURI = jwksURI
 			}
-
 			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
 			if err != nil {
 				hasErrors = true
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
 				atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
+				if oldPubKey == "" {
+					r.keyEntries.Delete(k)
+				}
 				return
 			}
 			newPubKey := string(resp)
