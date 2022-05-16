@@ -2844,7 +2844,7 @@ func TestIsHttp2Cluster(t *testing.T) {
 	tests := []struct {
 		name           string
 		cluster        *MutableCluster
-		isHttp2Cluster bool
+		isHttp2Cluster bool // revive:disable-line
 	}{
 		{
 			name:           "with no h2 options",
@@ -2867,7 +2867,7 @@ func TestIsHttp2Cluster(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			isHttp2Cluster := cb.IsHttp2Cluster(test.cluster)
+			isHttp2Cluster := cb.isHttp2Cluster(test.cluster) // revive:disable-line
 			if isHttp2Cluster != test.isHttp2Cluster {
 				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
 			}
