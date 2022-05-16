@@ -23,19 +23,6 @@ tools/docker --targets=pilot,proxyv2 --hub=$HUB --tag=$TAG --push --builder=cran
 ./local-test-utils/refresh-istio-images.sh
 ```
 
-Check iptables version
-
-```shell
-docker exec -ti ambient-worker iptables-nft-save
-```
-
-If you see and empty list and message saying: "Warning: iptables-legacy tables present, use iptables-legacy-save to see them" run the following command:
-
-
-```shell
-export IPTABLES=iptables-legacy
-```
-
 ## Install
 
 ```shell

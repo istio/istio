@@ -42,14 +42,22 @@ INCOMING_INTERFACE=eth0
 # a route table number number we can use to send traffic to envoy (should be unused).
 ROUTE_TABLE=100
 
-# if iptables var not set, use iptables-nft
+WORKER_NODES=$(kind get nodes --name "${1:-kind}" | grep worker)
+
+# if iptables var not set, default to iptables-nft, but detect legacy.
 if [ -z "${IPTABLES}" ]; then
   IPTABLES=iptables-nft
+  for node in ${WORKER_NODES}; do
+    if docker exec -it ambient-worker iptables-nft-save | grep 'Warning: iptables-legacy'; then
+      IPTABLES=iptables-legacy
+      break
+    fi
+  done
 fi
 
 if [[ "${2:-}" == clean ]]; then
   # clean up previous chains
-  for node in $(kind get nodes --name "${1:-kind}" | grep worker); do
+  for node in ${WORKER_NODES}; do
     docker exec -i "$node" sh -x <<EOF
     $IPTABLES -t nat -F uproxy-PREROUTING
     $IPTABLES -t mangle -F uproxy-PREROUTING
@@ -70,7 +78,7 @@ EOF
 fi
 
 
-for node in $(kind get nodes --name "${1:-kind}" | grep worker); do
+for node in ${WORKER_NODES}; do
 docker exec -i "$node" sh <<EOF
   if ! command -v ipset; then
     apt update
@@ -80,7 +88,7 @@ EOF
 done
 
 # add our tables if not exist yet, flush them if they do exist.
-for node in $(kind get nodes --name "${1:-kind}" | grep worker); do
+for node in ${WORKER_NODES}; do
 
 docker exec -i "$node" sh -x <<EOF
 if $IPTABLES -t nat -C PREROUTING -j uproxy-PREROUTING; then
@@ -99,7 +107,7 @@ EOF
 done
 
 # create our rules
-for node in $(kind get nodes --name "${1:-kind}" | grep worker); do
+for node in ${WORKER_NODES}; do
 docker exec -i "$node" sh -x <<EOF
 # copy the env vars in
 POD_OUTBOUND=$POD_OUTBOUND
