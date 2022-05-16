@@ -21,12 +21,14 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -426,6 +428,46 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
+			}
+		})
+	}
+}
+
+func TestConstructSdsSecretConfigForCredential(t *testing.T) {
+	testCases := []struct {
+		name       string
+		secretName string
+		expected   *auth.SdsSecretConfig
+	}{
+		{
+			name:       "ConstructSdsSecretConfigForCredential test with resourceName",
+			secretName: "spiffe://cluster.local/ns/bar/sa/foo",
+			expected: &tls.SdsSecretConfig{
+				Name:      credentials.ToResourceName("spiffe://cluster.local/ns/bar/sa/foo"),
+				SdsConfig: SDSAdsConfig,
+			},
+		},
+		{
+			name:       "ConstructSdsSecretConfigForCredential test with BuiltinGatewaySecretTypeURI",
+			secretName: "builtin://",
+			expected:   defaultSDSConfig,
+		}, {
+			name:       "ConstructSdsSecretConfigForCredential test with BuiltinGatewaySecretTypeURI+SdsCaSuffix",
+			secretName: "builtin://-cacert",
+			expected:   rootSDSConfig,
+		},
+
+		{
+			name:       "ConstructSdsSecretConfigForCredential test without secretName",
+			secretName: "",
+			expected:   nil,
+		},
+	}
+
+	for _, c := range testCases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ConstructSdsSecretConfigForCredential(c.secretName); !cmp.Equal(got, c.expected, protocmp.Transform()) {
+				t.Errorf("ConstructSdsSecretConfigForCredential:: got(%#v), want(%#v)\n", got, c.expected)
 			}
 		})
 	}

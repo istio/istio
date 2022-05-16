@@ -19,13 +19,15 @@ import (
 	"testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 )
 
 func TestTrustDomainsForValidation(t *testing.T) {
 	tests := []struct {
-		name       string
-		meshConfig *meshconfig.MeshConfig
-		want       []string
+		name           string
+		meshConfig     *meshconfig.MeshConfig
+		skipValidation bool
+		want           []string
 	}{
 		{
 			name: "No duplicated trust domain in mesh config",
@@ -33,12 +35,20 @@ func TestTrustDomainsForValidation(t *testing.T) {
 				TrustDomain:        "cluster.local",
 				TrustDomainAliases: []string{"alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
 			},
-			want: []string{"cluster.local", "alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
+			skipValidation: false,
+			want:           []string{"cluster.local", "alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
 		},
 		{
-			name:       "Empty mesh config",
-			meshConfig: &meshconfig.MeshConfig{},
-			want:       []string{},
+			name:           "Empty mesh config",
+			meshConfig:     &meshconfig.MeshConfig{},
+			skipValidation: false,
+			want:           []string{},
+		},
+		{
+			name:           "Skip Validation for mesh config",
+			meshConfig:     &meshconfig.MeshConfig{},
+			skipValidation: true,
+			want:           []string(nil),
 		},
 		{
 			name: "Sequential duplicated trust domains in mesh config",
@@ -48,7 +58,8 @@ func TestTrustDomainsForValidation(t *testing.T) {
 					"alias-1.domain", "alias-1.domain", "some-other-alias-1.domain", "alias-2.domain", "alias-2.domain",
 				},
 			},
-			want: []string{"cluster.local", "alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
+			skipValidation: false,
+			want:           []string{"cluster.local", "alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
 		},
 		{
 			name: "Mixed duplicated trust domains in mesh config",
@@ -58,11 +69,17 @@ func TestTrustDomainsForValidation(t *testing.T) {
 					"alias-1.domain", "cluster.local", "alias-2.domain", "some-other-alias-1.domain", "alias-2.domain", "alias-1.domain",
 				},
 			},
-			want: []string{"cluster.local", "alias-1.domain", "alias-2.domain", "some-other-alias-1.domain"},
+			skipValidation: false,
+			want:           []string{"cluster.local", "alias-1.domain", "alias-2.domain", "some-other-alias-1.domain"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipValidation {
+				features.SkipValidateTrustDomain = true
+			} else {
+				features.SkipValidateTrustDomain = false
+			}
 			if got := TrustDomainsForValidation(tt.meshConfig); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("trustDomainsForValidation() = %#v, want %#v", got, tt.want)
 			}
