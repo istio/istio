@@ -17,7 +17,6 @@ package controller
 import (
 	"sync"
 
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/discovery/v1"
 	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -345,19 +344,6 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		}
 	}
 	return out
-}
-
-func (esc *endpointSliceController) newEndpointBuilder(pod *corev1.Pod) *EndpointBuilder {
-	if pod != nil {
-		// Respect pod "istio-locality" label
-		if pod.Labels[model.LocalityLabel] == "" {
-			pod = pod.DeepCopy()
-			// mutate the labels, only need `istio-locality`
-			pod.Labels[model.LocalityLabel] = esc.c.getPodLocality(pod)
-		}
-	}
-
-	return NewEndpointBuilder(esc.c, pod)
 }
 
 // TODO this isn't used now, but we may still want to extract locality from the v1 EnspointSlice instead of node
