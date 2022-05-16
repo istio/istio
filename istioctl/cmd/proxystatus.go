@@ -127,7 +127,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	opts.AttachControlPlaneFlags(statusCmd)
 	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
-	statusCmd.PersistentFlags().StringVarP(&statusArgs.output, "output", "o", tableFormat, "Output format for revision description "+
+	statusCmd.PersistentFlags().StringVarP(&statusArgs.output, "output", "o", tableFormat, "Output format for proxy-status "+
 		"(available formats: json,table)")
 
 	return statusCmd

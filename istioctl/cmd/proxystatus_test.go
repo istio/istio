@@ -58,7 +58,7 @@ func TestProxyStatus(t *testing.T) {
 			args:           strings.Split("proxy-status -o json", " "),
 			expectedString: "",
 		},
-		{ // case 8: new -o argument with invalid format
+		{ // case 9: new -o argument with invalid format
 			args:          strings.Split("proxy-status -o invalid", " "),
 			wantException: true,
 		},
