@@ -99,6 +99,8 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "beta-mtls-automtls-workload.yaml",
 					Namespace:  apps.Namespace1,
 					Include: func(from echo.Instance, opts echo.CallOptions) bool {
+						// including the workloads where testing is possible ; eg. mtls is disabled on workload B for port 8090(http),
+						// hence not including it otherwise failure will occur in multi-cluster scenarios
 						return (apps.B.Contains(from) || apps.IsNaked(from)) &&
 							(apps.A.ContainsTarget(opts.To) || apps.B.ContainsTarget(opts.To)) && !(apps.B.ContainsTarget(opts.To) && opts.Port.Name == "http")
 					},
@@ -116,7 +118,6 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS: func(from echo.Instance, opts echo.CallOptions) bool {
 						return apps.B.Contains(from) && opts.Port.Name != "http" && !apps.A.ContainsTarget(opts.To)
 					},
-					// TLS disabled on A
 					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
 						if apps.A.ContainsTarget(to) {
 							return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
