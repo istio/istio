@@ -94,7 +94,6 @@ func (lb *ListenerBuilder) buildHTTPProxyListener() *ListenerBuilder {
 		return lb
 	}
 	removeListenerFilterTimeout([]*listener.Listener{httpProxy})
-	lb.patchOneListener(httpProxy, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.httpProxyListener = httpProxy
 	return lb
 }
@@ -156,6 +155,7 @@ func (lb *ListenerBuilder) patchListeners() {
 
 	lb.virtualOutboundListener = lb.patchOneListener(lb.virtualOutboundListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.virtualInboundListener = lb.patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
+	lb.httpProxyListener = lb.patchOneListener(lb.httpProxyListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.envoyFilterWrapper, lb.inboundListeners, false)
 	lb.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, lb.envoyFilterWrapper, lb.outboundListeners, false)
 }

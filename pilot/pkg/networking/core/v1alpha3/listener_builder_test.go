@@ -394,6 +394,45 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			},
 		},
 		{
+			name:  "remove HTTP Proxy listener",
+			proxy: sidecarProxy,
+			fields: fields{
+				httpProxyListener: &listener.Listener{
+					Name: "127.0.0.1_81",
+					Address: &core.Address{
+						Address: &core.Address_SocketAddress{
+							SocketAddress: &core.SocketAddress{
+								PortSpecifier: &core.SocketAddress_PortValue{
+									PortValue: 81,
+								},
+							},
+						},
+					},
+					FilterChains: []*listener.FilterChain{
+						{
+							Filters: []*listener.Filter{
+								{
+									Name: wellknown.HTTPConnectionManager,
+								},
+							},
+						},
+					},
+				},
+			},
+			want: fields{
+				inboundListeners: []*listener.Listener{
+					{
+						Name: "new-inbound-listener",
+					},
+				},
+				outboundListeners: []*listener.Listener{
+					{
+						Name: "new-outbound-listener",
+					},
+				},
+			},
+		},
+		{
 			name:  "patch add gateway listener",
 			proxy: gatewayProxy,
 			fields: fields{
