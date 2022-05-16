@@ -457,7 +457,6 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 			secretName: "builtin://-cacert",
 			expected:   rootSDSConfig,
 		},
-
 		{
 			name:       "ConstructSdsSecretConfigForCredential test without secretName",
 			secretName: "",
@@ -479,26 +478,23 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 		name       string
 		tlsContext *tls.CommonTlsContext
 		tlsOpts    *networking.ClientTLSSettings
-		expected   bool
 	}{
 		{
-			name:       "ApplyCustomSDSToClientCommonTLSContext test with resourceName",
+			name:       "ApplyCustomSDSToClientCommonTLSContext test with testCredential",
 			tlsContext: &tls.CommonTlsContext{},
 			tlsOpts: &networking.ClientTLSSettings{
 				CredentialName:  "testCredential",
 				SubjectAltNames: []string{"testCredential"},
 			},
-			expected: true,
 		},
 		{
-			name:       "ApplyCustomSDSToClientCommonTLSContext test with resourceName",
+			name:       "ApplyCustomSDSToClientCommonTLSContext test with ClientTLSSettings_MUTUAL",
 			tlsContext: &tls.CommonTlsContext{},
 			tlsOpts: &networking.ClientTLSSettings{
 				CredentialName:  "test",
 				SubjectAltNames: []string{"test"},
 				Mode:            networking.ClientTLSSettings_MUTUAL,
 			},
-			expected: true,
 		},
 	}
 
@@ -506,7 +502,7 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			ApplyCustomSDSToClientCommonTLSContext(c.tlsContext, c.tlsOpts)
 			if c.tlsContext.TlsCertificateSdsSecretConfigs == nil && c.tlsContext.ValidationContextType == nil {
-				t.Errorf("ApplyCustomSDSToClientCommonTLSContext:: configuration is not applyed")
+				t.Errorf("ApplyCustomSDSToClientCommonTLSContext:: secretconfigs is not applyed successfully")
 			}
 		})
 	}
@@ -517,7 +513,6 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 		name       string
 		tlsContext *tls.CommonTlsContext
 		tlsOpts    *networking.ServerTLSSettings
-		expected   bool
 	}{
 		{
 			name:       "ApplyCredentialSDSToServerCommonTLSContext test with testCredentials",
@@ -526,7 +521,6 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 				CredentialName:  "testCredential",
 				SubjectAltNames: []string{"testCredential"},
 			},
-			expected: true,
 		},
 		{
 			name:       "ApplyCredentialSDSToServerCommonTLSContext test with ServerTLSSettings_MUTUAL",
@@ -536,7 +530,6 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 				SubjectAltNames: []string{"test"},
 				Mode:            networking.ServerTLSSettings_MUTUAL,
 			},
-			expected: true,
 		},
 	}
 
@@ -544,7 +537,7 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			ApplyCredentialSDSToServerCommonTLSContext(c.tlsContext, c.tlsOpts)
 			if c.tlsContext.TlsCertificateSdsSecretConfigs == nil && c.tlsContext.ValidationContextType == nil {
-				t.Errorf("ApplyCredentialSDSToServerCommonTLSContext:: configuration is not applyed")
+				t.Errorf("ApplyCredentialSDSToServerCommonTLSContext:: secretconfigs is not applyed successfully")
 			}
 		})
 	}
