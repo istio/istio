@@ -41,6 +41,7 @@ var CleanupConditionally Option = OptionFunc(func(opts *Options) {
 })
 
 // Wait configures the Options to wait for configuration to propagate.
+// This method currently does nothing, due to https://github.com/istio/istio/issues/37148
 var Wait Option = OptionFunc(func(opts *Options) {
-	opts.Wait = true
+	// opts.Wait = true
 })
