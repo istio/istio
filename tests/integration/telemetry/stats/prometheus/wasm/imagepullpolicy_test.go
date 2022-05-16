@@ -15,44 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package wasmplugin
+package wasm
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
-	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/registryredirector"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
-var (
-	client, server echo.Instances
-	appNsInst      namespace.Instance
-	registry       registryredirector.Instance
-)
-
 const (
-	// Same user name and password as specified at pkg/test/fakes/imageregistry
-	registryUser   = "user"
-	registryPasswd = "passwd"
-
-	imageName = "istio-testing/wasm/header-injector"
-
+	imageName      = "istio-testing/wasm/header-injector"
 	injectedHeader = "x-resp-injection"
+	wasmConfigFile = "testdata/wasm-filter.yaml"
 )
 
 type wasmTestConfigs struct {
@@ -215,96 +196,6 @@ func TestImagePullPolicy(t *testing.T) {
 		})
 }
 
-func TestMain(m *testing.M) {
-	framework.NewSuite(m).
-		Label(label.CustomSetup).
-		Setup(istio.Setup(common.GetIstioInstance(), nil)).
-		Setup(testSetup).
-		Run()
-}
-
-func testSetup(ctx resource.Context) (err error) {
-	registry, err = registryredirector.New(ctx, registryredirector.Config{
-		Cluster: ctx.AllClusters().Default(),
-	})
-	if err != nil {
-		return
-	}
-
-	var nsErr error
-	appNsInst, nsErr = namespace.New(ctx, namespace.Config{
-		Prefix: "echo",
-		Inject: true,
-	})
-	if nsErr != nil {
-		return nsErr
-	}
-
-	args := map[string]interface{}{
-		"DockerConfigJson": base64.StdEncoding.EncodeToString(
-			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
-	}
-	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/secret.yaml").
-		Apply(); err != nil {
-		return err
-	}
-
-	proxyMetadata := fmt.Sprintf(`
-proxyMetadata:
-  BOOTSTRAP_XDS_AGENT: "true"
-  WASM_INSECURE_REGISTRIES: %q`, registry.Address())
-
-	echos, err := deployment.New(ctx).
-		WithClusters(ctx.Clusters()...).
-		WithConfig(echo.Config{
-			Service:   "client",
-			Namespace: appNsInst,
-			Ports:     nil,
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.SidecarProxyConfig: {
-							Value: proxyMetadata,
-						},
-					},
-				},
-			},
-		}).
-		WithConfig(echo.Config{
-			Service:   "server",
-			Namespace: appNsInst,
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.SidecarProxyConfig: {
-							Value: proxyMetadata,
-						},
-					},
-				},
-			},
-			Ports: []echo.Port{
-				{
-					Name:         "http",
-					Protocol:     protocol.HTTP,
-					WorkloadPort: 8090,
-				},
-				{
-					Name:         "grpc",
-					Protocol:     protocol.GRPC,
-					WorkloadPort: 7070,
-				},
-			},
-		}).
-		Build()
-	if err != nil {
-		return err
-	}
-	client = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: appNsInst}).GetMatches(echos)
-	server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: appNsInst}).GetMatches(echos)
-
-	return nil
-}
-
 func installWasmExtension(ctx framework.TestContext, pluginName, tag, imagePullPolicy, pluginVersion string) error {
 	wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), imageName, tag)
 	args := map[string]interface{}{
@@ -317,7 +208,7 @@ func installWasmExtension(ctx framework.TestContext, pluginName, tag, imagePullP
 		args["ImagePullPolicy"] = imagePullPolicy
 	}
 
-	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/wasmplugin.yaml").
+	if err := ctx.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, wasmConfigFile).
 		Apply(); err != nil {
 		return err
 	}
@@ -329,20 +220,20 @@ func uninstallWasmExtension(ctx framework.TestContext, pluginName string) error 
 	args := map[string]interface{}{
 		"WasmPluginName": pluginName,
 	}
-	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/wasmplugin.yaml").Delete(); err != nil {
+	if err := ctx.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, wasmConfigFile).Delete(); err != nil {
 		return err
 	}
 	return nil
 }
 
 func sendTraffic() (echo.CallResult, error) {
-	if len(client) == 0 {
+	if len(common.GetClientInstances()) == 0 {
 		return echo.CallResult{}, errors.New("there is no client")
 	}
-	cltInstance := client[0]
+	cltInstance := common.GetClientInstances()[0]
 
 	httpOpts := echo.CallOptions{
-		To: server,
+		To: common.GetTarget(),
 		Port: echo.Port{
 			Name: "http",
 		},
@@ -357,19 +248,4 @@ func sendTraffic() (echo.CallResult, error) {
 	}
 
 	return cltInstance.Call(httpOpts)
-}
-
-func createDockerCredential(user, passwd, registry string) string {
-	credentials := `{
-	"auths":{
-		"%v":{
-			"username": "%v",
-			"password": "%v",
-			"email": "test@abc.com",
-			"auth": "%v"
-		}
-	}
-}`
-	auth := base64.StdEncoding.EncodeToString([]byte(user + ":" + passwd))
-	return fmt.Sprintf(credentials, registry, user, passwd, auth)
 }
