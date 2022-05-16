@@ -34,8 +34,6 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
-	"istio.io/istio/operator/pkg/apis/istio"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -119,12 +117,6 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 
 	msgs = append(msgs, checkInstallPermissions(cli)...)
 
-	m, err = checkIOPProfile(cli)
-	if err != nil {
-		return nil, err
-	}
-	msgs = append(msgs, m...)
-
 	// TODO: add more checks
 
 	sa := local.NewSourceAnalyzer(analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
@@ -151,32 +143,6 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 	}
 
 	return msgs, nil
-}
-
-func checkIOPProfile(cli kube.ExtendedClient) (diag.Messages, error) {
-	iops, err := cli.Dynamic().Resource(istioOperatorGVR).
-		List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve IstioOperator CRs: %v", err)
-	}
-	for _, u := range iops.Items {
-		u.SetCreationTimestamp(metav1.Time{})
-		u.SetManagedFields([]metav1.ManagedFieldsEntry{})
-		iop, err := istio.UnmarshalIstioOperator(util.ToYAML(u.Object), true)
-		if err != nil {
-			return nil, fmt.Errorf("error while converting to IstioOperator CR - %s/%s: %v",
-				u.GetNamespace(), u.GetName(), err)
-		}
-		spec := fmt.Sprintf("%s", iop.Spec)
-		if spec == "" {
-			return []diag.Message{
-				msg.NewDeprecated(&resource.Instance{Origin: clusterOrigin{}},
-					fmt.Sprintf("%s is deprecated; use %s", "remote profile", "external profile")),
-			}, nil
-		}
-	}
-
-	return nil, nil
 }
 
 func checkInstallPermissions(cli kube.ExtendedClient) diag.Messages {
