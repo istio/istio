@@ -8,6 +8,9 @@ RUN yum install -y \
     iproute \
     sudo \
     curl \
+    netcat \
+    tcpdump \
+    conntrack \
     net-tools \
     ca-certificates \
     && update-ca-trust \
