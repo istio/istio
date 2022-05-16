@@ -240,7 +240,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 			if pod == nil && expectedPod {
 				continue
 			}
-			builder := esc.newEndpointBuilder(pod)
+			builder := NewEndpointBuilder(esc.c, pod)
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range slice.Ports() {
 				var portNum int32
@@ -332,7 +332,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					continue
 				}
 
-				builder := esc.newEndpointBuilder(pod)
+				builder := NewEndpointBuilder(esc.c, pod)
 				// identify the port by name. K8S EndpointPort uses the service port name
 				for _, port := range slice.Ports() {
 					var portNum int32
