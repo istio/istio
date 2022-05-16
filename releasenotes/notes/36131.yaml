@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/36131
+releaseNotes:
+  - |
+    **Updated** Disable `PILOT_ENABLE_SERVICEENTRY_SELECT_PODS` to improve performance. If you do need this feature, you can turn it on.
