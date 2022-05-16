@@ -27,6 +27,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/spiffe"
@@ -468,6 +469,82 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ConstructSdsSecretConfigForCredential(c.secretName); !cmp.Equal(got, c.expected, protocmp.Transform()) {
 				t.Errorf("ConstructSdsSecretConfigForCredential:: got(%#v), want(%#v)\n", got, c.expected)
+			}
+		})
+	}
+}
+
+func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
+	testCases := []struct {
+		name       string
+		tlsContext *tls.CommonTlsContext
+		tlsOpts    *networking.ClientTLSSettings
+		expected   bool
+	}{
+		{
+			name:       "ApplyCustomSDSToClientCommonTLSContext test with resourceName",
+			tlsContext: &tls.CommonTlsContext{},
+			tlsOpts: &networking.ClientTLSSettings{
+				CredentialName:  "testCredential",
+				SubjectAltNames: []string{"testCredential"},
+			},
+			expected: true,
+		},
+		{
+			name:       "ApplyCustomSDSToClientCommonTLSContext test with resourceName",
+			tlsContext: &tls.CommonTlsContext{},
+			tlsOpts: &networking.ClientTLSSettings{
+				CredentialName:  "test",
+				SubjectAltNames: []string{"test"},
+				Mode:            networking.ClientTLSSettings_MUTUAL,
+			},
+			expected: true,
+		},
+	}
+
+	for _, c := range testCases {
+		t.Run(c.name, func(t *testing.T) {
+			ApplyCustomSDSToClientCommonTLSContext(c.tlsContext, c.tlsOpts)
+			if c.tlsContext.TlsCertificateSdsSecretConfigs == nil && c.tlsContext.ValidationContextType == nil {
+				t.Errorf("ApplyCustomSDSToClientCommonTLSContext:: configuration is not applyed")
+			}
+		})
+	}
+}
+
+func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
+	testCases := []struct {
+		name       string
+		tlsContext *tls.CommonTlsContext
+		tlsOpts    *networking.ServerTLSSettings
+		expected   bool
+	}{
+		{
+			name:       "ApplyCredentialSDSToServerCommonTLSContext test with testCredentials",
+			tlsContext: &tls.CommonTlsContext{},
+			tlsOpts: &networking.ServerTLSSettings{
+				CredentialName:  "testCredential",
+				SubjectAltNames: []string{"testCredential"},
+			},
+			expected: true,
+		},
+		{
+			name:       "ApplyCredentialSDSToServerCommonTLSContext test with ServerTLSSettings_MUTUAL",
+			tlsContext: &tls.CommonTlsContext{},
+			tlsOpts: &networking.ServerTLSSettings{
+				CredentialName:  "test",
+				SubjectAltNames: []string{"test"},
+				Mode:            networking.ServerTLSSettings_MUTUAL,
+			},
+			expected: true,
+		},
+	}
+
+	for _, c := range testCases {
+		t.Run(c.name, func(t *testing.T) {
+			ApplyCredentialSDSToServerCommonTLSContext(c.tlsContext, c.tlsOpts)
+			if c.tlsContext.TlsCertificateSdsSecretConfigs == nil && c.tlsContext.ValidationContextType == nil {
+				t.Errorf("ApplyCredentialSDSToServerCommonTLSContext:: configuration is not applyed")
 			}
 		})
 	}
