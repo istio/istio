@@ -46,7 +46,6 @@ func loadCert(filename string) (string, error) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Skip("https://github.com/istio/istio/issues/36829").
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return util.SetupApps(ctx, ist, apps, true)

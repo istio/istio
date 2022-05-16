@@ -190,7 +190,7 @@ func TestGetPublicKeyUsingTLSBadCert(t *testing.T) {
 		JwtPubKeyEvictionDuration,
 		JwtPubKeyRefreshInterval,
 		testRetryInterval,
-		JwtPubKeyRefreshIntervalOnFailure,
+		testRetryInterval,
 		[]string{"./test/testcert/cert2.pem"},
 	)
 	defer r.Close()
@@ -213,7 +213,7 @@ func TestGetPublicKeyUsingTLSWithoutCABundles(t *testing.T) {
 		JwtPubKeyEvictionDuration,
 		JwtPubKeyRefreshInterval,
 		testRetryInterval,
-		JwtPubKeyRefreshIntervalOnFailure,
+		testRetryInterval,
 		[]string{},
 	)
 	defer r.Close()
