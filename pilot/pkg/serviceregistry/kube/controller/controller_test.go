@@ -1642,7 +1642,6 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 	}
 }
 
-//
 func TestExternalNameServiceInstances(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
@@ -1789,7 +1788,8 @@ func TestController_ExternalNameService(t *testing.T) {
 }
 
 func createEndpoints(t *testing.T, controller *FakeController, name, namespace string,
-	portNames, ips []string, refs []*coreV1.ObjectReference, labels map[string]string) {
+	portNames, ips []string, refs []*coreV1.ObjectReference, labels map[string]string,
+) {
 	if labels == nil {
 		labels = make(map[string]string)
 	}
@@ -1915,7 +1915,8 @@ func updateEndpoints(controller *FakeController, name, namespace string, portNam
 }
 
 func createServiceWithTargetPorts(controller *FakeController, name, namespace string, annotations map[string]string,
-	svcPorts []coreV1.ServicePort, selector map[string]string, t *testing.T) {
+	svcPorts []coreV1.ServicePort, selector map[string]string, t *testing.T,
+) {
 	service := &coreV1.Service{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        name,
@@ -1937,7 +1938,8 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 }
 
 func createService(controller *FakeController, name, namespace string, annotations map[string]string,
-	ports []int32, selector map[string]string, t *testing.T) {
+	ports []int32, selector map[string]string, t *testing.T,
+) {
 	svcPorts := make([]coreV1.ServicePort, 0)
 	for _, p := range ports {
 		svcPorts = append(svcPorts, coreV1.ServicePort{
@@ -1983,7 +1985,8 @@ func updateService(controller *FakeController, svc *coreV1.Service, t *testing.T
 }
 
 func createServiceWithoutClusterIP(controller *FakeController, name, namespace string, annotations map[string]string,
-	ports []int32, selector map[string]string, t *testing.T) {
+	ports []int32, selector map[string]string, t *testing.T,
+) {
 	svcPorts := make([]coreV1.ServicePort, 0)
 	for _, p := range ports {
 		svcPorts = append(svcPorts, coreV1.ServicePort{
@@ -2014,7 +2017,8 @@ func createServiceWithoutClusterIP(controller *FakeController, name, namespace s
 
 // nolint: unparam
 func createExternalNameService(controller *FakeController, name, namespace string,
-	ports []int32, externalName string, t *testing.T, xdsEvents <-chan FakeXdsEvent) *coreV1.Service {
+	ports []int32, externalName string, t *testing.T, xdsEvents <-chan FakeXdsEvent,
+) *coreV1.Service {
 	defer func() {
 		<-xdsEvents
 	}()

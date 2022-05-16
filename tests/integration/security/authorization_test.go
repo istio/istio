@@ -229,7 +229,8 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 			rootns := newRootNS(t)
 
 			newTestCase := func(from echo.Instance, to echo.Target, namePrefix, path string,
-				expectAllowed bool) func(t framework.TestContext) {
+				expectAllowed bool,
+			) func(t framework.TestContext) {
 				callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
@@ -1344,7 +1345,8 @@ func TestAuthorization_Audit(t *testing.T) {
 			}
 
 			newTestCase := func(applyPolicy func(t framework.TestContext), from echo.Instance, to echo.Target,
-				path string, expectAllowed bool) func(t framework.TestContext) {
+				path string, expectAllowed bool,
+			) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
 						To: to,
@@ -1474,7 +1476,8 @@ func TestAuthorization_Custom(t *testing.T) {
 				BuildOrFail(t)
 
 			newTestCase := func(from echo.Instance, to echo.Target, s scheme.Instance, port, path string, headers http.Header,
-				checker echo.Checker, expectAllowed bool) func(t framework.TestContext) {
+				checker echo.Checker, expectAllowed bool,
+			) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
 						To: to,
@@ -1569,7 +1572,8 @@ func TestAuthorization_Custom(t *testing.T) {
 			t.NewSubTest("ingress").Run(func(t framework.TestContext) {
 				ingr := ist.IngressFor(t.Clusters().Default())
 				newIngressTestCase := func(from, to echo.Instance, path string, h http.Header,
-					checker echo.Checker, expectAllowed bool) func(t framework.TestContext) {
+					checker echo.Checker, expectAllowed bool,
+				) func(t framework.TestContext) {
 					return func(t framework.TestContext) {
 						opts := echo.CallOptions{
 							To: to,

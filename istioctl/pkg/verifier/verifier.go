@@ -83,7 +83,8 @@ func WithIOP(iop *v1alpha1.IstioOperator) StatusVerifierOptions {
 // which checks the status of various resources from the manifest.
 func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string,
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
-	options ...StatusVerifierOptions) (*StatusVerifier, error) {
+	options ...StatusVerifierOptions,
+) (*StatusVerifier, error) {
 	client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, context), "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)

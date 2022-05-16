@@ -69,7 +69,8 @@ var TestDataChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/test
 // InstallIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
 func InstallIstio(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateways bool) {
+	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateways bool,
+) {
 	CreateNamespace(t, cs, IstioNamespace)
 
 	// Install base chart
@@ -106,7 +107,8 @@ func InstallIstio(t test.Failer, cs cluster.Cluster,
 // InstallIstioWithRevision install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
 func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, fileSuffix, version, revision, overrideValuesFile string, upgradeBaseChart, useTestData bool) {
+	h *helm.Helm, fileSuffix, version, revision, overrideValuesFile string, upgradeBaseChart, useTestData bool,
+) {
 	CreateNamespace(t, cs, IstioNamespace)
 
 	// base chart may already be installed if the Istio was previously already installed

@@ -39,7 +39,8 @@ func NewDeltaAdsTest(t test.Failer, conn *grpc.ClientConn) *DeltaAdsTest {
 }
 
 func NewDeltaXdsTest(t test.Failer, conn *grpc.ClientConn,
-	getClient func(conn *grpc.ClientConn) (DeltaDiscoveryClient, error)) *DeltaAdsTest {
+	getClient func(conn *grpc.ClientConn) (DeltaDiscoveryClient, error),
+) *DeltaAdsTest {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	cl, err := getClient(conn)

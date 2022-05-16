@@ -241,7 +241,8 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 }
 
 func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate inject.RawTemplates, valuesConfig,
-	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
+	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string),
+) error {
 	var errs error
 	for _, dep := range deps {
 		err := injectSideCarIntoDeployment(client, &dep, sidecarTemplate, valuesConfig,
@@ -337,7 +338,8 @@ func setupParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string,
 }
 
 func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate inject.RawTemplates, valuesConfig,
-	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
+	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string),
+) error {
 	var errs error
 	log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 		dep.Name, dep.Namespace)
@@ -471,7 +473,8 @@ func str2NamedPort(str string) (namedPort, error) {
 
 // addServiceOnVMToMesh adds a service running on VM into Istio service mesh
 func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Interface, ns string,
-	args, l, a []string, svcAcctAnn string, writer io.Writer) error {
+	args, l, a []string, svcAcctAnn string, writer io.Writer,
+) error {
 	svcName := args[0]
 	ips := strings.Split(args[1], ",")
 	portsListStr := args[2:]
@@ -664,7 +667,8 @@ func createK8sService(client kubernetes.Interface, ns string, svc *corev1.Servic
 
 // createServiceEntry creates an Istio ServiceEntry object in order to register vm service.
 func createServiceEntry(dynamicClient dynamic.Interface, ns string,
-	u *unstructured.Unstructured, name string, writer io.Writer) error {
+	u *unstructured.Unstructured, name string, writer io.Writer,
+) error {
 	if u == nil {
 		return fmt.Errorf("failed to create vm service")
 	}

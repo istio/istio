@@ -171,7 +171,8 @@ func pullIfNotPresent(pullPolicy extensions.PullPolicy, u *url.URL) bool {
 // Get returns path the local Wasm module file.
 func (c *LocalFileCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
-	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
+	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
+) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,

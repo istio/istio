@@ -204,7 +204,8 @@ func (c MockClient) ApplyYAMLFilesDryRun(string, ...string) error {
 
 // CreatePerRPCCredentials -- when implemented -- mocks per-RPC credentials (bearer token)
 func (c MockClient) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
-	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
+	expirationSeconds int64,
+) (credentials.PerRPCCredentials, error) {
 	panic("not implemented by mock")
 }
 
