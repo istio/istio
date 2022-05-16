@@ -291,14 +291,14 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 		return config, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 	}
 
-	any, err := anyFn(cluster)
+	cfg, err := anyFn(cluster)
 	if err != nil {
 		return config, fmt.Errorf("could not configure tracing provider %q: %v", provider, err)
 	}
 
 	config.Provider = &tracingcfg.Tracing_Http{
 		Name:       provider,
-		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: any},
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: cfg},
 	}
 
 	if maxTagLen != 0 {
@@ -309,14 +309,14 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 
 func buildHCMTracingOpenCensus(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (*hpb.HttpConnectionManager_Tracing, error) {
 	config := &hpb.HttpConnectionManager_Tracing{}
-	any, err := anyFn()
+	cfg, err := anyFn()
 	if err != nil {
 		return config, fmt.Errorf("could not configure tracing provider %q: %v", provider, err)
 	}
 
 	config.Provider = &tracingcfg.Tracing_Http{
 		Name:       provider,
-		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: any},
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: cfg},
 	}
 
 	if maxTagLen != 0 {

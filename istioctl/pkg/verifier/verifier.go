@@ -224,7 +224,7 @@ func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOpera
 	}
 
 	manifests, errs := cp.RenderManifest()
-	if errs != nil && len(errs) > 0 {
+	if len(errs) > 0 {
 		return 0, 0, errs.ToError()
 	}
 
