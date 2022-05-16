@@ -24,5 +24,5 @@
 if [[ "${ARTIFACTS}" != "" ]]; then
   golangci-lint run -v -c ./common/config/.golangci.yml --out-format colored-line-number,junit-xml:"${ARTIFACTS}"/junit-lint.xml
 else
-  golangci-lint run -v -c ./common/config/.golangci.yml --fix
+  golangci-lint run -v -c ./common/config/.golangci.yml
 fi
