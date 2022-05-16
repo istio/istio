@@ -32,6 +32,7 @@ import (
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	coreV1 "k8s.io/api/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -156,6 +157,71 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	return out
 }
 
+func BuildSidecarVirtualHostWrapperWithDualStack(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
+	virtualServices []config.Config, listenPort int, routeName string) []VirtualHostWrapper {
+	out := make([]VirtualHostWrapper, 0)
+
+	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
+	dependentDestinationRules := []*config.Config{}
+	// consistent hash policies for the http route destinations
+	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
+	for _, virtualService := range virtualServices {
+		for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
+			for _, destination := range httpRoute.Route {
+				hostName := destination.Destination.Host
+				var configNamespace string
+				if serviceRegistry[host.Name(hostName)] != nil {
+					configNamespace = serviceRegistry[host.Name(hostName)].Attributes.Namespace
+				} else {
+					configNamespace = virtualService.Namespace
+				}
+				hash, destinationRule := GetHashForHTTPDestination(push, node, destination, configNamespace)
+				if hash != nil {
+					hashByDestination[destination] = hash
+					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
+				}
+			}
+		}
+	}
+
+	// translate all virtual service configs into virtual hosts
+	for _, virtualService := range virtualServices {
+		wrappers := buildSidecarVirtualHostsForVirtualServiceWithDualStack(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh, routeName)
+		out = append(out, wrappers...)
+	}
+
+	// compute Services missing virtual service configs
+	for _, wrapper := range out {
+		for _, service := range wrapper.Services {
+			delete(serviceRegistry, service.Hostname)
+		}
+	}
+
+	hashByService := map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
+	for _, svc := range serviceRegistry {
+		for _, port := range svc.Ports {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+				hash, destinationRule := getHashForService(node, push, svc, port)
+				if hash != nil {
+					if _, ok := hashByService[svc.Hostname]; !ok {
+						hashByService[svc.Hostname] = map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
+					}
+					hashByService[svc.Hostname][port.Port] = hash
+					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
+				}
+			}
+		}
+	}
+
+	if routeCache != nil {
+		routeCache.DestinationRules = dependentDestinationRules
+	}
+
+	// append default hosts for the service missing virtual Services
+	out = append(out, buildSidecarVirtualHostsForServiceWithDualStack(node, serviceRegistry, hashByService, push.Mesh)...)
+	return out
+}
+
 // separateVSHostsAndServices splits the virtual service hosts into Services (if they are found in the registry) and
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService config.Config,
@@ -261,6 +327,66 @@ func buildSidecarVirtualHostsForVirtualService(
 	return out
 }
 
+func buildSidecarVirtualHostsForVirtualServiceWithDualStack(
+	node *model.Proxy,
+	virtualService config.Config,
+	serviceRegistry map[host.Name]*model.Service,
+	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
+	listenPort int,
+	mesh *meshconfig.MeshConfig,
+	routeName string,
+) []VirtualHostWrapper {
+	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
+	vskey := virtualService.Name + "/" + virtualService.Namespace
+	if features.EnableDualStack {
+		adjustedRouteName := strings.TrimSuffix(routeName, constants.IPv6Suffix)
+		if adjustedRouteName != routeName {
+			vskey += constants.IPv6Suffix
+		}
+	}
+	routes, err := BuildHTTPRoutesForVirtualServiceWithDualStack(node, virtualService, serviceRegistry, hashByDestination,
+		listenPort, meshGateway, false /* isH3DiscoveryNeeded */, mesh, vskey)
+	if err != nil || len(routes) == 0 {
+		return nil
+	}
+
+	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
+
+	// Now group these Services by port so that we can infer the destination.port if the user
+	// doesn't specify any port for a multiport service. We need to know the destination port in
+	// order to build the cluster name (outbound|<port>|<subset>|<serviceFQDN>)
+	// If the destination service is being accessed on port X, we set that as the default
+	// destination port
+	serviceByPort := make(map[int][]*model.Service)
+	for _, svc := range servicesInVirtualService {
+		for _, port := range svc.Ports {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
+			}
+		}
+	}
+
+	if len(serviceByPort) == 0 {
+		if listenPort == 80 {
+			// TODO: This is a gross HACK. Fix me. Its a much bigger surgery though, due to the way
+			// the current code is written.
+			serviceByPort[80] = nil
+		}
+	}
+
+	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
+	for port, services := range serviceByPort {
+		out = append(out, VirtualHostWrapper{
+			Port:                port,
+			Services:            services,
+			VirtualServiceHosts: hosts,
+			Routes:              routes,
+		})
+	}
+
+	return out
+}
+
 func buildSidecarVirtualHostsForService(
 	serviceRegistry map[host.Name]*model.Service,
 	hashByService map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB,
@@ -286,6 +412,54 @@ func buildSidecarVirtualHostsForService(
 					Services: []*model.Service{svc},
 					Routes:   []*route.Route{httpRoute},
 				})
+			}
+		}
+	}
+	return out
+}
+
+func buildSidecarVirtualHostsForServiceWithDualStack(
+	node *model.Proxy,
+	serviceRegistry map[host.Name]*model.Service,
+	hashByService map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB,
+	mesh *meshconfig.MeshConfig,
+) []VirtualHostWrapper {
+	out := make([]VirtualHostWrapper, 0)
+	for _, svc := range serviceRegistry {
+		for _, port := range svc.Ports {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+				var clusters []string
+				clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port))
+				if features.EnableDualStack && node.SupportsIPv6() && node.SupportsIPv4() {
+					if len(svc.DefaultAddresses) > 1 {
+						for _, addr := range svc.DefaultAddresses {
+							if net.ParseIP(addr) != nil && net.ParseIP(addr).To4() == nil && net.ParseIP(addr).To16() != nil {
+								clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound6, "", svc.Hostname, port.Port))
+							}
+						}
+					} else if len(svc.DefaultAddresses) == 1 && svc.DefaultAddresses[0] == coreV1.ClusterIPNone {
+						// headless service case
+						clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound6, "", svc.Hostname, port.Port))
+					}
+				}
+
+				for _, cluster := range clusters {
+					traceOperation := util.TraceOperation(string(svc.Hostname), port.Port)
+					httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, mesh)
+
+					// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
+					if hashByPort, ok := hashByService[svc.Hostname]; ok {
+						hashPolicy := consistentHashToHashPolicy(hashByPort[port.Port])
+						if hashPolicy != nil {
+							httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
+						}
+					}
+					out = append(out, VirtualHostWrapper{
+						Port:     port.Port,
+						Services: []*model.Service{svc},
+						Routes:   []*route.Route{httpRoute},
+					})
+				}
 			}
 		}
 	}
