@@ -6,5 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Added** `istioctl proxy-status` now supports `-o json`, which outputs proxy
-  information as json
+  **Added** support for json output to the `istioctl proxy-status` command by specifying `-o json`.
