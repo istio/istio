@@ -159,12 +159,10 @@ func generateValidatingWebhook(config *tagWebhookConfig, chartPath string) (stri
 	}
 
 	values := fmt.Sprintf(`
-global:
-  istioNamespace: %s
 revision: %q
 base:
   validationURL: %s
-`, config.IstioNamespace, config.Revision, config.URL)
+`, config.Revision, config.URL)
 
 	validatingWebhookYAML, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, vwhTemplateName)
