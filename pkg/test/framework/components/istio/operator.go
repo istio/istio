@@ -264,7 +264,7 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 	}
 	kube2.DumpPods(ctx, d, ns, []string{})
 	kube2.DumpWebhooks(ctx, d)
-	for _, c := range ctx.Clusters().Kube() {
+	for _, c := range ctx.Clusters().Kube().Primaries() {
 		kube2.DumpDebug(ctx, c, d, "configz")
 		kube2.DumpDebug(ctx, c, d, "mcsz")
 		kube2.DumpDebug(ctx, c, d, "clusterz")
