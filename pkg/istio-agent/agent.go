@@ -548,9 +548,7 @@ func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.Se
 			break
 		}
 		log.Warnf("failed to get certificate: %v", err)
-		select {
-		case <-time.After(b.NextBackOff()):
-		}
+		time.Sleep(b.NextBackOff())
 	}
 	for {
 		_, err := st.GenerateSecret(security.RootCertReqResourceName)
@@ -558,9 +556,7 @@ func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.Se
 			break
 		}
 		log.Warnf("failed to get root certificate: %v", err)
-		select {
-		case <-time.After(b.NextBackOff()):
-		}
+		time.Sleep(b.NextBackOff())
 	}
 	return
 }
