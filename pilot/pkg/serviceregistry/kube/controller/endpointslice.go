@@ -17,7 +17,6 @@ package controller
 import (
 	"sync"
 
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/discovery/v1"
 	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -240,7 +239,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 			if pod == nil && expectedPod {
 				continue
 			}
-			builder := esc.newEndpointBuilder(pod)
+			builder := NewEndpointBuilder(esc.c, pod)
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range slice.Ports() {
 				var portNum int32
@@ -332,7 +331,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					continue
 				}
 
-				builder := esc.newEndpointBuilder(pod)
+				builder := NewEndpointBuilder(esc.c, pod)
 				// identify the port by name. K8S EndpointPort uses the service port name
 				for _, port := range slice.Ports() {
 					var portNum int32
@@ -354,19 +353,6 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		}
 	}
 	return out
-}
-
-func (esc *endpointSliceController) newEndpointBuilder(pod *corev1.Pod) *EndpointBuilder {
-	if pod != nil {
-		// Respect pod "istio-locality" label
-		if pod.Labels[model.LocalityLabel] == "" {
-			pod = pod.DeepCopy()
-			// mutate the labels, only need `istio-locality`
-			pod.Labels[model.LocalityLabel] = esc.c.getPodLocality(pod)
-		}
-	}
-
-	return NewEndpointBuilder(esc.c, pod)
 }
 
 // TODO this isn't used now, but we may still want to extract locality from the v1 EnspointSlice instead of node
