@@ -218,28 +218,6 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 	}
 }
 
-func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) *clusterCache {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-	clusterKey := &clusterCache{
-		clusterName:     clusterName,
-		proxyVersion:    cb.proxyVersion,
-		locality:        cb.locality,
-		proxyClusterID:  cb.clusterID,
-		proxySidecar:    cb.sidecarProxy(),
-		proxyView:       cb.proxyView,
-		http2:           port.Protocol.IsHTTP2(),
-		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
-		supportsIPv4:    cb.supportsIPv4,
-		service:         service,
-		destinationRule: proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname),
-		envoyFilterKeys: efKeys,
-		metadataCerts:   cb.metadataCerts,
-		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
-		serviceAccounts: cb.req.Push.ServiceAccounts[service.Hostname][port.Port],
-	}
-	return clusterKey
-}
-
 func buildClusterKeyWithDualStack(service *model.Service, port *model.Port,
 	cb *ClusterBuilder, proxy *model.Proxy, direction model.TrafficDirection,
 	efKeys []string) *clusterCache {
