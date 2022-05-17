@@ -62,15 +62,20 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 	} else {
 		informer = c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
 	}
+
+	filteredInformer := filter.NewFilteredSharedIndexInformer(
+		c.opts.DiscoveryNamespacesFilter.Filter,
+		informer,
+	)
 	out := &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
-			informer: informer,
+			informer: filteredInformer,
 		},
 		useV1Resource: useV1Resource,
 		endpointCache: newEndpointSliceCache(),
 	}
-	c.registerHandlers(informer, "EndpointSlice", out.onEvent, nil)
+	c.registerHandlers(filteredInformer, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 
