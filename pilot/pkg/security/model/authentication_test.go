@@ -593,8 +593,8 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 				CredentialName:        "testCredential",
 				SubjectAltNames:       []string{"testCredential"},
 				Mode:                  networking.ServerTLSSettings_MUTUAL,
-				VerifyCertificateSpki: nil,
-				VerifyCertificateHash: nil,
+				VerifyCertificateSpki: []string{},
+				VerifyCertificateHash: []string{},
 			},
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
@@ -612,8 +612,8 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext: &auth.CertificateValidationContext{
 							MatchSubjectAltNames:  util.StringToExactMatch([]string{"testCredential"}),
-							VerifyCertificateSpki: nil,
-							VerifyCertificateHash: nil,
+							VerifyCertificateSpki: []string{},
+							VerifyCertificateHash: []string{},
 						},
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "kubernetes://testCredential" + SdsCaSuffix,
