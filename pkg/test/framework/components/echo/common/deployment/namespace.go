@@ -141,13 +141,14 @@ func (n EchoNamespace) build(t resource.Context, b deployment.Builder, cfg Confi
 			IncludeExtAuthz: cfg.IncludeExtAuthz,
 		}).
 		WithConfig(echo.Config{
-			Service:        VMSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Ports:          ports.All(),
-			DeployAsVM:     true,
-			AutoRegisterVM: true,
-			Subsets:        []echo.SubsetConfig{{}},
+			Service:         VMSvc,
+			Namespace:       n.Namespace,
+			ServiceAccount:  true,
+			Ports:           ports.All(),
+			DeployAsVM:      true,
+			AutoRegisterVM:  true,
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: cfg.IncludeExtAuthz,
 		})
 
 	if !skipDeltaXDS(t) {

@@ -430,6 +430,14 @@ spec:
           name: custom-bootstrap-volume
         {{- end }}
         {{- end }}
+{{- if $.IncludeExtAuthz }}
+      - name: ext-authz
+        image: {{ $.ImageHub }}/ext-authz:{{ $.ImageTag }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
+        ports:
+        - containerPort: 8000
+        - containerPort: 9000
+{{- end }}
       volumes:
       - secret:
           secretName: {{ $.Service }}-istio-token
