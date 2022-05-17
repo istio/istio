@@ -100,7 +100,7 @@ func (lb *ListenerBuilder) buildHTTPProxyListener() *ListenerBuilder {
 }
 
 func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
-	if lb.node.GetInterceptionMode() == model.InterceptionNone {
+	if lb.node.GetInterceptionMode() == model.InterceptionNone || lb.node.Metadata.RemoteProxy || true { // TODO allow setting remote proxy meta
 		// virtual listener is not necessary since workload is not using IPtables for traffic interception
 		return lb
 	}

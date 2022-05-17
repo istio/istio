@@ -196,6 +196,8 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, internalMux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
 
+	s.addDebugHandler(mux, internalMux, "/debug/sidecarlezz", "Debug support for sidecarless discovery", s.sidecarlezz)
+
 	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.authorizationz)
 	s.addDebugHandler(mux, internalMux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
 	s.addDebugHandler(mux, internalMux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
@@ -344,6 +346,10 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 		resources[resourceType] = append(resources[resourceType], resource.Name+"/"+key)
 	}
 	writeJSON(w, resources)
+}
+
+func (s *DiscoveryServer) sidecarlezz(w http.ResponseWriter, req *http.Request) {
+	writeJSON(w, s.Env.SidecarlessWorkloads())
 }
 
 type endpointzResponse struct {

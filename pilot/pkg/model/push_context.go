@@ -17,6 +17,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"istio.io/istio/pilot/pkg/ambient"
 	"math"
 	"sort"
 	"strconv"
@@ -239,6 +240,8 @@ type PushContext struct {
 
 	// GatewayAPIController holds a reference to the gateway API controller.
 	GatewayAPIController GatewayController
+
+	SidecarlessIndex ambient.Indexes
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
@@ -1175,6 +1178,8 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	ps.initSidecarless(env)
+
 	// Must be initialized in the end
 	if err := ps.initSidecarScopes(env); err != nil {
 		return err
@@ -1313,6 +1318,10 @@ func (ps *PushContext) updateContext(
 	} else {
 		ps.gatewayIndex = oldPushContext.gatewayIndex
 	}
+
+	// TODO(stevenctl,ambient) can we optimize this to only happen on "if changed"
+	// TODO(stevenctl,ambient) how will SidecarScope work with this stuff?
+	ps.initSidecarless(env)
 
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
@@ -1956,6 +1965,13 @@ func (ps *PushContext) initGateways(env *Environment) error {
 		ps.gatewayIndex.all = gatewayConfigs
 	}
 	return nil
+}
+
+func (ps *PushContext) initSidecarless(env *Environment) {
+	// only set for istiod, not agent
+	if env.Cache != nil {
+		ps.SidecarlessIndex = env.SidecarlessWorkloads()
+	}
 }
 
 // InternalGatewayServiceAnnotation represents the hostname of the service a gateway will use. This is

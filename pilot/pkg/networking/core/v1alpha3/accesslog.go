@@ -618,7 +618,7 @@ func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfi
 	lal := buildFileAccessLogHelper(mesh.AccessLogFile, mesh)
 	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 	// not get filter Access Logs like in cases like NR to upstream.
-	lal.Filter = addAccessLogFilter()
+	// lal.Filter = addAccessLogFilter()
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()

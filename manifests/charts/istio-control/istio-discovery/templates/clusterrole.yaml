@@ -7,7 +7,12 @@ metadata:
     app: istiod
     release: {{ .Release.Name }}
 rules:
-  # sidecar injection controller
+  # Ambient auto-labeler patches Pods, pep controller creates Pods
+  - apiGroups: [ "" ]
+    resources: [ "pods", "namespaces", "serviceaccounts" ]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+
+    # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update", "patch"]
@@ -43,7 +48,7 @@ rules:
 
   # discovery and routing
   - apiGroups: [""]
-    resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
+    resources: [ "nodes", "services", "endpoints"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["discovery.k8s.io"]
     resources: ["endpointslices"]

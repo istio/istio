@@ -44,10 +44,11 @@ type EndpointBuilder struct {
 	hostname string
 	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
 	subDomain string
+	nodeName  string
 }
 
 func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
-	locality, sa, namespace, hostname, subdomain, ip := "", "", "", "", "", ""
+	var locality, sa, namespace, hostname, subdomain, ip, node string
 	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
@@ -62,6 +63,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 			}
 		}
 		ip = pod.Status.PodIP
+		node = pod.Spec.NodeName
 	}
 	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
 	out := &EndpointBuilder{
@@ -76,6 +78,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		namespace:    namespace,
 		hostname:     hostname,
 		subDomain:    subdomain,
+		nodeName:     node,
 	}
 	networkID := out.endpointNetwork(ip)
 	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, networkID)
@@ -92,7 +95,8 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 			Label:     locality,
 			ClusterID: c.Cluster(),
 		},
-		tlsMode: model.GetTLSModeFromEndpointLabels(proxy.Metadata.Labels),
+		tlsMode:  model.GetTLSModeFromEndpointLabels(proxy.Metadata.Labels),
+		nodeName: proxy.Metadata.NodeName,
 	}
 	var networkID network.ID
 	if len(proxy.IPAddresses) > 0 {
@@ -132,6 +136,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		HostName:              b.hostname,
 		SubDomain:             b.subDomain,
 		DiscoverabilityPolicy: discoverabilityPolicy,
+		NodeName:              b.nodeName,
 	}
 }
 

@@ -81,6 +81,12 @@ const (
 	watchDebounceDelay = 100 * time.Millisecond
 )
 
+type WebhookConfig struct {
+	Templates  Templates
+	Values     ValuesConfig
+	MeshConfig *meshconfig.MeshConfig
+}
+
 // Webhook implements a mutating webhook for automatic proxy injection.
 type Webhook struct {
 	mu           sync.RWMutex
@@ -92,6 +98,16 @@ type Webhook struct {
 
 	env      *model.Environment
 	revision string
+}
+
+func (wh *Webhook) GetConfig() WebhookConfig {
+	wh.mu.Lock()
+	defer wh.mu.Unlock()
+	return WebhookConfig{
+		Templates:  wh.Config.Templates,
+		Values:     wh.valuesConfig,
+		MeshConfig: wh.meshConfig,
+	}
 }
 
 // nolint directives: interfacer
@@ -270,6 +286,10 @@ type ValuesConfig struct {
 	raw      string
 	asStruct *opconfig.Values
 	asMap    map[string]interface{}
+}
+
+func (v ValuesConfig) Struct() *opconfig.Values {
+	return v.asStruct
 }
 
 func NewValuesConfig(v string) (ValuesConfig, error) {

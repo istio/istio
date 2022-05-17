@@ -14,6 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+KIND_CONFIG="${KIND_CONFIG:-./local-test-utils/kind-cluster.yaml}"
 kind delete cluster --name ambient || true
-kind create cluster --config ./local-test-utils/kind-cluster.yaml
-
+kind create cluster --config "${KIND_CONFIG}"

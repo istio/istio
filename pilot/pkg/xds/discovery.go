@@ -585,10 +585,17 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
 
-	s.Generators["uproxy-envoy"] = &uproxygen.UProxyConfigGenerator{EndpointIndex: s.EndpointIndex, ServiceDiscovery: s.Env}
+	s.Generators["uproxy-envoy"] = &uproxygen.UProxyConfigGenerator{EndpointIndex: s.EndpointIndex}
 	s.Generators["uproxy-envoy/"+v3.ListenerType] = s.Generators["uproxy-envoy"]
 	s.Generators["uproxy-envoy/"+v3.ClusterType] = s.Generators["uproxy-envoy"]
 	s.Generators["uproxy-envoy/"+v3.EndpointType] = s.Generators["uproxy-envoy"]
+
+	pepGen := &uproxygen.PEPGenerator{
+		Listeners: s.Generators[v3.ListenerType],
+		Clusters:  s.Generators[v3.ClusterType],
+	}
+	s.Generators["ambient-pep/"+v3.ListenerType] = pepGen
+	s.Generators["ambient-pep/"+v3.ClusterType] = pepGen
 
 	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen

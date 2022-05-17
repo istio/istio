@@ -30,7 +30,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-            - NET_RAW
         command:
         - sh
         - -c
@@ -48,6 +47,11 @@ spec:
       - name: istio-proxy
         image: localhost:5000/proxyv2:ambient-oss
         imagePullPolicy: Always
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - NET_ADMIN
         readinessProbe:
           httpGet:
             port: 15021

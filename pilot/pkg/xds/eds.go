@@ -313,6 +313,7 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 
 	// Apply the Split Horizon EDS filter, if applicable.
 	llbOpts = b.EndpointsByNetworkFilter(llbOpts)
+	llbOpts = b.EndpointsAmbientMetadata(llbOpts)
 
 	if model.IsDNSSrvSubsetKey(b.clusterName) {
 		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended

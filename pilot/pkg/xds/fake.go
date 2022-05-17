@@ -20,6 +20,8 @@ package xds
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pilot/pkg/ambient/controller"
+	"istio.io/istio/pkg/kube/inject"
 	"net"
 	"strings"
 	"time"
@@ -165,6 +167,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Delegate: s,
 		}
 	}
+	ambient := controller.NewAggregate("istio-system", opts.DefaultClusterName, webhookConfigNoop, s)
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
@@ -190,6 +193,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 		registries = append(registries, k8s)
 		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := ambient.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -231,6 +237,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if err := s.Env.InitNetworksManager(s); err != nil {
 		t.Fatal(err)
 	}
+	s.Env.Cache = ambient
 	// Generators may rely on Env. Reinitialize them now that we have the actual env.
 	s.InitGenerators(s.Env, "istio-system")
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
@@ -349,6 +356,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	return fake
+}
+
+func webhookConfigNoop() inject.WebhookConfig {
+	return inject.WebhookConfig{}
 }
 
 func (f *FakeDiscoveryServer) KubeClient() kubelib.Client {

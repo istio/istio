@@ -46,6 +46,8 @@ type PodCache struct {
 	needResync         map[string]sets.Set
 	queueEndpointEvent func(string)
 
+	handlers []func(*v1.Pod, model.Event)
+
 	c *Controller
 }
 
@@ -131,6 +133,10 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	// via UpdateStatus.
 	if len(ip) == 0 {
 		return nil
+	}
+
+	for _, handler := range pc.handlers {
+		handler(pod, ev)
 	}
 
 	key := kube.KeyFunc(pod.Name, pod.Namespace)

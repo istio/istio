@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/security/v1beta1"
+	ambientcontroller "istio.io/istio/pilot/pkg/ambient/controller"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
@@ -250,8 +251,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
-	s.XDSServer.InitGenerators(e, args.Namespace)
-
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
 		return nil, err
@@ -297,6 +296,16 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if err := s.initIstiodAdminServer(args, whc); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
+
+	// ambient needs the webhook config, so we initialize here, after setting up the sidecar injector
+	getWebhookConfig := func() inject.WebhookConfig { return inject.WebhookConfig{} }
+	if wh != nil {
+		getWebhookConfig = wh.GetConfig
+	}
+	s.initAmbient(args, getWebhookConfig)
+
+	s.XDSServer.InitGenerators(e, args.Namespace)
+
 	// This should be called only after controllers are initialized.
 	s.initRegistryEventHandlers()
 
@@ -1074,6 +1083,7 @@ func (s *Server) getIstiodCertificate(*tls.ClientHelloInfo) (*tls.Certificate, e
 func (s *Server) initControllers(args *PilotArgs) error {
 	log.Info("initializing controllers")
 	s.initMulticluster(args)
+
 	// Certificate controller is created before MCP controller in case MCP server pod
 	// waits to mount a certificate to be provisioned by the certificate controller.
 	if err := s.initCertController(args); err != nil {
@@ -1085,7 +1095,14 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	if err := s.initServiceControllers(args); err != nil {
 		return fmt.Errorf("error initializing service controllers: %v", err)
 	}
+
 	return nil
+}
+
+func (s *Server) initAmbient(args *PilotArgs, webhookConfig func() inject.WebhookConfig) {
+	ambientController := ambientcontroller.NewAggregate(args.Namespace, s.clusterID, webhookConfig, s.XDSServer)
+	s.environment.Cache = ambientController
+	s.multiclusterController.AddHandler(ambientController)
 }
 
 func (s *Server) initMulticluster(args *PilotArgs) {

@@ -18,6 +18,9 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
+	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
+	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	"math"
 	"sort"
 	"strconv"
@@ -1289,6 +1292,23 @@ func (mc *MutableCluster) build() *cluster.Cluster {
 			v3.HttpProtocolOptionsType: util.MessageToAny(mc.httpProtocolOptions),
 		}
 	}
+
+	// TODO use envoy filter as an easier way to change this in many places
+	mc.cluster.TransportSocketMatches = nil
+	mc.cluster.TransportSocket = &core.TransportSocket{
+		Name: "envoy.transport_sockets.internal_upstream",
+		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&internalupstream.InternalUpstreamTransport{
+			PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
+				Name: "tunnel",
+			}},
+			TransportSocket: &core.TransportSocket{
+				Name:       "envoy.transport_sockets.raw_buffer",
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&rawbuffer.RawBuffer{})},
+			},
+		})},
+	}
+
 	return mc.cluster
 }
 

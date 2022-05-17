@@ -1385,6 +1385,18 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 
 	accessLogBuilder.setListenerAccessLog(opts.push, opts.proxy, res, opts.class)
 
+	// TODO(ambient) probably shouldn't do this conversion here...
+	socketAddr := res.GetAddress().GetSocketAddress()
+	if socketAddr != nil && opts.proxy.Metadata.RemoteProxy || true { // TODO allow setting remote proxy meta
+		internalAddress := fmt.Sprintf("%s_%s_%d", trafficDirection.String(), socketAddr.Address, socketAddr.GetPortValue())
+		res.Address = &core.Address{Address: &core.Address_EnvoyInternalAddress{
+			EnvoyInternalAddress: &core.EnvoyInternalAddress{AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
+				ServerListenerName: internalAddress,
+			}},
+		}}
+		res.ListenerSpecifier = &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}}
+	}
+
 	return res
 }
 

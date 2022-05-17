@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"istio.io/istio/pilot/pkg/ambient"
 	"net"
 	"regexp"
 	"sort"
@@ -58,6 +59,9 @@ type Environment struct {
 	// Config interface for listing routing rules
 	ConfigStore
 
+	// For getting sidecarless/ambient info
+	ambient.Cache
+
 	// Watcher is the watcher for the mesh config (to be merged into the config store)
 	mesh.Watcher
 
@@ -89,6 +93,11 @@ type Environment struct {
 	clusterLocalServices ClusterLocalProvider
 
 	GatewayAPIController GatewayController
+
+	// TODO this can probably be part of the k8s controller's Pod indexing
+	// splitting it out just lets us modify things quicker in PoC state without
+	// upstream breaking us
+	AmbientWorkloads ambient.Cache
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -587,6 +596,8 @@ type NodeMetadata struct {
 
 	// Generator indicates the client wants to use a custom Generator plugin.
 	Generator string `json:"GENERATOR,omitempty"`
+
+	RemoteProxy StringBool `json:"REMOTE_PROXY,omitempty"`
 
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture StringBool `json:"DNS_CAPTURE,omitempty"`

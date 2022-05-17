@@ -1,0 +1,195 @@
+//go:build !agent
+// +build !agent
+
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package uproxygen
+
+import (
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	routerfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	httpconn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
+	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/pkg/log"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"strconv"
+)
+
+var _ model.XdsResourceGenerator = &PEPGenerator{}
+
+type PEPGenerator struct {
+	Listeners model.XdsResourceGenerator
+	Clusters  model.XdsResourceGenerator
+}
+
+func (p *PEPGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	var out model.Resources
+	switch w.TypeUrl {
+	case v3.ListenerType:
+		sidecarListeners, logDetails, err := p.Listeners.Generate(proxy, w, req)
+		if err != nil {
+			return sidecarListeners, logDetails, err
+		}
+		out = append(p.buildPEPListeners(proxy, req.Push), sidecarListeners...)
+		// name here comes from eds metadata (see endpoint_builder.go)
+		out = append(out, outboundTunnelListener("pep_tunnel", proxy.Metadata.ServiceAccount))
+	case v3.ClusterType:
+		sidecarClusters, logDetails, err := p.Clusters.Generate(proxy, w, req)
+		if err != nil {
+			return sidecarClusters, logDetails, err
+		}
+		out = append(p.buildClusters(proxy, req.Push), sidecarClusters...)
+		out = append(out)
+	}
+	return out, model.DefaultXdsLogDetails, nil
+}
+
+func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushContext) model.Resources {
+	saWorkloads := push.SidecarlessIndex.Workloads.ByIdentity[proxy.VerifiedIdentity.String()]
+	if len(saWorkloads) == 0 {
+		log.Warnf("no workloads for sa %s (proxy %s)", proxy.Metadata.ServiceAccount, proxy.ID)
+		return nil
+	}
+	var l = &listener.Listener{
+		Name:    "pep_outbound l",
+		Address: ipPortAddress("0.0.0.0", UproxyOutboundCapturePort),
+
+		AccessLog: accessLogString("pep_outbound"),
+		FilterChains: []*listener.FilterChain{
+			{
+				Name: "pep_outbound fc",
+
+				TransportSocket: &core.TransportSocket{
+					Name: "envoy.transport_sockets.tls",
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+						CommonTlsContext: buildCommonTLSContext(proxy, nil, push, true),
+					})},
+				},
+				Filters: []*listener.Filter{{
+					Name: "envoy.filters.network.http_connection_manager",
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: util.MessageToAny(&httpconn.HttpConnectionManager{
+							AccessLog:  accessLogString("pep hcm"),
+							StatPrefix: "outbound_hcm",
+							RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
+								RouteConfig: &route.RouteConfiguration{
+									Name: "local_route",
+									VirtualHosts: []*route.VirtualHost{
+										{
+											Name:    "local_service",
+											Domains: []string{"*"},
+											Routes:  routePortToInternalOutbound(proxy, push),
+										},
+									},
+								},
+							},
+							HttpFilters: []*httpconn.HttpFilter{{
+								Name:       "envoy.filters.http.router",
+								ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(&routerfilter.Router{})},
+							}},
+							Http2ProtocolOptions: &core.Http2ProtocolOptions{
+								AllowConnect: true,
+							},
+							UpgradeConfigs: []*httpconn.HttpConnectionManager_UpgradeConfig{{
+								UpgradeType: "CONNECT",
+							}},
+						}),
+					},
+				}},
+			},
+		},
+	}
+	var out model.Resources
+	for _, l := range []*listener.Listener{l} {
+		out = append(out, &discovery.Resource{
+			Name:     l.Name,
+			Resource: util.MessageToAny(l),
+		})
+	}
+	return out
+}
+
+func routePortToInternalOutbound(*model.Proxy, *model.PushContext) []*route.Route {
+	var out []*route.Route
+	out = append(out, &route.Route{
+		Match: &route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+			Headers:       []*route.HeaderMatcher{istiomatcher.HeaderMatcher("x-direction", "outbound")},
+		},
+		Action: &route.Route_Route{Route: &route.RouteAction{
+			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+				UpgradeType:   "CONNECT",
+				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+			}},
+			ClusterSpecifier: &route.RouteAction_ClusterHeader{ClusterHeader: "x-original-port"},
+		}},
+	})
+	return out
+}
+
+func stringMatch(s string) *route.HeaderMatcher_StringMatch {
+	return &route.HeaderMatcher_StringMatch{StringMatch: &matcher.StringMatcher{
+		MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
+	}}
+}
+
+func (p *PEPGenerator) buildClusters(node *model.Proxy, push *model.PushContext) model.Resources {
+	// TODO passthrough and blackhole
+	var clusters []*cluster.Cluster
+
+	// TODO this is a big hack - the enumeration of ports should be closer to listener gen
+	for _, egressListener := range node.SidecarScope.EgressListeners {
+		ports := sets.NewInt()
+		for _, service := range egressListener.Services() {
+			for _, port := range service.Ports {
+				ports.Insert(port.Port)
+			}
+		}
+		for _, port := range ports.List() {
+			sPort := strconv.Itoa(port)
+			clusters = append(clusters, &cluster.Cluster{
+				Name:                 sPort,
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+				LoadAssignment: &endpoint.ClusterLoadAssignment{
+					ClusterName: sPort,
+					Endpoints: []*endpoint.LocalityLbEndpoints{{
+						LbEndpoints: []*endpoint.LbEndpoint{{
+							// TODO if we enumerated the listeners properly we could include more than 0.0.0.0
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Address: internalAddress("OUTBOUND_0.0.0.0_" + sPort)}},
+							Metadata:       nil, // TODO metadata for passthrough
+						}},
+					}},
+				},
+			})
+		}
+
+	}
+	clusters = append(clusters, outboundTunnelCluster(node, push, node.Metadata.ServiceAccount, nil))
+	var out model.Resources
+	for _, c := range clusters {
+		out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+	}
+	return out
+}

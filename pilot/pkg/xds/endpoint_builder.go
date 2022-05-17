@@ -17,6 +17,8 @@ package xds
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"google.golang.org/protobuf/types/known/structpb"
+	"net"
 	"sort"
 	"strconv"
 
@@ -377,6 +379,21 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsA
 	}
 }
 
+func (b *EndpointBuilder) EndpointsAmbientMetadata(opts []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
+	// TODO
+	//if b.proxy.Type != model.PEP {
+	//	return
+	//}
+
+	//for _, opt := range opts {
+	//	for _, istioEndpoint := range opt.istioEndpoints {
+	//		TODO move code from buildEnvoyLbEndpoint
+	//	}
+	//
+	//}
+	return opts
+}
+
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
@@ -401,6 +418,20 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove pilot/pkg/xds/fake.go
 	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
+
+	address, port := e.Address, e.EndpointPort
+	tunnelAddress, tunnelPort := address, 15008
+
+	// TODO deal with node-local or send to server PEP
+
+	ambientTunnelMeta, _ := structpb.NewStruct(map[string]interface{}{
+		"target":           "pep_tunnel",
+		"tunnel_address":   net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
+		"detunnel_address": net.JoinHostPort(address, strconv.Itoa(int(port))),
+		"detunnel_ip":      address,
+		"detunnel_port":    strconv.Itoa(int(port)),
+	})
+	ep.Metadata.FilterMetadata["tunnel"] = ambientTunnelMeta
 
 	return ep
 }

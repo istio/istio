@@ -472,6 +472,9 @@ type IstioEndpoint struct {
 
 	// Indicatesthe endpoint health status.
 	HealthStatus HealthStatus
+
+	// If in k8s, the node where the pod resides
+	NodeName string
 }
 
 // GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.

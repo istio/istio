@@ -15,24 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO this file just exists to avoid pulling all of client-go into the agent binary
-
 package uproxygen
 
 import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-var _ model.XdsResourceGenerator = &UProxyConfigGenerator{}
+var _ model.XdsResourceGenerator = &PEPGenerator{}
 
-type UProxyConfigGenerator struct {
-	EndpointIndex *model.EndpointIndex
+type PEPGenerator struct {
+	Listeners model.XdsResourceGenerator
+	Clusters  model.XdsResourceGenerator
 }
 
-func (g *UProxyConfigGenerator) Generate(
-	proxy *model.Proxy,
-	w *model.WatchedResource,
-	req *model.PushRequest,
-) (model.Resources, model.XdsLogDetails, error) {
-	return nil, model.DefaultXdsLogDetails, nil
+func (p *PEPGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (res model.Resources, xLog model.XdsLogDetails, err error) {
+	return
 }
