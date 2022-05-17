@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/util/retry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
@@ -57,68 +57,39 @@ func mapTagToVersionOrFail(t framework.TestContext, tag, version string) {
 }
 
 func applyAndTestWasm(t framework.TestContext, c wasmTestConfigs) {
-	t.Helper()
-	defer func() {
-		generation++
-	}()
-	scopes.Framework.Infof(c.desc)
-	mapTagToVersionOrFail(t, c.tag, c.upstreamVersion)
-	if err := installWasmExtension(t, c.name, c.tag, c.policy, fmt.Sprintf("g-%q", generation)); err != nil {
-		t.Fatalf("failed to install WasmPlugin: %v", err)
-	}
-	retry.UntilSuccessOrFail(t, func() error {
-		result, err := sendTraffic()
-		if err != nil {
-			t.Log("failed to send traffic")
-			return err
+	t.NewSubTest(c.desc).Run(func(t framework.TestContext) {
+		defer func() {
+			generation++
+		}()
+		mapTagToVersionOrFail(t, c.tag, c.upstreamVersion)
+		if err := installWasmExtension(t, c.name, c.tag, c.policy, fmt.Sprintf("g-%q", generation)); err != nil {
+			t.Fatalf("failed to install WasmPlugin: %v", err)
 		}
-
-		if result.Responses.Len() == 0 {
-			return errors.New("failed to get response")
-		}
-
-		value := result.Responses[0].ResponseHeaders.Get(injectedHeader)
-		if value != c.expectedVersion {
-			return fmt.Errorf("[generation: %d] unexpected values for the header %q with the policy %q: given %q, got %q, want %q",
-				generation, injectedHeader, c.policy, c.upstreamVersion, value, c.expectedVersion)
-		}
-
-		return nil
-	}, retry.Delay(1*time.Second), retry.Timeout(100*time.Second))
+		retry.UntilSuccessOrFail(t, func() error {
+			err := sendTraffic(check.ResponseHeader(injectedHeader, c.expectedVersion))
+			if err != nil {
+				t.Log("failed to send traffic: %v", err)
+				return err
+			}
+			return nil
+		}, retry.Delay(1*time.Second), retry.Timeout(100*time.Second))
+	})
 }
 
 func resetWasm(t framework.TestContext, pluginName string) {
-	t.Helper()
-	scopes.Framework.Infof("Delete WasmPlugin %q", pluginName)
-	if err := uninstallWasmExtension(t, pluginName); err != nil {
-		t.Fatal(err)
-	}
-
-	successCount := 0
-
-	retry.UntilSuccessOrFail(t, func() error {
-		result, err := sendTraffic()
-		if err != nil {
-			t.Log("failed to send traffic")
-			return err
+	t.NewSubTest("Delete WasmPlugin " + pluginName).Run(func(t framework.TestContext) {
+		if err := uninstallWasmExtension(t, pluginName); err != nil {
+			t.Fatal(err)
 		}
-
-		if result.Responses.Len() == 0 {
-			return errors.New("failed to get response")
-		}
-
-		value := result.Responses[0].ResponseHeaders.Get(injectedHeader)
-
-		if value != "" {
-			return fmt.Errorf("failed to reset WasmPlugin %q", pluginName)
-		}
-
-		if successCount < 2 {
-			successCount++
-			return fmt.Errorf("retry")
-		}
-		return nil
-	}, retry.Delay(1*time.Second), retry.Timeout(100*time.Second))
+		retry.UntilSuccessOrFail(t, func() error {
+			err := sendTraffic(check.ResponseHeader(injectedHeader, ""))
+			if err != nil {
+				t.Log("failed to send traffic")
+				return err
+			}
+			return nil
+		}, retry.Delay(1*time.Second), retry.Timeout(100*time.Second), retry.Converge(2))
+	})
 }
 
 func TestImagePullPolicy(t *testing.T) {
@@ -227,9 +198,9 @@ func uninstallWasmExtension(ctx framework.TestContext, pluginName string) error 
 	return nil
 }
 
-func sendTraffic() (echo.CallResult, error) {
+func sendTraffic(checker echo.Checker) error {
 	if len(common.GetClientInstances()) == 0 {
-		return echo.CallResult{}, errors.New("there is no client")
+		return errors.New("there is no client")
 	}
 	cltInstance := common.GetClientInstances()[0]
 
@@ -246,7 +217,9 @@ func sendTraffic() (echo.CallResult, error) {
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
+		Check: checker,
 	}
 
-	return cltInstance.Call(httpOpts)
+	_, err := cltInstance.Call(httpOpts)
+	return err
 }

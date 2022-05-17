@@ -23,8 +23,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
-
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -78,10 +76,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("could not create %q namespace for registry redirector server install; err: %v", ns, err)
 	}
 
-	instanceID := uuid.NewString()
-	args := map[string]interface{}{
-		"InstanceID": fmt.Sprintf("%q", instanceID),
-	}
+	args := map[string]interface{}{}
 
 	if len(cfg.TargetRegistry) != 0 {
 		args["TargetRegistry"] = cfg.TargetRegistry
@@ -96,7 +91,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", env.RegistryRedirectorServerInstallFilePath, err)
 	}
 
-	fetchFn := testKube.NewPodFetch(ctx.Clusters().Default(), c.ns.Name(), podSelector, fmt.Sprintf("uuid=%s", instanceID))
+	fetchFn := testKube.NewPodFetch(ctx.Clusters().Default(), c.ns.Name(), podSelector)
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
@@ -155,7 +150,7 @@ func (c *kubeComponent) SetupTagMap(tagMap map[string]string) error {
 	err = retry.UntilSuccess(func() error {
 		_, err := client.Post(fmt.Sprintf("http://%s/admin/v1/tagmap", c.forwarder.Address()), "application/json", bytes.NewBuffer(body))
 		return err
-	}, retry.Delay(1*time.Second), retry.Timeout(20*time.Second))
+	}, retry.Delay(100*time.Millisecond), retry.Timeout(20*time.Second))
 	if err != nil {
 		return err
 	}
