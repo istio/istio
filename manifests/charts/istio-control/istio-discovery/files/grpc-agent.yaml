@@ -239,7 +239,6 @@ spec:
       - name: workload-certs
         mountPath: /var/run/secrets/workload-spiffe-credentials
       {{- end }}
-
 {{- end }}
 {{- end }}
   volumes:
