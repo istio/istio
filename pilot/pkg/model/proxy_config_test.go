@@ -223,10 +223,18 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				newProxyConfig("ns", "test-ns",
 					&v1beta1.ProxyConfig{
 						Concurrency: v(3),
+						Image: &v1beta1.ProxyImage{
+							ImageType: "debug",
+						},
 					}),
 			},
-			proxy:    newMeta("test-ns", nil, nil),
-			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
+			proxy: newMeta("test-ns", nil, nil),
+			expected: &meshconfig.ProxyConfig{
+				Concurrency: v(3),
+				Image: &v1beta1.ProxyImage{
+					ImageType: "debug",
+				},
+			},
 		},
 		{
 			name: "CR takes precedence over meshConfig.defaultConfig",
@@ -267,6 +275,9 @@ func TestEffectiveProxyConfig(t *testing.T) {
 							"test": "selector",
 						}),
 						Concurrency: v(3),
+						Image: &v1beta1.ProxyImage{
+							ImageType: "debug",
+						},
 					}),
 			},
 			proxy: newMeta(
@@ -276,7 +287,12 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				}, map[string]string{
 					annotation.ProxyConfig.Name: "{ \"concurrency\": 5 }",
 				}),
-			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
+			expected: &meshconfig.ProxyConfig{
+				Concurrency: v(3),
+				Image: &v1beta1.ProxyImage{
+					ImageType: "debug",
+				},
+			},
 		},
 		{
 			name: "CR in other namespaces get ignored",
