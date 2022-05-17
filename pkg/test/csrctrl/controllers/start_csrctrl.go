@@ -16,6 +16,7 @@ package csrctrl
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -89,16 +90,21 @@ func RunCSRController(signerNames string, appendRootCert bool, c <-chan struct{}
 	}
 
 	for _, cluster := range clusters {
-		mgr, err := ctrl.NewManager(cluster.RESTConfig(), ctrl.Options{
-			Scheme: scheme,
-			// disabel the metric server to avoid the port conflicting
-			MetricsBindAddress: "0",
-		})
-		if err != nil {
-			log.Infof("Unable to start manager error: %v", err)
-			os.Exit(-1)
+		if !cluster.IsConfig() {
+			if cluster.IsExternalControlPlane() {
+				fmt.Println("Testing : it is an external CP")
+			}
+			mgr, err := ctrl.NewManager(cluster.RESTConfig(), ctrl.Options{
+				Scheme: scheme,
+				// disable the metric server to avoid the port conflicting
+				MetricsBindAddress: "0",
+			})
+			if err != nil {
+				log.Infof("Unable to start manager error: %v", err)
+				os.Exit(-1)
+			}
+			go runManager(mgr, arrSigners, signersMap, appendRootCert, c)
 		}
-		go runManager(mgr, arrSigners, signersMap, appendRootCert, c)
 	}
 
 	return rootCertSignerArr
