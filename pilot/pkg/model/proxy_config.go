@@ -93,7 +93,7 @@ func (p *ProxyConfigs) mergedGlobalConfig() *meshconfig.ProxyConfig {
 	return p.mergedNamespaceConfig(p.rootNamespace)
 }
 
-// mergedWorkloadConfig merges ProxyConfig resources matching the given namespace.
+// mergedNamespaceConfig merges ProxyConfig resources matching the given namespace.
 func (p *ProxyConfigs) mergedNamespaceConfig(namespace string) *meshconfig.ProxyConfig {
 	for _, pc := range p.namespaceToProxyConfigs[namespace] {
 		if pc.GetSelector() == nil {
@@ -136,6 +136,9 @@ func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig
 		if pcs[i].GetConcurrency() != nil {
 			merged.Concurrency = pcs[i].GetConcurrency()
 		}
+		if pcs[i].GetImage() != nil {
+			merged.Image = pcs[i].GetImage()
+		}
 	}
 	return merged
 }
@@ -147,6 +150,9 @@ func toMeshConfigProxyConfig(pc *v1beta1.ProxyConfig) *meshconfig.ProxyConfig {
 	}
 	if pc.EnvironmentVariables != nil {
 		mcpc.ProxyMetadata = pc.EnvironmentVariables
+	}
+	if pc.Image != nil {
+		mcpc.Image = pc.Image
 	}
 	return mcpc
 }
