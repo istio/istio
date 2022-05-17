@@ -6986,6 +6986,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
+  priority: -1
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -7108,6 +7109,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
+  priority: -1
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -7230,6 +7232,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
+  priority: -1
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -7352,6 +7355,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
+  priority: -1
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -7474,6 +7478,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
+  priority: -1
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -7596,6 +7601,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
+  priority: -1
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -7710,6 +7716,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
+  priority: -1
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -7824,6 +7831,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
+  priority: -1
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -7938,6 +7946,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
+  priority: -1
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -8052,6 +8061,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
+  priority: -1
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
