@@ -85,7 +85,6 @@ func RunCSRController(signerNames string, appendRootCert bool, c <-chan struct{}
 			Signer:   signerName,
 			Rootcert: string(rootCert),
 		}
-		// certChan <- rootCertsForSigner
 		rootCertSignerArr = append(rootCertSignerArr, rootCertsForSigner)
 	}
 

@@ -92,7 +92,7 @@ func TestMain(m *testing.M) {
 }
 
 func setupConfig(ctx resource.Context, cfg *istio.Config) {
-	certsChan := csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false, stopChan, ctx.Clusters())
+	certsChan := csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false, stopChan, ctx.AllClusters())
 	cert1 := certsChan[0]
 	cert2 := certsChan[1]
 	if cfg == nil {
@@ -143,5 +143,4 @@ components:
                 - approve
 `, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
 	cfg.ControlPlaneValues = cfgYaml
-	// cfg.DeployEastWestGW = false
 }
