@@ -991,8 +991,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
-		// Set auto-sni if sni field is not explicitly set
-		cb.setAutoSni(c, tls)
+
+		cb.setAutoSniAndAutoSanValidation(c, tls)
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
@@ -1031,8 +1031,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			Sni:              tls.Sni,
 		}
 
-		// Set auto-sni if sni field is not explicitly set
-		cb.setAutoSni(c, tls)
+		cb.setAutoSniAndAutoSanValidation(c, tls)
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
@@ -1081,15 +1080,35 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	return tlsContext, nil
 }
 
-func (cb *ClusterBuilder) setAutoSni(mc *MutableCluster, tls *networking.ClientTLSSettings) {
-	if mc != nil && features.EnableAutoSni && len(tls.Sni) == 0 {
+// Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
+// Set auto_san_validation if VerifyCertAtClient feature flag is enabled and if there is no explicit SubjectAltNames specified  in DR.
+func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls *networking.ClientTLSSettings) {
+	if mc == nil || !features.EnableAutoSni {
+		return
+	}
+
+	setAutoSni := false
+	setAutoSanValidation := false
+	if len(tls.Sni) == 0 {
+		setAutoSni = true
+	}
+	if features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0 {
+		setAutoSanValidation = true
+	}
+
+	if setAutoSni || setAutoSanValidation {
 		if mc.httpProtocolOptions == nil {
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
 		if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
 		}
-		mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
+		if setAutoSni {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
+		}
+		if setAutoSanValidation {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
+		}
 	}
 }
 
