@@ -63,7 +63,7 @@ func createDockerCredential(user, passwd, registry string) string {
 		"%v":{
 			"username": "%v",
 			"password": "%v",
-			"email": "test@abc.com",
+			"email": "test@example.com",
 			"auth": "%v"
 		}
 	}

@@ -123,6 +123,7 @@ func resetWasm(t framework.TestContext, pluginName string) {
 
 func TestImagePullPolicy(t *testing.T) {
 	framework.NewTest(t).
+		Features("extensibility.wasm.image-pull-policy").
 		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
 			applyAndTestWasm(t, wasmTestConfigs{
