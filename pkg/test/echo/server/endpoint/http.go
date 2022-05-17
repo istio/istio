@@ -68,8 +68,12 @@ func (s *httpInstance) GetConfig() Config {
 }
 
 func (s *httpInstance) Start(onReady OnReadyFunc) error {
-	h2s := &http2.Server{}
+	h2s := &http2.Server{
+		IdleTimeout: idleTimeout,
+	}
+
 	s.server = &http.Server{
+		IdleTimeout: idleTimeout,
 		Handler: h2c.NewHandler(&httpHandler{
 			Config: s.Config,
 		}, h2s),
