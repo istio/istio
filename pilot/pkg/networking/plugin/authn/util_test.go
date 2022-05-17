@@ -20,6 +20,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/test"
 )
 
 func TestTrustDomainsForValidation(t *testing.T) {
@@ -75,11 +76,7 @@ func TestTrustDomainsForValidation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.skipValidation {
-				features.SkipValidateTrustDomain = true
-			} else {
-				features.SkipValidateTrustDomain = false
-			}
+			test.SetBoolForTest(t, &features.SkipValidateTrustDomain, tt.skipValidation)
 			if got := TrustDomainsForValidation(tt.meshConfig); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("trustDomainsForValidation() = %#v, want %#v", got, tt.want)
 			}
