@@ -82,8 +82,6 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireMinVersion(19).
-		RequireSingleCluster().
-		RequireMultiPrimary().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return SetupApps(ctx, apps)
@@ -94,12 +92,9 @@ func TestMain(m *testing.M) {
 }
 
 func setupConfig(ctx resource.Context, cfg *istio.Config) {
-	certsChan := make(chan *csrctrl.SignerRootCert, 2)
-	go csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false,
-		ctx.Clusters()[0].RESTConfig(), stopChan, certsChan)
-	cert1 := <-certsChan
-	cert2 := <-certsChan
-
+	certsChan := csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false, stopChan, ctx.Clusters())
+	cert1 := certsChan[0]
+	cert2 := certsChan[1]
 	if cfg == nil {
 		return
 	}
@@ -148,5 +143,5 @@ components:
                 - approve
 `, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
 	cfg.ControlPlaneValues = cfgYaml
-	cfg.DeployEastWestGW = false
+	// cfg.DeployEastWestGW = false
 }
