@@ -78,7 +78,7 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 	// Create the namespace, if unspecified.
 	if ns == nil {
 		ns, err = namespace.New(ctx, namespace.Config{
-			Prefix: "ext-authz",
+			Prefix: "authz",
 			Inject: true,
 		})
 		if err != nil {
