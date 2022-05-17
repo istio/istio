@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- https://github.com/istio/istio/issues/38959
+releaseNotes:
+- |
+  **Fixed** an issue where ProxyConfig image type not taking effect
