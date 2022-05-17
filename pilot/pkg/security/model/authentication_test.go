@@ -30,6 +30,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -441,7 +442,7 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 		expected   *auth.SdsSecretConfig
 	}{
 		{
-			name:       "ConstructSdsSecretConfigForCredential test with resourceName",
+			name:       "Credential test with resourceName",
 			secretName: "spiffe://cluster.local/ns/bar/sa/foo",
 			expected: &tls.SdsSecretConfig{
 				Name:      credentials.ToResourceName("spiffe://cluster.local/ns/bar/sa/foo"),
@@ -449,16 +450,16 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 			},
 		},
 		{
-			name:       "ConstructSdsSecretConfigForCredential test with BuiltinGatewaySecretTypeURI",
+			name:       "Credential test with buildin gateway secret type URI",
 			secretName: "builtin://",
 			expected:   defaultSDSConfig,
 		}, {
-			name:       "ConstructSdsSecretConfigForCredential test with BuiltinGatewaySecretTypeURI+SdsCaSuffix",
+			name:       "Credential test with buildin gateway secret type URI and Suffix",
 			secretName: "builtin://-cacert",
 			expected:   rootSDSConfig,
 		},
 		{
-			name:       "ConstructSdsSecretConfigForCredential test without secretName",
+			name:       "Credential test without secretName",
 			secretName: "",
 			expected:   nil,
 		},
@@ -467,7 +468,7 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ConstructSdsSecretConfigForCredential(c.secretName); !cmp.Equal(got, c.expected, protocmp.Transform()) {
-				t.Errorf("ConstructSdsSecretConfigForCredential:: got(%#v), want(%#v)\n", got, c.expected)
+				t.Errorf("got(%#v), want(%#v)\n", got, c.expected)
 			}
 		})
 	}
@@ -478,22 +479,66 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 		name       string
 		tlsContext *tls.CommonTlsContext
 		tlsOpts    *networking.ClientTLSSettings
+		expected   *auth.CommonTlsContext
 	}{
 		{
-			name:       "ApplyCustomSDSToClientCommonTLSContext test with testCredential",
+			name:       "test SDSToClient without ClientTLS settings",
 			tlsContext: &tls.CommonTlsContext{},
 			tlsOpts: &networking.ClientTLSSettings{
 				CredentialName:  "testCredential",
 				SubjectAltNames: []string{"testCredential"},
 			},
+			expected: &auth.CommonTlsContext{
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"testCredential"})},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "kubernetes://testCredential" + SdsCaSuffix,
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_Ads{
+									Ads: &core.AggregatedConfigSource{},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
+							},
+						},
+					},
+				},
+			},
 		},
 		{
-			name:       "ApplyCustomSDSToClientCommonTLSContext test with ClientTLSSettings_MUTUAL",
+			name:       "test SDSToClient with ClientTLS settings",
 			tlsContext: &tls.CommonTlsContext{},
 			tlsOpts: &networking.ClientTLSSettings{
-				CredentialName:  "test",
-				SubjectAltNames: []string{"test"},
+				CredentialName:  "testCredential",
+				SubjectAltNames: []string{"testCredential"},
 				Mode:            networking.ClientTLSSettings_MUTUAL,
+			},
+			expected: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: credentials.ToResourceName("testCredential"),
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_Ads{
+								Ads: &core.AggregatedConfigSource{},
+							},
+							ResourceApiVersion: core.ApiVersion_V3,
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"testCredential"})},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "kubernetes://testCredential" + SdsCaSuffix,
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_Ads{
+									Ads: &core.AggregatedConfigSource{},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -501,8 +546,8 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
 			ApplyCustomSDSToClientCommonTLSContext(c.tlsContext, c.tlsOpts)
-			if c.tlsContext.TlsCertificateSdsSecretConfigs == nil && c.tlsContext.ValidationContextType == nil {
-				t.Errorf("ApplyCustomSDSToClientCommonTLSContext:: secretconfigs is not applyed successfully")
+			if !cmp.Equal(c.tlsContext, c.expected, protocmp.Transform()) {
+				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(c.tlsContext), spew.Sdump(c.expected))
 			}
 		})
 	}
@@ -513,22 +558,74 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 		name       string
 		tlsContext *tls.CommonTlsContext
 		tlsOpts    *networking.ServerTLSSettings
+		expected   *auth.CommonTlsContext
 	}{
 		{
-			name:       "ApplyCredentialSDSToServerCommonTLSContext test with testCredentials",
+			name:       "test SDSToClient without ServerTLS settings",
 			tlsContext: &tls.CommonTlsContext{},
 			tlsOpts: &networking.ServerTLSSettings{
 				CredentialName:  "testCredential",
 				SubjectAltNames: []string{"testCredential"},
 			},
+			expected: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: credentials.ToResourceName("testCredential"),
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_Ads{
+								Ads: &core.AggregatedConfigSource{},
+							},
+							ResourceApiVersion: core.ApiVersion_V3,
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: &auth.CertificateValidationContext{
+						MatchSubjectAltNames: util.StringToExactMatch([]string{"testCredential"}),
+					},
+				},
+			},
 		},
 		{
-			name:       "ApplyCredentialSDSToServerCommonTLSContext test with ServerTLSSettings_MUTUAL",
+			name:       "test SDSToClient with ServerTLS settings",
 			tlsContext: &tls.CommonTlsContext{},
 			tlsOpts: &networking.ServerTLSSettings{
-				CredentialName:  "test",
-				SubjectAltNames: []string{"test"},
-				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialName:        "testCredential",
+				SubjectAltNames:       []string{"testCredential"},
+				Mode:                  networking.ServerTLSSettings_MUTUAL,
+				VerifyCertificateSpki: nil,
+				VerifyCertificateHash: nil,
+			},
+			expected: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: credentials.ToResourceName("testCredential"),
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_Ads{
+								Ads: &core.AggregatedConfigSource{},
+							},
+							ResourceApiVersion: core.ApiVersion_V3,
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{
+							MatchSubjectAltNames:  util.StringToExactMatch([]string{"testCredential"}),
+							VerifyCertificateSpki: nil,
+							VerifyCertificateHash: nil,
+						},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "kubernetes://testCredential" + SdsCaSuffix,
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_Ads{
+									Ads: &core.AggregatedConfigSource{},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -536,8 +633,8 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
 			ApplyCredentialSDSToServerCommonTLSContext(c.tlsContext, c.tlsOpts)
-			if c.tlsContext.TlsCertificateSdsSecretConfigs == nil && c.tlsContext.ValidationContextType == nil {
-				t.Errorf("ApplyCredentialSDSToServerCommonTLSContext:: secretconfigs is not applyed successfully")
+			if !cmp.Equal(c.tlsContext, c.expected, protocmp.Transform()) {
+				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(c.tlsContext), spew.Sdump(c.expected))
 			}
 		})
 	}
