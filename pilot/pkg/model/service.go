@@ -852,7 +852,7 @@ func (s *Service) DeepCopy() *Service {
 
 	if s.ServiceAccounts != nil {
 		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
-		copy(s.ServiceAccounts, out.ServiceAccounts)
+		copy(out.ServiceAccounts, s.ServiceAccounts)
 	}
 	out.ClusterVIPs = s.ClusterVIPs.DeepCopy()
 	return &out
