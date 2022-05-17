@@ -88,6 +88,8 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 			}
 
 			go s.echo(conn)
+
+			forceCloseAfterTimeout(conn)
 		}
 	}()
 
@@ -100,13 +102,21 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 // Handles incoming connection.
 func (s *tcpInstance) echo(conn net.Conn) {
 	defer common.Metrics.TCPRequests.With(common.PortLabel.Value(strconv.Itoa(s.Port.Port))).Increment()
+
+	var err error
 	defer func() {
-		_ = conn.Close()
+		if err != nil && err != io.EOF {
+			forceClose(conn)
+		} else {
+			_ = conn.Close()
+		}
 	}()
 
 	// If this is server first, client expects a message from server. Send the magic string.
 	if s.Port.ServerFirst {
-		_, _ = conn.Write([]byte(common.ServerFirstMagicString))
+		if _, err = conn.Write([]byte(common.ServerFirstMagicString)); err != nil {
+			return
+		}
 	}
 
 	id := uuid.New()
@@ -114,7 +124,8 @@ func (s *tcpInstance) echo(conn net.Conn) {
 	firstReply := true
 	buf := make([]byte, 4096)
 	for {
-		n, err := conn.Read(buf)
+		var n int
+		n, err = conn.Read(buf)
 
 		// important not to start sending any response until we've started reading the message,
 		// otherwise the response could be read when we expect the magic string
@@ -131,7 +142,7 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		// echo the message from the request
 		if n > 0 {
 			out := buf[:n]
-			if _, err := conn.Write(out); err != nil {
+			if _, err = conn.Write(out); err != nil {
 				epLog.Warnf("TCP write failed, :%v", err)
 				break
 			}
