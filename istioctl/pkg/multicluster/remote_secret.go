@@ -51,6 +51,8 @@ import (
 var (
 	codec  runtime.Codec
 	scheme *runtime.Scheme
+
+	tokenWaitBackoff = time.Second
 )
 
 func init() {
@@ -232,7 +234,7 @@ func createRemoteSecretFromTokenAndServer(client kube.ExtendedClient, tokenSecre
 
 func waitForTokenData(client kube.ExtendedClient, secret *v1.Secret) (ca, token []byte, err error) {
 	ca, token, err = tokenDataFromSecret(secret)
-	if err == nil || client == nil {
+	if err == nil {
 		return
 	}
 
@@ -246,7 +248,7 @@ func waitForTokenData(client kube.ExtendedClient, secret *v1.Secret) (ca, token 
 			ca, token, err = tokenDataFromSecret(secret)
 			return err
 		},
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 5))
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(tokenWaitBackoff), 5))
 	return
 }
 
