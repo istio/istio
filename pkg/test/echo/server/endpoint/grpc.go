@@ -34,6 +34,7 @@ import (
 	xdscreds "google.golang.org/grpc/credentials/xds"
 	"google.golang.org/grpc/health"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
@@ -95,7 +96,11 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	// Store the actual listening port back to the argument.
 	s.Port.Port = p
 
-	var opts []grpc.ServerOption
+	opts := []grpc.ServerOption{
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: idleTimeout,
+		}),
+	}
 	if s.Port.TLS {
 		epLog.Infof("Listening GRPC (over TLS) on %v", p)
 		// Create the TLS credentials

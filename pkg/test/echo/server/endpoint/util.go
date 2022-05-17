@@ -19,11 +19,17 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"istio.io/pkg/log"
 )
 
 var epLog = log.RegisterScope("endpoint", "echo serverside", 0)
+
+const (
+	requestTimeout = 15 * time.Second
+	idleTimeout    = 5 * time.Second
+)
 
 func listenOnAddress(ip string, port int) (net.Listener, int, error) {
 	parsedIP := net.ParseIP(ip)
@@ -70,4 +76,24 @@ func listenOnUDS(uds string) (net.Listener, error) {
 	}
 
 	return ln, nil
+}
+
+// forceClose the given socket.
+func forceClose(conn net.Conn) {
+	// Force the connection closed (should result in sending RST)
+	err := conn.(*net.TCPConn).SetLinger(0)
+	if err != nil {
+		epLog.Infof("Failed force-closing server connection: %s", err)
+	}
+
+	// Close may be called more than once.
+	_ = conn.Close()
+}
+
+// forceCloseAfterTimeout starts a go routine that forces the connection closed after a time.
+func forceCloseAfterTimeout(conn net.Conn) {
+	go func() {
+		<-time.After(requestTimeout)
+		forceClose(conn)
+	}()
 }
