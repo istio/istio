@@ -204,7 +204,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
-	if !exists || rev == "" {
+	if !exists || rev == "" && pilotEnabled {
 		p.Println("Making this installation the default for injection and validation.")
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
