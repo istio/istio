@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -358,18 +357,6 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		}
 	}
 	return out
-}
-
-// TODO this isn't used now, but we may still want to extract locality from the v1 EnspointSlice instead of node
-func getLocalityFromTopology(topology map[string]string) string {
-	locality := topology[NodeRegionLabelGA]
-	if _, f := topology[NodeZoneLabelGA]; f {
-		locality += "/" + topology[NodeZoneLabelGA]
-	}
-	if _, f := topology[label.TopologySubzone.Name]; f {
-		locality += "/" + topology[label.TopologySubzone.Name]
-	}
-	return locality
 }
 
 // endpointKey unique identifies an endpoint by IP and port name
