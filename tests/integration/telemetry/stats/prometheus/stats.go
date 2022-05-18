@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -43,10 +42,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -178,7 +175,6 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 // TestStatsTCPFilter includes common test logic for stats and metadataexchange filters running
 // with nullvm and wasm runtime for TCP.
 func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
-	scopes.Framework.SetOutputLevel(log.DebugLevel)
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(t framework.TestContext) {
@@ -196,8 +192,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 							sourceCluster = c.Name()
 						}
 						destinationQuery := buildTCPQuery(sourceCluster)
-						_, err := GetPromInstance().Query(c, destinationQuery)
-						if err != nil {
+						if _, err := GetPromInstance().Query(c, destinationQuery); err != nil {
 							util.PromDiff(t, promInst, c, destinationQuery)
 							return err
 						}
@@ -244,7 +239,7 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 							return err
 						}
 						return nil
-					}, retry.Delay(time.Second*15), retry.Timeout(time.Hour))
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						t.Fatalf("test failed: %v", err)
 					}
@@ -369,8 +364,7 @@ proxyMetadata:
 	}
 	// Following resources are being deployed to test sidecar->gateway communication. With following resources,
 	// routing is being setup from sidecar to external site, edition.cnn.com, via egress gateway.
-	// clt(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway(tcp:443) -> cnn.com
-	// clt(http:80) -> sidecar(http:80) -> istio-mtls -> (HTTPS:80)egress-gateway(http:80) -> cnn.com
+	// clt(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway-> vs(tcp:443) -> cnn.com
 	if err = ctx.ConfigIstio().File(appNsInst.Name(),
 		filepath.Join(env.IstioSrc,
 			"tests/integration/telemetry/stats/prometheus/testdata/cnn-service-entry.yaml")).Apply(); err != nil {
