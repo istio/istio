@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
@@ -654,43 +655,66 @@ users:
 `, "{cluster}", fakeClusterName)
 
 	cases := []struct {
-		name        string
-		clusterName string
-		context     string
-		server      string
-		in          *v1.Secret
-		want        *v1.Secret
-		wantErrStr  string
+		name               string
+		clusterName        string
+		context            string
+		server             string
+		haveTokenSecret    *v1.Secret
+		updatedTokenSecret *v1.Secret
+		wantRemoteSecret   *v1.Secret
+		wantErrStr         string
 	}{
 		{
-			name:        "missing caData",
-			in:          makeSecret("", "", "token"),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			wantErrStr:  errMissingRootCAKey.Error(),
+			name:            "missing caData",
+			haveTokenSecret: makeSecret("", "", "token"),
+			context:         "c0",
+			clusterName:     fakeClusterName,
+			wantErrStr:      errMissingRootCAKey.Error(),
 		},
 		{
-			name:        "missing token",
-			in:          makeSecret("", "caData", ""),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			wantErrStr:  errMissingTokenKey.Error(),
+			name:            "missing token",
+			haveTokenSecret: makeSecret("", "caData", ""),
+			context:         "c0",
+			clusterName:     fakeClusterName,
+			wantErrStr:      errMissingTokenKey.Error(),
 		},
 		{
-			name:        "bad server name",
-			in:          makeSecret("", "caData", "token"),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			server:      "",
-			wantErrStr:  "invalid kubeconfig:",
+			name:            "bad server name",
+			haveTokenSecret: makeSecret("", "caData", "token"),
+			context:         "c0",
+			clusterName:     fakeClusterName,
+			server:          "",
+			wantErrStr:      "invalid kubeconfig:",
 		},
 		{
-			name:        "success",
-			in:          makeSecret("", "caData", "token"),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			server:      "https://1.2.3.4",
-			want: &v1.Secret{
+			name:               "success after wait",
+			haveTokenSecret:    makeSecret("", "caData", ""),
+			updatedTokenSecret: makeSecret("", "caData", "token"), // token is populated later
+			context:            "c0",
+			clusterName:        fakeClusterName,
+			server:             "https://1.2.3.4",
+			wantRemoteSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: remoteSecretNameFromClusterName(fakeClusterName),
+					Annotations: map[string]string{
+						clusterNameAnnotationKey: fakeClusterName,
+					},
+					Labels: map[string]string{
+						multicluster.MultiClusterSecretLabel: "true",
+					},
+				},
+				Data: map[string][]byte{
+					fakeClusterName: []byte(kubeconfig),
+				},
+			},
+		},
+		{
+			name:            "success",
+			haveTokenSecret: makeSecret("", "caData", "token"),
+			context:         "c0",
+			clusterName:     fakeClusterName,
+			server:          "https://1.2.3.4",
+			wantRemoteSecret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: remoteSecretNameFromClusterName(fakeClusterName),
 					Annotations: map[string]string{
@@ -706,11 +730,24 @@ users:
 			},
 		},
 	}
+	oldBackoff := tokenWaitBackoff
+	tokenWaitBackoff = time.Millisecond
+	t.Cleanup(func() {
+		tokenWaitBackoff = oldBackoff
+	})
 	for i := range cases {
 		c := &cases[i]
 		secName := remoteSecretNameFromClusterName(c.clusterName)
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemoteSecretFromTokenAndServer(c.in, c.clusterName, c.server, secName)
+			// no updateTokenSecret means re-fetching yields the same result
+			obj := []runtime.Object{c.haveTokenSecret}
+			if c.updatedTokenSecret != nil {
+				// fetching should give a different result than the token secret we pass in
+				obj = []runtime.Object{c.updatedTokenSecret}
+			}
+			client := kube.NewFakeClient(obj...)
+
+			got, err := createRemoteSecretFromTokenAndServer(client, c.haveTokenSecret, c.clusterName, c.server, secName)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)
@@ -719,8 +756,8 @@ users:
 				}
 			} else if c.wantErrStr == "" && err != nil {
 				tt.Fatalf("wanted non-error but got %q", err)
-			} else if diff := cmp.Diff(got, c.want); diff != "" {
-				tt.Fatalf(" got %v\nwant %v\ndiff %v", got, c.want, diff)
+			} else if diff := cmp.Diff(got, c.wantRemoteSecret); diff != "" {
+				tt.Fatalf(" got %v\nwant %v\ndiff %v", got, c.wantRemoteSecret, diff)
 			}
 		})
 	}
