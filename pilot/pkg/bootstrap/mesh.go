@@ -17,8 +17,11 @@ package bootstrap
 import (
 	"encoding/json"
 	"os"
+	"reflect"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
 	"istio.io/pkg/filewatcher"
@@ -115,6 +118,24 @@ func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileW
 		log.Info("mesh networks configuration not provided")
 		s.environment.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
+	s.environment.AddNetworksHandler(func() {
+		oldNetworks := s.environment.NetworksWatcher.PrevNetworks()
+		currNetworks := s.environment.NetworksWatcher.Networks()
+
+		oldEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
+		newEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
+		for _, networkconf := range currNetworks.Networks {
+			oldEndpoints = append(oldEndpoints, networkconf.Endpoints...)
+		}
+		for _, networkconf := range oldNetworks.Networks {
+			newEndpoints = append(newEndpoints, networkconf.Endpoints...)
+		}
+
+		if !reflect.DeepEqual(newEndpoints, oldEndpoints) {
+			log.Infof("network endpoints changed, triggering push")
+			s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		}
+	})
 }
 
 func getMeshConfigMapName(revision string) string {
