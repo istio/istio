@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -2690,17 +2691,14 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			proxy.Metadata = &proxyGatewayMetadata
 
 			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
-			for _, listener := range builder.gatewayListeners {
-				for _, fc := range listener.GetFilterChains() {
-					gotNWFilters, gotHTTPFilters := xdstest.ExtractFilterNames(t, fc)
-					if !reflect.DeepEqual(gotHTTPFilters, tt.expectedHTTPFilters) {
-						t.Fatalf("Expected HTTPfilters: %v, got: %v", tt.expectedHTTPFilters, gotHTTPFilters)
-					}
-					if !reflect.DeepEqual(gotNWFilters, tt.expectedNetworkFilters) {
-						t.Fatalf("Expected network filters: %v, got: %v", tt.expectedNetworkFilters, gotNWFilters)
-					}
-				}
-			}
+			listenertest.VerifyListeners(t, builder.gatewayListeners, listenertest.ListenersTest{
+				Listener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
+					{
+						NetworkFilters: tt.expectedNetworkFilters,
+						HTTPFilters:    tt.expectedHTTPFilters,
+					},
+				}},
+			})
 		})
 	}
 }
