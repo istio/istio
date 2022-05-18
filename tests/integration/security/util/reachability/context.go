@@ -105,10 +105,6 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 		c := c
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		t.NewSubTest(testName).Run(func(t framework.TestContext) {
-			if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
-				t.Skip("https://github.com/istio/istio/issues/37307")
-			}
-
 			// Apply the policy.
 			cfg := t.ConfigIstio().File(c.Namespace.Name(), filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(t, func() error {
@@ -188,7 +184,6 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 									tpe = "negative"
 									opts.Check = scheck.NotOK()
 								}
-
 								include := c.Include
 								if include == nil {
 									include = func(_ echo.Instance, _ echo.CallOptions) bool { return true }
@@ -203,10 +198,6 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 
 									t.NewSubTest(subTestName).
 										Run(func(t framework.TestContext) {
-											// TODO: fix Multiversion related test in multicluster
-											if t.Clusters().IsMulticluster() && apps.Multiversion.ContainsTarget(to) {
-												t.Skip("https://github.com/istio/istio/issues/37307")
-											}
 											if (apps.IsNaked(from)) && len(toClusters) > 1 {
 												// TODO use echotest to generate the cases that would work for multi-network + naked
 												t.Skip("https://github.com/istio/istio/issues/37307")

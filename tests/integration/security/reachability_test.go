@@ -58,6 +58,9 @@ func TestReachability(t *testing.T) {
 			Never := func(echo.Instance, echo.CallOptions) bool {
 				return false
 			}
+			SameNetwork := func(from echo.Instance, to echo.Target) echo.Instances {
+				return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+			}
 			testCases := []reachability.TestCase{
 				{
 					ConfigFile: "beta-mtls-on.yaml",
@@ -84,19 +87,22 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS:    mtlsOnExpect,
 				},
 				{
-					ConfigFile:             "beta-mtls-off.yaml",
-					Namespace:              systemNM,
-					Include:                Always,
-					ExpectSuccess:          Always,
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ConfigFile:    "beta-mtls-off.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+					// Without TLS we can't perform SNI routing required for multi-network
+					ExpectDestinations: SameNetwork,
 				},
 				{
 					ConfigFile: "beta-mtls-automtls-workload.yaml",
 					Namespace:  apps.Namespace1,
 					Include: func(from echo.Instance, opts echo.CallOptions) bool {
+						// including the workloads where testing is possible ; eg. mtls is disabled on workload B for port 8090(http),
+						// hence not including it otherwise failure will occur in multi-cluster scenarios
 						return (apps.B.Contains(from) || apps.IsNaked(from)) &&
-							(apps.A.ContainsTarget(opts.To) || apps.B.ContainsTarget(opts.To))
+							(apps.A.ContainsTarget(opts.To) || apps.B.ContainsTarget(opts.To)) && !(apps.B.ContainsTarget(opts.To) && opts.Port.Name == "http")
 					},
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
 						// Sidecar injected client always succeed.
@@ -112,15 +118,22 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS: func(from echo.Instance, opts echo.CallOptions) bool {
 						return apps.B.Contains(from) && opts.Port.Name != "http" && !apps.A.ContainsTarget(opts.To)
 					},
-					SkippedForMulticluster: true,
+					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
+						if apps.A.ContainsTarget(to) {
+							return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+						}
+						return to.Instances()
+					},
 				},
 				{
-					ConfigFile:             "plaintext-to-permissive.yaml",
-					Namespace:              systemNM,
-					Include:                Always,
-					ExpectSuccess:          Always,
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ConfigFile:    "plaintext-to-permissive.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+					// Since we are only sending plaintext and Without TLS
+					// we can't perform SNI routing required for multi-network
+					ExpectDestinations: SameNetwork,
 				},
 				{
 					ConfigFile: "beta-per-port-mtls.yaml",
@@ -132,8 +145,10 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(_ echo.Instance, opts echo.CallOptions) bool {
 						return opts.Port.Name != "http"
 					},
-					ExpectMTLS:             Never,
-					SkippedForMulticluster: true,
+					ExpectMTLS: Never,
+					// Since we are only sending plaintext and Without TLS
+					// we can't perform SNI routing required for multi-network
+					ExpectDestinations: SameNetwork,
 				},
 				{
 					ConfigFile: "beta-mtls-automtls.yaml",
@@ -187,9 +202,12 @@ func TestReachability(t *testing.T) {
 						}
 						return mtlsOnExpect(from, opts)
 					},
-					// Since we are doing passthrough, only single cluster is relevant here, as we
-					// are bypassing any Istio cluster load balancing
-					SkippedForMulticluster: true,
+
+					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
+						// Since we are doing passthrough, only single cluster is relevant here, as we
+						// are bypassing any Istio cluster load balancing
+						return match.Cluster(from.Config().Cluster).GetMatches(to.Instances())
+					},
 				},
 				// --------start of auto mtls partial test cases ---------------
 				// The follow three consecutive test together ensures the auto mtls works as intended
