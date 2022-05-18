@@ -180,6 +180,7 @@ const (
 	ListenerClassSidecarInbound
 	ListenerClassSidecarOutbound
 	ListenerClassGateway
+	ListenerClassTCPIstioMTLSGateway
 )
 
 // MessageToAnyWithError converts from proto message to proto Any

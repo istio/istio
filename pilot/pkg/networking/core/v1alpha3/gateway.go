@@ -38,7 +38,6 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -715,7 +714,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
 // server's port and hostnames, and produces network filters for each destination from the filtered services.
 func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.PushContext, server *networking.Server, gateway string) []*listener.Filter {
-	out := make([]*listener.Filter, 0)
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
@@ -743,21 +741,22 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 			continue
 		}
 
-		if server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL {
-			out = append(out, xdsfilters.TCPListenerMx)
-		}
-
 		// ensure we satisfy the rule's l4 match conditions, if any exist
 		// For the moment, there can be only one match that succeeds
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gateway) {
-				out = append(out, buildOutboundNetworkFilters(node, tcp.Route, push, port, v.Meta)...)
+				out := make([]*listener.Filter, 0)
+				if server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL {
+					out = append(out,
+						buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassTCPIstioMTLSGateway)...)
+				}
+				return append(out, buildOutboundNetworkFilters(node, tcp.Route, push, port, v.Meta)...)
 			}
 		}
 	}
 
-	return out
+	return nil
 }
 
 // buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TLS blocks.
