@@ -119,7 +119,7 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 	listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked)
 	routeSynced := xdsStatus(status.RouteSent, status.RouteAcked)
 	endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked)
-	extensionconfigSynced := xdsStatus(status.ExtesionConfigSent, status.ExtensionConfigAcked)
+	extensionconfigSynced := xdsStatus(status.ExtensionConfigSent, status.ExtensionConfigAcked)
 	version := status.IstioVersion
 	if version == "" {
 		// If we can't find an Istio version (talking to a 1.1 pilot), fallback to the proxy version

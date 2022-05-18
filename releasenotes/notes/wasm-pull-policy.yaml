@@ -4,4 +4,4 @@ area: extensibility
 issue: []
 releaseNotes:
   - |
-    **Added** support for Istio WasmPlugin API
+    **Added** Support for ImagePullPolicy of WasmPlugin API. 
