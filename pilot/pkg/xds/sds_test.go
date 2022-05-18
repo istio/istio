@@ -281,7 +281,7 @@ func TestGenerate(t *testing.T) {
 			if tt.accessReviewResponse != nil {
 				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
 			} else {
-				credentials.DisableAuthorizationForTest(cc)
+				disableAuthorizationForSecret(cc)
 			}
 			cc.Fake.Unlock()
 
@@ -313,7 +313,7 @@ func TestCaching(t *testing.T) {
 		KubernetesObjects: []runtime.Object{genericCert},
 		KubeClientModifier: func(c kube.Client) {
 			cc := c.Kube().(*fake.Clientset)
-			credentials.DisableAuthorizationForTest(cc)
+			disableAuthorizationForSecret(cc)
 		},
 	})
 	gen := s.Discovery.Generators[v3.SecretType]
