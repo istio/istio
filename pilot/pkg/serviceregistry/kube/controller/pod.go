@@ -167,6 +167,10 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 
 // notifyWorkloadHandlers fire workloadInstance handlers for pod
 func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
+	// if no workload handler registered, skip building WorkloadInstance
+	if len(pc.c.handlers.GetWorkloadHandlers()) == 0 {
+		return
+	}
 	// fire instance handles for workload
 	ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable)
 	workloadInstance := &model.WorkloadInstance{
