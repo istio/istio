@@ -5,7 +5,7 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.12{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: stats-filter-1.15{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
@@ -20,7 +20,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.15.*'
         listener:
           filterChain:
             filter:
@@ -66,7 +66,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.15.*'
         listener:
           filterChain:
             filter:
@@ -121,7 +121,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.15.*'
         listener:
           filterChain:
             filter:
@@ -169,7 +169,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.12{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: tcp-stats-filter-1.15{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
@@ -184,7 +184,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.15.*'
         listener:
           filterChain:
             filter:
@@ -236,7 +236,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.15.*'
         listener:
           filterChain:
             filter:
@@ -280,7 +280,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.15.*'
         listener:
           filterChain:
             filter:
@@ -326,7 +326,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.12{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: stackdriver-filter-1.15{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
@@ -342,7 +342,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.15.*'
         listener:
           filterChain:
             filter:
@@ -363,7 +363,10 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                    {"access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}"}
+                    {
+                      "access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}",
+                      "metric_expiry_duration": "3600s"
+                    }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
                     {{- end }}
@@ -377,7 +380,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.15.*'
         listener:
           filterChain:
             filter:
@@ -398,7 +401,12 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                    {"disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "access_logging": "{{ .Values.telemetry.v2.stackdriver.inboundAccessLogging }}", "disable_host_header_fallback": true}
+                    {
+                      "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }},
+                      "access_logging": "{{ .Values.telemetry.v2.stackdriver.inboundAccessLogging }}",
+                      "disable_host_header_fallback": true,
+                      "metric_expiry_duration": "3600s"
+                    }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
                     {{- end }}
@@ -411,7 +419,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.15.*'
         listener:
           filterChain:
             filter:
@@ -432,7 +440,11 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                    {"access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}", "disable_host_header_fallback": true}
+                    {
+                      "access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}",
+                      "disable_host_header_fallback": true,
+                      "metric_expiry_duration": "3600s"
+                    }
                     {{- else }}
                     {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
                     {{- end }}
@@ -445,7 +457,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stackdriver-filter-1.12{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: tcp-stackdriver-filter-1.15{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
@@ -461,7 +473,7 @@ spec:
     match:
       context: SIDECAR_OUTBOUND
       proxy:
-        proxyVersion: '^1\.12.*'
+        proxyVersion: '^1\.15.*'
       listener:
         filterChain:
           filter:
@@ -480,7 +492,10 @@ spec:
                 "@type": "type.googleapis.com/google.protobuf.StringValue"
                 value: |
                   {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                  {"access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}"}
+                  {
+                    "access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}",
+                    "metric_expiry_duration": "3600s"
+                  }
                   {{- else }}
                   {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
                   {{- end }}
@@ -494,7 +509,7 @@ spec:
     match:
       context: SIDECAR_INBOUND
       proxy:
-        proxyVersion: '^1\.12.*'
+        proxyVersion: '^1\.15.*'
       listener:
         filterChain:
           filter:
@@ -513,7 +528,11 @@ spec:
                 "@type": "type.googleapis.com/google.protobuf.StringValue"
                 value: |
                   {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                  {"disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "access_logging": "{{ .Values.telemetry.v2.stackdriver.inboundAccessLogging }}"}
+                  {
+                    "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }},
+                    "access_logging": "{{ .Values.telemetry.v2.stackdriver.inboundAccessLogging }}",
+                    "metric_expiry_duration": "3600s"
+                  }
                   {{- else }}
                   {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
                   {{- end }}
@@ -526,7 +545,7 @@ spec:
     match:
       context: GATEWAY
       proxy:
-        proxyVersion: '^1\.12.*'
+        proxyVersion: '^1\.15.*'
       listener:
         filterChain:
           filter:
@@ -545,7 +564,10 @@ spec:
                 "@type": "type.googleapis.com/google.protobuf.StringValue"
                 value: |
                   {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                  {"access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}"}
+                  {
+                    "access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}",
+                    "metric_expiry_duration": "3600s"
+                  }
                   {{- else }}
                   {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
                   {{- end }}
@@ -559,7 +581,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-sampling-accesslog-filter-1.12{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: stackdriver-sampling-accesslog-filter-1.15{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
@@ -574,7 +596,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.12.*'
+          proxyVersion: '1\.15.*'
         listener:
           filterChain:
             filter:
