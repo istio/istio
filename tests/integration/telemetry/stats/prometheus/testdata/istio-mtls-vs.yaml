@@ -8,25 +8,6 @@ spec:
   gateways:
   - istio-egressgateway
   - mesh
-  http:
-  - match:
-    - gateways:
-      - mesh
-      port: 80
-    route:
-    - destination:
-        host: istio-egressgateway.istio-system.svc.cluster.local
-        port:
-          number: 80
-  - match:
-    - gateways:
-      - istio-egressgateway
-      port: 80
-    route:
-    - destination:
-        host: edition.cnn.com
-        port:
-          number: 80
   tls:
   - match:
     - gateways:

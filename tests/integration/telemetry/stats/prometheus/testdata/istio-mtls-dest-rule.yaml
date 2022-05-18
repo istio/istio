@@ -11,8 +11,3 @@ spec:
       tls:
         mode: ISTIO_MUTUAL
         sni: edition.cnn.com
-    - port:
-        number: 80
-      tls:
-        mode: ISTIO_MUTUAL
-        sni: edition.cnn.com

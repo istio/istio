@@ -25,4 +25,5 @@ import (
 
 func TestWASMTcpMetric(t *testing.T) { // nolint:interfacer
 	common.TestStatsTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
+	common.TestStatsGatewayServerTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
 }

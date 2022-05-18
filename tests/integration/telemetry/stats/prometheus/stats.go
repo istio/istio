@@ -19,14 +19,19 @@ package prometheus
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
@@ -38,8 +43,10 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -171,6 +178,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 // TestStatsTCPFilter includes common test logic for stats and metadataexchange filters running
 // with nullvm and wasm runtime for TCP.
 func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
+	scopes.Framework.SetOutputLevel(log.DebugLevel)
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(t framework.TestContext) {
@@ -188,7 +196,8 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 							sourceCluster = c.Name()
 						}
 						destinationQuery := buildTCPQuery(sourceCluster)
-						if _, err := GetPromInstance().Query(c, destinationQuery); err != nil {
+						_, err := GetPromInstance().Query(c, destinationQuery)
+						if err != nil {
 							util.PromDiff(t, promInst, c, destinationQuery)
 							return err
 						}
@@ -197,6 +206,47 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						return err
+					}
+					return nil
+				})
+			}
+			if err := g.Wait(); err != nil {
+				t.Fatalf("test failed: %v", err)
+			}
+		})
+}
+
+func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
+	framework.NewTest(t).
+		Features(feature).
+		Run(func(t framework.TestContext) {
+			g, _ := errgroup.WithContext(context.Background())
+			for _, cltInstance := range client {
+				cltInstance := cltInstance
+				g.Go(func() error {
+					err := retry.UntilSuccess(func() error {
+						t.Logf("sending tcp traffic to gateway from sidecar")
+						requestURL := "curl --insecure -s -o /dev/null -w '%{http_code}' https://edition.cnn.com/politics"
+						if err := sendTrafficFromSidecarToGateway(t, cltInstance, requestURL); err != nil {
+							return err
+						}
+						t.Logf("sent traffic")
+
+						c := cltInstance.Config().Cluster
+						sourceCluster := "Kubernetes"
+						if len(t.AllClusters()) > 1 {
+							sourceCluster = c.Name()
+						}
+						destinationQuery := buildGatewayTCPServerQuery(sourceCluster)
+						_, err := GetPromInstance().Query(c, destinationQuery)
+						if err != nil {
+							util.PromDiff(t, promInst, c, destinationQuery)
+							return err
+						}
+						return nil
+					}, retry.Delay(time.Second*15), retry.Timeout(time.Hour))
+					if err != nil {
+						t.Fatalf("test failed: %v", err)
 					}
 					return nil
 				})
@@ -315,6 +365,30 @@ proxyMetadata:
 	mockProm = match.ServiceName(echo.NamespacedName{Name: "mock-prom", Namespace: appNsInst}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
+		return
+	}
+	// Following resources are being deployed to test sidecar->gateway communication. With following resources,
+	// routing is being setup from sidecar to external site, edition.cnn.com, via egress gateway.
+	// clt(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway(tcp:443) -> cnn.com
+	// clt(http:80) -> sidecar(http:80) -> istio-mtls -> (HTTPS:80)egress-gateway(http:80) -> cnn.com
+	if err = ctx.ConfigIstio().File(appNsInst.Name(),
+		filepath.Join(env.IstioSrc,
+			"tests/integration/telemetry/stats/prometheus/testdata/cnn-service-entry.yaml")).Apply(); err != nil {
+		return
+	}
+	if err = ctx.ConfigIstio().File(appNsInst.Name(),
+		filepath.Join(env.IstioSrc,
+			"tests/integration/telemetry/stats/prometheus/testdata/istio-mtls-dest-rule.yaml")).Apply(); err != nil {
+		return
+	}
+	if err = ctx.ConfigIstio().File(appNsInst.Name(),
+		filepath.Join(env.IstioSrc,
+			"tests/integration/telemetry/stats/prometheus/testdata/istio-mtls-gateway.yaml")).Apply(); err != nil {
+		return
+	}
+	if err = ctx.ConfigIstio().File(appNsInst.Name(),
+		filepath.Join(env.IstioSrc,
+			"tests/integration/telemetry/stats/prometheus/testdata/istio-mtls-vs.yaml")).Apply(); err != nil {
 		return
 	}
 	return nil
@@ -463,4 +537,44 @@ func buildTCPQuery(sourceCluster string) (destinationQuery prometheus.Query) {
 		Metric: "istio_tcp_connections_opened_total",
 		Labels: labels,
 	}
+}
+
+func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery prometheus.Query) {
+	ns := GetAppNamespace()
+	labels := map[string]string{
+		"request_protocol":               "tcp",
+		"destination_service_name":       "istio-egressgateway",
+		"destination_canonical_revision": "latest",
+		"destination_canonical_service":  "istio-egressgateway",
+		"destination_app":                "istio-egressgateway",
+		"destination_version":            "unknown",
+		"destination_workload_namespace": "istio-system",
+		"destination_service_namespace":  "istio-system",
+		"source_app":                     "client",
+		"source_version":                 "v1",
+		"source_workload":                "client-v1",
+		"source_workload_namespace":      ns.Name(),
+		"source_cluster":                 sourceCluster,
+		"reporter":                       "source",
+	}
+	return prometheus.Query{
+		Metric: "istio_tcp_connections_opened_total",
+		Labels: labels,
+	}
+}
+
+func sendTrafficFromSidecarToGateway(t framework.TestContext, clt echo.Instance, testRequestCmd string) error {
+	clientPodName := clt.WorkloadsOrFail(t)[0].PodName()
+	out, _, err := t.Clusters().Default().PodExec(
+		clientPodName,
+		appNsInst.Name(),
+		"app",
+		testRequestCmd)
+	if err != nil {
+		return fmt.Errorf("failed to execute command in %s pod: %v: %s", clientPodName, err, out)
+	}
+	if strings.Contains(out, "200") {
+		return nil
+	}
+	return fmt.Errorf("test request failed because of unexpected response code: %s", out)
 }

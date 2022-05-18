@@ -14,11 +14,3 @@ spec:
     - edition.cnn.com
     tls:
       mode: ISTIO_MUTUAL
-  - port:
-      number: 80
-      name: mtls-http
-      protocol: HTTPS
-    hosts:
-    - edition.cnn.com
-    tls:
-      mode: ISTIO_MUTUAL
