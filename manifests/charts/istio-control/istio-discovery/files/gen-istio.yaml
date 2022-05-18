@@ -1174,7 +1174,7 @@ data:
             volumeMounts:
             - name: workload-socket
               mountPath: /var/run/secrets/workload-spiffe-uds
-            {{- if or (isset .ObjectMeta.Annotations `security.cloud.google.com/use-workload-certificates`) (eq .Values.global.caName "GkeWorkloadCertificate") }}
+            {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
             - name: gke-workload-certificate
               mountPath: /var/run/secrets/workload-spiffe-credentials
               readOnly: true
@@ -1224,7 +1224,7 @@ data:
               # UDS channel between istioagent and gRPC client for XDS/SDS
               - mountPath: /etc/istio/proxy
                 name: istio-xds
-              {{- if or (isset .ObjectMeta.Annotations `security.cloud.google.com/use-workload-certificates`) (eq .Values.global.caName "GkeWorkloadCertificate") }}
+              {{- if eq $.Values.global.caName "GkeWorkloadCertificate" }}
               - name: gke-workload-certificate
                 mountPath: /var/run/secrets/workload-spiffe-credentials
                 readOnly: true
