@@ -205,7 +205,11 @@ type AgentOptions struct {
 
 	IstiodSAN string
 
-	WASMInsecureRegistries []string
+	WASMInsecureRegistries    []string
+	WASMModuleExpiry          time.Duration
+	WASMPurgeInterval         time.Duration
+	WASMHTTPRequestTimeout    time.Duration
+	WASMHTTPRequestMaxRetries int
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
