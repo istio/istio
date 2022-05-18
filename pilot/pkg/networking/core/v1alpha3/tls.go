@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"net"
 	"sort"
 	"strings"
 
@@ -210,8 +211,8 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 }
 
 func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port,
-	gateways map[string]bool, configs []config.Config) []*filterChainOpts {
+	service *model.Service, listenPort *model.Port, gateways map[string]bool,
+	configs []config.Config, actualWildcard string) []*filterChainOpts {
 	if listenPort.Protocol.IsTLS() {
 		return nil
 	}
@@ -298,7 +299,11 @@ TcpLoop:
 			port = service.Ports[0].Port
 		}
 
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+		outbound := model.TrafficDirectionOutbound
+		if len(service.DefaultAddresses) > 1 && net.ParseIP(actualWildcard).To4() == nil && net.ParseIP(actualWildcard).To16() != nil {
+			outbound = model.TrafficDirectionOutbound6
+		}
+		clusterName := model.BuildSubsetKey(outbound, "", service.Hostname, port)
 		statPrefix := clusterName
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
 			model.TrafficDirectionOutbound, node, service.Hostname))
@@ -321,7 +326,7 @@ TcpLoop:
 // missing service throughout this file
 func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushContext,
 	configs []config.Config, destinationCIDR string, service *model.Service, bind string, listenPort *model.Port,
-	gateways map[string]bool) []*filterChainOpts {
+	gateways map[string]bool, actualWildcard string) []*filterChainOpts {
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []config.Config
 	if service != nil {
@@ -333,6 +338,6 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.Pu
 	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, push, destinationCIDR, service,
 		bind, listenPort, gateways, svcConfigs)...)
 	out = append(out, buildSidecarOutboundTCPFilterChainOpts(node, push, destinationCIDR, service,
-		listenPort, gateways, svcConfigs)...)
+		listenPort, gateways, svcConfigs, actualWildcard)...)
 	return out
 }
