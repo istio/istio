@@ -14,6 +14,7 @@ metadata:
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
+  priority: -1
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -177,6 +178,7 @@ metadata:
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
+  priority: -1
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -333,6 +335,7 @@ metadata:
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
+  priority: -1
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
     - applyTo: HTTP_FILTER
@@ -463,6 +466,7 @@ metadata:
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
+  priority: -1
   configPatches:
   {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
   - applyTo: NETWORK_FILTER
@@ -586,6 +590,7 @@ metadata:
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
+  priority: -1
   configPatches:
     - applyTo: HTTP_FILTER
       match:
