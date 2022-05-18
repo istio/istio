@@ -18,7 +18,6 @@
 package wasm
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -56,8 +55,8 @@ func mapTagToVersionOrFail(t framework.TestContext, tag, version string) {
 	}
 }
 
-func applyAndTestWasm(t framework.TestContext, c wasmTestConfigs) {
-	t.NewSubTest(c.desc).Run(func(t framework.TestContext) {
+func applyAndTestWasm(ctx framework.TestContext, c wasmTestConfigs) {
+	ctx.NewSubTest(c.desc).Run(func(t framework.TestContext) {
 		defer func() {
 			generation++
 		}()
@@ -65,30 +64,16 @@ func applyAndTestWasm(t framework.TestContext, c wasmTestConfigs) {
 		if err := installWasmExtension(t, c.name, c.tag, c.policy, fmt.Sprintf("g-%q", generation)); err != nil {
 			t.Fatalf("failed to install WasmPlugin: %v", err)
 		}
-		retry.UntilSuccessOrFail(t, func() error {
-			err := sendTraffic(check.ResponseHeader(injectedHeader, c.expectedVersion))
-			if err != nil {
-				t.Log("failed to send traffic: %v", err)
-				return err
-			}
-			return nil
-		}, retry.Delay(1*time.Second), retry.Timeout(100*time.Second))
+		sendTraffic(t, check.ResponseHeader(injectedHeader, c.expectedVersion))
 	})
 }
 
-func resetWasm(t framework.TestContext, pluginName string) {
-	t.NewSubTest("Delete WasmPlugin " + pluginName).Run(func(t framework.TestContext) {
+func resetWasm(ctx framework.TestContext, pluginName string) {
+	ctx.NewSubTest("Delete WasmPlugin " + pluginName).Run(func(t framework.TestContext) {
 		if err := uninstallWasmExtension(t, pluginName); err != nil {
 			t.Fatal(err)
 		}
-		retry.UntilSuccessOrFail(t, func() error {
-			err := sendTraffic(check.ResponseHeader(injectedHeader, ""))
-			if err != nil {
-				t.Log("failed to send traffic")
-				return err
-			}
-			return nil
-		}, retry.Delay(1*time.Second), retry.Timeout(100*time.Second), retry.Converge(2))
+		sendTraffic(t, check.ResponseHeader(injectedHeader, ""), retry.Converge(2))
 	})
 }
 
@@ -198,12 +183,14 @@ func uninstallWasmExtension(ctx framework.TestContext, pluginName string) error 
 	return nil
 }
 
-func sendTraffic(checker echo.Checker) error {
+func sendTraffic(ctx framework.TestContext, checker echo.Checker, options ...retry.Option) {
+	ctx.Helper()
 	if len(common.GetClientInstances()) == 0 {
-		return errors.New("there is no client")
+		ctx.Fatal("there is no client")
 	}
 	cltInstance := common.GetClientInstances()[0]
 
+	defaultOptions := []retry.Option{retry.Delay(1 * time.Second), retry.Timeout(100 * time.Second)}
 	httpOpts := echo.CallOptions{
 		To: common.GetTarget(),
 		Port: echo.Port{
@@ -215,11 +202,10 @@ func sendTraffic(checker echo.Checker) error {
 		},
 		Count: 1,
 		Retry: echo.Retry{
-			NoRetry: true,
+			Options: append(defaultOptions, options...),
 		},
 		Check: checker,
 	}
 
-	_, err := cltInstance.Call(httpOpts)
-	return err
+	_ = cltInstance.CallOrFail(ctx, httpOpts)
 }
