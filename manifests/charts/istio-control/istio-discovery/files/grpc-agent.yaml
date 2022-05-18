@@ -53,7 +53,7 @@ spec:
     ports:
     - containerPort: 15020
       protocol: TCP
-      name: metrics
+      name: mesh-metrics
     args:
     - proxy
     - sidecar
