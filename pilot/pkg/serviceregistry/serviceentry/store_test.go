@@ -23,6 +23,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestServiceInstancesStore(t *testing.T) {
@@ -104,7 +105,8 @@ func TestServiceInstancesStore(t *testing.T) {
 
 func TestServiceStore(t *testing.T) {
 	store := serviceStore{
-		servicesBySE: map[types.NamespacedName][]*model.Service{},
+		servicesBySE:            map[types.NamespacedName][]*model.Service{},
+		seWithWorkloadSelectors: map[string]sets.Set{},
 	}
 
 	expectedServices := []*model.Service{
