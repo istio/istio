@@ -690,7 +690,8 @@ func annotateWithIOPCustomization(revDesc *RevisionDescription, manifestsPath st
 }
 
 func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
-	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration) *RevisionDescription {
+	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration,
+) *RevisionDescription {
 	revDescription := &RevisionDescription{
 		IstioOperatorCRs: []*IstioOperatorCRInfo{},
 		Webhooks:         []*MutatingWebhookConfigInfo{},

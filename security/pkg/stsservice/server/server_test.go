@@ -310,7 +310,8 @@ func genStsRequest(reqType stsReqType, serverAddr string) (req *http.Request) {
 }
 
 func genStsResponse(respType stsRespType, param stsservice.StsResponseParameters,
-	serverErr error, tokenInfo *stsservice.TokenInfo) (resp *http.Response) {
+	serverErr error, tokenInfo *stsservice.TokenInfo,
+) (resp *http.Response) {
 	resp = &http.Response{
 		Header: make(http.Header),
 	}

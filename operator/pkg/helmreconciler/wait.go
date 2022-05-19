@@ -54,7 +54,8 @@ type deployment struct {
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
 func WaitForResources(objects object.K8sObjects, client kube.Client,
-	waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
+	waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog,
+) error {
 	if dryRun || TestMode {
 		return nil
 	}

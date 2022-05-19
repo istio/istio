@@ -37,7 +37,8 @@ func createElection(t *testing.T,
 	name string, revision string,
 	watcher revisions.DefaultWatcher,
 	prioritized, expectLeader bool,
-	client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
+	client kubernetes.Interface, fns ...func(stop <-chan struct{}),
+) (*LeaderElection, chan struct{}) {
 	return createElectionMulticluster(t, name, revision, false, watcher, prioritized, expectLeader, client, fns...)
 }
 
@@ -46,7 +47,8 @@ func createElectionMulticluster(t *testing.T,
 	remote bool,
 	watcher revisions.DefaultWatcher,
 	prioritized, expectLeader bool,
-	client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
+	client kubernetes.Interface, fns ...func(stop <-chan struct{}),
+) (*LeaderElection, chan struct{}) {
 	t.Helper()
 	l := &LeaderElection{
 		namespace:      "ns",

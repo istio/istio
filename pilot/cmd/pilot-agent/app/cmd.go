@@ -215,7 +215,8 @@ func addFlags(proxyCmd *cobra.Command) {
 }
 
 func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
-	envoyPrometheusPort int, agent *istio_agent.Agent) error {
+	envoyPrometheusPort int, agent *istio_agent.Agent,
+) error {
 	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort
 	o.Context = ctx
