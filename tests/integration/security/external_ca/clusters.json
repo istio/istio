@@ -1,0 +1,24 @@
+[
+    {
+      "kind": "Kubernetes",
+      "clusterName": "config",
+      "network": "network-1",
+      "primaryClusterName": "external",
+      "configClusterName": "config",
+      "meta" : {
+        "kubeconfig" : "/usr/local/google/home/garyan/multicluster_testing/cluster1"
+      }
+
+    },
+    {
+      "kind": "Kubernetes",
+      "clusterName": "external",
+      "network": "network-1",
+      "primaryClusterName": "external",
+      "configClusterName": "config",
+      "meta": {
+        "fakeVM": false,
+        "kubeconfig" : "/usr/local/google/home/garyan/multicluster_testing/cluster2"
+      }
+    }
+  ]
