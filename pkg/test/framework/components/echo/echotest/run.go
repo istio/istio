@@ -66,6 +66,18 @@ func (t *T) Run(testFn oneToOneTest) {
 
 		// Run setup functions for the callers.
 		t.setup(ctx, from.Callers())
+		
+		// Ensure we are not skipping all cases
+		anyCases := false
+		for _, from := range from {
+			if len(t.applyCombinationFilters(from, t.destinations)) > 0 {
+				anyCases = true
+				break
+			}
+		}
+		if !anyCases {
+			ctx.Fatalf("all cases with %s as destination are removed by filters; must run at least one test", from.Config().Service)
+		}
 
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, to echo.Instances) {
 			// Build and apply per-destination config
