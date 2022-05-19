@@ -180,6 +180,9 @@ const (
 	ListenerClassSidecarInbound
 	ListenerClassSidecarOutbound
 	ListenerClassGateway
+
+	// ListenerClassTCPIstioMTLSGateway represents gateway listeners for non-http servers with
+	// ISTIO_MUTUAL tls configuration
 	ListenerClassTCPIstioMTLSGateway
 )
 
