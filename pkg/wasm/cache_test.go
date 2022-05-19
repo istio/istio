@@ -16,6 +16,7 @@ package wasm
 
 import (
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -34,6 +35,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -78,7 +80,7 @@ func TestWasmCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, dockerImageDigest, invalidOCIImageDigest := setupOCIRegistry(t, ou.Host)
+	dockerImageDigest, invalidOCIImageDigest := setupOCIRegistry(t, ou.Host)
 
 	ociWasmFile := fmt.Sprintf("%s.wasm", dockerImageDigest)
 	ociURLWithTag := fmt.Sprintf("oci://%s/test/valid/docker:v0.1.0", ou.Host)
@@ -753,10 +755,13 @@ func TestWasmCache(t *testing.T) {
 	}
 }
 
-func setupOCIRegistry(t *testing.T, host string) (wantBinaryCheckSum, dockerImageDigest, invalidOCIImageDigest string) {
+func setupOCIRegistry(t *testing.T, host string) (dockerImageDigest, invalidOCIImageDigest string) {
 	// Push *compat* variant docker image (others are well tested in imagefetcher's test and the behavior is consistent).
 	ref := fmt.Sprintf("%s/test/valid/docker:v0.1.0", host)
 	binary := append(wasmHeader, []byte("this is wasm plugin")...)
+	transport := remote.DefaultTransport.Clone()
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	fetchOpt := crane.WithTransport(transport)
 
 	// Create docker layer.
 	l, err := newMockLayer(types.DockerLayer,
@@ -777,21 +782,19 @@ func setupOCIRegistry(t *testing.T, host string) (wantBinaryCheckSum, dockerImag
 	manifest.MediaType = types.DockerManifestSchema2
 
 	// Push image to the registry.
-	err = crane.Push(img, ref)
+	err = crane.Push(img, ref, fetchOpt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Push image to the registry with latest tag as well
 	ref = fmt.Sprintf("%s/test/valid/docker:latest", host)
-	err = crane.Push(img, ref)
+	err = crane.Push(img, ref, fetchOpt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Calculate sum
-	sha := sha256.Sum256(binary)
-	wantBinaryCheckSum = hex.EncodeToString(sha[:])
 	d, _ := img.Digest()
 	dockerImageDigest = d.Hex
 
@@ -813,7 +816,7 @@ func setupOCIRegistry(t *testing.T, host string) (wantBinaryCheckSum, dockerImag
 	invalidOCIImageDigest = d.Hex
 
 	// Push image to the registry.
-	err = crane.Push(img2, ref)
+	err = crane.Push(img2, ref, fetchOpt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -828,6 +831,7 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 	gotNumRequest := 0
 	binary1 := append(wasmHeader, 1)
 	binary2 := append(wasmHeader, 2)
+
 	// Create a test server which returns 0 for the first two calls, and returns 1 for the following calls.
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if gotNumRequest <= 1 {
@@ -873,5 +877,34 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 	wantNumRequest := 3
 	if gotNumRequest != wantNumRequest {
 		t.Errorf("wasm download call got %v want %v", gotNumRequest, wantNumRequest)
+	}
+}
+
+func TestAllInsecureServer(t *testing.T) {
+	tmpDir := t.TempDir()
+	cache := NewLocalFileCache(tmpDir, DefaultWasmModulePurgeInterval, DefaultWasmModuleExpiry, []string{"*"})
+	defer close(cache.stopChan)
+
+	// Set up a fake registry for OCI images with TLS Server
+	// Without "insecure" option, this should cause an error.
+	tos := httptest.NewTLSServer(registry.New())
+	defer tos.Close()
+	ou, err := url.Parse(tos.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dockerImageDigest, _ := setupOCIRegistry(t, ou.Host)
+	ociURLWithTag := fmt.Sprintf("oci://%s/test/valid/docker:v0.1.0", ou.Host)
+	var defaultPullPolicy extensions.PullPolicy
+
+	gotFilePath, err := cache.Get(ociURLWithTag, "", "namespace.resource", "123456", time.Second*10, []byte{}, defaultPullPolicy)
+	if err != nil {
+		t.Fatalf("failed to download Wasm module: %v", err)
+	}
+
+	wantFilePath := filepath.Join(tmpDir, fmt.Sprintf("%s.wasm", dockerImageDigest))
+	if gotFilePath != wantFilePath {
+		t.Errorf("Wasm module local file path got %v, want %v", gotFilePath, wantFilePath)
 	}
 }
