@@ -2039,76 +2039,74 @@ func flatten(clients ...[]echo.Instance) []echo.Instance {
 }
 
 // selfCallsCases checks that pods can call themselves
-func selfCallsCases() []TrafficTestCase {
-	cases := []TrafficTestCase{
-		// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
-		{
-			name:             "to service",
-			workloadAgnostic: true,
-			opts: echo.CallOptions{
-				Count: 1,
-				Port: echo.Port{
-					Name: "http",
-				},
-				Check: check.And(
-					check.OK(),
-					check.RequestHeader("X-Envoy-Attempt-Count", "1")),
-			},
-		},
-		// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
-		{
-			name:             "to localhost",
-			workloadAgnostic: true,
-			setupOpts: func(_ echo.Caller, opts *echo.CallOptions) {
-				// the framework will try to set this when enumerating test cases
-				opts.To = nil
-			},
-			opts: echo.CallOptions{
-				Count:   1,
-				Address: "localhost",
-				Port:    echo.Port{ServicePort: 8080},
-				Scheme:  scheme.HTTP,
-				Check: check.And(
-					check.OK(),
-					check.RequestHeader("X-Envoy-Attempt-Count", "")),
-			},
-		},
-		// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
-		{
-			name:             "to podIP",
-			workloadAgnostic: true,
-			setupOpts: func(srcCaller echo.Caller, opts *echo.CallOptions) {
-				src := srcCaller.(echo.Instance)
-				workloads, _ := src.Workloads()
-				opts.Address = workloads[0].Address()
-				// the framework will try to set this when enumerating test cases
-				opts.To = nil
-			},
-			opts: echo.CallOptions{
-				Count:  1,
-				Scheme: scheme.HTTP,
-				Port:   echo.Port{ServicePort: 8080},
-				Check: check.And(
-					check.OK(),
-					check.RequestHeader("X-Envoy-Attempt-Count", "")),
-			},
-		},
+func selfCallsCases(t TrafficContext) {
+	sourceMatchers := []match.Matcher{
+		match.NotExternal,
+		match.NotNaked,
+		match.NotHeadless,
+		match.NotProxylessGRPC,
 	}
-	for i, tc := range cases {
-		// proxyless doesn't get valuable coverage here
-		tc.sourceMatchers = []match.Matcher{
-			match.NotExternal,
-			match.NotNaked,
-			match.NotHeadless,
-			match.NotProxylessGRPC,
-		}
-		tc.comboFilters = []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
-			return match.ServiceName(from.NamespacedName()).GetMatches(to)
-		}}
-		cases[i] = tc
-	}
-
-	return cases
+	comboFilters := []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
+		return match.ServiceName(from.NamespacedName()).GetMatches(to)
+	}}
+	// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
+	t.RunTraffic(TrafficTestCase{
+		name:             "to service",
+		workloadAgnostic: true,
+		sourceMatchers:   sourceMatchers,
+		comboFilters:     comboFilters,
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name: "http",
+			},
+			Check: check.And(
+				check.OK(),
+				check.RequestHeader("X-Envoy-Attempt-Count", "1")),
+		},
+	})
+	// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
+	t.RunTraffic(TrafficTestCase{
+		name:             "to localhost",
+		workloadAgnostic: true,
+		sourceMatchers:   sourceMatchers,
+		comboFilters:     comboFilters,
+		setupOpts: func(_ echo.Caller, opts *echo.CallOptions) {
+			// the framework will try to set this when enumerating test cases
+			opts.To = nil
+		},
+		opts: echo.CallOptions{
+			Count:   1,
+			Address: "localhost",
+			Port:    echo.Port{ServicePort: 8080},
+			Scheme:  scheme.HTTP,
+			Check: check.And(
+				check.OK(),
+				check.RequestHeader("X-Envoy-Attempt-Count", "")),
+		},
+	})
+	// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
+	t.RunTraffic(TrafficTestCase{
+		name:             "to podIP",
+		workloadAgnostic: true,
+		sourceMatchers:   sourceMatchers,
+		comboFilters:     comboFilters,
+		setupOpts: func(srcCaller echo.Caller, opts *echo.CallOptions) {
+			src := srcCaller.(echo.Instance)
+			workloads, _ := src.Workloads()
+			opts.Address = workloads[0].Address()
+			// the framework will try to set this when enumerating test cases
+			opts.To = nil
+		},
+		opts: echo.CallOptions{
+			Count:  1,
+			Scheme: scheme.HTTP,
+			Port:   echo.Port{ServicePort: 8080},
+			Check: check.And(
+				check.OK(),
+				check.RequestHeader("X-Envoy-Attempt-Count", "")),
+		},
+	})
 }
 
 // TODO: merge with security TestReachability code

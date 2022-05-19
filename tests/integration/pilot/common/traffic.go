@@ -234,13 +234,18 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 }
 
 func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *deployment.SingleNamespaceView) {
+	RunCase := func(name string, f func(t TrafficContext)) {
+		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			f(TrafficContext{t, apps})
+		})
+	}
 	cases := map[string][]TrafficTestCase{}
 	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
 		cases["jwt-claim-route"] = jwtClaimRoute(apps)
 	}
 	cases["virtualservice"] = virtualServiceCases(t, t.Settings().Skip(echo.VM))
 	cases["sniffing"] = protocolSniffingCases(apps)
-	cases["selfcall"] = selfCallsCases()
+	RunCase("selfcall", selfCallsCases)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases()
 	cases["autopassthrough"] = autoPassthroughCases(t, apps)
@@ -292,4 +297,17 @@ func AlmostEquals(a, b, precision int) bool {
 		return false
 	}
 	return true
+}
+
+type TrafficContext struct {
+	framework.TestContext
+	apps *deployment.SingleNamespaceView
+}
+
+func (t TrafficContext) RunTraffic(tt TrafficTestCase) {
+	if tt.workloadAgnostic {
+		tt.RunForApps(t, t.apps.All.Instances(), t.apps.Namespace.Name())
+	} else {
+		tt.Run(t, t.apps.Namespace.Name())
+	}
 }
