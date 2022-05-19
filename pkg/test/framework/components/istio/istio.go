@@ -117,7 +117,9 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 		if err != nil {
 			return err
 		}
-
+		if cfn != nil {
+			cfn(ctx, &cfg)
+		}
 		for _, ctxFn := range ctxFns {
 			if ctxFn != nil {
 				err := ctxFn(ctx)
@@ -136,9 +138,7 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 		if i != nil {
 			*i = ins
 		}
-		if cfn != nil {
-			cfn(ctx, &cfg)
-		}
+
 		return nil
 	}
 }
