@@ -233,20 +233,6 @@ func (le *LeaderElector) Run(ctx context.Context) {
 	le.renew(ctx)
 }
 
-// RunOrDie starts a client with the provided config or panics if the config
-// fails to validate. RunOrDie blocks until leader election loop is
-// stopped by ctx or it has stopped holding the leader lease
-func RunOrDie(ctx context.Context, lec LeaderElectionConfig) {
-	le, err := NewLeaderElector(lec)
-	if err != nil {
-		panic(err)
-	}
-	if lec.WatchDog != nil {
-		lec.WatchDog.SetLeaderElection(le)
-	}
-	le.Run(ctx)
-}
-
 // GetLeader returns the identity of the last observed leader or returns the empty string if
 // no leader has yet been observed.
 // This function is for informational purposes. (e.g. monitoring, logs, etc.)
