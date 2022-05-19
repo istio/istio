@@ -89,7 +89,8 @@ func NewMulticluster(
 	revision string,
 	startNsController bool,
 	clusterLocal model.ClusterLocalProvider,
-	s server.Instance) *Multicluster {
+	s server.Instance,
+) *Multicluster {
 	remoteKubeController := make(map[cluster.ID]*kubeController)
 	mc := &Multicluster{
 		serverID:               serverID,

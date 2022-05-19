@@ -50,7 +50,8 @@ var installerScope = log.RegisterScope("installer", "installer", 0)
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
 func GenManifests(inFilename []string, setFlags []string, force bool, filter []string,
-	client kube.Client, l clog.Logger) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
+	client kube.Client, l clog.Logger,
+) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
 	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, client, l)
 	if err != nil {
 		return nil, nil, err
@@ -89,7 +90,8 @@ func GenManifests(inFilename []string, setFlags []string, force bool, filter []s
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setFlags []string, force bool, client kube.Client,
-	l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+	l clog.Logger,
+) (string, *iopv1alpha1.IstioOperator, error) {
 	if err := validateSetFlags(setFlags); err != nil {
 		return "", nil, err
 	}
@@ -103,7 +105,8 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, client 
 }
 
 func OverlayYAMLStrings(profile string, fy string,
-	setFlags []string, force bool, client kube.Client, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+	setFlags []string, force bool, client kube.Client, l clog.Logger,
+) (string, *iopv1alpha1.IstioOperator, error) {
 	iopsString, iops, err := GenIOPFromProfile(profile, fy, setFlags, force, false, client, l)
 	if err != nil {
 		return "", nil, err
@@ -123,7 +126,8 @@ func OverlayYAMLStrings(profile string, fy string,
 // GenIOPFromProfile generates an IstioOperator from the given profile name or path, and overlay YAMLs from user
 // files and the --set flag. If successful, it returns an IstioOperator string and struct.
 func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
-	client kube.Client, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+	client kube.Client, l clog.Logger,
+) (string, *iopv1alpha1.IstioOperator, error) {
 	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)
 	if err != nil {
 		return "", nil, err
@@ -325,7 +329,8 @@ func GetProfile(iop *iopv1alpha1.IstioOperator) string {
 }
 
 func GetMergedIOP(userIOPStr, profile, manifestsPath, revision string, client kube.Client,
-	logger clog.Logger) (*iopv1alpha1.IstioOperator, error) {
+	logger clog.Logger,
+) (*iopv1alpha1.IstioOperator, error) {
 	extraFlags := make([]string, 0)
 	if manifestsPath != "" {
 		extraFlags = append(extraFlags, fmt.Sprintf("installPackagePath=%s", manifestsPath))

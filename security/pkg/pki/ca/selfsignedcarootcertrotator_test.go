@@ -164,7 +164,8 @@ func TestRootCertRotatorKeepCertFieldsUnchanged(t *testing.T) {
 // updateRootCertWithCustomCertOptions generate root cert and private key with
 // custom cert options, and replaces root cert and key in CA secret.
 func updateRootCertWithCustomCertOptions(t *testing.T,
-	rotator *SelfSignedCARootCertRotator, options util.CertOptions) {
+	rotator *SelfSignedCARootCertRotator, options util.CertOptions,
+) {
 	certItem := loadCert(rotator)
 
 	pemCert, pemKey, err := util.GenCertKeyFromOptions(options)

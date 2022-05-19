@@ -356,7 +356,8 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 // Runs if a goroutine, with errors reported through gErrors.
 // TODO(stewartbutler): output the logs to a more robust/complete structure.
 func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
-	path, namespace, pod, container string, wg *sync.WaitGroup) {
+	path, namespace, pod, container string, wg *sync.WaitGroup,
+) {
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
@@ -375,7 +376,8 @@ func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, re
 // getIstiodLogs fetches Istiod logs for the given namespace/pod and writes the output.
 // Runs if a goroutine, with errors reported through gErrors.
 func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
-	namespace, pod string, wg *sync.WaitGroup) {
+	namespace, pod string, wg *sync.WaitGroup,
+) {
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
@@ -389,7 +391,8 @@ func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, r
 
 // getOperatorLogs fetches istio-operator logs for the given namespace/pod and writes the output.
 func getOperatorLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
-	namespace, pod string, wg *sync.WaitGroup) {
+	namespace, pod string, wg *sync.WaitGroup,
+) {
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
@@ -403,7 +406,8 @@ func getOperatorLogs(client kube.ExtendedClient, config *config.BugReportConfig,
 
 // getLog fetches the logs for the given namespace/pod/container and returns the log text and stats for it.
 func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *config.BugReportConfig,
-	namespace, pod, container string) (string, *processlog.Stats, int, error) {
+	namespace, pod, container string,
+) (string, *processlog.Stats, int, error) {
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
 	clog, err := kubectlcmd.Logs(client, namespace, pod, container, false, config.DryRun)
 	if err != nil {

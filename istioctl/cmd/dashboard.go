@@ -405,7 +405,8 @@ func skywalkingDashCmd() *cobra.Command {
 
 // portForward first tries to forward localhost:remotePort to podName:remotePort, falls back to dynamic local port
 func portForward(podName, namespace, flavor, urlFormat, localAddress string, remotePort int,
-	client kube.ExtendedClient, writer io.Writer, browser bool) error {
+	client kube.ExtendedClient, writer io.Writer, browser bool,
+) error {
 	// port preference:
 	// - If --listenPort is specified, use it
 	// - without --listenPort, prefer the remotePort but fall back to a random port

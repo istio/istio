@@ -34,7 +34,8 @@ import (
 // simplified taintsetter controller build upon fake sourcer, return controller and namespace, label based sourcer created by configmap
 func newMockTaintSetterController(ts *Setter,
 	nodeSource *fcache.FakeControllerSource) (c *Controller,
-	sourcer map[string]map[string]*fcache.FakeControllerSource) {
+	sourcer map[string]map[string]*fcache.FakeControllerSource,
+) {
 	c = &Controller{
 		clientset:       ts.Client,
 		podWorkQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),

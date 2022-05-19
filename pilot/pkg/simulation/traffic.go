@@ -222,7 +222,7 @@ func (r Result) Matches(t *testing.T, want Result) {
 		t.Logf("Diff: %+v", diff)
 		t.Logf("Full Diff: %+v", cmp.Diff(want, r, cmpopts.IgnoreUnexported(Result{}), cmpopts.EquateErrors()))
 	} else if want.Skip != "" {
-		t.Skip(fmt.Sprintf("Known bug: %v", r.Skip))
+		t.Skipf("Known bug: %v", r.Skip)
 	}
 }
 
@@ -500,7 +500,8 @@ func (sim *Simulation) matchVirtualHost(rc *route.RouteConfiguration, host strin
 // not match. This means an empty match (`{}`) may not match if another chain
 // matches one criteria but not another.
 func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultChain *listener.FilterChain,
-	input Call, hasTLSInspector bool) (*listener.FilterChain, error) {
+	input Call, hasTLSInspector bool,
+) (*listener.FilterChain, error) {
 	chains = filter("DestinationPort", chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetDestinationPort() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
@@ -575,7 +576,8 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 
 func filter(desc string, chains []*listener.FilterChain,
 	empty func(fc *listener.FilterChainMatch) bool,
-	match func(fc *listener.FilterChainMatch) bool) []*listener.FilterChain {
+	match func(fc *listener.FilterChainMatch) bool,
+) []*listener.FilterChain {
 	res := []*listener.FilterChain{}
 	anySet := false
 	for _, c := range chains {

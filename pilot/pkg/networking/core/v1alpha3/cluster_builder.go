@@ -166,7 +166,8 @@ func (cb *ClusterBuilder) sidecarProxy() bool {
 }
 
 func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
-	proxyView model.ProxyView) *cluster.Cluster {
+	proxyView model.ProxyView,
+) *cluster.Cluster {
 	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
@@ -236,7 +237,8 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
-	port *model.Port, proxyView model.ProxyView, destRule *config.Config, serviceAccounts []string) []*cluster.Cluster {
+	port *model.Port, proxyView model.ProxyView, destRule *config.Config, serviceAccounts []string,
+) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
@@ -343,7 +345,8 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 // buildDefaultCluster builds the default cluster and also applies default traffic policy.
 func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
-	port *model.Port, service *model.Service, allInstances []*model.ServiceInstance) *MutableCluster {
+	port *model.Port, service *model.Service, allInstances []*model.ServiceInstance,
+) *MutableCluster {
 	if allInstances == nil {
 		allInstances = cb.serviceInstances
 	}
@@ -411,7 +414,8 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 // Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
 // Sidecar.Ingress allows these to be different.
 func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
-	proxy *model.Proxy, instance *model.ServiceInstance, allInstance []*model.ServiceInstance) *MutableCluster {
+	proxy *model.Proxy, instance *model.ServiceInstance, allInstance []*model.ServiceInstance,
+) *MutableCluster {
 	clusterName := model.BuildInboundSubsetKey(clusterPort)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	clusterType := cluster.Cluster_ORIGINAL_DST
@@ -475,7 +479,8 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 }
 
 func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, service *model.Service,
-	port int, labels labels.Instance) []*endpoint.LocalityLbEndpoints {
+	port int, labels labels.Instance,
+) []*endpoint.LocalityLbEndpoints {
 	if !(service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB) {
 		return nil
 	}
@@ -653,7 +658,8 @@ func (cb *ClusterBuilder) applyH2Upgrade(opts buildClusterOpts, connectionPool *
 
 // shouldH2Upgrade function returns true if the cluster  should be upgraded to http2.
 func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port *model.Port, mesh *meshconfig.MeshConfig,
-	connectionPool *networking.ConnectionPoolSettings) bool {
+	connectionPool *networking.ConnectionPoolSettings,
+) bool {
 	if direction != model.TrafficDirectionOutbound {
 		return false
 	}
@@ -743,7 +749,8 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(
 	sni string,
 	autoMTLSEnabled bool,
 	meshExternal bool,
-	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
+	serviceMTLSMode model.MutualTLSMode,
+) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
 		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
 			return tls, userSupplied
