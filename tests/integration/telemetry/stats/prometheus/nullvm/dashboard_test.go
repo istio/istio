@@ -291,7 +291,7 @@ spec:
     - destination:
         host: server
         port:
-          number: 9000
+          number: 9090
 `
 
 func setupDashboardTest(done <-chan struct{}) {
