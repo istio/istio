@@ -225,7 +225,6 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 						if err := sendTrafficFromSidecarToGateway(t, cltInstance, requestURL); err != nil {
 							return err
 						}
-						t.Logf("sent traffic")
 
 						c := cltInstance.Config().Cluster
 						sourceCluster := "Kubernetes"
@@ -233,8 +232,7 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 							sourceCluster = c.Name()
 						}
 						destinationQuery := buildGatewayTCPServerQuery(sourceCluster)
-						_, err := GetPromInstance().Query(c, destinationQuery)
-						if err != nil {
+						if _, err := GetPromInstance().Query(c, destinationQuery); err != nil {
 							util.PromDiff(t, promInst, c, destinationQuery)
 							return err
 						}
@@ -558,8 +556,12 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 }
 
 func sendTrafficFromSidecarToGateway(t framework.TestContext, clt echo.Instance, testRequestCmd string) error {
-	clientPodName := clt.WorkloadsOrFail(t)[0].PodName()
-	out, _, err := t.Clusters().Default().PodExec(
+	pods, err := clt.Config().Cluster.PodsForSelector(context.TODO(), appNsInst.Name(), "app=client")
+	if err != nil || len(pods.Items) == 0 {
+		return fmt.Errorf("could not get client pods. err: %v", err)
+	}
+	clientPodName := pods.Items[0].Name
+	out, _, err := clt.Config().Cluster.PodExec(
 		clientPodName,
 		appNsInst.Name(),
 		"app",
