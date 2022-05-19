@@ -504,7 +504,7 @@ func TestAuthZCheck(t *testing.T) {
 					pod:  fmt.Sprintf("%s.%s", appPod, apps.Namespace.Name()),
 					wants: []*regexp.Regexp{
 						regexp.MustCompile(fmt.Sprintf(`DENY\s+deny-policy\.%s\s+2`, apps.Namespace.Name())),
-						regexp.MustCompile(`ALLOW\s+_anonymous_match_nothing_\s+1`),
+						regexp.MustCompile(`DENY\s+denyAll\s+1`),
 						regexp.MustCompile(fmt.Sprintf(`ALLOW\s+allow-policy\.%s\s+1`, apps.Namespace.Name())),
 					},
 				},

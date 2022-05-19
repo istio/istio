@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	anonymousName = "_anonymous_match_nothing_"
+	denyAll = "denyAll"
 )
 
 // Matches the policy name in RBAC filter config with format like ns[default]-policy[some-policy]-rule[1].
@@ -156,7 +156,7 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 					addPolicy(action, nameOfPolicy, indexOfRule)
 				}
 				if len(rbacHTTP.GetRules().GetPolicies()) == 0 {
-					addPolicy(action, anonymousName, "0")
+					addPolicy(rbacpb.RBAC_DENY, denyAll, "0")
 				}
 			}
 			for _, rbacTCP := range fc.rbacTCP {
@@ -166,7 +166,7 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 					addPolicy(action, nameOfPolicy, indexOfRule)
 				}
 				if len(rbacTCP.GetRules().GetPolicies()) == 0 {
-					addPolicy(action, anonymousName, "0")
+					addPolicy(rbacpb.RBAC_DENY, denyAll, "0")
 				}
 			}
 		}
