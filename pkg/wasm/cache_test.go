@@ -225,10 +225,8 @@ func TestWasmCache(t *testing.T) {
 			wantVisitServer:     true,
 		},
 		{
-			name: "purge on expiry",
-			initialCachedModules: map[moduleKey]cacheEntry{
-				{name: urlAsResourceName(ts.URL), checksum: httpDataCheckSum}: {modulePath: fmt.Sprintf("%s.wasm", httpDataCheckSum)},
-			},
+			name:                   "purge on expiry",
+			initialCachedModules:   map[moduleKey]cacheEntry{},
 			initialCachedChecksums: map[string]*checksumEntry{},
 			fetchURL:               ts.URL,
 			purgeInterval:          1 * time.Millisecond,
@@ -236,12 +234,10 @@ func TestWasmCache(t *testing.T) {
 			checkPurgeTimeout:      5 * time.Second,
 			checksum:               httpDataCheckSum,
 			requestTimeout:         time.Second * 10,
-			wantCachedModules: map[moduleKey]*cacheEntry{
-				{name: ts.URL, checksum: httpDataCheckSum}: {modulePath: httpDataCheckSum + ".wasm"},
-			},
-			wantCachedChecksums: map[string]*checksumEntry{},
-			wantFileName:        fmt.Sprintf("%s.wasm", httpDataCheckSum),
-			wantVisitServer:     true,
+			wantCachedModules:      map[moduleKey]*cacheEntry{},
+			wantCachedChecksums:    map[string]*checksumEntry{},
+			wantFileName:           fmt.Sprintf("%s.wasm", httpDataCheckSum),
+			wantVisitServer:        true,
 		},
 		{
 			name:                   "fetch oci without digest",
@@ -595,9 +591,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:  1 * time.Millisecond,
 			requestTimeout:    time.Second * 10,
 			checkPurgeTimeout: 5 * time.Second,
-			wantCachedModules: map[moduleKey]*cacheEntry{
-				{name: urlAsResourceName(ociURLWithLatestTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
-			},
+			wantCachedModules: map[moduleKey]*cacheEntry{},
 			wantCachedChecksums: map[string]*checksumEntry{
 				"test-url": {checksum: "test-checksum", resourceVersionByResource: map[string]string{"namespace.resource2": "123456"}},
 			},
@@ -694,6 +688,10 @@ func TestWasmCache(t *testing.T) {
 			}
 			cache.mux.Unlock()
 
+			atomic.StoreInt32(&tsNumRequest, 0)
+			gotFilePath, gotErr := cache.Get(c.fetchURL, c.checksum, c.resourceName, c.resourceVersion, c.requestTimeout, []byte{}, c.pullPolicy)
+			serverVisited := atomic.LoadInt32(&tsNumRequest) > 0
+
 			if c.checkPurgeTimeout > 0 {
 				moduleDeleted := false
 				for start := time.Now(); time.Since(start) < c.checkPurgeTimeout; {
@@ -708,10 +706,6 @@ func TestWasmCache(t *testing.T) {
 					t.Fatalf("Wasm modules are not purged before purge timeout")
 				}
 			}
-
-			atomic.StoreInt32(&tsNumRequest, 0)
-			gotFilePath, gotErr := cache.Get(c.fetchURL, c.checksum, c.resourceName, c.resourceVersion, c.requestTimeout, []byte{}, c.pullPolicy)
-			serverVisited := atomic.LoadInt32(&tsNumRequest) > 0
 
 			cache.mux.Lock()
 			if cacheHitKey != nil {
