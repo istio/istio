@@ -218,15 +218,6 @@ func TestAllIPv6(t *testing.T) {
 	}
 }
 
-func TestGetPrivateIPs(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	result, flag := GetPrivateIPs(ctx)
-	if !flag {
-		t.Errorf("Test GetPrivateIps failed, expected: true got: %v and result: %v", flag, result)
-	}
-}
-
 func TestAllIPv4(t *testing.T) {
 	tests := []struct {
 		name     string
