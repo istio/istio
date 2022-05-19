@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -123,7 +124,8 @@ func WithNetworkIDCb(cb func(endpointIP string, labels labels.Instance) network.
 
 // NewController creates a new ServiceEntry discovery service.
 func NewController(configController model.ConfigStoreController, store model.ConfigStore, xdsUpdater model.XDSUpdater,
-	options ...Option) *Controller {
+	options ...Option,
+) *Controller {
 	s := newController(store, xdsUpdater, options...)
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
@@ -135,7 +137,8 @@ func NewController(configController model.ConfigStoreController, store model.Con
 
 // NewWorkloadEntryController creates a new WorkloadEntry discovery service.
 func NewWorkloadEntryController(configController model.ConfigStoreController, store model.ConfigStore, xdsUpdater model.XDSUpdater,
-	options ...Option) *Controller {
+	options ...Option,
+) *Controller {
 	s := newController(store, xdsUpdater, options...)
 	// Disable service entry processing for workload entry controller.
 	s.workloadEntryController = true
@@ -161,7 +164,8 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options
 		},
 		workloadInstances: workloadinstances.NewIndex(),
 		services: serviceStore{
-			servicesBySE: map[types.NamespacedName][]*model.Service{},
+			servicesBySE:            map[types.NamespacedName][]*model.Service{},
+			seWithWorkloadSelectors: map[string]sets.Set{},
 		},
 		edsQueue: queue.NewQueue(time.Second),
 	}
@@ -338,13 +342,13 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	switch event {
 	case model.EventUpdate:
 		addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs = servicesDiff(s.services.getServices(key), cs)
-		s.services.updateServices(key, cs)
+		s.services.updateServices(key, cs, currentServiceEntry.WorkloadSelector != nil)
 	case model.EventDelete:
 		deletedSvcs = cs
-		s.services.deleteServices(key)
+		s.services.deleteServices(key, currentServiceEntry.WorkloadSelector != nil)
 	case model.EventAdd:
 		addedSvcs = cs
-		s.services.updateServices(key, cs)
+		s.services.updateServices(key, cs, currentServiceEntry.WorkloadSelector != nil)
 	default:
 		// this should not happen
 		unchangedSvcs = cs
@@ -439,6 +443,14 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event model.Event) {
 	log.Debugf("Handle event %s for workload instance (%s/%s) in namespace %s", event,
 		wi.Kind, wi.Endpoint.Address, wi.Namespace)
+
+	s.mutex.RLock()
+	skip := wi.Kind == model.PodKind && len(s.services.seWithWorkloadSelectors[wi.Namespace]) == 0
+	s.mutex.RUnlock()
+	if skip {
+		log.Debugf("There are no service entries with workload selector in the namespace %s. Skipping this", wi.Namespace)
+		return
+	}
 	key := configKey{
 		kind:      podConfigType,
 		name:      wi.Name,
@@ -450,8 +462,6 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 
 	var addressToDelete string
 	s.mutex.Lock()
-	// this is from a pod. Store it in separate map so that
-	// the refreshIndexes function can use these as well as the store ones.
 	switch event {
 	case model.EventDelete:
 		redundantEventForPod = s.workloadInstances.Delete(wi) == nil
@@ -510,10 +520,12 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
 	}
 
-	if event == model.EventDelete {
-		s.serviceInstances.deleteInstances(key, instances)
-	} else {
-		s.serviceInstances.updateInstances(key, instances)
+	if len(instances) > 0 {
+		if event == model.EventDelete {
+			s.serviceInstances.deleteInstances(key, instances)
+		} else {
+			s.serviceInstances.updateInstances(key, instances)
+		}
 	}
 	s.mutex.Unlock()
 

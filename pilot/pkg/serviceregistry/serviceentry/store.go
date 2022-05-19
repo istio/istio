@@ -17,7 +17,9 @@ package serviceentry
 import (
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // stores all the service instances from SE, WLE and pods
@@ -102,8 +104,10 @@ func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key types.Namespa
 // stores all the services converted from serviceEntries
 type serviceStore struct {
 	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
-	servicesBySE   map[types.NamespacedName][]*model.Service
-	allocateNeeded bool
+	servicesBySE map[types.NamespacedName][]*model.Service
+	// seWithWorkloadSelectors keeps track of service entries that have workload selectors keyed by namespace.
+	seWithWorkloadSelectors map[string]sets.Set
+	allocateNeeded          bool
 }
 
 // getAllServices return all the services.
@@ -119,11 +123,26 @@ func (s *serviceStore) getServices(key types.NamespacedName) []*model.Service {
 	return s.servicesBySE[key]
 }
 
-func (s *serviceStore) deleteServices(key types.NamespacedName) {
+func (s *serviceStore) deleteServices(key types.NamespacedName, wls bool) {
 	delete(s.servicesBySE, key)
+	if features.EnableServiceEntrySelectPods && wls {
+		if entries, exists := s.seWithWorkloadSelectors[key.Namespace]; exists {
+			entries.Delete(key.Name)
+			if len(entries) == 0 {
+				delete(s.seWithWorkloadSelectors, key.Namespace)
+			}
+		}
+	}
 }
 
-func (s *serviceStore) updateServices(key types.NamespacedName, services []*model.Service) {
+func (s *serviceStore) updateServices(key types.NamespacedName, services []*model.Service, wls bool) {
 	s.servicesBySE[key] = services
 	s.allocateNeeded = true
+	if features.EnableServiceEntrySelectPods && wls {
+		if entries, exists := s.seWithWorkloadSelectors[key.Namespace]; exists {
+			entries.Insert(key.Name)
+		} else {
+			s.seWithWorkloadSelectors[key.Namespace] = sets.New(key.Name)
+		}
+	}
 }
