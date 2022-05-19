@@ -74,9 +74,10 @@ type LocalFileCache struct {
 	mux sync.Mutex
 
 	// Duration for stale Wasm module purging.
-	purgeInterval      time.Duration
-	wasmModuleExpiry   time.Duration
-	insecureRegistries sets.Set
+	purgeInterval              time.Duration
+	wasmModuleExpiry           time.Duration
+	insecureRegistries         sets.Set
+	allowAllInsecureRegistries bool
 
 	// stopChan currently is only used by test
 	stopChan chan struct{}
@@ -120,6 +121,7 @@ type cacheEntry struct {
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
 func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
+	ir := sets.New(insecureRegistries...)
 	cache := &LocalFileCache{
 		httpFetcher:        NewHTTPFetcher(),
 		modules:            make(map[moduleKey]*cacheEntry),
@@ -128,8 +130,11 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, in
 		purgeInterval:      purgeInterval,
 		wasmModuleExpiry:   moduleExpiry,
 		stopChan:           make(chan struct{}),
-		insecureRegistries: sets.New(insecureRegistries...),
+		insecureRegistries: ir,
+		// If the set of the given insecure registries contains "*", then allow all the insecure registries.
+		allowAllInsecureRegistries: ir.Contains("*"),
 	}
+
 	go func() {
 		cache.purge()
 	}()
@@ -213,7 +218,7 @@ func (c *LocalFileCache) Get(
 		defer cancel()
 
 		insecure := false
-		if c.insecureRegistries.Contains(u.Host) {
+		if c.allowAllInsecureRegistries || c.insecureRegistries.Contains(u.Host) {
 			insecure = true
 		}
 		// TODO: support imagePullSecret and pass it to ImageFetcherOption.
