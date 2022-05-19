@@ -2700,7 +2700,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				}},
 			})
-
 		})
 	}
 }

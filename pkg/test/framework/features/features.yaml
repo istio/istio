@@ -34,7 +34,6 @@ features:
         server:
       dashboard:
       istioctl:
-      metadataexchange:
   # features relating to controlling the traffic of the service mesh.
   traffic:
     locality:

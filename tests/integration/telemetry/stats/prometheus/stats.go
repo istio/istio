@@ -222,7 +222,7 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 					err := retry.UntilSuccess(func() error {
 						t.Logf("sending tcp traffic to gateway from sidecar")
 						requestURL := "curl --insecure -s -o /dev/null -w '%{http_code}' https://edition.cnn.com/politics"
-						if err := sendTrafficFromSidecarToGateway(t, cltInstance, requestURL); err != nil {
+						if err := sendTrafficFromSidecarToGateway(cltInstance, requestURL); err != nil {
 							return err
 						}
 
@@ -555,7 +555,7 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 	}
 }
 
-func sendTrafficFromSidecarToGateway(t framework.TestContext, clt echo.Instance, testRequestCmd string) error {
+func sendTrafficFromSidecarToGateway(clt echo.Instance, testRequestCmd string) error {
 	pods, err := clt.Config().Cluster.PodsForSelector(context.TODO(), appNsInst.Name(), "app=client")
 	if err != nil || len(pods.Items) == 0 {
 		return fmt.Errorf("could not get client pods. err: %v", err)
