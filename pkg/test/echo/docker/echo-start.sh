@@ -31,9 +31,11 @@ ECHO_ARGS=${ECHO_ARGS:-}
 IFS=' ' read -r -a ECHO_ARGS_ARRAY <<< "$ECHO_ARGS"
 
 ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
+ECHO_LOG_DIR=${ECHO_LOG_DIR:-/var/log/echo}
+sudo mkdir -p "${ECHO_LOG_DIR}"
 
 # Run the pilot agent and Envoy
 /usr/local/bin/istio-start.sh&
 
-# Start the echo server.
-"/usr/local/bin/server" "${ECHO_ARGS_ARRAY[@]}"
+# Start the echo server. Write output to both stdout and the log.
+"/usr/local/bin/server" "${ECHO_ARGS_ARRAY[@]}" |& sudo tee "${ECHO_LOG_DIR}/echo.log"
