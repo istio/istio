@@ -151,7 +151,8 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 // Return merged virtual services and the root->delegate vs map
 func mergeVirtualServicesIfNeeded(
 	vServices []config.Config,
-	defaultExportTo map[visibility.Instance]bool) ([]config.Config, map[ConfigKey][]ConfigKey) {
+	defaultExportTo map[visibility.Instance]bool,
+) ([]config.Config, map[ConfigKey][]ConfigKey) {
 	out := make([]config.Config, 0, len(vServices))
 	delegatesMap := map[string]config.Config{}
 	delegatesExportToMap := map[string]map[visibility.Instance]bool{}

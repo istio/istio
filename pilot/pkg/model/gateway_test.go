@@ -161,7 +161,8 @@ func TestMergeGateways(t *testing.T) {
 }
 
 func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string, bind string,
-	mode networking.ServerTLSSettings_TLSmode) config.Config {
+	mode networking.ServerTLSSettings_TLSmode,
+) config.Config {
 	c := config.Config{
 		Meta: config.Meta{
 			Name:      name,

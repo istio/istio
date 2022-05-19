@@ -45,7 +45,8 @@ type mockCache struct {
 
 func (c *mockCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
-	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
+	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
+) (string, error) {
 	url, _ := url.Parse(downloadURL)
 	query := url.Query()
 

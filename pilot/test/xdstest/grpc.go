@@ -54,7 +54,8 @@ func (w *slowClientStream) SendMsg(m interface{}) error {
 // SlowClientInterceptor is an interceptor that allows injecting delays on Send and Recv
 func SlowClientInterceptor(recv, send time.Duration) grpc.StreamClientInterceptor {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn,
-		method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		method string, streamer grpc.Streamer, opts ...grpc.CallOption,
+	) (grpc.ClientStream, error) {
 		clientStream, err := streamer(ctx, desc, cc, method, opts...)
 		return &slowClientStream{clientStream, recv, send}, err
 	}

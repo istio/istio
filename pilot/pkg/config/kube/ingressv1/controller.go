@@ -102,7 +102,8 @@ var errUnsupportedOp = errors.New("unsupported operation: the ingress config sto
 
 // NewController creates a new Kubernetes controller
 func NewController(client kube.Client, meshWatcher mesh.Holder,
-	options kubecontroller.Options) model.ConfigStoreController {
+	options kubecontroller.Options,
+) model.ConfigStoreController {
 	if ingressNamespace == "" {
 		ingressNamespace = constants.IstioIngressNamespace
 	}

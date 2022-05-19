@@ -192,7 +192,8 @@ func convertVirtualService(r *KubernetesResources, gatewayMap map[parentKey]map[
 }
 
 func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.SectionName]*parentInfo, domain string,
-	gatewayRoutes map[string]map[string]*config.Config, meshRoutes map[string]map[string]*config.Config) {
+	gatewayRoutes map[string]map[string]*config.Config, meshRoutes map[string]map[string]*config.Config,
+) {
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
 	for _, r := range route.Rules {
 		if len(r.Matches) > 1 {
@@ -513,7 +514,8 @@ func referenceAllowed(p *parentInfo, routeKind config.GroupVersionKind, parentKi
 }
 
 func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*parentInfo, routeRefs []k8s.ParentReference,
-	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string) []routeParentReference {
+	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string,
+) []routeParentReference {
 	parentRefs := []routeParentReference{}
 	for _, ref := range routeRefs {
 		ir, err := toInternalParentReference(ref, localNamespace)
@@ -1320,7 +1322,8 @@ const GatewayNameLabel = "istio.io/gateway-name"
 // Multiple hostname/IP - It is feasible but preference is to create multiple Gateways. This would also break the 1:1 mapping of GW:Service
 // Mixed hostname and IP - doesn't make sense; user should define the IP in service
 // NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations,
-//   which users can add to the Gateway.
+//
+//	which users can add to the Gateway.
 func IsManaged(gw *k8s.GatewaySpec) bool {
 	if len(gw.Addresses) == 0 {
 		return true

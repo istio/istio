@@ -179,7 +179,8 @@ func countVersions(versionCount map[string]int, configVersion string) {
 func poll(cmd *cobra.Command,
 	acceptedVersions []string,
 	targetResource string,
-	opts clioptions.ControlPlaneOptions) (present, notpresent, sdcnum int, err error) {
+	opts clioptions.ControlPlaneOptions,
+) (present, notpresent, sdcnum int, err error) {
 	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
 		return 0, 0, 0, err

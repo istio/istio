@@ -184,7 +184,8 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 
 func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.EndpointSubset, endpoints []v1.EndpointAddress,
 	svc *model.Service, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, lbls labels.Instance,
-	svcPort *model.Port, health model.HealthStatus) []*model.ServiceInstance {
+	svcPort *model.Port, health model.HealthStatus,
+) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 	for _, ea := range endpoints {
 		var podLabels labels.Instance
@@ -220,7 +221,8 @@ func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.Endp
 }
 
 func (e *endpointsController) buildIstioEndpointFromAddress(ep *v1.Endpoints, ss v1.EndpointSubset, endpoints []v1.EndpointAddress,
-	host host.Name, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, health model.HealthStatus) []*model.IstioEndpoint {
+	host host.Name, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, health model.HealthStatus,
+) []*model.IstioEndpoint {
 	var istioEndpoints []*model.IstioEndpoint
 	for _, ea := range endpoints {
 		pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)

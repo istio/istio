@@ -100,7 +100,8 @@ type Controller struct {
 
 // NewValidatingWebhookController creates a new Controller.
 func NewValidatingWebhookController(client kube.Client,
-	revision, ns string, caBundleWatcher *keycertbundle.Watcher) *Controller {
+	revision, ns string, caBundleWatcher *keycertbundle.Watcher,
+) *Controller {
 	o := Options{
 		WatchedNamespace: ns,
 		CABundleWatcher:  caBundleWatcher,
@@ -406,7 +407,8 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 }
 
 func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmission.ValidatingWebhookConfiguration,
-	caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
+	caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType,
+) error {
 	dirty := false
 	for i := range current.Webhooks {
 		if !bytes.Equal(current.Webhooks[i].ClientConfig.CABundle, caBundle) ||

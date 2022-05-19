@@ -204,7 +204,8 @@ values:
 
 func runForAllClusterCombinations(
 	t framework.TestContext,
-	fn func(t framework.TestContext, from echo.Instance, to echo.Target)) {
+	fn func(t framework.TestContext, from echo.Instance, to echo.Target),
+) {
 	t.Helper()
 	echotest.New(t, echos.Instances).
 		WithDefaultFilters().

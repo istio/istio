@@ -153,7 +153,8 @@ type applyOptions struct {
 }
 
 func applyManifest(kubeClient kube.Client, client client.Client, manifestStr string,
-	componentName name.ComponentName, opts *applyOptions, iop *v1alpha1.IstioOperator, l clog.Logger) error {
+	componentName name.ComponentName, opts *applyOptions, iop *v1alpha1.IstioOperator, l clog.Logger,
+) error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
 	reconciler, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})

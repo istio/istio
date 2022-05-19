@@ -379,7 +379,8 @@ func skipReplicaCountWithAutoscaleEnabled(iop *v1alpha1.IstioOperatorSpec, compo
 }
 
 func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sObject,
-	msvc *v1alpha1.ServiceSpec, mergedObj *object.K8sObject) (*object.K8sObject, error) {
+	msvc *v1alpha1.ServiceSpec, mergedObj *object.K8sObject,
+) (*object.K8sObject, error) {
 	var basePorts []*v1.ServicePort
 	bps, _, err := unstructured.NestedSlice(oo.Unstructured(), "spec", "ports")
 	if err != nil {
@@ -870,7 +871,8 @@ func renderFeatureComponentPathTemplate(tmpl string, componentName name.Componen
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
 func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName,
-	resourceName, revision string) (string, error) {
+	resourceName, revision string,
+) (string, error) {
 	cn := string(componentName)
 	cmp := t.ComponentMap(cn)
 	if cmp == nil {
@@ -962,19 +964,21 @@ func MergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.P
 
 // createPatchObjectFromPath constructs patch object for node with path, returns nil object and error if the path is invalid.
 // eg. node:
-//     - name: NEW_VAR
-//       value: new_value
+//   - name: NEW_VAR
+//     value: new_value
+//
 // and path:
-//       spec.template.spec.containers.[name:discovery].env
-//     will constructs the following patch object:
-//       spec:
-//         template:
-//           spec:
-//             containers:
-//             - name: discovery
-//               env:
-//               - name: NEW_VAR
-//                 value: new_value
+//
+//	  spec.template.spec.containers.[name:discovery].env
+//	will constructs the following patch object:
+//	  spec:
+//	    template:
+//	      spec:
+//	        containers:
+//	        - name: discovery
+//	          env:
+//	          - name: NEW_VAR
+//	            value: new_value
 func createPatchObjectFromPath(node interface{}, path util.Path) (map[string]interface{}, error) {
 	if len(path) == 0 {
 		return nil, fmt.Errorf("empty path %s", path)

@@ -146,7 +146,8 @@ func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*built
 }
 
 func buildExtAuthzHTTP(push *model.PushContext,
-	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider) (*builtExtAuthz, error) {
+	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider,
+) (*builtExtAuthz, error) {
 	var errs error
 	port, err := parsePort(config.Port)
 	if err != nil {
@@ -189,7 +190,8 @@ func buildExtAuthzHTTP(push *model.PushContext,
 }
 
 func buildExtAuthzGRPC(push *model.PushContext,
-	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider) (*builtExtAuthz, error) {
+	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider,
+) (*builtExtAuthz, error) {
 	var errs error
 	port, err := parsePort(config.Port)
 	if err != nil {
@@ -232,7 +234,8 @@ func parseStatusOnError(status string) (*envoytypev3.HttpStatus, error) {
 }
 
 func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus,
-	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider) *builtExtAuthz {
+	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider,
+) *builtExtAuthz {
 	service := &extauthzhttp.HttpService{
 		PathPrefix: config.PathPrefix,
 		ServerUri: &envoy_config_core_v3.HttpUri{
@@ -292,7 +295,8 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 }
 
 func generateGRPCConfig(cluster string, config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider,
-	status *envoytypev3.HttpStatus) *builtExtAuthz {
+	status *envoytypev3.HttpStatus,
+) *builtExtAuthz {
 	// The cluster includes the character `|` that is invalid in gRPC authority header and will cause the connection
 	// rejected in the server side, replace it with a valid character and set in authority otherwise ext_authz will
 	// use the cluster name as default authority.

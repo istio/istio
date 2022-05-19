@@ -96,7 +96,8 @@ func buildGolangPatchStruct(config string) *structpb.Struct {
 }
 
 func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *meshconfig.MeshConfig,
-	configStore model.ConfigStore) *model.Environment {
+	configStore model.ConfigStore,
+) *model.Environment {
 	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		ConfigStore:      configStore,

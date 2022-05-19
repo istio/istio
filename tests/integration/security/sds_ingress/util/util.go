@@ -117,7 +117,8 @@ func IngressKubeSecretYAML(name, namespace string, ingressType CallType, ingress
 // and creates K8s secrets for ingress gateway.
 // nolint: interfacer
 func CreateIngressKubeSecret(t framework.TestContext, credName string,
-	ingressType CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool, clusters ...cluster.Cluster) {
+	ingressType CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool, clusters ...cluster.Cluster,
+) {
 	t.Helper()
 
 	// Get namespace for ingress gateway pod.
@@ -129,7 +130,8 @@ func CreateIngressKubeSecret(t framework.TestContext, credName string,
 // CreateIngressKubeSecretInNamespace  reads credential names from credNames and key/cert from ingressCred,
 // and creates K8s secrets for ingress gateway in the given namespace.
 func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string,
-	ingressType CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool, ns string, clusters ...cluster.Cluster) {
+	ingressType CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool, ns string, clusters ...cluster.Cluster,
+) {
 	t.Helper()
 
 	t.CleanupConditionally(func() {
@@ -274,17 +276,20 @@ type TLSContext struct {
 
 // SendRequestOrFail makes HTTPS request to ingress gateway to visit product page
 func SendRequestOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string,
-	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse) {
+	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse,
+) {
 	doSendRequestsOrFail(ctx, ing, host, path, callType, tlsCtx, exRsp, false /* useHTTP3 */)
 }
 
 func SendQUICRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string,
-	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse) {
+	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse,
+) {
 	doSendRequestsOrFail(ctx, ing, host, path, callType, tlsCtx, exRsp, true /* useHTTP3 */)
 }
 
 func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string,
-	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse, useHTTP3 bool) {
+	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse, useHTTP3 bool,
+) {
 	ctx.Helper()
 	opts := echo.CallOptions{
 		Timeout: time.Second,
@@ -335,7 +340,8 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
 // from ingressCred.
 func RotateSecrets(ctx framework.TestContext, credName string, // nolint:interfacer
-	ingressType CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool) {
+	ingressType CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool,
+) {
 	ctx.Helper()
 	c := ctx.Clusters().Default()
 	ist := istio.GetOrFail(ctx, ctx)

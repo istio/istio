@@ -383,7 +383,8 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 // Push an Delta XDS resource for the given connection. Configuration will be generated
 // based on the passed in generator.
 func (s *DiscoveryServer) pushDeltaXds(con *Connection,
-	w *model.WatchedResource, req *model.PushRequest) error {
+	w *model.WatchedResource, req *model.PushRequest,
+) error {
 	if w == nil {
 		return nil
 	}

@@ -61,7 +61,8 @@ var _ security.Authenticator = &KubeJWTAuthenticator{}
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
 func NewKubeJWTAuthenticator(meshHolder mesh.Holder, client kubernetes.Interface, clusterID cluster.ID,
-	remoteKubeClientGetter RemoteKubeClientGetter, jwtPolicy string) *KubeJWTAuthenticator {
+	remoteKubeClientGetter RemoteKubeClientGetter, jwtPolicy string,
+) *KubeJWTAuthenticator {
 	return &KubeJWTAuthenticator{
 		meshHolder:             meshHolder,
 		jwtPolicy:              jwtPolicy,

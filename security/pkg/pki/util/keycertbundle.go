@@ -56,7 +56,8 @@ func NewKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBy
 // NewVerifiedKeyCertBundleFromPem returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
 func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) (
-	*KeyCertBundle, error) {
+	*KeyCertBundle, error,
+) {
 	bundle := &KeyCertBundle{}
 	if err := bundle.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
 		return nil, err
@@ -67,7 +68,8 @@ func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, ro
 // NewVerifiedKeyCertBundleFromFile returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
 func NewVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, rootCertFile string) (
-	*KeyCertBundle, error) {
+	*KeyCertBundle, error,
+) {
 	certBytes, err := os.ReadFile(certFile)
 	if err != nil {
 		return nil, err
@@ -125,7 +127,8 @@ func (b *KeyCertBundle) GetAllPem() (certBytes, privKeyBytes, certChainBytes, ro
 // GetAll returns all key/cert in KeyCertBundle together. Getting all values together avoids inconsistency.
 // NOTE: Callers should not modify the content of cert and privKey.
 func (b *KeyCertBundle) GetAll() (cert *x509.Certificate, privKey *crypto.PrivateKey, certChainBytes,
-	rootCertBytes []byte) {
+	rootCertBytes []byte,
+) {
 	b.mutex.RLock()
 	cert = b.cert
 	privKey = b.privKey

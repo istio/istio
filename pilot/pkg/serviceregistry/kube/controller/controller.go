@@ -997,7 +997,8 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 }
 
 func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.Port,
-	targetPort serviceTargetPort, wi *model.WorkloadInstance) *model.ServiceInstance {
+	targetPort serviceTargetPort, wi *model.WorkloadInstance,
+) *model.ServiceInstance {
 	// create an instance with endpoint whose service port name matches
 	istioEndpoint := *wi.Endpoint
 
@@ -1313,7 +1314,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 }
 
 func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
-	service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
+	service *v1.Service, proxy *model.Proxy,
+) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 
 	for _, svc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(service)) {

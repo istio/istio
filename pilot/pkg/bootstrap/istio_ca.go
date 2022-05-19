@@ -373,8 +373,9 @@ func (s *Server) initCACertsWatcher() {
 
 // createIstioCA initializes the Istio CA signing functionality.
 // - for 'plugged in', uses ./etc/cacert directory, mounted from 'cacerts' secret in k8s.
-//   Inside, the key/cert are 'ca-key.pem' and 'ca-cert.pem'. The root cert signing the intermediate is root-cert.pem,
-//   which may contain multiple roots. A 'cert-chain.pem' file has the full cert chain.
+//
+//	Inside, the key/cert are 'ca-key.pem' and 'ca-cert.pem'. The root cert signing the intermediate is root-cert.pem,
+//	which may contain multiple roots. A 'cert-chain.pem' file has the full cert chain.
 func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (*ca.IstioCA, error) {
 	var caOpts *ca.IstioCAOptions
 	var err error
@@ -453,10 +454,13 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 // ca cert can come from three sources, order matters:
 // 1. Define ca cert via kubernetes secret and mount the secret through `external-ca-cert` volume
 // 2. Use kubernetes ca cert `/var/run/secrets/kubernetes.io/serviceaccount/ca.crt` if signer is
-//    kubernetes built-in `kubernetes.io/legacy-unknown" signer
+//
+//	kubernetes built-in `kubernetes.io/legacy-unknown" signer
+//
 // 3. Extract from the cert-chain signed by other CSR signer.
 func (s *Server) createIstioRA(client kubelib.Client,
-	opts *caOptions) (ra.RegistrationAuthority, error) {
+	opts *caOptions,
+) (ra.RegistrationAuthority, error) {
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
 	certSignerDomain := opts.CertSignerDomain
 	_, err := os.Stat(caCertFile)

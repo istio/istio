@@ -18,10 +18,10 @@
 package builder
 
 import (
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
+
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-
-	fuzz "github.com/AdaLogics/go-fuzz-headers"
 )
 
 func InternalFuzzBuildHTTP(data []byte) int {

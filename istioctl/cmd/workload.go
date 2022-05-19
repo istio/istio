@@ -291,7 +291,8 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 
 // Creates all the relevant config for the given workload group and cluster
 func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP, internalIP,
-	externalIP string, outputDir string, out io.Writer) error {
+	externalIP string, outputDir string, out io.Writer,
+) error {
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
 	}

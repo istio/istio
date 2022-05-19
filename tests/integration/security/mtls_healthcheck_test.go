@@ -52,7 +52,8 @@ func TestMtlsHealthCheck(t *testing.T) {
 }
 
 func runHealthCheckDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
-	name string, rewrite bool) {
+	name string, rewrite bool,
+) {
 	ctx.Helper()
 	wantSuccess := rewrite
 	policyYAML := fmt.Sprintf(`apiVersion: security.istio.io/v1beta1

@@ -128,7 +128,8 @@ func getNamespaces(ctx context.Context, client kube.ExtendedClient) ([]v1.Namesp
 }
 
 func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.MutatingWebhookConfiguration,
-	allPods map[resource.Namespace][]v1.Pod) error {
+	allPods map[resource.Namespace][]v1.Pod,
+) error {
 	outputCount := 0
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)

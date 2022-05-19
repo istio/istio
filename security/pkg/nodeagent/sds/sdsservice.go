@@ -214,7 +214,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
-	cfg := security.SdsCertificateConfig{}
+	var cfg security.SdsCertificateConfig
 	ok := false
 	if s.ResourceName == security.FileRootSystemCACert {
 		cfg, ok = security.SdsCertificateConfigFromResourceNameForOSCACert(caRootPath)

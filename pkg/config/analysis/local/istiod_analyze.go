@@ -85,7 +85,8 @@ type IstiodAnalyzer struct {
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
 func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration) *IstiodAnalyzer {
+	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration,
+) *IstiodAnalyzer {
 	return NewIstiodAnalyzer(analyzer, namespace, istioNamespace, cr, serviceDiscovery)
 }
 
@@ -93,7 +94,8 @@ func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioName
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
-	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool) *IstiodAnalyzer {
+	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool,
+) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}

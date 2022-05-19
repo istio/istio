@@ -252,7 +252,8 @@ func getMatchURILength(match *networking.HTTPMatchRequest) (length int, exact bo
 }
 
 func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string, domainSuffix string,
-	serviceLister listerv1.ServiceLister) *networking.HTTPRoute {
+	serviceLister listerv1.ServiceLister,
+) *networking.HTTPRoute {
 	if backend == nil {
 		return nil
 	}

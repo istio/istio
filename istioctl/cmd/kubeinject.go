@@ -375,7 +375,8 @@ func validateFlags() error {
 }
 
 func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string,
-	revision, injectorAddress string) (*ExternalInjector, *meshconfig.MeshConfig, error) {
+	revision, injectorAddress string,
+) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
 	injector := &ExternalInjector{}
 	if injectConfigFile != "" {

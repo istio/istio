@@ -223,7 +223,8 @@ func buildAccessLogFilterFromTelemetry(spec *model.LoggingConfig) *accesslog.Acc
 }
 
 func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *model.Proxy,
-	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass) {
+	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass,
+) {
 	mesh := push.Mesh
 	cfg := push.Telemetry.AccessLogging(proxy, class)
 
@@ -245,7 +246,8 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 }
 
 func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *model.Proxy,
-	listener *listener.Listener, class networking.ListenerClass) {
+	listener *listener.Listener, class networking.ListenerClass,
+) {
 	mesh := push.Mesh
 	if mesh.DisableEnvoyListenerLog {
 		return
@@ -360,7 +362,8 @@ func buildFileAccessTextLogFormat(text string) (*fileaccesslog.FileAccessLog_Log
 }
 
 func buildFileAccessJSONLogFormat(
-	logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
+	logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels,
+) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
 	jsonLogStruct := EnvoyJSONLogFormatIstio
 	if logFormat.Labels != nil {
 		jsonLogStruct = logFormat.Labels
@@ -490,7 +493,8 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 }
 
 func buildOpenTelemetryLogHelper(pushCtx *model.PushContext,
-	provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider) *accesslog.AccessLog {
+	provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider,
+) *accesslog.AccessLog {
 	_, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
 	if err != nil {
 		log.Errorf("could not find cluster for open telemetry provider %q: %v", provider, err)

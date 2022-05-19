@@ -46,7 +46,8 @@ const (
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
 func ModelProtocolToListenerProtocol(p protocol.Instance,
-	trafficDirection core.TrafficDirection) ListenerProtocol {
+	trafficDirection core.TrafficDirection,
+) ListenerProtocol {
 	switch p {
 	case protocol.HTTP, protocol.HTTP2, protocol.HTTP_PROXY, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP

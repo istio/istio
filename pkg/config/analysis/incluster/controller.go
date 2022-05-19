@@ -45,7 +45,8 @@ type Controller struct {
 }
 
 func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreController,
-	kubeClient kube.Client, namespace string, statusManager *status.Manager, domainSuffix string) (*Controller, error) {
+	kubeClient kube.Client, namespace string, statusManager *status.Manager, domainSuffix string,
+) (*Controller, error) {
 	ia := local.NewIstiodAnalyzer(analyzers.AllCombined(),
 		"", resource.Namespace(namespace), func(name collection.Name) {}, true)
 	ia.AddSource(rwConfigStore)

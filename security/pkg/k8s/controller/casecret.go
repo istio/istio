@@ -42,7 +42,8 @@ func NewCaSecretController(core corev1.CoreV1Interface) *CaSecretController {
 
 // LoadCASecretWithRetry reads CA secret with retries until timeout.
 func (csc *CaSecretController) LoadCASecretWithRetry(secretName, namespace string,
-	retryInterval, timeout time.Duration) (*v1.Secret, error) {
+	retryInterval, timeout time.Duration,
+) (*v1.Secret, error) {
 	start := time.Now()
 	var caSecret *v1.Secret
 	var scrtErr error
@@ -65,7 +66,8 @@ func (csc *CaSecretController) LoadCASecretWithRetry(secretName, namespace strin
 
 // UpdateCASecretWithRetry updates CA secret with retries until timeout.
 func (csc *CaSecretController) UpdateCASecretWithRetry(caSecret *v1.Secret,
-	retryInterval, timeout time.Duration) error {
+	retryInterval, timeout time.Duration,
+) error {
 	start := time.Now()
 	for {
 		_, scrtErr := csc.client.Secrets(caSecret.Namespace).Update(context.TODO(), caSecret, metav1.UpdateOptions{})

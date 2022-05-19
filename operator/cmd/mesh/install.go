@@ -251,11 +251,14 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 
 // InstallManifests generates manifests from the given istiooperator instance and applies them to the
 // cluster. See GenManifests for more description of the manifest generation process.
-//  force   validation warnings are written to logger but command is not aborted
-//  DryRun  all operations are done but nothing is written
+//
+//	force   validation warnings are written to logger but command is not aborted
+//	DryRun  all operations are done but nothing is written
+//
 // Returns final IstioOperator after installation if successful.
 func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kubeClient kube.Client, client client.Client,
-	waitTimeout time.Duration, l clog.Logger) (*v1alpha12.IstioOperator, error) {
+	waitTimeout time.Duration, l clog.Logger,
+) (*v1alpha12.IstioOperator, error) {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{

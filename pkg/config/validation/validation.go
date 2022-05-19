@@ -1250,7 +1250,8 @@ func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) 
 }
 
 func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
-	captureMode networking.CaptureMode) (errs error) {
+	captureMode networking.CaptureMode,
+) (errs error) {
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
 		errs = appendErrors(errs, ValidatePortName(port.Name))
@@ -2231,7 +2232,8 @@ func assignExactOrPrefix(exact, prefix string) string {
 // based on particular HTTPMatchRequest, according to comments on https://github.com/istio/istio/pull/32701
 // only support Match's port, method, authority, headers, query params and nonheaders for now.
 func genMatchHTTPRoutes(route *networking.HTTPRoute, match *networking.HTTPMatchRequest,
-	rulen, matchn int) (matchHTTPRoutes *OverlappingMatchValidationForHTTPRoute) {
+	rulen, matchn int,
+) (matchHTTPRoutes *OverlappingMatchValidationForHTTPRoute) {
 	// skip current match if no match field for current route
 	if match == nil {
 		return nil
@@ -2381,7 +2383,8 @@ func coveredValidation(vA, vB *OverlappingMatchValidationForHTTPRoute) bool {
 }
 
 func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
-	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string)) {
+	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string),
+) {
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
 	var matchHTTPRoutes []*OverlappingMatchValidationForHTTPRoute
@@ -2440,7 +2443,8 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 
 // NOTE: This method identical to analyzeUnreachableHTTPRules.
 func analyzeUnreachableTCPRules(routes []*networking.TCPRoute,
-	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string)) {
+	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string),
+) {
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
 	for rulen, route := range routes {
@@ -2473,7 +2477,8 @@ func analyzeUnreachableTCPRules(routes []*networking.TCPRoute,
 
 // NOTE: This method identical to analyzeUnreachableHTTPRules.
 func analyzeUnreachableTLSRules(routes []*networking.TLSRoute,
-	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string)) {
+	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string),
+) {
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
 	for rulen, route := range routes {

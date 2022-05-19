@@ -101,7 +101,8 @@ var (
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
-	push *model.PushContext) []*listener.Listener {
+	push *model.PushContext,
+) []*listener.Listener {
 	builder := NewListenerBuilder(node, push)
 
 	switch node.Type {
@@ -116,7 +117,8 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
-	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool) *auth.DownstreamTlsContext {
+	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
+) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
 		alpnByTransport = util.ALPNHttp3OverQUIC
@@ -281,7 +283,8 @@ func (c outboundListenerConflict) addMetric(metrics model.Metrics) {
 // buildSidecarOutboundListeners generates http and tcp listeners for
 // outbound connections from the proxy based on the sidecar scope associated with the proxy.
 func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
-	push *model.PushContext) []*listener.Listener {
+	push *model.PushContext,
+) []*listener.Listener {
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
@@ -511,7 +514,8 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 }
 
 func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
-	push *model.PushContext) *listener.Listener {
+	push *model.PushContext,
+) *listener.Listener {
 	httpProxyPort := push.Mesh.ProxyHttpPort // global
 	if node.Metadata.HTTPProxyPort != "" {
 		port, err := strconv.Atoi(node.Metadata.HTTPProxyPort)
@@ -576,7 +580,8 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 
 func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
-	listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
+	listenerMap map[string]*outboundListenerEntry, actualWildcard string,
+) (bool, []*filterChainOpts) {
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
@@ -675,7 +680,8 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 
 func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts, listenerMap map[string]*outboundListenerEntry,
-	virtualServices []config.Config, actualWildcard string) (bool, []*filterChainOpts) {
+	virtualServices []config.Config, actualWildcard string,
+) (bool, []*filterChainOpts) {
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 
@@ -784,7 +790,8 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
 func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
-	listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcard string) {
+	listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcard string,
+) {
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
 	var ret bool
@@ -1366,7 +1373,8 @@ func (ml *MutableListener) build(builder *ListenerBuilder, opts buildListenerOpt
 }
 
 func mergeTCPFilterChains(incoming []*listener.FilterChain, listenerOpts buildListenerOpts, listenerMapKey string,
-	listenerMap map[string]*outboundListenerEntry) []*listener.FilterChain {
+	listenerMap map[string]*outboundListenerEntry,
+) []*listener.FilterChain {
 	// TODO(rshriram) merge multiple identical filter chains with just a single destination CIDR based
 	// filter chain match, into a single filter chain and array of destinationcidr matches
 

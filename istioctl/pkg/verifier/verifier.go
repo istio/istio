@@ -83,7 +83,8 @@ func WithIOP(iop *v1alpha1.IstioOperator) StatusVerifierOptions {
 // which checks the status of various resources from the manifest.
 func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string,
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
-	options ...StatusVerifierOptions) (*StatusVerifier, error) {
+	options ...StatusVerifierOptions,
+) (*StatusVerifier, error) {
 	client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, context), "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
@@ -223,7 +224,7 @@ func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOpera
 	}
 
 	manifests, errs := cp.RenderManifest()
-	if errs != nil && len(errs) > 0 {
+	if len(errs) > 0 {
 		return 0, 0, errs.ToError()
 	}
 

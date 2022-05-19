@@ -197,7 +197,8 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
 // calls the passed in function with the built alternate hosts.
 func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
-	apply func(map[string]struct{}, []net.IP, []net.IP, []string)) {
+	apply func(map[string]struct{}, []net.IP, []net.IP, []string),
+) {
 	for hostname, ni := range nt.Table {
 		// Given a host
 		// if its a non-k8s host, store the host+. as the key with the pre-computed DNS RR records

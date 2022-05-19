@@ -105,7 +105,8 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (
 }
 
 func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, label, svcName string,
-	port int) (interface{}, bool, error) {
+	port int,
+) (interface{}, bool, error) {
 	if !s.LoadBalancerSupported {
 		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", label))
 		if err != nil {
@@ -179,7 +180,8 @@ func (i *operatorComponent) isExternalControlPlane() bool {
 }
 
 func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters,
-	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) error {
+	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy,
+) error {
 	errG := multierror.Group{}
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
@@ -259,7 +261,8 @@ func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters,
 }
 
 func UpdateMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters,
-	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) {
+	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy,
+) {
 	t.Helper()
 	if err := UpdateMeshConfig(t, ns, clusters, update, cleanupStrategy); err != nil {
 		t.Fatal(err)

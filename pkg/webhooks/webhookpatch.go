@@ -64,7 +64,8 @@ type WebhookCertPatcher struct {
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubelib.Client,
-	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher) (*WebhookCertPatcher, error) {
+	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher,
+) (*WebhookCertPatcher, error) {
 	p := &WebhookCertPatcher{
 		client:          client.Kube(),
 		revision:        revision,
@@ -118,7 +119,8 @@ func (w *WebhookCertPatcher) webhookPatchTask(o types.NamespacedName) error {
 // patchMutatingWebhookConfig takes a webhookConfigName and patches the CA bundle for that webhook configuration
 func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	client admissionregistrationv1client.MutatingWebhookConfigurationInterface,
-	webhookConfigName string) error {
+	webhookConfigName string,
+) error {
 	raw, _, err := w.informer.GetIndexer().GetByKey(webhookConfigName)
 	if raw == nil || err != nil {
 		reportWebhookPatchFailure(webhookConfigName, reasonWebhookConfigNotFound)

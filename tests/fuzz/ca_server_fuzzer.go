@@ -21,13 +21,12 @@ import (
 	"context"
 	"fmt"
 
-	pb "istio.io/api/security/v1alpha1"
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
+	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/security"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	caerror "istio.io/istio/security/pkg/pki/error"
-
-	fuzz "github.com/AdaLogics/go-fuzz-headers"
 )
 
 // FuzzCreateCertificate implements a fuzzer

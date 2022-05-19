@@ -328,7 +328,8 @@ spec:
 
 // Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
 func CreateDestinationRule(t framework.TestContext, to echo.Instances,
-	destinationRuleMode string, credentialName string) {
+	destinationRuleMode string, credentialName string,
+) {
 	args := map[string]interface{}{
 		"to":             to,
 		"Mode":           destinationRuleMode,
