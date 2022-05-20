@@ -281,7 +281,7 @@ spec:
         exact: /echo-%s
     route:
     - destination:
-        host: server
+        host: b
         port:
           number: 80
   tcp:
@@ -289,7 +289,7 @@ spec:
     - port: 31400
     route:
     - destination:
-        host: server
+        host: b
         port:
           number: 9090
 `
