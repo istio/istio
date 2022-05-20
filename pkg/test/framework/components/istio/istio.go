@@ -35,6 +35,9 @@ type Instance interface {
 	// IngressFor returns an ingress used for reaching workloads in the given cluster.
 	// The ingress's service name will be "istio-ingressgateway" and the istio label will be "ingressgateway".
 	IngressFor(cluster cluster.Cluster) ingress.Instance
+	// EastWestGatewayFor returns an ingress used for east-west traffic and accessing the control plane
+	// from outside of the cluster.
+	EastWestGatewayFor(cluster cluster.Cluster) ingress.Instance
 	// CustomIngressFor returns an ingress with a specific service name and "istio" label used for reaching workloads
 	// in the given cluster.
 	CustomIngressFor(cluster cluster.Cluster, serviceName, istioLabel string) ingress.Instance

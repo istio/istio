@@ -146,6 +146,10 @@ func (i *operatorComponent) IngressFor(c cluster.Cluster) ingress.Instance {
 	return i.CustomIngressFor(c, defaultIngressServiceName, defaultIngressIstioLabel)
 }
 
+func (i *operatorComponent) EastWestGatewayFor(c cluster.Cluster) ingress.Instance {
+	return i.CustomIngressFor(c, eastWestIngressServiceName, eastWestIngressIstioLabel)
+}
+
 func (i *operatorComponent) CustomIngressFor(c cluster.Cluster, serviceName, istioLabel string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()

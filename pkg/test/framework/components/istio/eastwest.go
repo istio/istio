@@ -34,6 +34,11 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
+const (
+	eastWestIngressIstioLabel  = "eastwestgateway"
+	eastWestIngressServiceName = "istio-" + eastWestIngressIstioLabel
+)
+
 var (
 	mcSamples              = path.Join(env.IstioSrc, "samples", "multicluster")
 	exposeIstiodGateway    = path.Join(mcSamples, "expose-istiod.yaml")
