@@ -151,7 +151,7 @@ func DetectEndpointMode(kubeClient kubelib.Client) EndpointMode {
 	useEndpointslice, ok := features.EnableEndpointSliceController()
 
 	// we have a client, and flag wasn't set explicitly, auto-detect
-	if kubeClient != nil && !ok && kubelib.IsAtLeastVersion(kubeClient, 21) {
+	if kubeClient != nil && !ok && !kubelib.IsLessThanVersion(kubeClient, 21) {
 		useEndpointslice = true
 	}
 
