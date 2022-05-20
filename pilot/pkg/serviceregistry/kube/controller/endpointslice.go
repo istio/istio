@@ -80,7 +80,7 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 
 // TODO use this to automatically switch to EndpointSlice mode
 func endpointSliceV1Available(client kubelib.Client) bool {
-	return client != nil && kubelib.IsAtLeastVersion(client, 21)
+	return client != nil && !kubelib.IsLessThanVersion(client, 21)
 }
 
 func (esc *endpointSliceController) getInformer() filter.FilteredSharedIndexInformer {
