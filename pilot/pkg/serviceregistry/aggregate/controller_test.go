@@ -378,7 +378,6 @@ func TestAddRegistry(t *testing.T) {
 			counter = registry2Counter
 		}
 		ctrl.AppendServiceHandlerForCluster(clusterID, func(service *model.Service, event model.Event) {
-			t.Logf("---run %s service handler", clusterID)
 			counter.Add(1)
 		})
 		ctrl.AddRegistry(r)
