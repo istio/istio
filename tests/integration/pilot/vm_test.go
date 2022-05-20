@@ -77,12 +77,15 @@ func TestVmOSPost(t *testing.T) {
 			}
 			instances := b.BuildOrFail(t)
 
-			for i, image := range images {
-				i, image := i, image
+			for idx, image := range images {
+				idx, image := idx, image
 				t.NewSubTest(image).RunParallel(func(t framework.TestContext) {
-					for _, tt := range common.VMTestCases(t, echo.Instances{instances[i]}, &apps) {
-						tt.Run(t, apps.Namespace.Name())
+					tc := common.TrafficContext{
+						TestContext: t,
+						Istio:       i,
+						Apps:        apps,
 					}
+					common.VMTestCases(echo.Instances{instances[idx]})(tc)
 				})
 			}
 		})
