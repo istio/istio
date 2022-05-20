@@ -90,7 +90,8 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.ProvCert(cfg.Metadata.ProvCert),
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
-		option.XdsType(xdsType))
+		option.XdsType(xdsType),
+		option.DualStack(cfg.Metadata.DualStack))
 
 	// Add GCPProjectNumber to access in bootstrap template.
 	md := cfg.Metadata.PlatformMetadata
@@ -115,16 +116,20 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if network.AllIPv6(cfg.Metadata.InstanceIPs) {
+	if network.HasIPv6(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
-			option.Wildcard(option.WildcardIPv6),
+			option.IPv6Wildcard(option.WildcardIPv6),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
-	} else {
+	}
+
+	if network.HasIPv4(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv4),
-			option.Wildcard(option.WildcardIPv4),
-			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+			option.IPv4Wildcard(option.WildcardIPv4))
+			if network.AllIPv4(cfg.Metadata.InstanceIPs) {
+				option.DNSLookupFamily(option.DNSLookupFamilyIPv4)
+			}
 	}
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)

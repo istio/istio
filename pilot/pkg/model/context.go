@@ -497,6 +497,9 @@ type BootstrapNodeMetadata struct {
 
 	// IstioProxySHA is the SHA of the proxy version.
 	IstioProxySHA string `json:"ISTIO_PROXY_SHA,omitempty"`
+
+	// DualStack defines the dual stack feature gate is open or not
+	DualStack bool `json:"DUAL_STACK,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy
