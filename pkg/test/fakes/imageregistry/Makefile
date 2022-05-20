@@ -16,8 +16,8 @@
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MD_PATH := $(dir $(MKFILE_PATH))
-HUB ?= gcr.io/istio-testing
-IMG := $(HUB)/fake-registry
+HUB ?= gcr.io
+IMG := $(HUB)/istio-testing/fake-registry
 BIN_NAME := main
 
 # NOTE: TAG should be updated whenever changes are made in this directory
