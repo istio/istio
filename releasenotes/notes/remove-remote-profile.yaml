@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
   - |
-    **Removed** istio operator `remote.yaml` profile.
+    **Removed** the deprecated istio operator `remote.yaml` profile which is equivalent to the default profile.

@@ -348,7 +348,7 @@ func validateSetFlags(setFlags []string) error {
 			return fmt.Errorf("set flag %s has incorrect format, must be path=value", sf)
 		}
 		if pv[0] == "profile" && pv[1] == "remote" {
-			return fmt.Errorf("profile \"remote\" has been removed and is equivalent to \"default\"")
+			return fmt.Errorf("profile \"remote\" has been removed (use the \"default\" profile, which is equivalent)")
 		}
 	}
 	return nil
