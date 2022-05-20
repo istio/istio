@@ -35,3 +35,17 @@ const (
 func (p WellKnown) String() string {
 	return string(p)
 }
+
+type WellKnownList []WellKnown
+
+func (w WellKnownList) ToStringArray() []string {
+	out := make([]string, 0, len(w))
+	for _, item := range w {
+		out = append(out, item.String())
+	}
+	return out
+}
+
+func AllWellKnown() WellKnownList {
+	return []WellKnown{From, To, Namespace, SystemNamespace}
+}
