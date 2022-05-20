@@ -2769,7 +2769,7 @@ func serverFirstTestCases(t TrafficContext) {
 }
 
 func jwtClaimRoute(t TrafficContext) {
-	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) {
+	if t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) {
 		t.Skipf("https://github.com/istio/istio/issues/35835")
 	}
 	configRoute := `
