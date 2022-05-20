@@ -165,12 +165,12 @@ func (c *Controller) Services() []*model.Service {
 	// are installed in multiple clusters.
 	smap := make(map[host.Name]int)
 	index := 0
-
 	services := make([]*model.Service, 0)
 	// Locking Registries list while walking it to prevent inconsistent results
 	for _, r := range c.GetRegistries() {
 		svcs := r.Services()
 		if r.Provider() != provider.Kubernetes {
+			index += len(svcs)
 			services = append(services, svcs...)
 		} else {
 			for _, s := range svcs {
@@ -184,7 +184,8 @@ func (c *Controller) Services() []*model.Service {
 					index++
 					services = append(services, s)
 				} else {
-					// If previous service has not been deep copied
+					// We must deepcopy before merge, and after merging, the ClusterVips length will be >= 2.
+					// This is an optimization to prevent deepcopy multi-times
 					if len(services[previous].ClusterVIPs.GetAddresses()) < 2 {
 						// Deep copy before merging, otherwise there is a case
 						// a service in remote cluster can be deleted, but the ClusterIP left.
