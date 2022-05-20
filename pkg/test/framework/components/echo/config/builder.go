@@ -37,6 +37,7 @@ type Builder struct {
 	needTo        []Source
 	needFromAndTo []Source
 	complete      []Source
+	yamlCount     int
 }
 
 func New(t framework.TestContext) *Builder {
@@ -103,6 +104,13 @@ func (b *Builder) Source(s Source) *Builder {
 		// No well-known parameters are missing.
 		out.complete = append(out.complete, s)
 	}
+
+	// Delete all the wellknown parameters.
+	need.Delete(param.AllWellKnown().ToStringArray()...)
+	if len(need) > 0 {
+		panic(fmt.Sprintf("config source missing parameters: %v", need))
+	}
+
 	return out
 }
 
@@ -187,6 +195,11 @@ func (b *Builder) BuildAll(fromAll echo.Callers, toAll echo.Services) *Builder {
 }
 
 func (b *Builder) Apply(opts ...apply.Option) {
+	if b.yamlCount == 0 {
+		// Nothing to do.
+		return
+	}
+
 	start := time.Now()
 	scopes.Framework.Info("=== BEGIN: Deploy config ===")
 
@@ -221,6 +234,7 @@ func (b *Builder) addYAML(s Source) {
 
 	// Generate the YAML and add it to the configuration.
 	b.out.YAML(ns.Name(), s.YAMLOrFail(b.t))
+	b.yamlCount++
 }
 
 func withParams(s Source, params param.Params) Source {
@@ -257,6 +271,7 @@ func (b *Builder) Copy() *Builder {
 		needFromAndTo: copySources(b.needFromAndTo),
 		complete:      copySources(b.complete),
 		out:           b.out.Copy(),
+		yamlCount:     b.yamlCount,
 	}
 }
 
