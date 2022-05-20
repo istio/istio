@@ -21,6 +21,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -43,9 +44,9 @@ func convertPort(port *networking.Port) *model.Port {
 	}
 }
 
-type HostAddress struct {
-	host    string
-	address string
+type HostAddresses struct {
+	host      string
+	addresses []string
 }
 
 // ServiceToServiceEntry converts from internal Service representation to ServiceEntry
@@ -177,13 +178,14 @@ func convertServices(cfg config.Config) []*model.Service {
 	if serviceEntry.WorkloadSelector != nil {
 		labelSelectors = serviceEntry.WorkloadSelector.Labels
 	}
-	hostAddresses := []*HostAddress{}
+	hostAddresses := []*HostAddresses{}
 	for _, hostname := range serviceEntry.Hosts {
+		var addresses []string
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
 				// Check if address is an IP first because that is the most common case.
 				if net.ParseIP(address) != nil {
-					hostAddresses = append(hostAddresses, &HostAddress{hostname, address})
+					addresses = append(addresses, address)
 				} else if ip, network, cidrErr := net.ParseCIDR(address); cidrErr == nil {
 					newAddress := address
 					ones, zeroes := network.Mask.Size()
@@ -191,30 +193,54 @@ func convertServices(cfg config.Config) []*model.Service {
 						// /32 mask. Remove the /32 and make it a normal IP address
 						newAddress = ip.String()
 					}
-					hostAddresses = append(hostAddresses, &HostAddress{hostname, newAddress})
+					addresses = append(addresses, newAddress)
 				}
 			}
 		} else {
-			hostAddresses = append(hostAddresses, &HostAddress{hostname, constants.UnspecifiedIP})
+			addedUnspecifiedIPv4 := false
+			addedUnspecifiedIPv6 := false
+			for _, ep := range serviceEntry.Endpoints {
+				if net.ParseIP(ep.Address) != nil {
+					if net.ParseIP(ep.Address).To4() != nil {
+						if !addedUnspecifiedIPv4 {
+							addresses = append(addresses, constants.UnspecifiedIP)
+							addedUnspecifiedIPv4 = true
+						}
+					} else if net.ParseIP(ep.Address).To16() != nil {
+						if !addedUnspecifiedIPv6 {
+							addresses = append(addresses, constants.UnspecifiedIPv6)
+							addedUnspecifiedIPv6 = true
+						}
+					}
+				}
+			}
+			if len(addresses) == 0 {
+				addresses = append(addresses, constants.UnspecifiedIP)
+				if features.EnableDualStack {
+					addresses = append(addresses, constants.UnspecifiedIPv6)
+				}
+			}
 		}
+		hostAddresses = append(hostAddresses, &HostAddresses{hostname, addresses})
 	}
 
 	return buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
 		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
 }
 
-func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
+func buildServices(hostAddresses []*HostAddresses, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
 	ctime time.Time, labels map[string]string) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
-			CreationTime:   ctime,
-			MeshExternal:   location == networking.ServiceEntry_MESH_EXTERNAL,
-			Hostname:       host.Name(ha.host),
-			DefaultAddress: ha.address,
-			Ports:          ports,
-			Resolution:     resolution,
+			CreationTime:     ctime,
+			MeshExternal:     location == networking.ServiceEntry_MESH_EXTERNAL,
+			Hostname:         host.Name(ha.host),
+			DefaultAddress:   ha.addresses[0],
+			DefaultAddresses: ha.addresses,
+			Ports:            ports,
+			Resolution:       resolution,
 			Attributes: model.ServiceAttributes{
 				ServiceRegistry: provider.External,
 				Name:            ha.host,

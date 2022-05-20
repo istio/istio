@@ -54,6 +54,7 @@ type ProxyConfig struct {
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
 	TestOnly    bool
 	AgentIsRoot bool
+	DualStack   bool
 }
 
 // NewProxy creates an instance of the proxy control commands
