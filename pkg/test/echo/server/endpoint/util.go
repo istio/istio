@@ -79,21 +79,10 @@ func listenOnUDS(uds string) (net.Listener, error) {
 }
 
 // forceClose the given socket.
-func forceClose(conn net.Conn) {
-	// Force the connection closed (should result in sending RST)
-	err := conn.(*net.TCPConn).SetLinger(0)
-	if err != nil {
-		epLog.Infof("Failed force-closing server connection: %s", err)
-	}
-
+func forceClose(conn net.Conn) error {
 	// Close may be called more than once.
-	_ = conn.Close()
-}
+	defer func() { _ = conn.Close() }()
 
-// forceCloseAfterTimeout starts a go routine that forces the connection closed after a time.
-func forceCloseAfterTimeout(conn net.Conn) {
-	go func() {
-		<-time.After(requestTimeout)
-		forceClose(conn)
-	}()
+	// Force the connection closed (should result in sending RST)
+	return conn.(*net.TCPConn).SetLinger(0)
 }
