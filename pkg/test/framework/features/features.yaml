@@ -145,7 +145,6 @@ features:
   extensibility:
     wasm:
       remote-load:
-      image-pull-policy:
   # features releated to the lifecycle of istio installations
   installation:
     istioctl:
