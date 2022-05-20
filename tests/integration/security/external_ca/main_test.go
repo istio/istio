@@ -81,7 +81,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
-		RequireMinVersion(19).
+		RequireMinVersion(20).
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return SetupApps(ctx, apps)
@@ -116,6 +116,12 @@ values:
       certSigners:
       - {{.signer2}}
 components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: true
+  egressGateways:
+  - name: istio-egressgateway
+    enabled: true
   istiodRemote:
     k8s:
       overlays:
