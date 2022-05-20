@@ -1,4 +1,0 @@
-# Deprecated. Use the `default` profile instead.
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec: {}
