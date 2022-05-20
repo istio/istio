@@ -93,12 +93,11 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 }
 
 func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, bind string, listenPort *model.Port,
-	gateways map[string]bool, configs []config.Config) []*filterChainOpts {
+	service *model.Service, bind string, listenPort *model.Port, gateways map[string]bool,
+	configs []config.Config, actualWildcard string,) []*filterChainOpts {
 	if !listenPort.Protocol.IsTLS() {
 		return nil
 	}
-	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// TLS matches are composed of runtime and static predicates.
 	// Static predicates can be evaluated during the generation of the config. Examples: gateway, source labels, etc.
 	// Runtime predicates cannot be evaluated during config generation. Instead the proxy must be configured to
@@ -172,7 +171,11 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			port = service.Ports[0].Port
 		}
 
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+		outbound := model.TrafficDirectionOutbound
+		if len(service.DefaultAddresses) > 1 && net.ParseIP(actualWildcard).To4() == nil && net.ParseIP(actualWildcard).To16() != nil {
+			outbound = model.TrafficDirectionOutbound6
+		}
+		clusterName := model.BuildSubsetKey(outbound, "", service.Hostname, port)
 		statPrefix := clusterName
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
@@ -195,7 +198,9 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			svcListenAddress = ""
 		}
 
-		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
+		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 ||
+			(svcListenAddress == WildcardAddress || svcListenAddress == WildcardIPv6Address) &&
+			(bind == WildcardAddress || bind == WildcardIPv6Address) {
 			sniHosts = []string{string(service.Hostname)}
 		}
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
@@ -336,7 +341,7 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.Pu
 	}
 
 	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, push, destinationCIDR, service,
-		bind, listenPort, gateways, svcConfigs)...)
+		bind, listenPort, gateways, svcConfigs, actualWildcard)...)
 	out = append(out, buildSidecarOutboundTCPFilterChainOpts(node, push, destinationCIDR, service,
 		listenPort, gateways, svcConfigs, actualWildcard)...)
 	return out
