@@ -157,8 +157,9 @@ func (q Queue) processNextItem() bool {
 
 	err := q.workFn(key)
 	if err != nil {
-		if q.queue.NumRequeues(key) < q.maxAttempts {
-			q.log.Errorf("error handling %v, retrying: %v", key, err)
+		retryCount := q.queue.NumRequeues(key)
+		if retryCount < q.maxAttempts {
+			q.log.Errorf("error handling %v, retrying (retry count: %d): %v", key, retryCount, err)
 			q.queue.AddRateLimited(key)
 			// Return early, so we do not call Forget(), allowing the rate limiting to backoff
 			return true

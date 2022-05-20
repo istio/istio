@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
+	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
@@ -45,6 +47,7 @@ import (
 
 const (
 	MultiClusterSecretLabel = "istio/multiCluster"
+	maxRetries              = 15
 )
 
 func init() {
@@ -116,7 +119,17 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 		cs:                 newClustersStore(),
 		informer:           secretsInformer,
 	}
-	controller.queue = controllers.NewQueue("multicluster secret", controllers.WithReconciler(controller.processItem))
+
+	// In order not to block the server startup when adding cluster error, set the base delay of rate limiter to 200ms here,
+	// becauce the execution cycle of server.waitForCacheSync is 100ms.
+	rateLimiter := workqueue.NewMaxOfRateLimiter(
+		workqueue.NewItemExponentialFailureRateLimiter(200*time.Millisecond, 1000*time.Second),
+		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
+	)
+	controller.queue = controllers.NewQueue("multicluster secret",
+		controllers.WithRateLimiter(rateLimiter),
+		controllers.WithMaxAttempts(maxRetries),
+		controllers.WithReconciler(controller.processItem))
 
 	secretsInformer.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
 	return controller
@@ -192,11 +205,13 @@ func (c *Controller) processItem(key types.NamespacedName) error {
 	log.Infof("processing secret event for secret %s", key)
 	obj, exists, err := c.informer.GetIndexer().GetByKey(key.String())
 	if err != nil {
-		return fmt.Errorf("error fetching object %s error: %v", key, err)
+		return fmt.Errorf("error fetching object %s: %v", key, err)
 	}
 	if exists {
 		log.Debugf("secret %s exists in informer cache, processing it", key)
-		c.addSecret(key, obj.(*corev1.Secret))
+		if err := c.addSecret(key, obj.(*corev1.Secret)); err != nil {
+			return fmt.Errorf("error adding secret %s: %v", key, err)
+		}
 	} else {
 		log.Debugf("secret %s does not exist in informer cache, deleting it", key)
 		c.deleteSecret(key.String())
@@ -309,7 +324,7 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 	}, nil
 }
 
-func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
+func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) error {
 	secretKey := name.String()
 	// First delete clusters
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
@@ -319,6 +334,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 		}
 	}
 
+	var errs *multierror.Error
 	for clusterID, kubeConfig := range s.Data {
 		if cluster.ID(clusterID) == c.localClusterID {
 			log.Infof("ignoring cluster %v from secret %v as it would overwrite the local cluster", clusterID, secretKey)
@@ -336,20 +352,23 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 			}
 		} else if c.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
-			log.Warnf("cluster %d from secret %s has already been registered", clusterID, secretKey)
+			log.Warnf("cluster %s from secret %s has already been registered", clusterID, secretKey)
 			continue
 		}
 		log.Infof("%s cluster %v from secret %v", action, clusterID, secretKey)
 
 		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterID)
 		if err != nil {
-			log.Errorf("%s cluster_id=%v from secret=%v: %v", action, clusterID, secretKey, err)
+			err = fmt.Errorf("%s cluster_id=%v from secret=%v: %w", action, clusterID, secretKey, err)
+			errs = multierror.Append(errs, err)
 			continue
 		}
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
 			remoteCluster.Stop()
-			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
+			c.cs.Delete(secretKey, remoteCluster.ID)
+			err = fmt.Errorf("%s cluster_id=%s from secret=%v: %w", action, clusterID, secretKey, err)
+			errs = multierror.Append(errs, err)
 			continue
 		}
 		log.Infof("finished callback for %s and starting to sync", clusterID)
@@ -357,6 +376,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
+	return errs.ErrorOrNil()
 }
 
 func (c *Controller) deleteSecret(secretKey string) {
