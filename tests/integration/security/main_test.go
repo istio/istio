@@ -25,14 +25,20 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/pkg/log"
 )
 
+type NamespaceAddition struct {
+	Namespace namespace.Instance
+}
+
 var (
 	ist  istio.Instance
 	apps = &util.EchoDeployments{}
+	app  = &NamespaceAddition{}
 )
 
 func TestMain(m *testing.M) {
@@ -41,6 +47,14 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return util.SetupApps(ctx, ist, apps, !ctx.Settings().Skip(echo.VM))
+		}).
+		Setup(func(ctx resource.Context) error {
+			var err error
+			app.Namespace, err = namespace.Claim(ctx, namespace.Config{
+				Prefix: "jwksns",
+				Inject: true,
+			})
+			return err
 		}).
 		Run()
 }

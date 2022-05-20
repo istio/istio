@@ -9,7 +9,7 @@ spec:
       app: {{ .dst }}
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    jwksUri: "https://jwt-server.jwksns.svc.cluster.local:8443/jwks"
     fromHeaders:
     - name: "x-jwt-token"
       prefix: "Value "

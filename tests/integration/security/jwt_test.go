@@ -18,6 +18,7 @@
 package security
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -47,9 +48,19 @@ func TestRequestAuthentication(t *testing.T) {
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			t.ConfigKube().EvalFile(ns.Name(), map[string]string{
-				"Namespace": ns.Name(),
-			}, "../../../samples/jwt-server/jwt-server.yaml").ApplyOrFail(t)
+			jwtNs := "jwksns"
+			// output, _ := shell.Execute(false, fmt.Sprintf("kubectl create namespace %s", jwtNs))
+			// fmt.Println("-------output1-------", output)
+			// cmd1 := fmt.Sprintf("kubectl label namespace %s istio-injection=enabled --overwrite", jwtNs)
+			// output, _ = shell.Execute(false, cmd1)
+			// fmt.Println("-------output2-------", output)
+			// time.Sleep(10 * time.Second)
+			for _, cluster := range t.AllClusters() {
+				fmt.Println("----cluster----", cluster)
+				t.ConfigKube(cluster).EvalFile(jwtNs, map[string]string{
+					"Namespace": jwtNs,
+				}, "../../../samples/jwt-server/jwt-server.yaml").ApplyOrFail(t)
+			}
 
 			type testCase struct {
 				name          string
