@@ -23,17 +23,20 @@ import (
 	"net/http"
 	"time"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
-	service = "registry-redirector"
-	ns      = "registry-redirector"
+	service     = "registry-redirector"
+	ns          = "registry-redirector"
+	podSelector = "app=registry-redirector"
 )
 
 var (
@@ -42,10 +45,11 @@ var (
 )
 
 type kubeComponent struct {
-	id      resource.ID
-	ns      namespace.Instance
-	cluster cluster.Cluster
-	address string
+	id        resource.ID
+	ns        namespace.Instance
+	cluster   cluster.Cluster
+	address   string
+	forwarder kube.PortForwarder
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
@@ -87,6 +91,12 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", env.RegistryRedirectorServerInstallFilePath, err)
 	}
 
+	fetchFn := testKube.NewPodFetch(ctx.Clusters().Default(), c.ns.Name(), podSelector)
+	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
+	if err != nil {
+		return nil, err
+	}
+
 	if _, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), service); err != nil {
 		scopes.Framework.Infof("Error waiting for container registry service to be available: %v", err)
 		return nil, err
@@ -94,6 +104,23 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	c.address = net.JoinHostPort(fmt.Sprintf("%s.%s", service, c.ns.Name()), "1338")
 	scopes.Framework.Infof("registry redirector server in-cluster address: %s", c.address)
+
+	if len(pods) == 0 {
+		return nil, fmt.Errorf("no pod was selected for selector %q", podSelector)
+	}
+
+	thePod := pods[0]
+
+	portForwarder, err := c.cluster.NewPortForwarder(thePod.Name, thePod.Namespace, "", 0, 1338)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := portForwarder.Start(); err != nil {
+		return nil, err
+	}
+
+	c.forwarder = portForwarder
 
 	return c, nil
 }
@@ -119,9 +146,14 @@ func (c *kubeComponent) SetupTagMap(tagMap map[string]string) error {
 	if err != nil {
 		return err
 	}
-	_, err = client.Post(fmt.Sprintf("%s/admin/v1/tagmap", c.address), "application/json", bytes.NewBuffer(body))
+
+	err = retry.UntilSuccess(func() error {
+		_, err := client.Post(fmt.Sprintf("http://%s/admin/v1/tagmap", c.forwarder.Address()), "application/json", bytes.NewBuffer(body))
+		return err
+	}, retry.Delay(100*time.Millisecond), retry.Timeout(20*time.Second))
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

@@ -119,7 +119,8 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 }
 
 func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets map[model.ConfigKey]struct{}, secretResources []SecretResource,
-	secretController credscontroller.Controller, req *model.PushRequest) map[string][]byte {
+	secretController credscontroller.Controller, req *model.PushRequest,
+) map[string][]byte {
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %s is not authorized to receive secret. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil

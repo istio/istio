@@ -50,7 +50,8 @@ func TestTcpProbe(t *testing.T) {
 }
 
 func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
-	name string, rewrite bool, wantSuccess bool, openPort bool) {
+	name string, rewrite bool, wantSuccess bool, openPort bool,
+) {
 	ctx.Helper()
 
 	var tcpProbe echo.Instance

@@ -53,7 +53,6 @@ type AdmissionReview struct {
 
 // AdmissionRequest describes the admission.Attributes for the admission request.
 type AdmissionRequest struct {
-
 	// UID is an identifier for the individual request/response. It allows us to distinguish instances of requests which are
 	// otherwise identical (parallel requests, requests when earlier requests did not modify etc)
 	// The UID is meant to track the round trip (request/response) between the KAS and the WebHook, not the user request.
@@ -128,7 +127,6 @@ type AdmissionRequest struct {
 
 // AdmissionResponse describes an admission response.
 type AdmissionResponse struct {
-
 	// UID is an identifier for the individual request/response.
 	// This should be copied over from the corresponding AdmissionRequest.
 	UID types.UID `json:"uid"`

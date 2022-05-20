@@ -210,7 +210,8 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 // If componentName is not empty, only resources associated with specific components would be returned
 // UnstructuredList of objects and corresponding list of name kind hash of k8sObjects would be returned
 func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResources bool, componentName string) (
-	[]*unstructured.UnstructuredList, error) {
+	[]*unstructured.UnstructuredList, error,
+) {
 	var usList []*unstructured.UnstructuredList
 	labels := make(map[string]string)
 	if revision != "" {
@@ -304,7 +305,8 @@ func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
 // DeleteControlPlaneByManifests removed resources by manifests with matching revision label.
 // If purge option is set to true, all manifests would be removed regardless of labels match.
 func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.ManifestMap,
-	revision string, includeClusterResources bool) error {
+	revision string, includeClusterResources bool,
+) error {
 	labels := map[string]string{
 		operatorLabelStr: operatorReconcileStr,
 	}
@@ -391,7 +393,8 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 // deleteResources delete any resources from the given component that are not in the excluded map. Resource
 // labels are used to identify the resources belonging to the component.
 func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels map[string]string,
-	componentName string, objects *unstructured.UnstructuredList, all bool) error {
+	componentName string, objects *unstructured.UnstructuredList, all bool,
+) error {
 	var errs util.Errors
 	labels := h.addComponentLabels(coreLabels, componentName)
 	selector := klabels.Set(labels).AsSelectorPreValidated()

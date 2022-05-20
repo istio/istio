@@ -63,7 +63,8 @@ spec:
 }
 
 func runGRPCProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
-	name string, rewrite bool, wantReady bool, openPort bool) {
+	name string, rewrite bool, wantReady bool, openPort bool,
+) {
 	ctx.Helper()
 
 	var grpcProbe echo.Instance

@@ -193,7 +193,8 @@ func (client mockPromAPI) WalReplay(ctx context.Context) (promv1.WalReplayStatus
 }
 
 func (client mockPromAPI) Series(ctx context.Context, matches []string,
-	startTime time.Time, endTime time.Time) ([]prometheus_model.LabelSet, promv1.Warnings, error) {
+	startTime time.Time, endTime time.Time,
+) ([]prometheus_model.LabelSet, promv1.Warnings, error) {
 	return nil, nil, nil
 }
 

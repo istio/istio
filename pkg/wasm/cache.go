@@ -81,9 +81,10 @@ type LocalFileCache struct {
 	mux sync.Mutex
 
 	// Duration for stale Wasm module purging.
-	purgeInterval      time.Duration
-	wasmModuleExpiry   time.Duration
-	insecureRegistries sets.Set
+	purgeInterval              time.Duration
+	wasmModuleExpiry           time.Duration
+	insecureRegistries         sets.Set
+	allowAllInsecureRegistries bool
 
 	// stopChan currently is only used by test
 	stopChan chan struct{}
@@ -127,6 +128,7 @@ type cacheEntry struct {
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
 func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
+	ir := sets.New(insecureRegistries...)
 	cache := &LocalFileCache{
 		httpFetcher:        NewHTTPFetcher(DefaultWasmHTTPRequestTimeout),
 		modules:            make(map[moduleKey]*cacheEntry),
@@ -135,8 +137,11 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, in
 		purgeInterval:      purgeInterval,
 		wasmModuleExpiry:   moduleExpiry,
 		stopChan:           make(chan struct{}),
-		insecureRegistries: sets.New(insecureRegistries...),
+		insecureRegistries: ir,
+		// If the set of the given insecure registries contains "*", then allow all the insecure registries.
+		allowAllInsecureRegistries: ir.Contains("*"),
 	}
+
 	go func() {
 		cache.purge()
 	}()
@@ -171,7 +176,8 @@ func pullIfNotPresent(pullPolicy extensions.PullPolicy, u *url.URL) bool {
 // Get returns path the local Wasm module file.
 func (c *LocalFileCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
-	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
+	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
+) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -203,7 +209,7 @@ func (c *LocalFileCache) Get(
 	// Hex-Encoded sha256 checksum of binary.
 	var dChecksum string
 	var binaryFetcher func() ([]byte, error)
-	insecure := c.insecureRegistries.Contains(u.Host)
+	insecure := c.allowAllInsecureRegistries || c.insecureRegistries.Contains(u.Host)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()

@@ -213,7 +213,8 @@ spec:
 )
 
 func createDestinationRule(t framework.TestContext, serviceNamespace namespace.Instance,
-	destinationRuleMode string, fakeRootCert bool) bytes.Buffer {
+	destinationRuleMode string, fakeRootCert bool,
+) bytes.Buffer {
 	var destinationRuleToParse string
 	var rootCertPathToUse string
 	if destinationRuleMode == "MUTUAL" {

@@ -150,7 +150,8 @@ func (s *CAServer) sendEmpty() bool {
 
 // CreateCertificate handles CSR.
 func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
-	*pb.IstioCertificateResponse, error) {
+	*pb.IstioCertificateResponse, error,
+) {
 	caServerLog.Infof("received CSR request")
 	if s.shouldReject() {
 		caServerLog.Info("force rejecting CSR request")

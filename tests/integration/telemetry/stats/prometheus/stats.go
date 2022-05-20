@@ -207,19 +207,24 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 		})
 }
 
-// TestSetup set up echo app for stats testing.
-func TestSetup(ctx resource.Context) (err error) {
+func AppNameSpaceSetup(ctx resource.Context) (err error) {
 	appNsInst, err = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
 		Inject: true,
 	})
-	if err != nil {
-		return
+	return
+}
+
+// TestSetup set up echo app for stats testing.
+func TestSetup(ctx resource.Context) (err error) {
+	if appNsInst == nil {
+		AppNameSpaceSetup(ctx)
 	}
 
-	outputCertAnnot := `
+	proxyMetadata := `
 proxyMetadata:
-  OUTPUT_CERTS: /etc/certs/custom`
+  OUTPUT_CERTS: /etc/certs/custom
+  WASM_INSECURE_REGISTRIES: "*"`
 
 	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
@@ -290,7 +295,7 @@ proxyMetadata:
 							Value: "",
 						},
 						echo.SidecarProxyConfig: {
-							Value: outputCertAnnot,
+							Value: proxyMetadata,
 						},
 						echo.SidecarVolumeMount: {
 							Value: `[{"name": "custom-certs", "mountPath": "/etc/certs/custom"}]`,

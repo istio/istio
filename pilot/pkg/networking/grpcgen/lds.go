@@ -236,18 +236,16 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 //
 // See: xds/interal/httpfilter/rbac
 //
-//
 // TODO: gRPC also supports 'per route override' - not yet clear how to use it, Istio uses path expressions instead and we don't generate
 // vhosts or routes for the inbound listener.
 //
 // For gateways it would make a lot of sense to use this concept, same for moving path prefix at top level ( more scalable, easier for users)
 // This should probably be done for the v2 API.
 //
-//
-//
 // nolint: unparam
 func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext,
-	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy) *rbacpb.RBAC {
+	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy,
+) *rbacpb.RBAC {
 	rules := &rbacpb.RBAC{
 		Action:   a,
 		Policies: map[string]*rbacpb.Policy{},
