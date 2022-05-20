@@ -920,7 +920,7 @@ func generateModulePath(t *testing.T, baseDir, resourceName, filename string) st
 	sha := sha256.Sum256([]byte(resourceName))
 	moduleDir := filepath.Join(baseDir, hex.EncodeToString(sha[:]))
 	if _, err := os.Stat(moduleDir); errors.Is(err, os.ErrNotExist) {
-		err := os.Mkdir(moduleDir, 0755)
+		err := os.Mkdir(moduleDir, 0o755)
 		if err != nil {
 			t.Fatalf("failed to create module dir %s: %v", moduleDir, err)
 		}

@@ -179,7 +179,7 @@ func getModulePath(baseDir string, mkey moduleKey) (string, error) {
 	hashedName := hex.EncodeToString(sha[:])
 	moduleDir := filepath.Join(baseDir, hashedName)
 	if _, err := os.Stat(moduleDir); errors.Is(err, os.ErrNotExist) {
-		err := os.Mkdir(moduleDir, 0755)
+		err := os.Mkdir(moduleDir, 0o755)
 		if err != nil {
 			return "", err
 		}
