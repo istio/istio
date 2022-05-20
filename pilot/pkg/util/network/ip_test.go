@@ -204,6 +204,11 @@ func TestAllIPv6(t *testing.T) {
 			addrs:    []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
 			expected: false,
 		},
+		{
+			name:     "test for invalid ip address",
+			addrs:    []string{"invalidip"},
+			expected: true,
+		},
 	}
 	for _, tt := range tests {
 		result := AllIPv6(tt.addrs)
@@ -234,11 +239,46 @@ func TestAllIPv4(t *testing.T) {
 			addrs:    []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
 			expected: false,
 		},
+		{
+			name:     "test for invalid ip address",
+			addrs:    []string{"invalidip"},
+			expected: true,
+		},
 	}
 	for _, tt := range tests {
 		result := AllIPv4(tt.addrs)
 		if result != tt.expected {
 			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
+		}
+	}
+}
+
+func TestGlobalUnicastIP(t *testing.T) {
+	tests := []struct {
+		name     string
+		addrs    []string
+		expected string
+	}{
+		{
+			name:     "test for globalunicastip",
+			addrs:    []string{"127.0.0.1", "1.1.1.1"},
+			expected: "1.1.1.1",
+		},
+		{
+			name:     "test for empty value",
+			addrs:    []string{},
+			expected: "",
+		},
+		{
+			name:     "test for invalid ip address",
+			addrs:    []string{"invalidip"},
+			expected: "",
+		},
+	}
+	for _, tt := range tests {
+		result := GlobalUnicastIP(tt.addrs)
+		if result != tt.expected {
+			t.Errorf("Test %s failed, expected: %v got: %v", tt.name, tt.expected, result)
 		}
 	}
 }
