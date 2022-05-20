@@ -444,10 +444,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	log.Debugf("Handle event %s for workload instance (%s/%s) in namespace %s", event,
 		wi.Kind, wi.Endpoint.Address, wi.Namespace)
 
-	s.mutex.RLock()
-	skip := wi.Kind == model.PodKind && len(s.services.seWithWorkloadSelectors[wi.Namespace]) == 0
-	s.mutex.RUnlock()
-	if skip {
+	if s.shouldSkip(wi) {
 		log.Debugf("There are no service entries with workload selector in the namespace %s. Skipping this", wi.Namespace)
 		return
 	}
@@ -520,16 +517,20 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
 	}
 
-	if len(instances) > 0 {
-		if event == model.EventDelete {
-			s.serviceInstances.deleteInstances(key, instances)
-		} else {
-			s.serviceInstances.updateInstances(key, instances)
-		}
+	if event == model.EventDelete {
+		s.serviceInstances.deleteInstances(key, instances)
+	} else {
+		s.serviceInstances.updateInstances(key, instances)
 	}
 	s.mutex.Unlock()
 
 	s.edsUpdate(instances)
+}
+
+func (s *Controller) shouldSkip(wi *model.WorkloadInstance) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return wi.Kind == model.PodKind && len(s.services.seWithWorkloadSelectors[wi.Namespace]) == 0
 }
 
 func (s *Controller) Provider() provider.ID {
