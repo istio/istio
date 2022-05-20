@@ -512,7 +512,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "cors",
 		// TODO https://github.com/istio/istio/issues/31532
-		targetMatchers: []match.Matcher{match.NotTProxy, match.NotVM},
+		targetMatchers: []match.Matcher{match.NotTProxy, match.NotVM, match.NotNaked, match.NotHeadless, match.NotProxylessGRPC},
 
 		config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -672,8 +672,8 @@ spec:
 		t.RunTraffic(TrafficTestCase{
 			name:           fmt.Sprintf("shifting-%d", split[0]),
 			toN:            len(split),
-			sourceMatchers: []match.Matcher{match.NotHeadless, match.NotNaked},
-			targetMatchers: []match.Matcher{match.NotHeadless, match.NotExternal},
+			sourceMatchers: []match.Matcher{match.NotHeadless, match.NotNaked, match.NotProxylessGRPC},
+			targetMatchers: []match.Matcher{match.NotHeadless, match.NotNaked, match.NotExternal, match.NotProxylessGRPC},
 			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
 					"split": split,
