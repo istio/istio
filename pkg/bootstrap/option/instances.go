@@ -100,10 +100,6 @@ func Localhost(value LocalhostValue) Instance {
 	return newOption("localhost", value)
 }
 
-func Wildcard(value WildcardValue) Instance {
-	return newOption("wildcard", value)
-}
-
 func IPv4Wildcard(value WildcardValue) Instance {
 	return newOption("wildcardipv4", value)
 }

@@ -16,6 +16,8 @@ package xds
 
 import (
 	"fmt"
+	"net"
+	"strings"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -507,6 +509,22 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			cached++
 		} else {
 			l := eds.Server.generateEndpoints(builder)
+			// in dual stack, check lb endpoints attached to the right endpoint
+			if builder.service != nil && len(builder.service.DefaultAddresses) > 1 {
+				for _, ep := range l.Endpoints {
+					for i := len(ep.LbEndpoints) - 1; i >= 0; i-- {
+						lbEndpoint := ep.LbEndpoints[i]
+						// delete the invalidated lb endpoints
+						if (strings.Contains(clusterName, string(model.TrafficDirectionOutbound6)) &&
+							net.ParseIP(lbEndpoint.GetEndpoint().Address.GetSocketAddress().Address).To4() != nil) ||
+							(!strings.Contains(clusterName, string(model.TrafficDirectionOutbound6)) &&
+							net.ParseIP(lbEndpoint.GetEndpoint().Address.GetSocketAddress().Address).To4() == nil) {
+							ep.LbEndpoints = append(ep.LbEndpoints[:i], ep.LbEndpoints[i+1:]...)
+						}
+					}
+				}
+			}
+
 			if l == nil {
 				continue
 			}

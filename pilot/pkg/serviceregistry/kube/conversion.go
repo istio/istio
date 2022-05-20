@@ -55,6 +55,7 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 
 func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.ID) *model.Service {
 	addr := constants.UnspecifiedIP
+	addresses := svc.Spec.ClusterIPs
 	resolution := model.ClientSideLB
 	meshExternal := false
 
@@ -63,7 +64,8 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 		meshExternal = true
 	}
 
-	if svc.Spec.ClusterIP == coreV1.ClusterIPNone { // headless services should not be load balanced
+	if svc.Spec.ClusterIP == coreV1.ClusterIPNone || svc.Spec.ClusterIP == constants.UnspecifiedIPv6 {
+		// headless services should not be load balanced
 		resolution = model.Passthrough
 	} else if svc.Spec.ClusterIP != "" {
 		addr = svc.Spec.ClusterIP
@@ -99,13 +101,14 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 				clusterID: {addr},
 			},
 		},
-		Ports:           ports,
-		DefaultAddress:  addr,
-		ServiceAccounts: serviceaccounts,
-		MeshExternal:    meshExternal,
-		Resolution:      resolution,
-		CreationTime:    svc.CreationTimestamp.Time,
-		ResourceVersion: svc.ResourceVersion,
+		Ports:            ports,
+		DefaultAddress:   addresses[0],
+		DefaultAddresses: addresses,
+		ServiceAccounts:  serviceaccounts,
+		MeshExternal:     meshExternal,
+		Resolution:       resolution,
+		CreationTime:     svc.CreationTimestamp.Time,
+		ResourceVersion:  svc.ResourceVersion,
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
 			Name:            svc.Name,

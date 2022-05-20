@@ -158,6 +158,23 @@ func AllIPv6(ipAddrs []string) bool {
 	return true
 }
 
+// HasIPv6 checks the addresses slice and returns true if any address
+// is valid IPv6 address, for all other cases it returns false.
+func HasIPv6(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() == nil && addr.To16() != nil && !addr.IsLinkLocalUnicast() {
+			return true
+		}
+	}
+	return false
+}
+
 // AllIPv4 checks the addresses slice and returns true if all addresses
 // are valid IPv4 address, for all other cases it returns false.
 func AllIPv4(ipAddrs []string) bool {
@@ -168,11 +185,28 @@ func AllIPv4(ipAddrs []string) bool {
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.To4() == nil && addr.To16() != nil {
+		if addr.To4() == nil && addr.To16() != nil && !addr.IsLinkLocalUnicast() {
 			return false
 		}
 	}
 	return true
+}
+
+// HasIPv4 checks the addresses slice and returns true if any address
+// is valid IPv4 address, for all other cases it returns false.
+func HasIPv4(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // GlobalUnicastIP returns the first global unicast address in the passed in addresses.
