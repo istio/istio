@@ -388,7 +388,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// Configure gateways for remote clusters.
-	for _, c := range ctx.Clusters().Kube().Remotes(ctx.Clusters().Configs()...) {
+	for _, c := range ctx.Clusters().Kube().Remotes() {
 		c := c
 		if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
 			// Install ingress and egress gateways
