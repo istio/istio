@@ -52,30 +52,13 @@ type SignerRootCert struct {
 	Rootcert string
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-func RunCSRController(signerNames string, appendRootCert bool, config *rest.Config, c <-chan struct{},
-	certChan chan *SignerRootCert,
-) {
-=======
 func RunCSRController(signerNames string, appendRootCert bool, c <-chan struct{},
 	clusters cluster.Clusters) []*SignerRootCert {
->>>>>>> c7601f70dc (enabled external CA tests in multi-cluster env)
-=======
-func RunCSRController(signerNames string, appendRootCert bool, config *rest.Config, c <-chan struct{},
-	certChan chan *SignerRootCert) {
->>>>>>> c2db87e791 (testing few new changes)
-=======
-func RunCSRController(signerNames string, appendRootCert bool, c <-chan struct{},
-	clusters cluster.Clusters) []*SignerRootCert {
->>>>>>> 0ac43984da (testing new changes)
 	// Config Istio log
 	if err := log.Configure(loggingOptions); err != nil {
 		log.Infof("Unable to configure Istio log error: %v", err)
 		os.Exit(-1)
 	}
-
 	arrSigners := strings.Split(signerNames, ",")
 	signersMap := make(map[string]*signer.Signer, len(arrSigners))
 	var rootCertSignerArr []*SignerRootCert
@@ -95,6 +78,7 @@ func RunCSRController(signerNames string, appendRootCert bool, c <-chan struct{}
 			Signer:   signerName,
 			Rootcert: string(rootCert),
 		}
+		// certChan <- rootCertsForSigner
 		rootCertSignerArr = append(rootCertSignerArr, rootCertsForSigner)
 	}
 
