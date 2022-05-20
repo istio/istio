@@ -853,7 +853,9 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		//   for NONE because we will not know the original DST IP that the application requested.
 		// 2. the address is not set (0.0.0.0)
 		// 3. the hostname is not a wildcard
-		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
+		if (svc.DefaultAddress == constants.UnspecifiedIP ||
+			svc.DefaultAddress == constants.UnspecifiedIPv6) &&
+			!svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
 			x++
 			if x%255 == 0 {
@@ -866,12 +868,16 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			thirdOctet := x / 255
 			fourthOctet := x % 255
 
-			svc.AutoAllocatedIPv4Address = fmt.Sprintf("240.240.%d.%d", thirdOctet, fourthOctet)
-			// if the service of service entry has IPv6 address, then allocate the IPv4-Mapped IPv6 Address for it
-			if thirdOctet == 0 {
-				svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x", fourthOctet)
-			} else {
-				svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x%x", thirdOctet, fourthOctet)
+			if svc.DefaultAddress == constants.UnspecifiedIP {
+				svc.AutoAllocatedIPv4Address = fmt.Sprintf("240.240.%d.%d", thirdOctet, fourthOctet)
+			}
+			if svc.DefaultAddress == constants.UnspecifiedIPv6 {
+				// if the service of service entry has IPv6 address, then allocate the IPv4-Mapped IPv6 Address for it
+				if thirdOctet == 0 {
+					svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x", fourthOctet)
+				} else {
+					svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x%x", thirdOctet, fourthOctet)
+				}
 			}
 		}
 	}
