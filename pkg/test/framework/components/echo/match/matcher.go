@@ -35,6 +35,17 @@ func (m Matcher) GetMatches(i echo.Instances) echo.Instances {
 	return out
 }
 
+// GetServiceMatches returns the subset of echo.Services that match this Matcher.
+func (m Matcher) GetServiceMatches(services echo.Services) echo.Services {
+	out := make(echo.Services, 0)
+	for _, s := range services {
+		if len(s) > 0 && m(s[0]) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // First finds the first Instance that matches the Matcher.
 func (m Matcher) First(i echo.Instances) (echo.Instance, error) {
 	for _, i := range i {
