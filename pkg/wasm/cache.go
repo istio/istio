@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -173,6 +174,19 @@ func pullIfNotPresent(pullPolicy extensions.PullPolicy, u *url.URL) bool {
 	return false
 }
 
+func getModulePath(baseDir string, mkey moduleKey) (string, error) {
+	sha := sha256.Sum256([]byte(mkey.name))
+	hashedName := hex.EncodeToString(sha[:])
+	moduleDir := filepath.Join(baseDir, hashedName)
+	if _, err := os.Stat(moduleDir); errors.Is(err, os.ErrNotExist) {
+		err := os.Mkdir(moduleDir, 0755)
+		if err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(moduleDir, fmt.Sprintf("%s.wasm", mkey.checksum)), nil
+}
+
 // Get returns path the local Wasm module file.
 func (c *LocalFileCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
@@ -273,12 +287,16 @@ func (c *LocalFileCache) Get(
 	wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()
 
 	key.checksum = dChecksum
-	f := filepath.Join(c.dir, fmt.Sprintf("%s.wasm", dChecksum))
 
-	if err := c.addEntry(key, b, f); err != nil {
+	modulePath, err = getModulePath(c.dir, key.moduleKey)
+	if err != nil {
 		return "", err
 	}
-	return f, nil
+
+	if err := c.addEntry(key, b, modulePath); err != nil {
+		return "", err
+	}
+	return modulePath, nil
 }
 
 // Cleanup closes background Wasm module purge routine.
