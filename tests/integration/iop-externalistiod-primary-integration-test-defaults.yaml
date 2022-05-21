@@ -49,10 +49,10 @@ spec:
           value: istio
     ingressGateways:
     - name: istio-ingressgateway
-      enabled: true
+      enabled: false
     egressGateways:
     - name: istio-egressgateway
-      enabled: true
+      enabled: false
   values:
     global:
       operatorManageWebhooks: true

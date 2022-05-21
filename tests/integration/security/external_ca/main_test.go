@@ -118,10 +118,10 @@ values:
 components:
   ingressGateways:
   - name: istio-ingressgateway
-    enabled: true
+    enabled: false
   egressGateways:
   - name: istio-egressgateway
-    enabled: true
+    enabled: false
   istiodRemote:
     k8s:
       overlays:
@@ -158,6 +158,12 @@ values:
       certSigners:
       - {{.signer2}}
 components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: false
+  egressGateways:
+  - name: istio-egressgateway
+    enabled: false
   pilot:
     enabled: true
     k8s:
