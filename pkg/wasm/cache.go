@@ -110,6 +110,16 @@ type cacheEntry struct {
 	referencingURLs sets.Set
 }
 
+func defaultOptions() CacheOptions {
+	return CacheOptions{
+		PurgeInterval:         10 * time.Minute,
+		ModuleExpiry:          24 * time.Hour,
+		InsecureRegistries:    sets.New(),
+		HTTPRequestTimeout:    5 * time.Second,
+		HTTPRequestMaxRetries: 5,
+	}
+}
+
 type CacheOptions struct {
 	PurgeInterval              time.Duration
 	ModuleExpiry               time.Duration
@@ -120,11 +130,26 @@ type CacheOptions struct {
 }
 
 func (o CacheOptions) sanitize() CacheOptions {
-	if o.InsecureRegistries == nil {
-		o.InsecureRegistries = sets.New()
+	ret := defaultOptions()
+	if o.InsecureRegistries != nil {
+		ret.InsecureRegistries = o.InsecureRegistries
 	}
-	o.allowAllInsecureRegistries = o.InsecureRegistries.Contains("*")
-	return o
+	ret.allowAllInsecureRegistries = ret.InsecureRegistries.Contains("*")
+
+	if o.PurgeInterval != 0 {
+		ret.PurgeInterval = o.PurgeInterval
+	}
+	if o.ModuleExpiry != 0 {
+		ret.ModuleExpiry = o.ModuleExpiry
+	}
+	if o.HTTPRequestTimeout != 0 {
+		ret.HTTPRequestTimeout = o.HTTPRequestTimeout
+	}
+	if o.HTTPRequestMaxRetries != 0 {
+		ret.HTTPRequestMaxRetries = o.HTTPRequestMaxRetries
+	}
+
+	return ret
 }
 
 func (o CacheOptions) allowInsecure(host string) bool {

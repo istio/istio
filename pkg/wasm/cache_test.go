@@ -43,17 +43,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// Default options for testing.
-func defaultOptions() CacheOptions {
-	return CacheOptions{
-		PurgeInterval:         10 * time.Minute,
-		ModuleExpiry:          24 * time.Hour,
-		InsecureRegistries:    sets.New(),
-		HTTPRequestTimeout:    5 * time.Second,
-		HTTPRequestMaxRetries: 5,
-	}
-}
-
 // Wasm header = magic number (4 bytes) + Wasm spec version (4 bytes).
 var wasmHeader = append(wasmMagicNumber, []byte{0x1, 0x00, 0x00, 0x00}...)
 
