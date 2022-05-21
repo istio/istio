@@ -11,10 +11,10 @@ spec:
       enabled: false
     ingressGateways:
     - name: istio-ingressgateway
-      enabled: true
+      enabled: false
     egressGateways:
     - name: istio-egressgateway
-      enabled: true
+      enabled: false
     istiodRemote:
       enabled: true
   values:
