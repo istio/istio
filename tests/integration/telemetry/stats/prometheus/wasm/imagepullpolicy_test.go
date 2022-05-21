@@ -61,7 +61,7 @@ func applyAndTestWasm(ctx framework.TestContext, c wasmTestConfigs) {
 			generation++
 		}()
 		mapTagToVersionOrFail(t, c.tag, c.upstreamVersion)
-		if err := installWasmExtension(t, c.name, c.tag, c.policy, fmt.Sprintf("g-%q", generation)); err != nil {
+		if err := installWasmExtension(t, c.name, c.tag, c.policy, fmt.Sprintf("g-%d", generation)); err != nil {
 			t.Fatalf("failed to install WasmPlugin: %v", err)
 		}
 		sendTraffic(t, check.ResponseHeader(injectedHeader, c.expectedVersion))
@@ -190,12 +190,14 @@ func sendTraffic(ctx framework.TestContext, checker echo.Checker, options ...ret
 	}
 	cltInstance := common.GetClientInstances()[0]
 
-	defaultOptions := []retry.Option{retry.Delay(1 * time.Second), retry.Timeout(100 * time.Second)}
+	defaultOptions := []retry.Option{retry.Delay(100 * time.Millisecond), retry.Timeout(200 * time.Second)}
 	httpOpts := echo.CallOptions{
 		To: common.GetTarget(),
 		Port: echo.Port{
 			Name: "http",
 		},
+		// To ensure the different Wasm VM, create new connection per request.
+		NewConnectionPerRequest: true,
 		HTTP: echo.HTTP{
 			Path:   "/path",
 			Method: "GET",
