@@ -114,7 +114,7 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-  - attachedRoutes: 1
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
