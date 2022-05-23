@@ -28,6 +28,10 @@ import (
 	"istio.io/istio/pkg/config/host"
 )
 
+func validProxy(p *model.Proxy) bool {
+	return len(p.IPAddresses) != 0
+}
+
 func InternalFuzzApplyClusterMerge(data []byte) int {
 	f := fuzz.NewConsumer(data)
 
@@ -53,7 +57,7 @@ func InternalFuzzApplyClusterMerge(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	if !proxyValid(proxy) {
+	if !validProxy(proxy) {
 		return 0
 	}
 
