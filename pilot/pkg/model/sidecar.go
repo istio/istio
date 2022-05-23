@@ -667,8 +667,8 @@ func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapp
 func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.IntSet) *Service {
 	// A value of 0 in vsDestPorts is used as a sentinel to indicate a dependency
 	// on every port of the service.
-	if len(service.Ports) == 1 || len(vsDestPorts) == 0 || vsDestPorts.Contains(0) {
-		return service.DeepCopy()
+	if len(vsDestPorts) == 0 || vsDestPorts.Contains(0) {
+		return service
 	}
 
 	foundPorts := make([]*Port, 0)
@@ -676,6 +676,10 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.IntSe
 		if vsDestPorts.Contains(port.Port) {
 			foundPorts = append(foundPorts, port)
 		}
+	}
+
+	if len(foundPorts) == len(service.Ports) {
+		return service
 	}
 
 	if len(foundPorts) > 0 {

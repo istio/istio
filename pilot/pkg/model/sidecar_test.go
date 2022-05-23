@@ -972,7 +972,13 @@ var (
 				Hosts: []string{"virtualbar"},
 				Http: []*networking.HTTPRoute{
 					{
-						Route:  []*networking.HTTPRouteDestination{{Destination: &networking.Destination{Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000}}}},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000},
+								},
+							},
+						},
 						Mirror: &networking.Destination{Host: "foo.svc.cluster.local", Port: &networking.PortSelector{Number: 7000}},
 					},
 				},
@@ -991,7 +997,13 @@ var (
 				Hosts: []string{"virtualbar"},
 				Tcp: []*networking.TCPRoute{
 					{
-						Route: []*networking.RouteDestination{{Destination: &networking.Destination{Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000}}}},
+						Route: []*networking.RouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -1009,7 +1021,13 @@ var (
 				Hosts: []string{"virtualbar"},
 				Tls: []*networking.TLSRoute{
 					{
-						Route: []*networking.RouteDestination{{Destination: &networking.Destination{Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000}}}},
+						Route: []*networking.RouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -1639,12 +1657,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs21,
 			services22,
 			virtualServices3,
-			[]*Service{
-				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
-				},
-			},
+			[]*Service{},
 			nil,
 		},
 		{
