@@ -44,6 +44,11 @@ linters-settings:
     # put imports beginning with prefix after 3rd-party packages;
     # it's a comma-separated list of prefixes
     local-prefixes: istio.io/
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(istio.io/)
 
 issues:
 
