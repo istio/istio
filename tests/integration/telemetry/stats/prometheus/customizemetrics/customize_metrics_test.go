@@ -85,14 +85,16 @@ func TestCustomizeMetrics(t *testing.T) {
 				}
 				var err error
 				if !httpChecked {
-					httpMetricVal, err = common.QueryPrometheus(t, t.Clusters().Default(), httpDestinationQuery, promInst)
+					httpMetricVal, err = common.QueryPrometheus(t, cluster, httpDestinationQuery, promInst)
 					if err != nil {
+						util.PromDiff(t, promInst, cluster, httpDestinationQuery)
 						return err
 					}
 					httpChecked = true
 				}
-				_, err = common.QueryPrometheus(t, t.Clusters().Default(), grpcDestinationQuery, promInst)
+				_, err = common.QueryPrometheus(t, cluster, grpcDestinationQuery, promInst)
 				if err != nil {
+					util.PromDiff(t, promInst, cluster, grpcDestinationQuery)
 					return err
 				}
 				return nil
