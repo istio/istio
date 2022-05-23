@@ -87,7 +87,7 @@ spec:
     patch:
       operation: INSERT_AFTER
       value: # Lua filter specification
-       name: envoy.lua
+       name: envoy.lua2
        typed_config:
           "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
           inlineCode: |
@@ -167,20 +167,7 @@ spec:
               "authorize call",
               5000)
             end
-  
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: test-relative-4
-  namespace: bookinfo
-spec:
-  workloadSelector:
-    labels:
-      app: reviews-4
-  configPatches:
-    # The first patch adds the Lua filter to the listener/http connection manager
-  - applyTo: HTTP_FILTER
+  - applyTo: CLUSTER
     match:
       context: SIDECAR_INBOUND
       listener:
@@ -206,5 +193,7 @@ spec:
                },
               "authorize call",
               5000)
-            end
+            end           
+  
+
 

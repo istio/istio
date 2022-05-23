@@ -663,7 +663,7 @@ var testGrid = []testCase{
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-relative-1"},
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-relative-2"},
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-relative-3"},
-			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-relative-4"},
+			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-relative-3"},
 		},
 	},
 	{
