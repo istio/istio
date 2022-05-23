@@ -557,7 +557,8 @@ func routesEqual(a, b []*route.Route) bool {
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *model.Proxy, port *networking.Port, server *networking.Server,
 	routeName string, proxyConfig *meshconfig.ProxyConfig, transportProtocol istionetworking.TransportProtocol,
-	push *model.PushContext) *filterChainOpts {
+	push *model.PushContext,
+) *filterChainOpts {
 	serverProto := protocol.Parse(port.Protocol)
 
 	if serverProto.IsHTTP() {
@@ -600,7 +601,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 }
 
 func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *model.Proxy, http3SupportEnabled bool,
-	push *model.PushContext) *hcm.HttpConnectionManager {
+	push *model.PushContext,
+) *hcm.HttpConnectionManager {
 	httpProtoOpts := &core.Http1ProtocolOptions{}
 	if features.HTTP10 || enableHTTP10(node.Metadata.HTTP10) {
 		httpProtoOpts.AcceptHttp_10 = true
