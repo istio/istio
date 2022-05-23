@@ -38,9 +38,9 @@ compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter 
 export CUR_FUZZ_PATH="${SRC}"/istio/pilot/pkg/networking/core/v1alpha3
 mv "${SRC}"/istio/tests/fuzz/networking_core_v1alpha3_fuzzer.go "${CUR_FUZZ_PATH}"/
 mv "${CUR_FUZZ_PATH}"/listener_test.go "${CUR_FUZZ_PATH}"/listener_test_fuzz.go
+mv "${CUR_FUZZ_PATH}"/listener_builder_test.go "${CUR_FUZZ_PATH}"/listener_builder_test_fuzz.go
 compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildGatewayListeners fuzz_build_gateway_listeners
 compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildSidecarOutboundHTTPRouteConfig fuzz_build_sidecar_outbound_http_route_config
-compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildSidecarInboundListeners fuzz_build_sidecar_inbound_listeners
 compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildSidecarOutboundListeners fuzz_build_sidecar_outbound_listeners
 
 mv "${SRC}"/istio/tests/fuzz/kube_controller_fuzzer.go "${SRC}"/istio/pilot/pkg/serviceregistry/kube/controller/

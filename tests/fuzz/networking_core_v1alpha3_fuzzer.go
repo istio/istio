@@ -19,14 +19,12 @@ package v1alpha3
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/tests/fuzz/utils"
 )
 
@@ -35,11 +33,6 @@ func init() {
 }
 
 func ValidateTestOptions(to TestOptions) error {
-	for _, plugin := range to.Plugins {
-		if plugin == nil {
-			return errors.New("a Plugin was nil")
-		}
-	}
 	for _, csc := range to.ConfigStoreCaches {
 		if csc == nil {
 			return errors.New("a ConfigStoreController was nil")
@@ -118,75 +111,6 @@ func InternalFuzzbuildSidecarOutboundHTTPRouteConfig(data []byte) int {
 	return 1
 }
 
-func InternalFuzzbuildSidecarInboundListeners(data []byte) int {
-	f := fuzz.NewConsumer(data)
-	proxy := &model.Proxy{}
-	err := f.GenerateStruct(proxy)
-	if err != nil {
-		return 0
-	}
-	if !proxyValid(proxy) {
-		return 0
-	}
-
-	// create fuzzed plugins
-	number, err := f.GetInt()
-	if err != nil {
-		return 0
-	}
-	maxPlugins := number % 20
-	if maxPlugins == 0 {
-		return 0
-	}
-	allPlugins := make([]plugin.Plugin, maxPlugins)
-	for i := 0; i < maxPlugins; i++ {
-		p := &fakePlugin{}
-		err = f.GenerateStruct(p)
-		if err != nil {
-			return 0
-		}
-		allPlugins = append(allPlugins, p)
-	}
-	cg := NewConfigGenerator(allPlugins, &model.DisabledCache{})
-
-	// create services
-	number, err = f.GetInt()
-	if err != nil {
-		return 0
-	}
-	maxServices := number % 20
-	if maxServices == 0 {
-		return 0
-	}
-	allServices := make([]*model.Service, 0, maxServices)
-	for i := 0; i < maxServices; i++ {
-		s := &model.Service{}
-		err = f.GenerateStruct(s)
-		if err != nil {
-			return 0
-		}
-		if len(s.Ports) == 0 {
-			continue
-		}
-		allServices = append(allServices, s)
-	}
-	if len(allServices) == 0 {
-		return 0
-	}
-	env := buildListenerEnv(allServices)
-	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
-		return 0
-	}
-	proxy.SetServiceInstances(env)
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-
-	fmt.Println("Calling our target:")
-	listeners := cg.buildSidecarInboundListeners(proxy, env.PushContext)
-	_ = listeners
-	return 1
-}
-
 func InternalFuzzbuildSidecarOutboundListeners(data []byte) int {
 	t := utils.NopTester{}
 	proxy := &model.Proxy{}
@@ -208,8 +132,8 @@ func InternalFuzzbuildSidecarOutboundListeners(data []byte) int {
 		return 0
 	}
 	cg := NewConfigGenTest(t, to)
-	p := cg.SetupProxy(proxy)
-	listeners := cg.ConfigGen.buildSidecarOutboundListeners(p, cg.env.PushContext)
+	listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext)
+	//listeners := cg.ConfigGen.buildSidecarOutboundListeners(p, cg.env.PushContext)
 	_ = listeners
 	return 1
 }

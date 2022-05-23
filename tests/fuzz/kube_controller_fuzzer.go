@@ -27,6 +27,7 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/tests/fuzz/utils"
 )
 
 func InternalFuzzKubeController(data []byte) int {
@@ -38,7 +39,8 @@ func InternalFuzzKubeController(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	controller, fx := NewFakeControllerWithOptions(fco)
+	t := &utils.NopTester{}
+	controller, fx := NewFakeControllerWithOptions(t, fco)
 	controller.network = networkID
 	defer controller.Stop()
 
@@ -85,16 +87,16 @@ func generateNodeForFuzzing(f *fuzz.ConsumeFuzzer) (*coreV1.Node, error) {
 
 func addPodsForFuzzing(controller *FakeController, fx *FakeXdsUpdater, pods ...*coreV1.Pod) error {
 	for _, pod := range pods {
-		p, _ := controller.client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metaV1.GetOptions{})
+		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metaV1.GetOptions{})
 		var newPod *coreV1.Pod
 		var err error
 		if p == nil {
-			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metaV1.CreateOptions{})
+			newPod, err = controller.client.Kube().CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metaV1.CreateOptions{})
 			if err != nil {
 				return err
 			}
 		} else {
-			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metaV1.UpdateOptions{})
+			newPod, err = controller.client.Kube().CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metaV1.UpdateOptions{})
 			if err != nil {
 				return err
 			}
@@ -103,7 +105,7 @@ func addPodsForFuzzing(controller *FakeController, fx *FakeXdsUpdater, pods ...*
 		setPodReadyForFuzzing(newPod)
 		newPod.Status.PodIP = pod.Status.PodIP
 		newPod.Status.Phase = coreV1.PodRunning
-		_, _ = controller.client.CoreV1().Pods(pod.Namespace).UpdateStatus(context.Background(), newPod, metaV1.UpdateOptions{})
+		_, _ = controller.client.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.Background(), newPod, metaV1.UpdateOptions{})
 		fx.Wait("proxy")
 	}
 	return nil
@@ -122,9 +124,9 @@ func setPodReadyForFuzzing(pod *coreV1.Pod) {
 func addNodesForFuzzing(controller *FakeController, nodes ...*coreV1.Node) error {
 	fakeClient := controller.client
 	for _, node := range nodes {
-		_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node, metaV1.CreateOptions{})
+		_, err := fakeClient.Kube().CoreV1().Nodes().Create(context.Background(), node, metaV1.CreateOptions{})
 		if errors.IsAlreadyExists(err) {
-			if _, err := fakeClient.CoreV1().Nodes().Update(context.Background(), node, metaV1.UpdateOptions{}); err != nil {
+			if _, err := fakeClient.Kube().CoreV1().Nodes().Update(context.Background(), node, metaV1.UpdateOptions{}); err != nil {
 				return nil
 			}
 		} else if err != nil {
@@ -144,7 +146,7 @@ func createServiceForFuzzing(controller *FakeController, f *fuzz.ConsumeFuzzer) 
 	if err != nil {
 		return err
 	}
-	_, err = controller.client.CoreV1().Services(namespace).Create(context.Background(), service, metaV1.CreateOptions{})
+	_, err = controller.client.Kube().CoreV1().Services(namespace).Create(context.Background(), service, metaV1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -197,9 +199,9 @@ func createEndpointsForFuzzing(f *fuzz.ConsumeFuzzer, controller *FakeController
 	if err != nil {
 		return err
 	}
-	if _, err := controller.client.CoreV1().Endpoints(namespace).Create(context.Background(), endpoint, metaV1.CreateOptions{}); err != nil {
+	if _, err := controller.client.Kube().CoreV1().Endpoints(namespace).Create(context.Background(), endpoint, metaV1.CreateOptions{}); err != nil {
 		if errors.IsAlreadyExists(err) {
-			_, err = controller.client.CoreV1().Endpoints(namespace).Update(context.Background(), endpoint, metaV1.UpdateOptions{})
+			_, err = controller.client.Kube().CoreV1().Endpoints(namespace).Update(context.Background(), endpoint, metaV1.UpdateOptions{})
 		}
 		if err != nil {
 			return err
@@ -211,9 +213,9 @@ func createEndpointsForFuzzing(f *fuzz.ConsumeFuzzer, controller *FakeController
 	if err != nil {
 		return err
 	}
-	if _, err := controller.client.DiscoveryV1().EndpointSlices(namespace).Create(context.Background(), endpointSlice, metaV1.CreateOptions{}); err != nil {
+	if _, err := controller.client.Kube().DiscoveryV1().EndpointSlices(namespace).Create(context.Background(), endpointSlice, metaV1.CreateOptions{}); err != nil {
 		if errors.IsAlreadyExists(err) {
-			_, err = controller.client.DiscoveryV1().EndpointSlices(namespace).Update(context.Background(), endpointSlice, metaV1.UpdateOptions{})
+			_, err = controller.client.Kube().DiscoveryV1().EndpointSlices(namespace).Update(context.Background(), endpointSlice, metaV1.UpdateOptions{})
 		}
 		if err != nil {
 			return err
