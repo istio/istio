@@ -443,11 +443,6 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event model.Event) {
 	log.Debugf("Handle event %s for workload instance (%s/%s) in namespace %s", event,
 		wi.Kind, wi.Endpoint.Address, wi.Namespace)
-	// TODO(ramaraochavali): Handle case where service entry comes after Pod event.
-	if s.shouldSkip(wi) {
-		log.Debugf("There are no service entries with workload selector in the namespace %s. Skipping this", wi.Namespace)
-		return
-	}
 	key := configKey{
 		kind:      podConfigType,
 		name:      wi.Name,
@@ -478,6 +473,11 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 
 	if redundantEventForPod {
 		s.mutex.Unlock()
+		return
+	}
+
+	if s.shouldSkip(wi) {
+		log.Debugf("There are no service entries with workload selector in the namespace %s. Skipping this", wi.Namespace)
 		return
 	}
 
