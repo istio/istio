@@ -54,7 +54,7 @@ func TestBuildRouterFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		result := BuildRouterFilter(tt.ctx)
-		if result.GetTypedConfig() != tt.expected.GetTypedConfig() {
+		if result != tt.expected {
 			t.Errorf("Test %s failed, expected: %v ,got: %v", tt.name, spew.Sdump(result), spew.Sdump(tt.expected))
 		}
 	}
