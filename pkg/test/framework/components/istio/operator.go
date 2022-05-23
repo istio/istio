@@ -392,7 +392,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// Configure gateways for remote clusters.
-	for _, c := range ctx.Clusters().Kube().Remotes(ctx.Clusters().Configs()...) {
+	for _, c := range ctx.Clusters().Kube().Remotes() {
 		c := c
 		if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
 			// Install ingress and egress gateways
@@ -400,8 +400,14 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			// before the external control plane cluster. Since remote clusters use gateway injection, we can't install the gateways
 			// until after the control plane is running, so we install them here. This is not really necessary for pure (non-config)
 			// remote clusters, but it's cleaner to just install gateways as a separate step for all remote clusters.
-			if err = installRemoteClusterGateways(s, i, c); err != nil {
-				return i, err
+			if c.IsRemote() {
+				if err = installRemoteClusterGateways(s, i, c, istioctlConfigFiles.remoteIopFile); err != nil {
+					return i, err
+				}
+			} else if c.IsConfig() {
+				if err = installRemoteClusterGateways(s, i, c, istioctlConfigFiles.configIopFile); err != nil {
+					return i, err
+				}
 			}
 		}
 
@@ -584,7 +590,7 @@ func installRemoteCommon(s *resource.Settings, i *operatorComponent, cfg Config,
 	return nil
 }
 
-func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c cluster.Cluster) error {
+func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c cluster.Cluster, iopFile string) error {
 	kubeConfigFile, err := kubeConfigFileForCluster(c)
 	if err != nil {
 		return err
@@ -595,6 +601,7 @@ func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c 
 		ManifestsPath:  filepath.Join(testenv.IstioSrc, "manifests"),
 		InFilenames: []string{
 			filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
+			iopFile,
 		},
 		Set: []string{
 			"values.global.imagePullPolicy=" + s.Image.PullPolicy,
