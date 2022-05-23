@@ -54,7 +54,7 @@ spec:
           exact: some-value
       queryParams:
         my-param:
-          regex: some-value 
+          regex: some-value
       uri:
         exact: /baz
     route:
@@ -224,7 +224,7 @@ spec:
           exact: some-value
       queryParams:
         my-param:
-          regex: some-value 
+          regex: some-value
       uri:
         exact: /baz
     route:

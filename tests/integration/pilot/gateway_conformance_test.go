@@ -87,11 +87,10 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			opts := suite.Options{
-				Client:           c,
-				GatewayClassName: "istio",
-				Debug:            scopes.Framework.DebugEnabled(),
-				Cleanup:          gatewayConformanceInputs.Cleanup,
-				RoundTripper:     nil,
+				Client:               c,
+				GatewayClassName:     "istio",
+				Debug:                scopes.Framework.DebugEnabled(),
+				CleanupBaseResources: gatewayConformanceInputs.Cleanup,
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
