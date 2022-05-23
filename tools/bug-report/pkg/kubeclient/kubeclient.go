@@ -16,7 +16,6 @@ package kubeclient
 
 import (
 	"k8s.io/client-go/kubernetes"
-
 	//  Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"

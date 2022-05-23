@@ -21,7 +21,6 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
-
 	// To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
 

@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
 	// To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"

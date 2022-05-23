@@ -26,9 +26,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-
-	//  To install the xds resolvers and balancers.
-	_ "google.golang.org/grpc/xds"
+	_ "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/xds"
