@@ -410,7 +410,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 				}
 			}
 		}
-
 		// remote clusters only need east-west gateway for multi-network purposes
 		if ctx.Environment().IsMultinetwork() {
 			spec := istioctlConfigFiles.remoteOperatorSpec
