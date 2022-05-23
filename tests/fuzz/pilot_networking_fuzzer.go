@@ -29,7 +29,7 @@ func FuzzGrpcGenGenerate(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	if !proxyValid(proxy) {
+	if !ProxyValid(proxy) {
 		return 0
 	}
 
