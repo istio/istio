@@ -121,7 +121,7 @@ type SyncStatus struct {
 	RouteAcked           string `json:"route_acked,omitempty"`
 	EndpointSent         string `json:"endpoint_sent,omitempty"`
 	EndpointAcked        string `json:"endpoint_acked,omitempty"`
-	ExtesionConfigSent   string `json:"extensionconfig_sent,omitempty"`
+	ExtensionConfigSent  string `json:"extensionconfig_sent,omitempty"`
 	ExtensionConfigAcked string `json:"extensionconfig_acked,omitempty"`
 }
 
@@ -135,7 +135,8 @@ type SyncedVersions struct {
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
-	fetchWebhook func() map[string]string) {
+	fetchWebhook func() map[string]string,
+) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery()
 	s.MemRegistry.EDSUpdater = s
@@ -213,7 +214,8 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.ServeMux,
-	path string, help string, handler func(http.ResponseWriter, *http.Request)) {
+	path string, help string, handler func(http.ResponseWriter, *http.Request),
+) {
 	s.debugHandlers[path] = help
 	// Add handler without auth. This mux is never exposed on an HTTP server and only used internally
 	if internalMux != nil {
@@ -282,8 +284,8 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 				RouteAcked:           con.NonceAcked(v3.RouteType),
 				EndpointSent:         con.NonceSent(v3.EndpointType),
 				EndpointAcked:        con.NonceAcked(v3.EndpointType),
-				ExtesionConfigSent:   con.NonceSent(v3.ExtensionConfigurationType),
-				ExtensionConfigAcked: con.NonceSent(v3.ExtensionConfigurationType),
+				ExtensionConfigSent:  con.NonceSent(v3.ExtensionConfigurationType),
+				ExtensionConfigAcked: con.NonceAcked(v3.ExtensionConfigurationType),
 			})
 		}
 	}

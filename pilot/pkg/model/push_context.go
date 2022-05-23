@@ -244,6 +244,8 @@ type PushContext struct {
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkMgr *NetworkManager
 
+	Networks *meshconfig.MeshNetworks
+
 	InitDone        atomic.Bool
 	initializeMutex sync.Mutex
 }
@@ -1103,6 +1105,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Mesh = env.Mesh()
+	ps.Networks = env.MeshNetworks()
 	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first
@@ -1185,7 +1188,8 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 func (ps *PushContext) updateContext(
 	env *Environment,
 	oldPushContext *PushContext,
-	pushReq *PushRequest) error {
+	pushReq *PushRequest,
+) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool

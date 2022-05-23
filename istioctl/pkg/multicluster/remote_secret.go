@@ -21,7 +21,9 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
@@ -43,11 +45,14 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/pkg/log"
 )
 
 var (
 	codec  runtime.Codec
 	scheme *runtime.Scheme
+
+	tokenWaitBackoff = time.Second
 )
 
 func init() {
@@ -211,14 +216,10 @@ var (
 	errMissingTokenKey  = fmt.Errorf("no %q data found", v1.ServiceAccountTokenKey)
 )
 
-func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, clusterName, server, secName string) (*v1.Secret, error) {
-	caData, ok := tokenSecret.Data[v1.ServiceAccountRootCAKey]
-	if !ok {
-		return nil, errMissingRootCAKey
-	}
-	token, ok := tokenSecret.Data[v1.ServiceAccountTokenKey]
-	if !ok {
-		return nil, errMissingTokenKey
+func createRemoteSecretFromTokenAndServer(client kube.ExtendedClient, tokenSecret *v1.Secret, clusterName, server, secName string) (*v1.Secret, error) {
+	caData, token, err := waitForTokenData(client, tokenSecret)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create a Kubeconfig to access the remote cluster using the remote service account credentials.
@@ -229,6 +230,41 @@ func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, clusterName, s
 
 	// Encode the Kubeconfig in a secret that can be loaded by Istio to dynamically discover and access the remote cluster.
 	return createRemoteServiceAccountSecret(kubeconfig, clusterName, secName)
+}
+
+func waitForTokenData(client kube.ExtendedClient, secret *v1.Secret) (ca, token []byte, err error) {
+	ca, token, err = tokenDataFromSecret(secret)
+	if err == nil {
+		return
+	}
+
+	log.Infof("Waiting for data to be populated in %s", secret.Name)
+	err = backoff.Retry(
+		func() error {
+			secret, err = client.Kube().CoreV1().Secrets(secret.Namespace).Get(context.TODO(), secret.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			ca, token, err = tokenDataFromSecret(secret)
+			return err
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(tokenWaitBackoff), 5))
+	return
+}
+
+func tokenDataFromSecret(tokenSecret *v1.Secret) (ca, token []byte, err error) {
+	var ok bool
+	ca, ok = tokenSecret.Data[v1.ServiceAccountRootCAKey]
+	if !ok {
+		err = errMissingRootCAKey
+		return
+	}
+	token, ok = tokenSecret.Data[v1.ServiceAccountTokenKey]
+	if !ok {
+		err = errMissingTokenKey
+		return
+	}
+	return
 }
 
 func getServiceAccountSecret(client kube.ExtendedClient, opt RemoteSecretOptions) (*v1.Secret, error) {
@@ -260,7 +296,7 @@ func getOrCreateServiceAccountSecret(
 			return nil, fmt.Errorf("could not get specified secret %s/%s: %v",
 				opt.Namespace, opt.SecretName, err)
 		}
-		if err := validateServiceAccountSecret(serviceAccount, secret); err != nil {
+		if err := secretReferencesServiceAccount(serviceAccount, secret); err != nil {
 			return nil, err
 		}
 		return secret, nil
@@ -274,7 +310,7 @@ func getOrCreateServiceAccountSecret(
 	}
 	for _, item := range allSecrets.Items {
 		secret := item
-		if validateServiceAccountSecret(serviceAccount, &secret) == nil {
+		if secretReferencesServiceAccount(serviceAccount, &secret) == nil {
 			return &secret, nil
 		}
 	}
@@ -282,9 +318,11 @@ func getOrCreateServiceAccountSecret(
 	// finally, create the sa token secret manually
 	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#manually-create-a-service-account-api-token
 	// TODO ephemeral time-based tokens are preferred; we should re-think this
+	log.Infof("Creating token secret for service account %q", serviceAccount.Name)
+	secretName := tokenSecretName(serviceAccount.Name)
 	return client.Kube().CoreV1().Secrets(opt.Namespace).Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        tokenSecretName(serviceAccount.Name),
+			Name:        secretName,
 			Annotations: map[string]string{v1.ServiceAccountNameKey: serviceAccount.Name},
 		},
 		Type: v1.SecretTypeServiceAccountToken,
@@ -295,7 +333,7 @@ func tokenSecretName(saName string) string {
 	return saName + "-istio-remote-secret-token"
 }
 
-func validateServiceAccountSecret(serviceAccount *v1.ServiceAccount, secret *v1.Secret) error {
+func secretReferencesServiceAccount(serviceAccount *v1.ServiceAccount, secret *v1.Secret) error {
 	if secret.Type != v1.SecretTypeServiceAccountToken ||
 		secret.Annotations[v1.ServiceAccountNameKey] != serviceAccount.Name {
 		return fmt.Errorf("secret %s/%s does not reference ServiceAccount %s",
@@ -696,7 +734,7 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env
 	var remoteSecret *v1.Secret
 	switch opt.AuthType {
 	case RemoteSecretAuthTypeBearerToken:
-		remoteSecret, err = createRemoteSecretFromTokenAndServer(tokenSecret, opt.ClusterName, server, secretName)
+		remoteSecret, err = createRemoteSecretFromTokenAndServer(client, tokenSecret, opt.ClusterName, server, secretName)
 	case RemoteSecretAuthTypePlugin:
 		authProviderConfig := &api.AuthProviderConfig{
 			Name:   opt.AuthPluginName,

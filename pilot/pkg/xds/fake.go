@@ -29,9 +29,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
+	k8stesting "k8s.io/client-go/testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
@@ -183,6 +185,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			NetworksWatcher: opts.NetworksWatcher,
 			Mode:            opts.KubernetesEndpointMode,
 			Stop:            stop,
+			SkipRun:         true,
 		})
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
@@ -198,7 +201,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	if opts.DisableSecretAuthorization {
-		kubesecrets.DisableAuthorizationForTest(defaultKubeClient.Kube().(*fake.Clientset))
+		disableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
 	}
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
@@ -584,4 +587,15 @@ func (fx *FakeXdsUpdater) WaitDuration(duration time.Duration, types ...string) 
 
 func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
 	return fx.WaitDuration(1*time.Second, types...)
+}
+
+// disableAuthorizationForSecret makes the authorization check always pass. Should be used only for tests.
+func disableAuthorizationForSecret(fake *fake.Clientset) {
+	fake.Fake.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, &authorizationv1.SubjectAccessReview{
+			Status: authorizationv1.SubjectAccessReviewStatus{
+				Allowed: true,
+			},
+		}, nil
+	})
 }

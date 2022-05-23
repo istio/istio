@@ -146,6 +146,10 @@ func (i *operatorComponent) IngressFor(c cluster.Cluster) ingress.Instance {
 	return i.CustomIngressFor(c, defaultIngressServiceName, defaultIngressIstioLabel)
 }
 
+func (i *operatorComponent) EastWestGatewayFor(c cluster.Cluster) ingress.Instance {
+	return i.CustomIngressFor(c, eastWestIngressServiceName, eastWestIngressIstioLabel)
+}
+
 func (i *operatorComponent) CustomIngressFor(c cluster.Cluster, serviceName, istioLabel string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
@@ -264,7 +268,7 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 	}
 	kube2.DumpPods(ctx, d, ns, []string{})
 	kube2.DumpWebhooks(ctx, d)
-	for _, c := range ctx.Clusters().Kube() {
+	for _, c := range ctx.Clusters().Kube().Primaries() {
 		kube2.DumpDebug(ctx, c, d, "configz")
 		kube2.DumpDebug(ctx, c, d, "mcsz")
 		kube2.DumpDebug(ctx, c, d, "clusterz")
@@ -459,7 +463,8 @@ spec:
 // The cluster is considered a "primary" cluster if it is also a "config cluster", in which case components
 // like ingress will be installed.
 func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg Config, c cluster.Cluster, iopFile string,
-	spec *opAPI.IstioOperatorSpec) error {
+	spec *opAPI.IstioOperatorSpec,
+) error {
 	scopes.Framework.Infof("setting up %s as control-plane cluster", c.Name())
 
 	if !c.IsConfig() {
@@ -616,7 +621,8 @@ func kubeConfigFileForCluster(c cluster.Cluster) (string, error) {
 }
 
 func (i *operatorComponent) generateCommonInstallArgs(s *resource.Settings, cfg Config, c cluster.Cluster, defaultsIOPFile,
-	iopFile string) (*mesh.InstallArgs, error) {
+	iopFile string,
+) (*mesh.InstallArgs, error) {
 	kubeConfigFile, err := kubeConfigFileForCluster(c)
 	if err != nil {
 		return nil, err
@@ -738,7 +744,8 @@ func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context,
 }
 
 func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, cfg Config,
-	c cluster.Cluster) error {
+	c cluster.Cluster,
+) error {
 	clusters := ctx.Clusters().Configs(c.Config())
 	if len(clusters) == 0 {
 		// giving 0 clusters to ctx.ConfigKube() means using all clusters
@@ -748,7 +755,8 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 }
 
 func (i *operatorComponent) configureDirectAPIServiceAccessBetweenClusters(ctx resource.Context, cfg Config,
-	c cluster.Cluster, from ...cluster.Cluster) error {
+	c cluster.Cluster, from ...cluster.Cluster,
+) error {
 	// Create a secret.
 	secret, err := CreateRemoteSecret(ctx, c, cfg)
 	if err != nil {

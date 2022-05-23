@@ -112,9 +112,6 @@ var ALPNHttp3OverQUIC = []string{"h3"}
 // ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
 
-// ALPNDownstream advertises that Proxy is going to talk http2 or http 1.1.
-var ALPNDownstream = []string{"h2", "http/1.1"}
-
 // RegexEngine is the default google RE2 regex engine.
 var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 
@@ -434,7 +431,8 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
 func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, labels labels.Instance) *core.Metadata {
+	clusterID cluster.ID, labels labels.Instance,
+) *core.Metadata {
 	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
 		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
 		return nil

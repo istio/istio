@@ -168,6 +168,7 @@ type FakeControllerOptions struct {
 	XDSUpdater                model.XDSUpdater
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 	Stop                      chan struct{}
+	SkipRun                   bool
 }
 
 type FakeController struct {
@@ -220,8 +221,11 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
 		fx = x
 	}
-	go c.Run(c.stop)
-	kubelib.WaitForCacheSync(c.stop, c.HasSynced)
+
+	if !opts.SkipRun {
+		go c.Run(c.stop)
+		kubelib.WaitForCacheSync(c.stop, c.HasSynced)
+	}
 
 	return &FakeController{c}, fx
 }

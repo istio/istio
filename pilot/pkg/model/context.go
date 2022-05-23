@@ -98,6 +98,13 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 	return nil
 }
 
+func (e *Environment) MeshNetworks() *meshconfig.MeshNetworks {
+	if e != nil && e.NetworksWatcher != nil {
+		return e.NetworksWatcher.Networks()
+	}
+	return nil
+}
+
 // GetDiscoveryAddress parses the DiscoveryAddress specified via MeshConfig.
 func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	proxyConfig := mesh.DefaultProxyConfig()

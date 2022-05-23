@@ -89,7 +89,8 @@ func NewMulticluster(
 	revision string,
 	startNsController bool,
 	clusterLocal model.ClusterLocalProvider,
-	s server.Instance) *Multicluster {
+	s server.Instance,
+) *Multicluster {
 	remoteKubeController := make(map[cluster.ID]*kubeController)
 	mc := &Multicluster{
 		serverID:               serverID,
@@ -169,7 +170,6 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 
 	m.m.Unlock()
 
-	// TODO move instance cache out of registries
 	if m.serviceEntryController != nil && features.EnableServiceEntrySelectPods {
 		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)

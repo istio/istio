@@ -86,7 +86,7 @@ func TestCNIVersionSkew(t *testing.T) {
 				if err := apps.All.Instances().Restart(); err != nil {
 					t.Fatalf("Failed to restart apps %v", err)
 				}
-				common.RunAllTrafficTests(t, i, &apps)
+				common.RunAllTrafficTests(t, i, apps)
 			}
 		})
 }
