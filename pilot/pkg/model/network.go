@@ -522,7 +522,7 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration)
 		}
 	}
 	sort.Strings(out)
-	return out, time.Duration(ttl)
+	return out, time.Duration(ttl) * time.Second
 }
 
 // TODO share code with pkg/dns
