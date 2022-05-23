@@ -18,6 +18,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -659,7 +660,7 @@ func TestWasmCache(t *testing.T) {
 			initTime := time.Now()
 			cache.mux.Lock()
 			for k, m := range c.initialCachedModules {
-				filePath := filepath.Join(tmpDir, m.modulePath)
+				filePath := generateModulePath(t, tmpDir, k.name, m.modulePath)
 				err := os.WriteFile(filePath, []byte("data/\n"), 0o644)
 				if err != nil {
 					t.Fatalf("failed to write initial wasm module file %v", err)
@@ -684,7 +685,7 @@ func TestWasmCache(t *testing.T) {
 
 			// put the tmp dir into the module path.
 			for k, m := range c.wantCachedModules {
-				c.wantCachedModules[k].modulePath = filepath.Join(tmpDir, m.modulePath)
+				c.wantCachedModules[k].modulePath = generateModulePath(t, tmpDir, k.name, m.modulePath)
 			}
 			cache.mux.Unlock()
 
@@ -695,8 +696,19 @@ func TestWasmCache(t *testing.T) {
 			if c.checkPurgeTimeout > 0 {
 				moduleDeleted := false
 				for start := time.Now(); time.Since(start) < c.checkPurgeTimeout; {
+					fileCount := 0
+					err = filepath.Walk(tmpDir,
+						func(path string, info os.FileInfo, err error) error {
+							if err != nil {
+								return err
+							}
+							if !info.IsDir() {
+								fileCount++
+							}
+							return nil
+						})
 					// Check existence of module files. files should be deleted before timing out.
-					if files, err := os.ReadDir(tmpDir); err == nil && len(files) == 0 {
+					if err == nil && fileCount == 0 {
 						moduleDeleted = true
 						break
 					}
@@ -729,7 +741,7 @@ func TestWasmCache(t *testing.T) {
 
 			cache.mux.Unlock()
 
-			wantFilePath := filepath.Join(tmpDir, c.wantFileName)
+			wantFilePath := generateModulePath(t, tmpDir, urlAsResourceName(c.fetchURL), c.wantFileName)
 			if c.wantErrorMsgPrefix != "" {
 				if gotErr == nil {
 					t.Errorf("Wasm module cache lookup got no error, want error prefix `%v`", c.wantErrorMsgPrefix)
@@ -836,8 +848,8 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 		gotNumRequest++
 	}))
 	defer ts.Close()
-	wantFilePath1 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256(binary1)))
-	wantFilePath2 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256(binary2)))
+	wantFilePath1 := generateModulePath(t, tmpDir, ts.URL, fmt.Sprintf("%x.wasm", sha256.Sum256(binary1)))
+	wantFilePath2 := generateModulePath(t, tmpDir, ts.URL, fmt.Sprintf("%x.wasm", sha256.Sum256(binary2)))
 	var defaultPullPolicy extensions.PullPolicy
 
 	// Get wasm module three times, since checksum is not specified, it will be fetched from module server every time.
@@ -897,8 +909,21 @@ func TestAllInsecureServer(t *testing.T) {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}
 
-	wantFilePath := filepath.Join(tmpDir, fmt.Sprintf("%s.wasm", dockerImageDigest))
+	wantFilePath := generateModulePath(t, tmpDir, urlAsResourceName(ociURLWithTag), fmt.Sprintf("%s.wasm", dockerImageDigest))
 	if gotFilePath != wantFilePath {
 		t.Errorf("Wasm module local file path got %v, want %v", gotFilePath, wantFilePath)
 	}
+}
+
+func generateModulePath(t *testing.T, baseDir, resourceName, filename string) string {
+	t.Helper()
+	sha := sha256.Sum256([]byte(resourceName))
+	moduleDir := filepath.Join(baseDir, hex.EncodeToString(sha[:]))
+	if _, err := os.Stat(moduleDir); errors.Is(err, os.ErrNotExist) {
+		err := os.Mkdir(moduleDir, 0o755)
+		if err != nil {
+			t.Fatalf("failed to create module dir %s: %v", moduleDir, err)
+		}
+	}
+	return filepath.Join(moduleDir, filename)
 }
