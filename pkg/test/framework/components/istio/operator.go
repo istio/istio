@@ -401,10 +401,12 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			// until after the control plane is running, so we install them here. This is not really necessary for pure (non-config)
 			// remote clusters, but it's cleaner to just install gateways as a separate step for all remote clusters.
 			if c.IsRemote() {
+				fmt.Println("----It is a remote cluster-----")
 				if err = installRemoteClusterGateways(s, i, c, istioctlConfigFiles.remoteIopFile); err != nil {
 					return i, err
 				}
 			} else if c.IsConfig() {
+				fmt.Println("----It is a config cluster-----")
 				if err = installRemoteClusterGateways(s, i, c, istioctlConfigFiles.configIopFile); err != nil {
 					return i, err
 				}
