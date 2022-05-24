@@ -403,7 +403,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			if c.IsRemote() && c.IsConfig() {
 				configFiles := []string{
 					filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
-					istioctlConfigFiles.remoteIopFile,
+					istioctlConfigFiles.iopFile,
 				}
 				fmt.Println("----It is a remote and config cluster-----")
 				if err = installRemoteClusterGateways(s, i, c, configFiles); err != nil {
