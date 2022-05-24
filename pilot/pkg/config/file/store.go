@@ -204,15 +204,16 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		oldSha, found := s.shas[key]
 		if !found || oldSha != r.sha {
 			s.versionCtr++
-			r.config.ResourceVersion = fmt.Sprintf("v%d", s.versionCtr)
+			if !found {
+				r.config.ResourceVersion = fmt.Sprintf("v%d", s.versionCtr)
+			} else {
+				if r.config.Annotations == nil {
+					r.config.Annotations = map[string]string{}
+				}
+				r.config.Annotations[memory.ResourceVersion] = fmt.Sprintf("v%d", s.versionCtr)
+			}
 			scope.Debug("KubeSource.ApplyContent: Set: ", r.schema.Name(), r.fullName())
 			// apply is idempotent, but configstore is not, thus the odd logic here
-			cfg := s.inner.Get(r.schema.Resource().GroupVersionKind(),
-				r.fullName().Name.String(), r.fullName().Namespace.String())
-			if cfg != nil {
-				r.config.ResourceVersion = cfg.ResourceVersion
-				r.config.CreationTimestamp = cfg.CreationTimestamp
-			}
 			_, err := s.inner.Update(*r.config)
 			if err != nil {
 				_, err = s.inner.Create(*r.config)
