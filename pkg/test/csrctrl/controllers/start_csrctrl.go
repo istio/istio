@@ -53,7 +53,8 @@ type SignerRootCert struct {
 }
 
 func RunCSRController(signerNames string, appendRootCert bool, c <-chan struct{},
-	clusters cluster.Clusters) []SignerRootCert {
+	clusters cluster.Clusters,
+) []SignerRootCert {
 	// Config Istio log
 	if err := log.Configure(loggingOptions); err != nil {
 		log.Infof("Unable to configure Istio log error: %v", err)

@@ -400,18 +400,17 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			// before the external control plane cluster. Since remote clusters use gateway injection, we can't install the gateways
 			// until after the control plane is running, so we install them here. This is not really necessary for pure (non-config)
 			// remote clusters, but it's cleaner to just install gateways as a separate step for all remote clusters.
+
+			// Config cluster may have a separate config from pure remote clusters.
+			configFiles := []string{
+				filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
+			}
 			if c.IsConfig() {
-				configFiles := []string{
-					filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
-					istioctlConfigFiles.remoteIopFile,
-				}
+				configFiles = append(configFiles, istioctlConfigFiles.remoteIopFile)
 				if err = installRemoteClusterGateways(s, i, c, configFiles); err != nil {
 					return i, err
 				}
 			} else {
-				configFiles := []string{
-					filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
-				}
 				if err = installRemoteClusterGateways(s, i, c, configFiles); err != nil {
 					return i, err
 				}
