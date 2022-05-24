@@ -301,8 +301,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 						string(service.Hostname), "", port, &service.Attributes)
 				}
 
-				subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
-					clusterKey.proxyView, clusterKey.destinationRule, clusterKey.serviceAccounts)
+				subsetClusters := cb.applyDestinationRuleWithDualStack(defaultCluster, DefaultClusterMode, service, port,
+					clusterKey.proxyView, clusterKey.destinationRule, clusterKey.serviceAccounts, obDirection)
 
 				if patched := cp.applyResource(nil, defaultCluster.build()); patched != nil {
 					resources = append(resources, patched)

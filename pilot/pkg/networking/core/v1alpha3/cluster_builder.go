@@ -235,58 +235,6 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	return subsetCluster.build()
 }
 
-// applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
-// applies the destination rule.
-func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
-	port *model.Port, proxyView model.ProxyView, destRule *config.Config, serviceAccounts []string) []*cluster.Cluster {
-	destinationRule := CastDestinationRule(destRule)
-	// merge applicable port level traffic policy settings
-	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
-	opts := buildClusterOpts{
-		mesh:             cb.req.Push.Mesh,
-		serviceInstances: cb.serviceInstances,
-		mutable:          mc,
-		policy:           trafficPolicy,
-		port:             port,
-		clusterMode:      clusterMode,
-		direction:        model.TrafficDirectionOutbound,
-	}
-
-	if clusterMode == DefaultClusterMode {
-		opts.serviceAccounts = serviceAccounts
-		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-		opts.meshExternal = service.MeshExternal
-		opts.serviceRegistry = service.Attributes.ServiceRegistry
-		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
-	}
-
-	if destRule != nil {
-		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
-	}
-	// Apply traffic policy for the main default cluster.
-	cb.applyTrafficPolicy(opts)
-
-	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
-	// discovery type.
-	maybeApplyEdsConfig(mc.cluster)
-
-	if cb.proxyType == model.Router || opts.direction == model.TrafficDirectionOutbound {
-		cb.applyMetadataExchange(opts.mutable.cluster)
-	}
-
-	if destRule != nil {
-		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
-	}
-	subsetClusters := make([]*cluster.Cluster, 0)
-	for _, subset := range destinationRule.GetSubsets() {
-		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, proxyView)
-		if subsetCluster != nil {
-			subsetClusters = append(subsetClusters, subsetCluster)
-		}
-	}
-	return subsetClusters
-}
-
 // applyDestinationRuleWithDualStack applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRuleWithDualStack(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,

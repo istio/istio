@@ -702,11 +702,6 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host
 	return string(direction) + "|" + strconv.Itoa(port) + "|" + subsetName + "|" + string(hostname)
 }
 
-// BuildInboundSubsetKey generates a unique string referencing service instances with port.
-func BuildInboundSubsetKey(port int) string {
-	return BuildSubsetKey(TrafficDirectionInbound, "", "", port)
-}
-
 // BuildInboundSubsetKeyWithDualStack generates a unique string referencing service instances with port for dual-stack enable.
 func BuildInboundSubsetKeyWithDualStack(port int, dualIpv6 bool) string {
 	if dualIpv6 {

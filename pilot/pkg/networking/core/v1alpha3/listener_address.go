@@ -61,15 +61,6 @@ func getActualWildcardAndLocalHostWithDualStack(node *model.Proxy) [][2]string {
 	return result
 }
 
-// getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
-// depending on value of proxy's IPAddresses.
-func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
-	if node.SupportsIPv4() {
-		return WildcardAddress, LocalhostAddress
-	}
-	return WildcardIPv6Address, LocalhostIPv6Address
-}
-
 func getActualWildcardAndLocalHostFromIP(addr string) (string, string) {
 	if net.ParseIP(addr) == nil || net.ParseIP(addr).To4() != nil {
 		return WildcardAddress, LocalhostAddress
@@ -82,18 +73,6 @@ func getPassthroughBindIP(node *model.Proxy) string {
 		return InboundPassthroughBindIpv4
 	}
 	return InboundPassthroughBindIpv6
-}
-
-// getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
-// It looks for an unicast address, if none found, then the default wildcard address is used.
-// This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.
-func getSidecarInboundBindIP(node *model.Proxy) string {
-	// Return the IP if its a global unicast address.
-	if len(node.GlobalUnicastIP) > 0 {
-		return node.GlobalUnicastIP
-	}
-	defaultInboundIP, _ := getActualWildcardAndLocalHost(node)
-	return defaultInboundIP
 }
 
 // getSidecarInboundBindIPWithDualStack returns the IP that the proxy can bind to along with the sidecar specified port.
