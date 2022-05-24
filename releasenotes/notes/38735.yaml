@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: https://github.com/istio/istio/issues/38735
+releaseNotes: |
+  support for externalIPs for service object deployed via the gateways/istio-ingressgateway chart
