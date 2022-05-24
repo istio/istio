@@ -222,10 +222,6 @@ EOF
     echo "${fixed_coredns}"
     printf '%s' "${fixed_coredns}" | kubectl apply -f -
   fi
-
-  # On Ubuntu Jammy, the trap runs when this function exits. Remove trap to prevent
-  # cluster shutdown here.
-  trap EXIT
 }
 
 ###############################################################################
