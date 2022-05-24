@@ -136,7 +136,9 @@ func (sd *ServiceDiscovery) RemoveService(name host.Name) {
 	sd.mutex.Lock()
 	delete(sd.services, name)
 	sd.mutex.Unlock()
-	sd.EDSUpdater.SvcUpdate(sd.shardKey(), string(name), "", model.EventDelete)
+	if sd.EDSUpdater != nil {
+		sd.EDSUpdater.SvcUpdate(sd.shardKey(), string(name), "", model.EventDelete)
+	}
 }
 
 // AddInstance adds an in-memory instance.
