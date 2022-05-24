@@ -1,0 +1,56 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: eastwestgateway
+  namespace: istio-system
+  labels:
+    topology.istio.io/network: "network-1"
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: istiod-grpc
+    port: 15012
+    protocol: TLS
+    tls:
+      mode: Passthrough
+  - name: istiod-webhook
+    port: 15017
+    protocol: TLS
+    tls:
+      mode: Passthrough
+  - name: cross-network
+    hostname: "*.local"
+    port: 15443
+    protocol: TLS
+    tls:
+      mode: Passthrough
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: eastwestgateway-grpc
+  namespace: istio-system
+spec:
+  parentRefs:
+  - name: eastwestgateway
+    kind: Gateway
+    sectionName: istiod-grpc
+  rules:
+  - backendRefs:
+    - name: istiod
+      port: 15012
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: eastwestgateway-webhook
+  namespace: istio-system
+spec:
+  parentRefs:
+  - name: eastwestgateway
+    kind: Gateway
+    sectionName: istiod-webhook
+  rules:
+  - backendRefs:
+    - name: istiod
+      port: 15017

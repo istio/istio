@@ -25,12 +25,11 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 var _ echo.Instance = &instance{}
@@ -40,10 +39,11 @@ func init() {
 }
 
 type instance struct {
-	id        resource.ID
-	config    echo.Config
-	address   string
-	workloads []echo.Workload
+	id             resource.ID
+	config         echo.Config
+	address        string
+	workloads      echo.Workloads
+	workloadFilter []echo.Workload
 }
 
 func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, error) {
@@ -72,11 +72,11 @@ func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, e
 func newInstance(ctx resource.Context, config echo.Config) (echo.Instance, error) {
 	// TODO is there a need for static cluster to create workload group/entry?
 
-	grpcPort := common.GetPortForProtocol(&config, protocol.GRPC)
-	if grpcPort == nil {
+	grpcPort, found := config.Ports.ForProtocol(protocol.GRPC)
+	if !found {
 		return nil, errors.New("unable fo find GRPC command port")
 	}
-	workloads, err := newWorkloads(config.StaticAddresses, grpcPort.InstancePort, config.TLSSettings)
+	workloads, err := newWorkloads(config.StaticAddresses, grpcPort.WorkloadPort, config.TLSSettings, config.Cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func newInstance(ctx resource.Context, config echo.Config) (echo.Instance, error
 }
 
 func getClusterIP(config echo.Config) (string, error) {
-	svc, err := config.Cluster.Primary().CoreV1().
+	svc, err := config.Cluster.Primary().Kube().CoreV1().
 		Services(config.Namespace.Name()).Get(context.TODO(), config.Service, metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -109,6 +109,34 @@ func (i *instance) ID() resource.ID {
 	return i.id
 }
 
+func (i *instance) NamespacedName() echo.NamespacedName {
+	return i.config.NamespacedName()
+}
+
+func (i *instance) PortForName(name string) echo.Port {
+	return i.Config().Ports.MustForName(name)
+}
+
+func (i *instance) ServiceName() string {
+	return i.Config().Service
+}
+
+func (i *instance) NamespaceName() string {
+	return i.Config().NamespaceName()
+}
+
+func (i *instance) ServiceAccountName() string {
+	return i.Config().ServiceAccountName()
+}
+
+func (i *instance) ClusterLocalFQDN() string {
+	return i.Config().ClusterLocalFQDN()
+}
+
+func (i *instance) ClusterSetLocalFQDN() string {
+	return i.Config().ClusterSetLocalFQDN()
+}
+
 func (i *instance) Config() echo.Config {
 	return i.config
 }
@@ -117,11 +145,34 @@ func (i *instance) Address() string {
 	return i.address
 }
 
-func (i *instance) Workloads() ([]echo.Workload, error) {
-	return i.workloads, nil
+func (i *instance) Addresses() []string {
+	return []string{i.address}
 }
 
-func (i *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+func (i *instance) WithWorkloads(wls ...echo.Workload) echo.Instance {
+	n := *i
+	i.workloadFilter = wls
+	return &n
+}
+
+func (i *instance) Workloads() (echo.Workloads, error) {
+	final := []echo.Workload{}
+	for _, wl := range i.workloads {
+		filtered := false
+		for _, filter := range i.workloadFilter {
+			if wl.Address() != filter.Address() {
+				filtered = true
+				break
+			}
+		}
+		if !filtered {
+			final = append(final, wl)
+		}
+	}
+	return final, nil
+}
+
+func (i *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
 	w, err := i.Workloads()
 	if err != nil {
 		t.Fatalf("failed getting workloads for %s", i.Config().Service)
@@ -129,30 +180,41 @@ func (i *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	return w
 }
 
-func (i *instance) defaultClient() (*client.Instance, error) {
-	return i.workloads[0].(*workload).Instance, nil
+func (i *instance) MustWorkloads() echo.Workloads {
+	out, err := i.Workloads()
+	if err != nil {
+		panic(err)
+	}
+	return out
 }
 
-func (i *instance) Call(opts echo.CallOptions) (client.ParsedResponses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts, false)
+func (i *instance) Clusters() cluster.Clusters {
+	var out cluster.Clusters
+	if i.config.Cluster != nil {
+		out = append(out, i.config.Cluster)
+	}
+	return out
 }
 
-func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) client.ParsedResponses {
+func (i *instance) Instances() echo.Instances {
+	return echo.Instances{i}
+}
+
+func (i *instance) defaultClient() (*echoClient.Client, error) {
+	wl, err := i.Workloads()
+	if err != nil {
+		return nil, err
+	}
+	return wl[0].(*workload).Client, nil
+}
+
+func (i *instance) Call(opts echo.CallOptions) (echo.CallResult, error) {
+	return common.ForwardEcho(i.Config().Service, i, opts, i.defaultClient)
+}
+
+func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echo.CallResult {
 	t.Helper()
 	res, err := i.Call(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return res
-}
-
-func (i *instance) CallWithRetry(opts echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts, true, retryOptions...)
-}
-
-func (i *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions, retryOptions ...retry.Option) client.ParsedResponses {
-	t.Helper()
-	res, err := i.CallWithRetry(opts, retryOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}

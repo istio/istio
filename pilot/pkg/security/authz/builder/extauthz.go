@@ -28,16 +28,15 @@ import (
 	extauthztcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/ext_authz/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoytypev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/gogo/protobuf/types"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/extensionproviders"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/model"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/istio/pkg/util/gogo"
 )
 
 const (
@@ -71,9 +70,9 @@ type builtExtAuthz struct {
 	err  error
 }
 
-func processExtensionProvider(in *plugin.InputParams) map[string]*builtExtAuthz {
+func processExtensionProvider(push *model.PushContext) map[string]*builtExtAuthz {
 	resolved := map[string]*builtExtAuthz{}
-	for i, config := range in.Push.Mesh.ExtensionProviders {
+	for i, config := range push.Mesh.ExtensionProviders {
 		var errs error
 		if config.Name == "" {
 			errs = multierror.Append(errs, fmt.Errorf("extension provider name must not be empty, found empty at index: %d", i))
@@ -86,11 +85,11 @@ func processExtensionProvider(in *plugin.InputParams) map[string]*builtExtAuthz 
 		switch p := config.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
 			if err = validation.ValidateExtensionProviderEnvoyExtAuthzHTTP(p.EnvoyExtAuthzHttp); err == nil {
-				parsed, err = buildExtAuthzHTTP(in, p.EnvoyExtAuthzHttp)
+				parsed, err = buildExtAuthzHTTP(push, p.EnvoyExtAuthzHttp)
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
 			if err = validation.ValidateExtensionProviderEnvoyExtAuthzGRPC(p.EnvoyExtAuthzGrpc); err == nil {
-				parsed, err = buildExtAuthzGRPC(in, p.EnvoyExtAuthzGrpc)
+				parsed, err = buildExtAuthzGRPC(push, p.EnvoyExtAuthzGrpc)
 			}
 		default:
 			continue
@@ -146,13 +145,15 @@ func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*built
 	return ret, nil
 }
 
-func buildExtAuthzHTTP(in *plugin.InputParams, config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider) (*builtExtAuthz, error) {
+func buildExtAuthzHTTP(push *model.PushContext,
+	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider,
+) (*builtExtAuthz, error) {
 	var errs error
 	port, err := parsePort(config.Port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	hostname, cluster, err := extensionproviders.LookupCluster(in.Push, config.Service, port)
+	hostname, cluster, err := extensionproviders.LookupCluster(push, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -178,6 +179,7 @@ func buildExtAuthzHTTP(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	checkWildcard("IncludeRequestHeadersInCheck", config.IncludeRequestHeadersInCheck)
 	checkWildcard("IncludeHeadersInCheck", config.IncludeHeadersInCheck)
 	checkWildcard("HeadersToDownstreamOnDeny", config.HeadersToDownstreamOnDeny)
+	checkWildcard("HeadersToDownstreamOnAllow", config.HeadersToDownstreamOnAllow)
 	checkWildcard("HeadersToUpstreamOnAllow", config.HeadersToUpstreamOnAllow)
 
 	if errs != nil {
@@ -187,13 +189,15 @@ func buildExtAuthzHTTP(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	return generateHTTPConfig(hostname, cluster, status, config), nil
 }
 
-func buildExtAuthzGRPC(in *plugin.InputParams, config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider) (*builtExtAuthz, error) {
+func buildExtAuthzGRPC(push *model.PushContext,
+	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider,
+) (*builtExtAuthz, error) {
 	var errs error
 	port, err := parsePort(config.Port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	_, cluster, err := extensionproviders.LookupCluster(in.Push, config.Service, port)
+	_, cluster, err := extensionproviders.LookupCluster(push, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -230,7 +234,8 @@ func parseStatusOnError(status string) (*envoytypev3.HttpStatus, error) {
 }
 
 func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus,
-	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider) *builtExtAuthz {
+	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider,
+) *builtExtAuthz {
 	service := &extauthzhttp.HttpService{
 		PathPrefix: config.PathPrefix,
 		ServerUri: &envoy_config_core_v3.HttpUri{
@@ -268,10 +273,12 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		}
 	}
 
-	if len(config.HeadersToUpstreamOnAllow) > 0 || len(config.HeadersToDownstreamOnDeny) > 0 {
+	if len(config.HeadersToUpstreamOnAllow) > 0 || len(config.HeadersToDownstreamOnDeny) > 0 ||
+		len(config.HeadersToDownstreamOnAllow) > 0 {
 		service.AuthorizationResponse = &extauthzhttp.AuthorizationResponse{
-			AllowedUpstreamHeaders: generateHeaders(config.HeadersToUpstreamOnAllow),
-			AllowedClientHeaders:   generateHeaders(config.HeadersToDownstreamOnDeny),
+			AllowedUpstreamHeaders:        generateHeaders(config.HeadersToUpstreamOnAllow),
+			AllowedClientHeaders:          generateHeaders(config.HeadersToDownstreamOnDeny),
+			AllowedClientHeadersOnSuccess: generateHeaders(config.HeadersToDownstreamOnAllow),
 		}
 	}
 	http := &extauthzhttp.ExtAuthz{
@@ -281,14 +288,15 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		Services: &extauthzhttp.ExtAuthz_HttpService{
 			HttpService: service,
 		},
-		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACHTTPFilterName),
+		FilterEnabledMetadata: generateFilterMatcher(wellknown.HTTPRoleBasedAccessControl),
 		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
 	}
 	return &builtExtAuthz{http: http}
 }
 
 func generateGRPCConfig(cluster string, config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider,
-	status *envoytypev3.HttpStatus) *builtExtAuthz {
+	status *envoytypev3.HttpStatus,
+) *builtExtAuthz {
 	// The cluster includes the character `|` that is invalid in gRPC authority header and will cause the connection
 	// rejected in the server side, replace it with a valid character and set in authority otherwise ext_authz will
 	// use the cluster name as default authority.
@@ -308,7 +316,7 @@ func generateGRPCConfig(cluster string, config *meshconfig.MeshConfig_ExtensionP
 		Services: &extauthzhttp.ExtAuthz_GrpcService{
 			GrpcService: grpc,
 		},
-		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACHTTPFilterName),
+		FilterEnabledMetadata: generateFilterMatcher(wellknown.HTTPRoleBasedAccessControl),
 		TransportApiVersion:   envoy_config_core_v3.ApiVersion_V3,
 		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
 	}
@@ -317,7 +325,7 @@ func generateGRPCConfig(cluster string, config *meshconfig.MeshConfig_ExtensionP
 		FailureModeAllow:      config.FailOpen,
 		TransportApiVersion:   envoy_config_core_v3.ApiVersion_V3,
 		GrpcService:           grpc,
-		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACTCPFilterName),
+		FilterEnabledMetadata: generateFilterMatcher(wellknown.RoleBasedAccessControl),
 	}
 	return &builtExtAuthz{http: http, tcp: tcp}
 }
@@ -371,12 +379,12 @@ func generateFilterMatcher(name string) *envoy_type_matcher_v3.MetadataMatcher {
 	}
 }
 
-func timeoutOrDefault(t *types.Duration) *durationpb.Duration {
+func timeoutOrDefault(t *durationpb.Duration) *durationpb.Duration {
 	if t == nil {
 		// Default timeout is 600s.
 		return &durationpb.Duration{Seconds: 600}
 	}
-	return gogo.DurationToProtoDuration(t)
+	return t
 }
 
 func withBodyRequest(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody) *extauthzhttp.BufferSettings {

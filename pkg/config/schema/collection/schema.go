@@ -33,12 +33,6 @@ type Schema interface {
 	// Resource is the schema for resources contained in this collection.
 	Resource() resource.Schema
 
-	// IsDisabled indicates whether or not this collection is disabled.
-	IsDisabled() bool
-
-	// Disable creates a disabled copy of this Schema.
-	Disable() Schema
-
 	// Equal is a helper function for testing equality between Schema instances. This supports comparison
 	// with the cmp library.
 	Equal(other Schema) bool
@@ -48,7 +42,6 @@ type Schema interface {
 type Builder struct {
 	Name         string
 	VariableName string
-	Disabled     bool
 	Resource     resource.Schema
 }
 
@@ -64,7 +57,6 @@ func (b Builder) Build() (Schema, error) {
 	return &schemaImpl{
 		name:         NewName(b.Name),
 		variableName: b.VariableName,
-		disabled:     b.Disabled,
 		resource:     b.Resource,
 	}, nil
 }
@@ -83,7 +75,6 @@ type schemaImpl struct {
 	resource     resource.Schema
 	name         Name
 	variableName string
-	disabled     bool
 }
 
 // String interface method implementation.
@@ -103,22 +94,7 @@ func (s *schemaImpl) Resource() resource.Schema {
 	return s.resource
 }
 
-func (s *schemaImpl) IsDisabled() bool {
-	return s.disabled
-}
-
-func (s *schemaImpl) Disable() Schema {
-	if s.disabled {
-		return s
-	}
-
-	cpy := *s
-	cpy.disabled = true
-	return &cpy
-}
-
 func (s *schemaImpl) Equal(o Schema) bool {
 	return s.name == o.Name() &&
-		s.disabled == o.IsDisabled() &&
 		s.Resource().Equal(o.Resource())
 }

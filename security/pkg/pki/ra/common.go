@@ -19,6 +19,7 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	raerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	caserver "istio.io/istio/security/pkg/server/ca"
@@ -27,6 +28,10 @@ import (
 // RegistrationAuthority : Registration Authority interface.
 type RegistrationAuthority interface {
 	caserver.CertificateAuthority
+	// SetCACertificatesFromMeshConfig sets the CACertificates using the ones from mesh config
+	SetCACertificatesFromMeshConfig([]*meshconfig.MeshConfig_CertificateData)
+	// GetRootCertFromMeshConfig returns the root cert for the specific signer in mesh config
+	GetRootCertFromMeshConfig(signerName string) ([]byte, error)
 }
 
 // CaExternalType : Type of External CA integration

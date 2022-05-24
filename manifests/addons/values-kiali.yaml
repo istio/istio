@@ -6,7 +6,8 @@ deployment:
     sidecar.istio.io/inject: "false"
   accessible_namespaces:
   - '**'
-  image_version: v1.42
   ingress_enabled: false
+  hpa:
+    api_version: autoscaling/v2beta2
 login_token:
-  signing_key: CHANGEME
+  signing_key: CHANGEME00000000

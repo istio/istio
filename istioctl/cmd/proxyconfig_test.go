@@ -38,7 +38,7 @@ type execTestCase struct {
 
 func TestProxyConfig(t *testing.T) {
 	loggingConfig := map[string][]byte{
-		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/envoy/logging/testdata/logging.txt", t),
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile(t, "../pkg/writer/envoy/logging/testdata/logging.txt"),
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
 	}
 	cases := []execTestCase{
@@ -192,7 +192,7 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 	}
 
 	if c.goldenFilename != "" {
-		util.CompareContent([]byte(output), c.goldenFilename, t)
+		util.CompareContent(t, []byte(output), c.goldenFilename)
 	}
 
 	if c.wantException {

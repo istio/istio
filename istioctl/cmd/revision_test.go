@@ -18,14 +18,14 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/operator/v1alpha1"
 )
 
 func TestGetEnabledComponentsFromIOPSpec(t *testing.T) {
-	enabledPbVal := &v1alpha1.BoolValueForPB{BoolValue: types.BoolValue{Value: true}}
-	disabledPbVal := &v1alpha1.BoolValueForPB{BoolValue: types.BoolValue{Value: false}}
+	enabledPbVal := &wrappers.BoolValue{Value: true}
+	disabledPbVal := &wrappers.BoolValue{Value: false}
 
 	for _, test := range []struct {
 		name     string

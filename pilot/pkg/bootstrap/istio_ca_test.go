@@ -34,9 +34,7 @@ const namespace = "istio-system"
 func TestRemoteCerts(t *testing.T) {
 	g := NewWithT(t)
 
-	dir, err := os.MkdirTemp("", t.Name())
-	defer removeSilent(dir)
-	g.Expect(err).Should(BeNil())
+	dir := t.TempDir()
 
 	s := Server{
 		kubeClient: kube.NewFakeClient(),
@@ -46,7 +44,7 @@ func TestRemoteCerts(t *testing.T) {
 	}
 
 	// Should do nothing because cacerts doesn't exist.
-	err = s.loadRemoteCACerts(caOpts, dir)
+	err := s.loadRemoteCACerts(caOpts, dir)
 	g.Expect(err).Should(BeNil())
 
 	_, err = os.Stat(path.Join(dir, "root-cert.pem"))
@@ -67,10 +65,6 @@ func TestRemoteCerts(t *testing.T) {
 	// Should fail because certs already exist locally.
 	err = s.loadRemoteCACerts(caOpts, dir)
 	g.Expect(err).NotTo(BeNil())
-}
-
-func removeSilent(dir string) {
-	_ = os.RemoveAll(dir)
 }
 
 func createCASecret(client kube.Client) error {

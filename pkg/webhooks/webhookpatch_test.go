@@ -22,10 +22,12 @@ import (
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/keycertbundle"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var caBundle0 = []byte(`-----BEGIN CERTIFICATE-----
@@ -70,7 +72,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"config1",
 			"webhook1",
 			caBundle0,
-			"\"config1\" not found",
+			errNotFound.Error(),
 		},
 		{
 			"WebhookEntryNotFound",
@@ -159,7 +161,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"config1",
 			"webhook1",
 			caBundle0,
-			errWrongRevision.Error(),
+			errNotFound.Error(),
 		},
 		{
 			"WrongRevisionWebhookNotUpdated",
@@ -183,7 +185,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"config1",
 			"webhook1",
 			caBundle0,
-			errWrongRevision.Error(),
+			errNotFound.Error(),
 		},
 		{
 			"MultipleWebhooks",
@@ -216,15 +218,28 @@ func TestMutatingWebhookPatch(t *testing.T) {
 	}
 	for _, tc := range ts {
 		t.Run(tc.name, func(t *testing.T) {
-			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
-			whPatcher := WebhookCertPatcher{
-				client:          client,
-				revision:        tc.revision,
-				webhookName:     tc.webhookName,
-				CABundleWatcher: watcher,
+			client := kube.NewFakeClient()
+			for _, wh := range tc.configs.Items {
+				if _, err := client.Kube().AdmissionregistrationV1().
+					MutatingWebhookConfigurations().Create(context.Background(), wh.DeepCopy(), metav1.CreateOptions{}); err != nil {
+					t.Fatal(err)
+				}
 			}
 
-			err := whPatcher.patchMutatingWebhookConfig(client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+			watcher := keycertbundle.NewWatcher()
+			watcher.SetAndNotify(nil, nil, tc.pemData)
+			whPatcher, err := NewWebhookCertPatcher(client, tc.revision, tc.webhookName, watcher)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			stop := test.NewStop(t)
+			go whPatcher.informer.Run(stop)
+			client.RunAndWait(stop)
+			retry.UntilOrFail(t, whPatcher.informer.HasSynced)
+
+			err = whPatcher.patchMutatingWebhookConfig(
+				client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations(),
 				tc.configName)
 			if (err != nil) != (tc.err != "") {
 				t.Fatalf("Wrong error: got %v want %v", err, tc.err)
@@ -234,7 +249,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 					t.Fatalf("Got %q, want %q", err, tc.err)
 				}
 			} else {
-				obj, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), tc.configName, metav1.GetOptions{})
+				obj, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), tc.configName, metav1.GetOptions{})
 				if err != nil {
 					t.Fatal(err)
 				}

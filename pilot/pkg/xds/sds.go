@@ -15,27 +15,29 @@
 package xds
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"strings"
+	"time"
 
+	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	envoytls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
+	mesh "istio.io/api/mesh/v1alpha1"
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
+	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-)
-
-const (
-	// GatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All resource
-	// names for gateway root certs end with "-cacert".
-	GatewaySdsCaSuffix = "-cacert"
 )
 
 // SecretResource wraps the authnmodel type with cache functions implemented
@@ -58,10 +60,7 @@ func (sr SecretResource) Cacheable() bool {
 	return true
 }
 
-func needsUpdate(proxy *model.Proxy, updates model.XdsUpdates) bool {
-	if proxy.Type != model.Router {
-		return false
-	}
+func sdsNeedsPush(updates model.XdsUpdates) bool {
 	if len(updates) == 0 {
 		return true
 	}
@@ -87,13 +86,12 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 	return res
 }
 
-func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if proxy.VerifiedIdentity == nil {
-		log.Warnf("proxy %v is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		log.Warnf("proxy %s is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
+	if req == nil || !sdsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var updatedSecrets map[model.ConfigKey]struct{}
@@ -104,13 +102,13 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	// TODO: For the new gateway-api, we should always search the config namespace and stop reading across all clusters
 	proxyClusterSecrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
-		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		pilotSDSCertificateErrors.Increment()
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	configClusterSecrets, err := s.secrets.ForCluster(s.configCluster)
 	if err != nil {
-		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		log.Warnf("config cluster %s not found, cannot retrieve certificates: %v", s.configCluster, err)
 		pilotSDSCertificateErrors.Increment()
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -125,18 +123,9 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	for _, sr := range resources {
 		if updatedSecrets != nil {
 			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
-				// This is an incremental update, filter out credscontroller that are not updated.
+				// This is an incremental update, filter out secrets that are not updated.
 				continue
 			}
-		}
-
-		// Fetch the appropriate cluster's credscontroller, based on the credential type
-		var secretController credscontroller.Controller
-		switch sr.Type {
-		case credentials.KubernetesGatewaySecretType:
-			secretController = configClusterSecrets
-		default:
-			secretController = proxyClusterSecrets
 		}
 
 		cachedItem, f := s.cache.Get(sr)
@@ -148,31 +137,71 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			continue
 		}
 		regenerated++
-
-		isCAOnlySecret := strings.HasSuffix(sr.Name, GatewaySdsCaSuffix)
-		if isCAOnlySecret {
-			secret, err := secretController.GetCaCert(sr.Name, sr.Namespace)
-			if err != nil {
-				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to fetch ca certificate for %v: %v", sr.ResourceName, err)
-			} else {
-				res := toEnvoyCaSecret(sr.ResourceName, secret)
-				results = append(results, res)
-				s.cache.Add(sr, req, res)
-			}
-		} else {
-			key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
-			if err != nil {
-				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to fetch key and certificate for %v: %v", sr.ResourceName, err)
-			} else {
-				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
-				results = append(results, res)
-				s.cache.Add(sr, req, res)
-			}
+		res := s.generate(sr, configClusterSecrets, proxyClusterSecrets, proxy)
+		if res != nil {
+			s.cache.Add(sr, req, res)
+			results = append(results, res)
 		}
 	}
 	return results, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
+}
+
+func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {
+	// Fetch the appropriate cluster's secret, based on the credential type
+	var secretController credscontroller.Controller
+	switch sr.Type {
+	case credentials.KubernetesGatewaySecretType:
+		secretController = configClusterSecrets
+	default:
+		secretController = proxyClusterSecrets
+	}
+
+	isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
+	if isCAOnlySecret {
+		caCert, err := secretController.GetCaCert(sr.Name, sr.Namespace)
+		if err != nil {
+			pilotSDSCertificateErrors.Increment()
+			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
+			return nil
+		}
+		if features.VerifySDSCertificate {
+			if err := validateCertificate(caCert); err != nil {
+				recordInvalidCertificate(sr.ResourceName, err)
+				return nil
+			}
+		}
+		res := toEnvoyCaSecret(sr.ResourceName, caCert)
+		return res
+	}
+
+	key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
+	if err != nil {
+		pilotSDSCertificateErrors.Increment()
+		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
+		return nil
+	}
+	if features.VerifySDSCertificate {
+		if err := validateCertificate(cert); err != nil {
+			recordInvalidCertificate(sr.ResourceName, err)
+			return nil
+		}
+	}
+	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, proxy, s.meshConfig)
+	return res
+}
+
+func validateCertificate(data []byte) error {
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return fmt.Errorf("pem decode failed")
+	}
+	_, err := x509.ParseCertificates(block.Bytes)
+	return err
+}
+
+func recordInvalidCertificate(name string, err error) {
+	pilotSDSCertificateErrors.Increment()
+	log.Warnf("invalid certificates: %q: %v", name, err)
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
@@ -236,7 +265,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 		if errMessage == nil {
 			errMessage = fmt.Errorf("cross namespace secret reference requires ReferencePolicy")
 		}
-		log.Warnf("proxy %v attempted to access unauthorized certificates %v: %v", proxy.ID, atMostNJoin(deniedResources, 3), errMessage)
+		log.Warnf("proxy %s attempted to access unauthorized certificates %s: %v", proxy.ID, atMostNJoin(deniedResources, 3), errMessage)
 		pilotSDSCertificateErrors.Increment()
 	}
 
@@ -258,10 +287,10 @@ func atMostNJoin(data []string, limit int) string {
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
-	res := util.MessageToAny(&tls.Secret{
+	res := util.MessageToAny(&envoytls.Secret{
 		Name: name,
-		Type: &tls.Secret_ValidationContext{
-			ValidationContext: &tls.CertificateValidationContext{
+		Type: &envoytls.Secret_ValidationContext{
+			ValidationContext: &envoytls.CertificateValidationContext{
 				TrustedCa: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
 						InlineBytes: cert,
@@ -276,24 +305,57 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 	}
 }
 
-func toEnvoyKeyCertSecret(name string, key, cert []byte) *discovery.Resource {
-	res := util.MessageToAny(&tls.Secret{
-		Name: name,
-		Type: &tls.Secret_TlsCertificate{
-			TlsCertificate: &tls.TlsCertificate{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: cert,
-					},
+func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
+	var res *anypb.Any
+	pkpConf := proxy.Metadata.ProxyConfigOrDefault(meshConfig.GetDefaultConfig()).GetPrivateKeyProvider()
+	switch pkpConf.GetProvider().(type) {
+	case *mesh.PrivateKeyProvider_Cryptomb:
+		crypto := pkpConf.GetCryptomb()
+		msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
+			PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
+			PrivateKey: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: key,
 				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: key,
+			},
+		})
+		res = util.MessageToAny(&envoytls.Secret{
+			Name: name,
+			Type: &envoytls.Secret_TlsCertificate{
+				TlsCertificate: &envoytls.TlsCertificate{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: cert,
+						},
+					},
+					PrivateKeyProvider: &envoytls.PrivateKeyProvider{
+						ProviderName: "cryptomb",
+						ConfigType: &envoytls.PrivateKeyProvider_TypedConfig{
+							TypedConfig: msg,
+						},
 					},
 				},
 			},
-		},
-	})
+		})
+	default:
+		res = util.MessageToAny(&envoytls.Secret{
+			Name: name,
+			Type: &envoytls.Secret_TlsCertificate{
+				TlsCertificate: &envoytls.TlsCertificate{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: cert,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: key,
+						},
+					},
+				},
+			},
+		})
+	}
 	return &discovery.Resource{
 		Name:     name,
 		Resource: res,
@@ -316,17 +378,14 @@ func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
 // but we need to push both the `foo` and `foo-cacert` resource name, or they will fall out of sync.
 func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 	related := []model.ConfigKey{k}
-	// For credscontroller without -cacert suffix, add the suffix
-	if !strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
-		withSuffix := k
-		withSuffix.Name += GatewaySdsCaSuffix
-		related = append(related, withSuffix)
-	}
-	// For credscontroller with -cacert suffix, remove the suffix
-	if strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
-		withoutSuffix := k
-		withoutSuffix.Name = strings.TrimSuffix(withoutSuffix.Name, GatewaySdsCaSuffix)
-		related = append(related, withoutSuffix)
+	// For secret without -cacert suffix, add the suffix
+	if !strings.HasSuffix(k.Name, securitymodel.SdsCaSuffix) {
+		k.Name += securitymodel.SdsCaSuffix
+		related = append(related, k)
+	} else {
+		// For secret with -cacert suffix, remove the suffix
+		k.Name = strings.TrimSuffix(k.Name, securitymodel.SdsCaSuffix)
+		related = append(related, k)
 	}
 	return related
 }
@@ -336,16 +395,20 @@ type SecretGen struct {
 	// Cache for XDS resources
 	cache         model.XdsCache
 	configCluster cluster.ID
+	meshConfig    *mesh.MeshConfig
 }
 
 var _ model.XdsResourceGenerator = &SecretGen{}
 
-func NewSecretGen(sc credscontroller.MulticlusterController, cache model.XdsCache, configCluster cluster.ID) *SecretGen {
+func NewSecretGen(sc credscontroller.MulticlusterController, cache model.XdsCache, configCluster cluster.ID,
+	meshConfig *mesh.MeshConfig,
+) *SecretGen {
 	// TODO: Currently we only have a single credentials controller (Kubernetes). In the future, we will need a mapping
 	// of resource type to secret controller (ie kubernetes:// -> KubernetesController, vault:// -> VaultController)
 	return &SecretGen{
 		secrets:       sc,
 		cache:         cache,
 		configCluster: configCluster,
+		meshConfig:    meshConfig,
 	}
 }

@@ -183,7 +183,7 @@ func TestResolveAddr(t *testing.T) {
 	}
 }
 
-func TestIsIPv6Proxy(t *testing.T) {
+func TestAllIPv6(t *testing.T) {
 	tests := []struct {
 		name     string
 		addrs    []string
@@ -204,11 +204,81 @@ func TestIsIPv6Proxy(t *testing.T) {
 			addrs:    []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
 			expected: false,
 		},
+		{
+			name:     "test for invalid ip address",
+			addrs:    []string{"invalidip"},
+			expected: true,
+		},
 	}
 	for _, tt := range tests {
-		result := IsIPv6Proxy(tt.addrs)
+		result := AllIPv6(tt.addrs)
 		if result != tt.expected {
 			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
+		}
+	}
+}
+
+func TestAllIPv4(t *testing.T) {
+	tests := []struct {
+		name     string
+		addrs    []string
+		expected bool
+	}{
+		{
+			name:     "ipv4 only",
+			addrs:    []string{"1.1.1.1", "127.0.0.1", "2.2.2.2"},
+			expected: true,
+		},
+		{
+			name:     "ipv6 only",
+			addrs:    []string{"1111:2222::1", "::1", "2222:3333::1"},
+			expected: false,
+		},
+		{
+			name:     "mixed ipv4 and ipv6",
+			addrs:    []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
+			expected: false,
+		},
+		{
+			name:     "test for invalid ip address",
+			addrs:    []string{"invalidip"},
+			expected: true,
+		},
+	}
+	for _, tt := range tests {
+		result := AllIPv4(tt.addrs)
+		if result != tt.expected {
+			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
+		}
+	}
+}
+
+func TestGlobalUnicastIP(t *testing.T) {
+	tests := []struct {
+		name     string
+		addrs    []string
+		expected string
+	}{
+		{
+			name:     "test for globalunicastip",
+			addrs:    []string{"127.0.0.1", "1.1.1.1"},
+			expected: "1.1.1.1",
+		},
+		{
+			name:     "test for empty value",
+			addrs:    []string{},
+			expected: "",
+		},
+		{
+			name:     "test for invalid ip address",
+			addrs:    []string{"invalidip"},
+			expected: "",
+		},
+	}
+	for _, tt := range tests {
+		result := GlobalUnicastIP(tt.addrs)
+		if result != tt.expected {
+			t.Errorf("Test %s failed, expected: %v got: %v", tt.name, tt.expected, result)
 		}
 	}
 }

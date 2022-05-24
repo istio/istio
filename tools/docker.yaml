@@ -1,0 +1,157 @@
+# docker.yaml provides details about each Dockerfile in the repo.
+# Unlike standard Dockerfiles, Istio builds artifacts outside of docker and then copies them to a temp folder;
+# This folder is then passed as the docker context. This avoids complex .dockerignore or large context loads.
+
+# Example image config
+example:
+- name: helloworld # Name of the image. Will end up pushed to <HUB>/helloworld:<TAG>
+  dockerfile: helloworld/Dockerfile.proxyv2
+  files:
+  # Include a static file
+  # Inside the Dockerfile, this is referenced by the base name (README.md), not the full name.
+  - samples/README.md
+  targets:
+  # Build a file with make, then include as a static file
+  - ${TARGET_OUT_LINUX}/helloworld
+
+images:
+
+# Base images
+- name: base
+  dockerfile: docker/Dockerfile.base
+  base: true
+
+- name: distroless
+  dockerfile: docker/Dockerfile.distroless
+  base: true
+
+# Production images
+- name: proxyv2
+  dockerfile: pilot/docker/Dockerfile.proxyv2
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tools/packaging/common/gcp_envoy_bootstrap.json
+  - ${TARGET_OUT_LINUX}/release/${SIDECAR}
+  - ${TARGET_OUT_LINUX}/release/stats-filter.wasm
+  - ${TARGET_OUT_LINUX}/release/stats-filter.compiled.wasm
+  - ${TARGET_OUT_LINUX}/release/metadata-exchange-filter.wasm
+  - ${TARGET_OUT_LINUX}/release/metadata-exchange-filter.compiled.wasm
+  targets:
+  - ${TARGET_OUT_LINUX}/pilot-agent
+- name: pilot
+  dockerfile: pilot/docker/Dockerfile.pilot
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tools/packaging/common/gcp_envoy_bootstrap.json
+  targets:
+  - ${TARGET_OUT_LINUX}/pilot-discovery
+
+- name: istioctl
+  dockerfile: istioctl/docker/Dockerfile.istioctl
+  targets:
+  - ${TARGET_OUT_LINUX}/istioctl
+
+- name: operator
+  dockerfile: operator/docker/Dockerfile.operator
+  files:
+  - manifests
+  targets:
+  - ${TARGET_OUT_LINUX}/operator
+
+- name: install-cni
+  dockerfile: cni/deployments/kubernetes/Dockerfile.install-cni
+  targets:
+  - ${TARGET_OUT_LINUX}/istio-cni
+  - ${TARGET_OUT_LINUX}/istio-iptables
+  - ${TARGET_OUT_LINUX}/install-cni
+  - ${TARGET_OUT_LINUX}/istio-cni-taint
+
+# Test images
+- name: app
+  dockerfile: pkg/test/echo/docker/Dockerfile.app
+  files:
+  - tests/testdata/certs
+  targets:
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+
+# Sample authz server
+- name: ext-authz
+  dockerfile: samples/extauthz/docker/Dockerfile
+  targets:
+    - ${TARGET_OUT_LINUX}/extauthz
+
+# TODO(https://github.com/istio/istio/issues/38224)
+#- name: app_sidecar_rockylinux_8
+#  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
+#  files:
+#  - tools/packaging/common/envoy_bootstrap.json
+#  - tests/testdata/certs
+#  - pkg/test/echo/docker/echo-start.sh
+#  - pkg/test/echo/docker/sudoers
+#  targets:
+#  - ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm
+#  - ${TARGET_OUT_LINUX}/client
+#  - ${TARGET_OUT_LINUX}/server
+- name: app_sidecar_centos_7
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_7
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tests/testdata/certs
+  - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
+  targets:
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+- name: app_sidecar_debian_11
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tests/testdata/certs
+  - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
+  targets:
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+- name: app_sidecar_ubuntu_jammy
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tests/testdata/certs
+  - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
+  targets:
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+- name: app_sidecar_ubuntu_xenial
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tests/testdata/certs
+  - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
+  targets:
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+
+# Test base images
+- name: app_sidecar_base_debian_11 # latest debian
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+  base: true
+- name: app_sidecar_base_ubuntu_jammy # newest ubuntu
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+  base: true
+- name: app_sidecar_base_ubuntu_xenial # oldest supported ubuntu
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+  base: true
+#  TODO(https://github.com/istio/istio/issues/38224)
+#- name: app_sidecar_base_rockylinux_8 # newest RHEL-based
+#  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base_centos
+#  base: true
+- name: app_sidecar_base_centos_7 # oldest supported RHEL-based
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base_centos
+  base: true

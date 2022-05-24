@@ -36,6 +36,7 @@ func constructTestConfig() *config.Config {
 		ProxyGID:                constants.DefaultProxyUID,
 		InboundTProxyMark:       "1337",
 		InboundTProxyRouteTable: "133",
+		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
 		RestoreFormat:           true,
 	}
 }
@@ -199,6 +200,34 @@ func TestIptables(t *testing.T) {
 			},
 		},
 		{
+			"outbound-owner-groups",
+			func(cfg *config.Config) {
+				cfg.OwnerGroupsInclude = "java,202"
+			},
+		},
+		{
+			"outbound-owner-groups-exclude",
+			func(cfg *config.Config) {
+				cfg.OwnerGroupsExclude = "888,ftp"
+			},
+		},
+		{
+			"ipv6-dns-outbound-owner-groups",
+			func(cfg *config.Config) {
+				cfg.EnableInboundIPv6 = true
+				cfg.RedirectDNS = true
+				cfg.OwnerGroupsInclude = "java,202"
+			},
+		},
+		{
+			"ipv6-dns-outbound-owner-groups-exclude",
+			func(cfg *config.Config) {
+				cfg.EnableInboundIPv6 = true
+				cfg.RedirectDNS = true
+				cfg.OwnerGroupsExclude = "888,ftp"
+			},
+		},
+		{
 			"outbound-ports-include",
 			func(cfg *config.Config) {
 				cfg.OutboundPortsInclude = "32000,31000"
@@ -226,6 +255,12 @@ func TestIptables(t *testing.T) {
 			"logging",
 			func(cfg *config.Config) {
 				cfg.TraceLogging = true
+			},
+		},
+		{
+			"drop-invalid",
+			func(cfg *config.Config) {
+				cfg.DropInvalid = true
 			},
 		},
 	}
@@ -301,5 +336,5 @@ func compareToGolden(t *testing.T, name string, actual []string) {
 	t.Helper()
 	gotBytes := []byte(strings.Join(actual, "\n"))
 	goldenFile := filepath.Join("testdata", name+".golden")
-	testutil.CompareContent(gotBytes, goldenFile, t)
+	testutil.CompareContent(t, gotBytes, goldenFile)
 }

@@ -47,7 +47,7 @@ func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
 	cmd.PersistentFlags().StringVarP(&oiArgs.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 }
 
-func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
+func operatorRemoveCmd(rootArgs *RootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove",
 		Short: "Removes the Istio operator controller from the cluster.",
@@ -61,15 +61,15 @@ func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 }
 
 // operatorRemove removes the Istio operator controller from the cluster.
-func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
+func operatorRemove(args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
-	restConfig, clientset, client, err := K8sConfig(orArgs.kubeConfigPath, orArgs.context)
+	kubeClient, client, err := KubernetesClients(orArgs.kubeConfigPath, orArgs.context, l)
 	if err != nil {
 		l.LogAndFatal(err)
 	}
 
-	installed, err := isControllerInstalled(clientset, orArgs.operatorNamespace, orArgs.revision)
+	installed, err := isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, orArgs.revision)
 	if installed && err != nil {
 		l.LogAndFatal(err)
 	}
@@ -90,7 +90,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 			l.LogAndFatal(err)
 		}
 	}
-	reconciler, err := helmreconciler.NewHelmReconciler(client, nil, restConfig, iop, &helmreconciler.Options{DryRun: args.dryRun, Log: l})
+	reconciler, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, &helmreconciler.Options{DryRun: args.DryRun, Log: l})
 	if err != nil {
 		l.LogAndFatal(err)
 	}
@@ -98,7 +98,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	if err != nil {
 		l.LogAndFatal(err)
 	}
-	if err := reconciler.DeleteObjectsList(rs); err != nil {
+	if err := reconciler.DeleteObjectsList(rs, string(name.IstioOperatorComponentName)); err != nil {
 		l.LogAndFatal(err)
 	}
 

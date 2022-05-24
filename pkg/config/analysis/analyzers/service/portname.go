@@ -67,15 +67,19 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Context) {
 	svc := r.Message.(*v1.ServiceSpec)
 	for i, port := range svc.Ports {
-		if instance := configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol); instance.IsUnsupported() {
+		instance := configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol)
+		if instance.IsUnsupported() || port.Name == "tcp" && svc.Type == "ExternalName" {
 
 			m := msg.NewPortNameIsNotUnderNamingConvention(
 				r, port.Name, int(port.Port), port.TargetPort.String())
 
+			if svc.Type == "ExternalName" {
+				m = msg.NewExternalNameServiceTypeInvalidPortName(r)
+			}
+
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.PortInPorts, i)); ok {
 				m.Line = line
 			}
-
 			c.Report(collections.K8SCoreV1Services.Name(), m)
 		}
 	}

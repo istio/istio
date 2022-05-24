@@ -24,6 +24,7 @@ import (
 var (
 	callTimeout      = 20 * time.Second
 	callDelay        = 10 * time.Millisecond
+	callConverge     = 3
 	readinessTimeout = 10 * time.Minute
 )
 
@@ -33,13 +34,15 @@ func init() {
 		"Specifies the default total timeout used when retrying calls to the Echo service")
 	flag.DurationVar(&callDelay, "istio.test.echo.callDelay", callDelay,
 		"Specifies the default delay between successive retry attempts when calling the Echo service")
+	flag.IntVar(&callConverge, "istio.test.echo.callConverge", callConverge,
+		"Specifies the number of successive retry attempts that must be successful when calling the Echo service")
 	flag.DurationVar(&readinessTimeout, "istio.test.echo.readinessTimeout", readinessTimeout,
 		"Specifies the default timeout for echo readiness check")
 }
 
 // DefaultCallRetryOptions returns the default call retry options as specified in command-line flags.
 func DefaultCallRetryOptions() []retry.Option {
-	return []retry.Option{retry.Timeout(callTimeout), retry.BackoffDelay(callDelay)}
+	return []retry.Option{retry.Timeout(callTimeout), retry.BackoffDelay(callDelay), retry.Converge(callConverge)}
 }
 
 // DefaultReadinessTimeout returns the default echo readiness check timeout.

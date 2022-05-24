@@ -34,13 +34,16 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
+	istiolog "istio.io/pkg/log"
 )
+
+var log = istiolog.RegisterScope("simulation", "", 0)
 
 type Protocol string
 
@@ -62,7 +65,7 @@ func (c Call) IsHTTP() bool {
 	return httpProtocols.Contains(string(c.Protocol)) && (c.TLS == Plaintext || c.TLS == "")
 }
 
-var httpProtocols = sets.NewSet(string(HTTP), string(HTTP2))
+var httpProtocols = sets.New(string(HTTP), string(HTTP2))
 
 var (
 	ErrNoListener          = errors.New("no listener matched")
@@ -84,6 +87,8 @@ type Expect struct {
 }
 
 type CallMode string
+
+type CustomFilterChainValidation func(filterChain *listener.FilterChain) error
 
 var (
 	// CallModeGateway simulate no iptables
@@ -114,6 +119,10 @@ type Call struct {
 
 	// CallMode describes the type of call to make.
 	CallMode CallMode
+
+	CustomListenerValidations []CustomFilterChainValidation
+
+	MtlsSecretConfigName string
 }
 
 func (c Call) FillDefaults() Call {
@@ -166,6 +175,7 @@ type Result struct {
 }
 
 func (r Result) Matches(t *testing.T, want Result) {
+	t.Helper()
 	r.StrictMatch = want.StrictMatch // to make diff pass
 	r.Skip = want.Skip               // to make diff pass
 	diff := cmp.Diff(want, r, cmpopts.IgnoreUnexported(Result{}), cmpopts.EquateErrors())
@@ -178,26 +188,41 @@ func (r Result) Matches(t *testing.T, want Result) {
 	}
 	if want.ListenerMatched != "" && want.ListenerMatched != r.ListenerMatched {
 		t.Errorf("want listener matched %q got %q", want.ListenerMatched, r.ListenerMatched)
+	} else {
+		// Populate each field in case we did not care about it. This avoids confusing errors when we have fields
+		// we don't care about in the test that are present in the result.
+		want.ListenerMatched = r.ListenerMatched
 	}
 	if want.FilterChainMatched != "" && want.FilterChainMatched != r.FilterChainMatched {
 		t.Errorf("want filter chain matched %q got %q", want.FilterChainMatched, r.FilterChainMatched)
+	} else {
+		want.FilterChainMatched = r.FilterChainMatched
 	}
 	if want.RouteMatched != "" && want.RouteMatched != r.RouteMatched {
 		t.Errorf("want route matched %q got %q", want.RouteMatched, r.RouteMatched)
+	} else {
+		want.RouteMatched = r.RouteMatched
 	}
 	if want.RouteConfigMatched != "" && want.RouteConfigMatched != r.RouteConfigMatched {
 		t.Errorf("want route config matched %q got %q", want.RouteConfigMatched, r.RouteConfigMatched)
+	} else {
+		want.RouteConfigMatched = r.RouteConfigMatched
 	}
 	if want.VirtualHostMatched != "" && want.VirtualHostMatched != r.VirtualHostMatched {
 		t.Errorf("want virtual host matched %q got %q", want.VirtualHostMatched, r.VirtualHostMatched)
+	} else {
+		want.VirtualHostMatched = r.VirtualHostMatched
 	}
 	if want.ClusterMatched != "" && want.ClusterMatched != r.ClusterMatched {
 		t.Errorf("want cluster matched %q got %q", want.ClusterMatched, r.ClusterMatched)
+	} else {
+		want.ClusterMatched = r.ClusterMatched
 	}
 	if t.Failed() {
 		t.Logf("Diff: %+v", diff)
+		t.Logf("Full Diff: %+v", cmp.Diff(want, r, cmpopts.IgnoreUnexported(Result{}), cmpopts.EquateErrors()))
 	} else if want.Skip != "" {
-		t.Skip(fmt.Sprintf("Known bug: %v", r.Skip))
+		t.Skipf("Known bug: %v", r.Skip)
 	}
 }
 
@@ -209,11 +234,12 @@ type Simulation struct {
 }
 
 func NewSimulationFromConfigGen(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) *Simulation {
+	l := s.Listeners(proxy)
 	sim := &Simulation{
 		t:         t,
-		Listeners: s.Listeners(proxy),
+		Listeners: l,
 		Clusters:  s.Clusters(proxy),
-		Routes:    s.Routes(proxy),
+		Routes:    s.RoutesFromListeners(proxy, l),
 	}
 	return sim
 }
@@ -289,11 +315,25 @@ func (sim *Simulation) Run(input Call) (result Result) {
 		result.Error = ErrTLSError
 		return
 	}
+
+	mTLSSecretConfigName := "default"
+	if input.MtlsSecretConfigName != "" {
+		mTLSSecretConfigName = input.MtlsSecretConfigName
+	}
+
 	// mTLS listener will only accept mTLS traffic
-	if fc.TransportSocket != nil && sim.requiresMTLS(fc) != (input.TLS == MTLS) {
+	if fc.TransportSocket != nil && sim.requiresMTLS(fc, mTLSSecretConfigName) != (input.TLS == MTLS) {
 		// If there is no tls inspector, then
 		result.Error = ErrMTLSError
 		return
+	}
+
+	if len(input.CustomListenerValidations) > 0 {
+		for _, validation := range input.CustomListenerValidations {
+			if err := validation(fc); err != nil {
+				result.Error = err
+			}
+		}
 	}
 
 	if hcm := xdstest.ExtractHTTPConnectionManager(sim.t, fc); hcm != nil {
@@ -347,7 +387,7 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	return
 }
 
-func (sim *Simulation) requiresMTLS(fc *listener.FilterChain) bool {
+func (sim *Simulation) requiresMTLS(fc *listener.FilterChain, mTLSSecretConfigName string) bool {
 	if fc.TransportSocket == nil {
 		return false
 	}
@@ -360,7 +400,13 @@ func (sim *Simulation) requiresMTLS(fc *listener.FilterChain) bool {
 		return false
 	}
 	// This is a lazy heuristic, we could check for explicit default resource or spiffe if it becomes necessary
-	return t.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()[0].Name == "default"
+	if t.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()[0].Name != mTLSSecretConfigName {
+		return false
+	}
+	if !t.RequireClientCertificate.Value {
+		return false
+	}
+	return true
 }
 
 func (sim *Simulation) matchRoute(vh *route.VirtualHost, input Call) *route.Route {
@@ -454,13 +500,14 @@ func (sim *Simulation) matchVirtualHost(rc *route.RouteConfiguration, host strin
 // not match. This means an empty match (`{}`) may not match if another chain
 // matches one criteria but not another.
 func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultChain *listener.FilterChain,
-	input Call, hasTLSInspector bool) (*listener.FilterChain, error) {
-	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
+	input Call, hasTLSInspector bool,
+) (*listener.FilterChain, error) {
+	chains = filter("DestinationPort", chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetDestinationPort() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
 		return int(fc.GetDestinationPort().GetValue()) == input.Port
 	})
-	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
+	chains = filter("PrefixRanges", chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetPrefixRanges() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
 		ranger := cidranger.NewPCTrieRanger()
@@ -480,7 +527,7 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 		}
 		return f
 	})
-	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
+	chains = filter("ServerNames", chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetServerNames() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
 		sni := host.Name(input.Sni)
@@ -491,7 +538,7 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 		}
 		return false
 	})
-	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
+	chains = filter("TransportProtocol", chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetTransportProtocol() == ""
 	}, func(fc *listener.FilterChainMatch) bool {
 		if !hasTLSInspector {
@@ -506,13 +553,16 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 		}
 		return false
 	})
-	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
+	chains = filter("ApplicationProtocols", chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetApplicationProtocols() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
-		return sets.NewSet(fc.GetApplicationProtocols()...).Contains(input.Alpn)
+		return sets.New(fc.GetApplicationProtocols()...).Contains(input.Alpn)
 	})
 	// We do not implement the "source" based filters as we do not use them
 	if len(chains) > 1 {
+		for _, c := range chains {
+			log.Warnf("Matched chain %v", c.Name)
+		}
 		return nil, ErrMultipleFilterChain
 	}
 	if len(chains) == 0 {
@@ -524,9 +574,10 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 	return chains[0], nil
 }
 
-func filter(chains []*listener.FilterChain,
+func filter(desc string, chains []*listener.FilterChain,
 	empty func(fc *listener.FilterChainMatch) bool,
-	match func(fc *listener.FilterChainMatch) bool) []*listener.FilterChain {
+	match func(fc *listener.FilterChainMatch) bool,
+) []*listener.FilterChain {
 	res := []*listener.FilterChain{}
 	anySet := false
 	for _, c := range chains {
@@ -536,10 +587,12 @@ func filter(chains []*listener.FilterChain,
 		}
 	}
 	if !anySet {
+		log.Debugf("%v: none set, skipping", desc)
 		return chains
 	}
-	for _, c := range chains {
+	for i, c := range chains {
 		if match(c.GetFilterChainMatch()) {
+			log.Debugf("%v: matched chain %v/%v", desc, i, c.GetName())
 			res = append(res, c)
 		}
 	}
@@ -549,8 +602,9 @@ func filter(chains []*listener.FilterChain,
 	}
 	// Unless there were no matches - in which case we return all filter chains that did not have a
 	// match set
-	for _, c := range chains {
+	for i, c := range chains {
 		if empty(c.GetFilterChainMatch()) {
+			log.Debugf("%v: no matches, found empty chain match %v/%v", desc, i, c.GetName())
 			res = append(res, c)
 		}
 	}

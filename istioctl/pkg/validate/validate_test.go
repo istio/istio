@@ -23,9 +23,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -639,14 +640,14 @@ Error: 1 error occurred:
 }
 
 func TestGetTemplateLabels(t *testing.T) {
-	assert := assert.New(t)
 	un := fromYAML(validDeployment)
 
 	labels, err := GetTemplateLabels(un)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.NotEmpty(t, labels)
-	assert.Contains(labels, "app")
-	assert.Contains(labels, "version")
+	assert.Equal(t, labels, map[string]string{
+		"app":     "helloworld",
+		"version": "v1",
+	})
 }

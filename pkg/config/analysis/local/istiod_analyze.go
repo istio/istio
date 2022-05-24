@@ -32,7 +32,6 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/file"
-	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -41,29 +40,29 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/scope"
 	mesh_const "istio.io/istio/pkg/config/legacy/mesh"
-	"istio.io/istio/pkg/config/legacy/processing/transformer"
-	"istio.io/istio/pkg/config/legacy/processor/transforms"
 	"istio.io/istio/pkg/config/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based
 type IstiodAnalyzer struct {
-	m *schema.Metadata
-	// sources              []precedenceSourceInput
-	internalStore        model.ConfigStore
-	stores               []model.ConfigStoreCache
-	analyzer             *analysis.CombinedAnalyzer
-	transformerProviders transformer.Providers
-	namespace            resource.Namespace
-	istioNamespace       resource.Namespace
+	// internalStore stores synthetic configs for analysis (mesh config, etc)
+	internalStore model.ConfigStore
+	// stores contains all the (non file) config sources to analyze
+	stores []model.ConfigStoreController
+	// fileSource contains all file bases sources
+	fileSource *file.KubeSource
 
-	initializedStore model.ConfigStoreCache
+	analyzer       *analysis.CombinedAnalyzer
+	namespace      resource.Namespace
+	istioNamespace resource.Namespace
+
+	initializedStore model.ConfigStoreController
 
 	// List of code and resource suppressions to exclude messages on
 	suppressions []AnalysisSuppression
@@ -81,50 +80,43 @@ type IstiodAnalyzer struct {
 	// Hook function called when a collection is used in analysis
 	collectionReporter CollectionReporterFn
 
-	fileSource   *file.KubeSource
 	clientsToRun []kubelib.Client
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
-func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration) *IstiodAnalyzer {
-	return NewIstiodAnalyzer(m, analyzer, namespace, istioNamespace, cr, serviceDiscovery)
+func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
+	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration,
+) *IstiodAnalyzer {
+	return NewIstiodAnalyzer(analyzer, namespace, istioNamespace, cr, serviceDiscovery)
 }
 
 // NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace,
-	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool) *IstiodAnalyzer {
+func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
+	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool,
+) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
 	}
 
-	transformerProviders := transforms.Providers(m)
-
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
-	kubeResources := kuberesource.DisableExcludedCollections(
-		m.KubeCollections(),
-		transformerProviders,
+	kubeResources := kuberesource.SkipExcludedCollections(
 		analyzer.Metadata().Inputs,
 		kuberesource.DefaultExcludedResourceKinds(),
 		serviceDiscovery)
 
-	kubeResources = kubeResources.WithoutDisabledCollections()
-
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
-		m:                    m,
-		meshCfg:              &mcfg,
-		meshNetworks:         mesh.DefaultMeshNetworks(),
-		analyzer:             analyzer,
-		transformerProviders: transformerProviders,
-		namespace:            namespace,
-		internalStore:        memory.Make(collection.SchemasFor(collections.IstioMeshV1Alpha1MeshNetworks, collections.IstioMeshV1Alpha1MeshConfig)),
-		istioNamespace:       istioNamespace,
-		kubeResources:        kubeResources,
-		collectionReporter:   cr,
+		meshCfg:            mcfg,
+		meshNetworks:       mesh.DefaultMeshNetworks(),
+		analyzer:           analyzer,
+		namespace:          namespace,
+		internalStore:      memory.Make(collection.SchemasFor(collections.IstioMeshV1Alpha1MeshNetworks, collections.IstioMeshV1Alpha1MeshConfig)),
+		istioNamespace:     istioNamespace,
+		kubeResources:      kubeResources,
+		collectionReporter: cr,
 	}
 
 	return sa
@@ -134,13 +126,10 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, error) {
 	var result AnalysisResult
 	store := sa.initializedStore
-	allSchemas := store.Schemas()
-	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(allSchemas,
-		sa.kubeResources.DisabledCollectionNames(), sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
+	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(store.Schemas())
 
-	cache.WaitForCacheSync(cancel,
-		store.HasSynced)
+	kubelib.WaitForCacheSync(cancel, store.HasSynced)
 
 	ctx := NewContext(store, cancel, sa.collectionReporter)
 
@@ -274,9 +263,13 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
+	sa.AddRunningKubeSourceWithRevision(c, "default")
+}
+
+func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
 	// TODO: are either of these string constants intended to vary?
-	store, err := crdclient.NewForSchemas(context.Background(), c, "default",
-		"cluster.local", sa.kubeResources.Intersect(collections.PilotGatewayAPI))
+	// This gets us only istio/ ones
+	store, err := crdclient.NewForSchemas(c, revision, "cluster.local", sa.kubeResources)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
 	if err != nil {
 		scope.Analysis.Errorf("error adding kube crdclient: %v", err)
@@ -292,35 +285,11 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 		scope.Analysis.Errorf("error setting up error handling for kube crdclient: %v", err)
 		return
 	}
-
-	// TODO: many of the types in PilotGatewayAPI (watched above) are duplicated
-	// I'm not sure why, but we shouldn't watch them twice.
-	duplicates := []collection.Schema{}
-	for k := range analysis.ContainmentMapSchema(collections.PilotGatewayAPI) {
-		duplicates = append(duplicates, k)
-	}
-
-	store, err = arbitraryclient.NewForSchemas(context.Background(), c, "default",
-		"cluster.local", sa.kubeResources.Remove(duplicates...))
-	if err != nil {
-		scope.Analysis.Errorf("error adding kube arbitraryclient: %v", err)
-		return
-	}
-	err = store.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-		// failed resources will never be synced, which causes the process to hang indefinitely.
-		// better to fail fast, and get a good idea for the failure.
-		scope.Analysis.Errorf("Failed to watch arbitrary resource for analysis: %s", err)
-	})
-	if err != nil {
-		scope.Analysis.Errorf("error setting up error handling for kube arbitraryclient: %v", err)
-		return
-	}
 	sa.clientsToRun = append(sa.clientsToRun, c)
-	sa.stores = append(sa.stores, store)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
 	if err := sa.addRunningKubeIstioConfigMapSource(c); err != nil {
-		_, err := c.CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
+		_, err := c.Kube().CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			// An AnalysisMessage already show up to warn the absence of istio-system namespace, so making it debug level.
 			scope.Analysis.Debugf("%v namespace not found. Istio may not be installed in the target cluster. "+
@@ -334,7 +303,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 // AddSource adds a source based on user supplied configstore to the current IstiodAnalyzer
 // Assumes that the source has same or subset of resource types that this analyzer is configured with.
 // This can be used by external users who import the analyzer as a module within their own controllers.
-func (sa *IstiodAnalyzer) AddSource(src model.ConfigStoreCache) {
+func (sa *IstiodAnalyzer) AddSource(src model.ConfigStoreController) {
 	sa.stores = append(sa.stores, src)
 }
 
@@ -388,7 +357,7 @@ func (sa *IstiodAnalyzer) AddDefaultResources() error {
 }
 
 func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Client) error {
-	meshConfigMap, err := client.CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
 	}
@@ -424,9 +393,9 @@ type CollectionReporterFn func(collection.Name)
 
 // copied from processing/snapshotter/analyzingdistributor.go
 func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
-	nsNames := make(map[string]struct{})
+	nsNames := sets.New()
 	for k := range namespaces {
-		nsNames[k.String()] = struct{}{}
+		nsNames.Insert(k.String())
 	}
 
 	var msgs diag.Messages
@@ -437,7 +406,7 @@ FilterMessages:
 		// namespace). Also kept are cluster-level resources where the namespace is
 		// the empty string. If no such limit is specified, keep them all.
 		if len(namespaces) > 0 && m.Resource != nil && m.Resource.Origin.Namespace() != "" {
-			if _, ok := nsNames[m.Resource.Origin.Namespace().String()]; !ok {
+			if !nsNames.Contains(m.Resource.Origin.Namespace().String()) {
 				continue FilterMessages
 			}
 		}

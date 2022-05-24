@@ -19,8 +19,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/config"
@@ -53,6 +54,10 @@ type Schema interface {
 	// Version of this resource.
 	Version() string
 
+	// GroupVersionAliasKinds is the GVK of this resource,
+	// but the version is from its version aliases to perform version conversion.
+	GroupVersionAliasKinds() []config.GroupVersionKind
+
 	// APIVersion is a utility that returns a k8s API version string of the form "Group/Version".
 	APIVersion() string
 
@@ -70,7 +75,6 @@ type Schema interface {
 
 	// StatusKind returns the Kind of the status field. If unset, the field does not support status.
 	StatusKind() string
-
 	StatusPackage() string
 
 	// MustNewInstance calls NewInstance and panics if an error occurs.
@@ -104,6 +108,9 @@ type Builder struct {
 
 	// Version is the config proto version.
 	Version string
+
+	// VersionAliases is the config proto version aliases.
+	VersionAliases []string
 
 	// Proto refers to the protobuf message type name corresponding to the type
 	Proto string
@@ -162,6 +169,7 @@ func (b Builder) BuildNoValidate() Schema {
 		},
 		plural:         b.Plural,
 		apiVersion:     b.Group + "/" + b.Version,
+		versionAliases: b.VersionAliases,
 		proto:          b.Proto,
 		goPackage:      b.ProtoPackage,
 		reflectType:    b.ReflectType,
@@ -174,6 +182,7 @@ func (b Builder) BuildNoValidate() Schema {
 type schemaImpl struct {
 	clusterScoped  bool
 	gvk            config.GroupVersionKind
+	versionAliases []string
 	plural         string
 	apiVersion     string
 	proto          string
@@ -216,6 +225,16 @@ func (s *schemaImpl) Version() string {
 	return s.gvk.Version
 }
 
+func (s *schemaImpl) GroupVersionAliasKinds() []config.GroupVersionKind {
+	gvks := make([]config.GroupVersionKind, len(s.versionAliases))
+	for i, va := range s.versionAliases {
+		gvks[i] = s.gvk
+		gvks[i].Version = va
+	}
+	gvks = append(gvks, s.GroupVersionKind())
+	return gvks
+}
+
 func (s *schemaImpl) APIVersion() string {
 	return s.apiVersion
 }
@@ -251,13 +270,17 @@ func (s *schemaImpl) String() string {
 
 func (s *schemaImpl) NewInstance() (config.Spec, error) {
 	rt := s.reflectType
+	var instance interface{}
 	if rt == nil {
-		rt = getProtoMessageType(s.proto)
+		// Use proto
+		t, err := protoMessageType(protoreflect.FullName(s.proto))
+		if err != nil || t == nil {
+			return nil, errors.New("failed to find reflect type")
+		}
+		instance = t.New().Interface()
+	} else {
+		instance = reflect.New(rt).Interface()
 	}
-	if rt == nil {
-		return nil, errors.New("failed to find reflect type")
-	}
-	instance := reflect.New(rt).Interface()
 
 	p, ok := instance.(config.Spec)
 	if !ok {
@@ -321,11 +344,12 @@ func FromKubernetesGVK(in *schema.GroupVersionKind) config.GroupVersionKind {
 
 // getProtoMessageType returns the Go lang type of the proto with the specified name.
 func getProtoMessageType(protoMessageName string) reflect.Type {
-	t := protoMessageType(protoMessageName)
-	if t == nil {
+	t, err := protoMessageType(protoreflect.FullName(protoMessageName))
+	if err != nil || t == nil {
 		return nil
 	}
-	return t.Elem()
+	t.New().Interface()
+	return reflect.TypeOf(t.Zero().Interface())
 }
 
-var protoMessageType = proto.MessageType
+var protoMessageType = protoregistry.GlobalTypes.FindMessageByName

@@ -20,8 +20,8 @@ import (
 
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -68,7 +68,7 @@ var (
 					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
 						Service:       "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:          9000,
-						Timeout:       &types.Duration{Nanos: 2000 * 1000},
+						Timeout:       &durationpb.Duration{Nanos: 2000 * 1000},
 						FailOpen:      true,
 						StatusOnError: "403",
 						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
@@ -88,7 +88,7 @@ var (
 					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
 						Service:                         "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:                            9000,
-						Timeout:                         &types.Duration{Seconds: 10},
+						Timeout:                         &durationpb.Duration{Seconds: 10},
 						FailOpen:                        true,
 						StatusOnError:                   "403",
 						PathPrefix:                      "/check",
@@ -100,8 +100,9 @@ var (
 							AllowPartialMessage: true,
 							PackAsBytes:         true,
 						},
-						HeadersToUpstreamOnAllow:  []string{"Authorization", "x-prefix-*", "*-suffix"},
-						HeadersToDownstreamOnDeny: []string{"Set-cookie", "x-prefix-*", "*-suffix"},
+						HeadersToUpstreamOnAllow:   []string{"Authorization", "x-prefix-*", "*-suffix"},
+						HeadersToDownstreamOnDeny:  []string{"Set-cookie", "x-prefix-*", "*-suffix"},
+						HeadersToDownstreamOnAllow: []string{"Set-cookie", "x-prefix-*", "*-suffix"},
 					},
 				},
 			},
@@ -142,12 +143,6 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:  "allow-full-rule",
 			input: "allow-full-rule-in.yaml",
 			want:  []string{"allow-full-rule-out.yaml"},
-		},
-		{
-			name:    "allow-host-before-111",
-			version: &model.IstioVersion{Major: 1, Minor: 10, Patch: 3},
-			input:   "allow-host-before-111-in.yaml",
-			want:    []string{"allow-host-before-111-out.yaml"},
 		},
 		{
 			name:  "allow-nil-rule",
@@ -264,7 +259,8 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			}
 			in := inputParams(t, baseDir+tc.input, tc.meshConfig, tc.version)
 			defer option.Logger.Report(in)
-			g := New(tc.tdBundle, in, option)
+			policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
+			g := New(tc.tdBundle, in.Push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -330,7 +326,8 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			}
 			in := inputParams(t, baseDir+tc.input, tc.meshConfig, nil)
 			defer option.Logger.Report(in)
-			g := New(tc.tdBundle, in, option)
+			policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
+			g := New(tc.tdBundle, in.Push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -359,7 +356,7 @@ func verify(t *testing.T, gots []proto.Message, baseDir string, wants []string, 
 			t.Fatalf("failed to convert to YAML: %v", err)
 		}
 
-		util.RefreshGoldenFile([]byte(gotYaml), wantFile, t)
+		util.RefreshGoldenFile(t, []byte(gotYaml), wantFile)
 		if err := util.Compare([]byte(gotYaml), []byte(wantYaml)); err != nil {
 			t.Error(err)
 		}
@@ -429,7 +426,7 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 	}
 
 	authzPolicies, err := model.GetAuthorizationPolicies(&model.Environment{
-		IstioConfigStore: store,
+		ConfigStore: store,
 	})
 	if err != nil {
 		t.Fatalf("newAuthzPolicies: %v", err)

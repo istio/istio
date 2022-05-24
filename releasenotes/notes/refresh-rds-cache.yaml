@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- https://github.com/istio/istio/issues/36525
+releaseNotes:
+- |
+  **Fixed** changes in delegate virtual service do not take effect when rds cache enabled

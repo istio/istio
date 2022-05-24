@@ -31,36 +31,52 @@ import (
 	"istio.io/pkg/log"
 )
 
-type manifestGenerateArgs struct {
-	// inFilenames is an array of paths to the input IstioOperator CR files.
-	inFilename []string
-	// outFilename is the path to the generated output directory.
-	outFilename string
-	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
+type ManifestGenerateArgs struct {
+	// InFilenames is an array of paths to the input IstioOperator CR files.
+	InFilenames []string
+	// OutFilename is the path to the generated output directory.
+	OutFilename string
+	// Set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
-	set []string
-	// force proceeds even if there are validation errors
-	force bool
-	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
-	manifestsPath string
-	// revision is the Istio control plane revision the command targets.
-	revision string
-	// components is a list of strings specifying which component's manifests to be generated.
-	components []string
+	Set []string
+	// Force proceeds even if there are validation errors
+	Force bool
+	// ManifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	ManifestsPath string
+	// Revision is the Istio control plane revision the command targets.
+	Revision string
+	// Components is a list of strings specifying which component's manifests to be generated.
+	Components []string
+	// Filter is the list of components to render
+	Filter []string
 }
 
-func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
-	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path.")
-	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
-	cmd.PersistentFlags().StringSliceVar(&args.components, "component", nil, ComponentFlagHelpStr)
+func (a *ManifestGenerateArgs) String() string {
+	var b strings.Builder
+	b.WriteString("InFilenames:   " + fmt.Sprint(a.InFilenames) + "\n")
+	b.WriteString("OutFilename:   " + a.OutFilename + "\n")
+	b.WriteString("Set:           " + fmt.Sprint(a.Set) + "\n")
+	b.WriteString("Force:         " + fmt.Sprint(a.Force) + "\n")
+	b.WriteString("ManifestsPath: " + a.ManifestsPath + "\n")
+	b.WriteString("Revision:      " + a.Revision + "\n")
+	b.WriteString("Components:    " + fmt.Sprint(a.Components) + "\n")
+	return b.String()
 }
 
-func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOpts *log.Options) *cobra.Command {
+func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
+	cmd.PersistentFlags().StringSliceVarP(&args.InFilenames, "filename", "f", nil, filenameFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.OutFilename, "output", "o", "", "Manifest output directory path.")
+	cmd.PersistentFlags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.Force, "force", false, ForceFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVar(&args.Components, "component", nil, ComponentFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
+	_ = cmd.PersistentFlags().MarkHidden("filter")
+}
+
+func ManifestGenerateCmd(rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "generate",
 		Short: "Generates an Istio install manifest",
@@ -89,24 +105,25 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			return manifestGenerate(rootArgs, mgArgs, logOpts, l)
+			return ManifestGenerate(rootArgs, mgArgs, logOpts, l)
 		},
 	}
 }
 
-func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log.Options, l clog.Logger) error {
+func ManifestGenerate(args *RootArgs, mgArgs *ManifestGenerateArgs, logopts *log.Options, l clog.Logger) error {
 	if err := configLogs(logopts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
+	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
+		mgArgs.Force, mgArgs.Filter, nil, l)
 	if err != nil {
 		return err
 	}
 
-	if len(mgArgs.components) != 0 {
+	if len(mgArgs.Components) != 0 {
 		filteredManifests := name.ManifestMap{}
-		for _, cArg := range mgArgs.components {
+		for _, cArg := range mgArgs.Components {
 			componentName := name.ComponentName(cArg)
 			if cManifests, ok := manifests[componentName]; ok {
 				filteredManifests[componentName] = cManifests
@@ -117,7 +134,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		manifests = filteredManifests
 	}
 
-	if mgArgs.outFilename == "" {
+	if mgArgs.OutFilename == "" {
 		ordered, err := orderedManifests(manifests)
 		if err != nil {
 			return fmt.Errorf("failed to order manifests: %v", err)
@@ -126,10 +143,10 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 			l.Print(m + object.YAMLSeparator)
 		}
 	} else {
-		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
+		if err := os.MkdirAll(mgArgs.OutFilename, os.ModePerm); err != nil {
 			return err
 		}
-		if err := RenderToDir(manifests, mgArgs.outFilename, args.dryRun, l); err != nil {
+		if err := RenderToDir(manifests, mgArgs.OutFilename, args.DryRun, l); err != nil {
 			return err
 		}
 	}

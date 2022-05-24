@@ -98,9 +98,11 @@ spec:
             cpu: 222m
             memory: 333Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
+          readOnlyRootFilesystem: true
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
@@ -116,6 +118,8 @@ spec:
         - mountPath: /var/run/secrets/remote
           name: istio-kubeconfig
           readOnly: true
+      nodeSelector:
+        node-name: test
       securityContext:
         fsGroup: 1337
       serviceAccountName: istiod
@@ -141,7 +145,7 @@ spec:
 ---
 
 
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   labels:
@@ -157,7 +161,9 @@ spec:
   metrics:
   - resource:
       name: cpu
-      targetAverageUtilization: 80
+      target:
+        averageUtilization: 80
+        type: Utilization
     type: Resource
   minReplicas: 2
   scaleTargetRef:

@@ -19,16 +19,19 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -46,9 +49,8 @@ func TestImageFetcherOption_useDefaultKeyChain(t *testing.T) {
 		exp  bool
 	}{
 		{name: "default key chain", exp: true},
-		{name: "missing username", opt: ImageFetcherOption{Password: "pass"}, exp: true},
-		{name: "missing password", opt: ImageFetcherOption{Username: "name"}, exp: true},
-		{name: "use basic auth", opt: ImageFetcherOption{Username: "name", Password: "pass"}},
+		{name: "use secret config", opt: ImageFetcherOption{PullSecret: []byte("secret")}},
+		{name: "missing secret", opt: ImageFetcherOption{}, exp: true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -100,32 +102,26 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Fetch docker image without digest
-		actual, err := fetcher.Fetch(ref, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(actual) != exp {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
-		}
-
 		// Fetch docker image with digest
 		d, err := img.Digest()
 		if err != nil {
 			t.Fatal(err)
 		}
-		actual, err = fetcher.Fetch(ref, d.Hex)
+
+		// Fetch OCI image.
+		binaryFetcher, actualDiget, err := fetcher.PrepareFetch(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := binaryFetcher()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if string(actual) != exp {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
+			t.Errorf("ImageFetcher.binaryFetcher got %s, but want '%s'", string(actual), exp)
 		}
-
-		// Giving wrong digest should be error
-		_, err = fetcher.Fetch(ref, "foobar")
-		if err == nil {
-			t.Error("fetcher.Fetch should raise error for wrong digest")
+		if actualDiget != d.Hex {
+			t.Errorf("ImageFetcher.binaryFetcher got digest %s, but want '%s'", actualDiget, d.Hex)
 		}
 	})
 
@@ -143,17 +139,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// Set manifest type.
-		// Note that this is Docker specific but we have to add here since
-		// go-containerregistry adds Docker manifest MediaType if it is empty.
-		// In the production, all OCI images (not docker images) have
-		// empty value here so this is only for testing purpose.
-		manifest, err := img.Manifest()
-		if err != nil {
-			t.Fatal(err)
-		}
-		manifest.MediaType = "no-docker"
+		img = mutate.MediaType(img, types.OCIManifestSchema1)
 
 		// Push image to the registry.
 		err = crane.Push(img, ref)
@@ -161,32 +147,26 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Fetch OCI image.
-		actual, err := fetcher.Fetch(ref, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(actual) != exp {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
-		}
-
 		// Fetch OCI image with digest
 		d, err := img.Digest()
 		if err != nil {
 			t.Fatal(err)
 		}
-		actual, err = fetcher.Fetch(ref, d.Hex)
+
+		// Fetch OCI image.
+		binaryFetcher, actualDiget, err := fetcher.PrepareFetch(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := binaryFetcher()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if string(actual) != exp {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
+			t.Errorf("ImageFetcher.binaryFetcher got %s, but want '%s'", string(actual), exp)
 		}
-
-		// Giving wrong digest should be error
-		_, err = fetcher.Fetch(ref, "foobar")
-		if err == nil {
-			t.Error("fetcher.Fetch should raise error for wrong digest")
+		if actualDiget != d.Hex {
+			t.Errorf("ImageFetcher.binaryFetcher got digest %s, but want '%s'", actualDiget, d.Hex)
 		}
 	})
 
@@ -206,17 +186,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// Set manifest type.
-		// Note that this is Docker specific but we have to add here since
-		// go-containerregistry adds Docker manifest MediaType if it is empty.
-		// In the production, all OCI images (not docker images) have
-		// empty value here so this is only for testing purpose.
-		manifest, err := img.Manifest()
-		if err != nil {
-			t.Fatal(err)
-		}
-		manifest.MediaType = "no-docker"
+		img = mutate.MediaType(img, types.OCIManifestSchema1)
 
 		// Push image to the registry.
 		err = crane.Push(img, ref)
@@ -236,33 +206,26 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Fetch OCI image.
-		actual, err := fetcher.Fetch(ref, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if string(actual) != string(want) {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), string(want))
-		}
-
 		// Fetch OCI image with digest
 		d, err := img.Digest()
 		if err != nil {
 			t.Fatal(err)
 		}
-		actual, err = fetcher.Fetch(ref, d.Hex)
+
+		// Fetch OCI image.
+		binaryFetcher, actualDiget, err := fetcher.PrepareFetch(ref)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if string(actual) != string(want) {
-			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), want)
+		actual, err := binaryFetcher()
+		if err != nil {
+			t.Fatal(err)
 		}
-
-		// Giving wrong digest should be error
-		_, err = fetcher.Fetch(ref, "foobar")
-		if err == nil {
-			t.Error("fetcher.Fetch should raise error for wrong digest")
+		if !bytes.Equal(actual, want) {
+			t.Errorf("ImageFetcher.binaryFetcher got %s, but want '%s'", string(actual), string(want))
+		}
+		if actualDiget != d.Hex {
+			t.Errorf("ImageFetcher.binaryFetcher got digest %s, but want '%s'", actualDiget, d.Hex)
 		}
 	})
 
@@ -277,13 +240,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// Set manifest type so it will pass the docker parsing branch.
-		manifest, err := img.Manifest()
-		if err != nil {
-			t.Fatal(err)
-		}
-		manifest.MediaType = "no-docker"
+		img = mutate.MediaType(img, types.OCIManifestSchema1)
 
 		// Push image to the registry.
 		err = crane.Push(img, ref)
@@ -292,16 +249,20 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Try to fetch.
-		actual, err := fetcher.Fetch(ref, "")
+		binaryFetcher, _, err := fetcher.PrepareFetch(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := binaryFetcher()
 		if actual != nil {
-			t.Errorf("ImageFetcher.Fetch got %s, but want nil", string(actual))
+			t.Errorf("ImageFetcher.binaryFetcher got %s, but want nil", string(actual))
 		}
 
 		expErr := `the given image is in invalid format as an OCI image: 2 errors occurred:
 	* could not parse as compat variant: invalid media type application/vnd.oci.image.layer.v1.tar (expect application/vnd.oci.image.layer.v1.tar+gzip)
 	* could not parse as oci variant: number of layers must be 2 but got 1`
 		if actual := strings.TrimSpace(err.Error()); actual != expErr {
-			t.Errorf("ImageFetcher.Fetch get unexpected error '%v', but want '%v'", actual, expErr)
+			t.Errorf("ImageFetcher.binaryFetcher get unexpected error '%v', but want '%v'", actual, expErr)
 		}
 	})
 }
@@ -496,7 +457,7 @@ func TestExtractOCIArtifactImage(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if string(actual) != string(want) {
+		if !bytes.Equal(actual, want) {
 			t.Errorf("extractOCIArtifactImage got %s, but want '%s'", string(actual), string(want))
 		}
 	})
@@ -616,4 +577,31 @@ func TestExtractWasmPluginBinary(t *testing.T) {
 			t.Errorf("extractWasmPluginBinary must fail with not found")
 		}
 	})
+}
+
+func TestWasmKeyChain(t *testing.T) {
+	dockerjson := fmt.Sprintf(`{"auths": {"test.io": {"auth": %q}}}`, encode("foo", "bar"))
+	keyChain := wasmKeyChain{data: []byte(dockerjson)}
+	testRegistry, _ := name.NewRegistry("test.io", name.WeakValidation)
+	keyChain.Resolve(testRegistry)
+	auth, err := keyChain.Resolve(testRegistry)
+	if err != nil {
+		t.Fatalf("Resolve() = %v", err)
+	}
+	got, err := auth.Authorization()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := &authn.AuthConfig{
+		Username: "foo",
+		Password: "bar",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
+func encode(user, pass string) string {
+	delimited := fmt.Sprintf("%s:%s", user, pass)
+	return base64.StdEncoding.EncodeToString([]byte(delimited))
 }

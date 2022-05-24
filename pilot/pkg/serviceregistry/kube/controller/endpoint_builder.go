@@ -106,7 +106,8 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 	endpointAddress string,
 	endpointPort int32,
 	svcPortName string,
-	discoverabilityPolicy model.EndpointDiscoverabilityPolicy) *model.IstioEndpoint {
+	discoverabilityPolicy model.EndpointDiscoverabilityPolicy,
+) *model.IstioEndpoint {
 	if b == nil {
 		return nil
 	}

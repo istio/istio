@@ -6,7 +6,6 @@
 -A ISTIO_DIVERT -j ACCEPT
 -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15006
 -A PREROUTING -p tcp -j ISTIO_INBOUND
--A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
 -A ISTIO_INBOUND -p tcp --dport 15020 -j RETURN
 -A ISTIO_INBOUND -p tcp --dport 15021 -j RETURN
 -A ISTIO_INBOUND -p tcp --dport 15090 -j RETURN

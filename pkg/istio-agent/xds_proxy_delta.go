@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
@@ -40,10 +41,10 @@ func (con *ProxyConnection) sendDeltaRequest(req *discovery.DeltaDiscoveryReques
 	}
 }
 
-// requests from envoy
-// for aditya:
-// downstream -> envoy (anything "behind" xds proxy)
-// upstream -> istiod (in front of xds proxy)?
+// DeltaAggregatedResources is an implementation of Delta XDS API used for proxying between Istiod and Envoy.
+// Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
+// This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
+// as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	proxyLog.Debugf("accepted delta xds connection from envoy, forwarding to upstream")
 
@@ -55,8 +56,8 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 		stopChan:           make(chan struct{}),
 		downstreamDeltas:   downstream,
 	}
-	p.RegisterStream(con)
-	defer p.UnregisterStream(con)
+	p.registerStream(con)
+	defer p.unregisterStream(con)
 
 	// Handle downstream xds
 	initialRequestsSent := false
@@ -102,7 +103,7 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
+	upstreamConn, err := p.buildUpstreamConn(ctx)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		metrics.IstiodConnectionFailures.Increment()
@@ -116,15 +117,17 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 	}
 	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
-	return p.HandleDeltaUpstream(ctx, con, xds)
+	return p.handleDeltaUpstream(ctx, con, xds)
 }
 
-func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
+func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
 	deltaUpstream, err := xds.DeltaAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
 		// Envoy logs errors again, so no need to log beyond debug level
 		proxyLog.Debugf("failed to create delta upstream grpc client: %v", err)
+		// Increase metric when xds connection error, for example: forgot to restart ingressgateway or sidecar after changing root CA.
+		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
 	proxyLog.Infof("connected to delta upstream XDS server: %s", p.istiodAddress)
@@ -218,7 +221,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do
 					// This assumes internal types are always singleton
-					return
+					break
 				}
 				err := h(resp.Resources[0].Resource)
 				var errorResp *google_rpc.Status
@@ -255,7 +258,11 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
-	sendNack := wasm.MaybeConvertWasmExtensionConfigDelta(resp.Resources, p.wasmCache)
+	resources := make([]*any.Any, 0, len(resp.Resources))
+	for i := range resp.Resources {
+		resources = append(resources, resp.Resources[i].Resource)
+	}
+	sendNack := wasm.MaybeConvertWasmExtensionConfig(resources, p.wasmCache)
 	if sendNack {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
 		con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
@@ -286,16 +293,18 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 }
 
 func sendUpstreamDelta(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
-	req *discovery.DeltaDiscoveryRequest) error {
+	req *discovery.DeltaDiscoveryRequest,
+) error {
 	return istiogrpc.Send(deltaUpstream.Context(), func() error { return deltaUpstream.Send(req) })
 }
 
 func sendDownstreamDelta(deltaDownstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
-	res *discovery.DeltaDiscoveryResponse) error {
+	res *discovery.DeltaDiscoveryResponse,
+) error {
 	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
 }
 
-func (p *XdsProxy) PersistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {
+func (p *XdsProxy) persistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {
 	var ch chan *discovery.DeltaDiscoveryRequest
 	var stop chan struct{}
 

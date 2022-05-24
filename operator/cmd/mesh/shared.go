@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -48,7 +48,28 @@ var (
 	testRestConfig  *rest.Config
 )
 
-func initLogsOrExit(_ *rootArgs) {
+type Printer interface {
+	Printf(format string, a ...interface{})
+	Println(string)
+}
+
+func NewPrinterForWriter(w io.Writer) Printer {
+	return &writerPrinter{writer: w}
+}
+
+type writerPrinter struct {
+	writer io.Writer
+}
+
+func (w *writerPrinter) Printf(format string, a ...interface{}) {
+	_, _ = fmt.Fprintf(w.writer, format, a...)
+}
+
+func (w *writerPrinter) Println(str string) {
+	_, _ = fmt.Fprintln(w.writer, str)
+}
+
+func initLogsOrExit(_ *RootArgs) {
 	if err := configLogs(log.DefaultOptions()); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
@@ -80,7 +101,7 @@ func kubeBuilderInstalled() bool {
 
 // confirm waits for a user to confirm with the supplied message.
 func confirm(msg string, writer io.Writer) bool {
-	fmt.Fprintf(writer, "%s ", msg)
+	_, _ = fmt.Fprintf(writer, "%s ", msg)
 
 	var response string
 	_, err := fmt.Scanln(&response)
@@ -95,41 +116,28 @@ func confirm(msg string, writer io.Writer) bool {
 	return false
 }
 
-// K8sConfig creates a rest.Config, Clientset and controller runtime Client from the given kubeconfig path and context.
-func K8sConfig(kubeConfigPath string, context string) (*rest.Config, *kubernetes.Clientset, client.Client, error) {
-	restConfig, clientset, err := InitK8SRestClient(kubeConfigPath, context)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	// We are running a one-off command locally, so we don't need to worry too much about rate limitting
-	// Bumping this up greatly decreases install time
-	restConfig.QPS = 50
-	restConfig.Burst = 100
-	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return restConfig, clientset, client, nil
-}
-
-// InitK8SRestClient creates a rest.Config qne Clientset from the given kubeconfig path and context.
-func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, error) {
-	if testRestConfig != nil || testK8Interface != nil {
-		if !(testRestConfig != nil && testK8Interface != nil) {
-			return nil, nil, fmt.Errorf("testRestConfig and testK8Interface must both be either nil or set")
-		}
-		return testRestConfig, testK8Interface, nil
-	}
-	restConfig, err := kube.DefaultRestConfig(kubeconfig, kubeContext)
+func KubernetesClients(kubeConfigPath, context string, l clog.Logger) (kube.ExtendedClient, client.Client, error) {
+	rc, err := kube.DefaultRestConfig(kubeConfigPath, context, func(config *rest.Config) {
+		// We are running a one-off command locally, so we don't need to worry too much about rate limitting
+		// Bumping this up greatly decreases install time
+		config.QPS = 50
+		config.Burst = 100
+	})
 	if err != nil {
 		return nil, nil, err
 	}
-	clientset, err := kubernetes.NewForConfig(restConfig)
+	kubeClient, err := kube.NewExtendedClient(kube.NewClientConfigForRestConfig(rc), "")
+	if err != nil {
+		return nil, nil, fmt.Errorf("create Kubernetes client: %v", err)
+	}
+	client, err := client.New(kubeClient.RESTConfig(), client.Options{Scheme: kube.IstioScheme})
 	if err != nil {
 		return nil, nil, err
 	}
-
-	return restConfig, clientset, nil
+	if err := k8sversion.IsK8VersionSupported(kubeClient, l); err != nil {
+		return nil, nil, fmt.Errorf("check minimum supported Kubernetes version: %v", err)
+	}
+	return kubeClient, client, nil
 }
 
 // applyOptions contains the startup options for applying the manifest.
@@ -144,11 +152,12 @@ type applyOptions struct {
 	WaitTimeout time.Duration
 }
 
-func applyManifest(restConfig *rest.Config, client client.Client, manifestStr string,
-	componentName name.ComponentName, opts *applyOptions, iop *v1alpha1.IstioOperator, l clog.Logger) error {
+func applyManifest(kubeClient kube.Client, client client.Client, manifestStr string,
+	componentName name.ComponentName, opts *applyOptions, iop *v1alpha1.IstioOperator, l clog.Logger,
+) error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	reconciler, err := helmreconciler.NewHelmReconciler(client, nil, restConfig, iop, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
+	reconciler, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
 	if err != nil {
 		l.LogAndError(err)
 		return err
@@ -194,8 +203,8 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 }
 
 // createNamespace creates a namespace using the given k8s interface.
-func createNamespace(cs kubernetes.Interface, namespace string, network string) error {
-	return helmreconciler.CreateNamespace(cs, namespace, network)
+func createNamespace(cs kubernetes.Interface, namespace string, network string, dryRun bool) error {
+	return helmreconciler.CreateNamespace(cs, namespace, network, dryRun)
 }
 
 // saveIOPToCluster saves the state in an IOP CR in the cluster.

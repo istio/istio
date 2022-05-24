@@ -690,7 +690,8 @@ func annotateWithIOPCustomization(revDesc *RevisionDescription, manifestsPath st
 }
 
 func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
-	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration) *RevisionDescription {
+	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration,
+) *RevisionDescription {
 	revDescription := &RevisionDescription{
 		IstioOperatorCRs: []*IstioOperatorCRInfo{},
 		Webhooks:         []*MutatingWebhookConfigInfo{},
@@ -993,7 +994,7 @@ func getPodsWithSelector(client kube.ExtendedClient, ns string, selector *meta_v
 	if err != nil {
 		return []v1.Pod{}, err
 	}
-	podList, err := client.CoreV1().Pods(ns).List(context.TODO(),
+	podList, err := client.Kube().CoreV1().Pods(ns).List(context.TODO(),
 		meta_v1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
 		return []v1.Pod{}, err
@@ -1047,7 +1048,7 @@ func diffWalk(path, separator string, installed interface{}, base interface{}) (
 		typedOrig, ok := base.([]interface{})
 		if ok {
 			for idx, vv := range v {
-				var baseMap interface{} = nil
+				var baseMap interface{}
 				if idx < len(typedOrig) {
 					baseMap = typedOrig[idx]
 				}

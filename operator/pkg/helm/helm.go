@@ -99,7 +99,8 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 		return "", fmt.Errorf("failed to unmarshal values: %v", err)
 	}
 
-	vals, err := chartutil.ToRenderValues(chrt, valuesMap, options, nil)
+	caps := *chartutil.DefaultCapabilities
+	vals, err := chartutil.ToRenderValues(chrt, valuesMap, options, &caps)
 	if err != nil {
 		return "", err
 	}

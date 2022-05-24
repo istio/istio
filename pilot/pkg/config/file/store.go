@@ -38,7 +38,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
-	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -47,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	schemaresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -176,9 +176,9 @@ func (s *KubeSource) ContentNames() map[string]struct{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	result := make(map[string]struct{})
+	result := sets.New()
 	for n := range s.byFile {
-		result[n] = struct{}{}
+		result.Insert(n)
 	}
 
 	return result
@@ -217,8 +217,8 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 			if err != nil {
 				_, err = s.inner.Create(*r.config)
 				if err != nil {
-					return fmt.Errorf("cannot store config %v from reader: %s",
-						r.config.Meta, err)
+					return fmt.Errorf("cannot store config %s/%s %s from reader: %s",
+						r.schema.Resource().Version(), r.schema.Resource().Kind(), r.fullName(), err)
 				}
 			}
 			s.shas[key] = r.sha
@@ -336,7 +336,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return kubeResource{}, fmt.Errorf("unable to parse resource with no group, version and kind")
 	}
 
-	schema, found := r.FindByGroupVersionKind(schemaresource.FromKubernetesGVK(groupVersionKind))
+	schema, found := r.FindByGroupVersionAliasesKind(schemaresource.FromKubernetesGVK(groupVersionKind))
 
 	if !found {
 		return kubeResource{}, &unknownSchemaError{
@@ -371,7 +371,10 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	if err != nil {
 		return kubeResource{}, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}
-	objMeta := obj.(metav1.Object)
+	objMeta, ok := obj.(metav1.Object)
+	if !ok {
+		return kubeResource{}, errors.New("failed to assert type of object metadata")
+	}
 
 	// If namespace is blank and we have a default set, fill in the default
 	// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
@@ -442,8 +445,41 @@ func ToConfig(object metav1.Object, schema collection.Schema, source resource.Re
 		annots[ReferenceKey] = string(jsonsource)
 		u.SetAnnotations(annots)
 	}
-	result := arbitraryclient.TranslateObject(u, "", schema)
+	result := TranslateObject(u, "", schema)
 	return result, nil
+}
+
+func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema collection.Schema) *config.Config {
+	mv2, err := schema.Resource().NewInstance()
+	if err != nil {
+		panic(err)
+	}
+	if spec, ok := obj.UnstructuredContent()["spec"]; ok {
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(spec.(map[string]interface{}), mv2)
+	} else {
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), mv2)
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	m := obj
+	return &config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  schema.Resource().GroupVersionKind(),
+			UID:               string(m.GetUID()),
+			Name:              m.GetName(),
+			Namespace:         m.GetNamespace(),
+			Labels:            m.GetLabels(),
+			Annotations:       m.GetAnnotations(),
+			ResourceVersion:   m.GetResourceVersion(),
+			CreationTimestamp: m.GetCreationTimestamp().Time,
+			OwnerReferences:   m.GetOwnerReferences(),
+			Generation:        m.GetGeneration(),
+			Domain:            domainSuffix,
+		},
+		Spec: mv2,
+	}
 }
 
 // BuildFieldPathMap builds the flat map for each field of the YAML resource

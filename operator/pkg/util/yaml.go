@@ -15,16 +15,59 @@
 package util
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
+	"reflect"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
+	legacyproto "github.com/golang/protobuf/proto"
 	"github.com/kylelemons/godebug/diff"
+	"google.golang.org/protobuf/proto"
+	yaml3 "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
+
+	"istio.io/istio/pkg/util/protomarshal"
 )
+
+func ToYAMLGeneric(root interface{}) ([]byte, error) {
+	var vs []byte
+	if proto, ok := root.(proto.Message); ok {
+		v, err := protomarshal.ToYAML(proto)
+		if err != nil {
+			return nil, err
+		}
+		vs = []byte(v)
+	} else {
+		v, err := yaml.Marshal(root)
+		if err != nil {
+			return nil, err
+		}
+		vs = v
+	}
+	return vs, nil
+}
+
+func MustToYAMLGeneric(root interface{}) string {
+	var vs []byte
+	if proto, ok := root.(proto.Message); ok {
+		v, err := protomarshal.ToYAML(proto)
+		if err != nil {
+			return err.Error()
+		}
+		vs = []byte(v)
+	} else {
+		v, err := yaml.Marshal(root)
+		if err != nil {
+			return err.Error()
+		}
+		vs = v
+	}
+	return string(vs)
+}
 
 // ToYAML returns a YAML string representation of val, or the error string if an error occurs.
 func ToYAML(val interface{}) string {
@@ -37,8 +80,12 @@ func ToYAML(val interface{}) string {
 
 // ToYAMLWithJSONPB returns a YAML string representation of val (using jsonpb), or the error string if an error occurs.
 func ToYAMLWithJSONPB(val proto.Message) string {
+	v := reflect.ValueOf(val)
+	if val == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
+		return "null"
+	}
 	m := jsonpb.Marshaler{EnumsAsInts: true}
-	js, err := m.MarshalToString(val)
+	js, err := m.MarshalToString(legacyproto.MessageV1(val))
 	if err != nil {
 		return err.Error()
 	}
@@ -51,16 +98,7 @@ func ToYAMLWithJSONPB(val proto.Message) string {
 
 // MarshalWithJSONPB returns a YAML string representation of val (using jsonpb).
 func MarshalWithJSONPB(val proto.Message) (string, error) {
-	m := jsonpb.Marshaler{EnumsAsInts: true}
-	js, err := m.MarshalToString(val)
-	if err != nil {
-		return "", err
-	}
-	yb, err := yaml.JSONToYAML([]byte(js))
-	if err != nil {
-		return "", err
-	}
-	return string(yb), nil
+	return protomarshal.ToYAML(val)
 }
 
 // UnmarshalWithJSONPB unmarshals y into out using gogo jsonpb (required for many proto defined structs).
@@ -74,7 +112,7 @@ func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) er
 		return err
 	}
 	u := jsonpb.Unmarshaler{AllowUnknownFields: allowUnknownField}
-	err = u.Unmarshal(bytes.NewReader(jb), out)
+	err = u.Unmarshal(bytes.NewReader(jb), legacyproto.MessageV1(out))
 	if err != nil {
 		return err
 	}
@@ -83,6 +121,17 @@ func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) er
 
 // OverlayTrees performs a sequential JSON strategic of overlays over base.
 func OverlayTrees(base map[string]interface{}, overlays ...map[string]interface{}) (map[string]interface{}, error) {
+	needsOverlay := false
+	for _, o := range overlays {
+		if len(o) > 0 {
+			needsOverlay = true
+			break
+		}
+	}
+	if !needsOverlay {
+		// Avoid expensive overlay if possible
+		return base, nil
+	}
 	bby, err := yaml.Marshal(base)
 	if err != nil {
 		return nil, err
@@ -145,7 +194,8 @@ func OverlayYAML(base, overlay string) (string, error) {
 	return string(my), nil
 }
 
-func YAMLDiff(a, b string) string {
+// yamlDiff compares single YAML file
+func yamlDiff(a, b string) string {
 	ao, bo := make(map[string]interface{}), make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(a), &ao); err != nil {
 		return err.Error()
@@ -166,6 +216,78 @@ func YAMLDiff(a, b string) string {
 	return diff.Diff(string(ay), string(by))
 }
 
+// yamlStringsToList yaml string parse to string list
+func yamlStringsToList(str string) []string {
+	reader := bufio.NewReader(strings.NewReader(str))
+	decoder := yaml3.NewYAMLReader(reader)
+	res := make([]string, 0)
+	for {
+		doc, err := decoder.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			break
+		}
+
+		chunk := bytes.TrimSpace(doc)
+		res = append(res, string(chunk))
+	}
+	return res
+}
+
+// multiYamlDiffOutput multi yaml diff output format
+func multiYamlDiffOutput(res, diff string) string {
+	if res == "" {
+		return diff
+	}
+	if diff == "" {
+		return res
+	}
+
+	return res + "\n" + diff
+}
+
+func diffStringList(l1, l2 []string) string {
+	var maxLen int
+	var minLen int
+	var l1Max bool
+	res := ""
+	if len(l1)-len(l2) > 0 {
+		maxLen = len(l1)
+		minLen = len(l2)
+		l1Max = true
+	} else {
+		maxLen = len(l2)
+		minLen = len(l1)
+		l1Max = false
+	}
+
+	for i := 0; i < maxLen; i++ {
+		d := ""
+		if i >= minLen {
+			if l1Max {
+				d = yamlDiff(l1[i], "")
+			} else {
+				d = yamlDiff("", l2[i])
+			}
+		} else {
+			d = yamlDiff(l1[i], l2[i])
+		}
+		res = multiYamlDiffOutput(res, d)
+	}
+	return res
+}
+
+// YAMLDiff compares multiple YAML files and single YAML file
+func YAMLDiff(a, b string) string {
+	al := yamlStringsToList(a)
+	bl := yamlStringsToList(b)
+	res := diffStringList(al, bl)
+
+	return res
+}
+
 // IsYAMLEqual reports whether the YAML in strings a and b are equal.
 func IsYAMLEqual(a, b string) bool {
 	if strings.TrimSpace(a) == "" && strings.TrimSpace(b) == "" {
@@ -182,7 +304,7 @@ func IsYAMLEqual(a, b string) bool {
 		return false
 	}
 
-	return string(ajb) == string(bjb)
+	return bytes.Equal(ajb, bjb)
 }
 
 // IsYAMLEmpty reports whether the YAML string y is logically empty.

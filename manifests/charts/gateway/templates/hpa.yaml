@@ -1,5 +1,9 @@
-{{- if .Values.autoscaling.enabled }}
+{{- if and (.Values.autoscaling.enabled) (eq .Values.kind "Deployment") }}
+{{- if (semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion)}}
+apiVersion: autoscaling/v2
+{{- else }}
 apiVersion: autoscaling/v2beta2
+{{- end }}
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "gateway.name" . }}
@@ -11,7 +15,7 @@ metadata:
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
-    kind: Deployment
+    kind: {{ .Values.kind | default "Deployment" }}
     name: {{ include "gateway.name" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
@@ -24,5 +28,4 @@ spec:
           averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
           type: Utilization
     {{- end }}
-
 {{- end }}

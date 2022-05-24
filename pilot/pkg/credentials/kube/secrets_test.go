@@ -25,13 +25,14 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
-func makeSecret(name string, data map[string]string) *corev1.Secret {
+func makeSecret(name string, data map[string]string, secretType corev1.SecretType) *corev1.Secret {
 	bdata := map[string][]byte{}
 	for k, v := range data {
 		bdata[k] = []byte(v)
@@ -42,46 +43,53 @@ func makeSecret(name string, data map[string]string) *corev1.Secret {
 			Namespace: "default",
 		},
 		Data: bdata,
+		Type: secretType,
 	}
 }
 
 var (
 	genericCert = makeSecret("generic", map[string]string{
 		GenericScrtCert: "generic-cert", GenericScrtKey: "generic-key",
-	})
+	}, corev1.SecretTypeTLS)
 	genericMtlsCert = makeSecret("generic-mtls", map[string]string{
 		GenericScrtCert: "generic-mtls-cert", GenericScrtKey: "generic-mtls-key", GenericScrtCaCert: "generic-mtls-ca",
-	})
+	}, corev1.SecretTypeTLS)
 	genericMtlsCertSplit = makeSecret("generic-mtls-split", map[string]string{
 		GenericScrtCert: "generic-mtls-split-cert", GenericScrtKey: "generic-mtls-split-key",
-	})
+	}, corev1.SecretTypeTLS)
 	genericMtlsCertSplitCa = makeSecret("generic-mtls-split-cacert", map[string]string{
 		GenericScrtCaCert: "generic-mtls-split-ca",
-	})
+	}, corev1.SecretTypeTLS)
 	overlapping = makeSecret("overlap", map[string]string{
 		GenericScrtCert: "cert", GenericScrtKey: "key", GenericScrtCaCert: "main-ca",
-	})
+	}, corev1.SecretTypeTLS)
 	overlappingCa = makeSecret("overlap-cacert", map[string]string{
 		GenericScrtCaCert: "split-ca",
-	})
+	}, corev1.SecretTypeTLS)
 	tlsCert = makeSecret("tls", map[string]string{
 		TLSSecretCert: "tls-cert", TLSSecretKey: "tls-key",
-	})
+	}, corev1.SecretTypeTLS)
 	tlsMtlsCert = makeSecret("tls-mtls", map[string]string{
 		TLSSecretCert: "tls-mtls-cert", TLSSecretKey: "tls-mtls-key", TLSSecretCaCert: "tls-mtls-ca",
-	})
+	}, corev1.SecretTypeTLS)
 	tlsMtlsCertSplit = makeSecret("tls-mtls-split", map[string]string{
 		TLSSecretCert: "tls-mtls-split-cert", TLSSecretKey: "tls-mtls-split-key",
-	})
+	}, corev1.SecretTypeTLS)
 	tlsMtlsCertSplitCa = makeSecret("tls-mtls-split-cacert", map[string]string{
 		TLSSecretCaCert: "tls-mtls-split-ca",
-	})
+	}, corev1.SecretTypeTLS)
 	emptyCert = makeSecret("empty-cert", map[string]string{
 		TLSSecretCert: "", TLSSecretKey: "tls-key",
-	})
+	}, corev1.SecretTypeTLS)
 	wrongKeys = makeSecret("wrong-keys", map[string]string{
 		"foo-bar": "my-cert", TLSSecretKey: "tls-key",
-	})
+	}, corev1.SecretTypeTLS)
+	dockerjson = makeSecret("docker-json", map[string]string{
+		corev1.DockerConfigJsonKey: "docker-cred",
+	}, corev1.SecretTypeDockerConfigJson)
+	badDockerjson = makeSecret("bad-docker-json", map[string]string{
+		"docker-key": "docker-cred",
+	}, corev1.SecretTypeDockerConfigJson)
 )
 
 func TestSecretsController(t *testing.T) {
@@ -101,11 +109,7 @@ func TestSecretsController(t *testing.T) {
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewCredentialsController(client, "")
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
-	client.RunAndWait(stop)
+	client.RunAndWait(test.NewStop(t))
 	cases := []struct {
 		name            string
 		namespace       string
@@ -218,6 +222,57 @@ func TestSecretsController(t *testing.T) {
 	}
 }
 
+func TestDockerCredentials(t *testing.T) {
+	secrets := []runtime.Object{
+		dockerjson,
+		badDockerjson,
+		genericCert,
+	}
+	client := kube.NewFakeClient(secrets...)
+	sc := NewCredentialsController(client, "")
+	client.RunAndWait(test.NewStop(t))
+	cases := []struct {
+		name                string
+		namespace           string
+		expectedType        corev1.SecretType
+		expectedDockerCred  string
+		expectedDockerError string
+	}{
+		{
+			name:               "docker-json",
+			namespace:          "default",
+			expectedType:       corev1.SecretTypeDockerConfigJson,
+			expectedDockerCred: "docker-cred",
+		},
+		{
+			name:                "bad-docker-json",
+			namespace:           "default",
+			expectedDockerError: "cannot find docker config at secret default/bad-docker-json",
+		},
+		{
+			name:                "wrong-name",
+			namespace:           "default",
+			expectedDockerError: "secret default/wrong-name not found",
+		},
+		{
+			name:                "generic",
+			namespace:           "default",
+			expectedDockerError: "type of secret default/generic is not kubernetes.io/dockerconfigjson",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			dockerCred, err := sc.GetDockerCredential(tt.name, tt.namespace)
+			if tt.expectedDockerCred != "" && tt.expectedDockerCred != string(dockerCred) {
+				t.Errorf("got docker credential %q, want %q", string(dockerCred), tt.expectedDockerCred)
+			}
+			if tt.expectedDockerError != "" && tt.expectedDockerError != errString(err) {
+				t.Errorf("got docker err %q, wanted %q", errString(err), tt.expectedDockerError)
+			}
+		})
+	}
+}
+
 func errString(e error) string {
 	if e == nil {
 		return ""
@@ -226,7 +281,7 @@ func errString(e error) string {
 }
 
 func allowIdentities(c kube.Client, identities ...string) {
-	allowed := sets.NewSet(identities...)
+	allowed := sets.New(identities...)
 	c.Kube().(*fake.Clientset).Fake.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		a := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
 		if allowed.Contains(a.Spec.User) {
@@ -319,7 +374,7 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	}
 	tlsCertModified := makeSecret("tls", map[string]string{
 		TLSSecretCert: "tls-cert-mod", TLSSecretKey: "tls-key",
-	})
+	}, corev1.SecretTypeTLS)
 	secretsRemote := []runtime.Object{
 		tlsCertModified,
 		genericCert,

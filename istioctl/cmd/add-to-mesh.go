@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
-	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	istioProtocol "istio.io/istio/pkg/config/protocol"
@@ -51,6 +50,16 @@ import (
 )
 
 var crdFactory = createDynamicInterface
+
+// For most common ports allow the protocol to be guessed, this isn't meant
+// to replace /etc/services. Fully qualified proto[-extra]:port is the
+// recommended usage.
+var portsToName = map[int32]string{
+	80:   "http",
+	443:  "https",
+	3306: "mysql",
+	8080: "http",
+}
 
 // vmServiceOpts contains the options of a mesh expansion service running on VM.
 type vmServiceOpts struct {
@@ -152,7 +161,7 @@ See also 'istioctl experimental remove-from-mesh deployment' which does the reve
 			writer := cmd.OutOrStdout()
 
 			var valuesConfig string
-			var sidecarTemplate inject.Templates
+			var sidecarTemplate inject.RawTemplates
 			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig, opts.Revision)
 			if err != nil {
 				return err
@@ -207,7 +216,7 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 			writer := cmd.OutOrStdout()
 
 			var valuesConfig string
-			var sidecarTemplate inject.Templates
+			var sidecarTemplate inject.RawTemplates
 			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig, opts.Revision)
 			if err != nil {
 				return err
@@ -231,8 +240,9 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 	return cmd
 }
 
-func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate inject.Templates, valuesConfig,
-	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
+func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate inject.RawTemplates, valuesConfig,
+	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string),
+) error {
 	var errs error
 	for _, dep := range deps {
 		err := injectSideCarIntoDeployment(client, &dep, sidecarTemplate, valuesConfig,
@@ -249,7 +259,7 @@ func externalSvcMeshifyCmd() *cobra.Command {
 		Use:     "external-service <svcname> <ip> [name1:]port1 [[name2:]port2] ...",
 		Aliases: []string{"es"},
 		Short:   "Add external service (e.g. services running on a VM) to Istio service mesh",
-		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and 
+		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
 
@@ -273,12 +283,12 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
-				return addServiceOnVMToMesh(seClient, client, ns, args, labels, annotations, svcAcctAnn, writer)
+				return addServiceOnVMToMesh(seClient, client, ns, args, resourceLabels, annotations, svcAcctAnn, writer)
 			}
 			return fmt.Errorf("service %q already exists, skip", args[0])
 		},
 	}
-	cmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l",
+	cmd.PersistentFlags().StringSliceVarP(&resourceLabels, "labels", "l",
 		nil, "List of labels to apply if creating a service/endpoint; e.g. -l env=prod,vers=2")
 	cmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a",
 		nil, "List of string annotations to apply if creating a service/endpoint; e.g. -a foo=bar,x=y")
@@ -289,7 +299,7 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 	return cmd
 }
 
-func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, revision string) (*meshconfig.MeshConfig, error) {
+func setupParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string, revision string) (*meshconfig.MeshConfig, error) {
 	var meshConfig *meshconfig.MeshConfig
 	var err error
 	injectConfigMapName = defaultInjectWebhookConfigName
@@ -327,12 +337,21 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, re
 	return meshConfig, err
 }
 
-func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate inject.Templates, valuesConfig,
-	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
+func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate inject.RawTemplates, valuesConfig,
+	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string),
+) error {
 	var errs error
 	log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 		dep.Name, dep.Namespace)
-	newDep, err := inject.IntoObject(nil, sidecarTemplate, valuesConfig, revision, meshConfig, dep, warningHandler)
+	templs, err := inject.ParseTemplates(sidecarTemplate)
+	if err != nil {
+		return err
+	}
+	vc, err := inject.NewValuesConfig(valuesConfig)
+	if err != nil {
+		return err
+	}
+	newDep, err := inject.IntoObject(nil, templs, vc, revision, meshConfig, dep, warningHandler)
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 			dep.Name, dep.Namespace, svcName, svcNamespace, err))
@@ -344,8 +363,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deploy
 			dep.Name, dep.Namespace, svcName, svcNamespace, err))
 		return errs
 	}
-	if _, err =
-		client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
+	if _, err = client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
 			dep.Name, dep.Namespace, svcName, svcNamespace, err))
 		return errs
@@ -407,26 +425,56 @@ func createDynamicInterface(kubeconfig string) (dynamic.Interface, error) {
 func convertPortList(ports []string) (model.PortList, error) {
 	portList := model.PortList{}
 	for _, p := range ports {
-		np, err := kube_registry.Str2NamedPort(p)
+		np, err := str2NamedPort(p)
 		if err != nil {
 			return nil, fmt.Errorf("invalid port format %v", p)
 		}
-		protocol := istioProtocol.Parse(np.Name)
+		protocol := istioProtocol.Parse(np.name)
 		if protocol == istioProtocol.Unsupported {
-			return nil, fmt.Errorf("protocol %s is not supported by Istio", np.Name)
+			return nil, fmt.Errorf("protocol %s is not supported by Istio", np.name)
 		}
 		portList = append(portList, &model.Port{
-			Port:     int(np.Port),
+			Port:     int(np.port),
 			Protocol: protocol,
-			Name:     np.Name + "-" + strconv.Itoa(int(np.Port)),
+			Name:     np.name + "-" + strconv.Itoa(int(np.port)),
 		})
 	}
 	return portList, nil
 }
 
+// namedPort defines the Port and Name tuple needed for services and endpoints.
+type namedPort struct {
+	port int32
+	name string
+}
+
+// str2NamedPort parses a proto:port string into a namePort struct.
+func str2NamedPort(str string) (namedPort, error) {
+	var r namedPort
+	idx := strings.Index(str, ":")
+	if idx >= 0 {
+		r.name = str[:idx]
+		str = str[idx+1:]
+	}
+	p, err := strconv.Atoi(str)
+	if err != nil {
+		return r, err
+	}
+	r.port = int32(p)
+	if len(r.name) == 0 {
+		name, found := portsToName[r.port]
+		r.name = name
+		if !found {
+			r.name = str
+		}
+	}
+	return r, nil
+}
+
 // addServiceOnVMToMesh adds a service running on VM into Istio service mesh
 func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Interface, ns string,
-	args, l, a []string, svcAcctAnn string, writer io.Writer) error {
+	args, l, a []string, svcAcctAnn string, writer io.Writer,
+) error {
 	svcName := args[0]
 	ips := strings.Split(args[1], ",")
 	portsListStr := args[2:]
@@ -510,7 +558,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Labels:  o.Labels,
 		})
 	}
-	host := fmt.Sprintf("%v.%v.svc.%s", o.Name, o.Namespace, constants.DefaultKubernetesDomain)
+	host := fmt.Sprintf("%v.%v.svc.%s", o.Name, o.Namespace, constants.DefaultClusterLocalDomain)
 	spec := &v1alpha3.ServiceEntry{
 		Hosts:      []string{host},
 		Ports:      ports,
@@ -619,7 +667,8 @@ func createK8sService(client kubernetes.Interface, ns string, svc *corev1.Servic
 
 // createServiceEntry creates an Istio ServiceEntry object in order to register vm service.
 func createServiceEntry(dynamicClient dynamic.Interface, ns string,
-	u *unstructured.Unstructured, name string, writer io.Writer) error {
+	u *unstructured.Unstructured, name string, writer io.Writer,
+) error {
 	if u == nil {
 		return fmt.Errorf("failed to create vm service")
 	}

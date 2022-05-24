@@ -1,11 +1,17 @@
+ARG VM_IMAGE_NAME=rockylinux
 ARG VM_IMAGE_VERSION=8
-FROM centos:${VM_IMAGE_VERSION}
+FROM ${VM_IMAGE_NAME}:${VM_IMAGE_VERSION}
 
 # hadolint ignore=DL3005,DL3008,DL3033
 RUN yum install -y \
     iptables \
     iproute \
     sudo \
+    curl \
+    netcat \
+    tcpdump \
+    conntrack \
+    net-tools \
     ca-certificates \
     && update-ca-trust \
     && yum clean all \

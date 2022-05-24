@@ -27,13 +27,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config"
@@ -67,10 +68,12 @@ import (
 // * SSA using standard API types doesn't work well either: https://github.com/kubernetes-sigs/controller-runtime/issues/1669
 // * This leaves YAML templates, converted to unstructured types and Applied with the dynamic client.
 type DeploymentController struct {
-	client    kube.Client
-	queue     workqueue.RateLimitingInterface
-	templates *template.Template
-	patcher   patcher
+	client             kube.Client
+	queue              controllers.Queue
+	templates          *template.Template
+	patcher            patcher
+	gatewayLister      v1alpha2.GatewayLister
+	gatewayClassLister v1alpha2.GatewayClassLister
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -79,11 +82,31 @@ type patcher func(gvr schema.GroupVersionResource, name string, namespace string
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
 func NewDeploymentController(client kube.Client) *DeploymentController {
-	q := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	gw := client.GatewayAPIInformer().Gateway().V1alpha2().Gateways()
+	gwc := client.GatewayAPIInformer().Gateway().V1alpha2().GatewayClasses()
+	dc := &DeploymentController{
+		client:    client,
+		templates: processTemplates(),
+		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+			c := client.Dynamic().Resource(gvr).Namespace(namespace)
+			t := true
+			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
+				Force:        &t,
+				FieldManager: ControllerName,
+			}, subresources...)
+			return err
+		},
+		gatewayLister:      gw.Lister(),
+		gatewayClassLister: gwc.Lister(),
+	}
+	dc.queue = controllers.NewQueue("gateway deployment",
+		controllers.WithReconciler(dc.Reconcile),
+		controllers.WithMaxAttempts(5))
+
 	// Set up a handler that will add the parent Gateway object onto the queue.
 	// The queue will only handle Gateway objects; if child resources (Service, etc) are updated we re-add
 	// the Gateway to the queue and reconcile the state of the world.
-	handler := controllers.LatestVersionHandlerFuncs(controllers.EnqueueForParentHandler(q, gvk.KubernetesGateway))
+	handler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
 
 	// Use the full informer, since we are already fetching all Services for other purposes
 	// If we somehow stop watching Services in the future we can add a label selector like below.
@@ -101,96 +124,73 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 	}).AddEventHandler(handler)
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
-	client.GatewayAPIInformer().Gateway().V1alpha2().Gateways().Informer().
-		AddEventHandler(controllers.LatestVersionHandlerFuncs(controllers.EnqueueForSelf(q)))
+	gw.Informer().AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	gwc.Informer().AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		o.GetName()
+		gws, _ := dc.gatewayLister.List(klabels.Everything())
+		for _, g := range gws {
+			if string(g.Spec.GatewayClassName) == o.GetName() {
+				dc.queue.AddObject(g)
+			}
+		}
+	}))
 
-	return &DeploymentController{
-		client:    client,
-		queue:     q,
-		templates: processTemplates(),
-		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
-			c := client.Dynamic().Resource(gvr).Namespace(namespace)
-			t := true
-			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
-				Force:        &t,
-				FieldManager: ControllerName,
-			}, subresources...)
-			return err
-		},
-	}
+	return dc
 }
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
-	defer d.queue.ShutDown()
-	log.Infof("starting gateway deployment controller")
-	go func() {
-		// Process updates until we return false, which indicates the queue is terminated
-		for d.processNextItem() {
-		}
-	}()
-	<-stop
-}
-
-func (d *DeploymentController) processNextItem() bool {
-	// Wait until there is a new item in the working queue
-	key, quit := d.queue.Get()
-	if quit {
-		return false
-	}
-
-	log.Debugf("handling update for %v", key)
-
-	defer d.queue.Done(key)
-
-	err := d.Reconcile(key.(types.NamespacedName))
-	if err != nil {
-		if d.queue.NumRequeues(key) < 5 {
-			log.Errorf("error handling %v, retrying: %v", key, err)
-			d.queue.AddRateLimited(key)
-		} else {
-			log.Errorf("error handling %v, and retry budget exceeded: %v", key, err)
-		}
-	}
-	return true
+	d.queue.Run(stop)
 }
 
 // Reconcile takes in the name of a Gateway and ensures the cluster is in the desired state
 func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	log := log.WithLabels("gateway", req)
 
-	gw, err := d.client.GatewayAPIInformer().Gateway().V1alpha2().Gateways().Lister().Gateways(req.Namespace).Get(req.Name)
+	gw, err := d.gatewayLister.Gateways(req.Namespace).Get(req.Name)
 	if err != nil || gw == nil {
-		log.Errorf("unable to fetch Gateway: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
-		return controllers.IgnoreNotFound(err)
+		if err := controllers.IgnoreNotFound(err); err != nil {
+			log.Errorf("unable to fetch Gateway: %v", err)
+			return err
+		}
+		return nil
 	}
 
-	switch gw.Spec.GatewayClassName {
-	case DefaultClassName:
-		return d.configureIstioGateway(log, *gw)
+	gc, _ := d.gatewayClassLister.Get(string(gw.Spec.GatewayClassName))
+	if gc != nil {
+		// We found the gateway class, but we do not implement it. Skip
+		if gc.Spec.ControllerName != ControllerName {
+			return nil
+		}
+	} else {
+		// Didn't find gateway class... it must use implicit Istio one.
+		if gw.Spec.GatewayClassName != DefaultClassName {
+			return nil
+		}
 	}
 
-	return nil
+	// Matched class, reconcile it
+	return d.configureIstioGateway(log, *gw)
 }
 
 func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
-	if !isManaged(&gw.Spec) {
+	if !IsManaged(&gw.Spec) {
 		log.Debug("skip unmanaged gateway")
 		return nil
 	}
 	log.Info("reconciling")
 
-	svc := serviceInput{Gateway: gw, Ports: extractServicePorts(gw)}
+	svc := serviceInput{Gateway: &gw, Ports: extractServicePorts(gw)}
 	if err := d.ApplyTemplate("service.yaml", svc); err != nil {
 		return fmt.Errorf("update service: %v", err)
 	}
 	log.Info("service updated")
 
-	dep := deploymentInput{Gateway: gw, KubeVersion122: kube.IsAtLeastVersion(d.client, 22)}
+	dep := deploymentInput{Gateway: &gw, KubeVersion122: kube.IsAtLeastVersion(d.client, 22)}
 	if err := d.ApplyTemplate("deployment.yaml", dep); err != nil {
 		return fmt.Errorf("update deployment: %v", err)
 	}
@@ -222,7 +222,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 }
 
 // ApplyTemplate renders a template with the given input and (server-side) applies the results to the cluster.
-func (d *DeploymentController) ApplyTemplate(template string, input interface{}, subresources ...string) error {
+func (d *DeploymentController) ApplyTemplate(template string, input metav1.Object, subresources ...string) error {
 	var buf bytes.Buffer
 	if err := d.templates.ExecuteTemplate(&buf, template, input); err != nil {
 		return err
@@ -243,7 +243,7 @@ func (d *DeploymentController) ApplyTemplate(template string, input interface{},
 	}
 
 	log.Debugf("applying %v", string(j))
-	return d.patcher(gvr, us.GetName(), us.GetNamespace(), j, subresources...)
+	return d.patcher(gvr, us.GetName(), input.GetNamespace(), j, subresources...)
 }
 
 // ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
@@ -277,12 +277,12 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 }
 
 type serviceInput struct {
-	gateway.Gateway
+	*gateway.Gateway
 	Ports []corev1.ServicePort
 }
 
 type deploymentInput struct {
-	gateway.Gateway
+	*gateway.Gateway
 	KubeVersion122 bool
 }
 

@@ -16,13 +16,12 @@ package model
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-	"github.com/google/go-cmp/cmp"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	fuzz "github.com/google/gofuzz"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -31,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const wildcardIP = "0.0.0.0"
@@ -313,7 +313,6 @@ func TestMergeVirtualServices(t *testing.T) {
 				},
 				{
 					Match: []*networking.HTTPMatchRequest{
-
 						{
 							Uri: &networking.StringMatch{
 								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
@@ -679,9 +678,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, _ := mergeVirtualServicesIfNeeded(tc.virtualServices, map[visibility.Instance]bool{visibility.Public: true})
-			if !reflect.DeepEqual(got, tc.expectedVirtualServices) {
-				t.Errorf("expected vs %v, but got %v,\n diff: %s ", len(tc.expectedVirtualServices), len(got), cmp.Diff(tc.expectedVirtualServices, got))
-			}
+			assert.Equal(t, got, tc.expectedVirtualServices)
 		})
 	}
 }
@@ -697,7 +694,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 			name: "root catch all",
 			root: &networking.HTTPRoute{
 				Match:   nil, // catch all
-				Timeout: &types.Duration{Seconds: 10},
+				Timeout: &durationpb.Duration{Seconds: 10},
 				Headers: &networking.Headers{
 					Request: &networking.Headers_HeaderOperations{
 						Add: map[string]string{
@@ -800,7 +797,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Timeout: &types.Duration{Seconds: 10},
+					Timeout: &durationpb.Duration{Seconds: 10},
 					Headers: &networking.Headers{
 						Request: &networking.Headers_HeaderOperations{
 							Add: map[string]string{
@@ -846,7 +843,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Timeout: &types.Duration{Seconds: 10},
+					Timeout: &durationpb.Duration{Seconds: 10},
 					Headers: &networking.Headers{
 						Request: &networking.Headers_HeaderOperations{
 							Add: map[string]string{
@@ -1050,9 +1047,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := mergeHTTPRoutes(tc.root, tc.delegate)
-			if !reflect.DeepEqual(got, tc.expected) {
-				t.Errorf("got unexpected result, diff: %s", cmp.Diff(tc.expected, got))
-			}
+			assert.Equal(t, got, tc.expected)
 		})
 	}
 }
@@ -1087,6 +1082,44 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name: "url regex noconflict",
+			root: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+					},
+				},
+			},
+			delegate: []*networking.HTTPMatchRequest{
+				{},
+			},
+			expected: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+					},
+				},
+			},
+		},
+		{
+			name: "url regex conflict",
+			root: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+					},
+				},
+			},
+			delegate: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+					},
+				},
+			},
+			expected: nil,
 		},
 		{
 			name: "multi url match",
@@ -1428,9 +1461,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, _ := mergeHTTPMatchRequests(tc.root, tc.delegate)
-			if !reflect.DeepEqual(got, tc.expected) {
-				t.Errorf("got unexpected result, diff: %s", cmp.Diff(tc.expected, got))
-			}
+			assert.Equal(t, got, tc.expected)
 		})
 	}
 }
@@ -1452,6 +1483,54 @@ func TestHasConflict(t *testing.T) {
 			leaf: &networking.HTTPMatchRequest{
 				Uri: &networking.StringMatch{
 					MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v2"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "regex uri in root and delegate does not have uri",
+			root: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+				},
+			},
+			leaf:     &networking.HTTPMatchRequest{},
+			expected: false,
+		},
+		{
+			name: "regex uri in delegate and root does not have uri",
+			root: &networking.HTTPMatchRequest{},
+			leaf: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "regex uri in root and delegate has conflicting uri match",
+			root: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "regex uri in delegate and root has conflicting uri match",
+			root: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
 				},
 			},
 			expected: true,
@@ -1723,8 +1802,8 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 			*r = networking.HTTPRewrite{}
 		},
 
-		func(r *types.Duration, c fuzz.Continue) {
-			*r = types.Duration{}
+		func(r *durationpb.Duration, c fuzz.Continue) {
+			*r = durationpb.Duration{}
 		},
 		func(r *networking.HTTPRetry, c fuzz.Continue) {
 			*r = networking.HTTPRetry{}
@@ -1735,8 +1814,8 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 		func(r *networking.Destination, c fuzz.Continue) {
 			*r = networking.Destination{}
 		},
-		func(r *types.UInt32Value, c fuzz.Continue) {
-			*r = types.UInt32Value{}
+		func(r *wrappers.UInt32Value, c fuzz.Continue) {
+			*r = wrappers.UInt32Value{}
 		},
 		func(r *networking.Percent, c fuzz.Continue) {
 			*r = networking.Percent{}
@@ -1753,11 +1832,7 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 
 	delegate := &networking.HTTPRoute{}
 	expected := mergeHTTPRoute(root, delegate)
-	root.XXX_unrecognized = nil
-	root.XXX_sizecache = 0
-	if !reflect.DeepEqual(expected, root) {
-		t.Errorf("%s", cmp.Diff(expected, root))
-	}
+	assert.Equal(t, expected, root)
 }
 
 // Note: this is to prevent missing merge new added HTTPMatchRequest fields
@@ -1785,15 +1860,10 @@ func TestFuzzMergeHttpMatchRequest(t *testing.T) {
 	root.SourceLabels = nil
 	root.Gateways = nil
 	root.IgnoreUriCase = false
-	root.XXX_sizecache = 0
-	root.XXX_unrecognized = nil
-
 	delegate := &networking.HTTPMatchRequest{}
 	merged := mergeHTTPMatchRequest(root, delegate)
 
-	if !reflect.DeepEqual(merged, root) {
-		t.Errorf("%s", cmp.Diff(merged, root))
-	}
+	assert.Equal(t, merged, root)
 }
 
 var gatewayNameTests = []struct {

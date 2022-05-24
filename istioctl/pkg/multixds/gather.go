@@ -138,7 +138,8 @@ func makeSan(istioNamespace, revision string) string {
 // AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // nolint: lll
 func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
-	ns string, serviceAccount string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
+	ns string, serviceAccount string, kubeClient kube.ExtendedClient,
+) (map[string]*xdsapi.DiscoveryResponse, error) {
 	return MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
 }
 
@@ -146,12 +147,13 @@ func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptions
 // stopping after the first response that returns any resources.
 // nolint: lll
 func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
-	ns string, serviceAccount string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
+	ns string, serviceAccount string, kubeClient kube.ExtendedClient,
+) (map[string]*xdsapi.DiscoveryResponse, error) {
 	return MultiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
 }
 
 func getXdsAddressFromWebhooks(client kube.ExtendedClient) (string, error) {
-	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
+	webhooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,!istio.io/tag", label.IoIstioRev.Name, client.Revision()),
 	})
 	if err != nil {
@@ -170,7 +172,8 @@ func getXdsAddressFromWebhooks(client kube.ExtendedClient) (string, error) {
 
 // nolint: lll
 func MultiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
-	ns string, serviceAccount string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
+	ns string, serviceAccount string, kubeClient kube.ExtendedClient,
+) (map[string]*xdsapi.DiscoveryResponse, error) {
 	// If Central Istiod case, just call it
 	if ns == "" {
 		ns = istioNamespace

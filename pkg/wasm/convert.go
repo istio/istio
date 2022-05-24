@@ -21,16 +21,13 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
-)
 
-const (
-	apiTypePrefix      = "type.googleapis.com/"
-	typedStructType    = apiTypePrefix + "udpa.type.v1.TypedStruct"
-	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
+	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/xds"
 )
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
@@ -62,35 +59,6 @@ func MaybeConvertWasmExtensionConfig(resources []*any.Any, cache Cache) bool {
 	return sendNack.Load()
 }
 
-// MaybeConvertWasmExtensionConfigDelta converts any presence of module remote download to local file.
-// It downloads the Wasm module and stores the module locally in the file system.
-func MaybeConvertWasmExtensionConfigDelta(resources []*discovery.Resource, cache Cache) bool {
-	var wg sync.WaitGroup
-	numResources := len(resources)
-	wg.Add(numResources)
-	sendNack := atomic.NewBool(false)
-	startTime := time.Now()
-	defer func() {
-		wasmConfigConversionDuration.Record(float64(time.Since(startTime).Milliseconds()))
-	}()
-
-	for i := 0; i < numResources; i++ {
-		go func(i int) {
-			defer wg.Done()
-
-			newExtensionConfig, nack := convert(resources[i].Resource, cache)
-			if nack {
-				sendNack.Store(true)
-				return
-			}
-			resources[i].Resource = newExtensionConfig
-		}(i)
-	}
-
-	wg.Wait()
-	return sendNack.Load()
-}
-
 func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendNack bool) {
 	ec := &core.TypedExtensionConfig{}
 	newExtensionConfig = resource
@@ -108,14 +76,13 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 
 	wasmHTTPFilterConfig := &wasm.Wasm{}
 	// Wasm filter can be configured using typed struct and Wasm filter type
-	wasmLog.Debugf("original extension config resource %+v", ec)
-	if ec.GetTypedConfig() != nil && ec.GetTypedConfig().TypeUrl == wasmHTTPFilterType {
+	if ec.GetTypedConfig() != nil && ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType {
 		err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig)
 		if err != nil {
 			wasmLog.Debugf("failed to unmarshal extension config resource into Wasm HTTP filter: %v", err)
 			return
 		}
-	} else if ec.GetTypedConfig() == nil || ec.GetTypedConfig().TypeUrl != typedStructType {
+	} else if ec.GetTypedConfig() == nil || ec.GetTypedConfig().TypeUrl != xds.TypedStructType {
 		wasmLog.Debugf("cannot find typed struct in %+v", ec)
 		return
 	} else {
@@ -126,7 +93,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 			return
 		}
 
-		if wasmStruct.TypeUrl != wasmHTTPFilterType {
+		if wasmStruct.TypeUrl != xds.WasmHTTPFilterType {
 			wasmLog.Debugf("typed extension config %+v does not contain wasm http filter", wasmStruct)
 			return
 		}
@@ -149,6 +116,39 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	status = conversionSuccess
 
 	vm := wasmHTTPFilterConfig.Config.GetVmConfig()
+	envs := vm.GetEnvironmentVariables()
+	var pullSecret []byte
+	pullPolicy := extensions.PullPolicy_UNSPECIFIED_POLICY
+	resourceVersion := ""
+	if envs != nil {
+		if sec, found := envs.KeyValues[model.WasmSecretEnv]; found {
+			if sec == "" {
+				status = fetchFailure
+				wasmLog.Errorf("cannot fetch Wasm module %v: missing image pulling secret", wasmHTTPFilterConfig.Config.Name)
+				return
+			}
+			pullSecret = []byte(sec)
+		}
+		// Strip all internal env variables from VM env variable.
+		// These env variables are added by Istio control plane and meant to be consumed by the agent for image pulling control,
+		// thus should not be leaked to Envoy or the Wasm extension runtime.
+		delete(envs.KeyValues, model.WasmSecretEnv)
+		if len(envs.KeyValues) == 0 {
+			if len(envs.HostEnvKeys) == 0 {
+				vm.EnvironmentVariables = nil
+			} else {
+				envs.KeyValues = nil
+			}
+		}
+
+		if ps, found := envs.KeyValues[model.WasmPolicyEnv]; found {
+			if p, found := extensions.PullPolicy_value[ps]; found {
+				pullPolicy = extensions.PullPolicy(p)
+			}
+		}
+
+		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]
+	}
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()
 	if httpURI == nil {
@@ -164,7 +164,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}
-	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, timeout)
+	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, wasmHTTPFilterConfig.Config.Name, resourceVersion, timeout, pullSecret, pullPolicy)
 	if err != nil {
 		status = fetchFailure
 		wasmLog.Errorf("cannot fetch Wasm module %v: %v", remote.GetHttpUri().GetUri(), err)

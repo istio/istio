@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/ledger"
 )
 
@@ -52,7 +53,7 @@ type Reporter struct {
 	status map[string]string
 	// map from nonce to connection ids for which it is current
 	// using map[string]struct to approximate a hashset
-	reverseStatus          map[string]map[string]struct{}
+	reverseStatus          map[string]sets.Set
 	inProgressResources    map[string]*inProgressEntry
 	client                 v1.ConfigMapInterface
 	cm                     *corev1.ConfigMap
@@ -80,7 +81,7 @@ func (r *Reporter) Init(ledger ledger.Ledger, stop <-chan struct{}) {
 	}
 	r.distributionEventQueue = make(chan distributionEvent, 100_000)
 	r.status = make(map[string]string)
-	r.reverseStatus = make(map[string]map[string]struct{})
+	r.reverseStatus = make(map[string]sets.Set)
 	r.inProgressResources = make(map[string]*inProgressEntry)
 	go r.readFromEventQueue(stop)
 }
@@ -316,9 +317,9 @@ func (r *Reporter) processEvent(conID string, distributionType xds.EventType, no
 	// touch
 	r.status[key] = version
 	if _, ok := r.reverseStatus[version]; !ok {
-		r.reverseStatus[version] = make(map[string]struct{})
+		r.reverseStatus[version] = sets.New()
 	}
-	r.reverseStatus[version][key] = struct{}{}
+	r.reverseStatus[version].Insert(key)
 }
 
 // This is a helper function for keeping our reverseStatus map in step with status.
@@ -326,8 +327,8 @@ func (r *Reporter) processEvent(conID string, distributionType xds.EventType, no
 func (r *Reporter) deleteKeyFromReverseMap(key string) {
 	if old, ok := r.status[key]; ok {
 		if keys, ok := r.reverseStatus[old]; ok {
-			delete(keys, key)
-			if len(r.reverseStatus[old]) < 1 {
+			keys.Delete(key)
+			if keys.IsEmpty() {
 				delete(r.reverseStatus, old)
 			}
 		}

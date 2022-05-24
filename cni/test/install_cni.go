@@ -171,7 +171,8 @@ func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, te
 
 // startDocker starts a test Docker container and runs the install-cni script.
 func runInstall(ctx context.Context, tempCNIConfDir, tempCNIBinDir,
-	tempK8sSvcAcctDir, cniConfFileName string, chainedCNIPlugin bool) {
+	tempK8sSvcAcctDir, cniConfFileName string, chainedCNIPlugin bool,
+) {
 	root := cmd.GetCommand()
 	constants.ServiceAccountPath = tempK8sSvcAcctDir
 	constants.HostCNIBinDir = tempCNIBinDir
@@ -218,7 +219,7 @@ func compareConfResult(result, expected string, t *testing.T) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		return checkResult(result, expected)
-	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second))
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*3))
 }
 
 // checkBinDir verifies the presence/absence of test files.
@@ -259,7 +260,8 @@ func checkTempFilesCleaned(tempCNIConfDir string, t *testing.T) {
 // doTest sets up necessary environment variables, runs the Docker installation
 // container and verifies output file correctness.
 func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
-	expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir string) {
+	expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir string,
+) {
 	t.Logf("prior cni-conf='%v', expected result='%v'", preConfFile, resultFileName)
 
 	// Don't set the CNI conf file env var if preConfFile is not set
@@ -345,7 +347,8 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 // prefix. This func is only meant to be invoked programmatically. A separate
 // install_cni_test.go file exists for executing this test.
 func RunInstallCNITest(t *testing.T, chainedCNIPlugin bool, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
-	expectedPostCleanFile string, cniConfDirOrderedFiles []string) {
+	expectedPostCleanFile string, cniConfDirOrderedFiles []string,
+) {
 	wd := env.IstioSrc + "/cni/test"
 	testWorkRootDir := getEnv("TEST_WORK_ROOTDIR", "/tmp")
 

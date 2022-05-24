@@ -54,6 +54,13 @@ spec:
               - key: kubernetes.io/arch
                 operator: In
                 values:
+                - arm64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
                 - ppc64le
             weight: 2
           - preference:
@@ -70,6 +77,7 @@ spec:
                 operator: In
                 values:
                 - amd64
+                - arm64
                 - ppc64le
                 - s390x
       containers:
@@ -127,8 +135,6 @@ spec:
           value: cluster.local
         - name: ISTIO_META_UNPRIVILEGED_POD
           value: "true"
-        - name: ISTIO_META_ROUTER_MODE
-          value: standard
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         image: gcr.io/istio-testing/proxyv2:latest
@@ -168,6 +174,10 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
         volumeMounts:
+        - mountPath: /var/run/secrets/workload-spiffe-uds
+          name: workload-socket
+        - mountPath: /var/run/secrets/workload-spiffe-credentials
+          name: workload-certs
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /etc/istio/config
@@ -197,6 +207,10 @@ spec:
           value: 80 65535
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
+      - emptyDir: {}
+        name: workload-socket
+      - emptyDir: {}
+        name: workload-certs
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
@@ -373,11 +387,13 @@ spec:
             value: "cluster.local"
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
-          - name: ISTIO_META_ROUTER_MODE
-            value: "standard"
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
+          - name: workload-socket
+            mountPath: /var/run/secrets/workload-spiffe-uds
+          - name: workload-certs
+            mountPath: /var/run/secrets/workload-spiffe-credentials
           - name: istio-envoy
             mountPath: /etc/istio/proxy
           - name: config-volume
@@ -398,6 +414,10 @@ spec:
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
       volumes:
+      - emptyDir: {}
+        name: workload-socket
+      - emptyDir: {}
+        name: workload-certs
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
@@ -442,6 +462,7 @@ spec:
                   operator: In
                   values:
                   - "amd64"
+                  - "arm64"
                   - "ppc64le"
                   - "s390x"
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -452,6 +473,13 @@ spec:
                   operator: In
                   values:
                   - "amd64"
+            - weight: 2
+              preference:
+                matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                  - "arm64"
             - weight: 2
               preference:
                 matchExpressions:

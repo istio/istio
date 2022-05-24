@@ -69,7 +69,8 @@ var TestDataChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/test
 // InstallIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
 func InstallIstio(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateways bool) {
+	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateways bool,
+) {
 	CreateNamespace(t, cs, IstioNamespace)
 
 	// Install base chart
@@ -106,7 +107,8 @@ func InstallIstio(t test.Failer, cs cluster.Cluster,
 // InstallIstioWithRevision install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
 func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, fileSuffix, version, revision, overrideValuesFile string, upgradeBaseChart, useTestData bool) {
+	h *helm.Helm, fileSuffix, version, revision, overrideValuesFile string, upgradeBaseChart, useTestData bool,
+) {
 	CreateNamespace(t, cs, IstioNamespace)
 
 	// base chart may already be installed if the Istio was previously already installed
@@ -146,7 +148,7 @@ func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
 }
 
 func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
-	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
+	if _, err := cs.Kube().CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
@@ -174,10 +176,10 @@ func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 	if err := h.DeleteChart(BaseReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release", BaseReleaseName)
 	}
-	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), IstioNamespace, metav1.DeleteOptions{}); err != nil {
+	if err := cs.Kube().CoreV1().Namespaces().Delete(context.TODO(), IstioNamespace, metav1.DeleteOptions{}); err != nil {
 		t.Errorf("failed to delete istio namespace: %v", err)
 	}
-	if err := kubetest.WaitForNamespaceDeletion(cs, IstioNamespace, retry.Timeout(RetryTimeOut)); err != nil {
+	if err := kubetest.WaitForNamespaceDeletion(cs.Kube(), IstioNamespace, retry.Timeout(RetryTimeOut)); err != nil {
 		t.Errorf("waiting for istio namespace to be deleted: %v", err)
 	}
 }
@@ -213,7 +215,7 @@ func SetRevisionTag(ctx framework.TestContext, h *helm.Helm, fileSuffix, revisio
 		ctx.Fatalf("failed to install istio %s chart", DiscoveryChart)
 	}
 
-	err = ctx.ConfigIstio().ApplyYAML(IstioNamespace, template)
+	err = ctx.ConfigIstio().YAML(IstioNamespace, template).Apply()
 	if err != nil {
 		ctx.Fatalf("failed to apply templated revision tags yaml: %v", err)
 	}
@@ -225,7 +227,7 @@ func SetRevisionTag(ctx framework.TestContext, h *helm.Helm, fileSuffix, revisio
 // revisions and revision tags
 func VerifyMutatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
 	scopes.Framework.Infof("=== verifying mutating webhook configurations === ")
-	if ok := kubetest.MutatingWebhookConfigurationsExists(cs, names); !ok {
+	if ok := kubetest.MutatingWebhookConfigurationsExists(cs.Kube(), names); !ok {
 		ctx.Fatalf("Not all mutating webhook configurations were installed. Expected [%v]", names)
 	}
 	scopes.Framework.Infof("=== succeeded ===")
@@ -235,7 +237,7 @@ func VerifyMutatingWebhookConfigurations(ctx framework.TestContext, cs cluster.C
 // revisions and revision tags
 func ValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
 	scopes.Framework.Infof("=== verifying validating webhook configurations === ")
-	if ok := kubetest.ValidatingWebhookConfigurationsExists(cs, names); !ok {
+	if ok := kubetest.ValidatingWebhookConfigurationsExists(cs.Kube(), names); !ok {
 		ctx.Fatalf("Not all validating webhook configurations were installed. Expected [%v]", names)
 	}
 	scopes.Framework.Infof("=== succeeded ===")

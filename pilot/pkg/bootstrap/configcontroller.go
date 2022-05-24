@@ -19,6 +19,7 @@ import (
 	"net/url"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
@@ -26,7 +27,6 @@ import (
 	ingressv1 "istio.io/istio/pilot/pkg/config/kube/ingressv1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
-	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
@@ -136,7 +136,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	s.configController = aggregateConfigController
 
 	// Create the config store.
-	s.environment.IstioConfigStore = model.MakeIstioStore(s.configController)
+	s.environment.ConfigStore = model.MakeIstioStore(s.configController)
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -213,7 +213,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.XDSServer.WorkloadEntryController = workloadentry.NewController(configController, args.PodName, args.KeepaliveOptions.MaxServerConnectionAge)
+	s.XDSServer.WorkloadEntryController = autoregistration.NewController(configController, args.PodName, args.KeepaliveOptions.MaxServerConnectionAge)
 	return nil
 }
 
@@ -254,7 +254,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
-			store := memory.MakeSkipValidation(collections.Pilot)
+			store := memory.Make(collections.Pilot)
 			configController := memory.NewController(store)
 			configController.RegisterHasSyncedHandler(xdsMCP.HasSynced)
 			xdsMCP.Store = model.MakeIstioStore(configController)
@@ -295,7 +295,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
-				cont, err := incluster.NewController(stop, s.RWConfigStore, s.configController,
+				cont, err := incluster.NewController(stop, s.RWConfigStore,
 					s.kubeClient, args.Namespace, s.statusManager, args.RegistryOptions.KubeOptions.DomainSuffix)
 				if err != nil {
 					return
@@ -321,7 +321,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	})
 	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 		if writeStatus {
-			s.statusReporter.Start(s.kubeClient, args.Namespace, args.PodName, stop)
+			s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
 		}
 		return nil
 	})
@@ -342,7 +342,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	}
 }
 
-func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
+func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreController, error) {
 	return crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions.DomainSuffix)
 }
 

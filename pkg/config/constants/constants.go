@@ -59,10 +59,8 @@ const (
 	// IstioIngressNamespace is the namespace where Istio ingress controller is deployed
 	IstioIngressNamespace = "istio-system"
 
-	// DefaultKubernetesDomain the default service domain suffix for Kubernetes, if not overridden in config.
-	// TODO(nmittler): Rename this to DefaultClusterLocalDomain.
-	// TODO(nmittler): Search/replace explicit usages of the string with this constant.
-	DefaultKubernetesDomain = "cluster.local"
+	// DefaultClusterLocalDomain the default service domain suffix for Kubernetes, if not overridden in config.
+	DefaultClusterLocalDomain = "cluster.local"
 
 	// DefaultClusterSetLocalDomain is the default domain suffix for Kubernetes Multi-Cluster Services (MCS)
 	// used for load balancing requests against endpoints across the ClusterSet (i.e. mesh).
@@ -122,8 +120,11 @@ const (
 	// Label to skip config comparison.
 	AlwaysPushLabel = "internal.istio.io/always-push"
 
-	// InternalParentName declares the original resource of an internally-generate config. This is used by the gateway-api.
-	InternalParentName = "internal.istio.io/parent"
+	// InternalParentName declares the original resource of an internally-generate config. This is used by ingress and the gateway-api.
+	InternalParentName     = "internal.istio.io/parent"
+	InternalRouteSemantics = "internal.istio.io/route-semantics"
+	RouteSemanticsIngress  = "ingress"
+	RouteSemanticsGateway  = "gateway"
 
 	// TrustworthyJWTPath is the default 3P token to authenticate with third party services
 	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
@@ -132,6 +133,8 @@ const (
 	CertProviderIstiod = "istiod"
 	// CertProviderKubernetes uses the Kubernetes CSR API to generate a DNS certificate for the control plane
 	CertProviderKubernetes = "kubernetes"
+	// CertProviderKubernetesSignerPrefix uses the Kubernetes CSR API and the specified signer to generate a DNS certificate for the control plane
+	CertProviderKubernetesSignerPrefix = "k8s.io/"
 	// CertProviderCustom uses the custom root certificate mounted in a well known location for the control plane
 	CertProviderCustom = "custom"
 	// CertProviderNone does not create any certificates for the control plane. It is assumed that some external

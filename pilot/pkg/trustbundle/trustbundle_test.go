@@ -26,6 +26,7 @@ import (
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -39,10 +40,10 @@ func readCertFromFile(filename string) string {
 }
 
 var (
-	malformedCert      string = "Malformed"
-	rootCACert         string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "root-cert.pem"))
-	nonCaCert          string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "workload-bar-cert.pem"))
-	intermediateCACert string = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "ca-cert.pem"))
+	malformedCert      = "Malformed"
+	rootCACert         = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "root-cert.pem"))
+	nonCaCert          = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "workload-bar-cert.pem"))
+	intermediateCACert = readCertFromFile(path.Join(env.IstioSrc, "samples/certs", "ca-cert.pem"))
 
 	// borrowed from the spiffe package, spiffe_test.go
 	validSpiffeX509Bundle = `
@@ -156,7 +157,7 @@ func TestVerifyTrustAnchor(t *testing.T) {
 }
 
 func TestUpdateTrustAnchor(t *testing.T) {
-	var cbCounter int = 0
+	cbCounter := 0
 	tb := NewTrustBundle(nil)
 	tb.UpdateCb(func() { cbCounter++ })
 
@@ -262,7 +263,7 @@ func expectTbCount(t *testing.T, tb *TrustBundle, expAnchorCount int, ti time.Du
 			return fmt.Errorf("%s. Got %v, expected %v", strPrefix, len(certs), expAnchorCount)
 		}
 		return nil
-	}, retry.Timeout(ti), retry.Delay(100*time.Millisecond))
+	}, retry.Timeout(ti))
 }
 
 func TestAddMeshConfigUpdate(t *testing.T) {
@@ -270,8 +271,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get SystemCertPool: %v", err)
 	}
-	stop := make(chan struct{})
-	t.Cleanup(func() { close(stop) })
+	stop := test.NewStop(t)
 
 	// Mock response from TLS Spiffe Server
 	validHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -290,7 +290,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 	tb := NewTrustBundle(caCertPool)
 
 	// Change global remote timeout interval for the duration of the unit test
-	remoteTimeout = 300 * time.Millisecond
+	remoteTimeout = 30 * time.Millisecond
 
 	// Test1: Ensure that MeshConfig PEM certs are updated correctly
 	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{
@@ -301,7 +301,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 	// Test2: Append server1 as spiffe endpoint to existing MeshConfig
 
 	// Start processing remote anchor update with poll frequency.
-	go tb.ProcessRemoteTrustAnchors(stop, 2*time.Second)
+	go tb.ProcessRemoteTrustAnchors(stop, 200*time.Millisecond)
 	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: server1.Listener.Addr().String()}},
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: rootCACert}},

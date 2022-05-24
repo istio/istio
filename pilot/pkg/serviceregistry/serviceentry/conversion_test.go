@@ -22,6 +22,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
 )
 
 var (
@@ -474,7 +476,8 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 }
 
 func makeService(hostname host.Name, configNamespace, address string, ports map[string]int,
-	external bool, resolution model.Resolution, serviceAccounts ...string) *model.Service {
+	external bool, resolution model.Resolution, serviceAccounts ...string,
+) *model.Service {
 	svc := &model.Service{
 		CreationTime:    GlobalTime,
 		Hostname:        hostname,
@@ -489,6 +492,14 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 		},
 	}
 
+	if external && features.CanonicalServiceForMeshExternalServiceEntry {
+		if svc.Attributes.Labels == nil {
+			svc.Attributes.Labels = make(map[string]string)
+		}
+		svc.Attributes.Labels["service.istio.io/canonical-name"] = configNamespace
+		svc.Attributes.Labels["service.istio.io/canonical-revision"] = "latest"
+	}
+
 	svcPorts := make(model.PortList, 0, len(ports))
 	for name, port := range ports {
 		svcPort := &model.Port{
@@ -501,7 +512,6 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 
 	sortPorts(svcPorts)
 	svc.Ports = svcPorts
-
 	return svc
 }
 
@@ -517,7 +527,8 @@ const (
 
 // nolint: unparam
 func makeInstanceWithServiceAccount(cfg *config.Config, address string, port int,
-	svcPort *networking.Port, svcLabels map[string]string, serviceAccount string) *model.ServiceInstance {
+	svcPort *networking.Port, svcLabels map[string]string, serviceAccount string,
+) *model.ServiceInstance {
 	i := makeInstance(cfg, address, port, svcPort, svcLabels, MTLSUnlabelled)
 	i.Endpoint.ServiceAccount = spiffe.MustGenSpiffeURI(i.Service.Attributes.Namespace, serviceAccount)
 	return i
@@ -525,7 +536,8 @@ func makeInstanceWithServiceAccount(cfg *config.Config, address string, port int
 
 // nolint: unparam
 func makeInstance(cfg *config.Config, address string, port int,
-	svcPort *networking.Port, svcLabels map[string]string, mtlsMode MTLSMode) *model.ServiceInstance {
+	svcPort *networking.Port, svcLabels map[string]string, mtlsMode MTLSMode,
+) *model.ServiceInstance {
 	services := convertServices(*cfg)
 	svc := services[0] // default
 	for _, s := range services {
@@ -562,6 +574,14 @@ func makeInstance(cfg *config.Config, address string, port int,
 }
 
 func TestConvertService(t *testing.T) {
+	testConvertServiceBody(t)
+	test.SetBoolForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
+	testConvertServiceBody(t)
+}
+
+func testConvertServiceBody(t *testing.T) {
+	t.Helper()
+
 	serviceTests := []struct {
 		externalSvc *config.Config
 		services    []*model.Service
@@ -782,8 +802,8 @@ func TestConvertInstances(t *testing.T) {
 
 	for _, tt := range serviceInstanceTests {
 		t.Run(strings.Join(tt.externalSvc.Spec.(*networking.ServiceEntry).Hosts, "_"), func(t *testing.T) {
-			s := &ServiceEntryStore{}
-			instances := s.convertServiceEntryToInstances(*tt.externalSvc, nil, "")
+			s := &Controller{}
+			instances := s.convertServiceEntryToInstances(*tt.externalSvc, nil)
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {
@@ -865,7 +885,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
 			services := convertServices(*tt.se)
-			s := &ServiceEntryStore{}
+			s := &Controller{}
 			instances := s.convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry), &configKey{}, tt.clusterID)
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
@@ -923,6 +943,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels:         expectedLabel,
 					Address:        "1.1.1.1",
@@ -957,6 +978,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"security.istio.io/tlsMode": "disabled",
@@ -986,7 +1008,23 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 					ServiceAccount: "scooby",
 				},
 			},
-			out: nil,
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"topology.istio.io/cluster": clusterID,
+					},
+					Address:        "unix://foo/bar",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+					Namespace:      "ns1",
+					Locality: model.Locality{
+						ClusterID: cluster.ID(clusterID),
+					},
+				},
+				DNSServiceEntryOnly: true,
+			},
 		},
 		{
 			name: "DNS address",
@@ -999,7 +1037,23 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 					ServiceAccount: "scooby",
 				},
 			},
-			out: nil,
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"topology.istio.io/cluster": clusterID,
+					},
+					Address:        "scooby.com",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+					Namespace:      "ns1",
+					Locality: model.Locality{
+						ClusterID: cluster.ID(clusterID),
+					},
+				},
+				DNSServiceEntryOnly: true,
+			},
 		},
 		{
 			name: "metadata labels only",
@@ -1018,6 +1072,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels:         expectedLabel,
 					Address:        "1.1.1.1",
@@ -1053,6 +1108,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"my-label":                  "bar",
@@ -1091,6 +1147,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"app":                           "wle",
@@ -1136,6 +1193,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"app":                           "wle",
@@ -1163,7 +1221,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 
 	for _, tt := range workloadInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &ServiceEntryStore{getNetworkIDCb: tt.getNetworkIDCb}
+			s := &Controller{networkIDCallback: tt.getNetworkIDCb}
 			instance := s.convertWorkloadEntryToWorkloadInstance(tt.wle, cluster.ID(clusterID))
 			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)
@@ -1172,11 +1230,11 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	}
 }
 
-func compare(t *testing.T, actual, expected interface{}) error {
+func compare(t testing.TB, actual, expected interface{}) error {
 	return util.Compare(jsonBytes(t, actual), jsonBytes(t, expected))
 }
 
-func jsonBytes(t *testing.T, v interface{}) []byte {
+func jsonBytes(t testing.TB, v interface{}) []byte {
 	data, err := json.MarshalIndent(v, "", " ")
 	if err != nil {
 		t.Fatal(t)

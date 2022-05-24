@@ -20,9 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
+	"sigs.k8s.io/yaml"
 
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -52,7 +53,6 @@ spec:
 
 func TestValidateIOPCAConfig(t *testing.T) {
 	var err error
-	k8sClient := fake.NewSimpleClientset()
 
 	tests := []struct {
 		major        string
@@ -87,12 +87,13 @@ func TestValidateIOPCAConfig(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		k8sClient.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &version.Info{
+		k8sClient := kube.NewFakeClient()
+		k8sClient.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &version.Info{
 			Major: tt.major,
 			Minor: tt.minor,
 		}
 		op := &pkgAPI.IstioOperator{}
-		err = gogoprotomarshal.ApplyYAML(tt.operatorYaml, op)
+		err = yaml.Unmarshal([]byte(tt.operatorYaml), op)
 		if err != nil {
 			t.Fatalf("Failure in test case %v. Error %s", i, err)
 		}

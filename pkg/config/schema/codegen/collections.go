@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config/schema/ast"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const staticResourceTemplate = `
@@ -62,12 +63,18 @@ var (
 	{{ .Collection.VariableName }} = collection.Builder {
 		Name: "{{ .Collection.Name }}",
 		VariableName: "{{ .Collection.VariableName }}",
-		Disabled: {{ .Collection.Disabled }},
 		Resource: resource.Builder {
 			Group: "{{ .Resource.Group }}",
 			Kind: "{{ .Resource.Kind }}",
 			Plural: "{{ .Resource.Plural }}",
 			Version: "{{ .Resource.Version }}",
+			{{- if .Resource.VersionAliases }}
+            VersionAliases: []string{
+				{{- range $alias := .Resource.VersionAliases}}
+			        "{{$alias}}",
+		 	    {{- end}}
+			},
+			{{- end}}
 			Proto: "{{ .Resource.Proto }}",
 			{{- if ne .Resource.StatusProto "" }}StatusProto: "{{ .Resource.StatusProto }}",{{end}}
 			ReflectType: {{ .Type }},
@@ -100,6 +107,16 @@ var (
 	Kube = collection.NewSchemasBuilder().
 	{{- range .Entries }}
 		{{- if (hasPrefix .Collection.Name "k8s/") }}
+		MustAdd({{ .Collection.VariableName }}).
+		{{- end }}
+	{{- end }}
+		Build()
+
+	// Builtin contains only native Kubernetes collections. This differs from Kube, which has
+  // Kubernetes controlled CRDs
+	Builtin = collection.NewSchemasBuilder().
+	{{- range .Entries }}
+		{{- if .Collection.Builtin }}
 		MustAdd({{ .Collection.VariableName }}).
 		{{- end }}
 	{{- end }}
@@ -147,10 +164,6 @@ func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
 		"k8s/gateway_api/v1alpha2/gateways": "KubernetesGateway",
 	}
 	for _, c := range m.Collections {
-		// Filter out pilot ones, as these are duplicated
-		if c.Pilot {
-			continue
-		}
 		r := m.FindResourceForGroupKind(c.Group, c.Kind)
 		if r == nil {
 			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
@@ -214,18 +227,18 @@ func StaticCollections(packageName string, m *ast.Metadata, filter func(name str
 		entries = append(entries, e)
 	}
 	// Single instance and sort names
-	names := make(map[string]struct{})
+	names := sets.New()
 
 	for _, r := range m.Resources {
 		if r.ProtoPackage != "" {
-			names[r.ProtoPackage] = struct{}{}
+			names.Insert(r.ProtoPackage)
 		}
 		if r.StatusProtoPackage != "" {
-			names[r.StatusProtoPackage] = struct{}{}
+			names.Insert(r.StatusProtoPackage)
 		}
 	}
 
-	packages := make([]packageImport, 0, len(names))
+	packages := make([]packageImport, 0, names.Len())
 	for p := range names {
 		packages = append(packages, packageImport{p, toImport(p)})
 	}

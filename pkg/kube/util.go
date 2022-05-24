@@ -16,12 +16,15 @@ package kube
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
+	"regexp"
 	"strings"
 
 	kubeApiCore "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -34,6 +37,8 @@ import (
 
 	istioversion "istio.io/pkg/version"
 )
+
+var cronJobNameRegexp = regexp.MustCompile(`(.+)-\d{8,10}$`)
 
 // BuildClientConfig builds a client rest config from a kubeconfig filepath and context.
 // It overrides the current context with the one provided (empty to use default).
@@ -229,11 +234,24 @@ func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (metav1.ObjectMeta, metav1.TypeM
 				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
 				deployMeta.Name = name
 				typeMetadata.Kind = "Deployment"
-			} else if typeMetadata.Kind == "Job" && len(controllerRef.Name) > 11 {
-				// If job name suffixed with `-<ten-digit-timestamp>`, trim the suffix and set kind to cron job.
-				l := len(controllerRef.Name)
-				if _, err := strconv.Atoi(controllerRef.Name[l-10:]); err == nil && string(controllerRef.Name[l-11]) == "-" {
-					deployMeta.Name = controllerRef.Name[:l-11]
+			} else if typeMetadata.Kind == "ReplicationController" && pod.Labels["deploymentconfig"] != "" {
+				// If the pod is controlled by the replication controller, which is created by the DeploymentConfig resource in
+				// Openshift platform, set the deploy name to the deployment config's name, and the kind to 'DeploymentConfig'.
+				//
+				// nolint: lll
+				// For DeploymentConfig details, refer to
+				// https://docs.openshift.com/container-platform/4.1/applications/deployments/what-deployments-are.html#deployments-and-deploymentconfigs_what-deployments-are
+				//
+				// For the reference to the pod label 'deploymentconfig', refer to
+				// https://github.com/openshift/library-go/blob/7a65fdb398e28782ee1650959a5e0419121e97ae/pkg/apps/appsutil/const.go#L25
+				deployMeta.Name = pod.Labels["deploymentconfig"]
+				typeMetadata.Kind = "DeploymentConfig"
+				delete(deployMeta.Labels, "deploymentconfig")
+			} else if typeMetadata.Kind == "Job" {
+				// If job name suffixed with `-<digit-timestamp>`, where the length of digit timestamp is 8~10,
+				// trim the suffix and set kind to cron job.
+				if jn := cronJobNameRegexp.FindStringSubmatch(controllerRef.Name); len(jn) == 2 {
+					deployMeta.Name = jn[1]
 					typeMetadata.Kind = "CronJob"
 					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
 					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
@@ -249,4 +267,27 @@ func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (metav1.ObjectMeta, metav1.TypeM
 	}
 
 	return deployMeta, typeMetadata
+}
+
+// MaxRequestBodyBytes represents the max size of Kubernetes objects we read. Kubernetes allows a 2x
+// buffer on the max etcd size
+// (https://github.com/kubernetes/kubernetes/blob/0afa569499d480df4977568454a50790891860f5/staging/src/k8s.io/apiserver/pkg/server/config.go#L362).
+// We allow an additional 2x buffer, as it is still fairly cheap (6mb)
+const MaxRequestBodyBytes = int64(6 * 1024 * 1024)
+
+// HTTPConfigReader is reads an HTTP request, imposing size restrictions aligned with Kubernetes limits
+func HTTPConfigReader(req *http.Request) ([]byte, error) {
+	defer req.Body.Close()
+	lr := &io.LimitedReader{
+		R: req.Body,
+		N: MaxRequestBodyBytes + 1,
+	}
+	data, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+	if lr.N <= 0 {
+		return nil, errors.NewRequestEntityTooLargeError(fmt.Sprintf("limit is %d", MaxRequestBodyBytes))
+	}
+	return data, nil
 }

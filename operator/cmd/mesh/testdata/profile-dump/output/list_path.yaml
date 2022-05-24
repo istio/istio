@@ -1,0 +1,7 @@
+- mountPath: /etc/istio/egressgateway-certs
+  name: egressgateway-certs
+  secretName: istio-egressgateway-certs
+- mountPath: /etc/istio/egressgateway-ca-certs
+  name: egressgateway-ca-certs
+  secretName: istio-egressgateway-ca-certs
+

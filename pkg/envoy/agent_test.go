@@ -201,7 +201,7 @@ func TestActiveConnections(t *testing.T) {
 			defer server.Close()
 
 			agent := NewAgent(TestProxy{}, 0, 0, "localhost", server.Listener.Addr().(*net.TCPAddr).Port, 15021, 15009, true)
-			if ac := agent.activeProxyConnections(); ac != tt.expected {
+			if ac, _ := agent.activeProxyConnections(); ac != tt.expected {
 				t.Errorf("unexpected active proxy connections. expected: %d got: %d", tt.expected, ac)
 			}
 		})

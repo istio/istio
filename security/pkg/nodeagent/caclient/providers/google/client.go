@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -65,7 +66,7 @@ func NewGoogleCAClient(endpoint string, tls bool, provider *caclient.TokenProvid
 			return nil, err
 		}
 	} else {
-		opts = grpc.WithInsecure()
+		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
 
 	conn, err := grpc.Dial(endpoint,

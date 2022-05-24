@@ -20,8 +20,8 @@ import (
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
-	"istio.io/istio/pkg/util/gogo"
 )
 
 // PcdsGenerator generates proxy configuration for proxies to consume
@@ -54,8 +54,7 @@ func pcdsNeedsPush(req *model.PushRequest) bool {
 }
 
 // Generate returns ProxyConfig protobuf containing TrustBundle for given proxy
-func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (e *PcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !pcdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -66,5 +65,5 @@ func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 	pc := &mesh.ProxyConfig{
 		CaCertificatesPem: e.TrustBundle.GetTrustBundle(),
 	}
-	return model.Resources{&discovery.Resource{Resource: gogo.MessageToAny(pc)}}, model.DefaultXdsLogDetails, nil
+	return model.Resources{&discovery.Resource{Resource: util.MessageToAny(pc)}}, model.DefaultXdsLogDetails, nil
 }

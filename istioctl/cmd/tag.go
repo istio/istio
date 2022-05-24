@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -48,17 +47,19 @@ overwrite existing revision tags.`
 	tagCreatedStr   = `Revision tag %q created, referencing control plane revision %q. To enable injection using this
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
-	webhookNameHelpStr = "Name to use for a revision tag's mutating webhook configuration."
+	webhookNameHelpStr          = "Name to use for a revision tag's mutating webhook configuration."
+	autoInjectNamespacesHelpStr = "If set to true, the sidecars should be automatically injected into all namespaces by default"
 )
 
 // options for CLI
 var (
 	// revision to point tag webhook at
-	revision         = ""
-	manifestsPath    = ""
-	overwrite        = false
-	skipConfirmation = false
-	webhookName      = ""
+	revision             = ""
+	manifestsPath        = ""
+	overwrite            = false
+	skipConfirmation     = false
+	webhookName          = ""
+	autoInjectNamespaces = false
 )
 
 type tagDescription struct {
@@ -149,6 +150,7 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
+	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -196,6 +198,7 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
+	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -265,24 +268,24 @@ revision tag before removing using the "istioctl tag list" command.
 // setTag creates or modifies a revision tag.
 func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revision, istioNS string, generate bool, w, stderr io.Writer) error {
 	opts := &tag.GenerateOptions{
-		Tag:           tagName,
-		Revision:      revision,
-		WebhookName:   webhookName,
-		ManifestsPath: manifestsPath,
-		Generate:      generate,
-		Overwrite:     overwrite,
+		Tag:                  tagName,
+		Revision:             revision,
+		WebhookName:          webhookName,
+		ManifestsPath:        manifestsPath,
+		Generate:             generate,
+		Overwrite:            overwrite,
+		AutoInjectNamespaces: autoInjectNamespaces,
 	}
 	tagWhYAML, err := tag.Generate(ctx, kubeClient, opts, istioNS)
 	if err != nil {
 		return err
 	}
-
 	// Check the newly generated webhook does not conflict with existing ones.
 	resName := webhookName
 	if resName == "" {
 		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tagName)
 	}
-	if err := analyzeWebhook(resName, tagWhYAML, kubeClient.RESTConfig()); err != nil {
+	if err := analyzeWebhook(resName, tagWhYAML, revision, kubeClient.RESTConfig()); err != nil {
 		// if we have a conflict, we will fail. If --skip-confirmation is set, we will continue with a
 		// warning; when actually applying we will also confirm to ensure the user does not see the
 		// warning *after* it has applied
@@ -311,8 +314,8 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 	return nil
 }
 
-func analyzeWebhook(name, wh string, config *rest.Config) error {
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{}),
+func analyzeWebhook(name, wh, revision string, config *rest.Config) error {
+	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}),
 		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
@@ -321,7 +324,7 @@ func analyzeWebhook(name, wh string, config *rest.Config) error {
 	if err != nil {
 		return err
 	}
-	sa.AddRunningKubeSource(k)
+	sa.AddRunningKubeSourceWithRevision(k, revision)
 	res, err := sa.Analyze(make(chan struct{}))
 	if err != nil {
 		return err

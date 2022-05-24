@@ -15,32 +15,11 @@
 package resource
 
 import (
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/resource/config"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/util/yml"
 )
-
-// ConfigManager is an interface for applying/deleting yaml resources.
-type ConfigManager interface {
-	// ApplyYAML applies the given config yaml text. Applied YAML is automatically deleted when the
-	// test exits.
-	ApplyYAML(ns string, yamlText ...string) error
-
-	// ApplyYAMLNoCleanup applies the given config yaml text.
-	ApplyYAMLNoCleanup(ns string, yamlText ...string) error
-
-	// ApplyYAMLOrFail applies the given config yaml text.
-	ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string)
-
-	// DeleteYAML deletes the given config yaml text.
-	DeleteYAML(ns string, yamlText ...string) error
-
-	// DeleteYAMLOrFail deletes the given config yaml text.
-	DeleteYAMLOrFail(t test.Failer, ns string, yamlText ...string)
-
-	// WithFilePrefix sets the prefix used for intermediate files.
-	WithFilePrefix(prefix string) ConfigManager
-}
 
 // Context is the core context interface that is used by resources.
 type Context interface {
@@ -60,25 +39,30 @@ type Context interface {
 	// The Environment in which the tests run
 	Environment() Environment
 
-	// Mesh clusters in this Environment. There will always be at least one.
+	// Clusters in this Environment. There will always be at least one.
 	Clusters() cluster.Clusters
 
-	// All clusters in this Environment, including external control planes.
+	// AllClusters in this Environment, including external control planes.
 	AllClusters() cluster.Clusters
 
 	// Settings returns common settings
 	Settings() *Settings
 
-	// WhenDone runs the given function when the test context completes.
-	// If -istio.test.nocleanup is set, this function will not be executed. To unconditionally cleanup, use Cleanup.
-	// This function may not (safely) access the test context.
-	ConditionalCleanup(fn func())
-
-	// Cleanup runs the given function when the test context completes.
-	// This function will always run, regardless of -istio.test.nocleanup. To run only when cleanup is enabled,
-	// use WhenDone.
+	// Cleanup will trigger the provided cleanup function after the test context
+	// completes. This is identical to CleanupStrategy(Always).
 	// This function may not (safely) access the test context.
 	Cleanup(fn func())
+
+	// CleanupConditionally will trigger a cleanup operation the test context
+	// completes, unless -istio.test.nocleanup is set. This is identical to
+	// CleanupStrategy(Conditionally).
+	// This function may not (safely) access the test context.
+	CleanupConditionally(fn func())
+
+	// CleanupStrategy runs the given cleanup function after the test context completes,
+	// depending on the provided strategy.
+	// This function may not (safely) access the test context.
+	CleanupStrategy(strategy cleanup.Strategy, fn func())
 
 	// CreateDirectory creates a new subdirectory within this context.
 	CreateDirectory(name string) (string, error)
@@ -86,10 +70,13 @@ type Context interface {
 	// CreateTmpDirectory creates a new temporary directory within this context.
 	CreateTmpDirectory(prefix string) (string, error)
 
-	// ConfigKube returns a ConfigManager that writes config to the provided clusers. If
+	// ConfigKube returns a Context that writes config to the provided clusters. If
 	// no clusters are provided, writes to all clusters in the mesh.
-	ConfigKube(clusters ...cluster.Cluster) ConfigManager
+	ConfigKube(clusters ...cluster.Cluster) config.Factory
 
-	// ConfigIstio returns a ConfigManager that writes config to all Istio config clusters.
-	ConfigIstio() ConfigManager
+	// ConfigIstio returns a Context that writes config to all Istio config clusters.
+	ConfigIstio() config.Factory
+
+	// RecordTraceEvent records an event. This is later saved to trace.yaml for analysis
+	RecordTraceEvent(key string, value interface{})
 }

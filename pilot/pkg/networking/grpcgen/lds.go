@@ -22,26 +22,34 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
-	"istio.io/istio/pilot/pkg/util/sets"
+	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var supportedFilters = []*hcm.HttpFilter{
 	xdsfilters.Fault,
 	xdsfilters.Router,
 }
+
+const (
+	RBACHTTPFilterName     = "envoy.filters.http.rbac"
+	RBACHTTPFilterNameDeny = "envoy.filters.http.rbac.DENY"
+)
 
 // BuildListeners handles a LDS request, returning listeners of ApiListener type.
 // The request may include a list of resource names, using the full_hostname[:port] format to select only
@@ -63,7 +71,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		return nil
 	}
 	var out model.Resources
-	policyApplier := factory.NewPolicyApplier(push, node.Metadata.Namespace, labels.Collection{node.Metadata.Labels})
+	policyApplier := factory.NewPolicyApplier(push, node.Metadata.Namespace, node.Metadata.Labels)
 	serviceInstancesByPort := map[uint32]*model.ServiceInstance{}
 	for _, si := range node.ServiceInstances {
 		serviceInstancesByPort[si.Endpoint.EndpointPort] = si
@@ -114,6 +122,12 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, applier authn.PolicyApplier) []*listener.FilterChain {
 	mode := applier.GetMutualTLSModeForPort(si.Endpoint.EndpointPort)
 
+	// auto-mtls label is set - clients will attempt to connect using mtls, and
+	// gRPC doesn't support permissive.
+	if node.Metadata.Labels[label.SecurityTlsMode.Name] == "istio" && mode == model.MTLSPermissive {
+		mode = model.MTLSStrict
+	}
+
 	var tlsContext *tls.DownstreamTlsContext
 	if mode != model.MTLSDisable && mode != model.MTLSUnknown {
 		tlsContext = &tls.DownstreamTlsContext{
@@ -132,23 +146,56 @@ func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *mo
 	if mode == model.MTLSPermissive {
 		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
 		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
-		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
+		// No need to warn on each push - the behavior is still consistent with auto-mtls, which is the
+		// replacement for permissive.
 		mode = model.MTLSDisable
 	}
 
 	var out []*listener.FilterChain
 	switch mode {
 	case model.MTLSDisable:
-		out = append(out, buildInboundFilterChain("plaintext", nil))
+		out = append(out, buildInboundFilterChain(node, push, "plaintext", nil))
 	case model.MTLSStrict:
-		out = append(out, buildInboundFilterChain("mtls", tlsContext))
+		out = append(out, buildInboundFilterChain(node, push, "mtls", tlsContext))
 		// TODO permissive builts both plaintext and mtls; when tlsContext is present add a match for protocol
 	}
 
 	return out
 }
 
-func buildInboundFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *listener.FilterChain {
+func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuffix string, tlsContext *tls.DownstreamTlsContext) *listener.FilterChain {
+	fc := []*hcm.HttpFilter{}
+	// See security/authz/builder and grpc internal/xds/rbac
+	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Metadata.Labels)
+	if len(policies.Deny)+len(policies.Allow) > 0 {
+		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
+		if rules != nil && len(rules.Policies) > 0 {
+			rbac := &rbachttppb.RBAC{
+				Rules: rules,
+			}
+			fc = append(fc,
+				&hcm.HttpFilter{
+					Name:       RBACHTTPFilterNameDeny,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				})
+		}
+		arules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_ALLOW, policies.Allow)
+		if arules != nil && len(arules.Policies) > 0 {
+			rbac := &rbachttppb.RBAC{
+				Rules: arules,
+			}
+			fc = append(fc,
+				&hcm.HttpFilter{
+					Name:       RBACHTTPFilterName,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				})
+		}
+	}
+
+	// Must be last
+	fc = append(fc, xdsfilters.Router)
+
 	out := &listener.FilterChain{
 		Name:             "inbound-" + nameSuffix,
 		FilterChainMatch: nil,
@@ -171,7 +218,7 @@ func buildInboundFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsCon
 							}},
 						},
 					},
-					HttpFilters: []*hcm.HttpFilter{xdsfilters.Router},
+					HttpFilters: fc,
 				}),
 			},
 		}},
@@ -185,9 +232,43 @@ func buildInboundFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsCon
 	return out
 }
 
+// buildRBAC builds the RBAC config expected by gRPC.
+//
+// See: xds/interal/httpfilter/rbac
+//
+// TODO: gRPC also supports 'per route override' - not yet clear how to use it, Istio uses path expressions instead and we don't generate
+// vhosts or routes for the inbound listener.
+//
+// For gateways it would make a lot of sense to use this concept, same for moving path prefix at top level ( more scalable, easier for users)
+// This should probably be done for the v2 API.
+//
+// nolint: unparam
+func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext,
+	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy,
+) *rbacpb.RBAC {
+	rules := &rbacpb.RBAC{
+		Action:   a,
+		Policies: map[string]*rbacpb.Policy{},
+	}
+	for _, policy := range policies {
+		for i, rule := range policy.Spec.Rules {
+			name := fmt.Sprintf("%s-%s-%d", policy.Namespace, policy.Name, i)
+			m, err := authzmodel.New(rule)
+			if err != nil {
+				log.Warn("Invalid rule ", rule, err)
+			}
+			generated, _ := m.Generate(false, a)
+			rules.Policies[name] = generated
+		}
+	}
+
+	return rules
+}
+
+// nolint: unparam
 func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter listenerNames) model.Resources {
 	out := make(model.Resources, 0, len(filter))
-	for _, sv := range push.Services(node) {
+	for _, sv := range node.SidecarScope.Services() {
 		serviceHost := string(sv.Hostname)
 		match, ok := filter.includes(serviceHost)
 		if !ok {
@@ -239,22 +320,6 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 	return out
 }
 
-//
-//func filterableHostnames(node *model.Proxy, hostname host.Name) []string {
-//	shost := string(hostname)
-//	out := []string{shost}
-//	for _, suffix := range []string{
-//		"." + node.DNSDomain,
-//		".svc" + "." + node.DNSDomain,
-//		"." + node.Metadata.Namespace + ".svc" + "." + node.DNSDomain ,
-//	} {
-//		if trimmed := strings.TrimSuffix(shost, suffix); trimmed != shost {
-//			out = append(out, trimmed)
-//		}
-//	}
-//	return out
-//}
-
 // map[host] -> map[port] -> exists
 // if the map[port] is empty, an exact listener name was provided (non-hostport)
 type listenerNames map[string]listenerName
@@ -275,7 +340,7 @@ func (ln *listenerName) includesPort(port string) bool {
 func (f listenerNames) includes(s string) (listenerName, bool) {
 	if len(f) == 0 {
 		// filter is empty, include everything
-		return listenerName{RequestedNames: sets.NewSet(s)}, true
+		return listenerName{RequestedNames: sets.New(s)}, true
 	}
 	n, ok := f[s]
 	return n, ok
@@ -296,7 +361,7 @@ func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
 	for _, name := range names {
 		// inbound, create a simple entry and move on
 		if strings.HasPrefix(name, grpcxds.ServerListenerNamePrefix) {
-			filter[name] = listenerName{RequestedNames: sets.NewSet(name)}
+			filter[name] = listenerName{RequestedNames: sets.New(name)}
 			continue
 		}
 
@@ -316,7 +381,7 @@ func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
 		for _, name := range allNames {
 			ln, ok := filter[name]
 			if !ok {
-				ln = listenerName{RequestedNames: sets.NewSet()}
+				ln = listenerName{RequestedNames: sets.New()}
 			}
 			ln.RequestedNames.Insert(requestedName)
 

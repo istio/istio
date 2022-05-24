@@ -25,11 +25,12 @@ import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/datasets/validation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type testData string
@@ -60,7 +61,6 @@ func loadTestData(t framework.TestContext) []testData {
 	var result []testData
 	for _, e := range entries {
 		result = append(result, testData(e.Name()))
-		t.Logf("Found test data: %v", e)
 	}
 
 	return result
@@ -121,7 +121,7 @@ func TestValidation(t *testing.T) {
 						}
 
 						wetRunErr := cluster.ApplyYAMLFiles(ns.Name(), applyFiles...)
-						t.ConditionalCleanup(func() {
+						t.CleanupConditionally(func() {
 							cluster.DeleteYAMLFiles(ns.Name(), applyFiles...)
 						})
 
@@ -158,17 +158,13 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 	// types that are no longer supported.
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			ignored := make(map[string]struct{})
-			for _, ig := range ignoredCRDs {
-				ignored[ig] = struct{}{}
-			}
-
-			recognized := make(map[string]struct{})
+			ignored := sets.New(ignoredCRDs...)
+			recognized := sets.New()
 
 			// TODO(jasonwzm) remove this after multi-version APIs are supported.
-			for _, r := range schema.MustGet().KubeCollections().All() {
+			for _, r := range collections.Pilot.All() {
 				s := strings.Join([]string{r.Resource().Group(), r.Resource().Version(), r.Resource().Kind()}, "/")
-				recognized[s] = struct{}{}
+				recognized.Insert(s)
 			}
 			for _, gvk := range []string{
 				"networking.istio.io/v1beta1/Gateway",
@@ -177,7 +173,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				"networking.istio.io/v1beta1/WorkloadEntry",
 				"networking.istio.io/v1beta1/Sidecar",
 			} {
-				recognized[gvk] = struct{}{}
+				recognized.Insert(gvk)
 			}
 			// These CRDs are validated outside of Istio
 			for _, gvk := range []string{
@@ -188,11 +184,11 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				"gateway.networking.k8s.io/v1alpha2/TLSRoute",
 				"gateway.networking.k8s.io/v1alpha2/ReferencePolicy",
 			} {
-				delete(recognized, gvk)
+				recognized.Delete(gvk)
 			}
 
-			testedValid := make(map[string]struct{})
-			testedInvalid := make(map[string]struct{})
+			testedValid := sets.New()
+			testedInvalid := sets.New()
 			for _, te := range loadTestData(t) {
 				yamlBatch, err := te.load()
 				yamlParts := yml.SplitString(yamlBatch)
@@ -215,22 +211,22 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 
 					key := strings.Join([]string{apiVersion, kind}, "/")
 					if te.isValid() {
-						testedValid[key] = struct{}{}
+						testedValid.Insert(key)
 					} else {
-						testedInvalid[key] = struct{}{}
+						testedInvalid.Insert(key)
 					}
 				}
 			}
 
 			for rec := range recognized {
-				if _, found := ignored[rec]; found {
+				if ignored.Contains(rec) {
 					continue
 				}
 
-				if _, found := testedValid[rec]; !found {
+				if !testedValid.Contains(rec) {
 					t.Errorf("CRD does not have a positive validation test: %v", rec)
 				}
-				if _, found := testedInvalid[rec]; !found {
+				if !testedInvalid.Contains(rec) {
 					t.Errorf("CRD does not have a negative validation test: %v", rec)
 				}
 			}

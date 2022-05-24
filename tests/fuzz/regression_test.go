@@ -22,8 +22,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // baseCases contains a few trivial test cases to do a very brief sanity check of a test
@@ -107,14 +107,13 @@ func walkMatch(root string, pattern *regexp.Regexp) ([]string, error) {
 }
 
 func TestFuzzers(t *testing.T) {
-	testedFuzzers := sets.NewSet()
+	testedFuzzers := sets.New()
 	cases := []struct {
 		name   string
 		fuzzer func([]byte) int
 	}{
 		{"FuzzConfigValidation", FuzzConfigValidation},
 		{"FuzzParseInputs", FuzzParseInputs},
-		{"FuzzParseAndBuildSchema", FuzzParseAndBuildSchema},
 		{"FuzzParseMeshNetworks", FuzzParseMeshNetworks},
 		{"FuzzValidateMeshConfig", FuzzValidateMeshConfig},
 		{"FuzzInitContext", FuzzInitContext},
@@ -131,7 +130,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzV1Alpha1ValidateConfig", FuzzV1Alpha1ValidateConfig},
 		{"FuzzGetEnabledComponents", FuzzGetEnabledComponents},
 		{"FuzzUnmarshalAndValidateIOPS", FuzzUnmarshalAndValidateIOPS},
-		{"FuzzVerify", FuzzVerify},
 		{"FuzzRenderManifests", FuzzRenderManifests},
 		{"FuzzOverlayIOP", FuzzOverlayIOP},
 		{"FuzzNewControlplane", FuzzNewControlplane},
@@ -152,6 +150,18 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzConvertIngressVirtualService2", FuzzConvertIngressVirtualService2},
 		{"FuzzConvertIngressV1alpha3", FuzzConvertIngressV1alpha3},
 		{"FuzzConvertIngressV1alpha32", FuzzConvertIngressV1alpha32},
+		{"FuzzAggregateController", FuzzAggregateController},
+		{"FuzzKubeCRD", FuzzKubeCRD},
+		{"FuzzReconcileStatuses", FuzzReconcileStatuses},
+		{"FuzzWE", FuzzWE},
+		{"FuzzVerifyCertificate", FuzzVerifyCertificate},
+		{"FuzzExtractIDs", FuzzExtractIDs},
+		{"FuzzPemCertBytestoString", FuzzPemCertBytestoString},
+		{"FuzzParsePemEncodedCertificateChain", FuzzParsePemEncodedCertificateChain},
+		{"FuzzUpdateVerifiedKeyCertBundleFromFile", FuzzUpdateVerifiedKeyCertBundleFromFile},
+		{"FuzzJwtUtil", FuzzJwtUtil},
+		{"FuzzFindRootCertFromCertificateChainBytes", FuzzFindRootCertFromCertificateChainBytes},
+		{"FuzzCRDRoundtrip", FuzzCRDRoundtrip},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {
@@ -168,7 +178,7 @@ func TestFuzzers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		allFuzzers := sets.NewSet(fuzzers...)
+		allFuzzers := sets.New(fuzzers...)
 		if !allFuzzers.Equals(testedFuzzers) {
 			t.Fatalf("Not all fuzzers are tested! Missing %v", allFuzzers.Difference(testedFuzzers))
 		}

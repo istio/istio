@@ -19,6 +19,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -32,13 +33,15 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestConvertResources(t *testing.T) {
@@ -59,6 +62,10 @@ func TestConvertResources(t *testing.T) {
 		{"route-binding"},
 		{"reference-policy-tls"},
 		{"serviceentry"},
+		{"eastwest"},
+		{"alias"},
+		{"mcs"},
+		{"route-precedence"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -112,6 +119,10 @@ func TestConvertResources(t *testing.T) {
 			output.AllowedReferences = nil       // Not tested here
 			output.ReferencedNamespaceKeys = nil // Not tested here
 
+			// sort virtual services to make the order deterministic
+			sort.Slice(output.VirtualService, func(i, j int) bool {
+				return output.VirtualService[i].Namespace+"/"+output.VirtualService[i].Name < output.VirtualService[j].Namespace+"/"+output.VirtualService[j].Name
+			})
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
 			if util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
@@ -120,9 +131,13 @@ func TestConvertResources(t *testing.T) {
 				}
 			}
 			golden := splitOutput(readConfig(t, goldenFile, validator))
-			if diff := cmp.Diff(golden, output); diff != "" {
-				t.Fatalf("Diff:\n%s", diff)
-			}
+
+			// sort virtual services to make the order deterministic
+			sort.Slice(golden.VirtualService, func(i, j int) bool {
+				return golden.VirtualService[i].Namespace+"/"+golden.VirtualService[i].Name < golden.VirtualService[j].Namespace+"/"+golden.VirtualService[j].Name
+			})
+
+			assert.Equal(t, golden, output)
 
 			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.TLSRoute, kr.TCPRoute)
 			goldenStatusFile := fmt.Sprintf("testdata/%s.status.yaml.golden", tt.name)
@@ -137,6 +152,171 @@ func TestConvertResources(t *testing.T) {
 			}
 			if diff := cmp.Diff(string(goldenStatus), string(outputStatus)); diff != "" {
 				t.Fatalf("Diff:\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestReferencePolicy(t *testing.T) {
+	validator := crdvalidation.NewIstioValidator(t)
+	type res struct {
+		name, namespace string
+		allowed         bool
+	}
+	cases := []struct {
+		name         string
+		config       string
+		expectations []res
+	}{
+		{
+			name: "simple",
+			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: istio-system
+  to:
+  - group: ""
+    kind: Secret
+`,
+			expectations: []res{
+				// allow cross namespace
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "istio-system", true},
+				// denied same namespace. We do not implicitly allow (in this code - higher level code does)
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "default", false},
+				// denied namespace
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "multiple in one",
+			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: ns-1
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: ns-2
+  to:
+  - group: ""
+    kind: Secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-1", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-2", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "multiple",
+			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: ns1
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: ns-1
+  to:
+  - group: ""
+    kind: Secret
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: ns2
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: ns-2
+  to:
+  - group: ""
+    kind: Secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-1", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-2", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "same namespace",
+			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: default
+  to:
+  - group: ""
+    kind: Secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "istio-system", false},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "default", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "same name",
+			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: default
+  to:
+  - group: ""
+    kind: Secret
+    name: public
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/public", "istio-system", false},
+				{"kubernetes-gateway://default/public", "default", true},
+				{"kubernetes-gateway://default/private", "default", false},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			input := readConfigString(t, tt.config, validator)
+			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+			kr := splitInput(input)
+			kr.Context = model.NewGatewayContext(cg.PushContext())
+			output := convertResources(kr)
+			c := &Controller{
+				state: output,
+			}
+			for _, sc := range tt.expectations {
+				t.Run(fmt.Sprintf("%v/%v", sc.name, sc.namespace), func(t *testing.T) {
+					got := c.SecretAllowed(sc.name, sc.namespace)
+					if got != sc.allowed {
+						t.Fatalf("expected allowed=%v, got allowed=%v", sc.allowed, got)
+					}
+				})
 			}
 		})
 	}
@@ -181,7 +361,7 @@ func splitOutput(configs []config.Config) OutputResources {
 
 func splitInput(configs []config.Config) *KubernetesResources {
 	out := &KubernetesResources{}
-	namespaces := sets.NewSet()
+	namespaces := sets.New()
 	for _, c := range configs {
 		namespaces.Insert(c.Namespace)
 		switch c.GroupVersionKind {
@@ -221,10 +401,14 @@ func readConfig(t *testing.T, filename string, validator *crdvalidation.Validato
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}
-	if err := validator.ValidateCustomResourceYAML(string(data)); err != nil {
+	return readConfigString(t, string(data), validator)
+}
+
+func readConfigString(t *testing.T, data string, validator *crdvalidation.Validator) []config.Config {
+	if err := validator.ValidateCustomResourceYAML(data); err != nil {
 		t.Error(err)
 	}
-	c, _, err := crd.ParseInputs(string(data))
+	c, _, err := crd.ParseInputs(data)
 	if err != nil {
 		t.Fatalf("failed to parse CRD: %v", err)
 	}
@@ -315,6 +499,29 @@ func TestHumanReadableJoin(t *testing.T) {
 			if got := humanReadableJoin(tt.input); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestStrictestHost(t *testing.T) {
+	tests := []struct {
+		route   host.Name
+		gateway host.Name
+		want    string
+	}{
+		{"foo.com", "bar.com", ""},
+		{"foo.com", "foo.com", "foo.com"},
+		{"*.com", "foo.com", "foo.com"},
+		{"foo.com", "*.com", "foo.com"},
+		{"*.com", "*.com", "*.com"},
+		{"*.foo.com", "*.bar.com", ""},
+		{"*.foo.com", "*.com", ""},
+		{"*", "foo.com", "foo.com"},
+		{"bar.com", "", "bar.com"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v/%v", tt.route, tt.gateway), func(t *testing.T) {
+			assert.Equal(t, strictestHost(tt.route, tt.gateway), tt.want)
 		})
 	}
 }

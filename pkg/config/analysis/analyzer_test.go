@@ -19,11 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/analysis/diag"
-	"istio.io/istio/pkg/config/event"
-	util "istio.io/istio/pkg/config/legacy/processing"
-	"istio.io/istio/pkg/config/legacy/processing/transformer"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
@@ -69,20 +65,14 @@ func TestCombinedAnalyzer(t *testing.T) {
 	a3 := &analyzer{name: "a3", inputs: collection.Names{col3.Name()}}
 	a4 := &analyzer{name: "a4", inputs: collection.Names{col4.Name()}}
 
-	xform := transformer.NewSimpleTransformerProvider(col3, col3, func(_ event.Event, _ event.Handler) {})
-
 	a := Combine("combined", a1, a2, a3, a4)
 	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Name(), col2.Name(), col3.Name(), col4.Name()))
 
 	avalableSchemas := collection.NewSchemasBuilder()
 	avalableSchemas.Add(&testSchemaImpl{col1.Name()})
 	avalableSchemas.Add(&testSchemaImpl{col2.Name()})
-	avalableSchemas.Add(&testSchemaImpl{col3.Name()})
 
-	removed := a.RemoveSkipped(
-		avalableSchemas.Build(),
-		collection.Names{col3.Name()},
-		transformer.Providers{xform})
+	removed := a.RemoveSkipped(avalableSchemas.Build())
 
 	g.Expect(removed).To(ConsistOf(a3.Metadata().Name, a4.Metadata().Name))
 	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Name(), col2.Name()))
@@ -93,49 +83,6 @@ func TestCombinedAnalyzer(t *testing.T) {
 	g.Expect(a2.ran).To(BeTrue())
 	g.Expect(a3.ran).To(BeFalse())
 	g.Expect(a4.ran).To(BeFalse())
-}
-
-// ProcessorOptions are options that are passed to event.Processors during startup.
-type ProcessorOptions struct {
-	MeshConfig   *v1alpha1.MeshConfig
-	DomainSuffix string
-}
-
-func TestGetDisabledOutputs(t *testing.T) {
-	g := NewWithT(t)
-
-	in1 := newSchema("in1")
-	in2 := newSchema("in2")
-	in3 := newSchema("in3")
-	in4 := newSchema("in4")
-	in5 := newSchema("in5")
-	out1 := newSchema("out1")
-	out2 := newSchema("out2")
-	out3 := newSchema("out3")
-	out4 := newSchema("out4")
-
-	blankFn := func(_ util.ProcessorOptions) event.Transformer {
-		return event.NewFnTransform(collection.SchemasFor(), collection.SchemasFor(), func() {}, func() {}, func(e event.Event, handler event.Handler) {})
-	}
-
-	xformProviders := transformer.Providers{
-		transformer.NewProvider(collection.SchemasFor(in1), collection.SchemasFor(out1, out2), blankFn),
-		transformer.NewProvider(collection.SchemasFor(in2), collection.SchemasFor(out3), blankFn),
-		transformer.NewProvider(collection.SchemasFor(in3), collection.SchemasFor(out3), blankFn),
-		transformer.NewProvider(collection.SchemasFor(in4, in5), collection.SchemasFor(out4), blankFn),
-	}
-
-	expectCollections(g, getDisabledOutputs(collection.Names{in1.Name()}, xformProviders), collection.Names{out1.Name(), out2.Name()})
-	expectCollections(g, getDisabledOutputs(collection.Names{in2.Name()}, xformProviders), collection.Names{})
-	expectCollections(g, getDisabledOutputs(collection.Names{in2.Name(), in3.Name()}, xformProviders), collection.Names{out3.Name()})
-	expectCollections(g, getDisabledOutputs(collection.Names{in4.Name()}, xformProviders), collection.Names{out4.Name()})
-}
-
-func expectCollections(g *GomegaWithT, actualSet map[collection.Name]struct{}, expectedCols collection.Names) {
-	g.Expect(actualSet).To(HaveLen(len(expectedCols)))
-	for _, col := range expectedCols {
-		g.Expect(actualSet).To(HaveKey(col))
-	}
 }
 
 func newSchema(name string) collection.Schema {

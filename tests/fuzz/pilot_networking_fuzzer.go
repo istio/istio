@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package fuzz
 
 import (
@@ -30,10 +29,7 @@ func FuzzGrpcGenGenerate(data []byte) int {
 	if err != nil {
 		return 0
 	}
-
-	push := &model.PushContext{}
-	err = f.GenerateStruct(push)
-	if err != nil {
+	if !ProxyValid(proxy) {
 		return 0
 	}
 
@@ -50,7 +46,7 @@ func FuzzGrpcGenGenerate(data []byte) int {
 	}
 
 	generator := &grpcgen.GrpcConfigGenerator{}
-	_, _, _ = generator.Generate(proxy, push, w, updates)
+	_, _, _ = generator.Generate(proxy, w, updates)
 
 	return 1
 }

@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -36,14 +35,10 @@ func getHTTPRouteType(http *networking.HTTPRoute, isDelegate bool) HTTPRouteType
 	if isDelegate {
 		return DelegateRoute
 	}
-
-	if features.EnableVirtualServiceDelegate {
-		// root vs's http route
-		if http.Delegate != nil {
-			return RootRoute
-		}
+	// root vs's http route
+	if http.Delegate != nil {
+		return RootRoute
 	}
-
 	return IndependentRoute
 }
 
@@ -82,6 +77,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validati
 	errs = appendValidation(errs, validateCORSPolicy(http.CorsPolicy))
 	errs = appendValidation(errs, validateHTTPFaultInjection(http.Fault))
 
+	// nolint: staticcheck
 	if http.MirrorPercent != nil {
 		if value := http.MirrorPercent.GetValue(); value > 100 {
 			errs = appendValidation(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
@@ -160,25 +156,9 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 	} else {
 		for _, match := range http.Match {
 			if match != nil {
-				if containRegexMatch(match.Uri) {
-					errs = appendErrors(errs, errors.New("url match does not support regex match for delegating"))
-				}
-				if containRegexMatch(match.Scheme) {
-					errs = appendErrors(errs, errors.New("scheme match does not support regex match for delegating"))
-				}
-				if containRegexMatch(match.Method) {
-					errs = appendErrors(errs, errors.New("method match does not support regex match for delegating"))
-				}
-				if containRegexMatch(match.Authority) {
-					errs = appendErrors(errs, errors.New("authority match does not support regex match for delegating"))
-				}
-
 				for name, header := range match.Headers {
 					if header == nil {
 						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
-					}
-					if containRegexMatch(header) {
-						errs = appendErrors(errs, fmt.Errorf("header match %v does not support regex match for delegating", name))
 					}
 					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 				}
@@ -186,16 +166,10 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 					if param == nil {
 						errs = appendErrors(errs, fmt.Errorf("query param match %v cannot be null", name))
 					}
-					if containRegexMatch(param) {
-						errs = appendErrors(errs, fmt.Errorf("query param match %v does not support regex match for delegating", name))
-					}
 				}
 				for name, header := range match.WithoutHeaders {
 					if header == nil {
 						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v cannot be null", name))
-					}
-					if containRegexMatch(header) {
-						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v does not support regex match for delegating", name))
 					}
 					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 				}
@@ -260,18 +234,6 @@ func validateHTTPRouteConflict(http *networking.HTTPRoute, routeType HTTPRouteTy
 	}
 
 	return errs
-}
-
-func containRegexMatch(config *networking.StringMatch) bool {
-	if config == nil {
-		return false
-	}
-	switch config.GetMatchType().(type) {
-	case *networking.StringMatch_Regex:
-		return true
-	default:
-		return false
-	}
 }
 
 // isInternalHeader returns true if a header refers to an internal value that cannot be modified by Envoy

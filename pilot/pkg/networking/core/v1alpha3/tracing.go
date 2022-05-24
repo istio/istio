@@ -26,6 +26,7 @@ import (
 	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -34,54 +35,75 @@ import (
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 )
 
 // this is used for testing. it should not be changed in regular code.
 var clusterLookupFn = extensionproviders.LookupCluster
 
-func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
-	tracing := opts.push.Telemetry.Tracing(opts.proxy)
-	return configureTracingFromSpec(tracing, opts, hcm)
+func configureTracing(
+	push *model.PushContext,
+	proxy *model.Proxy,
+	hcm *hpb.HttpConnectionManager,
+	class networking.ListenerClass,
+) (*xdsfilters.RouterFilterContext, *requestidextension.UUIDRequestIDExtensionContext) {
+	tracing := push.Telemetry.Tracing(proxy)
+	return configureTracingFromSpec(tracing, push, proxy, hcm, class)
 }
 
-func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
-	meshCfg := opts.push.Mesh
-	proxyCfg := opts.proxy.Metadata.ProxyConfigOrDefault(opts.push.Mesh.DefaultConfig)
+func configureTracingFromSpec(
+	tracing *model.TracingConfig,
+	push *model.PushContext,
+	proxy *model.Proxy,
+	hcm *hpb.HttpConnectionManager,
+	class networking.ListenerClass,
+) (*xdsfilters.RouterFilterContext, *requestidextension.UUIDRequestIDExtensionContext) {
+	meshCfg := push.Mesh
+	proxyCfg := proxy.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
 
 	if tracing == nil {
 		// No Telemetry config for tracing, fallback to legacy mesh config
 		if !meshCfg.EnableTracing {
 			log.Debug("No valid tracing configuration found")
-			return nil
+			return nil, nil
 		}
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
-		configureSampling(hcm.Tracing, 0.0, proxyCfg)
-		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, opts.proxy.Metadata)
+		configureSampling(hcm.Tracing, proxyConfigSamplingValue(proxyCfg))
+		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, proxy.Metadata)
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
-		return nil
+		return nil, nil
 	}
 
-	if tracing.Disabled {
-		return nil
+	spec := tracing.ServerSpec
+	if class == networking.ListenerClassSidecarOutbound || class == networking.ListenerClassGateway {
+		spec = tracing.ClientSpec
+	}
+
+	if spec.Disabled {
+		return nil, nil
 	}
 
 	var routerFilterCtx *xdsfilters.RouterFilterContext
-	if tracing.Provider != nil {
-		tcfg, rfCtx, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, tracing.Provider)
+	if spec.Provider != nil {
+		tcfg, rfCtx, err := configureFromProviderConfig(push, proxy.Metadata, spec.Provider)
 		if err != nil {
-			log.Warnf("Not able to configure requested tracing provider %q: %v", tracing.Provider.Name, err)
-			return nil
+			log.Warnf("Not able to configure requested tracing provider %q: %v", spec.Provider.Name, err)
+			return nil, nil
 		}
 		hcm.Tracing = tcfg
 		routerFilterCtx = rfCtx
 	} else {
+		// TODO: should this `return nil, nil` instead ?
+		log.Warnf("Not able to configure tracing provider. Provider lookup failed.")
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
 		// TODO: transition to configuring providers from proxy config here?
 		// something like: configureFromProxyConfig(tracingCfg, opts.proxy.Metadata.ProxyConfig.Tracing)
@@ -89,21 +111,24 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 
 	// gracefully fallback to MeshConfig configuration. It will act as an implicit
 	// parent configuration during transition period.
-	configureSampling(hcm.Tracing, tracing.RandomSamplingPercentage, proxyCfg)
-	configureCustomTags(hcm.Tracing, tracing.CustomTags, proxyCfg, opts.proxy.Metadata)
+	configureSampling(hcm.Tracing, spec.RandomSamplingPercentage)
+	configureCustomTags(hcm.Tracing, spec.CustomTags, proxyCfg, proxy.Metadata)
 
 	// if there is configured max tag length somewhere, fallback to it.
 	if hcm.GetTracing().GetMaxPathTagLength() == nil && proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 		hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 	}
 
-	return routerFilterCtx
+	reqIDExtension := &requestidextension.UUIDRequestIDExtensionContext{}
+	reqIDExtension.UseRequestIDForTraceSampling = spec.UseRequestIDForTraceSampling
+	return routerFilterCtx, reqIDExtension
 }
 
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
 
 func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMetadata,
-	providerCfg *meshconfig.MeshConfig_ExtensionProvider) (*hpb.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
+	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
+) (*hpb.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
 	tracing := &hpb.HttpConnectionManager_Tracing{}
 	var rfCtx *xdsfilters.RouterFilterContext
 	var err error
@@ -204,7 +229,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 									CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService_{
 										StsService: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService{
 											TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
-											SubjectTokenPath:        "/var/run/secrets/tokens/istio-token",
+											SubjectTokenPath:        constants.TrustworthyJWTPath,
 											SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
 											Scope:                   "https://www.googleapis.com/auth/cloud-platform",
 										},
@@ -235,10 +260,12 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 type typedConfigGenFromClusterFn func(clusterName string) (*anypb.Any, error)
 
 func zipkinConfigGen(cluster string) (*anypb.Any, error) {
+	_, _, hostname, _ := model.ParseSubsetKey(cluster)
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         cluster,
 		CollectorEndpoint:        "/api/v2/spans",                   // envoy deprecated v1 support
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
+		CollectorHostname:        string(hostname),                  // http host header
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
@@ -255,7 +282,8 @@ func datadogConfigGen(cluster string) (*anypb.Any, error) {
 type typedConfigGenFn func() (*anypb.Any, error)
 
 func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, maxTagLen uint32,
-	anyFn typedConfigGenFromClusterFn) (*hpb.HttpConnectionManager_Tracing, error) {
+	anyFn typedConfigGenFromClusterFn,
+) (*hpb.HttpConnectionManager_Tracing, error) {
 	config := &hpb.HttpConnectionManager_Tracing{}
 
 	_, cluster, err := clusterLookupFn(pushCtx, svc, int(port))
@@ -263,14 +291,14 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 		return config, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 	}
 
-	any, err := anyFn(cluster)
+	cfg, err := anyFn(cluster)
 	if err != nil {
 		return config, fmt.Errorf("could not configure tracing provider %q: %v", provider, err)
 	}
 
 	config.Provider = &tracingcfg.Tracing_Http{
 		Name:       provider,
-		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: any},
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: cfg},
 	}
 
 	if maxTagLen != 0 {
@@ -281,14 +309,14 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 
 func buildHCMTracingOpenCensus(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (*hpb.HttpConnectionManager_Tracing, error) {
 	config := &hpb.HttpConnectionManager_Tracing{}
-	any, err := anyFn()
+	cfg, err := anyFn()
 	if err != nil {
 		return config, fmt.Errorf("could not configure tracing provider %q: %v", provider, err)
 	}
 
 	config.Provider = &tracingcfg.Tracing_Http{
 		Name:       provider,
-		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: any},
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: cfg},
 	}
 
 	if maxTagLen != 0 {
@@ -337,7 +365,7 @@ func dryRunPolicyTraceTag(name, key string) *tracing.CustomTag {
 					},
 				},
 				MetadataKey: &envoy_type_metadata_v3.MetadataKey{
-					Key: authz_model.RBACHTTPFilterName,
+					Key: wellknown.HTTPRoleBasedAccessControl,
 					Path: []*envoy_type_metadata_v3.MetadataKey_PathSegment{
 						{
 							Segment: &envoy_type_metadata_v3.MetadataKey_PathSegment_Key{
@@ -417,29 +445,19 @@ func buildServiceTags(metadata *model.NodeMetadata) []*tracing.CustomTag {
 	}
 }
 
-func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPercentage float64, proxyCfg *meshconfig.ProxyConfig) {
+func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPercentage float64) {
 	hcmTracing.ClientSampling = &xdstype.Percent{
 		Value: 100.0,
 	}
 	hcmTracing.OverallSampling = &xdstype.Percent{
 		Value: 100.0,
 	}
-	if providerPercentage != 0.0 {
-		// note: this does prevent a situation in which someone may want to set
-		// sampling rate to 0, but still report spans.
-		// we may need to reassess and tweak API
-		hcmTracing.RandomSampling = &xdstype.Percent{
-			Value: providerPercentage,
-		}
-		return
-	}
-	// fallback to old logic
 	hcmTracing.RandomSampling = &xdstype.Percent{
-		Value: fallbackSamplingValue(proxyCfg),
+		Value: providerPercentage,
 	}
 }
 
-func fallbackSamplingValue(config *meshconfig.ProxyConfig) float64 {
+func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 	sampling := features.TraceSampling
 
 	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
@@ -453,7 +471,8 @@ func fallbackSamplingValue(config *meshconfig.ProxyConfig) float64 {
 }
 
 func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
-	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, metadata *model.NodeMetadata) {
+	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, metadata *model.NodeMetadata,
+) {
 	var tags []*tracing.CustomTag
 
 	// TODO(dougreid): remove support for this feature. We don't want this to be
@@ -484,6 +503,10 @@ func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
 func buildCustomTagsFromProvider(providerTags map[string]*telemetrypb.Tracing_CustomTag) []*tracing.CustomTag {
 	var tags []*tracing.CustomTag
 	for tagName, tagInfo := range providerTags {
+		if tagInfo == nil {
+			log.Warnf("while building custom tags from provider, encountered nil custom tag: %s, skipping", tagName)
+			continue
+		}
 		switch tag := tagInfo.Type.(type) {
 		case *telemetrypb.Tracing_CustomTag_Environment:
 			env := &tracing.CustomTag{
@@ -526,6 +549,10 @@ func buildCustomTagsFromProxyConfig(customTags map[string]*meshconfig.Tracing_Cu
 	var tags []*tracing.CustomTag
 
 	for tagName, tagInfo := range customTags {
+		if tagInfo == nil {
+			log.Warnf("while building custom tags from proxyConfig, encountered nil custom tag: %s, skipping", tagName)
+			continue
+		}
 		switch tag := tagInfo.Type.(type) {
 		case *meshconfig.Tracing_CustomTag_Environment:
 			env := &tracing.CustomTag{

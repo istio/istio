@@ -33,7 +33,7 @@ const (
 	bufSize = 1024 * 1024
 )
 
-var lis *bufconn.Listener = nil
+var lis *bufconn.Listener
 
 type ContextDialer func(ctx context.Context, address string) (net.Conn, error)
 
@@ -156,7 +156,7 @@ func CreateServer(service *CASService) (*CASServer, *bufconn.Listener, error) {
 	}()
 
 	select {
-	case <-time.After(1 * time.Second):
+	case <-time.After(100 * time.Millisecond):
 		err = nil
 	case err = <-serveErr:
 	}

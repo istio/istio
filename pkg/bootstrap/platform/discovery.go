@@ -15,8 +15,12 @@
 package platform
 
 import (
+	"strings"
 	"sync"
 	"time"
+
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -24,15 +28,32 @@ const (
 	numPlatforms   = 3
 )
 
+var CloudPlatform = env.RegisterStringVar("CLOUD_PLATFORM", "", "Cloud Platform on which proxy is running, if not specified, "+
+	"Istio will try to discover the platform. Valid platform values are aws, azure, gcp, none").Get()
+
 // Discover attempts to discover the host platform, defaulting to
 // `Unknown` if a platform cannot be discovered.
-func Discover() Environment {
-	return DiscoverWithTimeout(defaultTimeout)
+func Discover(ipv6 bool) Environment {
+	// First check if user has specified platform - use it if provided.
+	if len(CloudPlatform) > 0 {
+		switch strings.ToLower(CloudPlatform) {
+		case "aws":
+			return NewAWS(ipv6)
+		case "azure":
+			return NewAzure()
+		case "gcp":
+			return NewGCP()
+		case "none":
+			return &Unknown{}
+		}
+	}
+	// Discover the platform if user has not specified.
+	return DiscoverWithTimeout(defaultTimeout, ipv6)
 }
 
 // DiscoverWithTimeout attempts to discover the host platform, defaulting to
 // `Unknown` after the provided timeout.
-func DiscoverWithTimeout(timeout time.Duration) Environment {
+func DiscoverWithTimeout(timeout time.Duration, ipv6 bool) Environment {
 	plat := make(chan Environment, numPlatforms) // sized to match number of platform goroutines
 	done := make(chan bool)
 
@@ -41,20 +62,23 @@ func DiscoverWithTimeout(timeout time.Duration) Environment {
 
 	go func() {
 		if IsGCP() {
+			log.Info("platform detected is GCP")
 			plat <- NewGCP()
 		}
 		wg.Done()
 	}()
 
 	go func() {
-		if IsAWS() {
-			plat <- NewAWS()
+		if IsAWS(ipv6) {
+			log.Info("platform detected is AWS")
+			plat <- NewAWS(ipv6)
 		}
 		wg.Done()
 	}()
 
 	go func() {
 		if IsAzure() {
+			log.Info("platform detected is Azure")
 			plat <- NewAzure()
 		}
 		wg.Done()
@@ -78,6 +102,7 @@ func DiscoverWithTimeout(timeout time.Duration) Environment {
 			return &Unknown{}
 		}
 	case <-timer.C:
+		log.Info("timed out waiting for platform detection, treating it as Unknown")
 		return &Unknown{}
 	}
 }

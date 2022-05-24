@@ -58,7 +58,8 @@ func (s *ConflictingGatewayAnalyzer) Analyze(c analysis.Context) {
 }
 
 func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analysis.Context,
-	gwCMap map[string]map[string][]string) {
+	gwCMap map[string]map[string][]string,
+) {
 	gw := r.Message.(*v1alpha3.Gateway)
 	gwName := r.Metadata.FullName.String()
 	// For pods selected by gw.Selector, find Services that select them and remember those ports
@@ -66,7 +67,7 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	sGWSelector := gwSelector.String()
 
 	// Check non-exist gateway with particular selector
-	var isExists bool = false
+	isExists := false
 	for gwmKey := range gwCMap {
 		if strings.Contains(gwmKey, sGWSelector) {
 			isExists = true

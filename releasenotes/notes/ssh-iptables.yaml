@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 35733
+releaseNotes:
+- |
+  **Fixed** an issue causing mTLS errors for traffic on port 22, by including port 22 in iptables by default.
+
+upgradeNotes:
+- title: Port 22 iptables capture changes
+  content: |
+    In previous versions, port 22 was excluded from iptables capture. This mitigates risk of getting locked out of a VM
+    when using Istio on VMs. This configuration was hardcoded into the iptables logic, meaning there was no way to
+    capture traffic on port 22.
+
+    The iptables logic now no longer has special logic on port 22. Instead, the `istioctl x workload entry configure`
+    command will automatically configure `ISTIO_LOCAL_EXCLUDE_PORTS` to include port 22. This means that VM users will
+    continue to have port 22 excluded, while Kubernetes users will have port 22 included now.
+
+    If this behavior is undesirable, the port can be explicitly opted out in Kubernetes with the `traffic.sidecar.istio.io/excludeInboundPorts` annotation.

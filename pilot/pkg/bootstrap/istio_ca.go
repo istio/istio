@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -266,21 +265,6 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 	return nil
 }
 
-// isValidCACertsFile As we are watching entire directory, but interested
-// in only 'ca-key.pem', 'ca-cert.pem', 'root-cert.pem' and 'cert-chain.pem'.
-// Events on other files are ignored.
-func isValidCACertsFile(path string) bool {
-	_, file := filepath.Split(path)
-
-	for _, name := range []string{ca.CACertFile, ca.CAPrivateKeyFile, ca.RootCertFile, ca.CertChainFile} {
-		if file == name {
-			return true
-		}
-	}
-
-	return false
-}
-
 // handleEvent handles the events on cacerts related files.
 // If create/write(modified) event occurs, then it verifies that
 // newly introduced cacerts are intermediate CA which is generated
@@ -333,13 +317,12 @@ func (s *Server) handleCACertsFileWatch() {
 
 		case event, ok := <-s.cacertsWatcher.Events:
 			if !ok {
-				log.Info("Failed to catch events on cacerts files")
-				continue
+				log.Debug("plugin cacerts watch stopped")
+				return
 			}
 
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-				valid := isValidCACertsFile(event.Name)
-				if valid && timerC == nil {
+				if timerC == nil {
 					timerC = time.After(100 * time.Millisecond)
 				}
 			}
@@ -347,7 +330,11 @@ func (s *Server) handleCACertsFileWatch() {
 		case err := <-s.cacertsWatcher.Errors:
 			if err != nil {
 				log.Error("Failed to catch events on cacerts file: ", err)
+				return
 			}
+
+		case <-s.internalStop:
+			return
 		}
 	}
 }
@@ -386,8 +373,9 @@ func (s *Server) initCACertsWatcher() {
 
 // createIstioCA initializes the Istio CA signing functionality.
 // - for 'plugged in', uses ./etc/cacert directory, mounted from 'cacerts' secret in k8s.
-//   Inside, the key/cert are 'ca-key.pem' and 'ca-cert.pem'. The root cert signing the intermediate is root-cert.pem,
-//   which may contain multiple roots. A 'cert-chain.pem' file has the full cert chain.
+//
+//	Inside, the key/cert are 'ca-key.pem' and 'ca-cert.pem'. The root cert signing the intermediate is root-cert.pem,
+//	which may contain multiple roots. A 'cert-chain.pem' file has the full cert chain.
 func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (*ca.IstioCA, error) {
 	var caOpts *ca.IstioCAOptions
 	var err error
@@ -466,17 +454,29 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 // ca cert can come from three sources, order matters:
 // 1. Define ca cert via kubernetes secret and mount the secret through `external-ca-cert` volume
 // 2. Use kubernetes ca cert `/var/run/secrets/kubernetes.io/serviceaccount/ca.crt` if signer is
-//    kubernetes built-in `kubernetes.io/legacy-unknown" signer
+//
+//	kubernetes built-in `kubernetes.io/legacy-unknown" signer
+//
 // 3. Extract from the cert-chain signed by other CSR signer.
 func (s *Server) createIstioRA(client kubelib.Client,
-	opts *caOptions) (ra.RegistrationAuthority, error) {
+	opts *caOptions,
+) (ra.RegistrationAuthority, error) {
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
 	certSignerDomain := opts.CertSignerDomain
 	_, err := os.Stat(caCertFile)
-	if err != nil && certSignerDomain == "" {
-		caCertFile = defaultCACertPath
-	} else {
-		caCertFile = ""
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to get file info: %v", err)
+		}
+
+		// File does not exist.
+		if certSignerDomain == "" {
+			log.Infof("CA cert file %q not found, using %q.", caCertFile, defaultCACertPath)
+			caCertFile = defaultCACertPath
+		} else {
+			log.Infof("CA cert file %q not found - ignoring.", caCertFile)
+			caCertFile = ""
+		}
 	}
 	raOpts := &ra.IstioRAOptions{
 		ExternalCAType:   opts.ExternalCAType,
@@ -485,11 +485,21 @@ func (s *Server) createIstioRA(client kubelib.Client,
 		CaSigner:         opts.ExternalCASigner,
 		CaCertFile:       caCertFile,
 		VerifyAppendCA:   true,
-		K8sClient:        client,
+		K8sClient:        client.Kube(),
 		TrustDomain:      opts.TrustDomain,
 		CertSignerDomain: opts.CertSignerDomain,
 	}
-	return ra.NewIstioRA(raOpts)
+	raServer, err := ra.NewIstioRA(raOpts)
+	if err != nil {
+		return nil, err
+	}
+	raServer.SetCACertificatesFromMeshConfig(s.environment.Mesh().CaCertificates)
+	s.environment.AddMeshHandler(func() {
+		meshConfig := s.environment.Mesh()
+		caCertificates := meshConfig.CaCertificates
+		s.RA.SetCACertificatesFromMeshConfig(caCertificates)
+	})
+	return raServer, err
 }
 
 // getJwtPath returns jwt path.

@@ -15,6 +15,7 @@
 package config
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 	"time"
@@ -118,5 +119,60 @@ ignoredErrors:
 
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got:\n%s\nwant:\n%s\n\ndiff (-got, +want):\n%s\n", pretty.Sprint(got), pretty.Sprint(want), cmp.Diff(got, want))
+	}
+}
+
+func TestUnmarshalSelectionSpec(t *testing.T) {
+	include := "ns1,ns2/d1,d2/p1,p2/l1=lv1,l2=lv2/a1=av1,a2=av2/c1,c2"
+	want := &SelectionSpec{
+		Namespaces:  []string{"ns1", "ns2"},
+		Deployments: []string{"d1", "d2"},
+		Pods:        []string{"p1", "p2"},
+		Labels: map[string]string{
+			"l1": "lv1",
+			"l2": "lv2",
+		},
+		Annotations: map[string]string{
+			"a1": "av1",
+			"a2": "av2",
+		},
+		Containers: []string{"c1", "c2"},
+	}
+
+	got := &SelectionSpec{}
+	if err := got.UnmarshalJSON([]byte(include)); err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got:\n%s\nwant:\n%s\n\ndiff (-got, +want):\n%s\n", pretty.Sprint(got), pretty.Sprint(want), cmp.Diff(got, want))
+	}
+}
+
+func TestMarshalSelectionSpec(t *testing.T) {
+	spec := &SelectionSpec{
+		Namespaces:  []string{"ns1", "ns2"},
+		Deployments: []string{"d1", "d2"},
+		Pods:        []string{"p1", "p2"},
+		Labels: map[string]string{
+			"l1": "lv1",
+			"l2": "lv2",
+		},
+		Annotations: map[string]string{
+			"a1": "av1",
+		},
+		Containers: []string{"c1", "c2"},
+	}
+	// there are 2 possible results as map iteration order is nondeterministic
+	want1 := []byte(`"ns1,ns2/d1,d2/p1,p2/l1=lv1,l2=lv2/a1=av1/c1,c2"`)
+	want2 := []byte(`"ns1,ns2/d1,d2/p1,p2/l2=lv2,l1=lv1/a1=av1/c1,c2"`)
+
+	got, err := spec.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(got, want1) && !bytes.Equal(got, want2) {
+		t.Errorf("got:\n%s\nwant:\n%s or %s\n\n", got, want1, want2)
 	}
 }

@@ -28,6 +28,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -39,24 +40,17 @@ import (
 	"istio.io/istio/tests/integration/telemetry"
 )
 
-const (
-	fakeGCEMetadataServerValues = `
-  defaultConfig:
-    proxyMetadata:
-      GCE_METADATA_HOST: `
-)
-
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range Clt {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := SendTraffic(t, cltInstance, http.Header{}, false); err != nil {
+						if err := SendTraffic(cltInstance, http.Header{}, false); err != nil {
 							return err
 						}
 						clName := cltInstance.Config().Cluster.Name()
@@ -123,11 +117,11 @@ meshConfig:
 
 	// conditionally use a fake metadata server for testing off of GCP
 	if GCEInst != nil {
-		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, fakeGCEMetadataServerValues, GCEInst.Address()}, "")
+		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, FakeGCEMetadataServerValues, GCEInst.Address()}, "")
 	}
 }
 
-func validateTraces(t *testing.T) error {
+func validateTraces(t test.Failer) error {
 	t.Helper()
 
 	// we are looking for a trace that looks something like:
@@ -149,7 +143,7 @@ func validateTraces(t *testing.T) error {
 	// span.
 
 	wantSpanName := fmt.Sprintf("srv.%s.svc.cluster.local:80/*", EchoNsInst.Name())
-	traces, err := SDInst.ListTraces(EchoNsInst.Name())
+	traces, err := SDInst.ListTraces(EchoNsInst.Name(), "")
 	if err != nil {
 		return fmt.Errorf("traces: could not retrieve traces from Stackdriver: %v", err)
 	}

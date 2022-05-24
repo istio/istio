@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc4
+  namespace: nginx-ns4
+spec:
+  externalName: nginx.example.com
+  ports:
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  type: ExternalName

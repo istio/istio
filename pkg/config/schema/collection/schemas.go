@@ -106,6 +106,19 @@ func (s Schemas) Intersect(otherSchemas Schemas) Schemas {
 	return resultBuilder.Build()
 }
 
+func (s Schemas) Union(otherSchemas Schemas) Schemas {
+	resultBuilder := NewSchemasBuilder()
+	for _, myschema := range s.All() {
+		// an error indicates the schema has already been added, which doesn't negatively impact intersect
+		_ = resultBuilder.Add(myschema)
+	}
+	for _, myschema := range otherSchemas.All() {
+		// an error indicates the schema has already been added, which doesn't negatively impact intersect
+		_ = resultBuilder.Add(myschema)
+	}
+	return resultBuilder.Build()
+}
+
 // Find looks up a Schema by its collection name.
 func (s Schemas) Find(collection string) (Schema, bool) {
 	i, ok := s.byCollection[Name(collection)]
@@ -129,6 +142,19 @@ func (s Schemas) FindByGroupVersionKind(gvk config.GroupVersionKind) (Schema, bo
 		}
 	}
 
+	return nil, false
+}
+
+// FindByGroupVersionAliasesKind searches and returns the first schema with the given GVK,
+// if not found, it will search for version aliases for the schema to see if there is a match.
+func (s Schemas) FindByGroupVersionAliasesKind(gvk config.GroupVersionKind) (Schema, bool) {
+	for _, rs := range s.byAddOrder {
+		for _, va := range rs.Resource().GroupVersionAliasKinds() {
+			if va == gvk {
+				return rs, true
+			}
+		}
+	}
 	return nil, false
 }
 
@@ -234,27 +260,6 @@ func (s Schemas) Kinds() []string {
 
 	sort.Strings(out)
 	return out
-}
-
-func (s Schemas) WithoutDisabledCollections() Schemas {
-	result := NewSchemasBuilder()
-	for _, i := range s.byAddOrder {
-		if !i.IsDisabled() {
-			_ = result.Add(i)
-		}
-	}
-	return result.Build()
-}
-
-// DisabledCollectionNames returns the names of disabled collections
-func (s Schemas) DisabledCollectionNames() Names {
-	disabledCollections := make(Names, 0)
-	for _, i := range s.byAddOrder {
-		if i.IsDisabled() {
-			disabledCollections = append(disabledCollections, i.Name())
-		}
-	}
-	return disabledCollections
 }
 
 // Validate the schemas. Returns error if there is a problem.

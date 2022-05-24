@@ -37,10 +37,9 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	gogoproto "github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
@@ -53,9 +52,9 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
@@ -197,7 +196,7 @@ type ADSC struct {
 	Mesh *v1alpha1.MeshConfig
 
 	// Retrieved configurations can be stored using the common istio model interface.
-	Store model.IstioConfigStore
+	Store model.ConfigStore
 
 	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
 	Registry *memory.ServiceDiscovery
@@ -293,8 +292,8 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	adsc.Metadata = opts.Meta
 	adsc.Locality = opts.Locality
 
-	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
-		opts.Workload, opts.Namespace, opts.Namespace)
+	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.%s", opts.NodeType, opts.IP,
+		opts.Workload, opts.Namespace, opts.Namespace, constants.DefaultClusterLocalDomain)
 
 	if err := adsc.Dial(); err != nil {
 		return nil, err
@@ -325,7 +324,7 @@ func (a *ADSC) Dial() error {
 
 	if len(grpcDialOptions) == len(defaultGrpcDialOptions) {
 		// Only disable transport security if the user didn't supply custom dial options
-		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
+		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	a.conn, err = grpc.Dial(a.url, grpcDialOptions...)
@@ -513,13 +512,13 @@ func (a *ADSC) handleRecv() {
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
-			err = gogoproto.Unmarshal(rsc.Value, m)
+			err = proto.Unmarshal(rsc.Value, m)
 			if err != nil {
 				adscLog.Warn("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
-				strResponse, err := gogoprotomarshal.ToJSONWithIndent(m, "  ")
+				strResponse, err := protomarshal.ToJSONWithIndent(m, "  ")
 				if err != nil {
 					continue
 				}
@@ -623,16 +622,9 @@ func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	c.Namespace = nsn[0]
 	c.Name = nsn[1]
 	var err error
-	c.CreationTimestamp, err = types.TimestampFromProto(m.Metadata.CreateTime)
-	if err != nil {
-		return nil, err
-	}
+	c.CreationTimestamp = m.Metadata.CreateTime.AsTime()
 
-	pb, err := types.EmptyAny(m.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = types.UnmarshalAny(m.Body, pb)
+	pb, err := m.Body.UnmarshalNew()
 	if err != nil {
 		return nil, err
 	}
@@ -1097,14 +1089,6 @@ func (a *ADSC) EndpointsJSON() string {
 	return string(out)
 }
 
-func XdsInitialRequests() []*discovery.DiscoveryRequest {
-	return []*discovery.DiscoveryRequest{
-		{
-			TypeUrl: v3.ClusterType,
-		},
-	}
-}
-
 // Watch will start watching resources, starting with CDS. Based on the CDS response
 // it will start watching RDS and LDS.
 func (a *ADSC) Watch() {
@@ -1246,10 +1230,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	received := make(map[string]*config.Config)
 	for _, rsc := range resources {
 		m := &mcp.Resource{}
-		err := types.UnmarshalAny(&types.Any{
-			TypeUrl: rsc.TypeUrl,
-			Value:   rsc.Value,
-		}, m)
+		err := rsc.UnmarshalTo(m)
 		if err != nil {
 			adscLog.Warnf("Error unmarshalling received MCP config %v", err)
 			continue

@@ -39,11 +39,8 @@ metadata:
   name: foo
   namespace: bar
 spec:
-  metadata:
-    annotations: {}
-    labels: {}
+  metadata: {}
   template:
-    ports: {}
     serviceAccount: default
 `
 
@@ -183,7 +180,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 						&v1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
 							Data: map[string]string{
-								"mesh": string(util.ReadFile(path.Join(testdir, "meshconfig.yaml"), t)),
+								"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
 							},
 						},
 						&v1.Secret{
@@ -227,6 +224,31 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			}
 
 			checkOutputFiles(t, testdir, checkFiles)
+		})
+	}
+}
+
+func TestWorkloadEntryToPodPortsMeta(t *testing.T) {
+	cases := []struct {
+		description string
+		ports       map[string]uint32
+		want        string
+	}{
+		{
+			description: "test json marshal",
+			ports: map[string]uint32{
+				"HTTP":  80,
+				"HTTPS": 443,
+			},
+			want: `[{"name":"HTTP","containerPort":80,"protocol":""},{"name":"HTTPS","containerPort":443,"protocol":""}]`,
+		},
+	}
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
+			str := marshalWorkloadEntryPodPorts(c.ports)
+			if c.want != str {
+				t.Errorf("want %s, got %s", c.want, str)
+			}
 		})
 	}
 }
@@ -328,10 +350,10 @@ func checkOutputFiles(t *testing.T, testdir string, checkFiles map[string]bool) 
 		}
 		if checkGolden {
 			t.Run(f.Name(), func(t *testing.T) {
-				contents := util.ReadFile(path.Join(testdir, f.Name()), t)
+				contents := util.ReadFile(t, path.Join(testdir, f.Name()))
 				goldenFile := path.Join(testdir, f.Name()+goldenSuffix)
-				util.RefreshGoldenFile(contents, goldenFile, t)
-				util.CompareContent(contents, goldenFile, t)
+				util.RefreshGoldenFile(t, contents, goldenFile)
+				util.CompareContent(t, contents, goldenFile)
 			})
 		}
 	}

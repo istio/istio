@@ -46,7 +46,14 @@ var (
 	_              = corev1.AddToScheme(scheme)
 )
 
-func RunCSRController(signerNames string, config *rest.Config, c <-chan struct{}) {
+type SignerRootCert struct {
+	Signer   string
+	Rootcert string
+}
+
+func RunCSRController(signerNames string, appendRootCert bool, config *rest.Config, c <-chan struct{},
+	certChan chan *SignerRootCert,
+) {
 	// Config Istio log
 	if err := log.Configure(loggingOptions); err != nil {
 		log.Infof("Unable to configure Istio log error: %v", err)
@@ -54,7 +61,7 @@ func RunCSRController(signerNames string, config *rest.Config, c <-chan struct{}
 	}
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme: scheme,
-		// disabel the metric server to avoid the port conflicting
+		// disable the metric server to avoid the port conflicting
 		MetricsBindAddress: "0",
 	})
 	if err != nil {
@@ -71,17 +78,28 @@ func RunCSRController(signerNames string, config *rest.Config, c <-chan struct{}
 			os.Exit(-1)
 		}
 		signersMap[signerName] = signer
+		rootCert, rErr := os.ReadFile(signer.GetRootCerts())
+		if rErr != nil {
+			log.Infof("Unable to read root cert for signer [%s], error: %v", signerName, sErr)
+			os.Exit(-1)
+		}
+		rootCertsForSigner := &SignerRootCert{
+			Signer:   signerName,
+			Rootcert: string(rootCert),
+		}
+		certChan <- rootCertsForSigner
 	}
 
 	if err := (&CertificateSigningRequestSigningReconciler{
-		Client:      mgr.GetClient(),
-		SignerRoot:  signerRoot,
-		CtrlCertTTL: certificateDuration,
-		Scheme:      mgr.GetScheme(),
-		SignerNames: arrSingers,
-		Signers:     signersMap,
+		Client:         mgr.GetClient(),
+		SignerRoot:     signerRoot,
+		CtrlCertTTL:    certificateDuration,
+		Scheme:         mgr.GetScheme(),
+		SignerNames:    arrSingers,
+		Signers:        signersMap,
+		appendRootCert: appendRootCert,
 	}).SetupWithManager(mgr); err != nil {
-		log.Infof("Unable to create Controller fro controller CSRSigningReconciler, error: %v", err)
+		log.Infof("Unable to create Controller for controller CSRSigningReconciler, error: %v", err)
 		os.Exit(-1)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

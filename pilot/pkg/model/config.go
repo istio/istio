@@ -24,12 +24,11 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Statically link protobuf descriptors from UDPA
@@ -89,13 +88,23 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind)
 	return ret
 }
 
+// ConfigsHaveKind checks if configurations have the specified kind.
+func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) bool {
+	for conf := range configs {
+		if conf.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[string]struct{} {
-	ret := make(map[string]struct{})
+	ret := sets.New()
 
 	for conf := range configs {
 		if conf.Kind == kind {
-			ret[conf.Name] = struct{}{}
+			ret.Insert(conf.Name)
 		}
 	}
 
@@ -153,7 +162,6 @@ type ConfigStore interface {
 	// operation to achieve optimistic concurrency. This method returns a new
 	// revision if the operation succeeds.
 	Update(config config.Config) (newRevision string, err error)
-
 	UpdateStatus(config config.Config) (newRevision string, err error)
 
 	// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
@@ -168,8 +176,8 @@ type ConfigStore interface {
 
 type EventHandler = func(config.Config, config.Config, Event)
 
-// ConfigStoreCache is a local fully-replicated cache of the config store.  The
-// cache actively synchronizes its local state with the remote store and
+// ConfigStoreController is a local fully-replicated cache of the config store with additional handlers.  The
+// controller actively synchronizes its local state with the remote store and
 // provides a notification mechanism to receive update events. As such, the
 // notification handlers must be registered prior to calling _Run_, and the
 // cache requires initial synchronization grace period after calling  _Run_.
@@ -181,7 +189,7 @@ type EventHandler = func(config.Config, config.Config, Event)
 // Handlers execute on the single worker queue in the order they are appended.
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be registered before starting the cache controller.
-type ConfigStoreCache interface {
+type ConfigStoreController interface {
 	ConfigStore
 
 	// RegisterEventHandler adds a handler to receive config update events for a
@@ -190,26 +198,10 @@ type ConfigStoreCache interface {
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
-
 	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
-}
-
-// IstioConfigStore is a specialized interface to access config store using
-// Istio configuration types
-type IstioConfigStore interface {
-	ConfigStore
-
-	// ServiceEntries lists all service entries
-	ServiceEntries() []config.Config
-
-	// Gateways lists all gateways bound to the specified workload labels
-	Gateways(workloadLabels labels.Collection) []config.Config
-
-	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
-	AuthorizationPolicies(namespace string) []config.Config
 }
 
 const (
@@ -281,9 +273,9 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 	return out
 }
 
-// MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
-// matching the needle, or false if no element in the stack matches the needle.
-func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []host.Name) (host.Name, bool) {
+// MostSpecificHostMatch compares the map of the stack to the needle, and returns the longest element
+// matching the needle, or false if no element in the map matches the needle.
+func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*consolidatedDestRule) (host.Name, bool) {
 	matches := []host.Name{}
 
 	// exact match first
@@ -291,18 +283,10 @@ func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []h
 		if _, ok := m[needle]; ok {
 			return needle, true
 		}
-	} else {
-		for _, h := range stack {
-			if h == needle {
-				return needle, true
-			}
-		}
 	}
 
 	if needle.IsWildCarded() {
-		// slice has better loop performance than map, so use stack to range
-		// and stack is ordered before
-		for _, h := range stack {
+		for h := range m {
 			// both needle and h are wildcards
 			if h.IsWildCarded() {
 				if len(needle) < len(h) {
@@ -314,7 +298,7 @@ func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []h
 			}
 		}
 	} else {
-		for _, h := range stack {
+		for h := range m {
 			// only n is wildcard
 			if h.IsWildCarded() {
 				if strings.HasSuffix(string(needle), string(h[1:])) {
@@ -323,7 +307,56 @@ func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []h
 			}
 		}
 	}
+	if len(matches) > 1 {
+		// Sort the host names, find the most specific one.
+		sort.Sort(host.Names(matches))
+	}
+	if len(matches) > 0 {
+		// TODO: return closest match out of all non-exact matching hosts
+		return matches[0], true
+	}
+	return "", false
+}
 
+// MostSpecificHostMatch2 compares the map of the stack to the needle, and returns the longest element
+// matching the needle, or false if no element in the map matches the needle.
+// TODO: merge with MostSpecificHostMatch once go 1.18 is used
+func MostSpecificHostMatch2(needle host.Name, m map[host.Name]struct{}) (host.Name, bool) {
+	matches := []host.Name{}
+
+	// exact match first
+	if m != nil {
+		if _, ok := m[needle]; ok {
+			return needle, true
+		}
+	}
+
+	if needle.IsWildCarded() {
+		for h := range m {
+			// both needle and h are wildcards
+			if h.IsWildCarded() {
+				if len(needle) < len(h) {
+					continue
+				}
+				if strings.HasSuffix(string(needle[1:]), string(h[1:])) {
+					matches = append(matches, h)
+				}
+			}
+		}
+	} else {
+		for h := range m {
+			// only n is wildcard
+			if h.IsWildCarded() {
+				if strings.HasSuffix(string(needle), string(h[1:])) {
+					matches = append(matches, h)
+				}
+			}
+		}
+	}
+	if len(matches) > 1 {
+		// Sort the host names, find the most specific one.
+		sort.Sort(host.Names(matches))
+	}
 	if len(matches) > 0 {
 		// TODO: return closest match out of all non-exact matching hosts
 		return matches[0], true
@@ -338,9 +371,9 @@ type istioConfigStore struct {
 }
 
 // MakeIstioStore creates a wrapper around a store.
-// In pilot it is initialized with a ConfigStoreCache, tests only use
+// In pilot it is initialized with a ConfigStoreController, tests only use
 // a regular ConfigStore.
-func MakeIstioStore(store ConfigStore) IstioConfigStore {
+func MakeIstioStore(store ConfigStore) ConfigStore {
 	return &istioConfigStore{store}
 }
 
@@ -369,29 +402,6 @@ func sortConfigByCreationTime(configs []config.Config) {
 		}
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	})
-}
-
-func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []config.Config {
-	configs, err := store.List(gvk.Gateway, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	sortConfigByCreationTime(configs)
-	out := make([]config.Config, 0)
-	for _, cfg := range configs {
-		gateway := cfg.Spec.(*networking.Gateway)
-		if gateway.GetSelector() == nil {
-			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, cfg)
-		} else {
-			gatewaySelector := labels.Instance(gateway.GetSelector())
-			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				out = append(out, cfg)
-			}
-		}
-	}
-	return out
 }
 
 // key creates a key from a reference's name and namespace.

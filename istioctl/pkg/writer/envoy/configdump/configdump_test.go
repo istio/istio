@@ -19,9 +19,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestConfigWriter_Prime(t *testing.T) {
@@ -66,12 +65,11 @@ func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
 		callPrime      bool
 		wantErr        bool
 	}{
-		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
-		// {
-		// 	name:           "returns expected bootstrap dump from Envoy onto Stdout",
-		// 	callPrime:      true,
-		// 	wantOutputFile: "testdata/bootstrapdump.json",
-		// },
+		{
+			name:           "returns expected bootstrap dump from Envoy onto Stdout",
+			callPrime:      true,
+			wantOutputFile: "testdata/bootstrapdump.json",
+		},
 		{
 			name:    "errors if config dump is not primed",
 			wantErr: true,
@@ -87,7 +85,7 @@ func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
 			}
 			err := cw.PrintBootstrapDump("json")
 			if tt.wantOutputFile != "" {
-				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputFile)
 			}
 			if err == nil && tt.wantErr {
 				t.Errorf("PrintBootstrapDump (%v) did not produce expected err", tt.name)
@@ -125,7 +123,7 @@ func TestConfigWriter_PrintVersionSummary(t *testing.T) {
 			}
 			err := cw.PrintVersionSummary()
 			if tt.wantOutputFile != "" {
-				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputFile)
 			}
 			if err == nil && tt.wantErr {
 				t.Errorf("PrintVersionSummary (%v) did not produce expected err", tt.name)

@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/clusters"
-	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/istioctl/pkg/util/proto"
 )
 
 // EndpointFilter is used to pass filter information into route based config writer print functions
@@ -152,7 +152,7 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string
 		return fmt.Errorf("config writer has not been primed")
 	}
 
-	filteredClusters := protio.MessageSlice{}
+	filteredClusters := proto.MessageSlice{}
 	for _, cluster := range c.clusters.ClusterStatuses {
 		for _, host := range cluster.HostStatuses {
 			if filter.Verify(host, cluster.Name) {

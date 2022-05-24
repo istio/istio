@@ -17,8 +17,8 @@ package validation
 import (
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
@@ -247,7 +247,7 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 					},
 				},
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "regex uri match", route: &networking.HTTPRoute{
 			Delegate: &networking.Delegate{
 				Name:      "test",
@@ -258,7 +258,7 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 					MatchType: &networking.StringMatch_Regex{Regex: "test"},
 				},
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "prefix uri match", route: &networking.HTTPRoute{
 			Delegate: &networking.Delegate{
 				Name:      "test",
@@ -323,7 +323,7 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 					},
 				},
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "empty regex match in method", route: &networking.HTTPRoute{
 			Match: []*networking.HTTPMatchRequest{{
 				Method: &networking.StringMatch{
@@ -362,17 +362,6 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 		{name: "empty regex match in scheme", route: &networking.HTTPRoute{
 			Match: []*networking.HTTPMatchRequest{{
 				Scheme: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{Regex: ""},
-				},
-			}},
-			Redirect: &networking.HTTPRedirect{
-				Uri:       "/",
-				Authority: "foo.biz",
-			},
-		}, valid: false},
-		{name: "empty regex match in scheme", route: &networking.HTTPRoute{
-			Match: []*networking.HTTPMatchRequest{{
-				Authority: &networking.StringMatch{
 					MatchType: &networking.StringMatch_Regex{Regex: ""},
 				},
 			}},
@@ -581,7 +570,7 @@ func TestValidateDelegateHTTPRoute(t *testing.T) {
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
 		{name: "invalid mirror percent", route: &networking.HTTPRoute{
-			MirrorPercent: &types.UInt32Value{Value: 101},
+			MirrorPercent: &wrapperspb.UInt32Value{Value: 101},
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.bar"},
 			}},

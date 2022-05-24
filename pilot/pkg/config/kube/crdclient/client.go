@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
@@ -48,7 +49,7 @@ import (
 	//  import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/cache"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pilot/pkg/features"
@@ -100,18 +101,19 @@ type Client struct {
 	crdMetadataInformer cache.SharedIndexInformer
 }
 
-var _ model.ConfigStoreCache = &Client{}
+var _ model.ConfigStoreController = &Client{}
 
-func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {
+func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreController, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI
 	}
-	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
+	return NewForSchemas(client, revision, domainSuffix, schemas)
 }
 
 var crdWatches = map[config.GroupVersionKind]*waiter{
 	gvk.KubernetesGateway: newWaiter(),
+	gvk.GatewayClass:      newWaiter(),
 }
 
 type waiter struct {
@@ -143,7 +145,7 @@ func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	}
 }
 
-func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
+func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreController, error) {
 	schemasByCRDName := map[string]collection.Schema{}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
@@ -167,17 +169,25 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		initialSync: atomic.NewBool(false),
 	}
 
-	known, err := knownCRDs(ctx, client.Ext())
+	known, err := knownCRDs(client.Ext())
 	if err != nil {
 		return nil, err
 	}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
-		if _, f := known[name]; f {
+		crd := true
+		if _, f := collections.Builtin.Find(s.Name().String()); f {
+			crd = false
+		}
+		if !crd {
 			handleCRDAdd(out, name, nil)
 		} else {
-			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+			if _, f := known[name]; f {
+				handleCRDAdd(out, name, nil)
+			} else {
+				scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+			}
 		}
 	}
 
@@ -215,7 +225,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
 	scope.Info("Starting Pilot K8S CRD controller")
 
-	if !cache.WaitForCacheSync(stop, cl.informerSynced) {
+	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
 		scope.Error("Failed to sync Pilot K8S CRD controller cache")
 		return
 	}
@@ -411,26 +421,25 @@ func (cl *Client) kind(r config.GroupVersionKind) (*cacheHandler, bool) {
 	return ch, ok
 }
 
-// knownCRDs returns all CRDs present in the cluster, with retries
-func knownCRDs(ctx context.Context, crdClient apiextensionsclient.Interface) (map[string]struct{}, error) {
-	delay := time.Second
-	maxDelay := time.Minute
+// knownCRDs returns all CRDs present in the cluster, with timeout and retries.
+func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]struct{}, error) {
 	var res *crd.CustomResourceDefinitionList
-	for {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = time.Second
+	b.MaxElapsedTime = 20 * time.Second
+	err := backoff.Retry(func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 		var err error
 		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 		if err == nil {
-			break
+			return nil
 		}
 		scope.Errorf("failed to list CRDs: %v", err)
-		time.Sleep(delay)
-		delay *= 2
-		if delay > maxDelay {
-			delay = maxDelay
-		}
+		return err
+	}, b)
+	if err != nil {
+		return nil, err
 	}
 
 	mp := map[string]struct{}{}
@@ -505,17 +514,24 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	var i informers.GenericInformer
 	var ifactory starter
 	var err error
-	if s.Resource().Group() == gvk.KubernetesGateway.Group {
+	switch s.Resource().Group() {
+	case gvk.KubernetesGateway.Group:
 		ifactory = cl.client.GatewayAPIInformer()
 		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)
-	} else {
+	case gvk.Pod.Group, gvk.Deployment.Group, gvk.MutatingWebhookConfiguration.Group:
+		ifactory = cl.client.KubeInformer()
+		i, err = cl.client.KubeInformer().ForResource(gvr)
+	case gvk.CustomResourceDefinition.Group:
+		ifactory = cl.client.ExtInformer()
+		i, err = cl.client.ExtInformer().ForResource(gvr)
+	default:
 		ifactory = cl.client.IstioInformer()
 		i, err = cl.client.IstioInformer().ForResource(gvr)
 	}
 
 	if err != nil {
 		// Shouldn't happen
-		scope.Errorf("failed to create informer for %v", resourceGVK)
+		scope.Errorf("failed to create informer for %v: %v", resourceGVK, err)
 		return
 	}
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- https://github.com/istio/enhancements/pull/112
+releaseNotes:
+- |
+  **Promoted** the authorization policy dry-run mode to alpha.
+docs:
+- '[usage] https://istio.io/latest/docs/tasks/security/authorization/authz-dry-run/'

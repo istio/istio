@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/url"
 )
 
@@ -302,6 +303,7 @@ func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	}
 
 	if c.expectedOutput != "" && c.expectedOutput != output {
+		assert.Equal(t, c.expectedOutput, output)
 		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q", strings.Join(c.args, " "), output, c.expectedOutput)
 	}
 }
@@ -357,5 +359,37 @@ func TestConvertToMap(t *testing.T) {
 				t.Errorf("convertToStringMap() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestStr2NamedPort(t *testing.T) {
+	tests := []struct {
+		input  string    // input
+		expVal namedPort // output
+		expErr bool      // error
+	}{
+		// Good cases:
+		{"http:5555", namedPort{5555, "http"}, false},
+		{"80", namedPort{80, "http"}, false},
+		{"443", namedPort{443, "https"}, false},
+		{"1234", namedPort{1234, "1234"}, false},
+		// Error cases:
+		{"", namedPort{0, ""}, true},
+		{"foo:bar", namedPort{0, "foo"}, true},
+	}
+	for _, tst := range tests {
+		actVal, actErr := str2NamedPort(tst.input)
+		if tst.expVal != actVal {
+			t.Errorf("Got '%+v', expecting '%+v' for Str2NamedPort('%s')", actVal, tst.expVal, tst.input)
+		}
+		if tst.expErr {
+			if actErr == nil {
+				t.Errorf("Got no error when expecting an error for Str2NamedPort('%s')", tst.input)
+			}
+		} else {
+			if actErr != nil {
+				t.Errorf("Got unexpected error '%+v' when expecting none for Str2NamedPort('%s')", actErr, tst.input)
+			}
+		}
 	}
 }

@@ -18,9 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/google/go-cmp/cmp"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -28,7 +27,8 @@ import (
 	istioTypes "istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var now = time.Now()
@@ -44,10 +44,10 @@ func TestConvertToMeshConfigProxyConfig(t *testing.T) {
 		{
 			name: "concurrency",
 			pc: &v1beta1.ProxyConfig{
-				Concurrency: &types.Int32Value{Value: 3},
+				Concurrency: &wrappers.Int32Value{Value: 3},
 			},
 			expected: &meshconfig.ProxyConfig{
-				Concurrency: &types.Int32Value{Value: 3},
+				Concurrency: &wrappers.Int32Value{Value: 3},
 			},
 		},
 		{
@@ -69,9 +69,7 @@ func TestConvertToMeshConfigProxyConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		converted := toMeshConfigProxyConfig(tc.pc)
-		if diff := cmp.Diff(converted, tc.expected); diff != "" {
-			t.Fatalf("expected and received not the same: %s", diff)
-		}
+		assert.Equal(t, converted, tc.expected)
 	}
 }
 
@@ -207,9 +205,7 @@ func TestMergeWithPrecedence(t *testing.T) {
 
 	for _, tc := range cases {
 		merged := mergeWithPrecedence(tc.first, tc.second)
-		if diff := cmp.Diff(merged, tc.expected); diff != "" {
-			t.Fatalf("expected and received not the same: %s", diff)
-		}
+		assert.Equal(t, merged, tc.expected)
 	}
 }
 
@@ -227,10 +223,18 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				newProxyConfig("ns", "test-ns",
 					&v1beta1.ProxyConfig{
 						Concurrency: v(3),
+						Image: &v1beta1.ProxyImage{
+							ImageType: "debug",
+						},
 					}),
 			},
-			proxy:    newMeta("test-ns", nil, nil),
-			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
+			proxy: newMeta("test-ns", nil, nil),
+			expected: &meshconfig.ProxyConfig{
+				Concurrency: v(3),
+				Image: &v1beta1.ProxyImage{
+					ImageType: "debug",
+				},
+			},
 		},
 		{
 			name: "CR takes precedence over meshConfig.defaultConfig",
@@ -271,6 +275,9 @@ func TestEffectiveProxyConfig(t *testing.T) {
 							"test": "selector",
 						}),
 						Concurrency: v(3),
+						Image: &v1beta1.ProxyImage{
+							ImageType: "debug",
+						},
 					}),
 			},
 			proxy: newMeta(
@@ -280,7 +287,12 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				}, map[string]string{
 					annotation.ProxyConfig.Name: "{ \"concurrency\": 5 }",
 				}),
-			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
+			expected: &meshconfig.ProxyConfig{
+				Concurrency: v(3),
+				Image: &v1beta1.ProxyImage{
+					ImageType: "debug",
+				},
+			},
 		},
 		{
 			name: "CR in other namespaces get ignored",
@@ -397,10 +409,9 @@ func TestEffectiveProxyConfig(t *testing.T) {
 					DefaultConfig: tc.defaultConfig,
 				})
 			pc := mesh.DefaultProxyConfig()
-			proto.Merge(&pc, tc.expected)
-			if diff := cmp.Diff(merged, &pc); diff != "" {
-				t.Fatalf("merged did not equal expected: %s", diff)
-			}
+			proto.Merge(pc, tc.expected)
+
+			assert.Equal(t, merged, pc)
 		})
 	}
 }
@@ -408,7 +419,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 func newProxyConfig(name, ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.K8SNetworkingIstioIoV1Beta1Proxyconfigs.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.ProxyConfig,
 			Name:             name,
 			Namespace:        ns,
 		},
@@ -416,7 +427,7 @@ func newProxyConfig(name, ns string, spec config.Spec) config.Config {
 	}
 }
 
-func newProxyConfigStore(t *testing.T, configs []config.Config) IstioConfigStore {
+func newProxyConfigStore(t *testing.T, configs []config.Config) ConfigStore {
 	t.Helper()
 
 	store := NewFakeStore()
@@ -440,8 +451,8 @@ func newMeta(ns string, labels, annotations map[string]string) *NodeMetadata {
 	}
 }
 
-func v(x int32) *types.Int32Value {
-	return &types.Int32Value{Value: x}
+func v(x int32) *wrappers.Int32Value {
+	return &wrappers.Int32Value{Value: x}
 }
 
 func selector(l map[string]string) *istioTypes.WorkloadSelector {

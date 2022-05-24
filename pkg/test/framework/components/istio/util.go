@@ -30,9 +30,10 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -63,7 +64,7 @@ spec:
 func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg Config) error {
 	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
 	defer func() {
-		e := ctx.ConfigKube(cluster).DeleteYAML("", dummyValidationVirtualService)
+		e := ctx.ConfigKube(cluster).YAML("", dummyValidationVirtualService).Delete()
 		if e != nil {
 			scopes.Framework.Warnf("error deleting dummy virtual service for waiting the validation webhook: %v", e)
 		}
@@ -71,7 +72,7 @@ func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg
 
 	scopes.Framework.Info("Creating dummy virtual service to check for validation webhook readiness")
 	return retry.UntilSuccess(func() error {
-		err := ctx.ConfigKube(cluster).ApplyYAML("", dummyValidationVirtualService)
+		err := ctx.ConfigKube(cluster).YAML("", dummyValidationVirtualService).Apply()
 		if err == nil {
 			return nil
 		}
@@ -86,7 +87,7 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (
 	if !primary.IsConfig() {
 		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
 		// a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
-		address, err := retry.Do(func() (interface{}, bool, error) {
+		address, err := retry.UntilComplete(func() (interface{}, bool, error) {
 			return getRemoteServiceAddress(i.environment.Settings(), primary, i.settings.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)
 		}, getAddressTimeout, getAddressDelay)
@@ -104,7 +105,8 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (
 }
 
 func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, label, svcName string,
-	port int) (interface{}, bool, error) {
+	port int,
+) (interface{}, bool, error) {
 	if !s.LoadBalancerSupported {
 		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", label))
 		if err != nil {
@@ -126,7 +128,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 			return nil, false, fmt.Errorf("no Host IP available on the remote service node yet")
 		}
 
-		svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
+		svc, err := cluster.Kube().CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
 		if err != nil {
 			return nil, false, err
 		}
@@ -150,7 +152,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 	}
 
 	// Otherwise, get the load balancer IP.
-	svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
+	svc, err := cluster.Kube().CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
 	if err != nil {
 		return nil, false, err
 	}
@@ -169,15 +171,17 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 }
 
 func (i *operatorComponent) isExternalControlPlane() bool {
-	for _, cluster := range i.ctx.AllClusters() {
-		if cluster.IsPrimary() && !cluster.IsConfig() {
+	for _, c := range i.ctx.AllClusters() {
+		if c.IsPrimary() && !c.IsConfig() {
 			return true
 		}
 	}
 	return false
 }
 
-func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Clusters, patch string) {
+func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters,
+	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy,
+) error {
 	errG := multierror.Group{}
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
@@ -189,10 +193,13 @@ func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Cluste
 	for _, c := range clusters.Kube() {
 		c := c
 		errG.Go(func() error {
-			cm, err := c.CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
+			// Read the config map from the cluster.
+			cm, err := c.Kube().CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
 			if err != nil {
 				return err
 			}
+
+			// Get the MeshConfig yaml from the config map.
 			mcYaml, ok := cm.Data["mesh"]
 			if !ok {
 				return fmt.Errorf("mesh config was missing in istio config map for %s", c.Name())
@@ -200,18 +207,26 @@ func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Cluste
 			mu.Lock()
 			origCfg[c.Name()] = cm.Data["mesh"]
 			mu.Unlock()
+
+			// Parse the YAML.
 			mc := &meshconfig.MeshConfig{}
-			if err := gogoprotomarshal.ApplyYAML(mcYaml, mc); err != nil {
+			if err := protomarshal.ApplyYAML(mcYaml, mc); err != nil {
 				return err
 			}
-			if err := gogoprotomarshal.ApplyYAML(patch, mc); err != nil {
+
+			// Apply the change.
+			if err := update(mc); err != nil {
 				return err
 			}
-			cm.Data["mesh"], err = gogoprotomarshal.ToYAML(mc)
+
+			// Store the updated MeshConfig back into the config map.
+			cm.Data["mesh"], err = protomarshal.ToYAML(mc)
 			if err != nil {
 				return err
 			}
-			_, err = c.CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
+
+			// Write the config map back to the cluster.
+			_, err = c.Kube().CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
 			if err != nil {
 				return err
 			}
@@ -219,7 +234,9 @@ func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Cluste
 			return nil
 		})
 	}
-	t.Cleanup(func() {
+
+	// Restore the original value of the MeshConfig when the context completes.
+	t.CleanupStrategy(cleanupStrategy, func() {
 		errG := multierror.Group{}
 		mu.RLock()
 		defer mu.RUnlock()
@@ -227,12 +244,12 @@ func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Cluste
 			cn, mcYaml := cn, mcYaml
 			c := clusters.GetByName(cn)
 			errG.Go(func() error {
-				cm, err := c.CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
+				cm, err := c.Kube().CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				cm.Data["mesh"] = mcYaml
-				_, err = c.CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
+				_, err = c.Kube().CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
 				return err
 			})
 		}
@@ -240,7 +257,27 @@ func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Cluste
 			scopes.Framework.Errorf("failed cleaning up cluster-local config: %v", err)
 		}
 	})
-	if err := errG.Wait().ErrorOrNil(); err != nil {
+	return errG.Wait().ErrorOrNil()
+}
+
+func UpdateMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters,
+	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy,
+) {
+	t.Helper()
+	if err := UpdateMeshConfig(t, ns, clusters, update, cleanupStrategy); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func PatchMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, patch string) error {
+	return UpdateMeshConfig(t, ns, clusters, func(mc *meshconfig.MeshConfig) error {
+		return protomarshal.ApplyYAML(patch, mc)
+	}, cleanup.Always)
+}
+
+func PatchMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters, patch string) {
+	t.Helper()
+	if err := PatchMeshConfig(t, ns, clusters, patch); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -18,12 +18,16 @@
 package security
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/util"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -36,7 +40,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
-			return util.SetupApps(ctx, ist, apps, true)
+			return util.SetupApps(ctx, ist, apps, !ctx.Settings().Skip(echo.VM))
 		}).
 		Run()
 }
@@ -45,16 +49,26 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-
-	cfg.ControlPlaneValues = `
+	controlPlaneValues := `
 values:
   pilot: 
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
 meshConfig:
-  accessLogEncoding: JSON
   accessLogFile: /dev/stdout
   defaultConfig:
+    image:
+      imageType: "%s"
     gatewayTopology:
       numTrustedProxies: 1`
+
+	imageType := "default"
+	if strings.HasSuffix(ctx.Settings().Image.Tag, "-distroless") {
+		imageType = "distroless"
+	}
+
+	val := fmt.Sprintf(controlPlaneValues, imageType)
+	log.Infof("controlPlaneValues %v + %v ==> %v ", controlPlaneValues, imageType, val)
+
+	cfg.ControlPlaneValues = val
 }

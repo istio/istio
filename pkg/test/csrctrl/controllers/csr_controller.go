@@ -34,11 +34,12 @@ import (
 // CertificateSigningRequestSigningReconciler reconciles a CertificateSigningRequest object
 type CertificateSigningRequestSigningReconciler struct {
 	client.Client
-	SignerRoot  string
-	CtrlCertTTL time.Duration
-	Scheme      *runtime.Scheme
-	SignerNames []string
-	Signers     map[string]*signer.Signer
+	SignerRoot     string
+	CtrlCertTTL    time.Duration
+	Scheme         *runtime.Scheme
+	SignerNames    []string
+	Signers        map[string]*signer.Signer
+	appendRootCert bool
 }
 
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
@@ -85,7 +86,7 @@ func (r *CertificateSigningRequestSigningReconciler) Reconcile(_ context.Context
 				requestedLifeTime = duration
 			}
 		}
-		cert, err := signer.Sign(x509cr, csr.Spec.Usages, requestedLifeTime)
+		cert, err := signer.Sign(x509cr, csr.Spec.Usages, requestedLifeTime, r.appendRootCert)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("error auto signing csr: %v", err)
 		}

@@ -17,8 +17,11 @@ package bootstrap
 import (
 	"encoding/json"
 	"os"
+	"reflect"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
 	"istio.io/pkg/filewatcher"
@@ -62,7 +65,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	if _, err = os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
 		s.environment.Watcher, err = mesh.NewFileWatcher(fileWatcher, args.MeshConfigFile, multiWatch)
 		if err == nil {
-			if multiWatch {
+			if multiWatch && s.kubeClient != nil {
 				kubemesh.AddUserMeshConfig(
 					s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
 			} else {
@@ -77,7 +80,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	if s.kubeClient == nil {
 		// Use a default mesh.
 		meshConfig := mesh.DefaultMeshConfig()
-		s.environment.Watcher = mesh.NewFixedWatcher(&meshConfig)
+		s.environment.Watcher = mesh.NewFixedWatcher(meshConfig)
 		log.Warnf("Using default mesh - missing file %s and no k8s client", args.MeshConfigFile)
 		return
 	}
@@ -85,8 +88,11 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	// Watch the istio ConfigMap for mesh config changes.
 	// This may be necessary for external Istiod.
 	configMapName := getMeshConfigMapName(args.Revision)
-	s.environment.Watcher = kubemesh.NewConfigMapWatcher(
+	multiWatcher := kubemesh.NewConfigMapWatcher(
 		s.kubeClient, args.Namespace, configMapName, configMapKey, multiWatch, s.internalStop)
+	s.environment.Watcher = multiWatcher
+	s.environment.NetworksWatcher = multiWatcher
+	log.Infof("initializing mesh networks from mesh config watcher")
 
 	if multiWatch {
 		kubemesh.AddUserMeshConfig(s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
@@ -96,11 +102,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 // initMeshNetworks loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
 func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
-	if mw, ok := s.environment.Watcher.(mesh.NetworksWatcher); ok {
-		// The mesh config watcher is also a NetworksWatcher, this is common for reading ConfigMap
-		// directly from Kubernetes
-		log.Infof("initializing mesh networks from mesh config watcher")
-		s.environment.NetworksWatcher = mw
+	if s.environment.NetworksWatcher != nil {
 		return
 	}
 	log.Info("initializing mesh networks")
@@ -116,6 +118,24 @@ func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileW
 		log.Info("mesh networks configuration not provided")
 		s.environment.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
+	s.environment.AddNetworksHandler(func() {
+		oldNetworks := s.environment.NetworksWatcher.PrevNetworks()
+		currNetworks := s.environment.NetworksWatcher.Networks()
+
+		oldEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
+		newEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
+		for _, networkconf := range currNetworks.Networks {
+			oldEndpoints = append(oldEndpoints, networkconf.Endpoints...)
+		}
+		for _, networkconf := range oldNetworks.Networks {
+			newEndpoints = append(newEndpoints, networkconf.Endpoints...)
+		}
+
+		if !reflect.DeepEqual(newEndpoints, oldEndpoints) {
+			log.Infof("network endpoints changed, triggering push")
+			s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		}
+	})
 }
 
 func getMeshConfigMapName(revision string) string {

@@ -22,7 +22,6 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/ast"
 	"istio.io/istio/pkg/config/schema/codegen"
 )
@@ -56,12 +55,6 @@ func main() {
 	if err != nil {
 		fmt.Printf("failed parsing input file: %v", err)
 		os.Exit(-3)
-	}
-
-	// Validate the input.
-	if _, err := schema.Build(m); err != nil {
-		fmt.Printf("failed building metadata: %v", err)
-		os.Exit(-4)
 	}
 
 	var contents string

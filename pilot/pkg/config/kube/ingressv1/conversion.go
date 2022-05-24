@@ -17,7 +17,6 @@ package ingress
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,6 +27,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -123,13 +123,10 @@ func ConvertIngressV1alpha3(ingress knetworking.Ingress, mesh *meshconfig.MeshCo
 	return gatewayConfig
 }
 
-// prefixMatchRegex optionally matches "/..." at the end of a path.
-// regex taken from https://github.com/projectcontour/contour/blob/2b3376449bedfea7b8cea5fbade99fb64009c0f6/internal/envoy/v3/route.go#L59
-const prefixMatchRegex = `((\/).*)?`
-
 // ConvertIngressVirtualService converts from ingress spec to Istio VirtualServices
 func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix string,
-	ingressByHost map[string]*config.Config, serviceLister listerv1.ServiceLister) {
+	ingressByHost map[string]*config.Config, serviceLister listerv1.ServiceLister,
+) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
@@ -150,13 +147,11 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 			host = "*"
 		}
 		virtualService := &networking.VirtualService{
-			Hosts:    []string{},
+			Hosts:    []string{host},
 			Gateways: []string{fmt.Sprintf("%s/%s-%s-%s", ingressNamespace, ingress.Name, constants.IstioIngressGatewayName, ingress.Namespace)},
 		}
 
-		virtualService.Hosts = []string{host}
-
-		httpRoutes := make([]*networking.HTTPRoute, 0)
+		httpRoutes := make([]*networking.HTTPRoute, 0, len(rule.HTTP.Paths))
 		for _, httpPath := range rule.HTTP.Paths {
 			httpMatch := &networking.HTTPMatchRequest{}
 			if httpPath.PathType != nil {
@@ -166,22 +161,9 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 						MatchType: &networking.StringMatch_Exact{Exact: httpPath.Path},
 					}
 				case knetworking.PathTypePrefix:
-					// From the spec: /foo/bar matches /foo/bar/baz, but does not match /foo/barbaz
-					// and if the prefix is /foo/bar/ we must match /foo/bar and /foo/bar. We cannot simply strip the
-					// trailing "/" and do a prefix match since we'll match unwanted continuations and we cannot add
-					// a "/" if not present since we won't match the prefix without trailing "/". Must be smarter and
-					// use regex.
-					path := httpPath.Path
-					if path == "/" {
-						// Optimize common case of / to not needed regex
-						httpMatch.Uri = &networking.StringMatch{
-							MatchType: &networking.StringMatch_Prefix{Prefix: path},
-						}
-					} else {
-						path = strings.TrimSuffix(path, "/")
-						httpMatch.Uri = &networking.StringMatch{
-							MatchType: &networking.StringMatch_Regex{Regex: regexp.QuoteMeta(path) + prefixMatchRegex},
-						}
+					// Optimize common case of / to not needed regex
+					httpMatch.Uri = &networking.StringMatch{
+						MatchType: &networking.StringMatch_Prefix{Prefix: httpPath.Path},
 					}
 				default:
 					// Fallback to the legacy string matching
@@ -208,6 +190,7 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 				Name:             namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
 				Namespace:        ingress.Namespace,
 				Domain:           domainSuffix,
+				Annotations:      map[string]string{constants.InternalRouteSemantics: constants.RouteSemanticsIngress},
 			},
 			Spec: virtualService,
 		}
@@ -216,19 +199,36 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 		if f {
 			vs := old.Spec.(*networking.VirtualService)
 			vs.Http = append(vs.Http, httpRoutes...)
-			sort.SliceStable(vs.Http, func(i, j int) bool {
-				r1 := vs.Http[i].Match[0].GetUri()
-				r2 := vs.Http[j].Match[0].GetUri()
-				_, r1Ex := r1.GetMatchType().(*networking.StringMatch_Exact)
-				_, r2Ex := r2.GetMatchType().(*networking.StringMatch_Exact)
-				// TODO: default at the end
-				if r1Ex && !r2Ex {
-					return true
-				}
-				return false
-			})
+			if features.LegacyIngressBehavior {
+				sort.SliceStable(vs.Http, func(i, j int) bool {
+					r1 := vs.Http[i].Match[0].GetUri()
+					r2 := vs.Http[j].Match[0].GetUri()
+					_, r1Ex := r1.GetMatchType().(*networking.StringMatch_Exact)
+					_, r2Ex := r2.GetMatchType().(*networking.StringMatch_Exact)
+					// TODO: default at the end
+					if r1Ex && !r2Ex {
+						return true
+					}
+					return false
+				})
+			}
 		} else {
 			ingressByHost[host] = &virtualServiceConfig
+		}
+
+		if !features.LegacyIngressBehavior {
+			// sort routes to meet ingress route precedence requirements
+			// see https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-matches
+			vs := ingressByHost[host].Spec.(*networking.VirtualService)
+			sort.SliceStable(vs.Http, func(i, j int) bool {
+				r1Len, r1Ex := getMatchURILength(vs.Http[i].Match[0])
+				r2Len, r2Ex := getMatchURILength(vs.Http[j].Match[0])
+				// TODO: default at the end
+				if r1Len == r2Len {
+					return r1Ex && !r2Ex
+				}
+				return r1Len > r2Len
+			})
 		}
 	}
 
@@ -240,8 +240,22 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 	}
 }
 
+// getMatchURILength returns the length of matching path, and whether the match type is EXACT
+func getMatchURILength(match *networking.HTTPMatchRequest) (length int, exact bool) {
+	uri := match.GetUri()
+	switch uri.GetMatchType().(type) {
+	case *networking.StringMatch_Exact:
+		return len(uri.GetExact()), true
+	case *networking.StringMatch_Prefix:
+		return len(uri.GetPrefix()), false
+	}
+	// should not happen
+	return -1, false
+}
+
 func ingressBackendToHTTPRoute(backend *knetworking.IngressBackend, namespace string, domainSuffix string,
-	serviceLister listerv1.ServiceLister) *networking.HTTPRoute {
+	serviceLister listerv1.ServiceLister,
+) *networking.HTTPRoute {
 	if backend == nil {
 		return nil
 	}

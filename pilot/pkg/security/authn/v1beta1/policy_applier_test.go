@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	protovalue "istio.io/istio/pkg/proto"
+	istiotest "istio.io/istio/pkg/test"
 )
 
 func TestJwtFilter(t *testing.T) {
@@ -135,6 +136,7 @@ func TestJwtFilter(t *testing.T) {
 									PayloadInMetadata: "https://secret.foo.com",
 								},
 							},
+							BypassCorsPreflight: true,
 						}),
 				},
 			},
@@ -207,6 +209,7 @@ func TestJwtFilter(t *testing.T) {
 									PayloadInMetadata: "mesh cluster",
 								},
 							},
+							BypassCorsPreflight: true,
 						}),
 				},
 			},
@@ -274,6 +277,7 @@ func TestJwtFilter(t *testing.T) {
 									PayloadInMetadata: "invalid|7443|",
 								},
 							},
+							BypassCorsPreflight: true,
 						}),
 				},
 			},
@@ -409,6 +413,7 @@ func TestJwtFilter(t *testing.T) {
 									PayloadInMetadata: "https://secret.foo.com",
 								},
 							},
+							BypassCorsPreflight: true,
 						}),
 				},
 			},
@@ -475,6 +480,7 @@ func TestJwtFilter(t *testing.T) {
 									PayloadInMetadata: "https://secret.foo.com",
 								},
 							},
+							BypassCorsPreflight: true,
 						}),
 				},
 			},
@@ -541,6 +547,7 @@ func TestJwtFilter(t *testing.T) {
 									PayloadInMetadata: "https://secret.foo.com",
 								},
 							},
+							BypassCorsPreflight: true,
 						}),
 				},
 			},
@@ -608,6 +615,7 @@ func TestJwtFilter(t *testing.T) {
 									PayloadInMetadata: "https://secret.foo.com",
 								},
 							},
+							BypassCorsPreflight: true,
 						}),
 				},
 			},
@@ -677,6 +685,7 @@ func TestJwtFilter(t *testing.T) {
 									PayloadInMetadata:    "https://secret.foo.com",
 								},
 							},
+							BypassCorsPreflight: true,
 						}),
 				},
 			},
@@ -695,9 +704,7 @@ func TestJwtFilter(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			defaultValue := features.EnableRemoteJwks
-			features.EnableRemoteJwks = c.enableRemoteJwks
-			defer func() { features.EnableRemoteJwks = defaultValue }()
+			istiotest.SetBoolForTest(t, &features.EnableRemoteJwks, c.enableRemoteJwks)
 			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
@@ -775,6 +782,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						PayloadInMetadata: "https://secret.foo.com",
 					},
 				},
+				BypassCorsPreflight: true,
 			},
 		},
 		{
@@ -889,6 +897,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						PayloadInMetadata: "https://secret.bar.com",
 					},
 				},
+				BypassCorsPreflight: true,
 			},
 		},
 		{
@@ -942,6 +951,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						PayloadInMetadata: "https://secret.foo.com",
 					},
 				},
+				BypassCorsPreflight: true,
 			},
 		},
 		{
@@ -996,6 +1006,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						PayloadInMetadata: "https://secret.foo.com",
 					},
 				},
+				BypassCorsPreflight: true,
 			},
 		},
 	}
@@ -1322,6 +1333,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 			TlsParams: &tls.TlsParameters{
 				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+				TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 				CipherSuites: []string{
 					"ECDHE-ECDSA-AES256-GCM-SHA384",
 					"ECDHE-RSA-AES256-GCM-SHA384",
@@ -2048,7 +2060,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := composePeerAuthentication("root-namespace", tt.configs); !reflect.DeepEqual(got, tt.want) {
+			if got := ComposePeerAuthentication("root-namespace", tt.configs); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("composePeerAuthentication() = %v, want %v", got, tt.want)
 			}
 		})
@@ -2058,33 +2070,33 @@ func TestComposePeerAuthentication(t *testing.T) {
 func TestGetMutualTLSMode(t *testing.T) {
 	tests := []struct {
 		name string
-		in   v1beta1.PeerAuthentication_MutualTLS
+		in   *v1beta1.PeerAuthentication_MutualTLS
 		want model.MutualTLSMode
 	}{
 		{
 			name: "unset",
-			in: v1beta1.PeerAuthentication_MutualTLS{
+			in: &v1beta1.PeerAuthentication_MutualTLS{
 				Mode: v1beta1.PeerAuthentication_MutualTLS_UNSET,
 			},
 			want: model.MTLSUnknown,
 		},
 		{
 			name: "disable",
-			in: v1beta1.PeerAuthentication_MutualTLS{
+			in: &v1beta1.PeerAuthentication_MutualTLS{
 				Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 			},
 			want: model.MTLSDisable,
 		},
 		{
 			name: "permissive",
-			in: v1beta1.PeerAuthentication_MutualTLS{
+			in: &v1beta1.PeerAuthentication_MutualTLS{
 				Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
 			},
 			want: model.MTLSPermissive,
 		},
 		{
 			name: "strict",
-			in: v1beta1.PeerAuthentication_MutualTLS{
+			in: &v1beta1.PeerAuthentication_MutualTLS{
 				Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 			},
 			want: model.MTLSStrict,
@@ -2092,7 +2104,7 @@ func TestGetMutualTLSMode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getMutualTLSMode(&tt.in); !reflect.DeepEqual(got, tt.want) {
+			if got := getMutualTLSMode(tt.in); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getMutualTLSMode() = %v, want %v", got, tt.want)
 			}
 		})

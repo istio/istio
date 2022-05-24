@@ -15,7 +15,9 @@
 package validate
 
 import (
-	"sigs.k8s.io/yaml"
+	"reflect"
+
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
@@ -32,7 +34,11 @@ var DefaultValuesValidations = map[string]ValidatorFunc{
 
 // CheckValues validates the values in the given tree, which follows the Istio values.yaml schema.
 func CheckValues(root interface{}) util.Errors {
-	vs, err := yaml.Marshal(root)
+	v := reflect.ValueOf(root)
+	if root == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
+		return nil
+	}
+	vs, err := util.ToYAMLGeneric(root)
 	if err != nil {
 		return util.Errors{err}
 	}
@@ -40,7 +46,7 @@ func CheckValues(root interface{}) util.Errors {
 	if err := util.UnmarshalWithJSONPB(string(vs), val, false); err != nil {
 		return util.Errors{err}
 	}
-	return ValuesValidate(DefaultValuesValidations, root, nil)
+	return ValuesValidate(DefaultValuesValidations, root.(*structpb.Struct).AsMap(), nil)
 }
 
 // ValuesValidate validates the values of the tree using the supplied Func

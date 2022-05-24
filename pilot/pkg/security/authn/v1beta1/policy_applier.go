@@ -30,6 +30,7 @@ import (
 
 	authn_alpha "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
@@ -100,13 +101,17 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 	config.JwtOutputPayloadLocations = nil
 	p := config.Policy
 	// Reset origins to use with beta API
+	// nolint: staticcheck
 	p.Origins = []*authn_alpha.OriginAuthenticationMethod{}
 	// Always set to true for beta API, as it doesn't doe rejection on missing token.
+	// nolint: staticcheck
 	p.OriginIsOptional = true
 
 	// Always bind request.auth.principal from JWT origin. In v2 policy, authorization config specifies what principal to
 	// choose from instead, rather than in authn config.
+	// nolint: staticcheck
 	p.PrincipalBinding = authn_alpha.PrincipalBinding_USE_ORIGIN
+	// nolint: staticcheck
 	for _, jwt := range a.processedJwtRules {
 		p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
 			Jwt: &authn_alpha.Jwt{
@@ -145,11 +150,19 @@ func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *http_conn.HttpFilte
 func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) plugin.MTLSSettings {
 	effectiveMTLSMode := a.GetMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
+	var mc *meshconfig.MeshConfig
+	if a.push != nil {
+		mc = a.push.Mesh
+	}
+	// Configure TLS version based on meshconfig TLS API.
+	minTLSVersion := authn_utils.GetMinTLSVersion(mc.GetMeshMTLS().GetMinProtocolVersion())
 	return plugin.MTLSSettings{
 		Port: endpointPort,
 		Mode: effectiveMTLSMode,
-		TCP:  authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP, trustDomainAliases),
-		HTTP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP, trustDomainAliases),
+		TCP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP,
+			trustDomainAliases, minTLSVersion),
+		HTTP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP,
+			trustDomainAliases, minTLSVersion),
 	}
 }
 
@@ -157,7 +170,8 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *mo
 func NewPolicyApplier(rootNamespace string,
 	jwtPolicies []*config.Config,
 	peerPolicies []*config.Config,
-	push *model.PushContext) authn.PolicyApplier {
+	push *model.PushContext,
+) authn.PolicyApplier {
 	processedJwtRules := []*v1beta1.JWTRule{}
 
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
@@ -178,7 +192,7 @@ func NewPolicyApplier(rootNamespace string,
 		jwtPolicies:            jwtPolicies,
 		peerPolices:            peerPolicies,
 		processedJwtRules:      processedJwtRules,
-		consolidatedPeerPolicy: composePeerAuthentication(rootNamespace, peerPolicies),
+		consolidatedPeerPolicy: ComposePeerAuthentication(rootNamespace, peerPolicies),
 		push:                   push,
 	}
 }
@@ -302,7 +316,8 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 					},
 				},
 			},
-			Providers: providers,
+			Providers:           providers,
+			BypassCorsPreflight: true,
 		}
 	}
 
@@ -338,7 +353,8 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 				},
 			},
 		},
-		Providers: providers,
+		Providers:           providers,
+		BypassCorsPreflight: true,
 	}
 }
 
@@ -362,7 +378,7 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 	return model.ConvertToMutualTLSMode(mtls.Mode)
 }
 
-// composePeerAuthentication returns the effective PeerAuthentication given the list of applicable
+// ComposePeerAuthentication returns the effective PeerAuthentication given the list of applicable
 // configs. This list should contains at most 1 mesh-level and 1 namespace-level configs.
 // Workload-level configs should not be in root namespace (this should be guaranteed by the caller,
 // though they will be safely ignored in this function). If the input config list is empty, returns
@@ -375,7 +391,7 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // - UNSET will be replaced with the setting from the parent. I.e UNSET port-level config will be
 // replaced with config from workload-level, UNSET in workload-level config will be replaced with
 // one in namespace-level and so on.
-func composePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
+func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
 	var meshCfg, namespaceCfg, workloadCfg *config.Config
 
 	// Initial outputPolicy is set to a PERMISSIVE.

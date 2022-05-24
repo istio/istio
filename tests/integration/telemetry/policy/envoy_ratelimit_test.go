@@ -18,18 +18,17 @@
 package policy
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -53,8 +52,8 @@ func TestRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
-		Run(func(ctx framework.TestContext) {
-			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_ratelimit.yaml")
+		Run(func(t framework.TestContext) {
+			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_ratelimit.yaml")
 			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
@@ -64,8 +63,8 @@ func TestLocalRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
-		Run(func(ctx framework.TestContext) {
-			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit.yaml")
+		Run(func(t framework.TestContext) {
+			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit.yaml")
 			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
@@ -75,8 +74,8 @@ func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
-		Run(func(ctx framework.TestContext) {
-			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_per_route.yaml")
+		Run(func(t framework.TestContext) {
+			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit_per_route.yaml")
 			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
@@ -86,17 +85,17 @@ func TestLocalRateLimitingServiceAccount(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
-		Run(func(ctx framework.TestContext) {
-			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_sa.yaml")
+		Run(func(t framework.TestContext) {
+			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit_sa.yaml")
 			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
 
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).
 		Setup(testSetup).
@@ -112,7 +111,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	_, err = echoboot.NewBuilder(ctx).
+	_, err = deployment.New(ctx).
 		With(&clt, echo.Config{
 			Service:        "clt",
 			Namespace:      echoNsInst,
@@ -126,7 +125,7 @@ func testSetup(ctx resource.Context) (err error) {
 					Name:     "http",
 					Protocol: protocol.HTTP,
 					// We use a port > 1024 to not require root
-					InstancePort: 8888,
+					WorkloadPort: 8888,
 				},
 			},
 			ServiceAccount: true,
@@ -145,26 +144,13 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	yamlContentCM, err := os.ReadFile("testdata/rate-limit-configmap.yaml")
+	err = ctx.ConfigIstio().File(ratelimitNs.Name(), "testdata/rate-limit-configmap.yaml").Apply()
 	if err != nil {
 		return
 	}
 
-	err = ctx.ConfigIstio().ApplyYAML(ratelimitNs.Name(),
-		string(yamlContentCM),
-	)
-	if err != nil {
-		return
-	}
-
-	yamlContent, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml"))
-	if err != nil {
-		return
-	}
-
-	err = ctx.ConfigIstio().ApplyYAML(ratelimitNs.Name(),
-		string(yamlContent),
-	)
+	err = ctx.ConfigIstio().File(ratelimitNs.Name(), filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml")).
+		Apply()
 	if err != nil {
 		return
 	}
@@ -196,39 +182,31 @@ func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
 		ctx.Fatal(err)
 	}
 
-	err = ctx.ConfigIstio().ApplyYAML(ist.Settings().SystemNamespace, con)
+	err = ctx.ConfigIstio().YAML(ist.Settings().SystemNamespace, con).Apply()
 	if err != nil {
 		ctx.Fatal(err)
 	}
 	return func() {
-		err = ctx.ConfigIstio().DeleteYAML(ist.Settings().SystemNamespace, con)
-		if err != nil {
-			ctx.Fatal(err)
-		}
+		ctx.ConfigIstio().YAML(ist.Settings().SystemNamespace, con).DeleteOrFail(ctx)
 	}
 }
 
-func sendTrafficAndCheckIfRatelimited(t *testing.T) {
+func sendTrafficAndCheckIfRatelimited(t framework.TestContext) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		t.Logf("Sending 5 requests...")
 		httpOpts := echo.CallOptions{
-			Target:   srv,
-			PortName: "http",
-			Count:    5,
+			To: srv,
+			Port: echo.Port{
+				Name: "http",
+			},
+			Count: 5,
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		}
-		received409 := false
-		if parsedResponse, err := clt.Call(httpOpts); err == nil {
-			for _, resp := range parsedResponse {
-				if response.StatusCodeTooManyRequests == resp.Code {
-					received409 = true
-					break
-				}
-			}
-		}
-		if !received409 {
-			return errors.New("no request received StatusTooManyRequest error")
-		}
-		return nil
+
+		result, err := clt.Call(httpOpts)
+		return check.TooManyRequests().Check(result, err)
 	}, retry.Delay(10*time.Second), retry.Timeout(60*time.Second))
 }

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package fuzz
 
 import (
@@ -36,7 +35,6 @@ var protocols = []protocol.Instance{
 	protocol.HTTP_PROXY,
 	protocol.HTTP2,
 	protocol.HTTPS,
-	protocol.Thrift,
 	protocol.TLS,
 	protocol.Mongo,
 	protocol.Redis,
@@ -194,8 +192,8 @@ func FuzzInitContext(data []byte) int {
 	env := &model.Environment{}
 	store := model.NewFakeStore()
 
-	env.IstioConfigStore = model.MakeIstioStore(store)
-	sd := memory.NewServiceDiscovery(services)
+	env.ConfigStore = model.MakeIstioStore(store)
+	sd := memory.NewServiceDiscovery(services...)
 	sd.WantGetProxyServiceInstances = serviceInstances
 	env.ServiceDiscovery = sd
 

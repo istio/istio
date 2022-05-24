@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
@@ -40,6 +39,7 @@ func TestLDSIsolated(t *testing.T) {
 
 	// Sidecar in 'none' mode
 	t.Run("sidecar_none", func(t *testing.T) {
+		wd := t.TempDir()
 		adscon := s.Connect(&model.Proxy{
 			Metadata: &model.NodeMetadata{
 				InterceptionMode: model.InterceptionNone,
@@ -49,7 +49,7 @@ func TestLDSIsolated(t *testing.T) {
 			ConfigNamespace: "none",
 		}, nil, watchAll)
 
-		err := adscon.Save(env.IstioOut + "/none")
+		err := adscon.Save(wd + "/none")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -69,7 +69,7 @@ func TestLDSIsolated(t *testing.T) {
 		}
 
 		for _, s := range []string{"lds_tcp", "lds_http", "rds", "cds", "ecds"} {
-			want, err := os.ReadFile(env.IstioOut + "/none_" + s + ".json")
+			want, err := os.ReadFile(wd + "/none_" + s + ".json")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -124,7 +124,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		MeshConfig: func() *meshconfig.MeshConfig {
 			m := mesh.DefaultMeshConfig()
 			m.RootNamespace = "istio-config"
-			return &m
+			return m
 		}(),
 	})
 	adsc := s.Connect(&model.Proxy{ConfigNamespace: "ns1", IPAddresses: []string{"100.1.1.2"}}, nil, watchAll)
@@ -156,7 +156,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 		MeshConfig: func() *meshconfig.MeshConfig {
 			m := mesh.DefaultMeshConfig()
 			m.RootNamespace = "istio-config"
-			return &m
+			return m
 		}(),
 	})
 	labels := labels.Instance{"istio": "ingressgateway"}
@@ -165,7 +165,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 		Metadata:        &model.NodeMetadata{Labels: labels},
 		IPAddresses:     []string{"99.1.1.1"},
 		Type:            model.Router,
-	}, nil, watchAll)
+	}, nil, []string{v3.ClusterType, v3.EndpointType, v3.ListenerType})
 
 	// Expect 2 listeners : 1 for 80, 1 for 443
 	// where 443 listener has 3 filter chains
@@ -214,7 +214,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		MeshConfig: func() *meshconfig.MeshConfig {
 			m := mesh.DefaultMeshConfig()
 			m.RootNamespace = "istio-config"
-			return &m
+			return m
 		}(),
 	})
 	labels := labels.Instance{"app": "consumeronly"}

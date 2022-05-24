@@ -4,11 +4,6 @@ kind: IstioOperator
 metadata:
   name: install
 spec:
-  meshConfig:
-    accessLogFile: "/dev/stdout"
-    defaultConfig:
-      proxyMetadata:
-        ISTIO_META_DNS_CAPTURE: "true"
   components:
     base:
       enabled: true
@@ -17,6 +12,10 @@ spec:
       k8s:
         service:
           type: LoadBalancer
+          ports:
+          - port: 15017
+            name: tcp-webhook-testing
+            protocol: TCP
         overlays:
         - kind: Deployment
           name: istiod

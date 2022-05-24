@@ -37,6 +37,8 @@ type Config struct {
 	InboundTProxyRouteTable string        `json:"INBOUND_TPROXY_ROUTE_TABLE"`
 	InboundPortsInclude     string        `json:"INBOUND_PORTS_INCLUDE"`
 	InboundPortsExclude     string        `json:"INBOUND_PORTS_EXCLUDE"`
+	OwnerGroupsInclude      string        `json:"OUTBOUND_OWNER_GROUPS_INCLUDE"`
+	OwnerGroupsExclude      string        `json:"OUTBOUND_OWNER_GROUPS_EXCLUDE"`
 	OutboundPortsInclude    string        `json:"OUTBOUND_PORTS_INCLUDE"`
 	OutboundPortsExclude    string        `json:"OUTBOUND_PORTS_EXCLUDE"`
 	OutboundIPRangesInclude string        `json:"OUTBOUND_IPRANGES_INCLUDE"`
@@ -50,6 +52,7 @@ type Config struct {
 	SkipRuleApply           bool          `json:"SKIP_RULE_APPLY"`
 	RunValidation           bool          `json:"RUN_VALIDATION"`
 	RedirectDNS             bool          `json:"REDIRECT_DNS"`
+	DropInvalid             bool          `json:"DROP_INVALID"`
 	CaptureAllDNS           bool          `json:"CAPTURE_ALL_DNS"`
 	EnableInboundIPv6       bool          `json:"ENABLE_INBOUND_IPV6"`
 	DNSServersV4            []string      `json:"DNS_SERVERS_V4"`
@@ -80,6 +83,8 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("INBOUND_TPROXY_ROUTE_TABLE=%s\n", c.InboundTProxyRouteTable))
 	b.WriteString(fmt.Sprintf("INBOUND_PORTS_INCLUDE=%s\n", c.InboundPortsInclude))
 	b.WriteString(fmt.Sprintf("INBOUND_PORTS_EXCLUDE=%s\n", c.InboundPortsExclude))
+	b.WriteString(fmt.Sprintf("OUTBOUND_OWNER_GROUPS_INCLUDE=%s\n", c.OwnerGroupsInclude))
+	b.WriteString(fmt.Sprintf("OUTBOUND_OWNER_GROUPS_EXCLUDE=%s\n", c.OwnerGroupsExclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_IP_RANGES_INCLUDE=%s\n", c.OutboundIPRangesInclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", c.OutboundIPRangesExclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_INCLUDE=%s\n", c.OutboundPortsInclude))
@@ -87,6 +92,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("KUBE_VIRT_INTERFACES=%s\n", c.KubeVirtInterfaces))
 	b.WriteString(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6))
 	b.WriteString(fmt.Sprintf("DNS_CAPTURE=%t\n", c.RedirectDNS))
+	b.WriteString(fmt.Sprintf("DROP_INVALID=%t\n", c.DropInvalid))
 	b.WriteString(fmt.Sprintf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS))
 	b.WriteString(fmt.Sprintf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6))
 	b.WriteString(fmt.Sprintf("OUTPUT_PATH=%s\n", c.OutputPath))
@@ -94,4 +100,8 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("CNI_MODE=%s\n", strconv.FormatBool(c.CNIMode)))
 	b.WriteString(fmt.Sprintf("EXCLUDE_INTERFACES=%s\n", c.ExcludeInterfaces))
 	log.Infof("Istio iptables variables:\n%s", b.String())
+}
+
+func (c *Config) Validate() error {
+	return ValidateOwnerGroups(c.OwnerGroupsInclude, c.OwnerGroupsExclude)
 }

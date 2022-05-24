@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 38082
+releaseNotes:
+  - |
+    **Fixed** xDS may not be updated when there are multiple destinationRules for a service are merged.
+    In this case the merged rule does only record one name/namespace pair of all the destinationRules.
+    however this meta is used to record config dependencies of a sidecar.
+
+    In this fix, we inroduce a new struct `consolidatedDestRule` and record all the destinationrules' meta.
+    And then we will not miss any destinationRule dependency.

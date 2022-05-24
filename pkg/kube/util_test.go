@@ -18,7 +18,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
+
+	kubeApiCore "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestBuildClientConfig(t *testing.T) {
@@ -140,4 +144,156 @@ users:
 		return "", err
 	}
 	return filePath, nil
+}
+
+func TestCronJobMetadata(t *testing.T) {
+	tests := []struct {
+		name               string
+		jobName            string
+		wantTypeMetadata   metav1.TypeMeta
+		wantObjectMetadata metav1.ObjectMeta
+	}{
+		{
+			name:    "cron-job-name-sec",
+			jobName: "sec-1234567890",
+			wantTypeMetadata: metav1.TypeMeta{
+				Kind:       "CronJob",
+				APIVersion: "batch/v1beta1",
+			},
+			wantObjectMetadata: metav1.ObjectMeta{
+				Name:         "sec",
+				GenerateName: "sec-1234567890-pod",
+			},
+		},
+		{
+			name:    "cron-job-name-min",
+			jobName: "min-12345678",
+			wantTypeMetadata: metav1.TypeMeta{
+				Kind:       "CronJob",
+				APIVersion: "batch/v1beta1",
+			},
+			wantObjectMetadata: metav1.ObjectMeta{
+				Name:         "min",
+				GenerateName: "min-12345678-pod",
+			},
+		},
+		{
+			name:    "non-cron-job-name",
+			jobName: "job-123",
+			wantTypeMetadata: metav1.TypeMeta{
+				Kind:       "Job",
+				APIVersion: "v1",
+			},
+			wantObjectMetadata: metav1.ObjectMeta{
+				Name:         "job-123",
+				GenerateName: "job-123-pod",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		controller := true
+		t.Run(tt.name, func(t *testing.T) {
+			gotObjectMeta, gotTypeMeta := GetDeployMetaFromPod(
+				&kubeApiCore.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: tt.jobName + "-pod",
+						OwnerReferences: []metav1.OwnerReference{{
+							APIVersion: "v1",
+							Controller: &controller,
+							Kind:       "Job",
+							Name:       tt.jobName,
+						}},
+					},
+				},
+			)
+			if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
+				t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
+			}
+			if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
+				t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
+			}
+		})
+	}
+}
+
+func TestDeploymentConfigMetadata(t *testing.T) {
+	tests := []struct {
+		name               string
+		pod                *kubeApiCore.Pod
+		wantTypeMetadata   metav1.TypeMeta
+		wantObjectMetadata metav1.ObjectMeta
+	}{
+		{
+			name: "deployconfig-name-deploy",
+			pod:  podForDeploymentConfig("deploy", true),
+			wantTypeMetadata: metav1.TypeMeta{
+				Kind:       "DeploymentConfig",
+				APIVersion: "v1",
+			},
+			wantObjectMetadata: metav1.ObjectMeta{
+				Name:         "deploy",
+				GenerateName: "deploy-rc-pod",
+				Labels:       map[string]string{},
+			},
+		},
+		{
+			name: "deployconfig-name-deploy2",
+			pod:  podForDeploymentConfig("deploy2", true),
+			wantTypeMetadata: metav1.TypeMeta{
+				Kind:       "DeploymentConfig",
+				APIVersion: "v1",
+			},
+			wantObjectMetadata: metav1.ObjectMeta{
+				Name:         "deploy2",
+				GenerateName: "deploy2-rc-pod",
+				Labels:       map[string]string{},
+			},
+		},
+		{
+			name: "non-deployconfig-label",
+			pod:  podForDeploymentConfig("dep", false),
+			wantTypeMetadata: metav1.TypeMeta{
+				Kind:       "ReplicationController",
+				APIVersion: "v1",
+			},
+			wantObjectMetadata: metav1.ObjectMeta{
+				Name:         "dep-rc",
+				GenerateName: "dep-rc-pod",
+				Labels:       map[string]string{},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotObjectMeta, gotTypeMeta := GetDeployMetaFromPod(tt.pod)
+			if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
+				t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
+			}
+			if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
+				t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
+			}
+		})
+	}
+}
+
+func podForDeploymentConfig(deployConfigName string, hasDeployConfigLabel bool) *kubeApiCore.Pod {
+	controller := true
+	labels := make(map[string]string)
+	if hasDeployConfigLabel {
+		labels["deploymentconfig"] = deployConfigName
+	}
+	return &kubeApiCore.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: deployConfigName + "-rc-pod",
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: "v1",
+				Controller: &controller,
+				Kind:       "ReplicationController",
+				Name:       deployConfigName + "-rc",
+			}},
+			Labels: labels,
+		},
+	}
 }

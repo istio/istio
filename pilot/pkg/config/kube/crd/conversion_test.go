@@ -15,13 +15,13 @@
 package crd
 
 import (
-	"reflect"
 	"testing"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestConvert(t *testing.T) {
@@ -39,7 +39,7 @@ func TestConvert(t *testing.T) {
 			Annotations:      map[string]string{"annotation": "value"},
 		},
 		Spec: mock.ExampleVirtualService,
-		Status: v1alpha1.IstioStatus{
+		Status: &v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{
 				{Type: "Health"},
 			},
@@ -54,9 +54,7 @@ func TestConvert(t *testing.T) {
 	if err != nil {
 		t.Errorf("ConvertObject() => unexpected error %v", err)
 	}
-	if !reflect.DeepEqual(&cfg, got) {
-		t.Errorf("ConvertObject(ConvertConfig(%#v)) => got %#v", cfg, got)
-	}
+	assert.Equal(t, &cfg, got)
 }
 
 func TestParseInputs(t *testing.T) {

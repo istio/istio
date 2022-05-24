@@ -17,7 +17,6 @@ package controller
 import (
 	"sync"
 
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/discovery/v1"
 	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
@@ -62,15 +61,20 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 	} else {
 		informer = c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
 	}
+
+	filteredInformer := filter.NewFilteredSharedIndexInformer(
+		c.opts.DiscoveryNamespacesFilter.Filter,
+		informer,
+	)
 	out := &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
-			informer: informer,
+			informer: filteredInformer,
 		},
 		useV1Resource: useV1Resource,
 		endpointCache: newEndpointSliceCache(),
 	}
-	c.registerHandlers(informer, "EndpointSlice", out.onEvent, nil)
+	c.registerHandlers(filteredInformer, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 
@@ -202,11 +206,12 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) map[hos
 	}
 
 	out := make(map[host.Name][]*model.IstioEndpoint)
-	for _, svc := range esc.c.servicesForNamespacedName(esc.getServiceNamespacedName(slice)) {
+	for _, hostName := range esc.c.hostNamesForNamespacedName(esc.getServiceNamespacedName(slice)) {
 		// endpointSlice cache update
-		hostName := svc.Hostname
-		esc.endpointCache.Delete(hostName, slice.Name)
-		out[hostName] = esc.endpointCache.Get(hostName)
+		if esc.endpointCache.Has(hostName) {
+			esc.endpointCache.Delete(hostName, slice.Name)
+			out[hostName] = esc.endpointCache.Get(hostName)
+		}
 	}
 	return out
 }
@@ -226,16 +231,19 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
 	for _, e := range slice.Endpoints() {
-		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
-			// Ignore not ready endpoints
-			continue
+		if !features.SendUnhealthyEndpoints {
+			if e.Conditions.Ready != nil && !*e.Conditions.Ready {
+				// Ignore not ready endpoints
+				continue
+			}
 		}
+		ready := e.Conditions.Ready == nil || *e.Conditions.Ready
 		for _, a := range e.Addresses {
 			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
 			if pod == nil && expectedPod {
 				continue
 			}
-			builder := esc.newEndpointBuilder(pod)
+			builder := NewEndpointBuilder(esc.c, pod)
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range slice.Ports() {
 				var portNum int32
@@ -248,6 +256,11 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 				}
 
 				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy)
+				if ready {
+					istioEndpoint.HealthStatus = model.Healthy
+				} else {
+					istioEndpoint.HealthStatus = model.UnHealthy
+				}
 				endpoints = append(endpoints, istioEndpoint)
 			}
 		}
@@ -281,7 +294,7 @@ func (esc *endpointSliceController) getServiceNamespacedName(es interface{}) typ
 	}
 }
 
-func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
+func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, lbls labels.Instance) []*model.ServiceInstance {
 	esLabelSelector := endpointSliceSelectorForService(svc.Attributes.Name)
 	slices, err := esc.listSlices(svc.Attributes.Namespace, esLabelSelector)
 	if err != nil {
@@ -318,11 +331,11 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					podLabels = pod.Labels
 				}
 				// check that one of the input labels is a subset of the labels
-				if !labelsList.HasSubsetOf(podLabels) {
+				if !lbls.SubsetOf(podLabels) {
 					continue
 				}
 
-				builder := esc.newEndpointBuilder(pod)
+				builder := NewEndpointBuilder(esc.c, pod)
 				// identify the port by name. K8S EndpointPort uses the service port name
 				for _, port := range slice.Ports() {
 					var portNum int32
@@ -346,31 +359,6 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 	return out
 }
 
-func (esc *endpointSliceController) newEndpointBuilder(pod *corev1.Pod) *EndpointBuilder {
-	if pod != nil {
-		// Respect pod "istio-locality" label
-		if pod.Labels[model.LocalityLabel] == "" {
-			pod = pod.DeepCopy()
-			// mutate the labels, only need `istio-locality`
-			pod.Labels[model.LocalityLabel] = esc.c.getPodLocality(pod)
-		}
-	}
-
-	return NewEndpointBuilder(esc.c, pod)
-}
-
-// TODO this isn't used now, but we may still want to extract locality from the v1 EnspointSlice instead of node
-func getLocalityFromTopology(topology map[string]string) string {
-	locality := topology[NodeRegionLabelGA]
-	if _, f := topology[NodeZoneLabelGA]; f {
-		locality += "/" + topology[NodeZoneLabelGA]
-	}
-	if _, f := topology[label.TopologySubzone.Name]; f {
-		locality += "/" + topology[label.TopologySubzone.Name]
-	}
-	return locality
-}
-
 // endpointKey unique identifies an endpoint by IP and port name
 // This is used for deduping endpoints across slices.
 type endpointKey struct {
@@ -379,15 +367,13 @@ type endpointKey struct {
 }
 
 type endpointSliceCache struct {
-	mu                            sync.RWMutex
-	endpointKeysByServiceAndSlice map[host.Name]map[string][]endpointKey
-	endpointByKey                 map[endpointKey]*model.IstioEndpoint
+	mu                         sync.RWMutex
+	endpointsByServiceAndSlice map[host.Name]map[string][]*model.IstioEndpoint
 }
 
 func newEndpointSliceCache() *endpointSliceCache {
 	out := &endpointSliceCache{
-		endpointKeysByServiceAndSlice: make(map[host.Name]map[string][]endpointKey),
-		endpointByKey:                 make(map[endpointKey]*model.IstioEndpoint),
+		endpointsByServiceAndSlice: make(map[host.Name]map[string][]*model.IstioEndpoint),
 	}
 	return out
 }
@@ -396,36 +382,27 @@ func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints 
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if len(endpoints) == 0 {
-		for _, ip := range e.endpointKeysByServiceAndSlice[hostname][slice] {
-			delete(e.endpointByKey, ip)
-		}
-		delete(e.endpointKeysByServiceAndSlice[hostname], slice)
+		delete(e.endpointsByServiceAndSlice[hostname], slice)
 	}
-	if _, f := e.endpointKeysByServiceAndSlice[hostname]; !f {
-		e.endpointKeysByServiceAndSlice[hostname] = make(map[string][]endpointKey)
+	if _, f := e.endpointsByServiceAndSlice[hostname]; !f {
+		e.endpointsByServiceAndSlice[hostname] = make(map[string][]*model.IstioEndpoint)
 	}
-	keys := make([]endpointKey, 0, len(endpoints))
-	for _, ep := range endpoints {
-		key := endpointKey{ep.Address, ep.ServicePortName}
-		keys = append(keys, key)
-		// We will always overwrite. A conflict here means an endpoint is transitioning
-		// from one slice to another See
-		// https://github.com/kubernetes/website/blob/master/content/en/docs/concepts/services-networking/endpoint-slices.md#duplicate-endpoints
-		// In this case, we can always assume and update is fresh, although older slices
-		// we have not gotten updates may be stale; therefor we always take the new
-		// update.
-		e.endpointByKey[key] = ep
-	}
-	e.endpointKeysByServiceAndSlice[hostname][slice] = keys
+	// We will always overwrite. A conflict here means an endpoint is transitioning
+	// from one slice to another See
+	// https://github.com/kubernetes/website/blob/master/content/en/docs/concepts/services-networking/endpoint-slices.md#duplicate-endpoints
+	// In this case, we can always assume and update is fresh, although older slices
+	// we have not gotten updates may be stale; therefor we always take the new
+	// update.
+	e.endpointsByServiceAndSlice[hostname][slice] = endpoints
 }
 
 func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	delete(e.endpointKeysByServiceAndSlice[hostname], slice)
-	if len(e.endpointKeysByServiceAndSlice[hostname]) == 0 {
-		delete(e.endpointKeysByServiceAndSlice, hostname)
+	delete(e.endpointsByServiceAndSlice[hostname], slice)
+	if len(e.endpointsByServiceAndSlice[hostname]) == 0 {
+		delete(e.endpointsByServiceAndSlice, hostname)
 	}
 }
 
@@ -434,18 +411,26 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 	defer e.mu.RUnlock()
 	var endpoints []*model.IstioEndpoint
 	found := map[endpointKey]struct{}{}
-	for _, keys := range e.endpointKeysByServiceAndSlice[hostname] {
-		for _, key := range keys {
+	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
+		for _, ep := range eps {
+			key := endpointKey{ep.Address, ep.ServicePortName}
 			if _, f := found[key]; f {
 				// This a duplicate. Update() already handles conflict resolution, so we don't
 				// need to pick the "right" one here.
 				continue
 			}
 			found[key] = struct{}{}
-			endpoints = append(endpoints, e.endpointByKey[key])
+			endpoints = append(endpoints, ep)
 		}
 	}
 	return endpoints
+}
+
+func (e *endpointSliceCache) Has(hostname host.Name) bool {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	_, found := e.endpointsByServiceAndSlice[hostname]
+	return found
 }
 
 func endpointSliceSelectorForService(name string) klabels.Selector {

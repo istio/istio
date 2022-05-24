@@ -75,7 +75,8 @@ func TestTokenExchangePlugin(t *testing.T) {
 }
 
 func verifyDumpStatus(t *testing.T, tCase string, dumpJSON []byte, lastStatus map[string]stsservice.TokenInfo,
-	expected []string) map[string]stsservice.TokenInfo {
+	expected []string,
+) map[string]stsservice.TokenInfo {
 	newStatus := &stsservice.TokensDump{}
 	if err := json.Unmarshal(dumpJSON, newStatus); err != nil {
 		t.Errorf("(Test case %s), failed to unmarshal status dump: %v", tCase, err)
@@ -158,8 +159,7 @@ func setUpTest(t *testing.T, setup testSetUp) (*Plugin, *mock.AuthorizationServe
 
 // TestAccessToken verifies that token manager could return a cached token to client.
 func TestTokenExchangePluginWithCache(t *testing.T) {
-	tmPlugin, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint :=
-		setUpTest(t, testSetUp{enableCache: true, enableDynamicToken: true})
+	tmPlugin, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint := setUpTest(t, testSetUp{enableCache: true, enableDynamicToken: true})
 	defer func() {
 		if err := ms.Stop(); err != nil {
 			t.Logf("failed to stop mock server: %v", err)

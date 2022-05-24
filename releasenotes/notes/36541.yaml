@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/36541
+releaseNotes:
+  - |
+    **Fixed** an issue where istiod crashes if prioritized leader election (controlled via `PRIORITIZED_LEADER_ELECTION` env variable) is disabled.

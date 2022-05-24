@@ -42,16 +42,31 @@ const (
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
+	// WorkloadIdentitySocketPath is the well-known path to the Unix Domain Socket for SDS.
+	WorkloadIdentitySocketPath = "./var/run/secrets/workload-spiffe-uds/socket"
+
+	// WorkloadIdentityCredentialsPath is the well-known path to a folder with workload certificate files.
+	WorkloadIdentityCredentialsPath = "./var/run/secrets/workload-spiffe-credentials"
+
+	// WorkloadIdentityCertChainPath is the well-known path to a workload certificate chain file.
+	WorkloadIdentityCertChainPath = WorkloadIdentityCredentialsPath + "/cert-chain.pem"
+
+	// WorkloadIdentityKeyPath is the well-known path to a workload key file.
+	WorkloadIdentityKeyPath = WorkloadIdentityCredentialsPath + "/key.pem"
+
+	// WorkloadIdentityRootCertPath is the well-known path to a workload root certificate file.
+	WorkloadIdentityRootCertPath = WorkloadIdentityCredentialsPath + "/root-cert.pem"
+
 	// GkeWorkloadCertChainFilePath is the well-known path for the GKE workload certificate chain file.
 	// Quoted from https://cloud.google.com/traffic-director/docs/security-proxyless-setup#create-service:
 	// "On creation, each Pod gets a volume at /var/run/secrets/workload-spiffe-credentials."
-	GkeWorkloadCertChainFilePath = "./var/run/secrets/workload-spiffe-credentials/certificates.pem"
+	GkeWorkloadCertChainFilePath = WorkloadIdentityCredentialsPath + "/certificates.pem"
 
 	// GkeWorkloadKeyFilePath is the well-known path for the GKE workload certificate key file
-	GkeWorkloadKeyFilePath = "./var/run/secrets/workload-spiffe-credentials/private_key.pem"
+	GkeWorkloadKeyFilePath = WorkloadIdentityCredentialsPath + "/private_key.pem"
 
 	// GkeWorkloadRootCertFilePath is the well-known path for the GKE workload root certificate file
-	GkeWorkloadRootCertFilePath = "./var/run/secrets/workload-spiffe-credentials/ca_certificates.pem"
+	GkeWorkloadRootCertFilePath = WorkloadIdentityCredentialsPath + "/ca_certificates.pem"
 
 	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
 	SystemRootCerts = "SYSTEM"
@@ -66,6 +81,9 @@ const (
 
 	// GCE is Credential fetcher type of Google plugin
 	GCE = "GoogleComputeEngine"
+
+	// JWT is a Credential fetcher type that reads from a JWT token file
+	JWT = "JWT"
 
 	// Mock is Credential fetcher type of mock plugin
 	Mock = "Mock" // testing only
@@ -114,9 +132,6 @@ const (
 // TODO: ProxyConfig should have most of those, and be passed to all components
 // (as source of truth)
 type Options struct {
-	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
-	WorkloadUDSPath string
-
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
 
@@ -130,11 +145,11 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
+	// WorkloadRSAKeySize is the size of a private key for a workload certificate.
+	WorkloadRSAKeySize int
+
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
-
-	// Location of JWTPath to connect to CA.
-	JWTPath string
 
 	// OutputKeyCertToDir is the directory for output the key and certificate
 	OutputKeyCertToDir string
@@ -311,9 +326,6 @@ type CredFetcher interface {
 	// GetPlatformCredential fetches workload credential provided by the platform.
 	GetPlatformCredential() (string, error)
 
-	// GetType returns credential fetcher type. Currently the supported type is "GoogleComputeEngine".
-	GetType() string
-
 	// GetIdentityProvider returns the name of the IdentityProvider that can authenticate the workload credential.
 	GetIdentityProvider() string
 
@@ -404,6 +416,21 @@ func GetOSRootFilePath() string {
 	}
 	istiolog.Warn("OS CA Cert could not be found for agent")
 	return ""
+}
+
+// CheckWorkloadCertificate returns true when the workload certificate
+// files are present under the provided paths. Otherwise, return false.
+func CheckWorkloadCertificate(certChainFilePath, keyFilePath, rootCertFilePath string) bool {
+	if _, err := os.Stat(certChainFilePath); err != nil {
+		return false
+	}
+	if _, err := os.Stat(keyFilePath); err != nil {
+		return false
+	}
+	if _, err := os.Stat(rootCertFilePath); err != nil {
+		return false
+	}
+	return true
 }
 
 type SdsCertificateConfig struct {

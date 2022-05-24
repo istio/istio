@@ -34,12 +34,16 @@ var skippedLdsConfigs = map[model.NodeType]map[config.GroupVersionKind]struct{}{
 	model.Router: {
 		// for autopassthrough gateways, we build filterchains per-dr subset
 		gvk.WorkloadGroup: {},
+		gvk.WorkloadEntry: {},
 		gvk.Secret:        {},
+		gvk.ProxyConfig:   {},
 	},
 	model.SidecarProxy: {
-		gvk.DestinationRule: {},
-		gvk.WorkloadGroup:   {},
-		gvk.Secret:          {},
+		gvk.Gateway:       {},
+		gvk.WorkloadGroup: {},
+		gvk.WorkloadEntry: {},
+		gvk.Secret:        {},
+		gvk.ProxyConfig:   {},
 	},
 }
 
@@ -63,12 +67,11 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	return false
 }
 
-func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (l LdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !ldsNeedsPush(proxy, req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	listeners := l.Server.ConfigGenerator.BuildListeners(proxy, push)
+	listeners := l.Server.ConfigGenerator.BuildListeners(proxy, req.Push)
 	resources := model.Resources{}
 	for _, c := range listeners {
 		resources = append(resources, &discovery.Resource{

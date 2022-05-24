@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/tests/integration/security/util"
-	"istio.io/istio/tests/integration/security/util/connection"
+	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 // TestReachability verifies:
@@ -41,36 +42,34 @@ func TestReachability(t *testing.T) {
 			 * (b) When trust-bundle for workload ISTIO_MUTUAL mtls can be explicitly configured PER Istio Trust Domain
 			 */
 			if t.Clusters().IsMulticluster() {
-				t.Skip()
+				t.Skip("https://github.com/istio/istio/issues/37307: Test cases cannot be run in " +
+					"multi-cluster environments when using per cluster K8s CA Signers. Revisit this when:\n" +
+					"* (a) Test environment can be modified to deploy external-signer common to all clusters " +
+					"in multi-cluster environment OR\n" +
+					"* (b) When trust-bundle for workload ISTIO_MUTUAL mtls can be explicitly configured PER " +
+					"Istio Trust Domain")
 			}
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			testNamespace := apps.Namespace
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
-			callCount := 1
-			if t.Clusters().IsMulticluster() {
-				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(t.Clusters())
-			}
-			bSet := apps.B.Match(echo.Namespace(testNamespace.Name()))
+			to := match.Namespace(testNamespace).GetMatches(apps.B)
+			callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
+					a := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.A)[0]
 					t.NewSubTest("Basic reachability with external ca").
 						Run(func(t framework.TestContext) {
 							// Verify mTLS works between a and b
-							callOptions := echo.CallOptions{
-								Target:   bSet[0],
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-								Count:    callCount,
+							opts := echo.CallOptions{
+								To: to,
+								Port: echo.Port{
+									Name: "http",
+								},
+								Count: callCount,
 							}
-							checker := connection.Checker{
-								From:          a,
-								Options:       callOptions,
-								ExpectSuccess: true,
-								DestClusters:  bSet.Clusters(),
-							}
-							checker.CheckOrFail(t)
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+
+							a.CallOrFail(t, opts)
 						})
 				})
 			}

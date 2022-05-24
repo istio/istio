@@ -132,7 +132,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply b
 			return processedObjects, 0, errs.ToError()
 		}
 
-		err := WaitForResources(processedObjects, h.restConfig, h.clientSet,
+		err := WaitForResources(processedObjects, h.kubeClient,
 			h.opts.WaitTimeout, h.opts.DryRun, plog)
 		if err != nil {
 			werr := fmt.Errorf("failed to wait for resource: %v", err)

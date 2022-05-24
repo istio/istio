@@ -31,12 +31,13 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -52,11 +53,6 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 )
-
-func init() {
-	features.WorkloadEntryHealthChecks = true
-	features.WorkloadEntryAutoRegistration = true
-}
 
 // TestXdsLeak is a regression test for https://github.com/istio/istio/issues/34097
 func TestXdsLeak(t *testing.T) {
@@ -271,12 +267,12 @@ func setupXdsProxyWithDownstreamOptions(t *testing.T, opts []grpc.ServerOption) 
 		MetadataClientRootCert:  path.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem"),
 	}
 	dir := t.TempDir()
-	ia := NewAgent(&proxyConfig, &AgentOptions{
+	ia := NewAgent(proxyConfig, &AgentOptions{
 		XdsUdsPath:            filepath.Join(dir, "XDS"),
 		DownstreamGrpcOptions: opts,
 	}, secOpts, envoy.ProxyConfig{TestOnly: true})
 	t.Cleanup(func() {
-		ia.Close()
+		ia.close()
 	})
 	proxy, err := initXdsProxy(ia)
 	if err != nil {
@@ -291,7 +287,7 @@ func setDialOptions(p *XdsProxy, l *bufconn.Listener) {
 	// Override istiodDialOptions so that the test can connect with plain text and with buffcon listener.
 	p.istiodDialOptions = []grpc.DialOption{
 		grpc.WithBlock(),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return l.Dial()
 		}),
@@ -408,7 +404,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 			t.Fatal(err)
 		}
 		proxy.istiodAddress = listener.Addr().String()
-		proxy.istiodDialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
+		proxy.istiodDialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials())}
 
 		// Setup gRPC server
 		grpcServer := grpc.NewServer()
@@ -448,14 +444,14 @@ func TestXdsProxyReconnects(t *testing.T) {
 
 type fakeAckCache struct{}
 
-func (f *fakeAckCache) Get(string, string, time.Duration) (string, error) {
+func (f *fakeAckCache) Get(string, string, string, string, time.Duration, []byte, extensions.PullPolicy) (string, error) {
 	return "test", nil
 }
 func (f *fakeAckCache) Cleanup() {}
 
 type fakeNackCache struct{}
 
-func (f *fakeNackCache) Get(string, string, time.Duration) (string, error) {
+func (f *fakeNackCache) Get(string, string, string, string, time.Duration, []byte, extensions.PullPolicy) (string, error) {
 	return "", errors.New("errror")
 }
 func (f *fakeNackCache) Cleanup() {}
@@ -464,6 +460,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{
 		Namespace:   "default",
 		InstanceIPs: []string{"1.1.1.1"},
+		ClusterID:   "Kubernetes",
 	}
 	proxy := setupXdsProxy(t)
 
@@ -513,7 +510,6 @@ func TestECDSWasmConversion(t *testing.T) {
 		Config: &wasmv3.PluginConfig{
 			Vm: &wasmv3.PluginConfig_VmConfig{
 				VmConfig: &wasmv3.VmConfig{
-
 					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
 						Local: &core.DataSource{
 							Specifier: &core.DataSource_Filename{
@@ -617,7 +613,7 @@ func sendDownstreamWithNode(t *testing.T, downstream discovery.AggregatedDiscove
 func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 	var opts []grpc.DialOption
 
-	opts = append(opts, grpc.WithInsecure(), grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 		var d net.Dialer
 		return d.DialContext(ctx, "unix", path)
 	}))

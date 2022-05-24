@@ -34,6 +34,7 @@ import (
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	istioctlcmd "istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
@@ -41,13 +42,14 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -76,14 +78,20 @@ metadata:
 {{- end }}
 {{- end }}
 spec:
+{{- if .IPFamilies }}
+  ipFamilies: [ {{ .IPFamilies }} ]
+{{- end }}
+{{- if .IPFamilyPolicy }}
+  ipFamilyPolicy: {{ .IPFamilyPolicy }}
+{{- end }}
 {{- if .Headless }}
   clusterIP: None
 {{- end }}
   ports:
-{{- range $i, $p := .Ports }}
+{{- range $i, $p := .ServicePorts }}
   - name: {{ $p.Name }}
     port: {{ $p.ServicePort }}
-    targetPort: {{ $p.InstancePort }}
+    targetPort: {{ $p.WorkloadPort }}
 {{- end }}
   selector:
     app: {{ .Service }}
@@ -124,7 +132,7 @@ spec:
       labels:
         app: {{ $.Service }}
         version: {{ $subset.Version }}
-        test.istio.io/class: {{ $.Class }}
+        test.istio.io/class: {{ $.WorkloadClass }}
 {{- if $.Compatibility }}
         istio.io/rev: {{ $revision }}
 {{- end }}
@@ -141,9 +149,9 @@ spec:
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
-{{- if ne $.ImagePullSecret "" }}
+{{- if ne $.ImagePullSecretName "" }}
       imagePullSecrets:
-      - name: {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecretName }}
 {{- end }}
       containers:
 {{- if and
@@ -153,40 +161,42 @@ spec:
 }}
       - name: istio-proxy
         image: auto
-        imagePullPolicy: {{ $.PullPolicy }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext: # to allow core dumps
           readOnlyRootFilesystem: false
 {{- end }}
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
-        image: gcr.io/istio-testing/ext-authz:0.7
-        imagePullPolicy: {{ $.PullPolicy }}
+        image: {{ $.ImageHub }}/ext-authz:{{ $.ImageTag }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         ports:
         - containerPort: 8000
         - containerPort: 9000
 {{- end }}
       - name: app
-        image: {{ $.Hub }}/app:{{ $.Tag }}
-        imagePullPolicy: {{ $.PullPolicy }}
+{{- if $.ImageFullPath }}
+        image: {{ $.ImageFullPath }}
+{{- else }}
+        image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
+{{- end }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext:
           runAsUser: 1338
           runAsGroup: 1338
         args:
           - --metrics=15014
-          - --cluster
-          - "{{ $cluster }}"
+          - --cluster={{ $cluster }}
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
 {{- if and $.ProxylessGRPC (ne $p.Port $.GRPCMagicPort) }}
           - --xds-grpc-server={{ $p.Port }}
 {{- end }}
-          - --grpc
+          - --grpc={{ $p.Port }}
 {{- else if eq .Protocol "TCP" }}
-          - --tcp
+          - --tcp={{ $p.Port }}
 {{- else }}
-          - --port
+          - --port={{ $p.Port }}
 {{- end }}
-          - "{{ $p.Port }}"
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
 {{- end }}
@@ -200,24 +210,8 @@ spec:
           - --bind-localhost={{ $p.Port }}
 {{- end }}
 {{- end }}
-{{- range $i, $p := $.WorkloadOnlyPorts }}
-{{- if eq .Protocol "TCP" }}
-          - --tcp
-{{- else }}
-          - --port
-{{- end }}
-          - "{{ $p.Port }}"
-{{- if $p.TLS }}
-          - --tls={{ $p.Port }}
-{{- end }}
-{{- if $p.ServerFirst }}
-          - --server-first={{ $p.Port }}
-{{- end }}
-{{- end }}
-          - --version
-          - "{{ $subset.Version }}"
-          - --istio-version
-          - "{{ $version }}"
+          - --version={{ $subset.Version }}
+          - --istio-version={{ $version }}
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
@@ -248,6 +242,12 @@ spec:
 {{- if $.ReadinessTCPPort }}
           tcpSocket:
             port: {{ $.ReadinessTCPPort }}
+{{- else if $.ReadinessGRPCPort }}
+          grpc:
+            port: {{ $.ReadinessGRPCPort }}			
+{{- else if $.ImageFullPath }}
+          tcpSocket:
+            port: tcp-health-port
 {{- else }}
           httpGet:
             path: /
@@ -266,7 +266,7 @@ spec:
         startupProbe:
           tcpSocket:
             port: tcp-health-port
-          periodSeconds: 10
+          periodSeconds: 1
           failureThreshold: 10
 {{- end }}
 {{- if $.TLSSettings }}
@@ -343,16 +343,23 @@ spec:
         options:
         - name: "ndots"
           value: "1"
+{{- if $.VM.IstioHost }}
+      # Override the istiod host to force traffic through east-west gateway. 
+      hostAliases:
+      - ip: {{ $.VM.IstioIP }}
+        hostnames:
+        - {{ $.VM.IstioHost }}
+{{- end }}
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
-      {{- if $.ImagePullSecret }}
+      {{- if $.ImagePullSecretName }}
       imagePullSecrets:
-      - name: {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecretName }}
       {{- end }}
       containers:
       - name: istio-proxy
-        image: {{ $.Hub }}/{{ $.VM.Image }}:{{ $.Tag }}
-        imagePullPolicy: {{ $.PullPolicy }}
+        image: {{ $.ImageHub }}/{{ $.VM.Image }}:{{ $.ImageTag }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext:
           capabilities:
             add:
@@ -363,6 +370,13 @@ spec:
         - bash
         - -c
         - |-
+          # To support image builders which cannot do RUN, do the run commands at startup.
+          # This exploits the fact the images remove the installer once its installed.
+          # This is a horrible idea for production images, but these are just for tests.
+          [[ -f /tmp/istio-sidecar-centos-7.rpm ]] && sudo rpm -vi /tmp/istio-sidecar-centos-7.rpm && sudo rm /tmp/istio-sidecar-centos-7.rpm
+          [[ -f /tmp/istio-sidecar.rpm ]] && sudo rpm -vi /tmp/istio-sidecar.rpm && sudo rm /tmp/istio-sidecar.rpm
+          [[ -f /tmp/istio-sidecar.deb ]] && sudo dpkg -i /tmp/istio-sidecar.deb && sudo rm /tmp/istio-sidecar.deb
+
           # Read root cert from and place signed certs here (can't mount directly or the dir would be unwritable)
           sudo mkdir -p /var/run/secrets/istio
 
@@ -375,7 +389,22 @@ spec:
           sudo cp /var/run/secrets/istio/bootstrap/root-cert.pem /var/run/secrets/istio/root-cert.pem
           sudo cp /var/run/secrets/istio/bootstrap/*.env /var/lib/istio/envoy/
           sudo cp /var/run/secrets/istio/bootstrap/mesh.yaml /etc/istio/config/mesh
-          sudo sh -c 'cat /var/run/secrets/istio/bootstrap/hosts >> /etc/hosts'
+
+          # don't overwrite /etc/hosts since it's managed by kubeproxy
+          #sudo sh -c 'cat /var/run/secrets/istio/bootstrap/hosts >> /etc/hosts'
+
+          # since we're not overwriting /etc/hosts on k8s, verify that istiod hostname in /etc/hosts
+          # matches the value generated by istioctl
+          echo "checking istio host"
+          SYSTEM_HOST=$(cat /etc/hosts | grep istiod)
+          ISTIOCTL_HOST=$(cat /var/run/secrets/istio/bootstrap/hosts | grep istiod)
+          if [ "$(echo "$SYSTEM_HOST" | tr -d '[:space:]')" != "$(echo "$ISTIOCTL_HOST" | tr -d '[:space:]')" ]; then
+            echo "istiod host in /etc/hosts does not match value generated by istioctl"
+            echo "/etc/hosts: $SYSTEM_HOST"
+            echo "/var/run/secrets/istio/bootstrap/hosts: $ISTIOCTL_HOST"
+            exit 1
+          fi
+          echo "istiod host ok"
 
           # read certs from correct directory
           sudo sh -c 'echo PROV_CERT=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
@@ -407,20 +436,6 @@ spec:
              --bind-localhost={{ $p.Port }} \
 {{- end }}
 {{- end }}
-{{- range $i, $p := $.WorkloadOnlyPorts }}
-{{- if eq .Protocol "TCP" }}
-             --tcp \
-{{- else }}
-             --port \
-{{- end }}
-             "{{ $p.Port }}" \
-{{- if $p.TLS }}
-             --tls={{ $p.Port }} \
-{{- end }}
-{{- if $p.ServerFirst }}
-             --server-first={{ $p.Port }} \
-{{- end }}
-{{- end }}
              --crt=/var/lib/istio/cert.crt \
              --key=/var/lib/istio/cert.key
         env:
@@ -435,10 +450,18 @@ spec:
           name: istio-vm-bootstrap
         {{- range $name, $value := $subset.Annotations }}
         {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
-        - mountPath: /etc/istio/custom-bootstrap
+        - mountPath: /etc/istio-custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
         {{- end }}
+{{- if $.IncludeExtAuthz }}
+      - name: ext-authz
+        image: {{ $.ImageHub }}/ext-authz:{{ $.ImageTag }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
+        ports:
+        - containerPort: 8000
+        - containerPort: 9000
+{{- end }}
       volumes:
       - secret:
           secretName: {{ $.Service }}-istio-token
@@ -505,7 +528,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := GenerateDeployment(cfg, nil, nil)
+	deploymentYAML, err := GenerateDeployment(ctx, cfg, ctx.Settings())
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s: %v",
 			cfg.Namespace.Name(),
@@ -513,7 +536,9 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 	}
 
 	// Apply the deployment to the configured cluster.
-	if err = ctx.ConfigKube(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), deploymentYAML); err != nil {
+	if err = ctx.ConfigKube(cfg.Cluster).
+		YAML(cfg.Namespace.Name(), deploymentYAML).
+		Apply(apply.NoCleanup); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
 			cfg.ClusterLocalFQDN(), cfg.Cluster.Name(), err)
 	}
@@ -563,8 +588,10 @@ func (d *deployment) WorkloadReady(w *workload) {
 
 	// Deploy the workload entry to the primary cluster. We will read WorkloadEntry across clusters.
 	wle := d.workloadEntryYAML(w)
-	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).ApplyYAMLNoCleanup(d.cfg.Namespace.Name(), wle); err != nil {
-		log.Warnf("failed deploying echo WLE for %s/%s to pimary cluster: %v",
+	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).
+		YAML(d.cfg.Namespace.Name(), wle).
+		Apply(apply.NoCleanup); err != nil {
+		log.Warnf("failed deploying echo WLE for %s/%s to primary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
 			err)
@@ -577,8 +604,8 @@ func (d *deployment) WorkloadNotReady(w *workload) {
 	}
 
 	wle := d.workloadEntryYAML(w)
-	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).DeleteYAML(d.cfg.Namespace.Name(), wle); err != nil {
-		log.Warnf("failed deleting echo WLE for %s/%s from pimary cluster: %v",
+	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).YAML(d.cfg.Namespace.Name(), wle).Delete(); err != nil {
+		log.Warnf("failed deleting echo WLE for %s/%s from primary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
 			err)
@@ -608,8 +635,16 @@ spec:
 `, name, podIP, sa, network, service, version)
 }
 
-func GenerateDeployment(cfg echo.Config, imgSettings *image.Settings, settings *resource.Settings) (string, error) {
-	params, err := templateParams(cfg, imgSettings, settings)
+func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (string, error) {
+	if settings == nil {
+		var err error
+		settings, err = resource.SettingsFromCommandLine("template")
+		if err != nil {
+			return "", err
+		}
+	}
+
+	params, err := deploymentParams(ctx, cfg, settings)
 	if err != nil {
 		return "", err
 	}
@@ -623,87 +658,119 @@ func GenerateDeployment(cfg echo.Config, imgSettings *image.Settings, settings *
 }
 
 func GenerateService(cfg echo.Config) (string, error) {
-	params, err := templateParams(cfg, nil, nil)
-	if err != nil {
-		return "", err
-	}
-
+	params := serviceParams(cfg)
 	return tmpl.Execute(serviceTemplate, params)
 }
 
 var VMImages = map[echo.VMDistro]string{
 	echo.UbuntuXenial: "app_sidecar_ubuntu_xenial",
-	echo.UbuntuFocal:  "app_sidecar_ubuntu_focal",
-	echo.UbuntuBionic: "app_sidecar_ubuntu_bionic",
-	echo.Debian9:      "app_sidecar_debian_9",
-	echo.Debian10:     "app_sidecar_debian_10",
+	echo.UbuntuJammy:  "app_sidecar_ubuntu_jammy",
+	echo.Debian11:     "app_sidecar_debian_11",
 	echo.Centos7:      "app_sidecar_centos_7",
-	echo.Centos8:      "app_sidecar_centos_8",
+	// echo.Rockylinux8:  "app_sidecar_rockylinux_8", TODO(https://github.com/istio/istio/issues/38224)
 }
 
-func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *resource.Settings) (map[string]interface{}, error) {
-	if settings == nil {
-		var err error
-		settings, err = resource.SettingsFromCommandLine("template")
-		if err != nil {
-			return nil, err
-		}
+var RevVMImages = func() map[string]echo.VMDistro {
+	r := map[string]echo.VMDistro{}
+	for k, v := range VMImages {
+		r[v] = k
 	}
-	if imgSettings == nil {
-		var err error
-		imgSettings, err = image.SettingsFromCommandLine()
-		if err != nil {
-			return nil, err
-		}
-	}
-	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
+	return r
+}()
 
-	vmImage := VMImages[cfg.VMDistro]
-	if vmImage == "" {
-		vmImage = VMImages[echo.DefaultVMDistro]
-		log.Warnf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
+// getVMOverrideForIstiodDNS returns the DNS alias to use for istiod on VMs. VMs always access
+// istiod via the east-west gateway, even though they are installed on the same cluster as istiod.
+func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost string, istioIP string) {
+	if ctx == nil {
+		return
 	}
-	namespace := ""
-	if cfg.Namespace != nil {
-		namespace = cfg.Namespace.Name()
+
+	ist, err := istio.Get(ctx)
+	if err != nil {
+		log.Warnf("VM config failed to get Istio component for %s: %v", cfg.Cluster.Name(), err)
+		return
 	}
-	imagePullSecret, err := imgSettings.ImagePullSecretName()
+
+	// Generate the istiod host the same way as istioctl.
+	istioNS := ist.Settings().SystemNamespace
+	istioRevision := getIstioRevision(cfg.Namespace)
+	istioHost = istioctlcmd.IstiodHost(istioNS, istioRevision)
+
+	istioIP = ist.EastWestGatewayFor(cfg.Cluster).DiscoveryAddress().IP.String()
+	if istioIP == "<nil>" {
+		log.Warnf("VM config failed to get east-west gateway IP for %s", cfg.Cluster.Name())
+		istioHost, istioIP = "", ""
+	}
+	return
+}
+
+func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]interface{}, error) {
+	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
+	imagePullSecretName, err := settings.Image.PullSecretName()
 	if err != nil {
 		return nil, err
 	}
 	params := map[string]interface{}{
-		"Hub":                imgSettings.Hub,
-		"Tag":                strings.TrimSuffix(imgSettings.Tag, "-distroless"),
-		"PullPolicy":         imgSettings.PullPolicy,
-		"Service":            cfg.Service,
-		"Version":            cfg.Version,
-		"Headless":           cfg.Headless,
-		"StatefulSet":        cfg.StatefulSet,
-		"ProxylessGRPC":      cfg.IsProxylessGRPC(),
-		"GRPCMagicPort":      grpcMagicPort,
-		"Locality":           cfg.Locality,
-		"ServiceAccount":     cfg.ServiceAccount,
-		"Ports":              cfg.Ports,
-		"WorkloadOnlyPorts":  cfg.WorkloadOnlyPorts,
-		"ContainerPorts":     getContainerPorts(cfg),
-		"ServiceAnnotations": cfg.ServiceAnnotations,
-		"Subsets":            cfg.Subsets,
-		"TLSSettings":        cfg.TLSSettings,
-		"Cluster":            cfg.Cluster.Name(),
-		"Namespace":          namespace,
-		"ImagePullSecret":    imagePullSecret,
-		"ReadinessTCPPort":   cfg.ReadinessTCPPort,
-		"VM": map[string]interface{}{
-			"Image": vmImage,
-		},
-		"StartupProbe":      supportStartupProbe,
-		"IncludeExtAuthz":   cfg.IncludeExtAuthz,
-		"Revisions":         settings.Revisions.TemplateMap(),
-		"Compatibility":     settings.Compatibility,
-		"Class":             cfg.Class(),
-		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()),
+		"ImageHub":            settings.Image.Hub,
+		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
+		"ImagePullPolicy":     settings.Image.PullPolicy,
+		"ImagePullSecretName": imagePullSecretName,
+		"ImageFullPath":       settings.EchoImage, // This overrides image hub/tag if it's not empty.
+		"Service":             cfg.Service,
+		"StatefulSet":         cfg.StatefulSet,
+		"ProxylessGRPC":       cfg.IsProxylessGRPC(),
+		"GRPCMagicPort":       grpcMagicPort,
+		"Locality":            cfg.Locality,
+		"ServiceAccount":      cfg.ServiceAccount,
+		"ContainerPorts":      getContainerPorts(cfg),
+		"Subsets":             cfg.Subsets,
+		"TLSSettings":         cfg.TLSSettings,
+		"Cluster":             cfg.Cluster.Name(),
+		"ReadinessTCPPort":    cfg.ReadinessTCPPort,
+		"ReadinessGRPCPort":   cfg.ReadinessGRPCPort,
+		"StartupProbe":        supportStartupProbe,
+		"IncludeExtAuthz":     cfg.IncludeExtAuthz,
+		"Revisions":           settings.Revisions.TemplateMap(),
+		"Compatibility":       settings.Compatibility,
+		"WorkloadClass":       cfg.WorkloadClass(),
+		"OverlayIstioProxy":   canCreateIstioProxy(settings.Revisions.Minimum()),
 	}
+
+	vmIstioHost, vmIstioIP := "", ""
+	if cfg.IsVM() {
+		vmImage := VMImages[cfg.VMDistro]
+		_, knownImage := RevVMImages[cfg.VMDistro]
+		if vmImage == "" {
+			if knownImage {
+				vmImage = cfg.VMDistro
+			} else {
+				vmImage = VMImages[echo.DefaultVMDistro]
+			}
+			log.Debugf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
+		}
+
+		vmIstioHost, vmIstioIP = getVMOverrideForIstiodDNS(ctx, cfg)
+
+		params["VM"] = map[string]interface{}{
+			"Image":     vmImage,
+			"IstioHost": vmIstioHost,
+			"IstioIP":   vmIstioIP,
+		}
+	}
+
 	return params, nil
+}
+
+func serviceParams(cfg echo.Config) map[string]interface{} {
+	return map[string]interface{}{
+		"Service":            cfg.Service,
+		"Headless":           cfg.Headless,
+		"ServiceAccount":     cfg.ServiceAccount,
+		"ServicePorts":       cfg.Ports.GetServicePorts(),
+		"ServiceAnnotations": cfg.ServiceAnnotations,
+		"IPFamilies":         cfg.IPFamilies,
+		"IPFamilyPolicy":     cfg.IPFamilyPolicy,
+	}
 }
 
 func lines(input string) []string {
@@ -738,9 +805,9 @@ spec:
   metadata:
     labels:
       app: {{.name}}
-      test.istio.io/class: {{ .class }}
+      test.istio.io/class: {{ .workloadClass }}
   template:
-    serviceAccount: {{.serviceaccount}}
+    serviceAccount: {{.serviceAccount}}
     network: "{{.network}}"
   probe:
     failureThreshold: 5
@@ -754,21 +821,23 @@ spec:
 `, map[string]string{
 		"name":           cfg.Service,
 		"namespace":      cfg.Namespace.Name(),
-		"serviceaccount": serviceAccount(cfg),
+		"serviceAccount": serviceAccount(cfg),
 		"network":        cfg.Cluster.NetworkName(),
-		"class":          cfg.Class(),
+		"workloadClass":  cfg.WorkloadClass(),
 	})
 
 	// Push the WorkloadGroup for auto-registration
 	if cfg.AutoRegisterVM {
-		if err := ctx.ConfigKube(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), wg); err != nil {
+		if err := ctx.ConfigKube(cfg.Cluster).
+			YAML(cfg.Namespace.Name(), wg).
+			Apply(apply.NoCleanup); err != nil {
 			return err
 		}
 	}
 
 	if cfg.ServiceAccount {
 		// create service account, the next workload command will use it to generate a token
-		err = createServiceAccount(cfg.Cluster, cfg.Namespace.Name(), serviceAccount(cfg))
+		err = createServiceAccount(cfg.Cluster.Kube(), cfg.Namespace.Name(), serviceAccount(cfg))
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			return err
 		}
@@ -810,9 +879,7 @@ spec:
 			// LoadBalancer may not be supported and the command doesn't have NodePort fallback logic that the tests do
 			cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
 		}
-		if nsLabels, err := cfg.Namespace.Labels(); err != nil {
-			log.Warnf("failed fetching labels for %s; assuming no-revision (can cause failures): %v", cfg.Namespace.Name(), err)
-		} else if rev := nsLabels[label.IoIstioRev.Name]; rev != "" {
+		if rev := getIstioRevision(cfg.Namespace); len(rev) > 0 {
 			cmd = append(cmd, "--revision", rev)
 		}
 		// make sure namespace controller has time to create root-cert ConfigMap
@@ -856,7 +923,7 @@ spec:
 		}
 		cmName := fmt.Sprintf("%s-%s-vm-bootstrap", cfg.Service, subset.Version)
 		cm := &kubeCore.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName}, BinaryData: cmData}
-		_, err = cfg.Cluster.CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
+		_, err = cfg.Cluster.Kube().CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed creating configmap %s: %v", cm.Name, err)
 		}
@@ -876,9 +943,9 @@ spec:
 			"istio-token": token,
 		},
 	}
-	if _, err := cfg.Cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+	if _, err := cfg.Cluster.Kube().CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 		if kerrors.IsAlreadyExists(err) {
-			if _, err := cfg.Cluster.CoreV1().Secrets(cfg.Namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+			if _, err := cfg.Cluster.Kube().CoreV1().Secrets(cfg.Namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("failed updating secret %s: %v", secret.Name, err)
 			}
 		} else {
@@ -896,10 +963,10 @@ func patchProxyConfigFile(file string, overrides string) error {
 	}
 	overrideYAML := "defaultConfig:\n"
 	overrideYAML += istio.Indent(overrides, "  ")
-	if err := gogoprotomarshal.ApplyYAML(overrideYAML, config.DefaultConfig); err != nil {
+	if err := protomarshal.ApplyYAML(overrideYAML, config.DefaultConfig); err != nil {
 		return err
 	}
-	outYAML, err := gogoprotomarshal.ToYAML(config)
+	outYAML, err := protomarshal.ToYAML(config)
 	if err != nil {
 		return err
 	}
@@ -912,7 +979,7 @@ func readMeshConfig(file string) (*meshconfig.MeshConfig, error) {
 		return nil, err
 	}
 	config := &meshconfig.MeshConfig{}
-	if err := gogoprotomarshal.ApplyYAML(string(baseYAML), config); err != nil {
+	if err := protomarshal.ApplyYAML(string(baseYAML), config); err != nil {
 		return nil, err
 	}
 	return config, nil
@@ -938,7 +1005,7 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 		cport := &echoCommon.Port{
 			Name:        p.Name,
 			Protocol:    p.Protocol,
-			Port:        p.InstancePort,
+			Port:        p.WorkloadPort,
 			TLS:         p.TLS,
 			ServerFirst: p.ServerFirst,
 			InstanceIP:  p.InstanceIP,
@@ -950,11 +1017,11 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 		case protocol.GRPC:
 			continue
 		case protocol.HTTP:
-			if p.InstancePort == httpReadinessPort {
+			if p.WorkloadPort == httpReadinessPort {
 				readyPort = cport
 			}
 		default:
-			if p.InstancePort == tcpHealthPort {
+			if p.WorkloadPort == tcpHealthPort {
 				healthPort = cport
 			}
 		}
@@ -1019,4 +1086,13 @@ func canCreateIstioProxy(version resource.IstioVersion) bool {
 		return true
 	}
 	return false
+}
+
+func getIstioRevision(n namespace.Instance) string {
+	nsLabels, err := n.Labels()
+	if err != nil {
+		log.Warnf("failed fetching labels for %s; assuming no-revision (can cause failures): %v", n.Name(), err)
+		return ""
+	}
+	return nsLabels[label.IoIstioRev.Name]
 }

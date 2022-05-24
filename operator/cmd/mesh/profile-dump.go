@@ -64,7 +64,7 @@ func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
-func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs, logOpts *log.Options) *cobra.Command {
+func profileDumpCmd(rootArgs *RootArgs, pdArgs *profileDumpArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "dump [<profile>]",
 		Short: "Dumps an Istio configuration profile",
@@ -103,7 +103,12 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var decoded map[string]interface{}
+	var decoded interface{}
+	if uglyJSON[0] == '[' {
+		decoded = make([]interface{}, 0)
+	} else {
+		decoded = map[string]interface{}{}
+	}
 	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
 		return "", err
 	}
@@ -114,17 +119,15 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	return string(prettyJSON), nil
 }
 
-func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l clog.Logger, logOpts *log.Options) error {
+func profileDump(args []string, rootArgs *RootArgs, pdArgs *profileDumpArgs, l clog.Logger, logOpts *log.Options) error {
 	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilenames != nil {
 		return fmt.Errorf("cannot specify both profile name and filename flag")
 	}
 
-	switch pdArgs.outputFormat {
-	case jsonOutput, yamlOutput, flagsOutput:
-	default:
-		return fmt.Errorf("unknown output format: %v", pdArgs.outputFormat)
+	if err := validateProfileOutputFormatFlag(pdArgs.outputFormat); err != nil {
+		return err
 	}
 
 	setFlags := applyFlagAliases(make([]string, 0), pdArgs.manifestsPath, "")
@@ -155,24 +158,44 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		}
 	}
 
-	switch pdArgs.outputFormat {
-	case jsonOutput:
-		j, err := yamlToPrettyJSON(y)
-		if err != nil {
-			return err
-		}
-		l.Print(j + "\n")
-	case yamlOutput:
-		l.Print(y + "\n")
-	case flagsOutput:
-		f, err := yamlToFlags(y)
-		if err != nil {
-			return err
-		}
-		l.Print(strings.Join(f, "\n") + "\n")
+	var output string
+	if output, err = yamlToFormat(y, pdArgs.outputFormat); err != nil {
+		return err
 	}
-
+	l.Print(output)
 	return nil
+}
+
+// validateOutputFormatFlag validates if the output format is valid.
+func validateProfileOutputFormatFlag(outputFormat string) error {
+	switch outputFormat {
+	case jsonOutput, yamlOutput, flagsOutput:
+	default:
+		return fmt.Errorf("unknown output format: %s", outputFormat)
+	}
+	return nil
+}
+
+// yamlToFormat converts the generated yaml config to the expected format
+func yamlToFormat(yaml, outputFormat string) (string, error) {
+	var output string
+	switch outputFormat {
+	case jsonOutput:
+		j, err := yamlToPrettyJSON(yaml)
+		if err != nil {
+			return "", err
+		}
+		output = fmt.Sprintf("%s\n", j)
+	case yamlOutput:
+		output = fmt.Sprintf("%s\n", yaml)
+	case flagsOutput:
+		f, err := yamlToFlags(yaml)
+		if err != nil {
+			return "", err
+		}
+		output = fmt.Sprintf("%s\n", strings.Join(f, "\n"))
+	}
+	return output, nil
 }
 
 // Convert the generated YAML to --set flags
@@ -184,17 +207,23 @@ func yamlToFlags(yml string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	var decoded map[string]interface{}
+	var decoded interface{}
+	if uglyJSON[0] == '[' {
+		decoded = make([]interface{}, 0)
+	} else {
+		decoded = map[string]interface{}{}
+	}
 	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
 		return []string{}, err
 	}
-	spec, ok := decoded["spec"]
-	if !ok {
-		// Fall back to showing the entire spec.
-		// (When --config-path is used there will be no spec to remove)
-		spec = decoded
+	if d, ok := decoded.(map[string]interface{}); ok {
+		if v, ok := d["spec"]; ok {
+			// Fall back to showing the entire spec.
+			// (When --config-path is used there will be no spec to remove)
+			decoded = v
+		}
 	}
-	setflags, err := walk("", "", spec)
+	setflags, err := walk("", "", decoded)
 	if err != nil {
 		return []string{}, err
 	}

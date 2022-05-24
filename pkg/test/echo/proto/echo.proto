@@ -14,7 +14,9 @@
 
 syntax = "proto3";
 
-// Generate with protoc --go_out=. echo.proto && protoc --go-grpc_out=:. ./echo.proto
+import "google/protobuf/wrappers.proto";
+
+// Generate with protoc --go_out=. echo.proto -I /work/common-protos/ -I.
 package proto;
 option go_package="../proto";
 
@@ -69,6 +71,15 @@ message ForwardEchoRequest {
   Alpn alpn = 13;
   // Server name (SNI) to present in TLS connections. If not set, Host will be used for http requests.
   string serverName = 20;
+  // Expected response determines what string to look for in the response to validate TCP requests succeeded.
+  // If not set, defaults to "StatusCode=200"
+  google.protobuf.StringValue expectedResponse = 21;
+  // If set, a new connection will be made to the server for each individual request. If false, an attempt
+  // will be made to re-use the connection for the life of the forward request. This is automatically
+  // set for DNS, TCP, TLS, and WebSocket protocols.
+  bool newConnectionPerRequest = 22;
+  // If set, each request will force a DNS lookup. Only applies if newConnectionPerRequest is set.
+  bool forceDNSLookup = 23;
 }
 
 message Alpn {

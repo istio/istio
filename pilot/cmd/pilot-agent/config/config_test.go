@@ -15,11 +15,12 @@
 package config
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
@@ -38,11 +39,11 @@ proxyMetadata:
   SOME: setting
 drainDuration: 1s
 controlPlaneAuthPolicy: NONE`
-	overridesExpected := func() meshconfig.ProxyConfig {
+	overridesExpected := func() *meshconfig.ProxyConfig {
 		m := mesh.DefaultProxyConfig()
 		m.DiscoveryAddress = "foo:123"
 		m.ProxyMetadata = map[string]string{"SOME": "setting"}
-		m.DrainDuration = types.DurationProto(time.Second)
+		m.DrainDuration = durationpb.New(time.Second)
 		m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
 		return m
 	}()
@@ -51,11 +52,14 @@ controlPlaneAuthPolicy: NONE`
 		annotation  string
 		environment string
 		file        string
-		expect      meshconfig.ProxyConfig
+		expect      *meshconfig.ProxyConfig
 	}{
 		{
-			name:   "Defaults",
-			expect: mesh.DefaultProxyConfig(),
+			name: "Defaults",
+			expect: func() *meshconfig.ProxyConfig {
+				m := mesh.DefaultProxyConfig()
+				return m
+			}(),
 		},
 		{
 			name:       "Annotation Override",
@@ -104,11 +108,11 @@ proxyStatsMatcher:
   inclusionSuffixes: ["e"]
   inclusionRegexps: ["f"]
 `,
-			expect: func() meshconfig.ProxyConfig {
+			expect: func() *meshconfig.ProxyConfig {
 				m := mesh.DefaultProxyConfig()
 				m.DiscoveryAddress = "annotation:123"
 				m.ProxyMetadata = map[string]string{"ANNOTATION": "something", "SOME": "setting"}
-				m.DrainDuration = types.DurationProto(5 * time.Second)
+				m.DrainDuration = durationpb.New(5 * time.Second)
 				m.ExtraStatTags = []string{"b"}
 				m.ProxyStatsMatcher = &meshconfig.ProxyConfig_ProxyStatsMatcher{}
 				m.ProxyStatsMatcher.InclusionPrefixes = []string{"a"}
@@ -126,8 +130,8 @@ proxyStatsMatcher:
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(*got.DefaultConfig, tt.expect) {
-				t.Fatalf("got \n%v expected \n%v", *got.DefaultConfig, tt.expect)
+			if !cmp.Equal(got.DefaultConfig, tt.expect, protocmp.Transform()) {
+				t.Fatalf("got \n%v expected \n%v", got.DefaultConfig, tt.expect)
 			}
 		})
 	}

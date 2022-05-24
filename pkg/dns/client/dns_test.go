@@ -175,6 +175,22 @@ func TestDNS(t *testing.T) {
 			expected: a("a.b.wildcard.", []net.IP{net.ParseIP("11.11.11.11").To4()}),
 		},
 		{
+			name:     "success: wild card with domain returns A record correctly",
+			host:     "foo.svc.mesh.company.net.",
+			expected: a("foo.svc.mesh.company.net.", []net.IP{net.ParseIP("10.1.2.3").To4()}),
+		},
+		{
+			name:     "success: wild card with namespace with domain returns A record correctly",
+			host:     "foo.foons.svc.mesh.company.net.",
+			expected: a("foo.foons.svc.mesh.company.net.", []net.IP{net.ParseIP("10.1.2.3").To4()}),
+		},
+		{
+			name: "success: wild card with search domain returns A record correctly",
+			host: "foo.svc.mesh.company.net.ns1.svc.cluster.local.",
+			expected: append(cname("*.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net."),
+				a("foo.svc.mesh.company.net.ns1.svc.cluster.local.", []net.IP{net.ParseIP("10.1.2.3").To4()})...),
+		},
+		{
 			name:      "success: TypeAAAA query returns AAAA records only",
 			host:      "dual.localhost.",
 			queryAAAA: true,
@@ -216,6 +232,11 @@ func TestDNS(t *testing.T) {
 			host:                    "giant-tc.",
 			expectResolutionFailure: dns.RcodeSuccess,
 			expected:                giantResponse[:29],
+		},
+		{
+			name:     "success: hostname with a period",
+			host:     "example.localhost.",
+			expected: a("example.localhost.", []net.IP{net.ParseIP("3.3.3.3").To4()}),
 		},
 	}
 
@@ -415,8 +436,16 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 		ReadTimeout:       time.Second,
 		WriteTimeout:      time.Second,
 	}
-	go func() { _ = server.ListenAndServe() }()
-	<-up
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			log.Warnf("listen error: %v", err)
+		}
+	}()
+	select {
+	case <-time.After(time.Second * 10):
+		t.Fatalf("setup timeout")
+	case <-up:
+	}
 	t.Cleanup(func() { _ = server.Shutdown() })
 	server.Addr = server.PacketConn.LocalAddr().String()
 
@@ -428,8 +457,16 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 		Handler:           mux,
 		NotifyStartedFunc: func() { close(up) },
 	}
-	go func() { _ = tcp.ListenAndServe() }()
-	<-up
+	go func() {
+		if err := tcp.ListenAndServe(); err != nil {
+			log.Warnf("listen error: %v", err)
+		}
+	}()
+	select {
+	case <-time.After(time.Second * 10):
+		t.Fatalf("setup timeout")
+	case <-up:
+	}
 	t.Cleanup(func() { _ = tcp.Shutdown() })
 	t.Cleanup(func() { _ = server.Shutdown() })
 	tcp.Addr = server.PacketConn.LocalAddr().String()
@@ -496,6 +533,14 @@ func initDNS(t test.Failer) *LocalDNSServer {
 			},
 			"*.wildcard": {
 				Ips:      []string{"10.10.10.10"},
+				Registry: "External",
+			},
+			"*.svc.mesh.company.net": {
+				Ips:      []string{"10.1.2.3"},
+				Registry: "External",
+			},
+			"example.localhost.": {
+				Ips:      []string{"3.3.3.3"},
 				Registry: "External",
 			},
 		},

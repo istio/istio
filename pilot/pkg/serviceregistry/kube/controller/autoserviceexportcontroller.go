@@ -88,7 +88,7 @@ func (c *autoServiceExportController) onServiceAdd(obj interface{}) {
 			return nil
 		}
 
-		svc, err := convertToService(obj)
+		svc, err := extractService(obj)
 		if err != nil {
 			log.Warnf("%s failed converting service: %v", c.logPrefix(), err)
 			return err
@@ -106,7 +106,7 @@ func (c *autoServiceExportController) onServiceAdd(obj interface{}) {
 }
 
 func (c *autoServiceExportController) Run(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced) {
+	if !kube.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced) {
 		log.Errorf("%s failed to sync cache", c.logPrefix())
 		return
 	}

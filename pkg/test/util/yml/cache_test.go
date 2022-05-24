@@ -73,8 +73,7 @@ spec:
 
 func TestCache_Apply_Basic(t *testing.T) {
 	g := NewWithT(t)
-	d, err := os.MkdirTemp(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
+	d := t.TempDir()
 	t.Logf("Test Dir: %q", d)
 
 	c := NewCache(d)
@@ -125,8 +124,7 @@ func TestCache_Apply_Basic(t *testing.T) {
 
 func TestCache_Apply_MultiPart(t *testing.T) {
 	g := NewWithT(t)
-	d, err := os.MkdirTemp(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
+	d := t.TempDir()
 	t.Logf("Test Dir: %q", d)
 
 	c := NewCache(d)
@@ -173,8 +171,7 @@ func TestCache_Apply_MultiPart(t *testing.T) {
 
 func TestCache_Apply_Add_Update(t *testing.T) {
 	g := NewWithT(t)
-	d, err := os.MkdirTemp(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
+	d := t.TempDir()
 	t.Logf("Test Dir: %q", d)
 
 	c := NewCache(d)
@@ -206,8 +203,7 @@ func TestCache_Apply_Add_Update(t *testing.T) {
 
 func TestCache_Apply_SameContent(t *testing.T) {
 	g := NewWithT(t)
-	d, err := os.MkdirTemp(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
+	d := t.TempDir()
 	t.Logf("Test Dir: %q", d)
 
 	c := NewCache(d)
@@ -232,13 +228,12 @@ func TestCache_Apply_SameContent(t *testing.T) {
 
 func TestCache_Clear(t *testing.T) {
 	g := NewWithT(t)
-	d, err := os.MkdirTemp(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
+	d := t.TempDir()
 	t.Logf("Test Dir: %q", d)
 
 	c := NewCache(d)
 
-	_, err = c.Apply(gateway)
+	_, err := c.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
 	_, err = c.Apply(virtualService)
@@ -257,8 +252,7 @@ func TestCache_Clear(t *testing.T) {
 
 func TestCache_GetFileFor_Empty(t *testing.T) {
 	g := NewWithT(t)
-	d, err := os.MkdirTemp(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
+	d := t.TempDir()
 	t.Logf("Test Dir: %q", d)
 
 	c := NewCache(d)
@@ -269,13 +263,12 @@ func TestCache_GetFileFor_Empty(t *testing.T) {
 
 func TestCache_Delete(t *testing.T) {
 	g := NewWithT(t)
-	d, err := os.MkdirTemp(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
+	d := t.TempDir()
 	t.Logf("Test Dir: %q", d)
 
 	c := NewCache(d)
 
-	_, err = c.Apply(gateway)
+	_, err := c.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
 	keys1, err := c.Apply(virtualService)
@@ -300,13 +293,12 @@ func TestCache_Delete(t *testing.T) {
 
 func TestCache_Delete_Missing(t *testing.T) {
 	g := NewWithT(t)
-	d, err := os.MkdirTemp(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
+	d := t.TempDir()
 	t.Logf("Test Dir: %q", d)
 
 	c := NewCache(d)
 
-	_, err = c.Apply(gateway)
+	_, err := c.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
 	err = c.Delete(virtualService)

@@ -160,6 +160,7 @@ var (
 		Annotations: map[string]string{
 			"sidecar.istio.io/status": "something",
 		},
+		NodeName:            "TestNode",
 		InitContainerStatus: &brokenInitContainerWaiting,
 	})
 

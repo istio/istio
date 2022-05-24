@@ -19,14 +19,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
+	"github.com/prometheus/prometheus/util/strutil"
 	"gomodules.xyz/jsonpatch/v3"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -35,7 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -45,7 +48,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -67,6 +71,13 @@ func init() {
 }
 
 const (
+	// prometheus will convert annotation to this format
+	// `prometheus.io/scrape` `prometheus.io.scrape` `prometheus-io/scrape` have the same meaning in Prometheus
+	// for more details, please checkout [here](https://github.com/prometheus/prometheus/blob/71a0f42331566a8849863d77078083edbb0b3bc4/util/strutil/strconv.go#L40)
+	prometheusScrapeAnnotation = "prometheus_io_scrape"
+	prometheusPortAnnotation   = "prometheus_io_port"
+	prometheusPathAnnotation   = "prometheus_io_path"
+
 	watchDebounceDelay = 100 * time.Millisecond
 )
 
@@ -75,7 +86,7 @@ type Webhook struct {
 	mu           sync.RWMutex
 	Config       *Config
 	meshConfig   *meshconfig.MeshConfig
-	valuesConfig string
+	valuesConfig ValuesConfig
 
 	watcher Watcher
 
@@ -112,7 +123,7 @@ func unmarshalConfig(data []byte) (*Config, error) {
 	log.Debugf("Policy: %v", c.Policy)
 	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
 	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
-	log.Debugf("Templates: |\n  %v", c.Templates, "\n", "\n  ", -1)
+	log.Debugf("Templates: |\n  %v", c.RawTemplates, "\n", "\n  ", -1)
 	return &c, nil
 }
 
@@ -153,7 +164,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if err != nil {
 		return nil, err
 	}
-	wh.updateConfig(sidecarConfig, valuesConfig)
+	if err := wh.updateConfig(sidecarConfig, valuesConfig); err != nil {
+		log.Errorf("failed to process webhook config: %v", err)
+	}
 
 	p.Mux.HandleFunc("/inject", wh.serveInject)
 	p.Mux.HandleFunc("/inject/", wh.serveInject)
@@ -172,11 +185,16 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	go wh.watcher.Run(stop)
 }
 
-func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {
+func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) error {
 	wh.mu.Lock()
+	defer wh.mu.Unlock()
 	wh.Config = sidecarConfig
-	wh.valuesConfig = valuesConfig
-	wh.mu.Unlock()
+	vc, err := NewValuesConfig(valuesConfig)
+	if err != nil {
+		return err
+	}
+	wh.valuesConfig = vc
+	return nil
 }
 
 type ContainerReorder int
@@ -232,56 +250,54 @@ func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) 
 	return true
 }
 
-func ExtractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
-	return extractCanonicalServiceLabel(podLabels, workloadName), extractCanonicalServiceRevision(podLabels)
-}
-
-func extractCanonicalServiceRevision(podLabels map[string]string) string {
-	if rev, ok := podLabels[model.IstioCanonicalServiceRevisionLabelName]; ok {
-		return rev
-	}
-
-	if rev, ok := podLabels["app.kubernetes.io/version"]; ok {
-		return rev
-	}
-
-	if rev, ok := podLabels["version"]; ok {
-		return rev
-	}
-
-	return "latest"
-}
-
-func extractCanonicalServiceLabel(podLabels map[string]string, workloadName string) string {
-	if svc, ok := podLabels[model.IstioCanonicalServiceLabelName]; ok {
-		return svc
-	}
-
-	if svc, ok := podLabels["app.kubernetes.io/name"]; ok {
-		return svc
-	}
-
-	if svc, ok := podLabels["app"]; ok {
-		return svc
-	}
-
-	return workloadName
-}
-
 func toAdmissionResponse(err error) *kube.AdmissionResponse {
 	return &kube.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
+}
+
+func ParseTemplates(tmpls RawTemplates) (Templates, error) {
+	ret := make(Templates, len(tmpls))
+	for k, t := range tmpls {
+		p, err := parseDryTemplate(t, InjectionFuncmap)
+		if err != nil {
+			return nil, err
+		}
+		ret[k] = p
+	}
+	return ret, nil
+}
+
+type ValuesConfig struct {
+	raw      string
+	asStruct *opconfig.Values
+	asMap    map[string]interface{}
+}
+
+func NewValuesConfig(v string) (ValuesConfig, error) {
+	c := ValuesConfig{raw: v}
+	valuesStruct := &opconfig.Values{}
+	if err := protomarshal.ApplyYAML(v, valuesStruct); err != nil {
+		return c, fmt.Errorf("could not parse configuration values: %v", err)
+	}
+	c.asStruct = valuesStruct
+
+	values := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(v), &values); err != nil {
+		return c, fmt.Errorf("could not parse configuration values: %v", err)
+	}
+	c.asMap = values
+	return c, nil
 }
 
 type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          metav1.ObjectMeta
 	typeMeta            metav1.TypeMeta
-	templates           Templates
+	templates           map[string]*template.Template
 	defaultTemplate     []string
 	aliases             map[string][]string
 	meshConfig          *meshconfig.MeshConfig
 	proxyConfig         *meshconfig.ProxyConfig
-	valuesConfig        string
+	valuesConfig        ValuesConfig
 	revision            string
 	proxyEnvs           map[string]string
 	injectedAnnotations map[string]string
@@ -557,19 +573,15 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	mc := req.meshConfig
 	// Get copy of pod proxyconfig, to determine container ordering
 	if pca, f := req.pod.ObjectMeta.GetAnnotations()[annotation.ProxyConfig.Name]; f {
-		mc, merr = mesh.ApplyProxyConfig(pca, *req.meshConfig)
+		mc, merr = mesh.ApplyProxyConfig(pca, req.meshConfig)
 		if merr != nil {
 			return merr
 		}
 	}
 
-	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
-		return fmt.Errorf("could not parse configuration values: %v", err)
-	}
 	// nolint: staticcheck
 	holdPod := mc.GetDefaultConfig().GetHoldApplicationUntilProxyStarts().GetValue() ||
-		valuesStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
+		req.valuesConfig.asStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
 
 	proxyLocation := MoveLast
 	// If HoldApplicationUntilProxyStarts is set, reorder the proxy location
@@ -590,17 +602,14 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 }
 
 func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
-	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, req.valuesConfig)
-		return fmt.Errorf("could not parse configuration values: %v", err)
+	sidecar := FindSidecar(pod.Spec.Containers)
+	if sidecar == nil {
+		return nil
 	}
 
-	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
-	sidecar := FindSidecar(pod.Spec.Containers)
-
+	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, req.valuesConfig.asStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe().GetValue())
 	// We don't have to escape json encoding here when using golang libraries.
-	if rewrite && sidecar != nil {
+	if rewrite {
 		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
 			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
 		}
@@ -609,27 +618,25 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	return nil
 }
 
+var emptyScrape = status.PrometheusScrapeConfiguration{}
+
 // applyPrometheusMerge configures prometheus scraping annotations for the "metrics merge" feature.
 // This moves the current prometheus.io annotations into an environment variable and replaces them
 // pointing to the agent.
 func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
-	sidecar := FindSidecar(pod.Spec.Containers)
-	if enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
+	if getPrometheusScrape(pod) &&
+		enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
 		targetPort := strconv.Itoa(int(mesh.GetDefaultConfig().GetStatusPort()))
-		if cur, f := pod.Annotations["prometheus.io/port"]; f {
+		if cur, f := getPrometheusPort(pod); f {
 			// We have already set the port, assume user is controlling this or, more likely, re-injected
 			// the pod.
 			if cur == targetPort {
 				return nil
 			}
 		}
-		scrape := status.PrometheusScrapeConfiguration{
-			Scrape: pod.Annotations["prometheus.io/scrape"],
-			Path:   pod.Annotations["prometheus.io/path"],
-			Port:   pod.Annotations["prometheus.io/port"],
-		}
-		empty := status.PrometheusScrapeConfiguration{}
-		if sidecar != nil && scrape != empty {
+		scrape := getPrometheusScrapeConfiguration(pod)
+		sidecar := FindSidecar(pod.Spec.Containers)
+		if sidecar != nil && scrape != emptyScrape {
 			by, err := json.Marshal(scrape)
 			if err != nil {
 				return err
@@ -639,11 +646,83 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 		if pod.Annotations == nil {
 			pod.Annotations = map[string]string{}
 		}
+		// if a user sets `prometheus/io/path: foo`, then we add `prometheus.io/path: /stats/prometheus`
+		// prometheus will pick a random one
+		// need to clear out all variants and then set ours
+		clearPrometheusAnnotations(pod)
 		pod.Annotations["prometheus.io/port"] = targetPort
 		pod.Annotations["prometheus.io/path"] = "/stats/prometheus"
 		pod.Annotations["prometheus.io/scrape"] = "true"
+		return nil
 	}
+
 	return nil
+}
+
+// getPrometheusScrape respect prometheus scrape config
+// not to doing prometheusMerge if this return false
+func getPrometheusScrape(pod *corev1.Pod) bool {
+	for k, val := range pod.Annotations {
+		if strutil.SanitizeLabelName(k) != prometheusScrapeAnnotation {
+			continue
+		}
+
+		if scrape, err := strconv.ParseBool(val); err == nil {
+			return scrape
+		}
+	}
+
+	return true
+}
+
+var prometheusAnnotations = sets.New(
+	prometheusPathAnnotation,
+	prometheusPortAnnotation,
+	prometheusScrapeAnnotation,
+)
+
+func clearPrometheusAnnotations(pod *corev1.Pod) {
+	needRemovedKeys := make([]string, 0, 2)
+	for k := range pod.Annotations {
+		anno := strutil.SanitizeLabelName(k)
+		if prometheusAnnotations.Contains(anno) {
+			needRemovedKeys = append(needRemovedKeys, k)
+		}
+	}
+
+	for _, k := range needRemovedKeys {
+		delete(pod.Annotations, k)
+	}
+}
+
+func getPrometheusScrapeConfiguration(pod *corev1.Pod) status.PrometheusScrapeConfiguration {
+	cfg := status.PrometheusScrapeConfiguration{}
+
+	for k, val := range pod.Annotations {
+		anno := strutil.SanitizeLabelName(k)
+		switch anno {
+		case prometheusPortAnnotation:
+			cfg.Port = val
+		case prometheusScrapeAnnotation:
+			cfg.Scrape = val
+		case prometheusPathAnnotation:
+			cfg.Path = val
+		}
+	}
+
+	return cfg
+}
+
+func getPrometheusPort(pod *corev1.Pod) (string, bool) {
+	for k, val := range pod.Annotations {
+		if strutil.SanitizeLabelName(k) != prometheusPortAnnotation {
+			continue
+		}
+
+		return val, true
+	}
+
+	return "", false
 }
 
 const (
@@ -679,6 +758,66 @@ func applyInitContainer(target *corev1.Pod, container corev1.Container) (*corev1
 	}
 
 	return applyOverlay(target, overlayJSON)
+}
+
+func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v interface{}) error) (map[string]interface{}, error) {
+	if j == nil {
+		j = []byte("{}")
+	}
+
+	m := map[string]interface{}{}
+	err := unmarshal(j, &m)
+	if err != nil {
+		return nil, mergepatch.ErrBadJSONDoc
+	}
+	return m, nil
+}
+
+// StrategicMergePatchYAML is a small fork of strategicpatch.StrategicMergePatch to allow YAML patches
+// This avoids expensive conversion from YAML to JSON
+func StrategicMergePatchYAML(originalJSON []byte, patchYAML []byte, dataStruct interface{}) ([]byte, error) {
+	schema, err := strategicpatch.NewPatchMetaFromStruct(dataStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	originalMap, err := patchHandleUnmarshal(originalJSON, json.Unmarshal)
+	if err != nil {
+		return nil, err
+	}
+	patchMap, err := patchHandleUnmarshal(patchYAML, func(data []byte, v interface{}) error {
+		return yaml.Unmarshal(data, v)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := strategicpatch.StrategicMergeMapPatchUsingLookupPatchMeta(originalMap, patchMap, schema)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(result)
+}
+
+// applyContainer merges a pod spec, provided as JSON, on top of the provided pod
+func applyOverlayYAML(target *corev1.Pod, overlayYAML []byte) (*corev1.Pod, error) {
+	currentJSON, err := json.Marshal(target)
+	if err != nil {
+		return nil, err
+	}
+
+	pod := corev1.Pod{}
+	// Overlay the injected template onto the original podSpec
+	patched, err := StrategicMergePatchYAML(currentJSON, overlayYAML, pod)
+	if err != nil {
+		return nil, fmt.Errorf("strategic merge: %v", err)
+	}
+
+	if err := json.Unmarshal(patched, &pod); err != nil {
+		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
+	}
+	return &pod, nil
 }
 
 // applyContainer merges a pod spec, provided as JSON, on top of the provided pod
@@ -723,7 +862,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
 	wh.mu.RLock()
-	if !injectRequired(IgnoredNamespaces, wh.Config, &pod.Spec, pod.ObjectMeta) {
+	if !injectRequired(IgnoredNamespaces.UnsortedList(), wh.Config, &pod.Spec, pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		totalSkippedInjections.Increment()
 		wh.mu.RUnlock()
@@ -740,7 +879,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 				Labels:      pod.Labels,
 				Annotations: pod.Annotations,
 			}, wh.meshConfig); generatedProxyConfig != nil {
-			proxyConfig = *generatedProxyConfig
+			proxyConfig = generatedProxyConfig
 		}
 	}
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
@@ -752,7 +891,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		defaultTemplate:     wh.Config.DefaultTemplates,
 		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
-		proxyConfig:         &proxyConfig,
+		proxyConfig:         proxyConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
@@ -782,8 +921,11 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	totalInjections.Increment()
 	var body []byte
 	if r.Body != nil {
-		if data, err := io.ReadAll(r.Body); err == nil {
+		if data, err := kube.HTTPConfigReader(r); err == nil {
 			body = data
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 	}
 	if len(body) == 0 {

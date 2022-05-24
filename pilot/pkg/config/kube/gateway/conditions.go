@@ -39,8 +39,8 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	}
 	// Collect all of our unique parent references. There may be multiple when we have a route without section name,
 	// but reference a parent with multiple sections.
-	seen := map[k8s.ParentRef]routeParentReference{}
-	failedCount := map[k8s.ParentRef]int{}
+	seen := map[k8s.ParentReference]routeParentReference{}
+	failedCount := map[k8s.ParentReference]int{}
 	for _, gw := range gateways {
 		// We will append it if it is our first occurrence, or the existing one has an error. This means
 		// if *any* section has no errors, we will declare Admitted
@@ -58,7 +58,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 		var condition metav1.Condition
 		if routeErr != nil {
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAccepted),
+				Type:               string(k8s.RouteConditionAccepted),
 				Status:             kstatus.StatusFalse,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -71,7 +71,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 				err = fmt.Sprintf("failed to bind to %d parents, last error: %v", failedCount[k], gw.DeniedReason.Error())
 			}
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAccepted),
+				Type:               string(k8s.RouteConditionAccepted),
 				Status:             kstatus.StatusFalse,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -80,7 +80,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 			}
 		} else {
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAccepted),
+				Type:               string(k8s.RouteConditionAccepted),
 				Status:             kstatus.StatusTrue,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -134,8 +134,8 @@ type condition struct {
 	// error defines an error state; the reason and message will be replaced with that of the error and
 	// the status inverted
 	error *ConfigError
-	// setOnce, if enabled, will only set the condition if it is not yet present
-	setOnce bool
+	// setOnce, if enabled, will only set the condition if it is not yet present or set to this reason
+	setOnce string
 }
 
 // setConditions sets the existingConditions with the new conditions
@@ -149,8 +149,10 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	for _, k := range condKeys {
 		cond := conditions[k]
 		setter := kstatus.UpdateConditionIfChanged
-		if cond.setOnce {
-			setter = kstatus.CreateCondition
+		if cond.setOnce != "" {
+			setter = func(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
+				return kstatus.CreateCondition(conditions, condition, cond.setOnce)
+			}
 		}
 		// A condition can be "negative polarity" (ex: ListenerInvalid) or "positive polarity" (ex:
 		// ListenerValid), so in order to determine the status we should set each `condition` defines its

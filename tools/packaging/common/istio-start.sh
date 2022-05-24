@@ -21,18 +21,18 @@
 set -e
 
 # Match pilot/docker/Dockerfile.proxyv2
-export ISTIO_META_ISTIO_VERSION="1.13.0"
+export ISTIO_META_ISTIO_VERSION="1.15.0"
 
 set -a
 # Load optional config variables
-ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
+ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-./var/lib/istio/envoy/sidecar.env}
 if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
   # shellcheck disable=SC1090
   . "$ISTIO_SIDECAR_CONFIG"
 fi
 
 # Load config variables ISTIO_SYSTEM_NAMESPACE, CONTROL_PLANE_AUTH_POLICY
-ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
+ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-./var/lib/istio/envoy/cluster.env}
 if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
   # shellcheck disable=SC1090
   . "$ISTIO_CLUSTER_CONFIG"
@@ -41,7 +41,7 @@ set +a
 
 # Set defaults
 ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
-ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
+ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-./var/log/istio}
 NS=${ISTIO_NAMESPACE:-default}
 SVC=${ISTIO_SERVICE:-rawvm}
 ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
@@ -105,8 +105,8 @@ fi
 
 # CA_ADDR > PILOT_ADDRESS > ISTIO_PILOT_PORT
 CA_ADDR=${CA_ADDR:-${CUSTOM_PILOT_ADDRESS:-${DEFAULT_PILOT_ADDRESS}}}
-PROV_CERT=${PROV_CERT-/etc/certs}
-OUTPUT_CERTS=${OUTPUT_CERTS-/etc/certs}
+PROV_CERT=${PROV_CERT-./etc/certs}
+OUTPUT_CERTS=${OUTPUT_CERTS-./etc/certs}
 
 export PROV_CERT
 export OUTPUT_CERTS
@@ -142,5 +142,5 @@ else
 currentLimit=$(ulimit -n)
 
 # Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
-exec sudo -E -u ${EXEC_USER} -s /bin/bash -c "ulimit -n ${currentLimit}; INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS_ARRAY[*]} 2> ${ISTIO_LOG_DIR}/istio.err.log > ${ISTIO_LOG_DIR}/istio.log"
+exec sudo -E -u ${EXEC_USER} -s /bin/bash -c "ulimit -n ${currentLimit}; INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS_ARRAY[*]} 2>> ${ISTIO_LOG_DIR}/istio.err.log >> ${ISTIO_LOG_DIR}/istio.log"
 fi

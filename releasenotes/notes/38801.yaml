@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** support for configuring internal addresses of mesh. This can be enabled by setting
+    "ENABLE_HCM_INTERNAL_NETWORKS" to true.

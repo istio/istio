@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package fuzz
 
 import (
@@ -26,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/scope"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/pkg/log"
 )
@@ -143,7 +141,7 @@ func FuzzAnalyzer(data []byte) int {
 		return 0
 	}
 
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCase", analyzer), "", "istio-system", cr, true, 10*time.Second)
+	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", analyzer), "", "istio-system", cr, true, 10*time.Second)
 	if addMeshConfig {
 		err = sa.AddFileKubeMeshConfig(meshConfigFile)
 		if err != nil {

@@ -19,7 +19,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -31,11 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/kube-openapi/pkg/validation/validate"
+	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/yml"
@@ -51,12 +49,10 @@ type Validator struct {
 }
 
 func (v *Validator) ValidateCustomResourceYAML(data string) error {
-	decoder := serializer.NewCodecFactory(kube.IstioScheme, serializer.EnableStrict).UniversalDeserializer()
-
 	var errs *multierror.Error
 	for _, item := range yml.SplitString(data) {
-		obj, _, err := decoder.Decode([]byte(item), nil, nil)
-		if err != nil {
+		obj := &unstructured.Unstructured{}
+		if err := yaml.Unmarshal([]byte(item), obj); err != nil {
 			return err
 		}
 		errs = multierror.Append(errs, v.ValidateCustomResource(obj))
@@ -80,17 +76,7 @@ func (v *Validator) ValidateCustomResource(o runtime.Object) error {
 	}
 	// Fill in defaults
 	structuraldefaulting.Default(un.Object, v.structural[un.GroupVersionKind()])
-	if err := validation.ValidateCustomResource(nil, un.Object, vd).Filter(func(err error) bool {
-		// It turns out to be extremely hard to 100% match the api-servers validation, in particular around
-		// null vs unset objects. See https://github.com/kubernetes/kubernetes/issues/95407
-		// To unblock, we will just filter out these errors.
-		// One major issue with this approach is that it treats nested fields differently. For example,
-		// it may be illegal to explicitly set a field to "", but legal if you don't set the field at all
-		// by omitting the entire parent object.
-		return strings.Contains(err.Error(), `must be of type object: "null"`) ||
-			strings.Contains(err.Error(), `must be of type array: "null"`) ||
-			strings.Contains(err.Error(), `must be of type string: "null"`)
-	}).ToAggregate(); err != nil {
+	if err := validation.ValidateCustomResource(nil, un.Object, vd).ToAggregate(); err != nil {
 		return fmt.Errorf("%v/%v/%v: %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), err)
 	}
 	return nil

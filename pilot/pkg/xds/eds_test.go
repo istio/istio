@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,17 +14,16 @@
 package xds_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,11 +37,14 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 // The connect and reconnect tests are removed - ADS already has coverage, and the
@@ -57,18 +59,14 @@ const (
 )
 
 func TestIncrementalPush(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml")})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml") +
+			mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml"),
+	})
 	ads := s.Connect(nil, nil, watchAll)
 	t.Run("Full Push", func(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{Full: true})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Incremental Push", func(t *testing.T) {
-		ads.WaitClear()
-		s.Discovery.Push(&model.PushRequest{Full: false})
-		if err := ads.WaitSingle(time.Second*5, v3.EndpointType, v3.ClusterType); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -86,6 +84,22 @@ func TestIncrementalPush(t *testing.T) {
 	})
 	t.Run("Full Push with updated services", func(t *testing.T) {
 		ads.WaitClear()
+
+		s.Discovery.Push(&model.PushRequest{
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{
+				{Name: "weighted.static.svc.cluster.local", Namespace: "default", Kind: gvk.ServiceEntry}: {},
+			},
+		})
+		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
+			t.Fatal(err)
+		}
+		if len(ads.GetEndpoints()) != 1 {
+			t.Fatalf("Expected a partial EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
+		}
+	})
+	t.Run("Full Push with multiple updates", func(t *testing.T) {
+		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{
@@ -96,8 +110,8 @@ func TestIncrementalPush(t *testing.T) {
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
-		if len(ads.GetEndpoints()) < 3 {
-			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
+		if len(ads.GetEndpoints()) != 4 {
+			t.Fatalf("Expected a full EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
 		}
 	})
 	t.Run("Full Push without updated services", func(t *testing.T) {
@@ -170,8 +184,6 @@ func TestEds(t *testing.T) {
 		if len(clusters) == 0 {
 			t.Error("No clusters in ADS response")
 		}
-		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
-		_ = os.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0o644)
 	})
 }
 
@@ -338,6 +350,172 @@ func TestEDSOverlapping(t *testing.T) {
 	testOverlappingPorts(s, adscon, t)
 }
 
+func TestEDSUnhealthyEndpoints(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	addUnhealthyCluster(s)
+	adscon := s.Connect(nil, nil, watchEds)
+	_, err := adscon.Wait(5 * time.Second)
+	if err != nil {
+		t.Fatalf("Error in push %v", err)
+	}
+
+	validateEndpoints := func(expectPush bool, healthy []string, unhealthy []string) {
+		t.Helper()
+		// Normalize lists to make comparison easier
+		if healthy == nil {
+			healthy = []string{}
+		}
+		if unhealthy == nil {
+			unhealthy = []string{}
+		}
+		sort.Strings(healthy)
+		sort.Strings(unhealthy)
+		if expectPush {
+			upd, _ := adscon.Wait(5*time.Second, v3.EndpointType)
+
+			if len(upd) > 0 && !contains(upd, v3.EndpointType) {
+				t.Fatalf("Expecting EDS push as endpoint health is changed. But received %v", upd)
+			}
+		} else {
+			upd, _ := adscon.Wait(50*time.Millisecond, v3.EndpointType)
+			if contains(upd, v3.EndpointType) {
+				t.Fatalf("Expected no EDS push, got %v", upd)
+			}
+		}
+
+		// Validate that endpoints are pushed.
+		lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
+		eh, euh := xdstest.ExtractHealthEndpoints(lbe)
+		gotHealthy := sets.New(eh...).SortedList()
+		gotUnhealthy := sets.New(euh...).SortedList()
+		if !reflect.DeepEqual(gotHealthy, healthy) {
+			t.Fatalf("did not get expected endpoints: got %v, want %v", gotHealthy, healthy)
+		}
+		if !reflect.DeepEqual(gotUnhealthy, unhealthy) {
+			t.Fatalf("did not get expected unhealthy endpoints: got %v, want %v", gotUnhealthy, unhealthy)
+		}
+	}
+
+	// Validate that we do not send initial unhealthy endpoints.
+	validateEndpoints(false, nil, nil)
+	adscon.WaitClear()
+
+	// Set additional unhealthy endpoint and validate Eds update is not triggered.
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.UnHealthy,
+			},
+			{
+				Address:         "10.0.0.54",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.UnHealthy,
+			},
+		})
+
+	// Validate that endpoint is not pushed.
+	validateEndpoints(false, nil, nil)
+
+	// Change the status of endpoint to Healthy and validate Eds is pushed.
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+			{
+				Address:         "10.0.0.54",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+		})
+
+	// Validate that endpoints are pushed.
+	validateEndpoints(true, []string{"10.0.0.53:53", "10.0.0.54:53"}, nil)
+
+	// Set to exact same endpoints
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+			{
+				Address:         "10.0.0.54",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+		})
+	// Validate that endpoint is not pushed.
+	validateEndpoints(false, []string{"10.0.0.53:53", "10.0.0.54:53"}, nil)
+
+	// Now change the status of endpoint to UnHealthy and validate Eds is pushed.
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.UnHealthy,
+			},
+			{
+				Address:         "10.0.0.54",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+		})
+
+	// Validate that endpoints are pushed.
+	validateEndpoints(true, []string{"10.0.0.54:53"}, []string{"10.0.0.53:53"})
+
+	// Change the status of endpoint to Healthy and validate Eds is pushed.
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+			{
+				Address:         "10.0.0.54",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+		})
+
+	validateEndpoints(true, []string{"10.0.0.54:53", "10.0.0.53:53"}, nil)
+
+	// Remove a healthy endpoint
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+		})
+
+	validateEndpoints(true, []string{"10.0.0.53:53"}, nil)
+
+	// Remove last healthy endpoint
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "", []*model.IstioEndpoint{})
+	validateEndpoints(true, nil, nil)
+}
+
 // Validates the behavior when Service resolution type is updated after initial EDS push.
 // See https://github.com/istio/istio/issues/18355 for more details.
 func TestEDSServiceResolutionUpdate(t *testing.T) {
@@ -396,9 +574,9 @@ func TestEndpointFlipFlops(t *testing.T) {
 		t.Fatalf("There should be no endpoints for outbound|8080||flipflop.com. Endpoints:\n%v", adscConn.EndpointsJSON())
 	}
 
-	// Validate that keys in service still exist in EndpointShardsByService - this prevents full push.
-	if len(s.Discovery.EndpointShardsByService["flipflop.com"]) == 0 {
-		t.Fatalf("Expected service key %s to be present in EndpointShardsByService. But missing %v", "flipflop.com", s.Discovery.EndpointShardsByService)
+	// Validate that keys in service still exist in EndpointIndex - this prevents full push.
+	if _, ok := s.Discovery.EndpointIndex.ShardsForService("flipflop.com", ""); !ok {
+		t.Fatalf("Expected service key %s to be present in EndpointIndex. But missing %v", "flipflop.com", s.Discovery.EndpointIndex.Shardz())
 	}
 
 	// Set the endpoints again and validate it does not trigger full push.
@@ -424,7 +602,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 	testEndpoints("10.10.1.1", "outbound|8080||flipflop.com", adscConn, t)
 }
 
-// Validate that deleting a service clears entries from EndpointShardsByService.
+// Validate that deleting a service clears entries from EndpointIndex.
 func TestDeleteService(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addEdsCluster(s, "removeservice.com", "http", "10.0.0.53", 8080)
@@ -436,11 +614,16 @@ func TestDeleteService(t *testing.T) {
 
 	s.Discovery.MemRegistry.RemoveService("removeservice.com")
 
-	if len(s.Discovery.EndpointShardsByService["removeservice.com"]) != 0 {
-		t.Fatalf("Expected service key %s to be deleted in EndpointShardsByService. But is still there %v",
-			"removeservice.com", s.Discovery.EndpointShardsByService)
+	if _, ok := s.Discovery.EndpointIndex.ShardsForService("removeservice.com", ""); ok {
+		t.Fatalf("Expected service key %s to be deleted in EndpointIndex. But is still there %v",
+			"removeservice.com", s.Discovery.EndpointIndex.Shardz())
 	}
 }
+
+var (
+	c1Key = model.ShardKey{Cluster: "c1"}
+	c2Key = model.ShardKey{Cluster: "c2"}
+)
 
 func TestUpdateServiceAccount(t *testing.T) {
 	cluster1Endppoints := []*model.IstioEndpoint{
@@ -456,19 +639,19 @@ func TestUpdateServiceAccount(t *testing.T) {
 	}{
 		{
 			name:      "added new endpoint",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa1"}),
 			expect:    false,
 		},
 		{
 			name:      "added new sa",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa2"}),
 			expect:    true,
 		},
 		{
 			name:     "updated endpoints address",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.5", ServiceAccount: "sa1"},
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
@@ -477,7 +660,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:     "deleted one endpoint with unique sa",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.1", ServiceAccount: "sa1"},
 			},
@@ -485,7 +668,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:     "deleted one endpoint with duplicate sa",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
 			},
@@ -493,7 +676,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:      "deleted endpoints",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: nil,
 			expect:    true,
 		},
@@ -502,10 +685,10 @@ func TestUpdateServiceAccount(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			s := new(xds.DiscoveryServer)
-			originalEndpointsShard := &xds.EndpointShards{
+			originalEndpointsShard := &model.EndpointShards{
 				Shards: map[model.ShardKey][]*model.IstioEndpoint{
-					"c1": cluster1Endppoints,
-					"c2": {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
+					c1Key: cluster1Endppoints,
+					c2Key: {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
 				},
 				ServiceAccounts: map[string]struct{}{
 					"sa1":    {},
@@ -522,12 +705,33 @@ func TestUpdateServiceAccount(t *testing.T) {
 	}
 }
 
+func TestZeroEndpointShardSA(t *testing.T) {
+	cluster1Endppoints := []*model.IstioEndpoint{
+		{Address: "10.172.0.1", ServiceAccount: "sa1"},
+	}
+	s := new(xds.DiscoveryServer)
+	s.Cache = model.DisabledCache{}
+	s.EndpointIndex = model.NewEndpointIndex()
+	originalEndpointsShard, _ := s.EndpointIndex.GetOrCreateEndpointShard("test", "test")
+	originalEndpointsShard.Shards = map[model.ShardKey][]*model.IstioEndpoint{
+		c1Key: cluster1Endppoints,
+	}
+	originalEndpointsShard.ServiceAccounts = map[string]struct{}{
+		"sa1": {},
+	}
+	s.EDSCacheUpdate(c1Key, "test", "test", []*model.IstioEndpoint{})
+	modifiedShard, _ := s.EndpointIndex.GetOrCreateEndpointShard("test", "test")
+	if len(modifiedShard.ServiceAccounts) != 0 {
+		t.Errorf("endpoint shard service accounts got %v want 0", len(modifiedShard.ServiceAccounts))
+	}
+}
+
 func fullPush(s *xds.FakeDiscoveryServer) {
 	s.Discovery.Push(&model.PushRequest{Full: true})
 }
 
 func addTestClientEndpoints(server *xds.DiscoveryServer) {
-	server.MemRegistry.AddService("test-1.default", &model.Service{
+	server.MemRegistry.AddService(&model.Service{
 		Hostname: "test-1.default",
 		Ports: model.PortList{
 			{
@@ -759,10 +963,10 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 
 	// Update the endpoint with different SA - expect full
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
-		newEndpointWithAccount("127.0.0.3", "account2", "v1"))
+		newEndpointWithAccount("127.0.0.2", "account2", "v1"))
 
 	edsFullUpdateCheck(adsc, t)
-	testTCPEndpoints("127.0.0.3", adsc, t)
+	testTCPEndpoints("127.0.0.2", adsc, t)
 
 	// Update the endpoint again, no SA change - expect incremental
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
@@ -813,7 +1017,8 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 // This test includes a 'bad client' regression test, which fails to read on the
 // stream.
 func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
-	nPushes int, to time.Duration, _ map[string]string, t *testing.T) {
+	nPushes int, to time.Duration, _ map[string]string, t *testing.T,
+) {
 	wgConnect := &sync.WaitGroup{}
 	wg := &sync.WaitGroup{}
 	errChan := make(chan error, nclients)
@@ -851,7 +1056,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 			wgConnect.Done()
 
 			// Check we received all pushes
-			log.Println("Waiting for pushes ", id)
+			log.Info("Waiting for pushes ", id)
 
 			// Pushes may be merged so we may not get nPushes pushes
 			got, err := adscConn.Wait(15*time.Second, v3.EndpointType)
@@ -869,13 +1074,13 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 
 			rcvPush.Inc()
 			if err != nil {
-				log.Println("Recv failed", err, id)
+				log.Info("Recv failed", err, id)
 				errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v",
 					err, id)
 				return
 			}
 
-			log.Println("Received all pushes ", id)
+			log.Info("Received all pushes ", id)
 			rcvClients.Inc()
 
 			adscConn.Close()
@@ -885,7 +1090,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 	if !ok {
 		t.Fatal("Failed to connect")
 	}
-	log.Println("Done connecting")
+	log.Info("Done connecting")
 
 	// All clients are connected - this can start pushing changes.
 	for j := 0; j < nPushes; j++ {
@@ -902,7 +1107,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 		} else {
 			xds.AdsPushAll(s.Discovery)
 		}
-		log.Println("Push done ", j)
+		log.Info("Push done ", j)
 	}
 
 	ok = waitTimeout(wg, to)
@@ -938,7 +1143,7 @@ func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 const udsPath = "/var/run/test/socket"
 
 func addUdsEndpoint(s *xds.DiscoveryServer) {
-	s.MemRegistry.AddService("localuds.cluster.local", &model.Service{
+	s.MemRegistry.AddService(&model.Service{
 		Hostname: "localuds.cluster.local",
 		Ports: model.PortList{
 			{
@@ -973,7 +1178,7 @@ func addUdsEndpoint(s *xds.DiscoveryServer) {
 }
 
 func addLocalityEndpoints(server *xds.DiscoveryServer, hostname host.Name) {
-	server.MemRegistry.AddService(hostname, &model.Service{
+	server.MemRegistry.AddService(&model.Service{
 		Hostname: hostname,
 		Ports: model.PortList{
 			{
@@ -1011,7 +1216,7 @@ func addLocalityEndpoints(server *xds.DiscoveryServer, hostname host.Name) {
 
 // nolint: unparam
 func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string, address string, port int) {
-	s.Discovery.MemRegistry.AddService(host.Name(hostName), &model.Service{
+	s.Discovery.MemRegistry.AddService(&model.Service{
 		Hostname: host.Name(hostName),
 		Ports: model.PortList{
 			{
@@ -1038,7 +1243,7 @@ func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string,
 }
 
 func updateServiceResolution(s *xds.FakeDiscoveryServer, resolution model.Resolution) {
-	s.Discovery.MemRegistry.AddService("edsdns.svc.cluster.local", &model.Service{
+	s.Discovery.MemRegistry.AddService(&model.Service{
 		Hostname: "edsdns.svc.cluster.local",
 		Ports: model.PortList{
 			{
@@ -1067,7 +1272,7 @@ func updateServiceResolution(s *xds.FakeDiscoveryServer, resolution model.Resolu
 }
 
 func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
-	s.Discovery.MemRegistry.AddService("overlapping.cluster.local", &model.Service{
+	s.Discovery.MemRegistry.AddService(&model.Service{
 		Hostname: "overlapping.cluster.local",
 		Ports: model.PortList{
 			{
@@ -1087,6 +1292,33 @@ func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 			Address:         "10.0.0.53",
 			EndpointPort:    53,
 			ServicePortName: "tcp-dns",
+		},
+		ServicePort: &model.Port{
+			Name:     "tcp-dns",
+			Port:     53,
+			Protocol: protocol.TCP,
+		},
+	})
+	fullPush(s)
+}
+
+func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
+	s.Discovery.MemRegistry.AddService(&model.Service{
+		Hostname: "unhealthy.svc.cluster.local",
+		Ports: model.PortList{
+			{
+				Name:     "tcp-dns",
+				Port:     53,
+				Protocol: protocol.TCP,
+			},
+		},
+	})
+	s.Discovery.MemRegistry.AddInstance("unhealthy.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: &model.IstioEndpoint{
+			Address:         "10.0.0.53",
+			EndpointPort:    53,
+			ServicePortName: "tcp-dns",
+			HealthStatus:    model.UnHealthy,
 		},
 		ServicePort: &model.Port{
 			Name:     "tcp-dns",

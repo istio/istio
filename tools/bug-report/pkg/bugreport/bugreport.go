@@ -15,7 +15,6 @@
 package bugreport
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -33,9 +32,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/operator/pkg/util"
-	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/proxy"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/common"
@@ -57,7 +57,7 @@ const (
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
-	bugReportDefaultExclude        = []string{strings.Join(analyzer_util.SystemNamespaces, ",")}
+	bugReportDefaultExclude        = []string{strings.Join(inject.IgnoredNamespaces.SortedList(), ",")}
 )
 
 // Cmd returns a cobra command for bug-report.
@@ -68,8 +68,8 @@ func Cmd(logOpts *log.Options) *cobra.Command {
 		SilenceUsage: true,
 		Long: `bug-report selectively captures cluster information and logs into an archive to help diagnose problems.
 Proxy logs can be filtered using:
-  --include|--exclude ns1,ns2.../dep1,dep2.../pod1,pod2.../cntr1,cntr.../lbl1=val1,lbl2=val2.../ann1=val1,ann2=val2...
-where ns=namespace, dep=deployment, cntr=container, lbl=label, ann=annotation
+  --include|--exclude ns1,ns2.../dep1,dep2.../pod1,pod2.../lbl1=val1,lbl2=val2.../ann1=val1,ann2=val2.../cntr1,cntr...
+where ns=namespace, dep=deployment, lbl=label, ann=annotation, cntr=container
 
 The filter spec is interpreted as 'must be in (ns1 OR ns2) AND (dep1 OR dep2) AND (cntr1 OR cntr2)...'
 The log will be included only if the container matches at least one include filter and does not match any exclude filters.
@@ -133,7 +133,16 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	}
 	common.LogAndPrintf("\nCluster endpoint: %s\n", client.RESTConfig().Host)
 
-	resources, err := cluster2.GetClusterResources(context.Background(), clientset)
+	clusterResourcesCtx, getClusterResourcesCancel := context.WithTimeout(context.Background(), commandTimeout)
+	curTime := time.Now()
+	defer func() {
+		message := "Timeout when get cluster resources, please using --include or --exclude to filter"
+		if time.Until(curTime.Add(commandTimeout)) < 0 {
+			common.LogAndPrintf(message)
+		}
+		getClusterResourcesCancel()
+	}()
+	resources, err := cluster2.GetClusterResources(clusterResourcesCtx, clientset, config)
 	if err != nil {
 		return err
 	}
@@ -184,17 +193,8 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 }
 
 func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string) {
-	cmd := version.CobraCommand()
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
 	text := ""
-	if err := cmd.Execute(); err != nil {
-		text += "failed to load CLI version.\n"
-	}
-	cliVersion := out.String()
-
-	text += fmt.Sprintf("CLI version: %s\n", cliVersion)
+	text += fmt.Sprintf("CLI version:\n%s\n\n", version.Info.LongForm())
 
 	revisions := getIstioRevisions(resources)
 	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
@@ -212,26 +212,22 @@ func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configC
 
 // getIstioRevisions returns a slice with all Istio revisions detected in the cluster.
 func getIstioRevisions(resources *cluster2.Resources) []string {
-	revMap := make(map[string]struct{})
+	revMap := sets.New()
 	for _, podLabels := range resources.Labels {
 		for label, value := range podLabels {
 			if label == istioRevisionLabel {
-				revMap[value] = struct{}{}
+				revMap.Insert(value)
 			}
 		}
 	}
-	var out []string
-	for k := range revMap {
-		out = append(out, k)
-	}
-	return out
+	return revMap.SortedList()
 }
 
 // getIstioVersions returns a mapping of revision to aggregated version string for Istio components and revision to
 // slice of versions for proxies. Any errors are embedded in the revision strings.
 func getIstioVersions(kubeconfig, configContext, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
 	istioVersions := make(map[string]string)
-	proxyVersionsMap := make(map[string]map[string]struct{})
+	proxyVersionsMap := make(map[string]sets.Set)
 	proxyVersions := make(map[string][]string)
 	for _, revision := range revisions {
 		istioVersions[revision] = getIstioVersion(kubeconfig, configContext, istioNamespace, revision)
@@ -242,14 +238,14 @@ func getIstioVersions(kubeconfig, configContext, istioNamespace string, revision
 		}
 		for _, pi := range *proxyInfo {
 			if proxyVersionsMap[revision] == nil {
-				proxyVersionsMap[revision] = make(map[string]struct{})
+				proxyVersionsMap[revision] = sets.New()
 			}
-			proxyVersionsMap[revision][pi.IstioVersion] = struct{}{}
+			proxyVersionsMap[revision].Insert(pi.IstioVersion)
 		}
 	}
 	for revision, vmap := range proxyVersionsMap {
-		for version := range vmap {
-			proxyVersions[revision] = append(proxyVersions[revision], version)
+		for v := range vmap {
+			proxyVersions[revision] = append(proxyVersions[revision], v)
 		}
 	}
 	return istioVersions, proxyVersions
@@ -275,6 +271,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	// no timeout on mandatoryWg.
 	var mandatoryWg sync.WaitGroup
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
+	beginTime := time.Now()
 
 	clusterDir := archive.ClusterInfoPath(tempDir)
 
@@ -332,8 +329,11 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	// Wait for log fetches, up to the timeout.
 	<-cmdTimer.C
 
+	// Find the timeout duration left for the analysis process.
+	analyzeTimeout := time.Until(beginTime.Add(time.Duration(config.CommandTimeout)))
+
 	// Analyze runs many queries internally, so run these queries sequentially and after everything else has finished.
-	runAnalyze(config, params)
+	runAnalyze(config, params, analyzeTimeout)
 }
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
@@ -356,7 +356,8 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 // Runs if a goroutine, with errors reported through gErrors.
 // TODO(stewartbutler): output the logs to a more robust/complete structure.
 func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
-	path, namespace, pod, container string, wg *sync.WaitGroup) {
+	path, namespace, pod, container string, wg *sync.WaitGroup,
+) {
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
@@ -375,7 +376,8 @@ func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, re
 // getIstiodLogs fetches Istiod logs for the given namespace/pod and writes the output.
 // Runs if a goroutine, with errors reported through gErrors.
 func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
-	namespace, pod string, wg *sync.WaitGroup) {
+	namespace, pod string, wg *sync.WaitGroup,
+) {
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
@@ -389,7 +391,8 @@ func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, r
 
 // getOperatorLogs fetches istio-operator logs for the given namespace/pod and writes the output.
 func getOperatorLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
-	namespace, pod string, wg *sync.WaitGroup) {
+	namespace, pod string, wg *sync.WaitGroup,
+) {
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
@@ -403,7 +406,8 @@ func getOperatorLogs(client kube.ExtendedClient, config *config.BugReportConfig,
 
 // getLog fetches the logs for the given namespace/pod/container and returns the log text and stats for it.
 func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *config.BugReportConfig,
-	namespace, pod, container string) (string, *processlog.Stats, int, error) {
+	namespace, pod, container string,
+) (string, *processlog.Stats, int, error) {
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
 	clog, err := kubectlcmd.Logs(client, namespace, pod, container, false, config.DryRun)
 	if err != nil {
@@ -422,10 +426,10 @@ func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *c
 	return clog, cstat, cstat.Importance(), nil
 }
 
-func runAnalyze(config *config.BugReportConfig, params *content.Params) {
+func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeTimeout time.Duration) {
 	newParam := params.SetNamespace(common.NamespaceAll)
 	common.LogAndPrintf("Running istio analyze on all namespaces and report as below:")
-	out, err := content.GetAnalyze(newParam.SetIstioNamespace(config.IstioNamespace))
+	out, err := content.GetAnalyze(newParam.SetIstioNamespace(config.IstioNamespace), analyzeTimeout)
 	if err != nil {
 		log.Error(err.Error())
 		return

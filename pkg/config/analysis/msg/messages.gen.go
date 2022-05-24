@@ -27,7 +27,7 @@ var (
 
 	// PodMissingProxy defines a diag.MessageType for message "PodMissingProxy".
 	// Description: A pod is missing the Istio proxy.
-	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload.")
+	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod %s is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload.")
 
 	// GatewayPortNotOnWorkload defines a diag.MessageType for message "GatewayPortNotOnWorkload".
 	// Description: Unhandled gateway port
@@ -192,6 +192,14 @@ var (
 	// JwtClaimBasedRoutingWithoutRequestAuthN defines a diag.MessageType for message "JwtClaimBasedRoutingWithoutRequestAuthN".
 	// Description: Virtual service using JWT claim based routing without request authentication.
 	JwtClaimBasedRoutingWithoutRequestAuthN = diag.NewMessageType(diag.Error, "IST0149", "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing.")
+
+	// ExternalNameServiceTypeInvalidPortName defines a diag.MessageType for message "ExternalNameServiceTypeInvalidPortName".
+	// Description: Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services.
+	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Warning, "IST0150", "Port name for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly")
+
+	// EnvoyFilterUsesRelativeOperation defines a diag.MessageType for message "EnvoyFilterUsesRelativeOperation".
+	// Description: This envoy filter does not have a priority and has a relative patch operation set which can cause the envoyFilter not to be applied. Using the INSERT_FIRST option or setting the priority may help in ensuring the envoyFilter is applied correctly
+	EnvoyFilterUsesRelativeOperation = diag.NewMessageType(diag.Warning, "IST0151", "This envoy filter does not have a priority and has a relative patch operation set which can cause the envoyFilter not to be applied. Using the INSERT_FIRST option or setting the priority may help in ensuring the envoyFilter is applied correctly")
 )
 
 // All returns a list of all known message types.
@@ -243,6 +251,8 @@ func All() []*diag.MessageType {
 		ImageAutoWithoutInjectionError,
 		NamespaceInjectionEnabledByDefault,
 		JwtClaimBasedRoutingWithoutRequestAuthN,
+		ExternalNameServiceTypeInvalidPortName,
+		EnvoyFilterUsesRelativeOperation,
 	}
 }
 
@@ -285,10 +295,11 @@ func NewNamespaceNotInjected(r *resource.Instance, namespace string, namespace2 
 }
 
 // NewPodMissingProxy returns a new diag.Message based on PodMissingProxy.
-func NewPodMissingProxy(r *resource.Instance) diag.Message {
+func NewPodMissingProxy(r *resource.Instance, podName string) diag.Message {
 	return diag.NewMessage(
 		PodMissingProxy,
 		r,
+		podName,
 	)
 }
 
@@ -704,5 +715,21 @@ func NewJwtClaimBasedRoutingWithoutRequestAuthN(r *resource.Instance, key string
 		key,
 		gateway,
 		pod,
+	)
+}
+
+// NewExternalNameServiceTypeInvalidPortName returns a new diag.Message based on ExternalNameServiceTypeInvalidPortName.
+func NewExternalNameServiceTypeInvalidPortName(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		ExternalNameServiceTypeInvalidPortName,
+		r,
+	)
+}
+
+// NewEnvoyFilterUsesRelativeOperation returns a new diag.Message based on EnvoyFilterUsesRelativeOperation.
+func NewEnvoyFilterUsesRelativeOperation(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		EnvoyFilterUsesRelativeOperation,
+		r,
 	)
 }

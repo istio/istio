@@ -31,7 +31,7 @@ import (
 )
 
 func NewDeltaAdsTest(t test.Failer, conn *grpc.ClientConn) *DeltaAdsTest {
-	features.DeltaXds = true
+	test.SetBoolForTest(t, &features.DeltaXds, true)
 	return NewDeltaXdsTest(t, conn, func(conn *grpc.ClientConn) (DeltaDiscoveryClient, error) {
 		xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
 		return xds.DeltaAggregatedResources(context.Background())
@@ -39,7 +39,8 @@ func NewDeltaAdsTest(t test.Failer, conn *grpc.ClientConn) *DeltaAdsTest {
 }
 
 func NewDeltaXdsTest(t test.Failer, conn *grpc.ClientConn,
-	getClient func(conn *grpc.ClientConn) (DeltaDiscoveryClient, error)) *DeltaAdsTest {
+	getClient func(conn *grpc.ClientConn) (DeltaDiscoveryClient, error),
+) *DeltaAdsTest {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	cl, err := getClient(conn)
@@ -138,7 +139,7 @@ func (a *DeltaAdsTest) ExpectResponse() *discovery.DeltaDiscoveryResponse {
 	case <-time.After(a.timeout):
 		a.t.Fatalf("did not get response in time")
 	case resp := <-a.responses:
-		if resp == nil || len(resp.Resources) == 0 {
+		if resp == nil || (len(resp.Resources) == 0 && len(resp.RemovedResources) == 0) {
 			a.t.Fatalf("got empty response")
 		}
 		return resp

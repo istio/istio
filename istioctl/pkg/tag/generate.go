@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -68,12 +69,14 @@ type GenerateOptions struct {
 	Generate bool
 	// Overwrite removes analysis checks around existing webhooks.
 	Overwrite bool
+	// AutoInjectNamespaces controls, if the sidecars should be injected into all namespaces by default.
+	AutoInjectNamespaces bool
 }
 
 // Generate generates the manifests for a revision tag pointed the given revision.
 func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOptions, istioNS string) (string, error) {
 	// abort if there exists a revision with the target tag name
-	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client, opts.Tag)
+	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Tag)
 	if err != nil {
 		return "", err
 	}
@@ -83,7 +86,7 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	}
 
 	// find canonical revision webhook to base our tag webhook off of
-	revWebhooks, err := GetWebhooksWithRevision(ctx, client, opts.Revision)
+	revWebhooks, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Revision)
 	if err != nil {
 		return "", err
 	}
@@ -94,7 +97,7 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		return "", fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", opts.Revision)
 	}
 
-	whs, err := GetWebhooksWithTag(ctx, client, opts.Tag)
+	whs, err := GetWebhooksWithTag(ctx, client.Kube(), opts.Tag)
 	if err != nil {
 		return "", err
 	}
@@ -106,7 +109,7 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook config: %w", err)
 	}
-	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts.WebhookName, opts.ManifestsPath)
+	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts.WebhookName, opts.ManifestsPath, opts.AutoInjectNamespaces)
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook: %w", err)
 	}
@@ -114,12 +117,12 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	if opts.Tag == DefaultRevisionName {
 		if !opts.Generate {
 			// deactivate other istio-injection=enabled injectors if using default revisions.
-			err := DeactivateIstioInjectionWebhook(ctx, client)
+			err := DeactivateIstioInjectionWebhook(ctx, client.Kube())
 			if err != nil {
 				return "", fmt.Errorf("failed deactivating existing default revision: %w", err)
 			}
 			// delete deprecated validating webhook configuration if it exists.
-			err = DeleteDeprecatedValidator(ctx, client)
+			err = DeleteDeprecatedValidator(ctx, client.Kube())
 			if err != nil {
 				return "", fmt.Errorf("failed removing deprecated validating webhook: %w", err)
 			}
@@ -128,7 +131,9 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,
 		// to ease complexity when pointing default to revision without per-revision validating webhook,
 		// instead grab the endpoint information from the mutating webhook. This is not strictly correct.
-		vwhYAML, err := generateValidatingWebhook(tagWhConfig, opts.ManifestsPath)
+		validationWhConfig := fixWhConfig(tagWhConfig)
+
+		vwhYAML, err := generateValidatingWebhook(validationWhConfig, opts.ManifestsPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
@@ -138,6 +143,17 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	}
 
 	return tagWhYAML, nil
+}
+
+func fixWhConfig(whConfig *tagWebhookConfig) *tagWebhookConfig {
+	if whConfig.URL != "" {
+		webhookURL, err := url.Parse(whConfig.URL)
+		if err == nil {
+			webhookURL.Path = "/validate"
+			whConfig.URL = webhookURL.String()
+		}
+	}
+	return whConfig
 }
 
 // Create applies the given tag manifests.
@@ -157,10 +173,12 @@ func generateValidatingWebhook(config *tagWebhookConfig, chartPath string) (stri
 	}
 
 	values := fmt.Sprintf(`
+global:
+  istioNamespace: %s
 revision: %q
 base:
   validationURL: %s
-`, config.Revision, config.URL)
+`, config.IstioNamespace, config.Revision, config.URL)
 
 	validatingWebhookYAML, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, vwhTemplateName)
@@ -197,7 +215,7 @@ base:
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
-func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string) (string, error) {
+func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string, autoInjectNamespaces bool) (string, error) {
 	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace)
 
 	if err := r.Run(); err != nil {
@@ -210,13 +228,14 @@ revisionTags:
   - %s
 
 sidecarInjectorWebhook:
+  enableNamespacesByDefault: %t
   objectSelector:
     enabled: true
     autoInject: true
 
 istiodRemote:
   injectionURL: %s
-`, config.Revision, config.Tag, config.URL)
+`, config.Revision, config.Tag, autoInjectNamespaces, config.URL)
 
 	tagWebhookYaml, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, revisionTagTemplateName)

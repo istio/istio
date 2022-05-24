@@ -12,11 +12,7 @@ ifneq ($(CI),)
 	_INTEGRATION_TEST_FLAGS += --istio.test.pullpolicy=IfNotPresent
 endif
 
-ifeq ($(TEST_ENV),minikube)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
-else ifeq ($(TEST_ENV),minikube-none)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
-else ifeq ($(TEST_ENV),kind)
+ifeq ($(TEST_ENV),kind)
     _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
 endif
 
@@ -33,8 +29,18 @@ ifneq ($(TAG),)
 endif
 
 _INTEGRATION_TEST_SELECT_FLAGS ?= --istio.test.select=$(TEST_SELECT)
-ifeq ($(TEST_SELECT),)
-    _INTEGRATION_TEST_SELECT_FLAGS = --istio.test.select=-postsubmit,-flaky
+ifneq ($(JOB_TYPE),postsubmit)
+	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-postsubmit"
+endif
+ifeq ($(IP_FAMILY),ipv6)
+	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-ipv4"
+	# Fundamentally, VMs should support IPv6. However, our test framework uses a contrived setup to test VMs
+	# such that they run in the cluster. In particular, they configure DNS to a public DNS server.
+	# For CI, our nodes do not have IPv6 external connectivity. This means the cluster *cannot* reach these external
+	# DNS servers.
+	# Extensive work was done to try to hack around this, but ultimately nothing was able to cover all
+	# of the edge cases. This work was captured in https://github.com/howardjohn/istio/tree/tf/vm-ipv6.
+	_INTEGRATION_TEST_FLAGS += --istio.test.skipVM
 endif
 
 # $(INTEGRATION_TEST_KUBECONFIG) overrides all kube config settings.
@@ -58,10 +64,12 @@ else
 	_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 endif
 
+RUN_TEST=$(GO) test -p 1 ${T} -tags=integ -vet=off
+
 test.integration.analyze: test.integration...analyze
 
 test.integration.%.analyze: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 ${T} -tags=integ -vet=off ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	$(RUN_TEST) ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} \
 	--istio.test.analyze \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
@@ -73,7 +81,7 @@ check-go-tag:
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 -vet=off ${T} -tags=integ ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	$(RUN_TEST) ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
@@ -87,17 +95,29 @@ test.integration-fuzz.%.kube: | $(JUNIT_REPORT) check-go-tag
 test.integration.%.kube.presubmit:
 	@make test.integration.$*.kube
 
+# Run all tests
+.PHONY: test.integration.kube
+test.integration.kube: test.integration.kube.presubmit
+	@:
+
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 -vet=off ${T} -tags=integ $(shell go list -tags=integ ./tests/integration/... | grep -v /qualification | grep -v /examples) -timeout 30m \
+	$(RUN_TEST) ./tests/integration/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-# Defines a target to run a minimal reachability testing basic traffic
-.PHONY: test.integration.kube.reachability
-test.integration.kube.reachability: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 ${T} -tags=integ ./tests/integration/security/ -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} \
-	--test.run=TestReachability \
+# Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc)
+# In presubmit, this target runs a minimal set. In postsubmit, all tests are run
+.PHONY: test.integration.kube.environment
+test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
+ifeq (${JOB_TYPE},postsubmit)
+	$(RUN_TEST) ./tests/integration/... -timeout 30m \
+	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+else
+	$(RUN_TEST) ./tests/integration/security/ ./tests/integration/pilot -timeout 30m \
+	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
+	--test.run="TestReachability|TestTraffic" \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+endif

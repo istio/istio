@@ -25,18 +25,17 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 	"sync"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	gogotypes "github.com/gogo/protobuf/types"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
@@ -46,6 +45,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
@@ -53,7 +53,6 @@ import (
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/uds"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
@@ -74,7 +73,7 @@ var connectionNumber = atomic.NewUint32(0)
 // resource.
 type ResponseHandler func(resp *any.Any) error
 
-// XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
+// XdsProxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
 // single tcp connection with multiple gRPC streams.
@@ -88,6 +87,7 @@ type XdsProxy struct {
 	downstreamGrpcServer *grpc.Server
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
+	optsMutex            sync.RWMutex
 	handlers             map[string]ResponseHandler
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
@@ -139,6 +139,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			LocalHostAddr: localHostAddr,
 		}
 	}
+
+	cache := wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry, ia.cfg.WASMInsecureRegistries)
 	proxy := &XdsProxy{
 		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
 		istiodSAN:             ia.cfg.IstiodSAN,
@@ -148,7 +150,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		healthChecker:         health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
 		xdsHeaders:            ia.cfg.XDSHeaders,
 		xdsUdsPath:            ia.cfg.XdsUdsPath,
-		wasmCache:             wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry),
+		wasmCache:             cache,
 		proxyAddresses:        ia.cfg.ProxyIPAddresses,
 		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
 	}
@@ -166,8 +168,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
 		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
-			var pc meshconfig.ProxyConfig
-			if err := gogotypes.UnmarshalAny(gogo.ConvertAny(resp), &pc); err != nil {
+			pc := &meshconfig.ProxyConfig{}
+			if err := resp.UnmarshalTo(pc); err != nil {
 				log.Errorf("failed to unmarshal proxy config: %v", err)
 				return err
 			}
@@ -187,7 +189,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		return nil, err
 	}
 
-	if proxy.istiodDialOptions, err = proxy.buildUpstreamClientDialOpts(ia); err != nil {
+	if err = proxy.initIstiodDialOptions(ia); err != nil {
 		return nil, err
 	}
 
@@ -224,7 +226,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				},
 			}
 		}
-		proxy.PersistDeltaRequest(deltaReq)
+		proxy.persistDeltaRequest(deltaReq)
 	}, proxy.stopChan)
 
 	return proxy, nil
@@ -253,7 +255,7 @@ func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
 	}
 }
 
-func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
+func (p *XdsProxy) unregisterStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
 	if p.connected != nil && p.connected == c {
@@ -262,7 +264,7 @@ func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
 	}
 }
 
-func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
+func (p *XdsProxy) registerStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
 	if p.connected != nil {
@@ -272,6 +274,7 @@ func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
 	p.connected = c
 }
 
+// ProxyConnection represents connection to downstream proxy.
 type ProxyConnection struct {
 	conID              uint32
 	upstreamError      chan error
@@ -302,6 +305,7 @@ type adsStream interface {
 	Context() context.Context
 }
 
+// StreamAggregatedResources is an implementation of XDS API API used for proxying between Istiod and Envoy.
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
@@ -321,12 +325,13 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		downstream:      downstream,
 	}
 
-	p.RegisterStream(con)
-	defer p.UnregisterStream(con)
+	p.registerStream(con)
+	defer p.unregisterStream(con)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
+
+	upstreamConn, err := p.buildUpstreamConn(ctx)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		metrics.IstiodConnectionFailures.Increment()
@@ -340,15 +345,26 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 	}
 	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
-	return p.HandleUpstream(ctx, con, xds)
+	return p.handleUpstream(ctx, con, xds)
 }
 
-func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
+func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, error) {
+	p.optsMutex.RLock()
+	opts := make([]grpc.DialOption, 0, len(p.istiodDialOptions))
+	opts = append(opts, p.istiodDialOptions...)
+	p.optsMutex.RUnlock()
+
+	return grpc.DialContext(ctx, p.istiodAddress, opts...)
+}
+
+func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
 		// Envoy logs errors again, so no need to log beyond debug level
 		proxyLog.Debugf("failed to create upstream grpc client: %v", err)
+		// Increase metric when xds connection error, for example: forgot to restart ingressgateway or sidecar after changing root CA.
+		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
 	proxyLog.Infof("connected to upstream XDS server: %s", p.istiodAddress)
@@ -488,7 +504,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do
 					// This assumes internal types are always singleton
-					return
+					break
 				}
 				err := h(resp.Resources[0])
 				var errorResp *google_rpc.Status
@@ -610,25 +626,16 @@ func (p *XdsProxy) initDownstreamServer() error {
 	return nil
 }
 
-// getCertKeyPaths returns the paths for key and cert.
-func (p *XdsProxy) getCertKeyPaths(agent *Agent) (string, string) {
-	var key, cert string
-	if agent.secOpts.ProvCert != "" {
-		key = path.Join(agent.secOpts.ProvCert, constants.KeyFilename)
-		cert = path.Join(path.Join(agent.secOpts.ProvCert, constants.CertChainFilename))
-
-		// CSR may not have completed – use JWT to auth.
-		if _, err := os.Stat(key); os.IsNotExist(err) {
-			return "", ""
-		}
-		if _, err := os.Stat(cert); os.IsNotExist(err) {
-			return "", ""
-		}
-	} else if agent.secOpts.FileMountedCerts {
-		key = agent.proxyConfig.ProxyMetadata[MetadataClientCertKey]
-		cert = agent.proxyConfig.ProxyMetadata[MetadataClientCertChain]
+func (p *XdsProxy) initIstiodDialOptions(agent *Agent) error {
+	opts, err := p.buildUpstreamClientDialOpts(agent)
+	if err != nil {
+		return err
 	}
-	return key, cert
+
+	p.optsMutex.Lock()
+	p.istiodDialOptions = opts
+	p.optsMutex.Unlock()
+	return nil
 }
 
 func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
@@ -645,8 +652,6 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(defaultInitialWindowSize))
 	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize))
 	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
-	// Make sure the dial is blocking as we dont want any other operation to resume until the
-	// connection to upstream has been made.
 	dialOptions := []grpc.DialOption{
 		tlsOpts,
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
@@ -662,7 +667,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 // that the consumer code will use tokens to authenticate the upstream.
 func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	if agent.proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_NONE {
-		return grpc.WithInsecure(), nil
+		return grpc.WithTransportCredentials(insecure.NewCredentials()), nil
 	}
 	rootCert, err := p.getRootCertificate(agent)
 	if err != nil {
@@ -672,7 +677,7 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	config := tls.Config{
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			var certificate tls.Certificate
-			key, cert := p.getCertKeyPaths(agent)
+			key, cert := agent.GetKeyCertsForXDS()
 			if key != "" && cert != "" {
 				// Load the certificate from disk
 				certificate, err = tls.LoadX509KeyPair(cert, key)
@@ -735,14 +740,12 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 }
 
 // sendUpstream sends discovery request.
-func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
-	request *discovery.DiscoveryRequest) error {
+func sendUpstream(upstream xds.DiscoveryClient, request *discovery.DiscoveryRequest) error {
 	return istiogrpc.Send(upstream.Context(), func() error { return upstream.Send(request) })
 }
 
 // sendDownstream sends discovery response.
-func sendDownstream(downstream adsStream,
-	response *discovery.DiscoveryResponse) error {
+func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse) error {
 	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }
 

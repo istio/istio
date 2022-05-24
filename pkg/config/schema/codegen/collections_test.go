@@ -15,13 +15,14 @@
 package codegen
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config/schema/ast"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestStaticCollections(t *testing.T) {
@@ -41,7 +42,6 @@ func TestStaticCollections(t *testing.T) {
 						Description:  "describes a really cool foo thing",
 						Group:        "foo.group",
 						Kind:         "fookind",
-						Disabled:     true,
 					},
 					{
 						Name:         "bar",
@@ -49,7 +49,6 @@ func TestStaticCollections(t *testing.T) {
 						Description:  "describes a really cool bar thing",
 						Group:        "bar.group",
 						Kind:         "barkind",
-						Disabled:     false,
 					},
 				},
 				Resources: []*ast.Resource{
@@ -95,7 +94,6 @@ var (
 	Bar = collection.Builder {
 		Name: "bar",
 		VariableName: "Bar",
-		Disabled: false,
 		Resource: resource.Builder {
 			Group: "bar.group",
 			Kind: "barkind",
@@ -113,7 +111,6 @@ var (
 	Foo = collection.Builder {
 		Name: "foo",
 		VariableName: "Foo",
-		Disabled: true,
 		Resource: resource.Builder {
 			Group: "foo.group",
 			Kind: "fookind",
@@ -140,6 +137,11 @@ var (
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
+		Build()
+
+	// Builtin contains only native Kubernetes collections. This differs from Kube, which has
+  // Kubernetes controlled CRDs
+	Builtin = collection.NewSchemasBuilder().
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -170,9 +172,8 @@ var (
 				g.Expect(err.Error()).To(Equal(s))
 			} else {
 				g.Expect(err).To(BeNil())
-				if diff := cmp.Diff(strings.TrimSpace(s), strings.TrimSpace(c.output)); diff != "" {
-					t.Fatal(diff)
-				}
+				fmt.Println(strings.TrimSpace(c.output))
+				assert.Equal(t, strings.TrimSpace(s), strings.TrimSpace(c.output))
 			}
 		})
 	}

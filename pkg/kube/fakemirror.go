@@ -18,7 +18,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
+	gogoproto "github.com/gogo/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
@@ -53,6 +53,10 @@ func mirrorTo(q queue.Instance, createClient interface{}, convert convertFn) *un
 func (c *untypedMirror) OnAdd(obj interface{}) {
 	meta := obj.(metav1.Object)
 	res := c.convertRes(obj)
+	if res == nil {
+		log.Warnf("failed to mirror resource %v/%v", meta.GetName(), meta.GetName())
+		return
+	}
 	log.Debugf("Mirroring ADD %s/%s", meta.GetName(), meta.GetName())
 	c.queue.Push(func() error {
 		return c.Create(meta.GetNamespace(), res)
@@ -62,6 +66,10 @@ func (c *untypedMirror) OnAdd(obj interface{}) {
 func (c *untypedMirror) OnUpdate(_, obj interface{}) {
 	meta := obj.(metav1.Object)
 	res := c.convertRes(obj)
+	if res == nil {
+		log.Warnf("failed to mirror resource %v/%v", meta.GetName(), meta.GetName())
+		return
+	}
 	res.SetResourceVersion("")
 	log.Debugf("Mirroring UPDATE %s/%s", meta.GetName(), meta.GetName())
 	c.queue.Push(func() error {
@@ -116,12 +124,12 @@ func endpointSliceV1toV1beta1(obj interface{}) metav1.Common {
 	if !ok {
 		return nil
 	}
-	marshaled, err := proto.Marshal(in)
+	marshaled, err := gogoproto.Marshal(in)
 	if err != nil {
 		return nil
 	}
 	out := &discoveryv1beta1.EndpointSlice{}
-	if err := proto.Unmarshal(marshaled, out); err != nil {
+	if err := gogoproto.Unmarshal(marshaled, out); err != nil {
 		return nil
 	}
 	for i, endpoint := range out.Endpoints {

@@ -17,25 +17,18 @@ package kuberesource
 import (
 	"fmt"
 
-	"istio.io/istio/pkg/config/legacy/processing/transformer"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
-// DisableExcludedCollections is a helper that filters collection.Schemas to disable some resources
-// The first filter behaves in the same way as existing logic:
-// - Builtin types are excluded by default.
-// - If ServiceDiscovery is enabled, any built-in type should be re-added.
-// In addition, any resources not needed as inputs by the specified collections are disabled
-func DisableExcludedCollections(in collection.Schemas, providers transformer.Providers,
-	requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
-	// Get upstream collections in terms of transformer configuration
-	// Required collections are specified in terms of transformer outputs, but we care here about the corresponding inputs
-	upstreamCols := providers.RequiredInputsFor(requiredCols)
-
+func SkipExcludedCollections(requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
 	resultBuilder := collection.NewSchemasBuilder()
-	for _, s := range in.All() {
+	for _, name := range requiredCols {
+		s, f := collections.All.Find(name.String())
+		if !f {
+			continue
+		}
 		disabled := false
 		if isKindExcluded(excludedResourceKinds, s.Resource().Kind()) {
 			// Found a matching exclude directive for this KubeResource. Disable the resource.
@@ -50,13 +43,8 @@ func DisableExcludedCollections(in collection.Schemas, providers transformer.Pro
 			}
 		}
 
-		// Additionally, filter out any resources not upstream of required collections
-		if _, ok := upstreamCols[s.Name()]; !ok {
-			disabled = true
-		}
-
 		if disabled {
-			s = s.Disable()
+			continue
 		}
 
 		_ = resultBuilder.Add(s)
@@ -68,7 +56,7 @@ func DisableExcludedCollections(in collection.Schemas, providers transformer.Pro
 // DefaultExcludedResourceKinds returns the default list of resource kinds to exclude.
 func DefaultExcludedResourceKinds() []string {
 	resources := make([]string, 0)
-	for _, r := range schema.MustGet().KubeCollections().All() {
+	for _, r := range collections.Kube.All() {
 		if IsDefaultExcluded(r.Resource()) {
 			resources = append(resources, r.Resource().Kind())
 		}
@@ -90,11 +78,11 @@ func isKindExcluded(excludedResourceKinds []string, kind string) bool {
 // without propagating the many dependencies it comes with.
 
 var knownTypes = map[string]struct{}{
-	asTypesKey("", "Service"):   struct{}{},
-	asTypesKey("", "Namespace"): struct{}{},
-	asTypesKey("", "Node"):      struct{}{},
-	asTypesKey("", "Pod"):       struct{}{},
-	asTypesKey("", "Secret"):    struct{}{},
+	asTypesKey("", "Service"):   {},
+	asTypesKey("", "Namespace"): {},
+	asTypesKey("", "Node"):      {},
+	asTypesKey("", "Pod"):       {},
+	asTypesKey("", "Secret"):    {},
 }
 
 func asTypesKey(group, kind string) string {

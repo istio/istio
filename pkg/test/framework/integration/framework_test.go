@@ -16,125 +16,239 @@ package integration
 
 import (
 	"fmt"
-	"sync"
 	"testing"
 	"time"
-
-	"go.uber.org/atomic"
 
 	"istio.io/istio/pkg/test/framework"
 )
 
+func TestSynchronous(t *testing.T) {
+	// Root is always run sync.
+	newLevels().
+		// Level 1: bf=5(sync)
+		Add(5, false).
+		// Level 2: bf=2(sync)
+		Add(2, false).
+		// Level 3: bf=2(sync)
+		Add(2, false).
+		Build().
+		Run(t)
+}
+
 func TestParallel(t *testing.T) {
-	var top, l1a, l1b, l2a, l2b, l2c, l2d *component
-
-	closeTimes := make(map[string]time.Time)
-	mutex := &sync.Mutex{}
-	closeHandler := func(c *component) {
-		mutex.Lock()
-		defer mutex.Unlock()
-		closeTimes[c.name] = time.Now()
-
-		// Sleep briefly to force time separation between close events.
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	assertClosedBefore := func(t *testing.T, c1, c2 *component) {
-		t.Helper()
-		if !closeTimes[c1.name].Before(closeTimes[c2.name]) {
-			t.Fatalf("%s closed after %s", c1.name, c2.name)
-		}
-	}
-
-	framework.NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			ctx.NewSubTest("top").
-				Run(func(ctx framework.TestContext) {
-					// NOTE: top can't be parallel for this test since it will exit before the children run,
-					// which means we won't be able to verify the results here.
-					top = newComponent(ctx, ctx.Name(), closeHandler)
-
-					ctx.NewSubTest("l1a").
-						RunParallel(func(ctx framework.TestContext) {
-							l1a = newComponent(ctx, ctx.Name(), closeHandler)
-
-							ctx.NewSubTest("l2a").
-								RunParallel(func(ctx framework.TestContext) {
-									l2a = newComponent(ctx, ctx.Name(), closeHandler)
-								})
-
-							ctx.NewSubTest("l2b").
-								RunParallel(func(ctx framework.TestContext) {
-									l2b = newComponent(ctx, ctx.Name(), closeHandler)
-								})
-						})
-
-					ctx.NewSubTest("l1b").
-						RunParallel(func(ctx framework.TestContext) {
-							l1b = newComponent(ctx, ctx.Name(), closeHandler)
-
-							ctx.NewSubTest("l2c").
-								RunParallel(func(ctx framework.TestContext) {
-									l2c = newComponent(ctx, ctx.Name(), closeHandler)
-								})
-
-							ctx.NewSubTest("l2d").
-								RunParallel(func(ctx framework.TestContext) {
-									l2d = newComponent(ctx, ctx.Name(), closeHandler)
-								})
-						})
-				})
-		})
-
-	assertClosedBefore(t, l2a, l1a)
-	assertClosedBefore(t, l2b, l1a)
-	assertClosedBefore(t, l2c, l1b)
-	assertClosedBefore(t, l2d, l1b)
-	assertClosedBefore(t, l1a, top)
-	assertClosedBefore(t, l1b, top)
+	// Root is always run sync.
+	newLevels().
+		// Level 1: bf=20(parallel)
+		Add(20, true).
+		// Level 2: bf=5(parallel)
+		Add(5, true).
+		// Level 3: bf=2(parallel)
+		Add(2, true).
+		Build().
+		Run(t)
 }
 
-// Validate that cleanup is done synchronously for asynchronous tests
-func TestParallelWhenDone(t *testing.T) {
-	errors := make(chan error, 10)
-	framework.NewTest(t).Features("infrastructure.framework").
-		Run(func(ctx framework.TestContext) {
-			runCheck(ctx, errors, "root")
-			ctx.NewSubTest("nested-serial").Run(func(ctx framework.TestContext) {
-				runCheck(ctx, errors, "nested-serial")
-			})
-			ctx.NewSubTest("nested-parallel").RunParallel(func(ctx framework.TestContext) {
-				runCheck(ctx, errors, "nested-parallel")
-			})
-		})
+func TestMix(t *testing.T) {
+	// Root is always run sync.
+	newLevels().
+		// Level 1: bf=20(parallel)
+		Add(20, true).
+		// Level 2: bf=5(sync)
+		Add(5, false).
+		// Level 3: bf=2(parallel)
+		Add(2, true).
+		Build().
+		Run(t)
+}
 
-	for {
-		select {
-		case e := <-errors:
-			t.Error(e)
-		default:
-			return
-		}
+func newLevels() levels {
+	return levels{
+		{
+			name: "root",
+		},
 	}
 }
 
-func runCheck(ctx framework.TestContext, errors chan error, name string) {
-	currentTest := atomic.NewString("")
-	for _, c := range []string{"a", "b", "c"} {
-		c := c
-		ctx.NewSubTest(c).Run(func(ctx framework.TestContext) {
-			// Store the test name. We will check this in ConditionalCleanup to ensure we call finish cleanup before the next test runs
-			currentTest.Store(c)
-			ctx.ConditionalCleanup(func() {
-				time.Sleep(time.Millisecond * 100)
-				if ct := currentTest.Load(); ct != c {
-					errors <- fmt.Errorf("expected current test for %s to be %s but was %s", name, c, ct)
+type level struct {
+	name string
+
+	// branchFactor indicates how the parent should branch for this level
+	// (i.e. how many child tests should be created per parent test in the previous level).
+	branchFactor int
+
+	// runParallel if true, all tests in this level will be run in parallel.
+	runParallel bool
+}
+
+func (l level) runParallelString() string {
+	if l.runParallel {
+		return "parallel"
+	}
+	return "sync"
+}
+
+type levels []level
+
+func (ls levels) Add(branchFactor int, runParallel bool) levels {
+	return append(ls, level{
+		name:         fmt.Sprintf("level%d", len(ls)),
+		branchFactor: branchFactor,
+		runParallel:  runParallel,
+	})
+}
+
+func (ls levels) Build() *test {
+	// Create the root test, which will always be run synchronously.
+	root := &test{
+		name: ls[0].name + "[sync]",
+	}
+
+	testsInPrevLevel := []*test{root}
+	var testsInCurrentLevel []*test
+	for _, l := range ls[1:] {
+		for _, parent := range testsInPrevLevel {
+			parent.runChildrenParallel = l.runParallel
+			for i := 0; i < l.branchFactor; i++ {
+				child := &test{
+					name: fmt.Sprintf("%s_%d[%s]", l.name, len(testsInCurrentLevel), l.runParallelString()),
 				}
-			})
-			for _, st := range []string{"p1", "p2"} {
-				ctx.NewSubTest(st).
-					RunParallel(func(ctx framework.TestContext) {})
+				parent.children = append(parent.children, child)
+				testsInCurrentLevel = append(testsInCurrentLevel, child)
 			}
-		})
+		}
+
+		// Update for next iteration.
+		testsInPrevLevel = testsInCurrentLevel
+		testsInCurrentLevel = nil
 	}
+
+	return root
+}
+
+type test struct {
+	name                string
+	c                   *component
+	runStart            time.Time
+	runEnd              time.Time
+	cleanupStart        time.Time
+	cleanupEnd          time.Time
+	componentCloseStart time.Time
+	componentCloseEnd   time.Time
+
+	runChildrenParallel bool
+	children            []*test
+}
+
+func (tst *test) Run(t *testing.T) {
+	t.Helper()
+	framework.NewTest(t).
+		Features("infrastructure.framework").
+		Run(func(t framework.TestContext) {
+			t.NewSubTest(tst.name).Run(tst.runInternal)
+		})
+
+	if err := tst.doCheck(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (tst *test) runInternal(t framework.TestContext) {
+	tst.runStart = time.Now()
+	t.Cleanup(tst.cleanup)
+	tst.c = newComponent(t, t.Name(), tst.componentClosed)
+
+	if len(tst.children) == 0 {
+		doWork()
+	} else {
+		for _, child := range tst.children {
+			subTest := t.NewSubTest(child.name)
+			if tst.runChildrenParallel {
+				subTest.RunParallel(child.runInternal)
+			} else {
+				subTest.Run(child.runInternal)
+			}
+		}
+	}
+	tst.runEnd = time.Now()
+}
+
+func (tst *test) timeRange() timeRange {
+	return timeRange{
+		start: tst.runStart,
+		end:   tst.cleanupEnd,
+	}
+}
+
+func (tst *test) doCheck() error {
+	// Make sure the component was closed after the test's run method exited.
+	if tst.componentCloseStart.Before(tst.runEnd) {
+		return fmt.Errorf("test %s: componentCloseStart (%v) occurred before runEnd (%v)",
+			tst.name, tst.componentCloseStart, tst.runEnd)
+	}
+
+	// Make sure the component was closed before the cleanup for this test was performed.
+	if tst.cleanupStart.Before(tst.componentCloseEnd) {
+		return fmt.Errorf("test %s: closeStart (%v) occurred before componentCloseEnd (%v)",
+			tst.name, tst.cleanupStart, tst.componentCloseEnd)
+	}
+
+	// Now make sure children cleanup occurred after cleanup for this test.
+	for _, child := range tst.children {
+		if child.cleanupEnd.After(tst.cleanupStart) {
+			return fmt.Errorf("child %s cleanupEnd (%v) occurred after parent %s cleanupStart (%v)",
+				child.name, child.cleanupEnd, tst.name, tst.cleanupStart)
+		}
+	}
+
+	if !tst.runChildrenParallel {
+		// The children were run synchronously. Make sure they don't overlap in time.
+		for i := 0; i < len(tst.children); i++ {
+			ci := tst.children[i]
+			ciRange := ci.timeRange()
+			for j := i + 1; j < len(tst.children); j++ {
+				cj := tst.children[j]
+				cjRange := cj.timeRange()
+				if ciRange.overlaps(cjRange) {
+					return fmt.Errorf("test %s: child %s[%s] overlaps with child %s[%s]",
+						tst.name, ci.name, ciRange, cj.name, cjRange)
+				}
+			}
+		}
+	}
+
+	// Now check the children.
+	for _, child := range tst.children {
+		if err := child.doCheck(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (tst *test) componentClosed(*component) {
+	tst.componentCloseStart = time.Now()
+	doWork()
+	tst.componentCloseEnd = time.Now()
+}
+
+func (tst *test) cleanup() {
+	tst.cleanupStart = time.Now()
+	doWork()
+	tst.cleanupEnd = time.Now()
+}
+
+func doWork() {
+	time.Sleep(time.Millisecond * 10)
+}
+
+type timeRange struct {
+	start, end time.Time
+}
+
+func (r timeRange) overlaps(o timeRange) bool {
+	return r.start.Before(o.end) && r.end.After(o.start)
+}
+
+func (r timeRange) String() string {
+	return fmt.Sprintf("start=%v, end=%v", r.start, r.end)
 }

@@ -16,17 +16,17 @@ package mesh_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
-	ptypes "github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestApplyProxyConfig(t *testing.T) {
@@ -64,18 +64,13 @@ func TestApplyProxyConfig(t *testing.T) {
 			"default": "foo",
 		}
 		mc, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		// Ensure we didn't modify the passed in mesh config
-		if !reflect.DeepEqual(mc.DefaultConfig.ProxyMetadata, map[string]string{
-
+		assert.Equal(t, mc.DefaultConfig.ProxyMetadata, map[string]string{
 			"merged":   "override",
 			"default":  "foo",
 			"override": "bar",
-		}) {
-			t.Fatalf("unexpected proxy metadata: %+v", mc.DefaultConfig.ProxyMetadata)
-		}
+		}, "unexpected proxy metadata")
 	})
 	t.Run("apply proxy metadata to mesh config", func(t *testing.T) {
 		config := mesh.DefaultMeshConfig()
@@ -89,21 +84,18 @@ func TestApplyProxyConfig(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Ensure we didn't modify the passed in mesh config
-		if !reflect.DeepEqual(mc.DefaultConfig.ProxyMetadata, map[string]string{
-
+		assert.Equal(t, mc.DefaultConfig.ProxyMetadata, map[string]string{
 			"merged":   "override",
 			"default":  "foo",
 			"override": "bar",
-		}) {
-			t.Fatalf("unexpected proxy metadata: %+v", mc.DefaultConfig.ProxyMetadata)
-		}
+		}, "unexpected proxy metadata")
 	})
 	t.Run("apply should not modify", func(t *testing.T) {
 		config := mesh.DefaultMeshConfig()
 		config.DefaultConfig.ProxyMetadata = map[string]string{
 			"foo": "bar",
 		}
-		orig, err := gogoprotomarshal.ToYAML(&config)
+		orig, err := protomarshal.ToYAML(config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -111,7 +103,7 @@ func TestApplyProxyConfig(t *testing.T) {
 		if _, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config); err != nil {
 			t.Fatal(err)
 		}
-		after, err := gogoprotomarshal.ToYAML(&config)
+		after, err := protomarshal.ToYAML(config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -122,15 +114,13 @@ func TestApplyProxyConfig(t *testing.T) {
 }
 
 func TestDefaultProxyConfig(t *testing.T) {
-	proxyConfig := mesh.DefaultProxyConfig()
-	if err := validation.ValidateMeshConfigProxyConfig(&proxyConfig); err != nil {
+	if err := validation.ValidateMeshConfigProxyConfig(mesh.DefaultProxyConfig()); err != nil {
 		t.Errorf("validation of default proxy config failed with %v", err)
 	}
 }
 
 func TestDefaultMeshConfig(t *testing.T) {
-	m := mesh.DefaultMeshConfig()
-	if err := validation.ValidateMeshConfig(&m); err != nil {
+	if err := validation.ValidateMeshConfig(mesh.DefaultMeshConfig()); err != nil {
 		t.Errorf("validation of default mesh config failed with %v", err)
 	}
 }
@@ -149,9 +139,7 @@ defaultConfig:
 	if err != nil {
 		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
 	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
-	}
+	assert.Equal(t, got, want)
 	// Verify overrides
 	got, err = mesh.ApplyMeshConfigDefaults(`
 serviceSettings: 
@@ -185,14 +173,14 @@ defaultConfig:
 	if len(got.DefaultProviders.GetMetrics()) != 0 {
 		t.Errorf("default providers deep merge failed, got %v", got.DefaultProviders.GetMetrics())
 	}
-	if !reflect.DeepEqual(getExtensionProviders(got.ExtensionProviders), []string{"prometheus", "stackdriver", "envoy", "sd"}) {
+	if !cmp.Equal(getExtensionProviders(got.ExtensionProviders), []string{"prometheus", "stackdriver", "envoy", "sd"}, protocmp.Transform()) {
 		t.Errorf("extension providers deep merge failed, got %v", getExtensionProviders(got.ExtensionProviders))
 	}
 	if len(got.TrustDomainAliases) != 2 {
 		t.Errorf("trust domain aliases deep merge failed")
 	}
 
-	gotY, err := gogoprotomarshal.ToYAML(got)
+	gotY, err := protomarshal.ToYAML(got)
 	t.Log("Result: \n", gotY, err)
 }
 
@@ -325,7 +313,7 @@ trustDomainAliases:
 				Name: "stackdriver",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_Stackdriver{
 					Stackdriver: &meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider{
-						MaxNumberOfAttributes: &ptypes.Int64Value{Value: 3},
+						MaxNumberOfAttributes: &wrapperspb.Int64Value{Value: 3},
 					},
 				},
 			}}
@@ -341,7 +329,7 @@ trustDomainAliases:
 			minimal.TrustDomainAliases = res.TrustDomainAliases
 
 			want := &meshconfig.MeshConfig{}
-			gogoprotomarshal.ApplyYAML(tt.out, want)
+			protomarshal.ApplyYAML(tt.out, want)
 			if d := cmp.Diff(want, minimal, protocmp.Transform()); d != "" {
 				t.Fatalf("got diff %v", d)
 			}
@@ -408,56 +396,5 @@ networks:
 	if err != nil {
 		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
 	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong values:\n got %#v \nwant %#v", got, &want)
-	}
-}
-
-func TestResolveHostsInNetworksConfig(t *testing.T) {
-	tests := []struct {
-		name     string
-		address  string
-		modified bool
-	}{
-		{
-			"Gateway with IP address",
-			"9.142.3.1",
-			false,
-		},
-		{
-			"Gateway with localhost address",
-			"localhost",
-			true,
-		},
-		{
-			"Gateway with empty address",
-			"",
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config := &meshconfig.MeshNetworks{
-				Networks: map[string]*meshconfig.Network{
-					"network": {
-						Gateways: []*meshconfig.Network_IstioNetworkGateway{
-							{
-								Gw: &meshconfig.Network_IstioNetworkGateway_Address{
-									Address: tt.address,
-								},
-							},
-						},
-					},
-				},
-			}
-			mesh.ResolveHostsInNetworksConfig(config)
-			addrAfter := config.Networks["network"].Gateways[0].GetAddress()
-			if addrAfter == tt.address && tt.modified {
-				t.Fatalf("Expected network address to be modified but it's the same as before calling the function")
-			}
-			if addrAfter != tt.address && !tt.modified {
-				t.Fatalf("Expected network address not to be modified after calling the function")
-			}
-		})
-	}
+	assert.Equal(t, got, &want)
 }

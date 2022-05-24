@@ -79,6 +79,7 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 	}
 	cfg := i.store.Get(colschema.Resource().GroupVersionKind(), name.Name.String(), name.Namespace.String())
 	if cfg == nil {
+		log.Warnf(" %s resource [%s/%s] could not be found", colschema.Resource().GroupVersionKind(), name.Namespace.String(), name.Name.String())
 		return nil
 	}
 	result, err := cfgToInstance(*cfg, col, colschema)
@@ -162,15 +163,7 @@ func (i *istiodContext) Canceled() bool {
 }
 
 func cfgToInstance(cfg config.Config, col collection.Name, colschema collection.Schema) (*resource.Instance, error) {
-	mcpr, err := config.PilotConfigToResource(&cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed converting cfg %s to mcp resource: %s", cfg.Name, err)
-	}
-	res, err := resource.Deserialize(mcpr, colschema.Resource())
-	// TODO: why does this leave origin empty?
-	if err != nil {
-		return nil, fmt.Errorf("failed deserializing mcp resource %s to instance: %s", cfg.Name, err)
-	}
+	res := resource.PilotConfigToInstance(&cfg, colschema.Resource())
 	fmstring := cfg.Meta.Annotations[file.FieldMapKey]
 	var out map[string]int
 	if fmstring != "" {

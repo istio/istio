@@ -25,6 +25,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -52,8 +53,8 @@ type TrustBundle struct {
 }
 
 var (
-	trustBundleLog               = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs", 0)
-	remoteTimeout  time.Duration = 10 * time.Second
+	trustBundleLog = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs", 0)
+	remoteTimeout  = 10 * time.Second
 )
 
 const (
@@ -132,17 +133,16 @@ func verifyTrustAnchor(trustAnchor string) error {
 }
 
 func (tb *TrustBundle) mergeInternal() {
-	var ok bool
-	mergeCerts := []string{}
-	certMap := make(map[string]struct{})
+	var mergeCerts []string
+	certMap := sets.New()
 
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
 
 	for _, configSource := range tb.sourceConfig {
 		for _, cert := range configSource.Certs {
-			if _, ok = certMap[cert]; !ok {
-				certMap[cert] = struct{}{}
+			if !certMap.Contains(cert) {
+				certMap.Insert(cert)
 				mergeCerts = append(mergeCerts, cert)
 			}
 		}
@@ -191,17 +191,17 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 }
 
 func (tb *TrustBundle) updateRemoteEndpoint(spiffeEndpoints []string) {
-	tb.mutex.RLock()
+	tb.endpointMutex.RLock()
 	remoteEndpoints := tb.endpoints
-	tb.mutex.RUnlock()
+	tb.endpointMutex.RUnlock()
 
 	if isEqSliceStr(spiffeEndpoints, remoteEndpoints) {
 		return
 	}
 	trustBundleLog.Infof("updated remote endpoints  :%v", spiffeEndpoints)
-	tb.mutex.Lock()
+	tb.endpointMutex.Lock()
 	tb.endpoints = spiffeEndpoints
-	tb.mutex.Unlock()
+	tb.endpointMutex.Unlock()
 	tb.endpointUpdateChan <- struct{}{}
 }
 

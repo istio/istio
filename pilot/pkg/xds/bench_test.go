@@ -138,11 +138,7 @@ func configureBenchmark(t test.Failer) {
 		}
 		s.SetOutputLevel(istiolog.NoneLevel)
 	}
-	ov := features.EnableXDSCaching
-	features.EnableXDSCaching = false
-	t.Cleanup(func() {
-		features.EnableXDSCaching = ov
-	})
+	test.SetBoolForTest(t, &features.EnableXDSCaching, false)
 }
 
 func BenchmarkInitPushContext(b *testing.B) {
@@ -153,7 +149,6 @@ func BenchmarkInitPushContext(b *testing.B) {
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
 				s.Env().PushContext.InitDone.Store(false)
-				s.ServiceEntryRegistry.SetRefreshIndexes()
 				initPushContext(s.Env(), proxy)
 			}
 		})
@@ -164,7 +159,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 // update our benchmark doesn't become useless.
 func TestValidateTelemetry(t *testing.T) {
 	s, proxy := setupAndInitializeTest(t, ConfigInput{Name: "telemetry", Services: 1})
-	c, _, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, &model.PushRequest{Full: true, Push: s.PushContext()})
+	c, _, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, nil, &model.PushRequest{Full: true, Push: s.PushContext()})
 	if len(c) == 0 {
 		t.Fatal("Got no clusters!")
 	}
@@ -280,7 +275,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				ConfigNamespace: "default",
 				Metadata:        &model.NodeMetadata{},
 			}
-			push := s.Discovery.globalPushContext()
+			push := s.PushContext()
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
@@ -305,7 +300,7 @@ func runBenchmark(b *testing.B, tpe string, testCases []ConfigInput) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
+				c, _, _ = s.Discovery.Generators[tpe].Generate(proxy, wr, &model.PushRequest{Full: true, Push: s.PushContext()})
 				if len(c) == 0 {
 					b.Fatalf("Got no %v's!", tpe)
 				}
@@ -320,9 +315,10 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 		t.Run(tt.Name, func(t *testing.T) {
 			// No need for large test here
 			tt.Services = 1
+			tt.Instances = 1
 			s, proxy := setupAndInitializeTest(t, tt)
 			wr := getWatchedResources(tpe, tt, s, proxy)
-			c, _, _ := s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
+			c, _, _ := s.Discovery.Generators[tpe].Generate(proxy, wr, &model.PushRequest{Full: true, Push: s.PushContext()})
 			if len(c) == 0 {
 				t.Fatalf("Got no %v's!", tpe)
 			}
@@ -364,7 +360,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.13.0",
+			IstioVersion: "1.15.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},

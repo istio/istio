@@ -25,9 +25,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	ghc "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
 
 	pb "istio.io/api/security/v1alpha1"
-	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	caerror "istio.io/istio/security/pkg/pki/error"
@@ -40,6 +40,7 @@ var caServerLog = log.RegisterScope("ca", "CA service debugging", 0)
 
 // CAServer is a mock CA server.
 type CAServer struct {
+	pb.UnimplementedIstioCertificateServiceServer
 	URL            string
 	GRPCServer     *grpc.Server
 	Authenticators []security.Authenticator
@@ -149,7 +150,8 @@ func (s *CAServer) sendEmpty() bool {
 
 // CreateCertificate handles CSR.
 func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
-	*pb.IstioCertificateResponse, error) {
+	*pb.IstioCertificateResponse, error,
+) {
 	caServerLog.Infof("received CSR request")
 	if s.shouldReject() {
 		caServerLog.Info("force rejecting CSR request")

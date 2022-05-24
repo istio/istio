@@ -36,7 +36,7 @@ type kubeEndpointsController interface {
 	Run(stopCh <-chan struct{})
 	getInformer() filter.FilteredSharedIndexInformer
 	onEvent(curr interface{}, event model.Event) error
-	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance
+	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Instance) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
 	buildIstioEndpointsWithService(name, namespace string, host host.Name, clearCache bool) []*model.IstioEndpoint
@@ -90,7 +90,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 
 func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event model.Event) {
 	namespacedName := epc.getServiceNamespacedName(ep)
-	log.Debugf("Handle EDS endpoint %s in namespace %s", namespacedName.Name, namespacedName.Namespace)
+	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
 	var forgottenEndpointsByHost map[host.Name][]*model.IstioEndpoint
 	if event == model.EventDelete {
 		forgottenEndpointsByHost = epc.forgetEndpoint(ep)
@@ -106,15 +106,13 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 			endpoints = epc.buildIstioEndpoints(ep, hostName)
 		}
 
-		if features.EnableK8SServiceSelectWorkloadEntries {
-			svc := c.GetService(hostName)
-			if svc != nil {
-				fep := c.collectWorkloadInstanceEndpoints(svc)
-				endpoints = append(endpoints, fep...)
-			} else {
-				log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
-					namespacedName.Namespace, namespacedName.Name)
-			}
+		svc := c.GetService(hostName)
+		if svc != nil {
+			fep := c.collectWorkloadInstanceEndpoints(svc)
+			endpoints = append(endpoints, fep...)
+		} else {
+			log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
+				namespacedName.Namespace, namespacedName.Name)
 		}
 
 		c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), namespacedName.Namespace, endpoints)

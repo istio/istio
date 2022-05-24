@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	legacyproto "github.com/golang/protobuf/proto"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/pkg/log"
@@ -152,4 +153,27 @@ func ApplyYAML(yml string, pb proto.Message) error {
 		return err
 	}
 	return ApplyJSON(string(js), pb)
+}
+
+// ApplyYAMLStrict unmarshals a YAML string into a proto message.
+// Unknown fields are not allowed.
+func ApplyYAMLStrict(yml string, pb proto.Message) error {
+	js, err := yaml.YAMLToJSON([]byte(yml))
+	if err != nil {
+		return err
+	}
+	return ApplyJSONStrict(string(js), pb)
+}
+
+func ShallowCopy(dst, src proto.Message) {
+	dm := dst.ProtoReflect()
+	sm := src.ProtoReflect()
+	if dm.Type() != sm.Type() {
+		panic("mismatching type")
+	}
+	proto.Reset(dst)
+	sm.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		dm.Set(fd, v)
+		return true
+	})
 }

@@ -30,7 +30,8 @@ TMP=$(mktemp -d)
 {
 helm3 template kiali-server \
   --namespace istio-system \
-  --version 1.42.0 \
+  --version 1.50.0 \
+  --set deployment.image_version=v1.50 \
   --include-crds \
   --set nameOverride=kiali \
   --set fullnameOverride=kiali \
@@ -42,7 +43,7 @@ helm3 template kiali-server \
 # Set up prometheus
 helm3 template prometheus prometheus \
   --namespace istio-system \
-  --version 14.6.1 \
+  --version 15.0.1 \
   --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"
@@ -55,7 +56,7 @@ function compressDashboard() {
 {
   helm3 template grafana grafana \
     --namespace istio-system \
-    --version 6.16.6 \
+    --version 6.18.2 \
     --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-grafana.yaml"
 

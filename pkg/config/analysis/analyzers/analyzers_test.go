@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
+	"istio.io/istio/pkg/config/analysis/analyzers/envoyfilter"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -43,9 +44,9 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type message struct {
@@ -506,9 +507,32 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name: "host defined in virtualservice not found in the gateway",
+		name: "host defined in virtualservice not found in the gateway(beta version)",
+		inputFiles: []string{
+			"testdata/virtualservice_host_not_found_gateway_beta.yaml",
+		},
+		analyzer: &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-01"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-02"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-03"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-03-test-04"},
+		},
+	},
+	{
+		name: "host defined in virtualservice not found in the gateway with ns",
 		inputFiles: []string{
 			"testdata/virtualservice_host_not_found_gateway_with_ns_prefix.yaml",
+		},
+		analyzer: &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-01-test-01"},
+		},
+	},
+	{
+		name: "host defined in virtualservice not found in the gateway with ns(beta version)",
+		inputFiles: []string{
+			"testdata/virtualservice_host_not_found_gateway_with_ns_prefix_beta.yaml",
 		},
 		analyzer: &virtualservice.GatewayAnalyzer{},
 		expected: []message{
@@ -613,6 +637,41 @@ var testGrid = []testCase{
 			{msg.ImageAutoWithoutInjectionError, "Pod default/injected-pod"},
 		},
 	},
+	{
+		name:       "ExternalNameServiceTypeInvalidPortName",
+		inputFiles: []string{"testdata/incorrect-port-name-external-name-service-type.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected: []message{
+			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns/nginx"},
+			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns2/nginx-svc2"},
+			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns3/nginx-svc3"},
+		},
+	},
+	{
+		name:       "ExternalNameServiceTypeValidPortName",
+		inputFiles: []string{"testdata/correct-port-name-external-name-service-type.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected:   []message{
+			// Test no messages are received for correct port name
+		},
+	},
+	{
+		name:       "EnvoyFilterUsesRelativeOperation",
+		inputFiles: []string{"testdata/relative-envoy-filter-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-1"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-2"},
+		},
+	},
+	{
+		name:       "EnvoyFilterUsesAbsoluteOperation",
+		inputFiles: []string{"testdata/absolute-envoy-filter-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected:   []message{
+			// Test no messages are received for absolute operation usage
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
@@ -708,18 +767,17 @@ func TestAnalyzersInAll(t *testing.T) {
 func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	g := NewWithT(t)
 
-	existingNames := make(map[string]struct{})
+	existingNames := sets.New()
 	for _, a := range All() {
 		n := a.Metadata().Name
-		_, ok := existingNames[n]
 		// TODO (Nino-K): remove this condition once metadata is clean up
-		if ok == true && n == "schema.ValidationAnalyzer.ServiceEntry" {
+		if existingNames.Contains(n) && n == "schema.ValidationAnalyzer.ServiceEntry" {
 			continue
 		}
-		g.Expect(ok).To(BeFalse(), fmt.Sprintf("Analyzer name %q is used more than once. "+
+		g.Expect(existingNames.Contains(n)).To(BeFalse(), fmt.Sprintf("Analyzer name %q is used more than once. "+
 			"Analyzers should be registered in All() exactly once and have a unique name.", n))
 
-		existingNames[n] = struct{}{}
+		existingNames.Insert(n)
 	}
 }
 
@@ -732,7 +790,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.IstiodAnalyzer, error) {
-	sa := local.NewSourceAnalyzer(schema.NewMustGet(), analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
+	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
 
 	// If a mesh config file is specified, use it instead of the defaults
 	if tc.meshConfigFile != "" {

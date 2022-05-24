@@ -40,10 +40,6 @@ type Settings struct {
 	// An array of paths to kube config files. Required if the environment is kubernetes.
 	KubeConfig []string
 
-	// Indicates that the Ingress Gateway is not available. This typically happens in minikube. The Ingress
-	// component will fall back to node-port in this case.
-	minikube bool
-
 	// Indicates that the LoadBalancer services can obtain a public IP. If not, NodePort be used as a workaround
 	// for ingress gateway. KinD will not support LoadBalancer out of the box and requires a workaround such as
 	// MetalLB.
@@ -222,6 +218,14 @@ func (s *Settings) MCSAPIGroupVersion() schema.GroupVersion {
 		Group:   s.MCSAPIGroup,
 		Version: s.MCSAPIVersion,
 	}
+}
+
+func (s *Settings) ServiceExportGVR() schema.GroupVersionResource {
+	return s.MCSAPIGroupVersion().WithResource("serviceexports")
+}
+
+func (s *Settings) ServiceImportGVR() schema.GroupVersionResource {
+	return s.MCSAPIGroupVersion().WithResource("serviceimports")
 }
 
 // String implements fmt.Stringer

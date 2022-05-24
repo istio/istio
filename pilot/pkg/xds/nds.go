@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-// Nds stands for Name Discovery Service. Istio agents send NDS requests to istiod
+// NdsGenerator Nds stands for Name Discovery Service. Istio agents send NDS requests to istiod
 // istiod responds with a list of service entries and their associated IPs (including k8s services)
 // The agent then updates its internal DNS based on this data. If DNS capture is enabled in the pod
 // the agent will capture all DNS requests and attempt to resolve locally before forwarding to upstream
@@ -45,6 +45,7 @@ var skippedNdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.AuthorizationPolicy:   {},
 	gvk.RequestAuthentication: {},
 	gvk.PeerAuthentication:    {},
+	gvk.WasmPlugin:            {},
 }
 
 func ndsNeedsPush(req *model.PushRequest) bool {
@@ -67,12 +68,11 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (n NdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !ndsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	nt := n.Server.ConfigGenerator.BuildNameTable(proxy, push)
+	nt := n.Server.ConfigGenerator.BuildNameTable(proxy, req.Push)
 	if nt == nil {
 		return nil, model.DefaultXdsLogDetails, nil
 	}

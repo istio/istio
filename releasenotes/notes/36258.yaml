@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - https://github.com/istio/istio/issues/36258
+releaseNotes:
+  - |
+    **Fixed** omitted setting .Values.sidecarInjectiorWebhook.enableNamespacesByDefault in the default revision
+    mutating webhook and added --auto-inject-namespaces flag to `istioctl tag` controlling this setting.

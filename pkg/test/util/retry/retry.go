@@ -39,7 +39,7 @@ const (
 var defaultConfig = config{
 	timeout:  DefaultTimeout,
 	delay:    DefaultDelay,
-	delayMax: DefaultDelay,
+	delayMax: DefaultDelay * 16,
 	converge: DefaultConverge,
 }
 
@@ -72,7 +72,7 @@ func Delay(delay time.Duration) Option {
 func BackoffDelay(delay time.Duration) Option {
 	return func(cfg *config) {
 		cfg.delay = delay
-		// Currently, hardcode to 4 backoffs. We can make it configurable if needed
+		// Currently, hardcode to 16 backoffs. We can make it configurable if needed
 		cfg.delayMax = delay * 16
 	}
 }
@@ -98,7 +98,7 @@ type RetriableFunc func() (result interface{}, completed bool, err error)
 
 // UntilSuccess retries the given function until success, timeout, or until the passed-in function returns nil.
 func UntilSuccess(fn func() error, options ...Option) error {
-	_, e := Do(func() (interface{}, bool, error) {
+	_, e := UntilComplete(func() (interface{}, bool, error) {
 		err := fn()
 		if err != nil {
 			return nil, false, err
@@ -151,8 +151,9 @@ func getErrorMessage(options []Option) error {
 	return errors.New(cfg.error)
 }
 
-// Do retries the given function, until there is a timeout, or until the function indicates that it has completed.
-func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
+// UntilComplete retries the given function, until there is a timeout, or until the function indicates that it has completed.
+// Once complete, the returned value and error are returned.
+func UntilComplete(fn RetriableFunc, options ...Option) (interface{}, error) {
 	cfg := defaultConfig
 	for _, option := range options {
 		option(&cfg)
@@ -184,9 +185,8 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 
 			// Skip delay if we have a success
 			continue
-		} else {
-			successes = 0
 		}
+		successes = 0
 		if err != nil {
 			scope.Debugf("encountered an error on attempt %d: %v", attempts, err)
 			lasterr = err
@@ -205,6 +205,5 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 				delay = cfg.delayMax
 			}
 		}
-
 	}
 }

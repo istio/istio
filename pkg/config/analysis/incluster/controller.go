@@ -23,15 +23,14 @@ import (
 
 	v1alpha12 "istio.io/api/analysis/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
-	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/status"
-	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
@@ -45,20 +44,15 @@ type Controller struct {
 	statusctl *status.Controller
 }
 
-func NewController(stop <-chan struct{}, rwConfigStore, configController model.ConfigStoreCache,
-	kubeClient kube.Client, namespace string, statusManager *status.Manager, domainSuffix string) (*Controller, error) {
-	ia := local.NewIstiodAnalyzer(schema.MustBuildMetadata(configController.Schemas()), analyzers.AllCombined(),
+func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreController,
+	kubeClient kube.Client, namespace string, statusManager *status.Manager, domainSuffix string,
+) (*Controller, error) {
+	ia := local.NewIstiodAnalyzer(analyzers.AllCombined(),
 		"", resource.Namespace(namespace), func(name collection.Name) {}, true)
 	ia.AddSource(rwConfigStore)
-	ctx := status.NewIstioContext(stop)
-	// TODO: many of the types in PilotGatewayAPI (watched above) are duplicated
-	// I'm not sure why, but we shouldn't watch them twice.
-	duplicates := []collection.Schema{}
-	for k := range analysis.ContainmentMapSchema(rwConfigStore.Schemas()) {
-		duplicates = append(duplicates, k)
-	}
-	store, err := arbitraryclient.NewForSchemas(ctx, kubeClient, "default",
-		domainSuffix, collections.All.Remove(duplicates...))
+	// Filter out configs watched by rwConfigStore so we don't watch multiple times
+	store, err := crdclient.NewForSchemas(kubeClient, "default",
+		domainSuffix, collections.All.Remove(rwConfigStore.Schemas().All()...))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load common types for analysis, releasing lease: %v", err)
 	}
@@ -82,7 +76,7 @@ func NewController(stop <-chan struct{}, rwConfigStore, configController model.C
 
 // Run is blocking
 func (c *Controller) Run(stop <-chan struct{}) {
-	t := time.NewTicker(10 * time.Second)
+	t := time.NewTicker(features.AnalysisInterval)
 	oldmsgs := diag.Messages{}
 	for {
 		select {

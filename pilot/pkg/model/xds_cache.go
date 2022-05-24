@@ -25,8 +25,8 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
 
@@ -82,18 +82,18 @@ func size(cs int) {
 }
 
 func indexConfig(configIndex map[ConfigKey]sets.Set, k string, entry XdsCacheEntry) {
-	for _, config := range entry.DependentConfigs() {
-		if configIndex[config] == nil {
-			configIndex[config] = sets.NewSet()
+	for _, cfg := range entry.DependentConfigs() {
+		if configIndex[cfg] == nil {
+			configIndex[cfg] = sets.New()
 		}
-		configIndex[config].Insert(k)
+		configIndex[cfg].Insert(k)
 	}
 }
 
 func indexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, entry XdsCacheEntry) {
 	for _, t := range entry.DependentTypes() {
 		if typeIndex[t] == nil {
-			typeIndex[t] = sets.NewSet()
+			typeIndex[t] = sets.New()
 		}
 		typeIndex[t].Insert(k)
 	}
@@ -210,25 +210,15 @@ func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, rep
 	}
 }
 
-func (l *lruCache) assertInvalidPushRequest(entry XdsCacheEntry, req *PushRequest) {
-	if !l.enableAssertions {
-		return
-	}
-	if req == nil || req.Start.Equal(time.Time{}) {
-		panic(fmt.Sprintf("attempted to update cache without request start time set for key %v", entry.Key()))
-	}
-}
-
 func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {
-	l.assertInvalidPushRequest(entry, pushReq)
 	if !entry.Cacheable() || pushReq == nil || pushReq.Start.Equal(time.Time{}) {
 		return
 	}
 	// It will not overflow until year 2262
 	token := CacheToken(pushReq.Start.UnixNano())
+	k := entry.Key()
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	k := entry.Key()
 	cur, f := l.store.Get(k)
 	if f {
 		// This is the stale resource
@@ -263,9 +253,9 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	if !entry.Cacheable() {
 		return nil, false
 	}
+	k := entry.Key()
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	k := entry.Key()
 	val, ok := l.store.Get(k)
 	if !ok {
 		miss()
