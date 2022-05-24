@@ -172,7 +172,7 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 
 func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, chan Event) {
 	store := memory.Make(collections.Pilot)
-	configController := memory.NewController(store)
+	configController := memory.NewSyncController(store)
 
 	stop := test.NewStop(t)
 	go configController.Run(stop)
