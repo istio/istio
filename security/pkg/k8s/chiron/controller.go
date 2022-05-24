@@ -94,7 +94,8 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 	client clientset.Interface,
 	k8sCaCertFile string,
 	secretNames, dnsNames []string,
-	secretNamespace string, certIssuer string) (*WebhookController, error) {
+	secretNamespace string, certIssuer string,
+) (*WebhookController, error) {
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
 	}

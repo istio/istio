@@ -52,7 +52,8 @@ type SignerRootCert struct {
 }
 
 func RunCSRController(signerNames string, appendRootCert bool, config *rest.Config, c <-chan struct{},
-	certChan chan *SignerRootCert) {
+	certChan chan *SignerRootCert,
+) {
 	// Config Istio log
 	if err := log.Configure(loggingOptions); err != nil {
 		log.Infof("Unable to configure Istio log error: %v", err)
@@ -60,7 +61,7 @@ func RunCSRController(signerNames string, appendRootCert bool, config *rest.Conf
 	}
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme: scheme,
-		// disabel the metric server to avoid the port conflicting
+		// disable the metric server to avoid the port conflicting
 		MetricsBindAddress: "0",
 	})
 	if err != nil {
@@ -98,7 +99,7 @@ func RunCSRController(signerNames string, appendRootCert bool, config *rest.Conf
 		Signers:        signersMap,
 		appendRootCert: appendRootCert,
 	}).SetupWithManager(mgr); err != nil {
-		log.Infof("Unable to create Controller fro controller CSRSigningReconciler, error: %v", err)
+		log.Infof("Unable to create Controller for controller CSRSigningReconciler, error: %v", err)
 		os.Exit(-1)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

@@ -539,7 +539,8 @@ func runTemplate(tmpl *template.Template, data SidecarTemplateData) (bytes.Buffe
 // kubernetes YAML file.
 // nolint: lll
 func IntoResourceFile(injector Injector, sidecarTemplate Templates,
-	valuesConfig ValuesConfig, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
+	valuesConfig ValuesConfig, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string),
+) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -600,7 +601,8 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 // IntoObject convert the incoming resources into Injected resources
 // nolint: lll
 func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig ValuesConfig,
-	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
+	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string),
+) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata metav1.ObjectMeta

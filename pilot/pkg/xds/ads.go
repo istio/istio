@@ -188,6 +188,9 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
+	stype := v3.GetShortType(req.TypeUrl)
+	log.Debugf("ADS:%s: REQUEST %s verson received, %s nonce received %s", stype,
+		con.conID, req.VersionInfo, req.ResponseNonce)
 	if req.TypeUrl == v3.HealthInfoType {
 		s.handleWorkloadHealthcheck(con.proxy, req)
 		return nil

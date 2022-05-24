@@ -2402,7 +2402,8 @@ func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 }
 
 func buildOutboundListeners(t *testing.T, proxy *model.Proxy, sidecarConfig *config.Config,
-	virtualService *config.Config, services ...*model.Service) []*listener.Listener {
+	virtualService *config.Config, services ...*model.Service,
+) []*listener.Listener {
 	t.Helper()
 	cg := NewConfigGenTest(t, TestOptions{
 		Services:       services,

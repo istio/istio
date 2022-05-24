@@ -103,8 +103,8 @@ func (w *workload) Update(pod kubeCore.Pod) error {
 			return err
 		}
 	} else if !isPodReady(pod) && w.isConnected() {
-		scopes.Framework.Infof("echo pod %s/%s (in cluster %s) transitioned to NOT READY. Pod Status=%s",
-			pod.Namespace, pod.Name, w.cluster.Name(), pod.Status)
+		scopes.Framework.Infof("echo pod %s/%s (in cluster %s) transitioned to NOT READY. Pod Status=%v",
+			pod.Namespace, pod.Name, w.cluster.Name(), pod.Status.Phase)
 		w.pod = pod
 		return w.disconnect()
 	}

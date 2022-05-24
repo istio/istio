@@ -784,6 +784,8 @@ func translateHeadersOperations(headers *networking.Headers) headersOperations {
 	}
 }
 
+const singleDNSLabelWildcardRegex = "^[-a-zA-Z]*"
+
 // translateRouteMatch translates match condition
 func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
@@ -809,6 +811,25 @@ func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 			matcher := translateHeaderMatch(name, stringMatch)
 			matcher.InvertMatch = true
 			out.Headers = append(out.Headers, matcher)
+		}
+	}
+	if model.UseGatewaySemantics(vs) {
+		hosts := vs.Spec.(*networking.VirtualService).Hosts
+		// If we have a wildcard match, add a header match regex rule to match the
+		// hostname, so we can be sure to only match one DNS label. This is required
+		// as Envoy's virtualhost hostname wildcard matching can match multiple
+		// labels. This match ignores a port in the hostname in case it is present.
+		// Conversion guarantees a single host
+		if len(hosts) == 1 && strings.HasPrefix(hosts[0], "*.") {
+			mm := &route.HeaderMatcher{
+				Name: HeaderAuthority,
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: util.ConvertToEnvoyMatch(&networking.StringMatch{
+						MatchType: &networking.StringMatch_Regex{Regex: singleDNSLabelWildcardRegex + regexp.QuoteMeta(hosts[0][1:])},
+					}),
+				},
+			}
+			out.Headers = append(out.Headers, mm)
 		}
 	}
 

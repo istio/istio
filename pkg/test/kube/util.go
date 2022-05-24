@@ -147,7 +147,8 @@ func WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]kube
 // WaitUntilServiceEndpointsAreReady will wait until the service with the given name/namespace is present, and have at least
 // one usable endpoint.
 func WaitUntilServiceEndpointsAreReady(a kubernetes.Interface, ns string, name string,
-	opts ...retry.Option) (*kubeApiCore.Service, *kubeApiCore.Endpoints, error) {
+	opts ...retry.Option,
+) (*kubeApiCore.Service, *kubeApiCore.Endpoints, error) {
 	var service *kubeApiCore.Service
 	var endpoints *kubeApiCore.Endpoints
 	err := retry.UntilSuccess(func() error {
@@ -207,7 +208,8 @@ func WaitForSecretToExist(a kubernetes.Interface, namespace, name string, waitTi
 
 // WaitForSecretToExistOrFail calls WaitForSecretToExist and fails the given test.Failer if an error occurs.
 func WaitForSecretToExistOrFail(t test.Failer, a kubernetes.Interface, namespace, name string,
-	waitTime time.Duration) *kubeApiCore.Secret {
+	waitTime time.Duration,
+) *kubeApiCore.Secret {
 	t.Helper()
 	s, err := WaitForSecretToExist(a, namespace, name, waitTime)
 	if err != nil {

@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -118,6 +119,10 @@ func TestConvertResources(t *testing.T) {
 			output.AllowedReferences = nil       // Not tested here
 			output.ReferencedNamespaceKeys = nil // Not tested here
 
+			// sort virtual services to make the order deterministic
+			sort.Slice(output.VirtualService, func(i, j int) bool {
+				return output.VirtualService[i].Namespace+"/"+output.VirtualService[i].Name < output.VirtualService[j].Namespace+"/"+output.VirtualService[j].Name
+			})
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
 			if util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
@@ -131,9 +136,7 @@ func TestConvertResources(t *testing.T) {
 			sort.Slice(golden.VirtualService, func(i, j int) bool {
 				return golden.VirtualService[i].Namespace+"/"+golden.VirtualService[i].Name < golden.VirtualService[j].Namespace+"/"+golden.VirtualService[j].Name
 			})
-			sort.Slice(output.VirtualService, func(i, j int) bool {
-				return output.VirtualService[i].Namespace+"/"+output.VirtualService[i].Name < output.VirtualService[j].Namespace+"/"+output.VirtualService[j].Name
-			})
+
 			assert.Equal(t, golden, output)
 
 			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.TLSRoute, kr.TCPRoute)
@@ -496,6 +499,29 @@ func TestHumanReadableJoin(t *testing.T) {
 			if got := humanReadableJoin(tt.input); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestStrictestHost(t *testing.T) {
+	tests := []struct {
+		route   host.Name
+		gateway host.Name
+		want    string
+	}{
+		{"foo.com", "bar.com", ""},
+		{"foo.com", "foo.com", "foo.com"},
+		{"*.com", "foo.com", "foo.com"},
+		{"foo.com", "*.com", "foo.com"},
+		{"*.com", "*.com", "*.com"},
+		{"*.foo.com", "*.bar.com", ""},
+		{"*.foo.com", "*.com", ""},
+		{"*", "foo.com", "foo.com"},
+		{"bar.com", "", "bar.com"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v/%v", tt.route, tt.gateway), func(t *testing.T) {
+			assert.Equal(t, strictestHost(tt.route, tt.gateway), tt.want)
 		})
 	}
 }

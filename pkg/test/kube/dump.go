@@ -37,7 +37,23 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-const maxCoreDumpedPods = 5
+type wellKnownContainer string
+
+func (n wellKnownContainer) IsContainer(c corev1.Container) bool {
+	return c.Name == n.Name()
+}
+
+func (n wellKnownContainer) Name() string {
+	return string(n)
+}
+
+const (
+	maxCoreDumpedPods                      = 5
+	proxyContainer      wellKnownContainer = "istio-proxy"
+	discoveryContainer  wellKnownContainer = "discovery"
+	initContainer       wellKnownContainer = "istio-init"
+	validationContainer wellKnownContainer = "istio-validation"
+)
 
 var coreDumpedPods = atomic.NewInt32(0)
 
@@ -168,11 +184,11 @@ func DumpCoreDumps(_ resource.Context, c cluster.Cluster, workDir string, namesp
 		wroteDumpsForPod := false
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
-			if container.Name != "istio-proxy" {
+			if !proxyContainer.IsContainer(container) {
 				continue
 			}
-			restarts := containerRestarts(pod, "istio-proxy")
-			crashed, _ := containerCrashed(pod, "istio-proxy")
+			restarts := containerRestarts(pod, proxyContainer.Name())
+			crashed, _ := containerCrashed(pod, proxyContainer.Name())
 			if !crashed || restarts == 0 {
 				// no need to store this dump
 				continue
@@ -312,8 +328,8 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 			// Get previous container logs, if applicable
 			if restarts := containerRestarts(pod, container.Name); restarts > 0 {
 				// only care about istio components restart
-				if container.Name == "istio-proxy" || container.Name == "discovery" || container.Name == "istio-init" ||
-					container.Name == "istio-validation" || strings.HasPrefix(pod.Name, "istio-cni-node") {
+				if proxyContainer.IsContainer(container) || discoveryContainer.IsContainer(container) || initContainer.IsContainer(container) ||
+					validationContainer.IsContainer(container) || strings.HasPrefix(pod.Name, "istio-cni-node") {
 					// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
 					// a log which will get highlighted in the test logs
 					// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
@@ -339,7 +355,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 			}
 
 			// Get envoy logs if the pod is a VM, since kubectl logs only shows the logs from iptables for VMs
-			if isVM && container.Name == "istio-proxy" {
+			if isVM && proxyContainer.IsContainer(container) {
 				if stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.err.log"); err == nil {
 					fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.envoy.err.log", container.Name))
 					stdAll := stdout + stderr
@@ -403,11 +419,10 @@ func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace st
 }
 
 func dumpProxyCommand(c cluster.Cluster, pod corev1.Pod, workDir, filename, command string) {
-	isVM := checkIfVM(pod)
 	containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 	for _, container := range containers {
-		if container.Name != "istio-proxy" && !isVM {
-			// if we don't have istio-proxy container, and we're not running as a VM, agent isn't running
+		if !proxyContainer.IsContainer(container) {
+			// The pilot-agent is only available in the proxy container
 			continue
 		}
 
@@ -431,7 +446,7 @@ func hasEnvoy(pod corev1.Pod) bool {
 	}
 	f := false
 	for _, c := range pod.Spec.Containers {
-		if c.Name == "istio-proxy" {
+		if proxyContainer.IsContainer(c) {
 			f = true
 			break
 		}
