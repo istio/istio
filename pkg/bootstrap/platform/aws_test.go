@@ -49,7 +49,7 @@ func TestAWSLocality(t *testing.T) {
 			server, url := setupHTTPServer(v.handlers)
 			defer server.Close()
 			awsMetadataIPv4URL = url.String()
-			locality := NewAWS(false).Locality()
+			locality := NewAWS(true, false).Locality()
 			if !reflect.DeepEqual(locality, v.want) {
 				t.Errorf("unexpected locality. want :%v, got :%v", v.want, locality)
 			}
@@ -72,7 +72,7 @@ func TestIsAWS(t *testing.T) {
 			server, url := setupHTTPServer(v.handlers)
 			defer server.Close()
 			awsMetadataIPv4URL = url.String()
-			aws := IsAWS(false)
+			aws := IsAWS(true, false)
 			if !reflect.DeepEqual(aws, v.want) {
 				t.Errorf("unexpected iam info. want :%v, got :%v", v.want, aws)
 			}

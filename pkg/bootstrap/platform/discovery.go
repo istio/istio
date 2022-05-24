@@ -48,7 +48,7 @@ func Discover(ipv4, ipv6 bool) Environment {
 		}
 	}
 	// Discover the platform if user has not specified.
-	return DiscoverWithTimeout(defaultTimeout, ipv6)
+	return DiscoverWithTimeout(defaultTimeout, ipv4, ipv6)
 }
 
 // DiscoverWithTimeout attempts to discover the host platform, defaulting to
