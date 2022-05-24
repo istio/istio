@@ -1,6 +1,7 @@
 package filters
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -54,7 +55,7 @@ func TestBuildRouterFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		result := BuildRouterFilter(tt.ctx)
-		if result != tt.expected {
+		if !reflect.DeepEqual(result, tt.expected) {
 			t.Errorf("Test %s failed, expected: %v ,got: %v", tt.name, spew.Sdump(result), spew.Sdump(tt.expected))
 		}
 	}
