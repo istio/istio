@@ -55,7 +55,7 @@ gateways:
 
     podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-
+    externalIPs: []
     ##############
     secretVolumes:
     - name: ingressgateway-certs
