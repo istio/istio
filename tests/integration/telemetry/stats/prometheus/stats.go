@@ -215,7 +215,7 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 		Features(feature).
 		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
-			for _, cltInstance := range client {
+			for _, cltInstance := range GetClientInstances() {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
@@ -303,22 +303,22 @@ proxyMetadata:
 	// Following resources are being deployed to test sidecar->gateway communication. With following resources,
 	// routing is being setup from sidecar to external site, edition.cnn.com, via egress gateway.
 	// clt(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway-> vs(tcp:443) -> cnn.com
-	if err = ctx.ConfigIstio().File(appNsInst.Name(),
+	if err = ctx.ConfigIstio().File(GetAppNamespace().Name(),
 		filepath.Join(env.IstioSrc,
 			"tests/integration/telemetry/stats/prometheus/testdata/cnn-service-entry.yaml")).Apply(); err != nil {
 		return
 	}
-	if err = ctx.ConfigIstio().File(appNsInst.Name(),
+	if err = ctx.ConfigIstio().File(GetAppNamespace().Name(),
 		filepath.Join(env.IstioSrc,
 			"tests/integration/telemetry/stats/prometheus/testdata/istio-mtls-dest-rule.yaml")).Apply(); err != nil {
 		return
 	}
-	if err = ctx.ConfigIstio().File(appNsInst.Name(),
+	if err = ctx.ConfigIstio().File(GetAppNamespace().Name(),
 		filepath.Join(env.IstioSrc,
 			"tests/integration/telemetry/stats/prometheus/testdata/istio-mtls-gateway.yaml")).Apply(); err != nil {
 		return
 	}
-	if err = ctx.ConfigIstio().File(appNsInst.Name(),
+	if err = ctx.ConfigIstio().File(GetAppNamespace().Name(),
 		filepath.Join(env.IstioSrc,
 			"tests/integration/telemetry/stats/prometheus/testdata/istio-mtls-vs.yaml")).Apply(); err != nil {
 		return
@@ -503,9 +503,9 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 		"destination_version":            "unknown",
 		"destination_workload_namespace": "istio-system",
 		"destination_service_namespace":  "istio-system",
-		"source_app":                     "client",
+		"source_app":                     "a",
 		"source_version":                 "v1",
-		"source_workload":                "client-v1",
+		"source_workload":                "a-v1",
 		"source_workload_namespace":      ns.Name(),
 		"source_cluster":                 sourceCluster,
 		"reporter":                       "source",
@@ -517,14 +517,14 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 }
 
 func sendTrafficFromSidecarToGateway(clt echo.Instance, testRequestCmd string) error {
-	pods, err := clt.Config().Cluster.PodsForSelector(context.TODO(), appNsInst.Name(), "app=client")
+	pods, err := clt.Config().Cluster.PodsForSelector(context.TODO(), GetAppNamespace().Name(), "app=a")
 	if err != nil || len(pods.Items) == 0 {
 		return fmt.Errorf("could not get client pods. err: %v", err)
 	}
 	clientPodName := pods.Items[0].Name
 	out, _, err := clt.Config().Cluster.PodExec(
 		clientPodName,
-		appNsInst.Name(),
+		GetAppNamespace().Name(),
 		"app",
 		testRequestCmd)
 	if err != nil {
