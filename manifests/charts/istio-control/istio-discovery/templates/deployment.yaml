@@ -120,6 +120,10 @@ spec:
             periodSeconds: 3
             timeoutSeconds: 5
           env:
+          {{- if eq .Values.uproxyType "gke" }}
+          - name: SIDECARLESS_CAPTURE
+            value: "bpf"
+          {{- end }}
           - name: REVISION
             value: "{{ .Values.revision | default `default` }}"
           - name: JWT_POLICY

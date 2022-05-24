@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"istio.io/istio/pilot/pkg/ambient"
 	"net"
 	"regexp"
 	"sort"
@@ -34,6 +33,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/ambient"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
@@ -761,6 +761,11 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
+)
+
+const (
+	VariantIptables = "iptables"
+	VariantBpf      = "bpf"
 )
 
 var NodeTypes = [...]NodeType{SidecarProxy, Router}

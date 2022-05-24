@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/networking/uproxygen"
@@ -197,7 +198,7 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterAliase
 		out.EndpointIndex.SetCache(out.Cache)
 	}
 
-	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
+	out.ConfigGenerator = &v1alpha3.ConfigGeneratorImpl{Cache: out.Cache, Discovery: out.Env}
 
 	return out
 }
@@ -591,8 +592,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["uproxy-envoy/"+v3.EndpointType] = s.Generators["uproxy-envoy"]
 
 	pepGen := &uproxygen.PEPGenerator{
-		Listeners: s.Generators[v3.ListenerType],
-		Clusters:  s.Generators[v3.ClusterType],
+		ConfigGenerator: s.ConfigGenerator,
 	}
 	s.Generators["ambient-pep/"+v3.ListenerType] = pepGen
 	s.Generators["ambient-pep/"+v3.ClusterType] = pepGen

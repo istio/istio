@@ -292,11 +292,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return map[string]string{}
 	}
 
-	// Used for readiness, monitoring and debug handlers.
-	if err := s.initIstiodAdminServer(args, whc); err != nil {
-		return nil, fmt.Errorf("error initializing debug server: %v", err)
-	}
-
 	// ambient needs the webhook config, so we initialize here, after setting up the sidecar injector
 	getWebhookConfig := func() inject.WebhookConfig { return inject.WebhookConfig{} }
 	if wh != nil {
@@ -305,6 +300,11 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	s.initAmbient(args, getWebhookConfig)
 
 	s.XDSServer.InitGenerators(e, args.Namespace)
+
+	// Used for readiness, monitoring and debug handlers.
+	if err := s.initIstiodAdminServer(args, whc); err != nil {
+		return nil, fmt.Errorf("error initializing debug server: %v", err)
+	}
 
 	// This should be called only after controllers are initialized.
 	s.initRegistryEventHandlers()

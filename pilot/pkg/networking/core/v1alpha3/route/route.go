@@ -428,11 +428,11 @@ func translateRoute(
 	authority := ""
 	if in.Headers != nil {
 		operations := translateHeadersOperations(in.Headers)
-		out.RequestHeadersToAdd = operations.requestHeadersToAdd
-		out.ResponseHeadersToAdd = operations.responseHeadersToAdd
-		out.RequestHeadersToRemove = operations.requestHeadersToRemove
-		out.ResponseHeadersToRemove = operations.responseHeadersToRemove
-		authority = operations.authority
+		out.RequestHeadersToAdd = operations.RequestHeadersToAdd
+		out.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
+		out.RequestHeadersToRemove = operations.RequestHeadersToRemove
+		out.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
+		authority = operations.Authority
 	}
 
 	if in.Redirect != nil {
@@ -539,13 +539,13 @@ func applyHTTPRouteDestination(
 		}
 		if dst.Headers != nil {
 			operations := translateHeadersOperations(dst.Headers)
-			clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
-			clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
-			clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
-			clusterWeight.ResponseHeadersToRemove = operations.responseHeadersToRemove
-			if operations.authority != "" {
+			clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
+			clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
+			clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
+			clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
+			if operations.Authority != "" {
 				clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
-					HostRewriteLiteral: operations.authority,
+					HostRewriteLiteral: operations.Authority,
 				}
 			}
 		}
@@ -582,6 +582,10 @@ func applyHTTPRouteDestination(
 			},
 		}
 	}
+}
+
+func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int) {
+	applyRedirect(out, redirect, port)
 }
 
 func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int) {
@@ -652,6 +656,10 @@ func buildHTTP3AltSvcHeader(port int, h3Alpns []string) *core.HeaderValueOption 
 
 // SortHeaderValueOption type and the functions below (Len, Less and Swap) are for sort.Stable for type HeaderValueOption
 type SortHeaderValueOption []*core.HeaderValueOption
+
+func MirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
+	return mirrorPercent(in)
+}
 
 // mirrorPercent computes the mirror percent to be used based on "Mirror" data in route.
 func mirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
@@ -729,11 +737,11 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) ([]*core
 }
 
 type headersOperations struct {
-	requestHeadersToAdd     []*core.HeaderValueOption
-	responseHeadersToAdd    []*core.HeaderValueOption
-	requestHeadersToRemove  []string
-	responseHeadersToRemove []string
-	authority               string
+	RequestHeadersToAdd     []*core.HeaderValueOption
+	ResponseHeadersToAdd    []*core.HeaderValueOption
+	RequestHeadersToRemove  []string
+	ResponseHeadersToRemove []string
+	Authority               string
 }
 
 // isInternalHeader returns true if a header refers to an internal value that cannot be modified by Envoy
@@ -757,6 +765,10 @@ func dropInternal(keys []string) []string {
 	return result
 }
 
+func TranslateHeadersOperations(headers *networking.Headers) headersOperations {
+	return translateHeadersOperations(headers)
+}
+
 // translateHeadersOperations translates headers operations
 func translateHeadersOperations(headers *networking.Headers) headersOperations {
 	req := headers.GetRequest()
@@ -776,12 +788,16 @@ func translateHeadersOperations(headers *networking.Headers) headersOperations {
 		auth = setAuthority
 	}
 	return headersOperations{
-		requestHeadersToAdd:     requestHeadersToAdd,
-		responseHeadersToAdd:    responseHeadersToAdd,
-		requestHeadersToRemove:  dropInternal(req.GetRemove()),
-		responseHeadersToRemove: dropInternal(resp.GetRemove()),
-		authority:               auth,
+		RequestHeadersToAdd:     requestHeadersToAdd,
+		ResponseHeadersToAdd:    responseHeadersToAdd,
+		RequestHeadersToRemove:  dropInternal(req.GetRemove()),
+		ResponseHeadersToRemove: dropInternal(resp.GetRemove()),
+		Authority:               auth,
 	}
+}
+
+func TranslateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
+	return translateRouteMatch(node, vs, in)
 }
 
 // translateRouteMatch translates match condition
@@ -958,6 +974,10 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 	return out
 }
 
+func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
+	return translateCORSPolicy(in)
+}
+
 // translateCORSPolicy translates CORS policy
 func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	if in == nil {
@@ -990,6 +1010,10 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 		out.MaxAge = strconv.FormatInt(in.MaxAge.GetSeconds(), 10)
 	}
 	return &out
+}
+
+func GetRouteOperation(in *route.Route, vsName string, port int) string {
+	return getRouteOperation(in, vsName, port)
 }
 
 // getRouteOperation returns readable route description for trace.
@@ -1072,6 +1096,10 @@ func translateIntegerToFractionalPercent(p int32) *xdstype.FractionalPercent {
 		Numerator:   uint32(p),
 		Denominator: xdstype.FractionalPercent_HUNDRED,
 	}
+}
+
+func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
+	return translateFault(in)
 }
 
 // translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault

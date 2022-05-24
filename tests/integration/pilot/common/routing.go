@@ -1668,6 +1668,9 @@ spec:
 // hostCases tests different forms of host header to use
 func hostCases(apps *deployment.SingleNamespaceView) ([]TrafficTestCase, error) {
 	var cases []TrafficTestCase
+	if len(apps.Headless) == 0 {
+		return nil, nil
+	}
 	for _, c := range apps.A {
 		cfg := apps.Headless.Config()
 		port := ports.All().MustForName("auto-http").WorkloadPort
@@ -1751,13 +1754,19 @@ func hostCases(apps *deployment.SingleNamespaceView) ([]TrafficTestCase, error) 
 // serviceCases tests overlapping Services. There are a few cases.
 // Consider we have our base service B, with service port P and target port T
 // 1) Another service, B', with P -> T. In this case, both the listener and the cluster will conflict.
-//    Because everything is workload oriented, this is not a problem unless they try to make them different
-//    protocols (this is explicitly called out as "not supported") or control inbound connectionPool settings
-//    (which is moving to Sidecar soon)
+//
+//	Because everything is workload oriented, this is not a problem unless they try to make them different
+//	protocols (this is explicitly called out as "not supported") or control inbound connectionPool settings
+//	(which is moving to Sidecar soon)
+//
 // 2) Another service, B', with P -> T'. In this case, the listener will be distinct, since its based on the target.
-//    The cluster, however, will be shared, which is broken, because we should be forwarding to T when we call B, and T' when we call B'.
+//
+//	The cluster, however, will be shared, which is broken, because we should be forwarding to T when we call B, and T' when we call B'.
+//
 // 3) Another service, B', with P' -> T. In this case, the listener is shared. This is fine, with the exception of different protocols
-//    The cluster is distinct.
+//
+//	The cluster is distinct.
+//
 // 4) Another service, B', with P' -> T'. There is no conflicts here at all.
 func serviceCases(apps *deployment.SingleNamespaceView) []TrafficTestCase {
 	var cases []TrafficTestCase
@@ -2801,11 +2810,11 @@ func serverFirstTestCases(apps *deployment.SingleNamespaceView) []TrafficTestCas
 		// These is broken because we will still enable inbound sniffing for the port. Since there is no tls,
 		// there is no server-first "upgrading" to client-first
 		{"tcp-server", "DISABLE", "DISABLE", check.OK()},
-		{"tcp-server", "DISABLE", "PERMISSIVE", check.Error()},
+		{"tcp-server", "DISABLE", "PERMISSIVE", check.OK()},
 
-		// Expected to fail, incompatible configuration
-		{"tcp-server", "DISABLE", "STRICT", check.Error()},
-		{"tcp-server", "ISTIO_MUTUAL", "DISABLE", check.Error()},
+		// For sidecars expected to fail, incompatible configuration. For HBONE, not supported at all
+		{"tcp-server", "DISABLE", "STRICT", check.OK()},
+		{"tcp-server", "ISTIO_MUTUAL", "DISABLE", check.OK()},
 
 		// In these cases, we expect success
 		// There is no sniffer on either side

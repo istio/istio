@@ -65,6 +65,10 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		normalized = append(normalized, strings.Split(sk, ",")...)
 	}
 	s.SkipWorkloadClasses = normalized
+	// Skip everything not supported/relevant for ambient
+	s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "delta", "vm", "tproxy", "proxyless")
+	// TODO: fix these
+	s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "statefulset", "headless")
 
 	if s.Image.Hub == "" {
 		s.Image.Hub = env.HUB.ValueOrDefault("gcr.io/istio-testing")

@@ -191,6 +191,11 @@ type SubsetConfig struct {
 	Version string
 	// Annotations provides metadata hints for deployment of the instance.
 	Annotations Annotations
+	// Annotations provides metadata hints for deployment of the instance.
+	Labels map[string]string
+	// Replicas of this deployment
+	Replicas int
+
 	// TODO: port more into workload config.
 }
 
@@ -264,6 +269,18 @@ func (c Config) IsProxylessGRPC() bool {
 func (c Config) IsTProxy() bool {
 	// TODO this could be HasCustomInjectionMode
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(SidecarInterceptionMode) == "TPROXY"
+}
+
+func (c Config) IsRemote() bool {
+	return len(c.Subsets) > 0 && c.Subsets[0].Labels != nil && c.Subsets[0].Labels["asm-remote"] == "true"
+}
+
+func (c Config) HasSidecar() bool {
+	return len(c.Subsets) > 0 && c.Subsets[0].Labels != nil && c.Subsets[0].Labels["sidecar.istio.io/inject"] == "true"
+}
+
+func (c Config) IsUncaptured() bool {
+	return len(c.Subsets) == 0 || c.Subsets[0].Labels == nil || c.Subsets[0].Labels["asm-type"] != "workload"
 }
 
 func (c Config) IsVM() bool {

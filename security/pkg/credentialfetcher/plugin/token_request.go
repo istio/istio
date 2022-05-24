@@ -61,7 +61,7 @@ func TokenRequest(audience, identityProvider string, delegate security.CredFetch
 	if fileExists(kindKeyCert) {
 		kubeRestConfig.TLSClientConfig.CertFile = kindKeyCert
 		kubeRestConfig.TLSClientConfig.KeyFile = kindKeyCert
-	} else {
+	} else if fileExists(gkeCert) {
 		kubeRestConfig.TLSClientConfig.CertFile = gkeCert
 		kubeRestConfig.TLSClientConfig.KeyFile = gkeKey
 	}
@@ -116,7 +116,7 @@ func (t TokenRequestPlugin) GetPlatformCredential(ctx context.Context) (string, 
 	}
 	tok, err := t.client.CoreV1().ServiceAccounts(sp.Namespace).CreateToken(context.Background(), sp.ServiceAccount, token, metav1.CreateOptions{})
 	if err != nil {
-		return "", fmt.Errorf("could not create a token for %v: %v", sp, err)
+		return "", fmt.Errorf("could not create a token for %v/%v: %v", sp, ref, err)
 	}
 	log.Infof("created token for %v: %v", sp, tok.Status.Token)
 	return tok.Status.Token, nil

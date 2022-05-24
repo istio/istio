@@ -1013,7 +1013,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				sniHosts: []string{"example.org", "test.org"},
 				tlsContext: &auth.DownstreamTlsContext{
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: util.ALPNHttp,
+						AlpnProtocols: util.ALPNDownstreamWithMxc,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
@@ -2368,7 +2368,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 				proxy.Metadata = &proxyGatewayMetadata
 			}
 
-			builder := cg.ConfigGen.buildGatewayListeners(NewListenerBuilder(proxy, cg.PushContext()))
+			builder := cg.ConfigGen.buildGatewayListeners(NewListenerBuilder(nil, proxy, cg.PushContext()))
 			listeners := xdstest.ExtractListenerNames(builder.gatewayListeners)
 			sort.Strings(listeners)
 			sort.Strings(tt.expectedListeners)

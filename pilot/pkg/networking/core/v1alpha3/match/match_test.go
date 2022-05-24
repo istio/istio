@@ -15,10 +15,12 @@ package match
 // limitations under the License.
 
 import (
+	"testing"
+
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
+
 	"istio.io/istio/pkg/util/protomarshal"
-	"testing"
 )
 
 func TestCleanupEmptyMaps(t *testing.T) {
@@ -81,24 +83,19 @@ func TestCleanupEmptyMaps(t *testing.T) {
 				//   fallback:
 				//     inner (dest ip):
 				//       <no matches>
-				//       fallback (src ip):
-				//         1.2.3.4: chain
-
-				inner := NewSourceIP()
-				inner.Map["1.2.3.4"] = ToChain("chain")
-
-				middle := NewDestinationIP()
-				middle.OnNoMatch = ToMatcher(inner.Matcher)
+				//       fallback: chain
+				inner := NewDestinationIP()
+				inner.OnNoMatch = ToChain("chain")
 
 				root := NewDestinationPort()
-				root.OnNoMatch = ToMatcher(middle.Matcher)
+				root.OnNoMatch = ToMatcher(inner.Matcher)
 				return root
 			},
 			want: func() *matcher.Matcher {
-				// src ip
-				// 1.2.3.4: chain
-				want := NewSourceIP()
-				want.Map["1.2.3.4"] = ToChain("chain")
+				// dest port
+				// 15001: chain
+				want := NewDestinationPort()
+				want.Map["15001"] = ToChain("chain")
 				return want.Matcher
 			},
 		},
@@ -107,18 +104,18 @@ func TestCleanupEmptyMaps(t *testing.T) {
 			given: func() Mapper {
 				// root (dest port)
 				//   15001:
-				//     depth1 (SNI):
+				//     middle (dest ip):
 				//       fallback:
-				//         depth2 (src ip):
+				//         inner (src ip):
 				//           fallback: chain
-				depth2 := NewDestinationIP()
-				depth2.OnNoMatch = ToChain("chain")
+				inner := NewSourceIP()
+				inner.OnNoMatch = ToChain("chain")
 
-				depth1 := newMapper(SNI)
-				depth1.OnNoMatch = ToMatcher(depth2.Matcher)
+				middle := NewDestinationIP()
+				middle.OnNoMatch = ToMatcher(inner.Matcher)
 
 				root := NewDestinationPort()
-				root.Map["15001"] = ToMatcher(depth1.Matcher)
+				root.Map["15001"] = ToMatcher(middle.Matcher)
 				return root
 			},
 			want: func() *matcher.Matcher {
@@ -138,11 +135,8 @@ func TestCleanupEmptyMaps(t *testing.T) {
 			wantJSON, _ := protomarshal.ToJSONWithIndent(tt.want(), "  ")
 
 			if diff := cmp.Diff(haveJSON, wantJSON, cmp.AllowUnexported()); diff != "" {
-				t.Error(haveJSON)
-				t.Error(wantJSON)
 				t.Error(diff)
 			}
 		})
 	}
-
 }

@@ -36,6 +36,14 @@ func (s Set) Insert(item string) Set {
 	return s
 }
 
+func (s Set) InsertContains(item string) bool {
+	if s.Contains(item) {
+		return true
+	}
+	s[item] = struct{}{}
+	return false
+}
+
 // InsertAll adds the items to this Set.
 func (s Set) InsertAll(items ...string) Set {
 	for _, item := range items {

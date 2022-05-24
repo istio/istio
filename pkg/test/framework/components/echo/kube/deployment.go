@@ -85,6 +85,7 @@ spec:
 {{- if .Headless }}
   clusterIP: None
 {{- end }}
+  type: LoadBalancer
   ports:
 {{- range $i, $p := .ServicePorts }}
   - name: {{ $p.Name }}
@@ -117,7 +118,7 @@ spec:
   {{- if $.StatefulSet }}
   serviceName: {{ $.Service }}
   {{- end }}
-  replicas: 1
+  replicas: {{$subset.Replicas | default 1 }}
   selector:
     matchLabels:
       app: {{ $.Service }}
@@ -136,6 +137,9 @@ spec:
 {{- end }}
 {{- if ne $.Locality "" }}
         istio-locality: {{ $.Locality }}
+{{- end }}
+{{- range $name, $value := $subset.Labels }}
+        {{$name}}: "{{$value}}"
 {{- end }}
       annotations:
         prometheus.io/scrape: "true"
@@ -242,7 +246,7 @@ spec:
             port: {{ $.ReadinessTCPPort }}
 {{- else if $.ReadinessGRPCPort }}
           grpc:
-            port: {{ $.ReadinessGRPCPort }}			
+            port: {{ $.ReadinessGRPCPort }}
 {{- else if $.ImageFullPath }}
           tcpSocket:
             port: tcp-health-port
@@ -702,7 +706,7 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 		"Revisions":         settings.Revisions.TemplateMap(),
 		"Compatibility":     settings.Compatibility,
 		"WorkloadClass":     cfg.WorkloadClass(),
-		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()),
+		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()) && false,
 		"IPFamilies":        cfg.IPFamilies,
 		"IPFamilyPolicy":    cfg.IPFamilyPolicy,
 	}

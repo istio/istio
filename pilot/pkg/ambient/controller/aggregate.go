@@ -1,5 +1,3 @@
-package controller
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +12,11 @@ package controller
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package controller
+
 import (
+	"sync"
+
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
@@ -22,7 +24,6 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/multicluster"
 	istiolog "istio.io/pkg/log"
-	"sync"
 )
 
 var log = istiolog.RegisterScope("ambient", "ambient mesh controllers", 0)
@@ -39,8 +40,10 @@ type Options struct {
 	WebhookConfig func() inject.WebhookConfig
 }
 
-var _ multicluster.ClusterHandler = &Aggregate{}
-var _ ambient.Cache = &Aggregate{}
+var (
+	_ multicluster.ClusterHandler = &Aggregate{}
+	_ ambient.Cache               = &Aggregate{}
+)
 
 func NewAggregate(
 	systemNamespace string,
@@ -113,7 +116,8 @@ func initForCluster(opts *Options) *ambientController {
 	if opts.LocalCluster {
 		// TODO handle istiodless remote clusters
 		initAutolabel(opts)
-		initPEPController(opts)
+		remoteProxy := NewRemoteProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
+		go remoteProxy.Run(opts.Stop)
 	}
 	return &ambientController{
 		workloads: initWorkloadCache(opts),

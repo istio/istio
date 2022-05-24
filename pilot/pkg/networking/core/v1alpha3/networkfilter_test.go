@@ -94,7 +94,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				clusterName:       "inbound|8888||",
 			}
 
-			listenerFilters := NewListenerBuilder(cg.SetupProxy(nil), cg.PushContext()).buildInboundNetworkFilters(fcc)
+			listenerFilters := NewListenerBuilder(cg.ConfigGen, cg.SetupProxy(nil), cg.PushContext()).buildInboundNetworkFilters(fcc)
 			tcp := &tcp.TcpProxy{}
 			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
@@ -137,7 +137,7 @@ func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
 
 			fcc := inboundChainConfig{}
 			node := &model.Proxy{Metadata: &model.NodeMetadata{IdleTimeout: tt.idleTimeout}}
-			listenerFilters := NewListenerBuilder(cg.SetupProxy(node), cg.PushContext()).buildInboundNetworkFilters(fcc)
+			listenerFilters := NewListenerBuilder(cg.ConfigGen, cg.SetupProxy(node), cg.PushContext()).buildInboundNetworkFilters(fcc)
 			tcp := &tcp.TcpProxy{}
 			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
 			if !reflect.DeepEqual(tcp.IdleTimeout, tt.expected) {

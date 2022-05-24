@@ -135,7 +135,8 @@ type SyncedVersions struct {
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
-	fetchWebhook func() map[string]string) {
+	fetchWebhook func() map[string]string,
+) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery()
 	s.MemRegistry.EDSUpdater = s
@@ -195,6 +196,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
 	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, internalMux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
+	s.addDebugHandler(mux, internalMux, "/debug/workloadz", "Debug support for workload instances", s.workloadz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/sidecarlezz", "Debug support for sidecarless discovery", s.sidecarlezz)
 
@@ -215,7 +217,8 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.ServeMux,
-	path string, help string, handler func(http.ResponseWriter, *http.Request)) {
+	path string, help string, handler func(http.ResponseWriter, *http.Request),
+) {
 	s.debugHandlers[path] = help
 	// Add handler without auth. This mux is never exposed on an HTTP server and only used internally
 	if internalMux != nil {
@@ -678,7 +681,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now()}
+	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
 	clusters, _ := s.ConfigGenerator.BuildClusters(conn.proxy, req)
 
 	for _, cs := range clusters {
@@ -749,6 +752,18 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		}
 	}
 
+	endpointsDump := &adminapi.EndpointsConfigDump{}
+	if s.Generators[v3.EndpointType] != nil {
+		eps, _, _ := s.Generators[v3.EndpointType].Generate(conn.proxy, conn.Watched(v3.EndpointType), req)
+		if len(eps) > 0 {
+			for _, epAny := range eps {
+				endpointsDump.DynamicEndpointConfigs = append(endpointsDump.DynamicEndpointConfigs, &adminapi.EndpointsConfigDump_DynamicEndpointConfig{
+					EndpointConfig: epAny.Resource,
+				})
+			}
+		}
+	}
+
 	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
 	scopedRoutesAny := util.MessageToAny(&adminapi.ScopedRoutesConfigDump{})
 	// The config dump must have all configs with connections specified in
@@ -760,6 +775,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 			scopedRoutesAny,
 			routeConfigAny,
 			util.MessageToAny(secretsDump),
+			util.MessageToAny(endpointsDump),
 		},
 	}
 	return configDump, nil
@@ -944,6 +960,54 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 		con.proxy.RUnlock()
 	}
 	writeJSON(w, instances)
+}
+
+type workloadz struct {
+	Workloads []workloadSummary `json:"workloads"`
+	PEPs      []workloadSummary `json:"peps"`
+	UProxies  []workloadSummary `json:"uproxies"`
+}
+
+type workloadSummary struct {
+	Name      string
+	Namespace string
+	Address   string
+	Identity  string
+	Node      string
+}
+
+func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
+	d := s.globalPushContext().SidecarlessIndex
+	res := workloadz{}
+	for _, wl := range d.PEPs.All() {
+		res.PEPs = append(res.PEPs, workloadSummary{
+			Name:      wl.Name,
+			Namespace: wl.Namespace,
+			Address:   wl.Status.PodIP,
+			Identity:  wl.Identity(),
+			Node:      wl.Spec.NodeName,
+		})
+	}
+	for _, wl := range d.UProxies.All() {
+		res.UProxies = append(res.UProxies, workloadSummary{
+			Name:      wl.Name,
+			Namespace: wl.Namespace,
+			Address:   wl.Status.PodIP,
+			Identity:  wl.Identity(),
+			Node:      wl.Spec.NodeName,
+		})
+	}
+	for _, wl := range d.Workloads.All() {
+		res.Workloads = append(res.Workloads, workloadSummary{
+			Name:      wl.Name,
+			Namespace: wl.Namespace,
+			Address:   wl.Status.PodIP,
+			Identity:  wl.Identity(),
+			Node:      wl.Spec.NodeName,
+		})
+	}
+
+	writeJSON(w, res)
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, _ *http.Request) {

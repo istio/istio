@@ -20,7 +20,8 @@ import (
 )
 
 type ConfigGeneratorImpl struct {
-	Cache model.XdsCache
+	Cache     model.XdsCache
+	Discovery model.ServiceDiscovery
 }
 
 func NewConfigGenerator(cache model.XdsCache) *ConfigGeneratorImpl {

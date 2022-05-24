@@ -31,6 +31,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -82,7 +83,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 // BuildDeltaClusters generates the deltas (add and delete) for a given proxy. Currently, only service changes are reflected with deltas.
 // Otherwise, we fall back onto generating everything.
 func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, updates *model.PushRequest,
-	watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
+	watched *model.WatchedResource,
+) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
 	// if we can't use delta, fall back to generate all
 	if !shouldUseDelta(updates) {
 		cl, lg := configgen.BuildClusters(proxy, updates)
@@ -140,7 +142,8 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 // buildClusters builds clusters for the proxy with the services passed.
 func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *model.PushRequest,
-	services []*model.Service) ([]*discovery.Resource, model.XdsLogDetails) {
+	services []*model.Service,
+) ([]*discovery.Resource, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
@@ -160,7 +163,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
+		if proxy.Metadata.SidecarlessType == ambient.TypePEP {
+			clusters = append(clusters, configgen.buildRemoteInboundClusters(cb, proxy, req.Push)...)
+		} else {
+			clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
+		}
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
@@ -241,7 +248,8 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 
 // buildOutboundClusters generates all outbound (including subsets) clusters for a given proxy.
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, proxy *model.Proxy, cp clusterPatcher,
-	services []*model.Service) ([]*discovery.Resource, cacheStats) {
+	services []*model.Service,
+) ([]*discovery.Resource, cacheStats) {
 	resources := make([]*discovery.Resource, 0)
 	efKeys := cp.efw.Keys()
 	hit, miss := 0, 0
@@ -343,7 +351,8 @@ func (p clusterPatcher) hasPatches() bool {
 // All SniDnat clusters are internal services in the mesh.
 // TODO enable cache - there is no blockers here, skipped to simplify the original caching implementation
 func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.Proxy, req *model.PushRequest,
-	cp clusterPatcher) []*cluster.Cluster {
+	cp clusterPatcher,
+) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	cb := NewClusterBuilder(proxy, req, nil)
 
@@ -399,7 +408,8 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance,
-	cp clusterPatcher) []*cluster.Cluster {
+	cp clusterPatcher,
+) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 
 	// The inbound clusters for a node depends on whether the node has a SidecarScope with inbound listeners
@@ -502,7 +512,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 }
 
 func findOrCreateServiceInstance(instances []*model.ServiceInstance,
-	ingressListener *networking.IstioIngressListener, sidecar string, sidecarns string) *model.ServiceInstance {
+	ingressListener *networking.IstioIngressListener, sidecar string, sidecarns string,
+) *model.ServiceInstance {
 	for _, realInstance := range instances {
 		if realInstance.Endpoint.EndpointPort == ingressListener.Port.Number {
 			// We need to create a copy of the instance, as it is modified later while building clusters/listeners.
@@ -551,7 +562,8 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 
 // SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
 func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
-	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.ClientTLSSettings) {
+	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.ClientTLSSettings,
+) {
 	if policy == nil {
 		return nil, nil, nil, nil
 	}
@@ -711,7 +723,8 @@ func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
 }
 
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
-	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig) {
+	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig,
+) {
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if localityLbSetting != nil {
 		if c.CommonLbConfig == nil {
@@ -816,7 +829,8 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 }
 
 func applyLocalityLBSetting(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
-	localityLB *networking.LocalityLoadBalancerSetting) {
+	localityLB *networking.LocalityLoadBalancerSetting,
+) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
 	enabledFailover := cluster.OutlierDetection != nil
 	if cluster.LoadAssignment != nil {

@@ -15,9 +15,6 @@
 package kube
 
 import (
-	"fmt"
-	"strings"
-
 	kubeCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/constants"
@@ -59,13 +56,11 @@ func serviceAccount(cfg echo.Config) string {
 }
 
 // workloadHasSidecar returns true if the input endpoint is deployed with sidecar injected based on the config.
-func workloadHasSidecar(cfg echo.Config, podName string) bool {
-	// Match workload first.
-	for _, w := range cfg.Subsets {
-		if strings.HasPrefix(podName, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
-			return w.Annotations.GetBool(echo.SidecarInject) &&
-				!strings.HasPrefix(w.Annotations.Get(echo.SidecarInjectTemplates), "grpc-")
+func workloadHasSidecar(pod *kubeCore.Pod) bool {
+	for _, c := range pod.Spec.Containers {
+		if c.Name == "istio-proxy" {
+			return true
 		}
 	}
-	return true
+	return false
 }

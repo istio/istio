@@ -5,10 +5,15 @@
 ```shell
 ./local-test-utils/kind-registry.sh
 
-export ISTIO_ENVOY_BASE_URL=https://storage.googleapis.com/solo-istio-build/proxy
-HUB=localhost:5000 # local registry in docker (helps avoid permissions issues from private registry)
-TAG=ambient-oss # note, if you change the tag here, also change it in the daemonset yaml below.
-tools/docker --targets=pilot,proxyv2 --hub=$HUB --tag=$TAG --push --builder=crane
+HUB=gcr.io/xyz
+TAG=ambient
+# Build Istiod and proxy (uproxy and remote proxy are the same image)
+tools/docker --targets=pilot,proxyv2,app --hub=$HUB --tag=$TAG --push
+# Install Istio without gateway or webhook
+# uproxyType can be "kind" or "GKE"
+# Mesh config options are optional to improve debugging
+istioctl install -d manifests/ --set hub=$HUB --set tag=$TAG -y --set unvalidatedValues.uproxyType=gke \
+  --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0
 ```
 
 ## Cluster setup (kind)
@@ -21,18 +26,6 @@ tools/docker --targets=pilot,proxyv2 --hub=$HUB --tag=$TAG --push --builder=cran
 
 # Move images from your remote registry to the local one (if needed) - not needed if building and pushing images to localhost.
 ./local-test-utils/refresh-istio-images.sh
-```
-
-## Install
-
-```shell
-# Install Istio without gateway or webhook
-istioctl install --set profile=minimal --set values.global.operatorManageWebhooks=true -d manifests/ --set hub=$HUB --set tag=$TAG
-
-# TODO move this into manifests/ for istioctl install
-kubectl apply -f pilot/cmd/uproxy/daemonset.yaml # replace with your hub/tag
-# OR
-kubectl apply -f pilot/cmd/uproxy/daemonset.kind.yaml
 
 # Turn mesh on
 ./redirect.sh ambient

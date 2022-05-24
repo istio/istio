@@ -1,5 +1,3 @@
-package controller
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,16 +12,20 @@ package controller
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package controller
+
 import (
 	"context"
 	"fmt"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pilot/pkg/ambient"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/env"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var autoLabel = env.RegisterBoolVar("AMBIENT_AUTO_LABEL", true, "").Get()
@@ -44,7 +46,13 @@ func initAutolabel(opts *Options) {
 	go queue.Run(opts.Stop)
 }
 
-var labelPatch = []byte(fmt.Sprintf(`[{"op":"add","path":"/metadata/labels/%s","value":"%s" }]`, ambient.LabelType, ambient.TypeWorkload))
+var labelPatch = []byte(fmt.Sprintf(
+	`[{"op":"add","path":"/metadata/labels/%s","value":"%s" },{"op":"add","path":"/metadata/labels/%s","value":"%s" }]`,
+	ambient.LabelType,
+	ambient.TypeWorkload,
+	ambient.LegacyLabelType,
+	ambient.TypeWorkload,
+))
 
 func ambientLabelFilter(systemNamespace string) func(o controllers.Object) bool {
 	return func(o controllers.Object) bool {
@@ -53,6 +61,7 @@ func ambientLabelFilter(systemNamespace string) func(o controllers.Object) bool 
 		return !alreadyLabelled && !ignored
 	}
 }
+
 func ambientLabelPatcher(client kubelib.Client) func(types.NamespacedName) error {
 	return func(key types.NamespacedName) error {
 		_, err := client.CoreV1().

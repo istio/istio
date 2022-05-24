@@ -2,12 +2,6 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  values:
-    pilot:
-      resources:
-        requests:
-          cpu: 500m
-          memory: 512Mi
   components:
     ingressGateways:
     - name: istio-ingressgateway

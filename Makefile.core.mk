@@ -113,7 +113,7 @@ endif
 
 # Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
 
-export ISTIO_ENVOY_BASE_URL ?= https://storage.googleapis.com/istio-build/proxy
+export ISTIO_ENVOY_BASE_URL ?= https://storage.googleapis.com/solo-istio-build/proxy
 
 # Use envoy as the sidecar by default
 export SIDECAR ?= envoy
@@ -121,6 +121,7 @@ export SIDECAR ?= envoy
 # OS-neutral vars. These currently only work for linux.
 export ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
+#export ISTIO_ENVOY_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-symbol-$(ISTIO_ENVOY_VERSION).tar.gz
 export ISTIO_ENVOY_CENTOS_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-centos-debug-$(ISTIO_ENVOY_VERSION).tar.gz
 export ISTIO_ENVOY_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
 export ISTIO_ENVOY_CENTOS_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-centos-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
@@ -269,7 +270,7 @@ RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
 .PHONY: build
 build: depend ## Builds all go binaries.
 	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ $(STANDARD_BINARIES)
-	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=agent $(AGENT_BINARIES)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ $(AGENT_BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
 # This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
@@ -278,7 +279,7 @@ build: depend ## Builds all go binaries.
 .PHONY: build-linux
 build-linux: depend
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ $(STANDARD_BINARIES)
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ $(AGENT_BINARIES)
 
 # Create targets for TARGET_OUT_LINUX/binary
 # There are two use cases here:
@@ -297,7 +298,7 @@ endif
 endef
 
 $(foreach bin,$(STANDARD_BINARIES),$(eval $(call build-linux,$(bin),"")))
-$(foreach bin,$(AGENT_BINARIES),$(eval $(call build-linux,$(bin),"agent")))
+$(foreach bin,$(AGENT_BINARIES),$(eval $(call build-linux,$(bin),"")))
 
 # Create helper targets for each binary, like "pilot-discovery"
 # As an optimization, these still build everything

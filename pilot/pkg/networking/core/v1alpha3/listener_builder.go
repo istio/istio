@@ -25,6 +25,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -59,6 +60,7 @@ type ListenerBuilder struct {
 	authzBuilder *authz.Builder
 	// authzCustomBuilder provides access to CUSTOM authz configuration for the given proxy.
 	authzCustomBuilder *authz.Builder
+	Discovery          model.ServiceDiscovery
 }
 
 // enabledInspector captures if for a given listener, listener filter inspectors are added
@@ -67,10 +69,11 @@ type enabledInspector struct {
 	TLSInspector  bool
 }
 
-func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+func NewListenerBuilder(configgen *ConfigGeneratorImpl, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 	builder := &ListenerBuilder{
-		node: node,
-		push: push,
+		node:      node,
+		push:      push,
+		Discovery: configgen.Discovery,
 	}
 	builder.authnBuilder = authn.NewBuilder(push, node)
 	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node)
@@ -78,8 +81,34 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 	return builder
 }
 
+func (lb *ListenerBuilder) WithWorkload(wl ambient.Workload) *ListenerBuilder {
+	dummy := &model.Proxy{
+		ConfigNamespace: wl.Namespace,
+		Metadata:        &model.NodeMetadata{Labels: wl.Labels},
+	}
+	return &ListenerBuilder{
+		node:                    lb.node,
+		push:                    lb.push,
+		gatewayListeners:        lb.gatewayListeners,
+		inboundListeners:        lb.inboundListeners,
+		outboundListeners:       lb.outboundListeners,
+		httpProxyListener:       lb.httpProxyListener,
+		virtualOutboundListener: lb.virtualOutboundListener,
+		virtualInboundListener:  lb.virtualInboundListener,
+		envoyFilterWrapper:      lb.envoyFilterWrapper,
+		authnBuilder:            lb.authnBuilder,
+		authzBuilder:            authz.NewBuilder(authz.Local, lb.push, dummy),
+		authzCustomBuilder:      authz.NewBuilder(authz.Custom, lb.push, dummy),
+		Discovery:               lb.Discovery,
+	}
+}
+
 func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
-	lb.inboundListeners = lb.buildInboundListeners()
+	if lb.node.Metadata.SidecarlessType == ambient.TypePEP {
+		lb.inboundListeners = lb.buildRemoteInbound()
+	} else {
+		lb.inboundListeners = lb.buildInboundListeners()
+	}
 	return lb
 }
 

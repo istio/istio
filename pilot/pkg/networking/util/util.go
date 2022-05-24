@@ -187,6 +187,19 @@ func BuildAddress(bind string, port uint32) *core.Address {
 	}
 }
 
+// BuildAddress returns a SocketAddress with the given ip and port or uds.
+func BuildInternalAddress(name string) *core.Address {
+	return &core.Address{
+		Address: &core.Address_EnvoyInternalAddress{
+			EnvoyInternalAddress: &core.EnvoyInternalAddress{
+				AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
+					ServerListenerName: name,
+				},
+			},
+		},
+	}
+}
+
 func BuildNetworkAddress(bind string, port uint32, transport istionetworking.TransportProtocol) *core.Address {
 	if port == 0 {
 		return nil
@@ -446,7 +459,8 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
 func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, labels labels.Instance) *core.Metadata {
+	clusterID cluster.ID, labels labels.Instance,
+) *core.Metadata {
 	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
 		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
 		return nil
@@ -692,4 +706,13 @@ func IPv6Compliant(host string) string {
 // DomainName builds the domain name for a given host and port
 func DomainName(host string, port int) string {
 	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
+func BuildTunnelMetadata(m map[string]interface{}) *core.Metadata {
+	st, _ := structpb.NewStruct(m)
+	return &core.Metadata{
+		FilterMetadata: map[string]*structpb.Struct{
+			"tunnel": st,
+		},
+	}
 }

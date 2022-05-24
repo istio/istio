@@ -1,5 +1,3 @@
-package controller
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,86 +12,30 @@ package controller
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package controller
+
 import (
 	"context"
-	"istio.io/istio/pilot/pkg/model"
-	"sigs.k8s.io/yaml"
-	"sort"
-	"strconv"
-	"strings"
-	"sync"
+	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	"sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
+	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pilot/pkg/ambient"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/gvk"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/util/sets"
+	istiolog "istio.io/pkg/log"
 )
-
-type proxy struct {
-	Name           string `json:"name,omitempty"`
-	IP             string `json:"ip,omitempty"`
-	ServiceAccount string `json:"serviceAccount"`
-}
-
-type pepController struct {
-	*Options
-	pods listerv1.PodLister
-
-	proxiesMu    sync.Mutex
-	injectConfig func() inject.WebhookConfig
-}
-
-func initPEPController(opts *Options) *pepController {
-	// TODO support for deploying peps into a remote cluster
-	pods := opts.Client.KubeInformer().Core().V1().Pods()
-	pc := &pepController{
-		Options:      opts,
-		pods:         pods.Lister(),
-		injectConfig: opts.WebhookConfig,
-	}
-	proxyQueue := controllers.NewQueue("pep deployer",
-		controllers.WithReconciler(func(key types.NamespacedName) error {
-			return pc.Reconcile(key)
-		}),
-		controllers.WithMaxAttempts(5),
-	)
-	proxyHandler := controllers.FilteredObjectHandler(enqueuePEP(proxyQueue))
-	pods.Informer().AddEventHandler(proxyHandler)
-	go proxyQueue.Run(pc.Stop)
-	return pc
-}
-
-func enqueuePEP(q controllers.Queue) (func(obj controllers.Object), func(o controllers.Object) bool) {
-	handler := func(obj controllers.Object) {
-		if obj.GetLabels()[ambient.LabelType] == ambient.TypePEP {
-			// This is the proxy, enqueue it directly
-			q.AddObject(obj)
-			return
-		}
-		// Enqueue the proxy. Note the filter makes sure this only applies to pods we care about
-		q.Add(types.NamespacedName{
-			Namespace: obj.GetNamespace(),
-			Name:      obj.GetName() + "-proxy",
-		})
-	}
-	filter := func(o controllers.Object) bool {
-		isPEP := o.GetLabels()[ambient.LabelType] == ambient.TypePEP
-		wantsPEP, _ := strconv.ParseBool(o.GetLabels()[ambient.LabelPEP])
-		return isPEP || wantsPEP
-	}
-	return handler, filter
-}
-
-// mergeProxies, if true, means we merge PEPs by service account
-var mergeProxies = env.RegisterBoolVar("AMBIENT_MERGE_PROXIES", true, "").Get()
 
 type ProxySpecifier struct {
 	Namespace      string `json:"namespace,omitempty"`
@@ -101,431 +43,216 @@ type ProxySpecifier struct {
 	// TODO: "config set" determined by workload labels
 }
 
-func ProxySpecifierForPod(p *corev1.Pod) ProxySpecifier {
-	return ProxySpecifier{
-		Namespace:      p.GetNamespace(),
-		ServiceAccount: p.Spec.ServiceAccountName,
-	}
+func (i ProxySpecifier) MarshalText() (text []byte, err error) {
+	return []byte(i.Namespace + "/" + i.ServiceAccount), nil
 }
 
-func (pc *pepController) Reconcile(name types.NamespacedName) error {
-	log := log.WithLabels("pod", name.String())
-	if mergeProxies {
-		return pc.reconcileMerged(name)
-	}
-	proxy, _ := pc.pods.Pods(name.Namespace).Get(name.Name)
-	haveProxy := proxy != nil
-	workload, _ := pc.pods.Pods(name.Namespace).Get(strings.TrimSuffix(name.Name, "-proxy"))
-	wantProxy := workload != nil && workload.GetLabels()[ambient.LabelPEP] == "true"
-	if haveProxy && wantProxy {
-		log.Infof("Proxy already exists")
-		return nil
-		// TODO: update it, etc. Likely can do blue/green pretty well
-	}
-	if !haveProxy && !wantProxy {
-		log.Infof("Proxy not requested")
-		return nil
+type Proxy struct {
+	Name string `json:"name,omitempty"`
+	IP   string `json:"ip,omitempty"`
+}
+
+type RemoteProxyController struct {
+	client          kubelib.Client
+	queue           controllers.Queue
+	pods            listerv1.PodLister
+	serviceAccounts listerv1.ServiceAccountLister
+	gateways        v1alpha2.GatewayLister
+
+	cluster cluster.ID
+
+	injectConfig func() inject.WebhookConfig
+}
+
+var remoteLog = istiolog.RegisterScope("remote proxy", "", 0)
+
+func NewRemoteProxyController(client kubelib.Client, clusterID cluster.ID, config func() inject.WebhookConfig) *RemoteProxyController {
+	rc := &RemoteProxyController{
+		client:       client,
+		cluster:      clusterID,
+		injectConfig: config,
 	}
 
-	if haveProxy && !wantProxy {
-		log.Infof("Proxy needs to be removed")
-		return pc.Client.CoreV1().Pods(name.Namespace).Delete(context.Background(), name.Name, metav1.DeleteOptions{})
-	}
-	if !haveProxy && wantProxy {
-		log.Infof("Proxy needs to be created")
-		input := TemplateInput{
-			Pod:            workload,
-			ProxyName:      workload.Name,
-			ServiceAccount: workload.Spec.ServiceAccountName,
-			Cluster:        pc.ClusterID.String(),
+	rc.queue = controllers.NewQueue("remote proxy",
+		controllers.WithReconciler(rc.Reconcile),
+		controllers.WithMaxAttempts(5))
+
+	gateways := rc.client.GatewayAPIInformer().Gateway().V1alpha2().Gateways()
+	rc.gateways = gateways.Lister()
+	gateways.Informer().AddEventHandler(controllers.ObjectHandler(rc.queue.AddObject))
+
+	pods := rc.client.KubeInformer().Core().V1().Pods()
+	rc.pods = pods.Lister()
+	pods.Informer().AddEventHandler(controllers.ObjectHandler(controllers.EnqueueForParentHandler(rc.queue, gvk.KubernetesGateway)))
+
+	sas := rc.client.KubeInformer().Core().V1().ServiceAccounts()
+	rc.serviceAccounts = sas.Lister()
+	sas.Informer().AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		// Anytime SA change, trigger all gateways in the namespace. This could probably be more efficient...
+		gws, _ := gateways.Lister().Gateways(o.GetNamespace()).List(klabels.Everything())
+		for _, gw := range gws {
+			rc.queue.AddObject(gw)
 		}
-		proxyPod, err := pc.RenderPod(input)
+	}))
+
+	return rc
+}
+
+func (rc *RemoteProxyController) Run(stop <-chan struct{}) {
+	go rc.queue.Run(stop)
+	<-stop
+}
+
+func (c *RemoteProxyController) proxiesForWorkload(pod *v1.Pod) []string {
+	if pod.Labels["asm-proxy"] != "" {
+		// Remote proxy
+		return nil
+	}
+	if pod.Labels["asm-type"] != "workload" {
+		// Not in mesh
+		return nil
+	}
+	var ips []string
+	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller")
+	proxyPods, _ := c.pods.Pods(pod.Namespace).List(proxyLbl)
+	for _, p := range proxyPods {
+		if !kubecontroller.IsPodReady(p) {
+			continue
+		}
+		if p.Spec.ServiceAccountName == pod.Spec.ServiceAccountName {
+			ips = append(ips, p.Status.PodIP)
+		}
+	}
+	return ips
+}
+
+func (c *RemoteProxyController) Reconcile(name types.NamespacedName) error {
+	if c.injectConfig().Values.Struct().GetGlobal().GetHub() == "" {
+		// Mostly used to avoid issues with local runs
+		return fmt.Errorf("injection config invalid, skipping reconile")
+	}
+	log := remoteLog.WithLabels("gateway", name.String())
+	log.SetOutputLevel(istiolog.DebugLevel)
+
+	gw, err := c.gateways.Gateways(name.Namespace).Get(name.Name)
+	if err != nil || gw == nil {
+		// we'll ignore not-found errors, since they can't be fixed by an immediate
+		// requeue (we'll need to wait for a new notification), and we can get them
+		// on deleted requests.
+		if err := controllers.IgnoreNotFound(err); err != nil {
+			log.Errorf("unable to fetch Gateway: %v", err)
+			return err
+		}
+		log.Debugf("gateway deleted")
+		return c.pruneGateway(name)
+	}
+
+	if gw.Spec.GatewayClassName != "istio-mesh" {
+		log.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
+		return c.pruneGateway(name)
+	}
+
+	haveProxies := sets.New()
+	wantProxies := sets.New()
+
+	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + gw.Name)
+	proxyPods, _ := c.pods.Pods(gw.Namespace).List(proxyLbl)
+	for _, p := range proxyPods {
+		haveProxies.Insert(p.Spec.ServiceAccountName)
+	}
+	// by default, match all
+	gatewaySA := gw.Annotations["istio.io/service-account"]
+	serviceAccounts, _ := c.serviceAccounts.ServiceAccounts(gw.Namespace).List(klabels.Everything())
+	for _, sa := range serviceAccounts {
+		if gatewaySA != "" && sa.Name != gatewaySA {
+			log.Debugf("skip service account %v, doesn't match gateway %v", sa.Name, gatewaySA)
+			continue
+		}
+		wantProxies.Insert(sa.Name)
+	}
+
+	add, remove := wantProxies.Diff(haveProxies)
+
+	if len(remove)+len(add) == 0 {
+		log.Debugf("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(haveProxies))
+	} else {
+		log.Infof("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(haveProxies))
+	}
+	for _, k := range remove {
+		log.Infof("removing proxy %q", k+"-proxy")
+		if err := c.client.Kube().CoreV1().Pods(gw.Namespace).Delete(context.Background(), k+"-proxy", metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("pod remove: %v", err)
+		}
+	}
+	for _, k := range add {
+		log.Infof("adding proxy %v", k+"-proxy")
+		input := MergedInput{
+			Namespace:      gw.Namespace,
+			GatewayName:    gw.Name,
+			UID:            string(gw.UID),
+			ServiceAccount: k,
+			Cluster:        c.cluster.String(),
+		}
+		proxyPod, err := c.RenderPodMerged(input)
 		if err != nil {
 			return err
 		}
-		if _, err := pc.Client.CoreV1().Pods(name.Namespace).Create(context.Background(), proxyPod, metav1.CreateOptions{}); err != nil {
-			return err
-		}
-		return nil
-	}
-	panic("Not reachable")
-}
-func (pc *pepController) RenderPod(input TemplateInput) (*corev1.Pod, error) {
-	cfg := pc.injectConfig()
-	input.Image = inject.ProxyImage(cfg.Values.Struct(), cfg.MeshConfig.GetDefaultConfig().GetImage(), nil)
-	remoteBytes, err := tmpl.Evaluate(podTemplate, input)
-	if err != nil {
-		return nil, err
-	}
-	proxyPod, err := unmarshalPod([]byte(remoteBytes))
-	if err != nil {
-		return nil, err
-	}
-	return proxyPod, nil
-}
-func (pc *pepController) reconcileMerged(name types.NamespacedName) error {
-	log := log.WithLabels("pod", name.String())
 
-	haveProxies := map[ProxySpecifier][]proxy{}
-	wantProxies := map[ProxySpecifier][]proxy{}
-	proxyLbl, _ := klabels.Parse(ambient.LabelProxy)
-	proxyPods, _ := pc.pods.List(proxyLbl)
-	for _, p := range proxyPods {
-		sp := ProxySpecifierForPod(p)
-		p := proxy{Name: p.Name, IP: p.Status.PodIP, ServiceAccount: p.Spec.ServiceAccountName}
-		haveProxies[sp] = append(haveProxies[sp], p)
-	}
-	for _, ps := range haveProxies {
-		sort.Slice(ps, func(i, j int) bool {
-			return ps[i].Name < ps[j].Name
-		})
-	}
-
-	needProxyLbl, _ := klabels.Parse(ambient.LabelPEP + "=true")
-	workloadPods, _ := pc.pods.List(needProxyLbl)
-	for _, p := range workloadPods {
-		sp := ProxySpecifierForPod(p)
-		p := proxy{
-			Name:           p.Spec.ServiceAccountName + "-proxy",
-			ServiceAccount: p.Spec.ServiceAccountName,
-		}
-		wantProxies[sp] = append(wantProxies[sp], p)
-	}
-	for _, ps := range wantProxies {
-		sort.Slice(ps, func(i, j int) bool {
-			return ps[i].Name < ps[j].Name
-		})
-	}
-	add, remove := difference(haveProxies, wantProxies)
-
-	for k, vs := range remove {
-		for _, v := range vs {
-			log.Infof("removing proxy %v/%v", k.Namespace, v.Name)
-			if err := pc.Client.CoreV1().Pods(k.Namespace).Delete(context.TODO(), v.Name, metav1.DeleteOptions{}); err != nil {
-				return err
-			}
+		if _, err := c.client.Kube().CoreV1().Pods(name.Namespace).Create(context.Background(), proxyPod, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("pod create: %v", err)
 		}
 	}
-	for k, vs := range add {
-		for _, v := range vs {
-			log.Infof("adding proxy %v/%v", k.Namespace, v.Name)
-			input := MergedInput{
-				Namespace:      k.Namespace,
-				ProxyName:      v.Name,
-				ServiceAccount: k.ServiceAccount,
-				Cluster:        pc.ClusterID.String(),
-			}
-			proxyPod, err := pc.RenderPodMerged(input)
-			if err != nil {
-				return err
-			}
-			// Create NS if it doesn't already exist
-			ns := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{Name: name.Namespace},
-			}
-			if _, err := pc.Client.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
-				return err
-			}
-			// Create SA if it doesn't already exist
-			sa := &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      proxyPod.Spec.ServiceAccountName,
-					Namespace: name.Namespace,
-				},
-			}
-			if _, err := pc.Client.CoreV1().ServiceAccounts(name.Namespace).Create(context.Background(), sa, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
-				return err
-			}
-			if _, err := pc.Client.CoreV1().Pods(name.Namespace).Create(context.Background(), proxyPod, metav1.CreateOptions{}); err != nil {
-				return err
-			}
-			return nil
-		}
-	}
-
-	// TODO be smarter about pushes
-	pc.xds.ConfigUpdate(&model.PushRequest{Full: true})
 	return nil
 }
 
-func (pc *pepController) RenderPodMerged(input MergedInput) (*corev1.Pod, error) {
-	cfg := pc.injectConfig()
+func (rc *RemoteProxyController) RenderPodMerged(input MergedInput) (*v1.Pod, error) {
+	cfg := rc.injectConfig()
+
+	podTemplate := cfg.Templates["remote"]
+	if podTemplate == nil {
+		return nil, fmt.Errorf("no remote template defined")
+	}
 	input.Image = inject.ProxyImage(cfg.Values.Struct(), cfg.MeshConfig.GetDefaultConfig().GetImage(), nil)
-	remoteBytes, err := tmpl.Evaluate(podTemplate, input)
+	remoteBytes, err := tmpl.Execute(podTemplate, input)
 	if err != nil {
 		return nil, err
 	}
 	proxyPod, err := unmarshalPod([]byte(remoteBytes))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("render: %v\n%v", err, remoteBytes)
 	}
 	return proxyPod, nil
 }
 
-func proxyListDifference(have []proxy, want []proxy) (add, delete []proxy) {
-	both := map[proxy]struct{}{}
-	hm := map[proxy]struct{}{}
-	for _, h := range have {
-		h.IP = "" // ignore IP
-		hm[h] = struct{}{}
-		both[h] = struct{}{}
-	}
-	wm := map[proxy]struct{}{}
-	for _, h := range want {
-		wm[h] = struct{}{}
-		both[h] = struct{}{}
-	}
-	for k := range both {
-		_, hf := hm[k]
-		_, wf := wm[k]
-		if hf && wf {
-			continue
-		}
-		if hf {
-			delete = append(delete, k)
-		}
-		if wf {
-			add = append(add, k)
+// pruneGateway removes all proxies for the given Gateway
+// This is not super required since Kubernetes GC can do it as well
+func (rc *RemoteProxyController) pruneGateway(gw types.NamespacedName) error {
+	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + gw.Name)
+	proxyPods, _ := rc.pods.Pods(gw.Namespace).List(proxyLbl)
+	for _, p := range proxyPods {
+		log.Infof("pruning proxy %v", p.Name)
+		if err := rc.client.Kube().CoreV1().Pods(gw.Namespace).Delete(context.Background(), p.Spec.ServiceAccountName+"-proxy", metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("pod remove: %v", err)
 		}
 	}
-	return nil, nil
+	return nil
 }
 
-func difference(have map[ProxySpecifier][]proxy, want map[ProxySpecifier][]proxy) (add, del map[ProxySpecifier][]proxy) {
-	add = map[ProxySpecifier][]proxy{}
-	del = map[ProxySpecifier][]proxy{}
-	for k, v := range have {
-		if _, f := want[k]; !f {
-			// We don't want this specifier at all, wipe it all out
-			del[k] = v
-			continue
-		}
-		padd, pdel := proxyListDifference(v, want[k])
-		if len(padd) > 0 {
-			add[k] = padd
-		}
-		if len(pdel) > 0 {
-			del[k] = pdel
-		}
-	}
-	for k, v := range want {
-		if _, f := have[k]; !f {
-			// We don't have this specifier at all, add it
-			add[k] = v
-			continue
-		}
-		padd, pdel := proxyListDifference(v, have[k])
-		if len(padd) > 0 {
-			add[k] = padd
-		}
-		if len(pdel) > 0 {
-			del[k] = pdel
-		}
-	}
-	return add, del
-}
-
-func unmarshalPod(pyaml []byte) (*corev1.Pod, error) {
-	pod := &corev1.Pod{}
+func unmarshalPod(pyaml []byte) (*v1.Pod, error) {
+	pod := &v1.Pod{}
 	if err := yaml.Unmarshal(pyaml, pod); err != nil {
 		return nil, err
 	}
+
 	return pod, nil
 }
 
 type MergedInput struct {
-	Namespace      string
-	ProxyName      string
-	ServiceAccount string
-	SplitClusters  bool
-	Cluster        string
-	Image          string
-}
-type TemplateInput struct {
-	*corev1.Pod
-	ProxyName      string
-	ServiceAccount string
-	SplitClusters  bool
-	Cluster        string
-	Image          string
-}
+	GatewayName string
 
-var podTemplate = `
-apiVersion: v1
-kind: Pod
-metadata:
-  name: {{.ProxyName}}
-  namespace: {{.Namespace}}
-  annotations:
-    prometheus.io/path: /stats/prometheus
-    prometheus.io/port: "15020"
-    prometheus.io/scrape: "true"
-  labels:
-    ambient-proxy: {{.ProxyName}}
-    ambient-type: pep
-spec:
-  nodeSelector:
-    kubernetes.io/hostname: ambient-worker # REMOVE ME
-  terminationGracePeriodSeconds: 2
-  serviceAccountName: {{.ServiceAccount}}
-  initContainers:
-  - name: istio-init
-    image: {{.Image}}
-    securityContext:
-      privileged: true
-      capabilities:
-        add:
-        - NET_ADMIN
-        - NET_RAW
-    command:
-      - sh
-      - -c
-      - |
-        iptables -t nat -A OUTPUT -p tcp -m owner --uid-owner 1337 -s 127.0.0.6/32 -j REDIRECT --to-ports 15002
-        iptables -t nat -A OUTPUT -p tcp -m owner --uid-owner 1337 -j REDIRECT --to-ports 15002
-    env:
-    - name: INSTANCE_IP
-      valueFrom:
-        fieldRef:
-          fieldPath: status.podIP
-  containers:
-  - args:
-    - proxy
-    - sidecar
-    - --domain
-    - $(POD_NAMESPACE).svc.cluster.local
-    - --serviceCluster
-    - proxy.$(POD_NAMESPACE)
-    - --proxyLogLevel=warning
-    - --proxyComponentLogLevel=misc:error
-    - --trust-domain=cluster.local
-    - --concurrency
-    - "2"
-    env:
-    - name: ISTIO_META_GENERATOR
-      value: "ambient-pep"
-    - name: ISTIO_META_SIDECARLESS_TYPE
-      value: "pep"
-    - name: NODE_NAME
-      valueFrom:
-        fieldRef:
-          fieldPath: spec.nodeName
-    - name: CREDENTIAL_FETCHER_TYPE
-      value: ""
-    - name: JWT_POLICY
-      value: third-party-jwt
-    - name: PILOT_CERT_PROVIDER
-      value: istiod
-    - name: POD_NAME
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.name
-    - name: POD_NAMESPACE
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.namespace
-    - name: INSTANCE_IP
-      valueFrom:
-        fieldRef:
-          fieldPath: status.podIP
-    - name: SERVICE_ACCOUNT
-      valueFrom:
-        fieldRef:
-          fieldPath: spec.serviceAccountName
-    - name: HOST_IP
-      valueFrom:
-        fieldRef:
-          fieldPath: status.hostIP
-    - name: CANONICAL_SERVICE
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.labels['service.istio.io/canonical-name']
-    - name: CANONICAL_REVISION
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.labels['service.istio.io/canonical-revision']
-    - name: ISTIO_META_POD_PORTS
-      value: |-
-        [
-        ]
-    - name: ISTIO_META_APP_CONTAINERS
-      value: proxy
-    - name: ISTIO_META_CLUSTER_ID
-      value: {{.Cluster}}
-    - name: ISTIO_META_INTERCEPTION_MODE
-      value: REDIRECT
-    - name: ISTIO_META_WORKLOAD_NAME
-      value: proxy
-    - name: ISTIO_META_OWNER
-      value: kubernetes://apis/apps/v1/namespaces/default/deployments/proxy
-    - name: ISTIO_META_MESH_ID
-      value: cluster.local
-    image: {{.Image}}
-    imagePullPolicy: Always
-    name: istio-proxy
-    resources:
-      limits:
-        cpu: "2"
-        memory: 1Gi
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    readinessProbe:
-      failureThreshold: 30
-      httpGet:
-        path: /healthz/ready
-        port: 15021
-        scheme: HTTP
-      initialDelaySeconds: 1
-      periodSeconds: 2
-      successThreshold: 1
-      timeoutSeconds: 1
-    securityContext:
-      privileged: true
-      runAsGroup: 1337
-      capabilities:
-        add:
-        - NET_ADMIN
-        - NET_RAW
-    volumeMounts:
-    - mountPath: /var/run/secrets/istio
-      name: istiod-ca-cert
-    - mountPath: /var/lib/istio/data
-      name: istio-data
-    - mountPath: /etc/istio/proxy
-      name: istio-envoy
-    - mountPath: /var/run/secrets/tokens
-      name: istio-token
-    - mountPath: /etc/istio/pod
-      name: istio-podinfo
-  volumes:
-  - emptyDir:
-      medium: Memory
-    name: istio-envoy
-  - emptyDir:
-      medium: Memory
-    name: go-proxy-envoy
-  - emptyDir: {}
-    name: istio-data
-  - emptyDir: {}
-    name: go-proxy-data
-  - downwardAPI:
-      items:
-      - fieldRef:
-          fieldPath: metadata.labels
-        path: labels
-      - fieldRef:
-          fieldPath: metadata.annotations
-        path: annotations
-    name: istio-podinfo
-  - name: istio-token
-    projected:
-      sources:
-      - serviceAccountToken:
-          audience: istio-ca
-          expirationSeconds: 43200
-          path: istio-token
-  - configMap:
-      name: istio-ca-root-cert
-    name: istiod-ca-cert
-`
+	Namespace      string
+	UID            string
+	ServiceAccount string
+	Cluster        string
+	Image          string
+}

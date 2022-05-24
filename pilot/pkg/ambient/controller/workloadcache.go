@@ -1,5 +1,3 @@
-package controller
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,15 +12,19 @@ package controller
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package controller
+
 import (
 	"context"
-	"istio.io/istio/pilot/pkg/ambient"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/kube/controllers"
+
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/typed/core/v1"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"istio.io/istio/pilot/pkg/ambient"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/kube/controllers"
 )
 
 var _ ambient.Cache = &workloadCache{}
@@ -63,11 +65,14 @@ func initWorkloadCache(opts *Options) *workloadCache {
 func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
 	log.Infof("landow: %v", key)
 	ctx := context.Background()
+	// TODO use lister
 	pod, err := wc.pods(key.Namespace).Get(ctx, key.Name, metav1.GetOptions{})
 	if kubeErrors.IsNotFound(err) {
 		wc.removeFromAll(key)
 		wc.xds.ConfigUpdate(&model.PushRequest{
 			// TODO scope our updates
+			Full:   true,
+			Reason: []model.TriggerReason{model.AmbientUpdate},
 		})
 		return nil
 	} else if err != nil {
@@ -85,6 +90,8 @@ func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
 	}
 	wc.xds.ConfigUpdate(&model.PushRequest{
 		// TODO scope our updates
+		Full:   true,
+		Reason: []model.TriggerReason{model.AmbientUpdate},
 	})
 	return nil
 }

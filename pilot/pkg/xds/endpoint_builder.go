@@ -17,7 +17,6 @@ package xds
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"google.golang.org/protobuf/types/known/structpb"
 	"net"
 	"sort"
 	"strconv"
@@ -25,9 +24,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -303,9 +304,11 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
-			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
-			}
+			// TODO: we used to cache this, but since the ShardKey doesn't distinguish inbound vs outbound
+			// we need different logic
+			// if ep.EnvoyEndpoint == nil {
+			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(b, ep)
+			//}
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
 			if b.mtlsChecker != nil {
@@ -395,8 +398,14 @@ func (b *EndpointBuilder) EndpointsAmbientMetadata(opts []*LocLbEndpointsAndOpti
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.LbEndpoint {
+	dir, _, _, _ := model.ParseSubsetKey(b.clusterName)
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
+	if dir == model.TrafficDirectionInboundVIP {
+		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to internal per-pod listeners
+		target := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(e.Address), int(e.EndpointPort))
+		addr = util.BuildInternalAddress(target)
+	}
 	healthStatus := core.HealthStatus_HEALTHY
 	if e.HealthStatus == model.UnHealthy {
 		healthStatus = core.HealthStatus_UNHEALTHY
@@ -422,16 +431,27 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	address, port := e.Address, e.EndpointPort
 	tunnelAddress, tunnelPort := address, 15008
 
-	// TODO deal with node-local or send to server PEP
+	supportsTunnel := false
+	if al := e.Labels[ambient.LabelType]; al == ambient.TypePEP || al == ambient.TypeWorkload {
+		supportsTunnel = true
+	}
 
-	ambientTunnelMeta, _ := structpb.NewStruct(map[string]interface{}{
-		"target":           "pep_tunnel",
-		"tunnel_address":   net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
-		"detunnel_address": net.JoinHostPort(address, strconv.Itoa(int(port))),
-		"detunnel_ip":      address,
-		"detunnel_port":    strconv.Itoa(int(port)),
-	})
-	ep.Metadata.FilterMetadata["tunnel"] = ambientTunnelMeta
+	// For outbound case, we selectively add tunnel info if the other side supports the tunnel
+	if dir != model.TrafficDirectionInboundVIP && supportsTunnel {
+		ambientTunnelMeta, _ := structpb.NewStruct(map[string]interface{}{
+			"target":           "pep_tunnel",
+			"tunnel_address":   net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
+			"detunnel_address": net.JoinHostPort(address, strconv.Itoa(int(port))),
+			"detunnel_ip":      address,
+			"detunnel_port":    strconv.Itoa(int(port)),
+		})
+		ep.Metadata.FilterMetadata["tunnel"] = ambientTunnelMeta
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				ambient.TransportMatchKey: {Kind: &structpb.Value_StringValue{StringValue: ambient.TransportMatchValue}},
+			},
+		}
+	}
 
 	return ep
 }

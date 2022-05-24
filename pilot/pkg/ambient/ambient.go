@@ -1,5 +1,3 @@
-package ambient
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,12 +12,16 @@ package ambient
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package ambient
+
 import (
 	"encoding/json"
-	"istio.io/istio/pkg/spiffe"
+	"sync"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sync"
+
+	"istio.io/istio/pkg/spiffe"
 )
 
 // TODO shouldn't call this a workload. Maybe "node" encapsulates all of uproxy, pep, workload
@@ -38,6 +40,8 @@ const (
 	// LabelType == "workload" -> intercept into uProxy
 	// TODO this could be an annotation – eventually move it into api repo
 	LabelType = "ambient-type"
+	// Needed for bpf code currently
+	LegacyLabelType = "asm-type"
 
 	TypeWorkload NodeType = "workload"
 	TypeUProxy   NodeType = "uproxy"
@@ -47,6 +51,9 @@ const (
 	LabelProxy = "ambient-proxy"
 	// LabelPEP marks the Pod as needing a PEP (remote proxy/policy enforcement point)
 	LabelPEP = "ambient-pep"
+
+	TransportMatchKey   = "transport"
+	TransportMatchValue = "tunnel"
 )
 
 // Cache holds Indexes of client workloads, peps and uproxies

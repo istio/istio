@@ -80,9 +80,8 @@ const (
 	WorkloadKeyCertResourceName = "default"
 
 	// GCE is Credential fetcher type of Google plugin
-	GCE             = "GoogleComputeEngine"
-	TokenRequest    = "TokenRequest"
-	KubernetesToken = "KubernetesToken"
+	GCE          = "GoogleComputeEngine"
+	TokenRequest = "TokenRequest"
 
 	// JWT is a Credential fetcher type that reads from a JWT token file
 	JWT = "JWT"

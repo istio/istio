@@ -632,3 +632,6 @@ func EnableEndpointSliceController() (value bool, ok bool) {
 func UnsafeFeaturesEnabled() bool {
 	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
 }
+
+var SidecarlessCapture = env.RegisterStringVar("SIDECARLESS_CAPTURE", "iptables",
+	"capture mode to use, can be one of 'iptables' or 'bpf'").Get()

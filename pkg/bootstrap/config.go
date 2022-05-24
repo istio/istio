@@ -278,6 +278,7 @@ var StripFragment = env.RegisterBoolVar("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF
 func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 	// Setup defaults
 	runtimeFlags := map[string]string{
+		"envoy.reloadable_features.internal_address":                                                           "true",
 		"overload.global_downstream_max_connections":                                                           "2147483647",
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": "true",
 		"envoy.reloadable_features.require_strict_1xx_and_204_response_headers":                                "false",

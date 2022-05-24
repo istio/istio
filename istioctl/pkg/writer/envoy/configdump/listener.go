@@ -22,6 +22,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -121,6 +122,121 @@ func retrieveListenerPort(l *listener.Listener) uint32 {
 	return l.Address.GetSocketAddress().GetPortValue()
 }
 
+func (c *ConfigWriter) PrintRemoteListenerSummary() error {
+	w, listeners, err := c.setupListenerConfigWriter()
+	if err != nil {
+		return err
+	}
+	// Sort by port, addr, type
+	sort.Slice(listeners, func(i, j int) bool {
+		if listeners[i].GetInternalListener() != nil && listeners[j].GetInternalListener() != nil {
+			return listeners[i].GetName() < listeners[j].GetName()
+		}
+		iPort := retrieveListenerPort(listeners[i])
+		jPort := retrieveListenerPort(listeners[j])
+		if iPort != jPort {
+			return iPort < jPort
+		}
+		iAddr := retrieveListenerAddress(listeners[i])
+		jAddr := retrieveListenerAddress(listeners[j])
+		if iAddr != jAddr {
+			return iAddr < jAddr
+		}
+		iType := retrieveListenerType(listeners[i])
+		jType := retrieveListenerType(listeners[j])
+		return iType < jType
+	})
+
+	fmt.Fprintln(w, "LISTENER\tCHAIN\tMATCH\tDESTINATION")
+	for _, l := range listeners {
+		chains := getFilterChains(l)
+		lname := "envoy://" + l.GetName()
+		// Avoid duplicating the listener and filter name
+		if l.GetInternalListener() != nil && len(chains) == 1 && chains[0].GetName() == lname {
+			lname = "internal"
+		}
+		for _, fc := range chains {
+
+			name := fc.GetName()
+			match := newMatcher(fc, l)
+			destination := getFilterType(fc.GetFilters())
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", lname, name, match, destination)
+		}
+	}
+	return w.Flush()
+}
+
+func newMatcher(fc *listener.FilterChain, l *listener.Listener) string {
+	if l.FilterChainMatcher == nil {
+		return getMatches(fc.GetFilterChainMatch())
+	}
+	switch v := l.GetFilterChainMatcher().GetOnNoMatch().GetOnMatch().(type) {
+	case *matcher.Matcher_OnMatch_Action:
+		if v.Action.GetName() == fc.GetName() {
+			return "UNMATCHED"
+		}
+	case *matcher.Matcher_OnMatch_Matcher:
+		ms, f := recurse(fc.GetName(), v.Matcher)
+		if !f {
+			return "NONE"
+		}
+		return ms
+	}
+	ms, f := recurse(fc.GetName(), l.GetFilterChainMatcher())
+	if !f {
+		return "NONE"
+	}
+	return ms
+}
+
+func recurse(name string, match *matcher.Matcher) (string, bool) {
+	switch v := match.GetOnNoMatch().GetOnMatch().(type) {
+	case *matcher.Matcher_OnMatch_Action:
+		if v.Action.GetName() == name {
+			// TODO this only makes sense in context of a chain... do we need a way to give it context
+			return "ANY", true
+		}
+	case *matcher.Matcher_OnMatch_Matcher:
+		ms, f := recurse(name, v.Matcher)
+		if !f {
+			return "NONE", true
+		}
+		return ms, true
+	}
+	// TODO support list
+	n := match.GetMatcherTree().GetInput().GetName()
+
+	var m map[string]*matcher.Matcher_OnMatch
+	equality := "="
+	switch v := match.GetMatcherTree().GetTreeType().(type) {
+	case *matcher.Matcher_MatcherTree_ExactMatchMap:
+		m = v.ExactMatchMap.Map
+	case *matcher.Matcher_MatcherTree_PrefixMatchMap:
+		m = v.PrefixMatchMap.Map
+		equality = "^"
+	case *matcher.Matcher_MatcherTree_CustomMatch:
+		panic("unhandled")
+
+	}
+	for k, v := range m {
+		switch v := v.GetOnMatch().(type) {
+		case *matcher.Matcher_OnMatch_Action:
+			if v.Action.GetName() == name {
+				return fmt.Sprintf("%v%v%v", n, equality, k), true
+			}
+			continue
+		case *matcher.Matcher_OnMatch_Matcher:
+			child, match := recurse(name, v.Matcher)
+			if !match {
+				continue
+			}
+			// TODO what if there are multiple? We return early
+			return fmt.Sprintf("%v%v%v -> %v", n, equality, k, child), true
+		}
+	}
+	return "", false
+}
+
 // PrintListenerSummary prints a summary of the relevant listeners in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 	w, listeners, err := c.setupListenerConfigWriter()
@@ -200,57 +316,61 @@ func retrieveListenerMatches(l *listener.Listener) []filterchain {
 	fChains := getFilterChains(l)
 	resp := make([]filterchain, 0, len(fChains))
 	for _, filterChain := range fChains {
-		match := filterChain.FilterChainMatch
-		if match == nil {
-			match = &listener.FilterChainMatch{}
-		}
-		// filterChaince also has SuffixLen, SourceType, SourcePrefixRanges which are not rendered.
-
-		descrs := []string{}
-		if len(match.ServerNames) > 0 {
-			descrs = append(descrs, fmt.Sprintf("SNI: %s", strings.Join(match.ServerNames, ",")))
-		}
-		if len(match.TransportProtocol) > 0 {
-			descrs = append(descrs, fmt.Sprintf("Trans: %s", match.TransportProtocol))
-		}
-
-		if len(match.ApplicationProtocols) > 0 {
-			found := false
-			for protDescr, protocols := range protDescrs {
-				if reflect.DeepEqual(match.ApplicationProtocols, protocols) {
-					found = true
-					descrs = append(descrs, protDescr)
-					break
-				}
-			}
-			if !found {
-				descrs = append(descrs, fmt.Sprintf("App: %s", strings.Join(match.ApplicationProtocols, ",")))
-			}
-		}
-
-		port := ""
-		if match.DestinationPort != nil {
-			port = fmt.Sprintf(":%d", match.DestinationPort.GetValue())
-		}
-		if len(match.PrefixRanges) > 0 {
-			pf := []string{}
-			for _, p := range match.PrefixRanges {
-				pf = append(pf, fmt.Sprintf("%s/%d", p.AddressPrefix, p.GetPrefixLen().GetValue()))
-			}
-			descrs = append(descrs, fmt.Sprintf("Addr: %s%s", strings.Join(pf, ","), port))
-		} else if port != "" {
-			descrs = append(descrs, fmt.Sprintf("Addr: *%s", port))
-		}
-		if len(descrs) == 0 {
-			descrs = []string{"ALL"}
-		}
 		fc := filterchain{
 			destination: getFilterType(filterChain.GetFilters()),
-			match:       strings.Join(descrs, "; "),
+			match:       getMatches(filterChain.FilterChainMatch),
 		}
 		resp = append(resp, fc)
 	}
 	return resp
+}
+
+func getMatches(f *listener.FilterChainMatch) string {
+	match := f
+	if match == nil {
+		match = &listener.FilterChainMatch{}
+	}
+	// filterChaince also has SuffixLen, SourceType, SourcePrefixRanges which are not rendered.
+
+	descrs := []string{}
+	if len(match.ServerNames) > 0 {
+		descrs = append(descrs, fmt.Sprintf("SNI: %s", strings.Join(match.ServerNames, ",")))
+	}
+	if len(match.TransportProtocol) > 0 {
+		descrs = append(descrs, fmt.Sprintf("Trans: %s", match.TransportProtocol))
+	}
+
+	if len(match.ApplicationProtocols) > 0 {
+		found := false
+		for protDescr, protocols := range protDescrs {
+			if reflect.DeepEqual(match.ApplicationProtocols, protocols) {
+				found = true
+				descrs = append(descrs, protDescr)
+				break
+			}
+		}
+		if !found {
+			descrs = append(descrs, fmt.Sprintf("App: %s", strings.Join(match.ApplicationProtocols, ",")))
+		}
+	}
+
+	port := ""
+	if match.DestinationPort != nil {
+		port = fmt.Sprintf(":%d", match.DestinationPort.GetValue())
+	}
+	if len(match.PrefixRanges) > 0 {
+		pf := []string{}
+		for _, p := range match.PrefixRanges {
+			pf = append(pf, fmt.Sprintf("%s/%d", p.AddressPrefix, p.GetPrefixLen().GetValue()))
+		}
+		descrs = append(descrs, fmt.Sprintf("Addr: %s%s", strings.Join(pf, ","), port))
+	} else if port != "" {
+		descrs = append(descrs, fmt.Sprintf("Addr: *%s", port))
+	}
+	if len(descrs) == 0 {
+		descrs = []string{"ALL"}
+	}
+	return strings.Join(descrs, "; ")
 }
 
 func getFilterType(filters []*listener.Filter) string {

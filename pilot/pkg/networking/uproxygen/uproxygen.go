@@ -15,11 +15,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+Listener uproxy_outbound:
+  Chain: <srcpodname>_<srcpodip>_to_<portname>_<hostname>_<vip>
+      -> CDS: <identity>_to_<vip>_<portname>_<hostname>_outbound_internal
+          transport: internal
+					-> EDS:
+							address: podIP
+							tunnel: outbound_tunnel_lis_<identity>
+  Chain: <srcpodname>_<srcpodip>_to_client_pep_<pep>
+      tunneling_config: istio-uproxy-to-pep
+      -> CDS: <identity>_pep (no EDS)
+           address: PEP_IP
+           transport: TLS
+  Chain: <srcpodname>_<srcpodip>_to_server_pep_<pep>
+      tunneling_config: istio-uproxy-to-pep
+      -> CDS: <identity>_server_pep (no EDS)
+           address: PEP_IP
+           transport: TLS
+  Chain: passthrough
+  Chain: blackhole
+
+Internal listener: outbound_tunnel_lis_<identity>
+      tunneling_config: host.com:443
+      -> CDS: outbound_tunnel_clus_<identity> (ORIG_DST)
+          transport: TLS
+
+Listener uproxy_inbound:
+  Chain: inbound_<podip>
+      transport: terminate TLS
+      match: CONNECT
+      -> CDS: virtual_inbound (ORIG_DST)
+  Chain: blackhole
+*/
+
 package uproxygen
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/match"
 	"net"
 	"strconv"
 	"strings"
@@ -37,35 +70,49 @@ import (
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
 	httpconn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
-	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+
 	"istio.io/istio/pilot/pkg/ambient"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/match"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
-var uproxyLog = istiolog.RegisterScope("uproxygen", "xDS Generator for uProxy clients", 0)
+var log = istiolog.RegisterScope("uproxygen", "xDS Generator for uProxy clients", 0)
 
 var _ model.XdsResourceGenerator = &UProxyConfigGenerator{}
 
 type UProxyConfigGenerator struct {
 	EndpointIndex *model.EndpointIndex
 	Workloads     ambient.Cache
+}
+
+func envoyFriendlyIdentityForPod(pod ambient.Workload) string {
+	identity := kube.SecureNamingSAN(pod.Pod)
+	return envoyFriendlyIdentity(identity)
+}
+
+func envoyFriendlyIdentity(identity string) string {
+	identity = strings.TrimPrefix(identity, "spiffe://")
+	identity = strings.ReplaceAll(identity, "/", ".")
+	return identity
 }
 
 func (g *UProxyConfigGenerator) Generate(
@@ -88,6 +135,7 @@ func (g *UProxyConfigGenerator) Generate(
 
 const (
 	UproxyOutboundCapturePort         uint32 = 15001
+	UproxyInbound2CapturePort         uint32 = 15006
 	UproxyInboundNodeLocalCapturePort uint32 = 15088
 	UproxyInboundCapturePort          uint32 = 15008
 
@@ -103,10 +151,10 @@ func (g *UProxyConfigGenerator) BuildListeners(proxy *model.Proxy, push *model.P
 	out = append(out,
 		g.buildPodOutboundCaptureListener(proxy, push),
 		g.buildInboundCaptureListener(proxy, push),
+		g.buildInboundPlaintextCaptureListener(proxy, push),
 	)
 	for sa := range push.SidecarlessIndex.Workloads.ByIdentity {
-		// name is "" to infer from sa name
-		out = append(out, outboundTunnelListener("", sa))
+		out = append(out, outboundTunnelListener(outboundTunnelListenerName(sa), sa))
 	}
 
 	return out
@@ -119,8 +167,10 @@ func (g *UProxyConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.Pu
 	workloads := push.SidecarlessIndex.Workloads
 	for sa := range workloads.ByIdentity {
 		for _, svc := range services {
-			c := remoteOutboundCluster(proxy, sa, svc)
-			out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+			for _, port := range svc.Ports {
+				c := remoteOutboundCluster(proxy, sa, svc, port.Name)
+				out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+			}
 		}
 	}
 
@@ -181,27 +231,32 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 		UseOriginalDst: wrappers.Bool(true),
 		Transparent:    wrappers.Bool(true),
 		AccessLog:      accessLogString("outbound capture listener"),
-		ListenerFilters: []*listener.ListenerFilter{{
-			Name: wellknown.OriginalDestination,
-			ConfigType: &listener.ListenerFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
+		ListenerFilters: []*listener.ListenerFilter{
+			{
+				Name: wellknown.OriginalDestination,
+				ConfigType: &listener.ListenerFilter_TypedConfig{
+					TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
+				},
 			},
-		}, {
+		},
+		Address: &core.Address{Address: &core.Address_SocketAddress{
+			SocketAddress: &core.SocketAddress{
+				Address: "0.0.0.0",
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: UproxyOutboundCapturePort,
+				},
+			},
+		}},
+	}
+	if features.SidecarlessCapture == model.VariantIptables {
+		l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
 			Name: wellknown.OriginalSource,
 			ConfigType: &listener.ListenerFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
 					Mark: OriginalSrcMark,
 				}),
 			},
-		}},
-		Address: &core.Address{Address: &core.Address_SocketAddress{
-			SocketAddress: &core.SocketAddress{
-				Address: "127.0.0.1",
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: UproxyOutboundCapturePort,
-				},
-			},
-		}},
+		})
 	}
 
 	// match logic:
@@ -223,67 +278,63 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 		sourceAndDestMatch := match.NewDestinationIP()
 		sourceMatch.Map[workload.Status.PodIP] = match.ToMatcher(sourceAndDestMatch.Matcher)
 
-		peps := push.SidecarlessIndex.PEPs.ByIdentity[workload.Identity()] // TODO need to use this instead of ServiceAccountName
+		clientPeps := push.SidecarlessIndex.PEPs.ByIdentity[workload.Identity()] // TODO need to use this instead of ServiceAccountName
+		clientPepChain := buildPepChain(workload, clientPeps, "client")
+		seen := sets.New()
 
-		if len(peps) > 0 && peps[0].Status.PodIP != "" {
-			pep, pepIP := peps[0], peps[0].Status.PodIP
-			chainName := workload.Name + "_" + workload.Status.PodIP + "_to_client_pep_" + pepIP
-			// we won't program a match for destinations, so we want to go to client PEP
-			sourceAndDestMatch.OnNoMatch = match.ToChain(chainName)
-
-			// Has client PEP, send traffic there
-			pepChain := &listener.FilterChain{
-				Name: chainName,
-				Filters: []*listener.Filter{{
-					Name: wellknown.TCPProxy,
-					ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-						AccessLog:        accessLogString("capture outbound (to client pep " + pepIP + ")"),
-						StatPrefix:       "uproxy_out_" + workload.Name + "_" + workload.Status.PodIP + "_to_client_pep",
-						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: pepClusterName(pep.Identity())},
-						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-							Hostname: "istio-uproxy-to-pep", // (unused, per extended connect)
-							HeadersToAdd: []*core.HeaderValueOption{
-								// This is for server uProxy - not really needed for PEP
-								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-
-								// These are the HBONE headers
-								{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DOWNSTREAM_LOCAL_ADDRESS_WITHOUT_PORT%"}},
-								{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DOWNSTREAM_LOCAL_PORT%"}},
-								{Header: &core.HeaderValue{Key: "x-original-src", Value: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"}},
-								{Header: &core.HeaderValue{Key: "x-direction", Value: "outbound"}},
-							},
-						},
-					},
-					)},
-				}},
-			}
-			l.FilterChains = append(l.FilterChains, pepChain)
-		} else {
+		for _, svc := range services {
 			// No client PEP, we build a chain per destination VIP
-			for _, svc := range services {
-				vip := svc.GetAddressForProxy(proxy)
-				tunnelChain := &listener.FilterChain{
-					Name: workload.Name + "_" + workload.Status.PodIP + "_to_" + svc.Hostname.String() + "_" + vip,
-					FilterChainMatch: &listener.FilterChainMatch{
-						SourcePrefixRanges: matchIP(workload.Status.PodIP),
-						PrefixRanges:       matchIP(vip),
-					},
-					Filters: []*listener.Filter{{
-						Name: wellknown.TCPProxy,
-						ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-							AccessLog:        accessLogString("capture outbound (no pep)"),
-							StatPrefix:       "uproxy_out_" + workload.Name + "_" + workload.Status.PodIP + "_to_" + svc.Hostname.String() + "_" + vip,
-							ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: remoteOutboundClusterName(workload.Identity(), vip, svc.Hostname.String())},
-						},
-						)},
-					}},
+			vip := svc.GetAddressForProxy(proxy)
+
+			portMatch := match.NewDestinationPort()
+			sourceAndDestMatch.Map[vip] = match.ToMatcher(portMatch.Matcher)
+			for _, port := range svc.Ports {
+				var chain *listener.FilterChain
+				// Need to decide if there is a server PEP. This is somewhat problematic because a Service may span PEP and non-PEP.
+				// If any workload behind the service has a PEP, we will use the PEP. In 99% of cases this is homogenous.
+				var serverPepChain *listener.FilterChain
+				for _, wl := range push.SidecarlessIndex.Workloads.All() {
+					if wl.Namespace != svc.Attributes.Namespace {
+						continue
+					}
+					if !labels.Instance(svc.Attributes.Labels).SubsetOf(wl.Labels) {
+						continue
+					}
+					// TODO if there are multiple PEPs we are picking a random one
+					serverPepChain = buildPepChain(workload, push.SidecarlessIndex.PEPs.ByIdentity[wl.Identity()], "server")
+					break
 				}
-				sourceAndDestMatch.Map[vip] = match.ToChain(tunnelChain.Name)
-				l.FilterChains = append(l.FilterChains, tunnelChain)
+				if serverPepChain != nil {
+					// Has server PEP, send traffic there
+					chain = serverPepChain
+				} else if clientPepChain != nil {
+					// Has client PEP, send traffic there
+					chain = clientPepChain
+				} else {
+					// No PEP
+					chain = &listener.FilterChain{
+						Name: workload.Name + "_" + workload.Status.PodIP + "_to_" + port.Name + "_" + svc.Hostname.String() + "_" + vip,
+						Filters: []*listener.Filter{{
+							Name: wellknown.TCPProxy,
+							ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+								AccessLog:        accessLogString("capture outbound (no pep)"),
+								StatPrefix:       "uproxy_out_" + workload.Name + "_" + workload.Status.PodIP + "_to_" + port.Name + "_" + svc.Hostname.String() + "_" + vip,
+								ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: remoteOutboundClusterName(envoyFriendlyIdentityForPod(workload), vip, port.Name, svc.Hostname.String())},
+							},
+							)},
+						}},
+					}
+				}
+
+				if !seen.InsertContains(chain.Name) {
+					l.FilterChains = append(l.FilterChains, chain)
+				}
+				portMatch.Map[fmt.Sprint(port.Port)] = match.ToChain(chain.Name)
 			}
 			// TODO headless if we know the source, but the destination is not a known VIP (go straight to outbound tunnel cluster, add headers here)
 		}
 	}
+
 	l.FilterChainMatcher = destPortMatch.BuildMatcher()
 	l.FilterChains = append(l.FilterChains, passthroughFilterChain(), blackholeFilterChain())
 	return &discovery.Resource{
@@ -306,6 +357,43 @@ func blackholeFilterChain() *listener.FilterChain {
 	}
 }
 
+func buildPepChain(workload ambient.Workload, peps []ambient.Workload, t string) *listener.FilterChain {
+	if len(peps) == 0 {
+		return nil
+	}
+	pep, pepIP := peps[0], peps[0].Status.PodIP
+	chainName := fmt.Sprintf("%s_%s_to_%s_pep_%s", workload.Name, workload.Status.PodIP, t, pepIP)
+	cluster := pepClusterName(envoyFriendlyIdentity(pep.Identity()))
+	if t == "server" {
+		cluster = serverPepClusterName(envoyFriendlyIdentity(pep.Identity()))
+	}
+	return &listener.FilterChain{
+		Name: chainName,
+		Filters: []*listener.Filter{{
+			Name: wellknown.TCPProxy,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+				AccessLog:        accessLogString(fmt.Sprintf("capture outbound (to %v pep %v)", t, pepIP)),
+				StatPrefix:       chainName,
+				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: cluster},
+				TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+					Hostname: "istio-uproxy-to-pep", // (unused, per extended connect)
+					HeadersToAdd: []*core.HeaderValueOption{
+						// This is for server uProxy - not really needed for PEP
+						{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
+
+						// These are the HBONE headers
+						{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DOWNSTREAM_LOCAL_ADDRESS_WITHOUT_PORT%"}},
+						{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DOWNSTREAM_LOCAL_PORT%"}},
+						{Header: &core.HeaderValue{Key: "x-original-src", Value: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"}},
+						{Header: &core.HeaderValue{Key: "x-direction", Value: "outbound"}},
+					},
+				},
+			},
+			)},
+		}},
+	}
+}
+
 func passthroughFilterChain() *listener.FilterChain {
 	return &listener.FilterChain{
 		Name: util.PassthroughFilterChain,
@@ -322,9 +410,9 @@ func passthroughFilterChain() *listener.FilterChain {
 }
 
 // remoteOutboundCluster points to outboundTunnelListener (internal listener) via EDS metadata.
-func remoteOutboundCluster(proxy *model.Proxy, sa string, svc *model.Service) *cluster.Cluster {
+func remoteOutboundCluster(proxy *model.Proxy, sa string, svc *model.Service, port string) *cluster.Cluster {
 	return &cluster.Cluster{
-		Name:                 remoteOutboundClusterName(sa, svc.GetAddressForProxy(proxy), svc.Hostname.String()),
+		Name:                 remoteOutboundClusterName(envoyFriendlyIdentity(sa), svc.GetAddressForProxy(proxy), port, svc.Hostname.String()),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 		EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 			EdsConfig: &core.ConfigSource{
@@ -335,37 +423,29 @@ func remoteOutboundCluster(proxy *model.Proxy, sa string, svc *model.Service) *c
 				ResourceApiVersion:  core.ApiVersion_V3,
 			},
 		},
-		TransportSocket: &core.TransportSocket{
-			Name: "envoy.transport_sockets.internal_upstream",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&internalupstream.InternalUpstreamTransport{
-				PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{{
-					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
-					Name: "tunnel",
-				}},
-				TransportSocket: &core.TransportSocket{
-					Name:       "envoy.transport_sockets.raw_buffer",
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&rawbuffer.RawBuffer{})},
-				},
-			})},
-		},
+		TransportSocketMatches: v1alpha3.InternalUpstreamSocketMatch,
 	}
 }
 
-func remoteOutboundClusterName(sa, vip, hostname string) string {
-	return fmt.Sprintf("%s_to_%s_%s_outbound_internal", sa, vip, hostname)
+func remoteOutboundClusterName(sa, vip string, port string, hostname string) string {
+	return fmt.Sprintf("%s_to_%s_%s_%s_outbound_internal", sa, vip, port, hostname)
 }
 
-func parseRemoteOutboundClusterName(clusterName string) (sa, vip, hostname string, err error) {
+func parseRemoteOutboundClusterName(clusterName string) (sa, vip string, port string, hostname string, err error) {
 	p := strings.Split(clusterName, "_")
 	if !strings.HasSuffix(clusterName, "_outbound_internal") || len(p) < 3 {
 		err = fmt.Errorf("parseRemoteOutboundClusterName: invalid cluster")
 		return
 	}
-	return p[0], p[2], p[3], err
+	return p[0], p[2], p[3], p[4], err
 }
 
 func pepClusterName(sa string) string {
-	return sa + "_pep"
+	return envoyFriendlyIdentity(sa) + "_pep"
+}
+
+func serverPepClusterName(sa string) string {
+	return envoyFriendlyIdentity(sa) + "_pep_server"
 }
 
 func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resources {
@@ -377,13 +457,15 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 			continue
 		}
 		workload := saWorkloads[0] // we use this pod id for fetching cert
+		if len(peps) > 1 {
+			log.Errorf("warning: multiple PEPs: %v", peps)
+		}
 
 		clusters = append(clusters, &cluster.Cluster{
 			Name:                          pepClusterName(sa),
 			ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 			LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
-			ConnectTimeout:                durationpb.New(10 * time.Second),
-			CleanupInterval:               durationpb.New(60 * time.Second),
+			ConnectTimeout:                durationpb.New(2 * time.Second),
 			TypedExtensionProtocolOptions: h2connectUpgrade(),
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
@@ -409,6 +491,36 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 				}},
 			},
 		})
+		clusters = append(clusters, &cluster.Cluster{
+			Name:                          serverPepClusterName(sa),
+			ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+			LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
+			ConnectTimeout:                durationpb.New(2 * time.Second),
+			TypedExtensionProtocolOptions: h2connectUpgrade(),
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+					CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
+				})},
+			},
+			LoadAssignment: &endpoint.ClusterLoadAssignment{
+				ClusterName: pepClusterName(sa),
+				Endpoints: []*endpoint.LocalityLbEndpoints{{
+					LbEndpoints: []*endpoint.LbEndpoint{{
+						HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
+							Address: &core.Address{
+								Address: &core.Address_SocketAddress{
+									SocketAddress: &core.SocketAddress{
+										Address:       peps[0].Status.PodIP, // TODO support multiple
+										PortSpecifier: &core.SocketAddress_PortValue{PortValue: UproxyInbound2CapturePort},
+									},
+								},
+							},
+						}},
+					}},
+				}},
+			},
+		})
 	}
 	var out model.Resources
 	for _, c := range clusters {
@@ -424,7 +536,7 @@ func (g *UProxyConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.P
 	out := model.Resources{}
 	for _, clusterName := range names {
 		// sa here is already our "envoy friendly" one
-		sa, _, hostname, err := parseRemoteOutboundClusterName(clusterName)
+		sa, _, port, hostname, err := parseRemoteOutboundClusterName(clusterName)
 		if err != nil {
 			continue
 		}
@@ -433,24 +545,20 @@ func (g *UProxyConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.P
 			Name: clusterName,
 			Resource: util.MessageToAny(&endpoint.ClusterLoadAssignment{
 				ClusterName: clusterName,
-				Endpoints:   g.llbEndpointsFromShards(proxy, sa, svc),
+				Endpoints:   g.llbEndpointsFromShards(proxy, sa, svc, port),
 			}),
 		})
 	}
 	return out
 }
 
-func (g *UProxyConfigGenerator) llbEndpointsFromShards(
-	proxy *model.Proxy,
-	sa string,
-	svc *model.Service,
-) []*endpoint.LocalityLbEndpoints {
+func (g *UProxyConfigGenerator) llbEndpointsFromShards(proxy *model.Proxy, sa string, svc *model.Service, port string) []*endpoint.LocalityLbEndpoints {
 	if svc == nil {
 		return nil
 	}
 	shards, ok := g.EndpointIndex.ShardsForService(svc.Hostname.String(), svc.Attributes.Namespace)
 	if !ok || shards == nil {
-		uproxyLog.Warnf("no endpoint shards for %s/%s", svc.Attributes.Namespace, svc.Attributes.Name)
+		log.Warnf("no endpoint shards for %s/%s", svc.Attributes.Namespace, svc.Attributes.Name)
 		return nil
 	}
 	eps := &endpoint.LocalityLbEndpoints{
@@ -458,24 +566,16 @@ func (g *UProxyConfigGenerator) llbEndpointsFromShards(
 	}
 	for _, shard := range shards.Shards {
 		for _, istioEndpoint := range shard {
-
+			if port != istioEndpoint.ServicePortName {
+				continue
+			}
 			capturePort := UproxyInboundCapturePort
 			// TODO passthrough for node-local upstreams without PEPs
+			// if proxy.Metadata.SidecarlessVariant == model.VariantIptables {
 			if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName {
 				capturePort = UproxyInboundNodeLocalCapturePort
 			}
-			// TODO re-use some eds code; stable eds ordering, support multi-cluster cluster local rules, and multi-network stuff
-			metadata, err := structpb.NewStruct(map[string]interface{}{
-				"target":           outboundTunnelListenerName(sa),
-				"tunnel_address":   net.JoinHostPort(istioEndpoint.Address, strconv.Itoa(int(capturePort))), // TODO tunnel address changes if we have a Server PEP
-				"detunnel_address": net.JoinHostPort(istioEndpoint.Address, strconv.Itoa(int(istioEndpoint.EndpointPort))),
-				"detunnel_ip":      istioEndpoint.Address,
-				"detunnel_port":    strconv.Itoa(int(istioEndpoint.EndpointPort)),
-			})
-			if err != nil {
-				uproxyLog.Warnf("error building metadata for %s: %v", err)
-			}
-			eps.LbEndpoints = append(eps.LbEndpoints, &endpoint.LbEndpoint{
+			lbe := &endpoint.LbEndpoint{
 				HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 					Address: &core.Address{
 						Address: &core.Address_SocketAddress{
@@ -486,40 +586,53 @@ func (g *UProxyConfigGenerator) llbEndpointsFromShards(
 						},
 					},
 				}},
-				Metadata: &core.Metadata{FilterMetadata: map[string]*structpb.Struct{
-					"tunnel": metadata,
-				}}, // TODO metadata
 				LoadBalancingWeight: wrappers.UInt32(1),
-			})
+			}
+
+			supportsTunnel := false
+			if al := istioEndpoint.Labels[ambient.LabelType]; al == ambient.TypePEP || al == ambient.TypeWorkload {
+				supportsTunnel = true
+			}
+			if supportsTunnel {
+				// TODO re-use some eds code; stable eds ordering, support multi-cluster cluster local rules, and multi-network stuff
+				metadata, err := structpb.NewStruct(map[string]interface{}{
+					"target":           outboundTunnelListenerName(sa),
+					"tunnel_address":   net.JoinHostPort(istioEndpoint.Address, strconv.Itoa(int(capturePort))), // TODO tunnel address changes if we have a Server PEP
+					"detunnel_address": net.JoinHostPort(istioEndpoint.Address, strconv.Itoa(int(istioEndpoint.EndpointPort))),
+					"detunnel_ip":      istioEndpoint.Address,
+					"detunnel_port":    strconv.Itoa(int(istioEndpoint.EndpointPort)),
+				})
+				if err != nil {
+					log.Warnf("error building metadata for %s: %v", err)
+				}
+				lbe.Metadata = &core.Metadata{FilterMetadata: map[string]*structpb.Struct{
+					"tunnel": metadata,
+				}}
+				lbe.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						ambient.TransportMatchKey: {Kind: &structpb.Value_StringValue{StringValue: ambient.TransportMatchValue}},
+					},
+				}
+			}
+			eps.LbEndpoints = append(eps.LbEndpoints, lbe)
 		}
 	}
 	return []*endpoint.LocalityLbEndpoints{eps}
 }
 
 func outboundTunnelListenerName(sa string) string {
-	return "outbound_tunnel_lis_" + sa
+	return "outbound_tunnel_lis_" + envoyFriendlyIdentity(sa)
 }
 
 // outboundTunnelListener is built for each ServiceAccount from pods on the node.
 // This listener adds the original destination headers from the dynamic EDS metadata pass through.
 // We build the listener per-service account so that it can point to the corresponding cluster that presents the correct cert.
-func outboundTunnelListener(listenerNameOverride, sa string) *discovery.Resource {
-	name := outboundTunnelListenerName(sa)
-	if listenerNameOverride != "" {
-		name = listenerNameOverride
-	}
-
+func outboundTunnelListener(name string, sa string) *discovery.Resource {
 	l := &listener.Listener{
 		Name:              name,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		Address: &core.Address{Address: &core.Address_EnvoyInternalAddress{
-			EnvoyInternalAddress: &core.EnvoyInternalAddress{
-				AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
-					ServerListenerName: name,
-				},
-			},
-		}},
+		Address:           internalAddress(name),
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
@@ -573,7 +686,7 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa strin
 		Name:                          outboundTunnelClusterName(sa),
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:                durationpb.New(10 * time.Second),
+		ConnectTimeout:                durationpb.New(2 * time.Second),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket: &core.TransportSocket{
@@ -597,22 +710,12 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 		Name:           "uproxy_inbound",
 		UseOriginalDst: wrappers.Bool(true),
 		Transparent:    wrappers.Bool(true),
-		ListenerFilters: []*listener.ListenerFilter{
-			{
-				Name: wellknown.OriginalDestination,
-				ConfigType: &listener.ListenerFilter_TypedConfig{
-					TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
-				},
+		ListenerFilters: []*listener.ListenerFilter{{
+			Name: wellknown.OriginalDestination,
+			ConfigType: &listener.ListenerFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
 			},
-			{
-				Name: wellknown.OriginalSource,
-				ConfigType: &listener.ListenerFilter_TypedConfig{
-					TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
-						Mark: OriginalSrcMark,
-					}),
-				},
-			},
-		},
+		}},
 		AccessLog: accessLogString("capture inbound listener"),
 		Address: &core.Address{Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
@@ -625,6 +728,16 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 				},
 			},
 		}},
+	}
+	if features.SidecarlessCapture == model.VariantIptables {
+		l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
+			Name: wellknown.OriginalSource,
+			ConfigType: &listener.ListenerFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+					Mark: OriginalSrcMark,
+				}),
+			},
+		})
 	}
 
 	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
@@ -685,7 +798,69 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 			}},
 		})
 	}
-	//TODO cases where we passthrough
+	// TODO cases where we passthrough
+	l.FilterChains = append(l.FilterChains, blackholeFilterChain())
+
+	return &discovery.Resource{
+		Name:     l.Name,
+		Resource: util.MessageToAny(l),
+	}
+}
+
+// buildInboundCaptureListener creates a single listener with a FilterChain for each pod on the node.
+func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *model.Proxy, push *model.PushContext) *discovery.Resource {
+	// TODO L7 stuff (deny at l4 for l7 auth if there is a remote proxy for the dest workload)
+	l := &listener.Listener{
+		Name:           "uproxy_inbound_plaintext",
+		UseOriginalDst: wrappers.Bool(true),
+		Transparent:    wrappers.Bool(true),
+		ListenerFilters: []*listener.ListenerFilter{{
+			Name: wellknown.OriginalDestination,
+			ConfigType: &listener.ListenerFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
+			},
+		}},
+		AccessLog: accessLogString("capture inbound listener plaintext"),
+		Address: &core.Address{Address: &core.Address_SocketAddress{
+			SocketAddress: &core.SocketAddress{
+				// TODO because of the port 15088 workaround, we need to use a redirect rule,
+				// which means we can't bind to localhost. once we remove that workaround,
+				// this can be changed back to 127.0.0.1
+				Address: "0.0.0.0",
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: UproxyInbound2CapturePort,
+				},
+			},
+		}},
+	}
+	if features.SidecarlessCapture == model.VariantIptables {
+		l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
+			Name: wellknown.OriginalSource,
+			ConfigType: &listener.ListenerFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+					Mark: OriginalSrcMark,
+				}),
+			},
+		})
+	}
+
+	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
+		// TODO apply RBAC, etc
+		l.FilterChains = append(l.FilterChains, &listener.FilterChain{
+			Name:             "inbound_" + workload.Status.PodIP,
+			FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.Status.PodIP)},
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{
+					TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+						StatPrefix:       util.BlackHoleCluster,
+						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "virtual_inbound"},
+					}),
+				},
+			}},
+		})
+	}
+	// TODO cases where we passthrough
 	l.FilterChains = append(l.FilterChains, blackholeFilterChain())
 
 	return &discovery.Resource{
@@ -718,10 +893,17 @@ func matchIP(addr string) []*core.CidrRange {
 	}}
 }
 
-const accessLogStringFormat = " -- ds remote: %DOWNSTREAM_REMOTE_ADDRESS%; ds local: %DOWNSTREAM_LOCAL_ADDRESS% -> us local: %UPSTREAM_LOCAL_ADDRESS%\n"
+const EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
+	"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
+	"%RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% " +
+	"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
+	"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
+	"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
+	"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
+	"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME% "
 
 func accessLogString(prefix string) []*accesslog.AccessLog {
-	inlineString := prefix + accessLogStringFormat
+	inlineString := EnvoyTextLogFormat + prefix + "\n"
 	return []*accesslog.AccessLog{{
 		Name: "envoy.access_loggers.file",
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(&fileaccesslog.FileAccessLog{

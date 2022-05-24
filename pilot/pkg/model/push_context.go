@@ -17,7 +17,6 @@ package model
 import (
 	"encoding/json"
 	"fmt"
-	"istio.io/istio/pilot/pkg/ambient"
 	"math"
 	"sort"
 	"strconv"
@@ -31,6 +30,7 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -372,7 +372,8 @@ const (
 	// ProxyUpdate describes a push triggered by a change to an individual proxy (such as label change)
 	ProxyUpdate TriggerReason = "proxy"
 	// GlobalUpdate describes a push triggered by a change to global config, such as mesh config
-	GlobalUpdate TriggerReason = "global"
+	GlobalUpdate  TriggerReason = "global"
+	AmbientUpdate TriggerReason = "ambient"
 	// UnknownTrigger describes a push triggered by an unknown reason
 	UnknownTrigger TriggerReason = "unknown"
 	// DebugTrigger describes a push triggered for debugging
@@ -1190,7 +1191,8 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 func (ps *PushContext) updateContext(
 	env *Environment,
 	oldPushContext *PushContext,
-	pushReq *PushRequest) error {
+	pushReq *PushRequest,
+) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool

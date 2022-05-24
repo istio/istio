@@ -45,6 +45,7 @@ var (
 	fqdn, direction, subset string
 	port                    int
 	verboseProxyConfig      bool
+	remoteProxyConfig       bool
 
 	address, listenerType, statsType string
 
@@ -560,6 +561,9 @@ func listenerConfigCmd() *cobra.Command {
 				Verbose: verboseProxyConfig,
 			}
 
+			if remoteProxyConfig {
+				return configWriter.PrintRemoteListenerSummary()
+			}
 			switch outputFormat {
 			case summaryOutput:
 				return configWriter.PrintListenerSummary(filter)
@@ -577,6 +581,7 @@ func listenerConfigCmd() *cobra.Command {
 	listenerConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 	listenerConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter listeners by Port field")
 	listenerConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+	listenerConfigCmd.PersistentFlags().BoolVar(&remoteProxyConfig, "remote", false, "Output remote information")
 	listenerConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 

@@ -25,7 +25,7 @@ spec:
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
-      enabled: true
+      enabled: false
     egressGateways:
     - name: istio-egressgateway
       enabled: false
@@ -87,7 +87,7 @@ spec:
       # Specify image pull policy if default behavior isn't desired.
       # Default behavior: latest images will be Always else IfNotPresent.
       imagePullPolicy: ""
-      operatorManageWebhooks: false
+      operatorManageWebhooks: true
       tracer:
         lightstep: {}
         zipkin: {}

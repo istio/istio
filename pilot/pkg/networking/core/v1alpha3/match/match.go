@@ -1,5 +1,3 @@
-package match
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,11 +12,15 @@ package match
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package match
+
 import (
 	xds "github.com/cncf/xds/go/xds/core/v3"
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	network "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/common_inputs/network/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/pkg/log"
 )
@@ -83,6 +85,21 @@ func NewSourceIP() Mapper {
 
 func NewDestinationPort() Mapper {
 	return newMapper(DestinationPort)
+}
+
+type ProtocolMatch struct {
+	TCP, HTTP *matcher.Matcher_OnMatch
+}
+
+func NewAppProtocol(pm ProtocolMatch) *matcher.Matcher {
+	m := newMapper(ApplicationProtocolInput)
+	m.Map["'h2c'"] = pm.HTTP
+	m.Map["'http/1.1'"] = pm.HTTP
+	if features.HTTP10 {
+		m.Map["'http/1.0'"] = pm.HTTP
+	}
+	m.OnNoMatch = pm.TCP
+	return m.Matcher
 }
 
 func ToChain(name string) *matcher.Matcher_OnMatch {
