@@ -400,14 +400,21 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			// before the external control plane cluster. Since remote clusters use gateway injection, we can't install the gateways
 			// until after the control plane is running, so we install them here. This is not really necessary for pure (non-config)
 			// remote clusters, but it's cleaner to just install gateways as a separate step for all remote clusters.
-			if c.IsRemote() {
-				fmt.Println("----It is a remote cluster-----")
-				if err = installRemoteClusterGateways(s, i, c, istioctlConfigFiles.remoteIopFile); err != nil {
+			if c.IsRemote() && c.IsConfig() {
+				configFiles := []string{
+					filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
+					istioctlConfigFiles.configIopFile,
+				}
+				fmt.Println("----It is a remote and config cluster-----")
+				if err = installRemoteClusterGateways(s, i, c, configFiles); err != nil {
 					return i, err
 				}
-			} else if c.IsConfig() {
-				fmt.Println("----It is a config cluster-----")
-				if err = installRemoteClusterGateways(s, i, c, istioctlConfigFiles.configIopFile); err != nil {
+			} else if c.IsRemote() && !c.IsConfig() {
+				configFiles := []string{
+					filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
+				}
+				fmt.Println("----It is a remote but not config cluster-----")
+				if err = installRemoteClusterGateways(s, i, c, configFiles); err != nil {
 					return i, err
 				}
 			}
@@ -591,7 +598,7 @@ func installRemoteCommon(s *resource.Settings, i *operatorComponent, cfg Config,
 	return nil
 }
 
-func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c cluster.Cluster, iopFile string) error {
+func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c cluster.Cluster, configFiles []string) error {
 	kubeConfigFile, err := kubeConfigFileForCluster(c)
 	if err != nil {
 		return err
@@ -600,10 +607,7 @@ func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c 
 	installArgs := &mesh.InstallArgs{
 		KubeConfigPath: kubeConfigFile,
 		ManifestsPath:  filepath.Join(testenv.IstioSrc, "manifests"),
-		InFilenames: []string{
-			filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
-			iopFile,
-		},
+		InFilenames:    configFiles,
 		Set: []string{
 			"values.global.imagePullPolicy=" + s.Image.PullPolicy,
 		},
