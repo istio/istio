@@ -27,6 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -85,27 +86,15 @@ func buildMockController() *Controller {
 	return ctls
 }
 
-func buildMockControllerForMultiCluster() *Controller {
-	discovery1 = mock.NewDiscovery(
-		map[host.Name]*model.Service{
-			mock.HelloService.Hostname: mock.MakeService(mock.ServiceArgs{
-				Hostname:        "hello.default.svc.cluster.local",
-				Address:         "10.1.1.0",
-				ServiceAccounts: []string{},
-				ClusterID:       "cluster-1",
-			}),
-		}, 2)
-
-	discovery2 = mock.NewDiscovery(
-		map[host.Name]*model.Service{
-			mock.HelloService.Hostname: mock.MakeService(mock.ServiceArgs{
-				Hostname:        "hello.default.svc.cluster.local",
-				Address:         "10.1.2.0",
-				ServiceAccounts: []string{},
-				ClusterID:       "cluster-2",
-			}),
-			mock.WorldService.Hostname: mock.WorldService.DeepCopy(),
-		}, 2)
+// return aggregator and cluster1 and cluster2 service discovery
+func buildMockControllerForMultiCluster() (*Controller, *memory.ServiceDiscovery, *memory.ServiceDiscovery) {
+	discovery1 := memory.NewServiceDiscovery([]*model.Service{mock.HelloService})
+	discovery2 := memory.NewServiceDiscovery([]*model.Service{mock.MakeService(mock.ServiceArgs{
+		Hostname:        mock.HelloService.Hostname,
+		Address:         "10.1.2.0",
+		ServiceAccounts: []string{},
+		ClusterID:       "cluster-2",
+	}), mock.WorldService})
 
 	registry1 := serviceregistry.Simple{
 		ProviderID:       provider.Kubernetes,
@@ -125,7 +114,7 @@ func buildMockControllerForMultiCluster() *Controller {
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
-	return ctls
+	return ctls, discovery1, discovery2
 }
 
 func TestServicesError(t *testing.T) {
@@ -141,7 +130,8 @@ func TestServicesError(t *testing.T) {
 }
 
 func TestServicesForMultiCluster(t *testing.T) {
-	aggregateCtl := buildMockControllerForMultiCluster()
+	originalHelloService := mock.HelloService.DeepCopy()
+	aggregateCtl, _, registry2 := buildMockControllerForMultiCluster()
 	// List Services from aggregate controller
 	services, err := aggregateCtl.Services()
 	if err != nil {
@@ -170,7 +160,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	// Now verify ClusterVIPs for each service
 	ClusterVIPs := map[host.Name]map[cluster.ID][]string{
 		mock.HelloService.Hostname: {
-			"cluster-1": []string{"10.1.1.0"},
+			"cluster-1": []string{"10.1.0.0"},
 			"cluster-2": []string{"10.1.2.0"},
 		},
 		mock.WorldService.Hostname: {
@@ -183,7 +173,33 @@ func TestServicesForMultiCluster(t *testing.T) {
 				svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname])
 		}
 	}
-	t.Logf("Return service ClusterVIPs match ground truth")
+
+	registry2.RemoveService(mock.HelloService.Hostname)
+	// List Services from aggregate controller
+	services, err = aggregateCtl.Services()
+	if err != nil {
+		t.Fatalf("Services() encountered unexpected error: %v", err)
+	}
+	// Now verify ClusterVIPs for each service
+	ClusterVIPs = map[host.Name]map[cluster.ID][]string{
+		mock.HelloService.Hostname: {
+			"cluster-1": []string{"10.1.0.0"},
+		},
+		mock.WorldService.Hostname: {
+			"cluster-2": []string{"10.2.0.0"},
+		},
+	}
+	for _, svc := range services {
+		if !reflect.DeepEqual(svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname]) {
+			t.Fatalf("Service %s ClusterVIPs actual %v, expected %v", svc.Hostname,
+				svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname])
+		}
+	}
+
+	// check HelloService is not mutated
+	if !reflect.DeepEqual(originalHelloService, mock.HelloService) {
+		t.Errorf("Original hello service is mutated")
+	}
 }
 
 func TestServices(t *testing.T) {
@@ -415,7 +431,6 @@ func TestAddRegistry(t *testing.T) {
 			counter = registry2Counter
 		}
 		ctrl.AppendServiceHandlerForCluster(clusterID, func(service *model.Service, event model.Event) {
-			t.Logf("---run %s service handler", clusterID)
 			counter.Add(1)
 		})
 		ctrl.AddRegistry(r)
