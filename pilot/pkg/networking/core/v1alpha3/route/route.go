@@ -317,25 +317,6 @@ func buildSidecarVirtualHostsForServiceWithDualStack(
 	return out
 }
 
-// GetDestinationCluster generates a cluster name for the route, or error if no cluster
-// can be found. Called by translateRule to determine if
-func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
-	port := listenerPort
-	if destination.GetPort() != nil {
-		port = int(destination.GetPort().GetNumber())
-	} else if service != nil && len(service.Ports) == 1 {
-		// if service only has one port defined, use that as the port, otherwise use default listenerPort
-		port = service.Ports[0].Port
-
-		// Do not return blackhole cluster for service==nil case as there is a legitimate use case for
-		// calling this function with nil service: to route to a pre-defined statically configured cluster
-		// declared as part of the bootstrap.
-		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
-	}
-
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port)
-}
-
 // GetDestinationClusterWithDualStack generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func GetDestinationClusterWithDualStack(destination *networking.Destination, service *model.Service, listenerPort int) []string {
@@ -586,7 +567,7 @@ func applyHTTPRouteDestinationWithDualStack(
 				}
 				log.Debugf("append clusterName %s", clusterName)
 				action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort),
+					Cluster:         clusterName,
 					RuntimeFraction: mp,
 					TraceSampled:    &wrappers.BoolValue{Value: false},
 				}}
