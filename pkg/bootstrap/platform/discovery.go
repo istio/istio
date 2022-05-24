@@ -38,7 +38,7 @@ func Discover(ipv4, ipv6 bool) Environment {
 	if len(CloudPlatform) > 0 {
 		switch strings.ToLower(CloudPlatform) {
 		case "aws":
-			return NewAWS(ipv6)
+			return NewAWS(ipv4, ipv6)
 		case "azure":
 			return NewAzure()
 		case "gcp":
@@ -69,9 +69,9 @@ func DiscoverWithTimeout(timeout time.Duration, ipv4, ipv6 bool) Environment {
 	}()
 
 	go func() {
-		if IsAWS(ipv6) {
+		if IsAWS(ipv4, ipv6) {
 			log.Info("platform detected is AWS")
-			plat <- NewAWS(ipv6)
+			plat <- NewAWS(ipv4, ipv6)
 		}
 		wg.Done()
 	}()
