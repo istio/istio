@@ -95,7 +95,7 @@ func TestIncrementalPush(t *testing.T) {
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
-		if len(ads.GetEndpoints()) != 1 {
+		if len(ads.GetEndpoints()) != 4 {
 			t.Fatalf("Expected a partial EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
 		}
 	})
