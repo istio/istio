@@ -162,12 +162,6 @@ values:
       certSigners:
       - {{.signer2}}
 components:
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: true
-  egressGateways:
-  - name: istio-egressgateway
-    enabled: true
   pilot:
     k8s:
       env:
