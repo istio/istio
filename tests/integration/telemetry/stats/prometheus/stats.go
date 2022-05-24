@@ -45,11 +45,10 @@ import (
 var (
 	apps cdeployment.SingleNamespaceView
 
-	mockProm  echo.Instances
-	ist       istio.Instance
-	appNsInst namespace.Instance
-	promInst  prometheus.Instance
-	ingr      []ingress.Instance
+	mockProm echo.Instances
+	ist      istio.Instance
+	promInst prometheus.Instance
+	ingr     []ingress.Instance
 )
 
 var PeerAuthenticationConfig = `
@@ -223,7 +222,7 @@ proxyMetadata:
 			// mock prom instance is used to mock a prometheus server, which will visit other echo instance /metrics
 			// endpoint with proxy provisioned certs.
 			Service:   "mock-prom",
-			Namespace: appNsInst,
+			Namespace: apps.Namespace,
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -253,7 +252,7 @@ proxyMetadata:
 	for _, c := range ctx.Clusters() {
 		ingr = append(ingr, ist.IngressFor(c))
 	}
-	mockProm = match.ServiceName(echo.NamespacedName{Name: "mock-prom", Namespace: appNsInst}).GetMatches(echos)
+	mockProm = match.ServiceName(echo.NamespacedName{Name: "mock-prom", Namespace: apps.Namespace}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
