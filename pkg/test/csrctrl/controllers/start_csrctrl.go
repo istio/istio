@@ -53,7 +53,7 @@ type SignerRootCert struct {
 }
 
 func RunCSRController(signerNames string, appendRootCert bool, c <-chan struct{},
-	clusters cluster.Clusters) []*SignerRootCert {
+	clusters cluster.Clusters) []SignerRootCert {
 	// Config Istio log
 	if err := log.Configure(loggingOptions); err != nil {
 		log.Infof("Unable to configure Istio log error: %v", err)
@@ -61,7 +61,7 @@ func RunCSRController(signerNames string, appendRootCert bool, c <-chan struct{}
 	}
 	arrSigners := strings.Split(signerNames, ",")
 	signersMap := make(map[string]*signer.Signer, len(arrSigners))
-	var rootCertSignerArr []*SignerRootCert
+	var rootCertSignerArr []SignerRootCert
 	for _, signerName := range arrSigners {
 		signer, sErr := signer.NewSigner(signerRoot, signerName, certificateDuration)
 		if sErr != nil {
@@ -74,11 +74,10 @@ func RunCSRController(signerNames string, appendRootCert bool, c <-chan struct{}
 			log.Infof("Unable to read root cert for signer [%s], error: %v", signerName, sErr)
 			os.Exit(-1)
 		}
-		rootCertsForSigner := &SignerRootCert{
+		rootCertsForSigner := SignerRootCert{
 			Signer:   signerName,
 			Rootcert: string(rootCert),
 		}
-		// certChan <- rootCertsForSigner
 		rootCertSignerArr = append(rootCertSignerArr, rootCertsForSigner)
 	}
 
