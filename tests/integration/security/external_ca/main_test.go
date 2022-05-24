@@ -162,8 +162,13 @@ values:
       certSigners:
       - {{.signer2}}
 components:
-  pilot:
+  ingressGateways:
+  - name: istio-ingressgateway
     enabled: true
+  egressGateways:
+  - name: istio-egressgateway
+    enabled: true
+  pilot:
     k8s:
       env:
       - name: CERT_SIGNER_DOMAIN
@@ -188,6 +193,57 @@ components:
                 verbs:
                 - approve
 `, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
+
+	// 	cfgTempYaml := tmpl.MustEvaluate(`
+	// values:
+	//   meshConfig:
+	//     defaultConfig:
+	//       proxyMetadata:
+	//         PROXY_CONFIG_XDS_AGENT: "true"
+	//         ISTIO_META_CERT_SIGNER: signer1
+	//     trustDomainAliases: [some-other, trust-domain-foo]
+	//     caCertificates:
+	//     - pem: |
+	// {{.rootcert1 | indent 8}}
+	//       certSigners:
+	//       - {{.signer1}}
+	//     - pem: |
+	// {{.rootcert2 | indent 8}}
+	//       certSigners:
+	//       - {{.signer2}}
+	// components:
+	//   ingressGateways:
+	//   - name: istio-ingressgateway
+	//     enabled: true
+	//   egressGateways:
+	//   - name: istio-egressgateway
+	//     enabled: true
+	//   pilot:
+	//     k8s:
+	//       env:
+	//       - name: CERT_SIGNER_DOMAIN
+	//         value: clusterissuers.istio.io
+	//       - name: EXTERNAL_CA
+	//         value: ISTIOD_RA_KUBERNETES_API
+	//       - name: PILOT_CERT_PROVIDER
+	//         value: k8s.io/clusterissuers.istio.io/signer2
+	//       overlays:
+	//         # Amend ClusterRole to add permission for istiod to approve certificate signing by custom signer
+	//         - kind: ClusterRole
+	//           name: istiod-clusterrole-istio-system
+	//           patches:
+	//             - path: rules[-1]
+	//               value: |
+	//                 apiGroups:
+	//                 - certificates.k8s.io
+	//                 resourceNames:
+	//                 - clusterissuers.istio.io/*
+	//                 resources:
+	//                 - signers
+	//                 verbs:
+	//                 - approve
+	// `, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
 	cfg.ControlPlaneValues = cfgYaml
 	cfg.ConfigClusterValues = cfgRemoteYaml
+	// cfg.RemoteClusterValues = cfgTempYaml
 }
