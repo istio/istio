@@ -356,10 +356,10 @@ type EdsGenerator struct {
 
 var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
 
-// Map of all configs that do not impact EDS
-var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
+// Map of all configs that do not impact CDS/EDS
+var skippedClusterEndpointConfig = map[config.GroupVersionKind]struct{}{
 	gvk.Gateway:               {},
-	gvk.VirtualService:        {},
+	gvk.WorkloadEntry:         {},
 	gvk.WorkloadGroup:         {},
 	gvk.AuthorizationPolicy:   {},
 	gvk.RequestAuthentication: {},
@@ -369,13 +369,28 @@ var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.ProxyConfig:           {},
 }
 
-func edsNeedsPush(updates model.XdsUpdates) bool {
-	// If none set, we will always push
-	if len(updates) == 0 {
+// Map all configs that impact CDS/EDS for gateways.
+var pushClusterEndpointGatewayConfig = map[config.GroupVersionKind]struct{}{
+	gvk.VirtualService: {},
+	gvk.Gateway:        {},
+}
+
+func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if req == nil {
 		return true
 	}
-	for config := range updates {
-		if _, f := skippedEdsConfigs[config.Kind]; !f {
+	// If none set, we will always push
+	if len(req.ConfigsUpdated) == 0 {
+		return true
+	}
+	for config := range req.ConfigsUpdated {
+		if proxy.Type == model.Router {
+			if _, f := pushClusterEndpointGatewayConfig[config.Kind]; f {
+				return true
+			}
+		}
+
+		if _, f := skippedClusterEndpointConfig[config.Kind]; !f {
 			return true
 		}
 	}
@@ -383,7 +398,7 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 }
 
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !edsNeedsPush(req.ConfigsUpdated) {
+	if !edsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	resources, logDetails := eds.buildEndpoints(proxy, req, w)
@@ -446,7 +461,7 @@ func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAs
 func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	if !edsNeedsPush(req.ConfigsUpdated) {
+	if !edsNeedsPush(req, proxy) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	if !shouldUseDeltaEds(req) {

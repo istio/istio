@@ -16,8 +16,6 @@ package xds
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type CdsGenerator struct {
@@ -25,25 +23,6 @@ type CdsGenerator struct {
 }
 
 var _ model.XdsDeltaResourceGenerator = &CdsGenerator{}
-
-// Map of all configs that do not impact CDS
-var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
-	gvk.Gateway:               {},
-	gvk.WorkloadEntry:         {},
-	gvk.WorkloadGroup:         {},
-	gvk.AuthorizationPolicy:   {},
-	gvk.RequestAuthentication: {},
-	gvk.Secret:                {},
-	gvk.Telemetry:             {},
-	gvk.WasmPlugin:            {},
-	gvk.ProxyConfig:           {},
-}
-
-// Map all configs that impacts CDS for gateways.
-var pushCdsGatewayConfig = map[config.GroupVersionKind]struct{}{
-	gvk.VirtualService: {},
-	gvk.Gateway:        {},
-}
 
 func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if req == nil {
@@ -53,22 +32,9 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		// CDS only handles full push
 		return false
 	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
-	}
-	for config := range req.ConfigsUpdated {
-		if proxy.Type == model.Router {
-			if _, f := pushCdsGatewayConfig[config.Kind]; f {
-				return true
-			}
-		}
-
-		if _, f := skippedCdsConfigs[config.Kind]; !f {
-			return true
-		}
-	}
-	return false
+	// EDS and CDS share the same logic. This is necessary due to Envoy's warming semantics:
+	// https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/cluster_manager.html?highlight=warming#cluster-warming
+	return edsNeedsPush(req, proxy)
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
