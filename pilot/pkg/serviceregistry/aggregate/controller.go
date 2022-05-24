@@ -161,30 +161,38 @@ func (c *Controller) getRegistryIndex(clusterID cluster.ID, provider provider.ID
 
 // Services lists services from all platforms
 func (c *Controller) Services() []*model.Service {
-	// smap is a map of hostname (string) to service, used to identify services that
+	// smap is a map of hostname (string) to service index, used to identify services that
 	// are installed in multiple clusters.
-	smap := make(map[host.Name]*model.Service)
-
+	smap := make(map[host.Name]int)
+	index := 0
 	services := make([]*model.Service, 0)
 	// Locking Registries list while walking it to prevent inconsistent results
 	for _, r := range c.GetRegistries() {
 		svcs := r.Services()
 		if r.Provider() != provider.Kubernetes {
+			index += len(svcs)
 			services = append(services, svcs...)
 		} else {
 			for _, s := range svcs {
-				sp, ok := smap[s.Hostname]
+				previous, ok := smap[s.Hostname]
 				if !ok {
 					// First time we see a service. The result will have a single service per hostname
 					// The first cluster will be listed first, so the services in the primary cluster
 					// will be used for default settings. If a service appears in multiple clusters,
 					// the order is less clear.
-					smap[s.Hostname] = s
+					smap[s.Hostname] = index
+					index++
 					services = append(services, s)
 				} else {
+					// We must deepcopy before merge, and after merging, the ClusterVips length will be >= 2.
+					// This is an optimization to prevent deepcopy multi-times
+					if len(services[previous].ClusterVIPs.GetAddresses()) < 2 {
+						// Deep copy before merging, otherwise there is a case
+						// a service in remote cluster can be deleted, but the ClusterIP left.
+						services[previous] = services[previous].DeepCopy()
+					}
 					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
-					// Note: mutating the service of underlying registry here, should have no effect.
-					mergeService(sp, s, r)
+					mergeService(services[previous], s, r)
 				}
 			}
 		}
