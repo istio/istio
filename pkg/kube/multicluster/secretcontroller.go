@@ -78,11 +78,11 @@ type ClusterHandler interface {
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
-	namespace            string
-	primaryClusterID     cluster.ID
-	primaryClusterClient kube.Client
-	queue                controllers.Queue
-	informer             cache.SharedIndexInformer
+	namespace           string
+	configClusterID     cluster.ID
+	configClusterClient kube.Client
+	queue               controllers.Queue
+	informer            cache.SharedIndexInformer
 
 	cs *ClusterStore
 
@@ -110,11 +110,11 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	remoteClusters.Record(0.0)
 
 	controller := &Controller{
-		namespace:            namespace,
-		primaryClusterID:     clusterID,
-		primaryClusterClient: kubeclientset,
-		cs:                   newClustersStore(),
-		informer:             secretsInformer,
+		namespace:           namespace,
+		configClusterID:     clusterID,
+		configClusterClient: kubeclientset,
+		cs:                  newClustersStore(),
+		informer:            secretsInformer,
 	}
 	controller.queue = controllers.NewQueue("multicluster secret", controllers.WithReconciler(controller.processItem))
 
@@ -128,11 +128,11 @@ func (c *Controller) AddHandler(h ClusterHandler) {
 
 // Run starts the controller until it receives a message over stopCh
 func (c *Controller) Run(stopCh <-chan struct{}) error {
-	// run handlers for the primary cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
+	// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
-	primaryCluster := &Cluster{Client: c.primaryClusterClient, ID: c.primaryClusterID}
-	if err := c.handleAdd(primaryCluster, stopCh); err != nil {
-		return fmt.Errorf("failed initializing primary cluster %s: %v", c.primaryClusterID, err)
+	configCluster := &Cluster{Client: c.configClusterClient, ID: c.configClusterID}
+	if err := c.handleAdd(configCluster, stopCh); err != nil {
+		return fmt.Errorf("failed initializing primary cluster %s: %v", c.configClusterID, err)
 	}
 	go func() {
 		t0 := time.Now()
@@ -320,7 +320,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 	}
 
 	for clusterID, kubeConfig := range s.Data {
-		if cluster.ID(clusterID) == c.primaryClusterID {
+		if cluster.ID(clusterID) == c.configClusterID {
 			log.Infof("ignoring cluster %v from secret %v as it would overwrite the primary cluster", clusterID, secretKey)
 			continue
 		}
@@ -361,8 +361,8 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 
 func (c *Controller) deleteSecret(secretKey string) {
 	for _, cluster := range c.cs.GetExistingClustersFor(secretKey) {
-		if cluster.ID == c.primaryClusterID {
-			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the primary cluster", c.primaryClusterID, secretKey)
+		if cluster.ID == c.configClusterID {
+			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the primary cluster", c.configClusterID, secretKey)
 			continue
 		}
 		log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)

@@ -30,16 +30,16 @@ type secretHandler func(name string, namespace string)
 type Multicluster struct {
 	remoteKubeControllers map[cluster.ID]*CredentialsController
 	m                     sync.Mutex // protects remoteKubeControllers
-	primaryCluster        cluster.ID
+	configCluster         cluster.ID
 	secretHandlers        []secretHandler
 }
 
 var _ credentials.MulticlusterController = &Multicluster{}
 
-func NewMulticluster(primaryCluster cluster.ID) *Multicluster {
+func NewMulticluster(configCluster cluster.ID) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[cluster.ID]*CredentialsController{},
-		primaryCluster:        primaryCluster,
+		configCluster:         configCluster,
 	}
 
 	return m
@@ -81,13 +81,13 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 	agg := &AggregateController{}
 	agg.controllers = []*CredentialsController{}
 	agg.authController = m.remoteKubeControllers[clusterID]
-	if clusterID != m.primaryCluster {
-		// If the request cluster is not the primary cluster, we will append it and use it for auth
-		// This means we will prioritize the proxy cluster, then the primary cluster for credential lookup
+	if clusterID != m.configCluster {
+		// If the request cluster is not the config cluster, we will append it and use it for auth
+		// This means we will prioritize the proxy cluster, then the config cluster for credential lookup
 		// Authorization will always use the proxy cluster.
 		agg.controllers = append(agg.controllers, m.remoteKubeControllers[clusterID])
 	}
-	agg.controllers = append(agg.controllers, m.remoteKubeControllers[m.primaryCluster])
+	agg.controllers = append(agg.controllers, m.remoteKubeControllers[m.configCluster])
 	return agg, nil
 }
 
