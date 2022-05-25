@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
@@ -150,6 +151,7 @@ func TestImagePullPolicy(t *testing.T) {
 				upstreamVersion: "0.0.2",
 				expectedVersion: "0.0.2",
 			})
+			resetWasm(t, "wasm-test-module-test-tag-1")
 		})
 }
 
@@ -159,6 +161,7 @@ func installWasmExtension(ctx framework.TestContext, pluginName, tag, imagePullP
 		"WasmPluginName":    pluginName,
 		"TestWasmModuleURL": wasmModuleURL,
 		"WasmPluginVersion": pluginVersion,
+		"TargetAppName":     common.GetTarget().(echo.Instances).NamespacedName().Name,
 	}
 
 	if len(imagePullPolicy) != 0 {
@@ -166,7 +169,7 @@ func installWasmExtension(ctx framework.TestContext, pluginName, tag, imagePullP
 	}
 
 	if err := ctx.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, wasmConfigFile).
-		Apply(); err != nil {
+		Apply(apply.NoCleanup); err != nil {
 		return err
 	}
 
@@ -190,14 +193,12 @@ func sendTraffic(ctx framework.TestContext, checker echo.Checker, options ...ret
 	}
 	cltInstance := common.GetClientInstances()[0]
 
-	defaultOptions := []retry.Option{retry.Delay(100 * time.Millisecond), retry.Timeout(200 * time.Second)}
+	defaultOptions := []retry.Option{retry.Delay(200 * time.Millisecond), retry.Timeout(200 * time.Second)}
 	httpOpts := echo.CallOptions{
 		To: common.GetTarget(),
 		Port: echo.Port{
 			Name: "http",
 		},
-		// To ensure the different Wasm VM, create new connection per request.
-		NewConnectionPerRequest: true,
 		HTTP: echo.HTTP{
 			Path:   "/path",
 			Method: "GET",

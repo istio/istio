@@ -20,6 +20,7 @@ package prometheus
 import (
 	"context"
 	"testing"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -271,6 +272,7 @@ func SendTraffic(from echo.Instance) error {
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
+		Timeout: 15 * time.Second,
 	})
 	if err != nil {
 		return err
@@ -283,6 +285,7 @@ func SendTraffic(from echo.Instance) error {
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
+		Timeout: 15 * time.Second,
 	})
 	if err != nil {
 		return err
