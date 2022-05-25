@@ -158,6 +158,7 @@ components:
                 - signers
                 verbs:
                 - approve
-`, map[string]interface{}{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer, "isConfigCluster": isConfigCluster})
+`, map[string]interface{}{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert,
+		"signer2": cert2.Signer, "isConfigCluster": isConfigCluster})
 	return cfgYaml
 }
