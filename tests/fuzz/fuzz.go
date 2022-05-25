@@ -27,6 +27,6 @@ func FuzzParseInputs(data []byte) int {
 	return 1
 }
 
-func proxyValid(p *model.Proxy) bool {
+func ProxyValid(p *model.Proxy) bool {
 	return len(p.IPAddresses) != 0
 }

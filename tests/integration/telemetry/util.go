@@ -19,6 +19,7 @@ package telemetry
 
 import (
 	"context"
+	"sort"
 
 	"github.com/prometheus/common/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,6 +63,9 @@ func PromDiff(t test.Failer, prom prometheus.Instance, cluster cluster.Cluster, 
 			t.Logf("no diff found")
 			return
 		}
+		sort.Slice(allMismatches, func(i, j int) bool {
+			return len(allMismatches[i]) < len(allMismatches[j])
+		})
 		t.Logf("query %q returned %v series, but none matched our query exactly.", query.Metric, len(value))
 		t.Logf("Original query: %v", query.String())
 		for i, m := range allMismatches {
