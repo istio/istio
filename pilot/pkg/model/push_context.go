@@ -1428,7 +1428,23 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
+			s, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
+			if !f {
+				// Why not found yet?
+				log.Errorf("howardjohn: not found for %v", svc.Hostname)
+				continue
+			}
+			sa := sets.New()
+			for _, epShards := range s.Shards {
+				for _, ep := range epShards {
+					if ep.ServiceAccount != "" {
+						sa.Insert(ep.ServiceAccount)
+					}
+				}
+			}
+
+			ps.ServiceAccounts[svc.Hostname][port.Port] = sa.SortedList()
+			log.Errorf("howardjohn: SA for %v/%v: %v", svc.Hostname, port.Port, ps.ServiceAccounts[svc.Hostname][port.Port])
 		}
 	}
 }

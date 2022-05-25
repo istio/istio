@@ -502,8 +502,8 @@ func TestEndpointFlipFlops(t *testing.T) {
 	}
 
 	// Validate that keys in service still exist in EndpointIndex - this prevents full push.
-	if _, ok := s.Discovery.EndpointIndex.ShardsForService("flipflop.com", ""); !ok {
-		t.Fatalf("Expected service key %s to be present in EndpointIndex. But missing %v", "flipflop.com", s.Discovery.EndpointIndex.Shardz())
+	if _, ok := s.Discovery.Env.EndpointIndex.ShardsForService("flipflop.com", ""); !ok {
+		t.Fatalf("Expected service key %s to be present in EndpointIndex. But missing %v", "flipflop.com", s.Discovery.Env.EndpointIndex.Shardz())
 	}
 
 	// Set the endpoints again and validate it does not trigger full push.
@@ -541,9 +541,9 @@ func TestDeleteService(t *testing.T) {
 
 	s.Discovery.MemRegistry.RemoveService("removeservice.com")
 
-	if _, ok := s.Discovery.EndpointIndex.ShardsForService("removeservice.com", ""); ok {
+	if _, ok := s.Discovery.Env.EndpointIndex.ShardsForService("removeservice.com", ""); ok {
 		t.Fatalf("Expected service key %s to be deleted in EndpointIndex. But is still there %v",
-			"removeservice.com", s.Discovery.EndpointIndex.Shardz())
+			"removeservice.com", s.Discovery.Env.EndpointIndex.Shardz())
 	}
 }
 
@@ -638,8 +638,8 @@ func TestZeroEndpointShardSA(t *testing.T) {
 	}
 	s := new(xds.DiscoveryServer)
 	s.Cache = model.DisabledCache{}
-	s.EndpointIndex = model.NewEndpointIndex()
-	originalEndpointsShard, _ := s.EndpointIndex.GetOrCreateEndpointShard("test", "test")
+	s.Env = model.NewEnvironment()
+	originalEndpointsShard, _ := s.Env.EndpointIndex.GetOrCreateEndpointShard("test", "test")
 	originalEndpointsShard.Shards = map[model.ShardKey][]*model.IstioEndpoint{
 		c1Key: cluster1Endppoints,
 	}
@@ -647,7 +647,7 @@ func TestZeroEndpointShardSA(t *testing.T) {
 		"sa1": {},
 	}
 	s.EDSCacheUpdate(c1Key, "test", "test", []*model.IstioEndpoint{})
-	modifiedShard, _ := s.EndpointIndex.GetOrCreateEndpointShard("test", "test")
+	modifiedShard, _ := s.Env.EndpointIndex.GetOrCreateEndpointShard("test", "test")
 	if len(modifiedShard.ServiceAccounts) != 0 {
 		t.Errorf("endpoint shard service accounts got %v want 0", len(modifiedShard.ServiceAccounts))
 	}
