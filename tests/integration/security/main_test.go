@@ -31,14 +31,14 @@ import (
 	"istio.io/pkg/log"
 )
 
-type NamespaceAddition struct {
+type NamespaceForJwks struct {
 	Namespace namespace.Instance
 }
 
 var (
-	ist  istio.Instance
-	apps = &util.EchoDeployments{}
-	app  = &NamespaceAddition{}
+	ist    istio.Instance
+	apps   = &util.EchoDeployments{}
+	jwksNs = &NamespaceForJwks{}
 )
 
 func TestMain(m *testing.M) {
@@ -50,7 +50,7 @@ func TestMain(m *testing.M) {
 		}).
 		Setup(func(ctx resource.Context) error {
 			var err error
-			app.Namespace, err = namespace.Claim(ctx, namespace.Config{
+			jwksNs.Namespace, err = namespace.Claim(ctx, namespace.Config{
 				Prefix: "jwksns",
 				Inject: true,
 			})
