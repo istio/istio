@@ -108,7 +108,7 @@ func runManager(mgr manager.Manager, arrSigners []string, signersMap map[string]
 		Signers:        signersMap,
 		appendRootCert: appendRootCert,
 	}).SetupWithManager(mgr); err != nil {
-		log.Infof("Unable to create Controller fro controller CSRSigningReconciler, error: %v", err)
+		log.Infof("Unable to create Controller for controller CSRSigningReconciler, error: %v", err)
 		os.Exit(-1)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
