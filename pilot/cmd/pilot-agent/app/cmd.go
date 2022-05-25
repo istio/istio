@@ -45,6 +45,11 @@ import (
 	"istio.io/pkg/version"
 )
 
+const (
+	localHostIPv4 = "127.0.0.1"
+	localHostIPv6 = "[::1]"
+)
+
 var (
 	loggingOptions = log.DefaultOptions()
 	proxyArgs      *options.ProxyArgs
@@ -213,9 +218,9 @@ func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *mesh
 }
 
 func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
-	localHostAddr := proxyArgs.LocalHostIPv4
+	localHostAddr := localHostIPv4
 	if proxy.IsIPv6() {
-		localHostAddr = proxyArgs.LocalHostIPv6
+		localHostAddr = localHostIPv6
 	}
 	stsServer, err := stsserver.NewServer(stsserver.Config{
 		LocalHostAddr: localHostAddr,
@@ -274,7 +279,7 @@ func initProxy(args []string) (*model.Proxy, error) {
 
 	// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
 	if len(proxy.IPAddresses) == 0 {
-		proxy.IPAddresses = append(proxy.IPAddresses, proxyArgs.LocalHostIPv4, proxyArgs.LocalHostIPv6)
+		proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
 	}
 
 	// After IP addresses are set, let us discover IPMode.

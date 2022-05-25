@@ -14,7 +14,7 @@
 
 package options
 
-//ProxyArgs provides all of the configuration parameters for the Pilot proxy.
+// ProxyArgs provides all of the configuration parameters for the Pilot proxy.
 type ProxyArgs struct {
 	DnsDomain          string
 	StsPort            int
@@ -30,13 +30,11 @@ type ProxyArgs struct {
 	TemplateFile           string
 	OutlierLogPath         string
 
-	LocalHostIPv4 string
-	LocalHostIPv6 string
-	PodName       string
-	PodNamespace  string
+	PodName      string
+	PodNamespace string
 }
 
-//NewProxyArgs constructs proxyArgs with default values.
+// NewProxyArgs constructs proxyArgs with default values.
 func NewProxyArgs() *ProxyArgs {
 	p := &ProxyArgs{}
 
@@ -46,10 +44,8 @@ func NewProxyArgs() *ProxyArgs {
 	return p
 }
 
-//applyDefaults apply default value to ProxyArgs
+// applyDefaults apply default value to ProxyArgs
 func (p *ProxyArgs) applyDefaults() {
-	p.LocalHostIPv4 = localHostIPv4
-	p.LocalHostIPv6 = localHostIPv6
 	p.PodName = PodNameVar.Get()
 	p.PodNamespace = PodNamespaceVar.Get()
 }
