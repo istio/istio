@@ -25,11 +25,6 @@ import (
 	"istio.io/pkg/env"
 )
 
-const (
-	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
-)
-
 var (
 	InstanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	PodNameVar           = env.RegisterStringVar("POD_NAME", "", "")
