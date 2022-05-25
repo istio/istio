@@ -45,6 +45,14 @@ var (
 		},
 	}
 
+	port7000 = []*Port{
+		{
+			Name:     "uds",
+			Port:     7000,
+			Protocol: "HTTP",
+		},
+	}
+
 	port7443 = []*Port{
 		{
 			Port:     7443,
@@ -474,6 +482,19 @@ var (
 		Spec: &networking.Sidecar{},
 	}
 
+	configs21 = &config.Config{
+		Meta: config.Meta{
+			Name: "virtual-service-destinations-matching-http-virtual-service-ports",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"foo/virtualbar"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{
 			Hostname: "bar",
@@ -872,6 +893,36 @@ var (
 		},
 	}
 
+	services21 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    twoPorts,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    twoPorts,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+	}
+
+	services22 = []*Service{
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -904,6 +955,79 @@ var (
 					{
 						Mirror: &networking.Destination{Host: "foo.svc.cluster.local"},
 						Route:  []*networking.HTTPRouteDestination{{Destination: &networking.Destination{Host: "baz.svc.cluster.local"}}},
+					},
+				},
+			},
+		},
+	}
+
+	virtualServices3 = []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "virtualbar",
+				Namespace:        "foo",
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"virtualbar"},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000},
+								},
+							},
+						},
+						Mirror: &networking.Destination{Host: "foo.svc.cluster.local", Port: &networking.PortSelector{Number: 7000}},
+					},
+				},
+			},
+		},
+	}
+
+	virtualServices4 = []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "virtualbar",
+				Namespace:        "foo",
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"virtualbar"},
+				Tcp: []*networking.TCPRoute{
+					{
+						Route: []*networking.RouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	virtualServices5 = []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "virtualbar",
+				Namespace:        "foo",
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"virtualbar"},
+				Tls: []*networking.TLSRoute{
+					{
+						Route: []*networking.RouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -1399,6 +1523,49 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 		},
 		{
+			"virtual-service-destinations-matching-http-virtual-service-ports",
+			configs21,
+			services21,
+			virtualServices3,
+			[]*Service{
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7000,
+				},
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7000,
+				},
+			},
+			nil,
+		},
+		{
+			"virtual-service-destinations-matching-tcp-virtual-service-ports",
+			configs21,
+			services21,
+			virtualServices4,
+			[]*Service{
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7000,
+				},
+			},
+			nil,
+		},
+		{
+			"virtual-service-destinations-matching-tls-virtual-service-ports",
+			configs21,
+			services21,
+			virtualServices5,
+			[]*Service{
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7000,
+				},
+			},
+			nil,
+		},
+		{
 			"virtual-service-prefer-required",
 			configs12,
 			services12,
@@ -1483,6 +1650,14 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
+		},
+		{
+			"virtual-service-destination-port-missing-from-service",
+			configs21,
+			services22,
+			virtualServices3,
+			[]*Service{},
 			nil,
 		},
 		{
