@@ -885,7 +885,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 					for _, tc := range cases {
 						t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 							tc.from[0].CallOrFail(t, echo.CallOptions{
-								Count: len(c.Clusters()),
+								Count: util.CallsPerCluster * len(c.Clusters()),
 								Port: echo.Port{
 									Protocol:    protocol.HTTP,
 									ServicePort: 80,
