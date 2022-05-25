@@ -84,7 +84,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 				gotNumRequest++
 			}))
 			defer ts.Close()
-			fetcher := NewHTTPFetcher(1*time.Second, defaultOptions().HTTPRequestMaxRetries)
+			fetcher := NewHTTPFetcher(defaultOptions().HTTPRequestTimeout, defaultOptions().HTTPRequestMaxRetries)
 			fetcher.initialBackoff = time.Microsecond
 			ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 			defer cancel()
