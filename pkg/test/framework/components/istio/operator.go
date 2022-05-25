@@ -590,12 +590,11 @@ func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c 
 	}
 
 	// Config cluster may have a separate config from pure remote clusters.
-	configFiles := []string{
-		filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
-	}
+	var configFiles []string
 	if c.IsConfig() {
-		configFiles = append(configFiles, istioctlConfigFiles.remoteIopFile)
+		configFiles = append(configFiles, istioctlConfigFiles.configIopFile)
 	}
+	configFiles = append(configFiles, filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP))
 	installArgs := &mesh.InstallArgs{
 		KubeConfigPath: kubeConfigFile,
 		ManifestsPath:  filepath.Join(testenv.IstioSrc, "manifests"),
