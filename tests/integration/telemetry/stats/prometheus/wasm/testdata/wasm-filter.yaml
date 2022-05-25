@@ -10,7 +10,7 @@ spec:
   phase: STATS
   selector:
     matchLabels:
-      app: server
+      app: {{ .TargetAppName }}
   {{- if .TestWasmModuleURL }}
   url: {{ .TestWasmModuleURL }}
   {{- end }}

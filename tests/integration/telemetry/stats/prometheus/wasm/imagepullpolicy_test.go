@@ -159,6 +159,7 @@ func installWasmExtension(ctx framework.TestContext, pluginName, tag, imagePullP
 		"WasmPluginName":    pluginName,
 		"TestWasmModuleURL": wasmModuleURL,
 		"WasmPluginVersion": pluginVersion,
+		"TargetAppName":     common.GetTarget().(echo.Instances).NamespacedName().Name,
 	}
 
 	if len(imagePullPolicy) != 0 {
