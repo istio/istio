@@ -177,7 +177,7 @@ func newProxyCommand() *cobra.Command {
 
 func addFlags(proxyCmd *cobra.Command) {
 	proxyArgs = options.NewProxyArgs()
-	proxyCmd.PersistentFlags().StringVar(&proxyArgs.DnsDomain, "domain", "",
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&proxyArgs.MeshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
@@ -290,7 +290,7 @@ func initProxy(args []string) (*model.Proxy, error) {
 
 	// If not set, set a default based on platform - podNamespace.svc.cluster.local for
 	// K8S
-	proxy.DNSDomain = getDNSDomain(proxyArgs.PodNamespace, proxyArgs.DnsDomain)
+	proxy.DNSDomain = getDNSDomain(proxyArgs.PodNamespace, proxyArgs.DNSDomain)
 	log.WithLabels("ips", proxy.IPAddresses, "type", proxy.Type, "id", proxy.ID, "domain", proxy.DNSDomain).Info("Proxy role")
 
 	return proxy, nil

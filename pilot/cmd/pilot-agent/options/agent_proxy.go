@@ -16,7 +16,7 @@ package options
 
 // ProxyArgs provides all of the configuration parameters for the Pilot proxy.
 type ProxyArgs struct {
-	DnsDomain          string
+	DNSDomain          string
 	StsPort            int
 	TokenManagerPlugin string
 
