@@ -400,10 +400,11 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			// before the external control plane cluster. Since remote clusters use gateway injection, we can't install the gateways
 			// until after the control plane is running, so we install them here. This is not really necessary for pure (non-config)
 			// remote clusters, but it's cleaner to just install gateways as a separate step for all remote clusters.
-			if err = installRemoteClusterGateways(s, i, c, istioctlConfigFiles); err != nil {
+			if err = installRemoteClusterGateways(s, i, c); err != nil {
 				return i, err
 			}
 		}
+
 		// remote clusters only need east-west gateway for multi-network purposes
 		if ctx.Environment().IsMultinetwork() {
 			spec := istioctlConfigFiles.remoteOperatorSpec
@@ -583,22 +584,18 @@ func installRemoteCommon(s *resource.Settings, i *operatorComponent, cfg Config,
 	return nil
 }
 
-func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c cluster.Cluster, istioctlConfigFiles istioctlConfigFiles) error {
+func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c cluster.Cluster) error {
 	kubeConfigFile, err := kubeConfigFileForCluster(c)
 	if err != nil {
 		return err
 	}
 
-	// Config cluster may have a separate config from pure remote clusters.
-	var configFiles []string
-	if c.IsConfig() {
-		configFiles = append(configFiles, istioctlConfigFiles.configIopFile)
-	}
-	configFiles = append(configFiles, filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP))
 	installArgs := &mesh.InstallArgs{
 		KubeConfigPath: kubeConfigFile,
 		ManifestsPath:  filepath.Join(testenv.IstioSrc, "manifests"),
-		InFilenames:    configFiles,
+		InFilenames: []string{
+			filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
+		},
 		Set: []string{
 			"values.global.imagePullPolicy=" + s.Image.PullPolicy,
 		},
@@ -807,7 +804,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		return fmt.Errorf("failed creating the root CA: %v", err)
 	}
 
-	for _, c := range env.AllClusters() {
+	for _, c := range env.Clusters() {
 		// Create a subdir for the cluster certs.
 		clusterDir := filepath.Join(certsDir, c.Name())
 		if err := os.Mkdir(clusterDir, 0o700); err != nil {

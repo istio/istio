@@ -81,7 +81,8 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
-		RequireMinVersion(20).
+		RequireMinVersion(19).
+		IgnoreConfigClusterTopology().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return SetupApps(ctx, apps)
@@ -92,62 +93,19 @@ func TestMain(m *testing.M) {
 }
 
 func setupConfig(ctx resource.Context, cfg *istio.Config) {
-	certsChan := csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false, stopChan, ctx.AllClusters())
-	cert1 := certsChan[0]
-	cert2 := certsChan[1]
+	certs := csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false, stopChan, ctx.AllClusters())
 	if cfg == nil {
 		return
 	}
-	cfgRemoteYaml := tmpl.MustEvaluate(`
-values:
-  global:
-    externalIstiod: true
-    omitSidecarInjectorConfigMap: true
-    configCluster: true
-  pilot:
-    configMap: true
-  telemetry:
-    enabled: true
-  meshConfig:
-    defaultConfig:
-      proxyMetadata:
-        PROXY_CONFIG_XDS_AGENT: "true"
-        ISTIO_META_CERT_SIGNER: signer1
-    trustDomainAliases: [some-other, trust-domain-foo]
-    caCertificates:
-    - pem: |
-{{.rootcert1 | indent 8}}
-      certSigners:
-      - {{.signer1}}
-    - pem: |
-{{.rootcert2 | indent 8}}
-      certSigners:
-      - {{.signer2}}
-components:
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: false
-  egressGateways:
-  - name: istio-egressgateway
-    enabled: false
-  istiodRemote:
-    k8s:
-      overlays:
-        # Amend ClusterRole to add permission for istiod to approve certificate signing by custom signer
-        - kind: ClusterRole
-          name: istiod-clusterrole-istio-system
-          patches:
-            - path: rules[-1]
-              value: |
-                apiGroups:
-                - certificates.k8s.io
-                resourceNames:
-                - clusterissuers.istio.io/*
-                resources:
-                - signers
-                verbs:
-                - approve
-`, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
+
+	cfg.ControlPlaneValues = generateConfigYaml(certs, false)
+	cfg.ConfigClusterValues = generateConfigYaml(certs, true)
+}
+
+func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool) string {
+	cert1 := certs[0]
+	cert2 := certs[1]
+
 	cfgYaml := tmpl.MustEvaluate(`
 values:
   meshConfig:
@@ -166,14 +124,18 @@ values:
       certSigners:
       - {{.signer2}}
 components:
+{{- if .isConfigCluster}}
   ingressGateways:
   - name: istio-ingressgateway
-    enabled: true
+    enabled: false
   egressGateways:
   - name: istio-egressgateway
-    enabled: true
+    enabled: false
+  istiodRemote:
+{{- else }}
   pilot:
     enabled: true
+{{- end }}
     k8s:
       env:
       - name: CERT_SIGNER_DOMAIN
@@ -197,7 +159,9 @@ components:
                 - signers
                 verbs:
                 - approve
-`, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
-	cfg.ControlPlaneValues = cfgYaml
-	cfg.ConfigClusterValues = cfgRemoteYaml
+`, map[string]interface{}{
+		"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert,
+		"signer2": cert2.Signer, "isConfigCluster": isConfigCluster,
+	})
+	return cfgYaml
 }
