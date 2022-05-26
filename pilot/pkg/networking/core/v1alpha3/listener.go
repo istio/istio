@@ -581,6 +581,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
 	listenerMap map[string]*outboundListenerEntry, actualWildcard string,
+	listenerProtocol istionetworking.ListenerProtocol,
 ) (bool, []*filterChainOpts) {
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
@@ -640,8 +641,6 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 		}
 	}
 
-	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol, core.TrafficDirection_OUTBOUND)
-
 	// No conflicts. Add a http filter chain option to the listenerOpts
 	var rdsName string
 	if listenerOpts.port.Port == 0 {
@@ -655,7 +654,7 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 		}
 	}
 	httpOpts := &httpListenerOpts{
-		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
+		// Set useRemoteAddress to true for sidecar outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
 		useRemoteAddress: features.UseRemoteAddress,
@@ -808,7 +807,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if listenerPortProtocol == protocol.HTTP_PROXY {
 		if ret, opts = buildSidecarOutboundHTTPListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry,
-			&listenerOpts, listenerMap, actualWildcard); !ret {
+			&listenerOpts, listenerMap, actualWildcard, listenerProtocol); !ret {
 			return
 		}
 		listenerOpts.filterChainOpts = opts
@@ -816,7 +815,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 		switch listenerProtocol {
 		case istionetworking.ListenerProtocolHTTP:
 			if ret, opts = buildSidecarOutboundHTTPListenerOptsForPortOrUDS(&listenerMapKey,
-				&currentListenerEntry, &listenerOpts, listenerMap, actualWildcard); !ret {
+				&currentListenerEntry, &listenerOpts, listenerMap, actualWildcard, listenerProtocol); !ret {
 				return
 			}
 
@@ -895,7 +894,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 
 			// Add http filter chain and tcp filter chain to the listener opts
 			if ret, opts = buildSidecarOutboundHTTPListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry,
-				&listenerOpts, listenerMap, actualWildcard); !ret {
+				&listenerOpts, listenerMap, actualWildcard, listenerProtocol); !ret {
 				return
 			}
 
