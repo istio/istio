@@ -94,7 +94,7 @@ func TestMain(m *testing.M) {
 func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	certsChan := csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false, stopChan, ctx.AllClusters())
 	cert1 := certsChan[0]
-	// cert2 := certsChan[1]
+	cert2 := certsChan[1]
 	if cfg == nil {
 		return
 	}
@@ -111,6 +111,10 @@ values:
 {{.rootcert1 | indent 8}}
       certSigners:
       - {{.signer1}}
+    - pem: |
+{{.rootcert2 | indent 8}}
+      certSigners:
+      - {{.signer2}}
 components:
   ingressGateways:
   - name: istio-ingressgateway
@@ -135,7 +139,7 @@ components:
                 - signers
                 verbs:
                 - approve
-`, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer})
+`, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
 	cfgYaml := tmpl.MustEvaluate(`
 values:
   meshConfig:
@@ -149,6 +153,10 @@ values:
 {{.rootcert1 | indent 8}}
       certSigners:
       - {{.signer1}}
+    - pem: |
+{{.rootcert2 | indent 8}}
+      certSigners:
+      - {{.signer2}}
 components:
   pilot:
     enabled: true
@@ -159,7 +167,7 @@ components:
       - name: EXTERNAL_CA
         value: ISTIOD_RA_KUBERNETES_API
       - name: PILOT_CERT_PROVIDER
-        value: k8s.io/clusterissuers.istio.io/signer1
+        value: k8s.io/clusterissuers.istio.io/signer2
       overlays:
         # Amend ClusterRole to add permission for istiod to approve certificate signing by custom signer
         - kind: ClusterRole
@@ -175,7 +183,7 @@ components:
                 - signers
                 verbs:
                 - approve
-`, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer})
+`, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
 	cfg.ControlPlaneValues = cfgYaml
 	cfg.ConfigClusterValues = cfgRemoteYaml
 }
