@@ -61,7 +61,6 @@ func TestAuthorization_mTLS(t *testing.T) {
 					"Namespace2": apps.Namespace2.Name(),
 					"dst":        to.Config().Service,
 				}, "testdata/authz/v1beta1-mtls.yaml.tmpl").ApplyOrFail(t, apply.Wait)
-				callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 				for _, cluster := range t.Clusters() {
 					a := match.And(match.Cluster(cluster), match.Namespace(apps.Namespace1)).GetMatches(apps.A)
 					c := match.And(match.Cluster(cluster), match.Namespace(apps.Namespace2)).GetMatches(apps.C)
@@ -80,7 +79,6 @@ func TestAuthorization_mTLS(t *testing.T) {
 									HTTP: echo.HTTP{
 										Path: path,
 									},
-									Count: callCount,
 								}
 								if expectAllowed {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
@@ -137,7 +135,6 @@ func TestAuthorization_JWT(t *testing.T) {
 
 					t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 						newTestCase := func(from echo.Instance, to echo.Target, namePrefix, jwt, path string, expectAllowed bool) func(t framework.TestContext) {
-							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
 									To: to,
@@ -148,7 +145,6 @@ func TestAuthorization_JWT(t *testing.T) {
 										Path:    path,
 										Headers: headers.New().WithAuthz(jwt).Build(),
 									},
-									Count: callCount,
 								}
 								if expectAllowed {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
@@ -231,7 +227,6 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 			newTestCase := func(from echo.Instance, to echo.Target, namePrefix, path string,
 				expectAllowed bool,
 			) func(t framework.TestContext) {
-				callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
 						To: to,
@@ -241,7 +236,6 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 						HTTP: echo.HTTP{
 							Path: path,
 						},
-						Count: callCount,
 					}
 					if expectAllowed {
 						opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
@@ -374,7 +368,6 @@ func TestAuthorization_Deny(t *testing.T) {
 
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
-						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
 								To: to,
@@ -384,7 +377,6 @@ func TestAuthorization_Deny(t *testing.T) {
 								HTTP: echo.HTTP{
 									Path: path,
 								},
-								Count: callCount,
 							}
 							if expectAllowed {
 								opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
@@ -474,7 +466,6 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 					newTestCaseWithRequest := func(from echo.Instance, to echo.Target, path string, expectAllowed bool, request request) func(t framework.TestContext) {
-						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
 								To: to,
@@ -486,7 +477,6 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 									Method:  request.method,
 									Headers: headers.New().WithHost(request.host).Build(),
 								},
-								Count: callCount,
 							}
 							if expectAllowed {
 								opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
@@ -917,7 +907,8 @@ func TestAuthorization_TCP(t *testing.T) {
 			newTestCase := func(from echo.Instance, to echo.Target, s scheme.Instance, portName string, expectAllowed bool) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						To: to,
+						To:    to,
+						Count: 1,
 						Port: echo.Port{
 							Name: portName,
 						},
@@ -1086,7 +1077,6 @@ func TestAuthorization_Conditions(t *testing.T) {
 
 							t.ConfigIstio().EvalFile("", args, "testdata/authz/v1beta1-conditions.yaml.tmpl").
 								ApplyOrFail(t)
-							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							newTestCase := func(from echo.Instance, path string, headers http.Header, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
 									opts := echo.CallOptions{
@@ -1098,7 +1088,6 @@ func TestAuthorization_Conditions(t *testing.T) {
 											Path:    path,
 											Headers: headers,
 										},
-										Count: callCount,
 									}
 									if expectAllowed {
 										opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
@@ -1207,7 +1196,8 @@ func TestAuthorization_GRPC(t *testing.T) {
 							newTestCase := func(from echo.Instance, to echo.Target, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
 									opts := echo.CallOptions{
-										To: to,
+										To:    to,
+										Count: 1,
 										Port: echo.Port{
 											Name: "grpc",
 										},
@@ -1264,7 +1254,6 @@ func TestAuthorization_Path(t *testing.T) {
 						t.ConfigIstio().EvalFile(ns.Name(), args, "testdata/authz/v1beta1-path.yaml.tmpl").ApplyOrFail(t, apply.Wait)
 
 						newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
-							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
 									To: to,
@@ -1274,7 +1263,6 @@ func TestAuthorization_Path(t *testing.T) {
 									HTTP: echo.HTTP{
 										Path: path,
 									},
-									Count: callCount,
 								}
 								if expectAllowed {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
@@ -1349,7 +1337,8 @@ func TestAuthorization_Audit(t *testing.T) {
 			) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						To: to,
+						To:    to,
+						Count: 1,
 						Port: echo.Port{
 							Name: "http",
 						},
@@ -1480,7 +1469,8 @@ func TestAuthorization_Custom(t *testing.T) {
 			) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						To: to,
+						To:    to,
+						Count: 1,
 						Port: echo.Port{
 							Name: port,
 						},
@@ -1576,7 +1566,8 @@ func TestAuthorization_Custom(t *testing.T) {
 				) func(t framework.TestContext) {
 					return func(t framework.TestContext) {
 						opts := echo.CallOptions{
-							To: to,
+							To:    to,
+							Count: 1,
 							Port: echo.Port{
 								Protocol: protocol.HTTP,
 							},

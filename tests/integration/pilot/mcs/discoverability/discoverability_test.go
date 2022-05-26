@@ -63,8 +63,6 @@ func (ht hostType) String() string {
 const (
 	hostTypeClusterLocal    hostType = "cluster.local"
 	hostTypeClusterSetLocal hostType = "clusterset.local"
-
-	requestCountMultiplier = 20
 )
 
 var (
@@ -258,7 +256,6 @@ func callAndValidate(t framework.TestContext, ht hostType, from echo.Instance, t
 	_, err := from.Call(echo.CallOptions{
 		Address: address,
 		To:      to,
-		Count:   requestCountMultiplier * to.WorkloadsOrFail(t).Len(),
 		Port: echo.Port{
 			Name: "http",
 		},

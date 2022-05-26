@@ -651,7 +651,7 @@ spec:
 								}
 								name := fmt.Sprintf("%v/port %d[%t]", nameSuffix, expect.port.ServicePort, want)
 								callOpt := echo.CallOptions{
-									Count:   util.CallsPerCluster * to.WorkloadsOrFail(t).Len(),
+									Count:   echo.DefaultCallsPerWorkload() * to.WorkloadsOrFail(t).Len(),
 									Port:    expect.port,
 									Message: "HelloWorld",
 									// Do not set To to dest, otherwise fillInCallOptions() will

@@ -103,7 +103,8 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	g := traffic.NewGenerator(t, traffic.Config{
 		Source: apps.A[0],
 		Options: echo.CallOptions{
-			To: apps.B,
+			To:    apps.B,
+			Count: 1,
 			Port: echo.Port{
 				Name: "http",
 			},

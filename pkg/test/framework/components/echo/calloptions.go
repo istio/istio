@@ -121,7 +121,8 @@ type CallOptions struct {
 	Address string
 
 	// Count indicates the number of exchanges that should be made with the service endpoint.
-	// If Count <= 0, defaults to 1.
+	// If Count <= 0, a default will be selected. If To is specified, the value will be set to
+	// the numWorkloads * DefaultCallsPerWorkload. Otherwise, defaults to 1.
 	Count int
 
 	// Timeout used for each individual request. Must be > 0, otherwise 5 seconds is used.
@@ -217,9 +218,8 @@ func (o *CallOptions) FillDefaults() error {
 		o.Timeout = common.DefaultRequestTimeout
 	}
 
-	if o.Count <= 0 {
-		o.Count = common.DefaultCount
-	}
+	// Fill the number of calls to make.
+	o.fillCallCount()
 
 	// Fill connection parameters based on scheme and workload type.
 	o.fillConnectionParams()
@@ -240,6 +240,32 @@ func (o *CallOptions) FillDefaultsOrFail(t test.Failer) {
 	if err := o.FillDefaults(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func (o *CallOptions) fillCallCount() {
+	if o.Count > 0 {
+		// Nothing to do.
+		return
+	}
+
+	o.Count = common.DefaultCount
+
+	// Try setting an appropriate count for the number of workloads.
+	newCount := DefaultCallsPerWorkload() * o.numWorkloads()
+	if newCount > o.Count {
+		o.Count = newCount
+	}
+}
+
+func (o *CallOptions) numWorkloads() int {
+	if o.To == nil {
+		return 0
+	}
+	workloads, err := o.To.Workloads()
+	if err != nil {
+		return 0
+	}
+	return len(workloads)
 }
 
 func (o *CallOptions) fillConnectionParams() {
