@@ -807,7 +807,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		return fmt.Errorf("failed creating the root CA: %v", err)
 	}
 
-	for _, c := range env.Clusters() {
+	for _, c := range env.AllClusters() {
 		// Create a subdir for the cluster certs.
 		clusterDir := filepath.Join(certsDir, c.Name())
 		if err := os.Mkdir(clusterDir, 0o700); err != nil {
