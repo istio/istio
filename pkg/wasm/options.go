@@ -20,6 +20,13 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+const (
+	DefaultPurgeInterval         = 1 * time.Hour
+	DefaultModuleExpiry          = 24 * time.Hour
+	DefaultHTTPRequestTimeout    = 15 * time.Second
+	DefaultHTTPRequestMaxRetries = 5
+)
+
 type Options struct {
 	PurgeInterval         time.Duration
 	ModuleExpiry          time.Duration
@@ -30,10 +37,10 @@ type Options struct {
 
 func defaultOptions() Options {
 	return Options{
-		PurgeInterval:         1 * time.Hour,
-		ModuleExpiry:          24 * time.Hour,
+		PurgeInterval:         DefaultPurgeInterval,
+		ModuleExpiry:          DefaultModuleExpiry,
 		InsecureRegistries:    sets.New(),
-		HTTPRequestTimeout:    15 * time.Second,
-		HTTPRequestMaxRetries: 5,
+		HTTPRequestTimeout:    DefaultHTTPRequestTimeout,
+		HTTPRequestMaxRetries: DefaultHTTPRequestMaxRetries,
 	}
 }
