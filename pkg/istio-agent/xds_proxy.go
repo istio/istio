@@ -54,7 +54,6 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
@@ -141,15 +140,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}
 
-	cacheOptions := wasm.CacheOptions{
-		PurgeInterval:         ia.cfg.WASMPurgeInterval,
-		ModuleExpiry:          ia.cfg.WASMModuleExpiry,
-		InsecureRegistries:    sets.New(ia.cfg.WASMInsecureRegistries...),
-		HTTPRequestTimeout:    ia.cfg.WASMHTTPRequestTimeout,
-		HTTPRequestMaxRetries: ia.cfg.WASMHTTPRequestMaxRetries,
-	}
-
-	cache := wasm.NewLocalFileCache(constants.IstioDataDir, cacheOptions)
+	cache := wasm.NewLocalFileCache(constants.IstioDataDir, ia.cfg.WASMOptions)
 	proxy := &XdsProxy{
 		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
 		istiodSAN:             ia.cfg.IstiodSAN,

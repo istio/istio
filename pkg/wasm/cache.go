@@ -69,7 +69,7 @@ type LocalFileCache struct {
 	mux sync.Mutex
 
 	// option sets for configurating the cache.
-	CacheOptions
+	cacheOptions
 	// stopChan currently is only used by test
 	stopChan chan struct{}
 }
@@ -110,27 +110,15 @@ type cacheEntry struct {
 	referencingURLs sets.Set
 }
 
-func defaultOptions() CacheOptions {
-	return CacheOptions{
-		PurgeInterval:         10 * time.Minute,
-		ModuleExpiry:          24 * time.Hour,
-		InsecureRegistries:    sets.New(),
-		HTTPRequestTimeout:    5 * time.Second,
-		HTTPRequestMaxRetries: 5,
-	}
-}
-
-type CacheOptions struct {
-	PurgeInterval              time.Duration
-	ModuleExpiry               time.Duration
-	InsecureRegistries         sets.Set
-	HTTPRequestTimeout         time.Duration
-	HTTPRequestMaxRetries      int
+type cacheOptions struct {
+	Options
 	allowAllInsecureRegistries bool
 }
 
-func (o CacheOptions) sanitize() CacheOptions {
-	ret := defaultOptions()
+func (o cacheOptions) sanitize() cacheOptions {
+	ret := cacheOptions{
+		Options: defaultOptions(),
+	}
 	if o.InsecureRegistries != nil {
 		ret.InsecureRegistries = o.InsecureRegistries
 	}
@@ -152,20 +140,21 @@ func (o CacheOptions) sanitize() CacheOptions {
 	return ret
 }
 
-func (o CacheOptions) allowInsecure(host string) bool {
+func (o cacheOptions) allowInsecure(host string) bool {
 	return o.allowAllInsecureRegistries || o.InsecureRegistries.Contains(host)
 }
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
-func NewLocalFileCache(dir string, options CacheOptions) *LocalFileCache {
+func NewLocalFileCache(dir string, options Options) *LocalFileCache {
 	wasmLog.Debugf("LocalFileCache is created with the option\n%#v", options)
 
+	cacheOptions := cacheOptions{Options: options}
 	cache := &LocalFileCache{
 		httpFetcher:  NewHTTPFetcher(options.HTTPRequestTimeout, options.HTTPRequestMaxRetries),
 		modules:      make(map[moduleKey]*cacheEntry),
 		checksums:    make(map[string]*checksumEntry),
 		dir:          dir,
-		CacheOptions: options.sanitize(),
+		cacheOptions: cacheOptions.sanitize(),
 		stopChan:     make(chan struct{}),
 	}
 
