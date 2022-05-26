@@ -565,12 +565,6 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 			FilterChains: []istionetworking.FilterChain{{}},
 		},
 	}
-	for cnum := range mutable.FilterChains {
-		if mutable.FilterChains[cnum].ListenerProtocol == istionetworking.ListenerProtocolTCP {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, lb.authzCustomBuilder.BuildTCP()...)
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, lb.authzBuilder.BuildTCP()...)
-		}
-	}
 	if err := mutable.build(lb, opts); err != nil {
 		log.Warn("buildHTTPProxy filter chain error  ", err.Error())
 		return nil
@@ -941,13 +935,6 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 			Listener:     l,
 			FilterChains: getPluginFilterChain(listenerOpts),
 		},
-	}
-
-	for cnum := range mutable.FilterChains {
-		if mutable.FilterChains[cnum].ListenerProtocol == istionetworking.ListenerProtocolTCP {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, lb.authzCustomBuilder.BuildTCP()...)
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, lb.authzBuilder.BuildTCP()...)
-		}
 	}
 
 	// Filters are serialized one time into an opaque struct once we have the complete list.
