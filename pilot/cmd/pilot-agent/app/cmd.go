@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
@@ -52,7 +51,7 @@ const (
 
 var (
 	loggingOptions = log.DefaultOptions()
-	proxyArgs      *options.ProxyArgs
+	proxyArgs      options.ProxyArgs
 )
 
 func NewRootCommand() *cobra.Command {
