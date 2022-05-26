@@ -394,7 +394,8 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			ns := apps.Namespace1
 
 			// Apply the policy.
-			t.ConfigIstio().EvalFile(newRootNS(t).Name(), map[string]string{
+			systemNS := istio.ClaimSystemNamespaceOrFail(t, t)
+			t.ConfigIstio().EvalFile(systemNS.Name(), map[string]string{
 				"Namespace":     ns.Name(),
 				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}, "testdata/requestauthn/global-jwt.yaml.tmpl").ApplyOrFail(t, apply.Wait)
