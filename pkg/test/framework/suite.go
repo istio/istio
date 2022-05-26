@@ -276,7 +276,6 @@ func (s *suiteImpl) IgnoreConfigClusterTopology() Suite {
 		}
 		return nil
 	}
-
 	s.requireFns = append(s.requireFns, fn)
 	return s
 }
