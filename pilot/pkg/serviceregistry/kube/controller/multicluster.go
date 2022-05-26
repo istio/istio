@@ -202,8 +202,10 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
 
-	canLead := m.checkCanLead(client)
-	if m.startNsController && (canLead || localCluster) {
+	canLead := localCluster || m.checkCanLead(client)
+	log.Infof("can join leader-election of cluster %s: %t", cluster.ID, canLead)
+
+	if m.startNsController && canLead {
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			log.Infof("joining leader-election for %s in %s on cluster %s",
@@ -301,7 +303,7 @@ func (m *Multicluster) checkCanLead(client kubelib.Client) bool {
 	response, err := client.Kube().AuthorizationV1().SelfSubjectAccessReviews().Create(context.TODO(), s, metav1.CreateOptions{})
 	if err != nil {
 		log.Errorf("could not determine leadership permission: %v", err)
-		return false
+		return true
 	}
 	return response.Status.Allowed
 }
