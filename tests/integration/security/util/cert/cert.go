@@ -40,7 +40,8 @@ import (
 // DumpCertFromSidecar gets the certificates served by the destination.
 func DumpCertFromSidecar(t test.Failer, from echo.Instance, to echo.Target, port string) []string {
 	result := from.CallOrFail(t, echo.CallOptions{
-		To: to,
+		To:    to,
+		Count: 1,
 		Port: echo.Port{
 			Name: port,
 		},
