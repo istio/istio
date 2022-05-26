@@ -100,6 +100,14 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	}
 	cfgRemoteYaml := tmpl.MustEvaluate(`
 values:
+  global:
+    externalIstiod: true
+    omitSidecarInjectorConfigMap: true
+    configCluster: true
+  pilot:
+    configMap: true
+  telemetry:
+    enabled: true
   meshConfig:
     defaultConfig:
       proxyMetadata:
@@ -158,6 +166,12 @@ values:
       certSigners:
       - {{.signer2}}
 components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: true
+  egressGateways:
+  - name: istio-egressgateway
+    enabled: true
   pilot:
     enabled: true
     k8s:
