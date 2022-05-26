@@ -110,10 +110,6 @@ func TestServices(t *testing.T) {
 		} else {
 			opt.Check = tcpValidator
 		}
-		if src.Config().IsUncaptured() {
-			// TODO: this is broken with Envoy impl, as we don't have the plaintext inbound setup
-			t.Skipf("broken")
-		}
 
 		if src.Config().IsUncaptured() && dst.Config().IsRemote() {
 			// For this case, it is broken if the src and dst are on the same node.
@@ -191,9 +187,6 @@ func TestServerRouting(t *testing.T) {
 		if !dst.Config().IsRemote() && !src.Config().IsRemote() {
 			return
 		}
-		if !dst.Config().IsRemote() {
-			t.Skip("broken until client pep is added")
-		}
 		if src.Config().IsUncaptured() {
 			// For this case, it is broken if the src and dst are on the same node.
 			// TODO: fix this and remove this skip
@@ -231,11 +224,6 @@ func TestAuthorization(t *testing.T) {
 			return
 		}
 		if src.Config().IsUncaptured() {
-			// For this case, it is broken if the src and dst are on the same node.
-			// TODO: fix this and remove this skip
-			t.Skip("broken")
-		}
-		if src.Config().IsRemote() && dst.Config().IsUncaptured() {
 			// For this case, it is broken if the src and dst are on the same node.
 			// TODO: fix this and remove this skip
 			t.Skip("broken")
