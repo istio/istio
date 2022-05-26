@@ -41,11 +41,12 @@ func newRuntime(s *resource.Settings, fn resource.EnvironmentFactory, labels lab
 
 // Dump state for all allocated resources.
 func (i *runtime) Dump(ctx resource.Context) {
-	i.context.globalScope.dump(ctx, true)
+	i.DumpCustom(ctx, true)
 }
 
-func (i *runtime) DumpShallow(ctx resource.Context) {
-	i.context.globalScope.dump(ctx, false)
+// DumpCustom provides custom control over how the global scope is dumped.
+func (i *runtime) DumpCustom(ctx resource.Context, recursive bool) {
+	i.context.globalScope.dump(ctx, recursive)
 }
 
 // suiteContext returns the suiteContext.

@@ -286,13 +286,21 @@ func (c *testContext) CleanupStrategy(strategy cleanup.Strategy, fn func()) {
 	}
 }
 
-func (c *testContext) close() {
-	if c.Failed() && c.Settings().CIMode {
+func (c *testContext) dump() {
+	if c.suite.RequestTestDump() {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
 		// make sure we dump suite-level resources, but don't dump sibling tests or their children
-		rt.DumpShallow(c)
+		rt.DumpCustom(c, false)
 		c.scope.dump(c, true)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)
+	} else {
+		scopes.Framework.Debugf("Begin skipping dump of testContext: %q. Maximum number of test dumps exceeded", c.id)
+	}
+}
+
+func (c *testContext) close() {
+	if c.Failed() && c.Settings().CIMode {
+		c.dump()
 	}
 
 	scopes.Framework.Debugf("Begin cleaning up testContext: %q", c.id)
