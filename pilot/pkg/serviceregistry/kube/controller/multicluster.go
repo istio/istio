@@ -20,6 +20,8 @@ import (
 	"sync"
 
 	"golang.org/x/sync/errgroup"
+	authorizationapi "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
@@ -200,7 +202,8 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
 
-	if m.startNsController && (features.ExternalIstiod || localCluster) {
+	canLead := m.checkCanLead(client)
+	if m.startNsController && (canLead || localCluster) {
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			log.Infof("joining leader-election for %s in %s on cluster %s",
@@ -224,7 +227,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	}
 	// Set up injection webhook patching for remote clusters we are controlling.
 	// The local cluster has this patching set up elsewhere. We may eventually want to move it here.
-	if features.ExternalIstiod && !localCluster && m.caBundleWatcher != nil {
+	if canLead && !localCluster && m.caBundleWatcher != nil {
 		// Patch injection webhook cert
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
@@ -278,6 +281,29 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	}
 
 	return nil
+}
+
+// checkCanLead returns true if the caller has sufficient authority to become elected leader.
+func (m *Multicluster) checkCanLead(client kubelib.Client) bool {
+	if !features.ExternalIstiod {
+		return false
+	}
+	s := &authorizationapi.SelfSubjectAccessReview{
+		Spec: authorizationapi.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationapi.ResourceAttributes{
+				Namespace: m.opts.SystemNamespace,
+				Verb:      "create",
+				Group:     "",
+				Resource:  "configmaps",
+			},
+		},
+	}
+	response, err := client.Kube().AuthorizationV1().SelfSubjectAccessReviews().Create(context.TODO(), s, metav1.CreateOptions{})
+	if err != nil {
+		log.Errorf("could not determine leadership permission: %v", err)
+		return false
+	}
+	return response.Status.Allowed
 }
 
 // ClusterUpdated is passed to the secret controller as a callback to be called
