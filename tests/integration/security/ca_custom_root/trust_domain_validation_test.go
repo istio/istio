@@ -126,7 +126,8 @@ func TestTrustDomainValidation(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opt := echo.CallOptions{
-								To: apps.Server,
+								To:    apps.Server,
+								Count: 1,
 								Port: echo.Port{
 									Name: port,
 								},

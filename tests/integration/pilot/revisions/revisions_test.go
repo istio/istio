@@ -114,7 +114,6 @@ func TestMultiRevision(t *testing.T) {
 							Port: echo.Port{
 								Name: "http",
 							},
-							Count: 3 * to.WorkloadsOrFail(t).Len(),
 							Retry: echo.Retry{
 								NoRetry: true,
 							},

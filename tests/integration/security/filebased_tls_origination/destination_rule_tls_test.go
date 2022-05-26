@@ -131,7 +131,8 @@ spec:
 				portName := portName
 				t.NewSubTest(portName).Run(func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						To: server,
+						To:    server,
+						Count: 1,
 						Port: echo.Port{
 							Name: portName,
 						},

@@ -235,7 +235,8 @@ pathNormalization:
 									checker = check.Status(http.StatusBadRequest)
 								}
 								c.CallOrFail(t, echo.CallOptions{
-									To: apps.B,
+									To:    apps.B,
+									Count: 1,
 									HTTP: echo.HTTP{
 										Path: tt.in,
 									},

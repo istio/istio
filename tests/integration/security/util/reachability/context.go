@@ -144,12 +144,6 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 								continue
 							}
 
-							callCount := 1
-							if len(toClusters) > 1 {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
-
 							copts := &callOptions
 							// If test case specified service call options, use that instead.
 							if c.CallOpts != nil {
@@ -161,7 +155,9 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 
 								// Set the target on the call options.
 								opts.To = to
-								opts.Count = callCount
+								if len(toClusters) == 1 {
+									opts.Count = 1
+								}
 
 								// TODO(https://github.com/istio/istio/issues/37629) go back to converge
 								opts.Retry.Options = []retry.Option{retry.Converge(1)}
