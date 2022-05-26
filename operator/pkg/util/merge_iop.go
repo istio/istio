@@ -161,6 +161,7 @@ type (
 	}
 	meshConfigExtensionProvider struct {
 		Name               string   `json:"string"`
+		EnvoyOtelAls       struct{} `json:"envoyOtelAls"`
 		Prometheus         struct{} `json:"prometheus"`
 		EnvoyFileAccessLog struct{} `json:"envoyFileAccessLog"`
 		Stackdriver        struct{} `json:"stackdriver"`
