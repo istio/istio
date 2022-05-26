@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -205,7 +206,7 @@ type AgentOptions struct {
 
 	IstiodSAN string
 
-	WASMInsecureRegistries []string
+	WASMOptions wasm.Options
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
