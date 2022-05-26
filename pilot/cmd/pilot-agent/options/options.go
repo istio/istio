@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/wasm"
 	"istio.io/pkg/env"
 )
 
@@ -103,6 +104,18 @@ var (
 
 	wasmInsecureRegistries = env.RegisterStringVar("WASM_INSECURE_REGISTRIES", "",
 		"allow agent pull wasm plugin from insecure registries or https server, for example: 'localhost:5000,docker-registry:5000'").Get()
+
+	wasmModuleExpiry = env.RegisterDurationVar("WASM_MODULE_EXPIRY", wasm.DefaultModuleExpiry,
+		"cache expiration duration for a wasm module.").Get()
+
+	wasmPurgeInterval = env.RegisterDurationVar("WASM_PURGE_INTERVAL", wasm.DefaultPurgeInterval,
+		"interval between checking the expiration of wasm modules").Get()
+
+	wasmHTTPRequestTimeout = env.RegisterDurationVar("WASM_HTTP_REQUEST_TIMEOUT", wasm.DefaultHTTPRequestTimeout,
+		"timeout per a HTTP request for pulling a Wasm module via http/https").Get()
+
+	wasmHTTPRequestMaxRetries = env.RegisterIntVar("WASM_HTTP_REQUEST_MAX_RETRIES", wasm.DefaultHTTPRequestMaxRetries,
+		"maximum number of HTTP/HTTPS request retries for pulling a Wasm module via http/https").Get()
 
 	// Ability of istio-agent to retrieve bootstrap via XDS
 	enableBootstrapXdsEnv = env.RegisterBoolVar("BOOTSTRAP_XDS_AGENT", false,

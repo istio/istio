@@ -27,14 +27,16 @@ import (
 
 // HTTPFetcher fetches remote wasm module with HTTP get.
 type HTTPFetcher struct {
-	client         *http.Client
-	insecureClient *http.Client
-	initialBackoff time.Duration
+	client          *http.Client
+	insecureClient  *http.Client
+	initialBackoff  time.Duration
+	requestMaxRetry int
 }
 
 // NewHTTPFetcher create a new HTTP remote wasm module fetcher.
 // requestTimeout is a timeout for each HTTP/HTTPS request.
-func NewHTTPFetcher(requestTimeout time.Duration) *HTTPFetcher {
+// requestMaxRetry is # of maximum retries of HTTP/HTTPS requests.
+func NewHTTPFetcher(requestTimeout time.Duration, requestMaxRetry int) *HTTPFetcher {
 	if requestTimeout == 0 {
 		requestTimeout = 5 * time.Second
 	}
@@ -48,7 +50,8 @@ func NewHTTPFetcher(requestTimeout time.Duration) *HTTPFetcher {
 			Timeout:   requestTimeout,
 			Transport: transport,
 		},
-		initialBackoff: time.Millisecond * 500,
+		initialBackoff:  time.Millisecond * 500,
+		requestMaxRetry: requestMaxRetry,
 	}
 }
 
@@ -63,7 +66,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 	b.InitialInterval = f.initialBackoff
 	b.Reset()
 	var lastError error
-	for attempts < DefaultWasmHTTPRequestMaxRetries {
+	for attempts < f.requestMaxRetry {
 		attempts++
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
