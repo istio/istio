@@ -35,8 +35,6 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
-const multiclusterRequestCountMultiplier = 20
-
 var (
 	multiclusterRetryTimeout = retry.Timeout(1 * time.Minute)
 	multiclusterRetryDelay   = retry.Delay(500 * time.Millisecond)
@@ -122,8 +120,7 @@ spec:
 						source := source
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
 							source.CallOrFail(t, echo.CallOptions{
-								To:    to,
-								Count: multiclusterRequestCountMultiplier * to.WorkloadsOrFail(t).Clusters().Len(),
+								To: to,
 								Port: echo.Port{
 									Name: "http",
 								},
@@ -146,8 +143,7 @@ spec:
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
 						source.CallOrFail(t, echo.CallOptions{
-							To:    to,
-							Count: multiclusterRequestCountMultiplier * to.WorkloadsOrFail(t).Clusters().Len(),
+							To: to,
 							Port: echo.Port{
 								Name: "http",
 							},

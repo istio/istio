@@ -267,7 +267,6 @@ func SendTraffic(from echo.Instance) error {
 		Port: echo.Port{
 			Name: "http",
 		},
-		Count: util.RequestCountMultipler * GetTarget().MustWorkloads().Len(),
 		Check: check.OK(),
 		Retry: echo.Retry{
 			NoRetry: true,
@@ -281,7 +280,6 @@ func SendTraffic(from echo.Instance) error {
 		Port: echo.Port{
 			Name: "http",
 		},
-		Count: util.RequestCountMultipler * apps.Naked.MustWorkloads().Len(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -298,7 +296,6 @@ func SendTrafficOrFail(t test.Failer, from echo.Instance) {
 		Port: echo.Port{
 			Name: "http",
 		},
-		Count: util.RequestCountMultipler * GetTarget().MustWorkloads().Len(),
 		Check: check.OK(),
 	})
 	from.CallOrFail(t, echo.CallOptions{
@@ -306,7 +303,6 @@ func SendTrafficOrFail(t test.Failer, from echo.Instance) {
 		Port: echo.Port{
 			Name: "http",
 		},
-		Count: util.RequestCountMultipler * apps.Naked.MustWorkloads().Len(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -320,7 +316,6 @@ func SendTCPTraffic(from echo.Instance) error {
 		Port: echo.Port{
 			Name: "tcp",
 		},
-		Count: util.RequestCountMultipler * GetTarget().MustWorkloads().Len(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},

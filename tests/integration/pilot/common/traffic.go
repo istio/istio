@@ -33,9 +33,6 @@ import (
 	"istio.io/istio/pkg/test/util/yml"
 )
 
-// callCountMultiplier is used to ensure cross-cluster load balancing has a chance to work
-const callCountMultiplier = 5
-
 type TrafficCall struct {
 	name string
 	call func(t test.Failer, options echo.CallOptions) echo.CallResult
@@ -153,9 +150,6 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				if c.checkForN != nil {
 					opts.Check = c.checkForN(from, to, &opts)
-				}
-				if opts.Count == 0 {
-					opts.Count = callCountMultiplier * opts.To.WorkloadsOrFail(t).Len()
 				}
 				if c.setupOpts != nil {
 					c.setupOpts(from, &opts)

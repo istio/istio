@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/security/util"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
@@ -74,7 +73,6 @@ spec:
 	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).ApplyOrFail(t)
 	testID := rand.String(16)
 	to := common.GetTarget()
-	callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 	if expectLogs {
 		// For positive test, we use the same ID and repeatedly send requests and check the count
 		retry.UntilSuccessOrFail(t, func() error {
@@ -83,7 +81,6 @@ spec:
 				Port: echo.Port{
 					Name: "http",
 				},
-				Count: callCount,
 				HTTP: echo.HTTP{
 					Path: "/" + testID,
 				},
@@ -110,7 +107,6 @@ spec:
 				Port: echo.Port{
 					Name: "http",
 				},
-				Count: callCount,
 				HTTP: echo.HTTP{
 					Path: "/" + testID,
 				},

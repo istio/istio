@@ -114,7 +114,6 @@ func TestJWTHTTPS(t *testing.T) {
 								Port: echo.Port{
 									Name: "http",
 								},
-								Count: util.CallsPerCluster * to.WorkloadsOrFail(t).Len(),
 							}
 
 							c.customizeCall(t, from, &opts)

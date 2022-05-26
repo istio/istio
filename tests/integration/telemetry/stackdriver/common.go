@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/tests/integration/telemetry"
 )
 
 const (
@@ -167,7 +166,6 @@ func TestSetup(ctx resource.Context) (err error) {
 
 // send both a grpc and http requests (http with forced tracing).
 func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) error {
-	callCount := telemetry.RequestCountMultipler * Srv.MustWorkloads().Len()
 	//  All server instance have same names, so setting target as srv[0].
 	// Sending the number of total request same as number of servers, so that load balancing gets a chance to send request to all the clusters.
 	if onlyTCP {
@@ -176,7 +174,6 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 			Port: echo.Port{
 				Name: "tcp",
 			},
-			Count: callCount,
 			Retry: echo.Retry{
 				NoRetry: true,
 			},
@@ -188,7 +185,6 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 		Port: echo.Port{
 			Name: "grpc",
 		},
-		Count: callCount,
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -202,7 +198,6 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 		HTTP: echo.HTTP{
 			Headers: headers,
 		},
-		Count: callCount,
 		Retry: echo.Retry{
 			NoRetry: true,
 		},

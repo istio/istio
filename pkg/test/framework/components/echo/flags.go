@@ -26,6 +26,7 @@ var (
 	callDelay        = 10 * time.Millisecond
 	callConverge     = 3
 	readinessTimeout = 10 * time.Minute
+	callsPerWorkload = 5
 )
 
 // init registers the command-line flags that we can exposed for "go test".
@@ -38,6 +39,9 @@ func init() {
 		"Specifies the number of successive retry attempts that must be successful when calling the Echo service")
 	flag.DurationVar(&readinessTimeout, "istio.test.echo.readinessTimeout", readinessTimeout,
 		"Specifies the default timeout for echo readiness check")
+	flag.IntVar(&callsPerWorkload, "istio.test.echo.callsPerWorkload", callsPerWorkload,
+		"Specifies the number of calls that will be made for each target workload. "+
+			"Only applies if the call count is zero (default) and a target was specified for the call")
 }
 
 // DefaultCallRetryOptions returns the default call retry options as specified in command-line flags.
@@ -48,4 +52,9 @@ func DefaultCallRetryOptions() []retry.Option {
 // DefaultReadinessTimeout returns the default echo readiness check timeout.
 func DefaultReadinessTimeout() time.Duration {
 	return readinessTimeout
+}
+
+// DefaultCallsPerWorkload returns the number of calls that should be made per target workload by default.
+func DefaultCallsPerWorkload() int {
+	return callsPerWorkload
 }

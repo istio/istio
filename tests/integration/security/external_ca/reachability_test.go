@@ -18,16 +18,15 @@
 package externalca
 
 import (
-	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
@@ -50,28 +49,27 @@ func TestReachability(t *testing.T) {
 					"Istio Trust Domain")
 			}
 			istioCfg := istio.DefaultConfigOrFail(t, t)
-			testNamespace := apps.Namespace
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
-			to := match.Namespace(testNamespace).GetMatches(apps.B)
-			callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-			for _, cluster := range t.Clusters() {
-				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.A)[0]
-					t.NewSubTest("Basic reachability with external ca").
-						Run(func(t framework.TestContext) {
-							// Verify mTLS works between a and b
-							opts := echo.CallOptions{
-								To: to,
-								Port: echo.Port{
-									Name: "http",
-								},
-								Count: callCount,
-							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 
-							a.CallOrFail(t, opts)
-						})
+			from := apps.A
+			to := apps.B
+			fromAndTo := from.Append(to)
+
+			echotest.New(t, fromAndTo).
+				WithDefaultFilters().
+				FromMatch(match.ServiceName(from.NamespacedName())).
+				ToMatch(match.ServiceName(to.NamespacedName())).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+					// Verify mTLS works between a and b
+					opts := echo.CallOptions{
+						To: to,
+						Port: echo.Port{
+							Name: "http",
+						},
+					}
+					opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+
+					from.CallOrFail(t, opts)
 				})
-			}
 		})
 }

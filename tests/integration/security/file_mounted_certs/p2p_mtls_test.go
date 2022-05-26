@@ -52,7 +52,8 @@ func TestClientToServiceTls(t *testing.T) {
 			createObject(t, "istio-system", PeerAuthenticationConfig)
 
 			opts := echo.CallOptions{
-				To: server,
+				To:    server,
+				Count: 1,
 				Port: echo.Port{
 					Name: "http",
 				},
