@@ -152,6 +152,7 @@ function setup_kind_cluster() {
   IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
   CONFIG="${3:-}"
   NOMETALBINSTALL="${4:-}"
+  CLEANUP="${5:-true}"
 
   check_default_cluster_yaml
 
@@ -163,7 +164,9 @@ function setup_kind_cluster() {
 
   # explicitly disable shellcheck since we actually want $NAME to expand now
   # shellcheck disable=SC2064
-  trap "cleanup_kind_cluster ${NAME}" EXIT
+  if [[ "${CLEANUP}" == "true" ]]; then
+    trap "cleanup_kind_cluster ${NAME}" EXIT
+  fi
 
     # If config not explicitly set, then use defaults
   if [[ -z "${CONFIG}" ]]; then
@@ -273,7 +276,7 @@ EOF
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
     # Create the clusters.
-    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true"
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true" "false"
 
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.
