@@ -84,18 +84,21 @@ func TestCleanupEmptyMaps(t *testing.T) {
 				//     inner (dest ip):
 				//       <no matches>
 				//       fallback: chain
+				leaf := NewSourceIP()
+				leaf.Map["1.2.3.4"] = ToChain("chain")
+
 				inner := NewDestinationIP()
-				inner.OnNoMatch = ToChain("chain")
+				inner.OnNoMatch = ToMatcher(leaf.Matcher)
 
 				root := NewDestinationPort()
 				root.OnNoMatch = ToMatcher(inner.Matcher)
 				return root
 			},
 			want: func() *matcher.Matcher {
-				// dest port
+				// src port
 				// 15001: chain
-				want := NewDestinationPort()
-				want.Map["15001"] = ToChain("chain")
+				want := NewSourceIP()
+				want.Map["1.2.3.4"] = ToChain("chain")
 				return want.Matcher
 			},
 		},

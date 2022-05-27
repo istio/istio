@@ -17,14 +17,17 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/ambient"
+	"istio.io/istio/pilot/pkg/features"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 )
 
@@ -41,7 +44,8 @@ func initAutolabel(opts *Options) {
 		controllers.WithMaxAttempts(5),
 	)
 
-	workloadHandler := controllers.FilteredObjectHandler(queue.AddObject, ambientLabelFilter(opts.SystemNamespace))
+	ignored := sets.New(append(strings.Split(features.SidecarlessAutolabelIgnore, ","), opts.SystemNamespace)...)
+	workloadHandler := controllers.FilteredObjectHandler(queue.AddObject, ambientLabelFilter(ignored))
 	opts.Client.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(workloadHandler)
 	go queue.Run(opts.Stop)
 }
@@ -54,10 +58,10 @@ var labelPatch = []byte(fmt.Sprintf(
 	ambient.TypeWorkload,
 ))
 
-func ambientLabelFilter(systemNamespace string) func(o controllers.Object) bool {
+func ambientLabelFilter(ignoredNamespaces sets.Set) func(o controllers.Object) bool {
 	return func(o controllers.Object) bool {
 		_, alreadyLabelled := o.GetLabels()[ambient.LabelType] // PEPs uProxies will already be labeled
-		ignored := inject.IgnoredNamespaces.Contains(o.GetNamespace()) || o.GetNamespace() == systemNamespace
+		ignored := inject.IgnoredNamespaces.Contains(o.GetNamespace()) || ignoredNamespaces.Contains(o.GetNamespace())
 		return !alreadyLabelled && !ignored
 	}
 }

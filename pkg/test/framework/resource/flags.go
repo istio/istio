@@ -65,10 +65,6 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		normalized = append(normalized, strings.Split(sk, ",")...)
 	}
 	s.SkipWorkloadClasses = normalized
-	// Skip everything not supported/relevant for ambient
-	s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "delta", "vm", "tproxy", "proxyless")
-	// TODO: fix these
-	s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "statefulset", "headless")
 
 	if s.Image.Hub == "" {
 		s.Image.Hub = env.HUB.ValueOrDefault("gcr.io/istio-testing")
@@ -168,6 +164,9 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.SkipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.SkipTProxy,
 		"Skip TProxy related parts in all tests.")
+
+	flag.BoolVar(&settingsFromCommandLine.Ambient, "istio.test.ambient", settingsFromCommandLine.Ambient,
+		"Indicate the use of ambient mesh.")
 
 	flag.BoolVar(&settingsFromCommandLine.Compatibility, "istio.test.compatibility", settingsFromCommandLine.Compatibility,
 		"Transparently deploy echo instances pointing to each revision set in `Revisions`")

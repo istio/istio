@@ -736,7 +736,7 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) ([]*core
 	return headerValueOptionList, authority
 }
 
-type headersOperations struct {
+type HeadersOperations struct {
 	RequestHeadersToAdd     []*core.HeaderValueOption
 	ResponseHeadersToAdd    []*core.HeaderValueOption
 	RequestHeadersToRemove  []string
@@ -765,12 +765,12 @@ func dropInternal(keys []string) []string {
 	return result
 }
 
-func TranslateHeadersOperations(headers *networking.Headers) headersOperations {
+func TranslateHeadersOperations(headers *networking.Headers) HeadersOperations {
 	return translateHeadersOperations(headers)
 }
 
 // translateHeadersOperations translates headers operations
-func translateHeadersOperations(headers *networking.Headers) headersOperations {
+func translateHeadersOperations(headers *networking.Headers) HeadersOperations {
 	req := headers.GetRequest()
 	resp := headers.GetResponse()
 
@@ -787,7 +787,7 @@ func translateHeadersOperations(headers *networking.Headers) headersOperations {
 		// If authority is set in 'add' and 'set', pick the one from 'set'
 		auth = setAuthority
 	}
-	return headersOperations{
+	return HeadersOperations{
 		RequestHeadersToAdd:     requestHeadersToAdd,
 		ResponseHeadersToAdd:    responseHeadersToAdd,
 		RequestHeadersToRemove:  dropInternal(req.GetRemove()),

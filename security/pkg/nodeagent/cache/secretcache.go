@@ -147,8 +147,7 @@ func (s *secretCache) GetWorkload() *security.SecretItem {
 	if s.workload == nil {
 		return nil
 	}
-	// TODO(ambient) return s.workload
-	return nil
+	return s.workload
 }
 
 func (s *secretCache) SetWorkload(value *security.SecretItem) {

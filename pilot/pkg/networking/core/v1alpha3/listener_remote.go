@@ -662,8 +662,12 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	}
 
 	// TODO selectively inbound vs outbound
-	return model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", host.Name(destination.Host), port)
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port)
+	return model.BuildSubsetKey(
+		model.TrafficDirectionInboundVIP,
+		"http", /* destination.Subset */
+		host.Name(destination.Host),
+		port,
+	)
 }
 
 func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push *model.PushContext, inbound bool) *tls.CommonTlsContext {

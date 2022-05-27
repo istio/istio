@@ -16,6 +16,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"reflect"
@@ -510,6 +511,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod2",
 					Namespace:      "nsa",
+					NodeName:       "node1",
 				},
 			}
 			if len(podServices) != 1 {
@@ -517,7 +519,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			}
 			clearDiscoverabilityPolicy(podServices[0].Endpoint)
 			if !reflect.DeepEqual(expected, podServices[0]) {
-				t.Fatalf("expected instance %v, got %v", expected, podServices[0])
+				wantStr, _ := json.MarshalIndent(expected, "", "  ")
+				gotStr, _ := json.MarshalIndent(podServices[0], "", "  ")
+				t.Fatalf("did not get expected instance: %v", cmp.Diff(string(wantStr), string(gotStr)))
 			}
 
 			// 2. pod with `istio-locality` label, ignore node label.
@@ -578,6 +582,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod3",
 					Namespace:      "nsa",
+					NodeName:       "node1",
 				},
 			}
 			if len(podServices) != 1 {

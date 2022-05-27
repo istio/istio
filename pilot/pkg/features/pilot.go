@@ -633,5 +633,10 @@ func UnsafeFeaturesEnabled() bool {
 	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
 }
 
-var SidecarlessCapture = env.RegisterStringVar("SIDECARLESS_CAPTURE", "iptables",
-	"capture mode to use, can be one of 'iptables' or 'bpf'").Get()
+var (
+	SidecarlessCapture = env.RegisterStringVar("SIDECARLESS_CAPTURE", "iptables",
+		"capture mode to use, can be one of 'iptables' or 'bpf'").Get()
+
+	SidecarlessAutolabelIgnore = env.RegisterStringVar("SIDECARLESS_AUTOLABEL_IGNORE", "istio-system,metallb-system,kube-system",
+		"ignored namespaces").Get()
+)

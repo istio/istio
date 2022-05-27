@@ -597,8 +597,6 @@ type NodeMetadata struct {
 	// Generator indicates the client wants to use a custom Generator plugin.
 	Generator string `json:"GENERATOR,omitempty"`
 
-	RemoteProxy StringBool `json:"REMOTE_PROXY,omitempty"`
-
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture StringBool `json:"DNS_CAPTURE,omitempty"`
 
@@ -672,6 +670,10 @@ func (node *Proxy) InNetwork(network network.ID) bool {
 // the proxy's cluster id or the given cluster id is unspecified ("").
 func (node *Proxy) InCluster(cluster cluster.ID) bool {
 	return node == nil || identifier.IsSameOrEmpty(cluster.String(), node.Metadata.ClusterID.String())
+}
+
+func (node *Proxy) IsPEP() bool {
+	return node.Metadata.SidecarlessType == ambient.TypePEP
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {

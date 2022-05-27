@@ -114,6 +114,7 @@ status:
 `
 
 func TestUproxygen(t *testing.T) {
+	t.Skip("scaffolding is useful; needs rewrite")
 	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		KubernetesObjectString: testData,
 	})

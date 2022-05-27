@@ -20,6 +20,7 @@ package uproxy
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"testing"
 	"time"
 
@@ -68,10 +69,15 @@ type EchoDeployments struct {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, nil)).
+		RequireSingleCluster().
+		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
+			cfg.DeployEastWestGW = false
+			cfg.ControlPlaneValues = "profile: ambient"
+		})).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
+		Setup(ambient.Redirection).
 		Run()
 }
 
@@ -165,7 +171,9 @@ spec:
 		return err
 	}
 
-	_, whErr := t.Clusters().Default().AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), "istio-sidecar-injector", metav1.GetOptions{})
+	_, whErr := t.Clusters().Default().
+		AdmissionregistrationV1().MutatingWebhookConfigurations().
+		Get(context.Background(), "istio-sidecar-injector", metav1.GetOptions{})
 	if whErr != nil && !kerrors.IsNotFound(whErr) {
 		return whErr
 	}
@@ -222,7 +230,6 @@ spec:
 	}
 	apps.All = echos
 	apps.Remote = match.ServiceName(echo.NamespacedName{Name: Remote, Namespace: apps.Namespace}).GetMatches(echos)
-	// apps.AltRemote = match.ServiceName(echo.NamespacedName{Name: AltRemote, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Uncaptured = match.ServiceName(echo.NamespacedName{Name: Uncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Captured = match.ServiceName(echo.NamespacedName{Name: Captured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.SidecarRemote = match.ServiceName(echo.NamespacedName{Name: SidecarRemote, Namespace: apps.Namespace}).GetMatches(echos)

@@ -233,38 +233,46 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	}
 }
 
+func skipAmbient(t framework.TestContext, cases []TrafficTestCase, reason string) []TrafficTestCase {
+	if !t.Settings().Ambient {
+		return nil
+	}
+	for i := range cases {
+		if cases[i].skip.skip {
+			continue
+		}
+		cases[i].skip = skip{skip: true, reason: fmt.Sprintf("ambient (%s)", reason)}
+	}
+	return cases
+}
+
 func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *deployment.SingleNamespaceView) {
 	cases := map[string][]TrafficTestCase{}
 	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
-		// TODO: needs ingress
-		// cases["jwt-claim-route"] = jwtClaimRoute(apps)
+		skipAmbient(t, jwtClaimRoute(apps), "needs ingress")
 	}
 	cases["virtualservice"] = virtualServiceCases(t, t.Settings().Skip(echo.VM))
 	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["selfcall"] = selfCallsCases()
-	cases["serverfirst"] = serverFirstTestCases(apps)
+	cases["serverfirst"] = serverFirstTestCases(t, apps)
 	cases["gateway"] = gatewayCases()
-	// TODO: needs ingress
-	// cases["autopassthrough"] = autoPassthroughCases(t, apps)
+	cases["autopassthrough"] = skipAmbient(t, autoPassthroughCases(t, apps), "needs ingress")
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
-	// Note supported
-	// cases["instanceip"] = instanceIPTests(apps)
+	cases["instanceip"] = skipAmbient(t, instanceIPTests(apps), "not supported")
 	cases["services"] = serviceCases(apps)
 	if h, err := hostCases(apps); err != nil {
 		t.Fatal("failed to setup host cases: %v", err)
 	} else {
 		cases["host"] = h
 	}
-	// TODO: Not supported
-	// cases["envoyfilter"] = envoyFilterCases(apps)
+	cases["envoyfilter"] = skipAmbient(t, envoyFilterCases(apps), "not supported")
 	if len(t.Clusters().ByNetwork()) == 1 {
 		// Consistent hashing does not work for multinetwork. The first request will consistently go to a
 		// gateway, but that gateway will tcp_proxy it to a random pod.
 		cases["consistent-hash"] = consistentHashCases(apps)
 	}
-	// TODO: not working, not sure why
-	// cases["use-client-protocol"] = useClientProtocolCases(apps)
+	cases["use-client-protocol"] = skipAmbient(t, useClientProtocolCases(apps), "not working, not sure why")
 	cases["destinationrule"] = destinationRuleCases(apps)
 	if !t.Settings().Skip(echo.VM) {
 		cases["vm"] = VMTestCases(t, apps.VM, apps)

@@ -128,7 +128,8 @@ type Config struct {
 	ConfigClusterValues string
 
 	// Overrides for the Helm values file.
-	Values map[string]string
+	Values            map[string]string
+	UnvalidatedValues map[string]string
 
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
@@ -208,7 +209,7 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 	if err := checkFileExists(iopFile); err != nil {
 		scopes.Framework.Warnf("Default IOPFile missing: %v", err)
 	}
-
+	s.UnvalidatedValues = map[string]string{}
 	var err error
 	if s.Values, err = newHelmValues(ctx); err != nil {
 		return Config{}, err

@@ -656,6 +656,9 @@ func (i *operatorComponent) generateCommonInstallArgs(s *resource.Settings, cfg 
 	for k, v := range cfg.Values {
 		installArgs.Set = append(installArgs.Set, fmt.Sprintf("values.%s=%s", k, v))
 	}
+	for k, v := range cfg.UnvalidatedValues {
+		installArgs.Set = append(installArgs.Set, fmt.Sprintf("unvalidatedValues.%s=%s", k, v))
+	}
 
 	for k, v := range cfg.OperatorOptions {
 		installArgs.Set = append(installArgs.Set, fmt.Sprintf("%s=%s", k, v))

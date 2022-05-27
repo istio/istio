@@ -104,17 +104,6 @@ type UProxyConfigGenerator struct {
 	Workloads     ambient.Cache
 }
 
-func envoyFriendlyIdentityForPod(pod ambient.Workload) string {
-	identity := kube.SecureNamingSAN(pod.Pod)
-	return envoyFriendlyIdentity(identity)
-}
-
-func envoyFriendlyIdentity(identity string) string {
-	identity = strings.TrimPrefix(identity, "spiffe://")
-	identity = strings.ReplaceAll(identity, "/", ".")
-	return identity
-}
-
 func (g *UProxyConfigGenerator) Generate(
 	proxy *model.Proxy,
 	w *model.WatchedResource,
@@ -319,7 +308,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 							ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
 								AccessLog:        accessLogString("capture outbound (no pep)"),
 								StatPrefix:       "uproxy_out_" + workload.Name + "_" + workload.Status.PodIP + "_to_" + port.Name + "_" + svc.Hostname.String() + "_" + vip,
-								ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: remoteOutboundClusterName(envoyFriendlyIdentityForPod(workload), vip, port.Name, svc.Hostname.String())},
+								ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: remoteOutboundClusterName(kube.SecureNamingSAN(workload.Pod), vip, port.Name, svc.Hostname.String())},
 							},
 							)},
 						}},
@@ -363,9 +352,9 @@ func buildPepChain(workload ambient.Workload, peps []ambient.Workload, t string)
 	}
 	pep, pepIP := peps[0], peps[0].Status.PodIP
 	chainName := fmt.Sprintf("%s_%s_to_%s_pep_%s", workload.Name, workload.Status.PodIP, t, pepIP)
-	cluster := pepClusterName(envoyFriendlyIdentity(pep.Identity()))
+	cluster := pepClusterName(pep.Identity())
 	if t == "server" {
-		cluster = serverPepClusterName(envoyFriendlyIdentity(pep.Identity()))
+		cluster = serverPepClusterName(pep.Identity())
 	}
 	return &listener.FilterChain{
 		Name: chainName,
@@ -412,7 +401,7 @@ func passthroughFilterChain() *listener.FilterChain {
 // remoteOutboundCluster points to outboundTunnelListener (internal listener) via EDS metadata.
 func remoteOutboundCluster(proxy *model.Proxy, sa string, svc *model.Service, port string) *cluster.Cluster {
 	return &cluster.Cluster{
-		Name:                 remoteOutboundClusterName(envoyFriendlyIdentity(sa), svc.GetAddressForProxy(proxy), port, svc.Hostname.String()),
+		Name:                 remoteOutboundClusterName(sa, svc.GetAddressForProxy(proxy), port, svc.Hostname.String()),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 		EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 			EdsConfig: &core.ConfigSource{
@@ -441,11 +430,11 @@ func parseRemoteOutboundClusterName(clusterName string) (sa, vip string, port st
 }
 
 func pepClusterName(sa string) string {
-	return envoyFriendlyIdentity(sa) + "_pep"
+	return sa + "_pep"
 }
 
 func serverPepClusterName(sa string) string {
-	return envoyFriendlyIdentity(sa) + "_pep_server"
+	return sa + "_pep_server"
 }
 
 func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resources {
@@ -461,66 +450,67 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 			log.Errorf("warning: multiple PEPs: %v", peps)
 		}
 
-		clusters = append(clusters, &cluster.Cluster{
-			Name:                          pepClusterName(sa),
-			ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-			LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
-			ConnectTimeout:                durationpb.New(2 * time.Second),
-			TypedExtensionProtocolOptions: h2connectUpgrade(),
-			TransportSocket: &core.TransportSocket{
-				Name: "envoy.transport_sockets.tls",
-				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
-					CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
-				})},
-			},
-			LoadAssignment: &endpoint.ClusterLoadAssignment{
-				ClusterName: pepClusterName(sa),
-				Endpoints: []*endpoint.LocalityLbEndpoints{{
-					LbEndpoints: []*endpoint.LbEndpoint{{
-						HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-							Address: &core.Address{
-								Address: &core.Address_SocketAddress{
-									SocketAddress: &core.SocketAddress{
-										Address:       peps[0].Status.PodIP, // TODO support multiple
-										PortSpecifier: &core.SocketAddress_PortValue{PortValue: UproxyOutboundCapturePort},
+		clusters = append(clusters,
+			&cluster.Cluster{
+				Name:                          pepClusterName(sa),
+				ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+				LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
+				ConnectTimeout:                durationpb.New(2 * time.Second),
+				TypedExtensionProtocolOptions: h2connectUpgrade(),
+				TransportSocket: &core.TransportSocket{
+					Name: "envoy.transport_sockets.tls",
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
+					})},
+				},
+				LoadAssignment: &endpoint.ClusterLoadAssignment{
+					ClusterName: pepClusterName(sa),
+					Endpoints: []*endpoint.LocalityLbEndpoints{{
+						LbEndpoints: []*endpoint.LbEndpoint{{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
+								Address: &core.Address{
+									Address: &core.Address_SocketAddress{
+										SocketAddress: &core.SocketAddress{
+											Address:       peps[0].Status.PodIP, // TODO support multiple
+											PortSpecifier: &core.SocketAddress_PortValue{PortValue: UproxyOutboundCapturePort},
+										},
 									},
 								},
-							},
+							}},
 						}},
 					}},
-				}},
+				},
 			},
-		})
-		clusters = append(clusters, &cluster.Cluster{
-			Name:                          serverPepClusterName(sa),
-			ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-			LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
-			ConnectTimeout:                durationpb.New(2 * time.Second),
-			TypedExtensionProtocolOptions: h2connectUpgrade(),
-			TransportSocket: &core.TransportSocket{
-				Name: "envoy.transport_sockets.tls",
-				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
-					CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
-				})},
-			},
-			LoadAssignment: &endpoint.ClusterLoadAssignment{
-				ClusterName: pepClusterName(sa),
-				Endpoints: []*endpoint.LocalityLbEndpoints{{
-					LbEndpoints: []*endpoint.LbEndpoint{{
-						HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-							Address: &core.Address{
-								Address: &core.Address_SocketAddress{
-									SocketAddress: &core.SocketAddress{
-										Address:       peps[0].Status.PodIP, // TODO support multiple
-										PortSpecifier: &core.SocketAddress_PortValue{PortValue: UproxyInbound2CapturePort},
+			&cluster.Cluster{
+				Name:                          serverPepClusterName(sa),
+				ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+				LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
+				ConnectTimeout:                durationpb.New(2 * time.Second),
+				TypedExtensionProtocolOptions: h2connectUpgrade(),
+				TransportSocket: &core.TransportSocket{
+					Name: "envoy.transport_sockets.tls",
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
+					})},
+				},
+				LoadAssignment: &endpoint.ClusterLoadAssignment{
+					ClusterName: pepClusterName(sa),
+					Endpoints: []*endpoint.LocalityLbEndpoints{{
+						LbEndpoints: []*endpoint.LbEndpoint{{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
+								Address: &core.Address{
+									Address: &core.Address_SocketAddress{
+										SocketAddress: &core.SocketAddress{
+											Address:       peps[0].Status.PodIP, // TODO support multiple
+											PortSpecifier: &core.SocketAddress_PortValue{PortValue: UproxyInbound2CapturePort},
+										},
 									},
 								},
-							},
+							}},
 						}},
 					}},
-				}},
-			},
-		})
+				},
+			})
 	}
 	var out model.Resources
 	for _, c := range clusters {
@@ -621,7 +611,7 @@ func (g *UProxyConfigGenerator) llbEndpointsFromShards(proxy *model.Proxy, sa st
 }
 
 func outboundTunnelListenerName(sa string) string {
-	return "outbound_tunnel_lis_" + envoyFriendlyIdentity(sa)
+	return "outbound_tunnel_lis_" + sa
 }
 
 // outboundTunnelListener is built for each ServiceAccount from pods on the node.

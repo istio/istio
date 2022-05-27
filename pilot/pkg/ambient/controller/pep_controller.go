@@ -66,6 +66,10 @@ type RemoteProxyController struct {
 
 var remoteLog = istiolog.RegisterScope("remote proxy", "", 0)
 
+func init() {
+	remoteLog.SetOutputLevel(istiolog.DebugLevel)
+}
+
 func NewRemoteProxyController(client kubelib.Client, clusterID cluster.ID, config func() inject.WebhookConfig) *RemoteProxyController {
 	rc := &RemoteProxyController{
 		client:       client,
@@ -103,7 +107,7 @@ func (rc *RemoteProxyController) Run(stop <-chan struct{}) {
 	<-stop
 }
 
-func (c *RemoteProxyController) proxiesForWorkload(pod *v1.Pod) []string {
+func (rc *RemoteProxyController) proxiesForWorkload(pod *v1.Pod) []string {
 	if pod.Labels["asm-proxy"] != "" {
 		// Remote proxy
 		return nil
@@ -114,7 +118,7 @@ func (c *RemoteProxyController) proxiesForWorkload(pod *v1.Pod) []string {
 	}
 	var ips []string
 	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller")
-	proxyPods, _ := c.pods.Pods(pod.Namespace).List(proxyLbl)
+	proxyPods, _ := rc.pods.Pods(pod.Namespace).List(proxyLbl)
 	for _, p := range proxyPods {
 		if !kubecontroller.IsPodReady(p) {
 			continue
@@ -126,15 +130,14 @@ func (c *RemoteProxyController) proxiesForWorkload(pod *v1.Pod) []string {
 	return ips
 }
 
-func (c *RemoteProxyController) Reconcile(name types.NamespacedName) error {
-	if c.injectConfig().Values.Struct().GetGlobal().GetHub() == "" {
+func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
+	if rc.injectConfig().Values.Struct().GetGlobal().GetHub() == "" {
 		// Mostly used to avoid issues with local runs
 		return fmt.Errorf("injection config invalid, skipping reconile")
 	}
 	log := remoteLog.WithLabels("gateway", name.String())
-	log.SetOutputLevel(istiolog.DebugLevel)
 
-	gw, err := c.gateways.Gateways(name.Namespace).Get(name.Name)
+	gw, err := rc.gateways.Gateways(name.Namespace).Get(name.Name)
 	if err != nil || gw == nil {
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
@@ -144,25 +147,25 @@ func (c *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 			return err
 		}
 		log.Debugf("gateway deleted")
-		return c.pruneGateway(name)
+		return rc.pruneGateway(name)
 	}
 
 	if gw.Spec.GatewayClassName != "istio-mesh" {
 		log.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
-		return c.pruneGateway(name)
+		return rc.pruneGateway(name)
 	}
 
 	haveProxies := sets.New()
 	wantProxies := sets.New()
 
 	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + gw.Name)
-	proxyPods, _ := c.pods.Pods(gw.Namespace).List(proxyLbl)
+	proxyPods, _ := rc.pods.Pods(gw.Namespace).List(proxyLbl)
 	for _, p := range proxyPods {
 		haveProxies.Insert(p.Spec.ServiceAccountName)
 	}
 	// by default, match all
 	gatewaySA := gw.Annotations["istio.io/service-account"]
-	serviceAccounts, _ := c.serviceAccounts.ServiceAccounts(gw.Namespace).List(klabels.Everything())
+	serviceAccounts, _ := rc.serviceAccounts.ServiceAccounts(gw.Namespace).List(klabels.Everything())
 	for _, sa := range serviceAccounts {
 		if gatewaySA != "" && sa.Name != gatewaySA {
 			log.Debugf("skip service account %v, doesn't match gateway %v", sa.Name, gatewaySA)
@@ -180,7 +183,7 @@ func (c *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 	}
 	for _, k := range remove {
 		log.Infof("removing proxy %q", k+"-proxy")
-		if err := c.client.Kube().CoreV1().Pods(gw.Namespace).Delete(context.Background(), k+"-proxy", metav1.DeleteOptions{}); err != nil {
+		if err := rc.client.Kube().CoreV1().Pods(gw.Namespace).Delete(context.Background(), k+"-proxy", metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("pod remove: %v", err)
 		}
 	}
@@ -191,14 +194,14 @@ func (c *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 			GatewayName:    gw.Name,
 			UID:            string(gw.UID),
 			ServiceAccount: k,
-			Cluster:        c.cluster.String(),
+			Cluster:        rc.cluster.String(),
 		}
-		proxyPod, err := c.RenderPodMerged(input)
+		proxyPod, err := rc.RenderPodMerged(input)
 		if err != nil {
 			return err
 		}
 
-		if _, err := c.client.Kube().CoreV1().Pods(name.Namespace).Create(context.Background(), proxyPod, metav1.CreateOptions{}); err != nil {
+		if _, err := rc.client.Kube().CoreV1().Pods(name.Namespace).Create(context.Background(), proxyPod, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("pod create: %v", err)
 		}
 	}

@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
+	
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -357,13 +357,17 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 
 // DumpPodProxies will dump Envoy proxy config and clusters in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
+func DumpPodProxies(ctx resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 	for _, pod := range pods {
 		if !hasEnvoy(pod) {
 			continue
 		}
-		dumpProxyCommand(c, pod, workDir, "proxy-config.json", "pilot-agent request GET config_dump?include_eds=true")
+		includeEDS := "?include_eds=true"
+		if ctx.Settings().Ambient {
+			includeEDS = ""
+		}
+		dumpProxyCommand(c, pod, workDir, "proxy-config.json", "pilot-agent request GET config_dump"+includeEDS)
 		dumpProxyCommand(c, pod, workDir, "proxy-clusters.txt", "pilot-agent request GET clusters")
 		dumpProxyCommand(c, pod, workDir, "proxy-stats.txt", "pilot-agent request GET stats/prometheus")
 	}

@@ -71,9 +71,11 @@ type enabledInspector struct {
 
 func NewListenerBuilder(configgen *ConfigGeneratorImpl, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 	builder := &ListenerBuilder{
-		node:      node,
-		push:      push,
-		Discovery: configgen.Discovery,
+		node: node,
+		push: push,
+	}
+	if configgen != nil {
+		builder.Discovery = configgen.Discovery
 	}
 	builder.authnBuilder = authn.NewBuilder(push, node)
 	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node)
@@ -129,7 +131,7 @@ func (lb *ListenerBuilder) buildHTTPProxyListener() *ListenerBuilder {
 }
 
 func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
-	if lb.node.GetInterceptionMode() == model.InterceptionNone || lb.node.Metadata.RemoteProxy || true { // TODO allow setting remote proxy meta
+	if lb.node.GetInterceptionMode() == model.InterceptionNone || lb.node.IsPEP() {
 		// virtual listener is not necessary since workload is not using IPtables for traffic interception
 		return lb
 	}

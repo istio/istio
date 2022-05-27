@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
-	istiolog "istio.io/pkg/log"
 )
 
 func TestRemoteProxyController(t *testing.T) {
@@ -48,7 +47,9 @@ global:
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmpl, err := inject.ParseTemplates(map[string]string{"remote": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/remote.yaml"))})
+	tmplPath := filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/remote.yaml")
+	tmplStr := file.AsStringOrFail(t, tmplPath)
+	tmpl, err := inject.ParseTemplates(map[string]string{"remote": tmplStr})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +73,6 @@ global:
 				cc.queue.Run(stop)
 			})
 			c.RunAndWait(stop)
-			remoteLog.SetOutputLevel(istiolog.DebugLevel)
 			f(t, cc)
 		})
 	}

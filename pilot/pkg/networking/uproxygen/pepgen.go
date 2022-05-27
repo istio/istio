@@ -29,7 +29,6 @@ import (
 	httpconn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	core2 "istio.io/istio/pilot/pkg/networking/core"
@@ -85,16 +84,15 @@ func (p *PEPGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 		sidecarClusters, _ := p.ConfigGenerator.BuildClusters(proxy, req)
 		remoteClusters := p.buildClusters(proxy, req.Push)
 		out = append(remoteClusters, sidecarClusters...)
-		out = append(out)
 	}
 	return out, model.DefaultXdsLogDetails, nil
 }
 
-func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
+func getActualWildcardAndLocalHost(node *model.Proxy) string {
 	if node.SupportsIPv4() {
-		return v1alpha3.WildcardAddress, v1alpha3.LocalhostAddress
+		return v1alpha3.WildcardAddress // , v1alpha3.LocalhostAddress
 	}
-	return v1alpha3.WildcardIPv6Address, v1alpha3.LocalhostIPv6Address
+	return v1alpha3.WildcardIPv6Address //, v1alpha3.LocalhostIPv6Address
 }
 
 func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushContext) model.Resources {
@@ -103,7 +101,7 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 		log.Warnf("no workloads for sa %s (proxy %s)", proxy.Metadata.ServiceAccount, proxy.ID)
 		return nil
 	}
-	wildcard, _ := getActualWildcardAndLocalHost(proxy)
+	wildcard := getActualWildcardAndLocalHost(proxy)
 	vhost := &route.VirtualHost{
 		Name:    "connect",
 		Domains: []string{"*"},
@@ -195,34 +193,10 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 	return out
 }
 
-func routePortToInternalOutbound(*model.Proxy, *model.PushContext) []*route.Route {
-	var out []*route.Route
-	out = append(out, &route.Route{
-		Match: &route.RouteMatch{
-			PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-			Headers:       []*route.HeaderMatcher{istiomatcher.HeaderMatcher("x-direction", "outbound")},
-		},
-		Action: &route.Route_Route{Route: &route.RouteAction{
-			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-				UpgradeType:   "CONNECT",
-				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-			}},
-			ClusterSpecifier: &route.RouteAction_ClusterHeader{ClusterHeader: "x-original-port"},
-		}},
-	})
-	return out
-}
-
-func stringMatch(s string) *route.HeaderMatcher_StringMatch {
-	return &route.HeaderMatcher_StringMatch{StringMatch: &matcher.StringMatcher{
-		MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
-	}}
-}
-
 func (p *PEPGenerator) buildClusters(node *model.Proxy, push *model.PushContext) model.Resources {
 	// TODO passthrough and blackhole
 	var clusters []*cluster.Cluster
-	wildcard, _ := getActualWildcardAndLocalHost(node)
+	wildcard := getActualWildcardAndLocalHost(node)
 	seen := sets.New()
 	for _, egressListener := range node.SidecarScope.EgressListeners {
 		for _, service := range egressListener.Services() {

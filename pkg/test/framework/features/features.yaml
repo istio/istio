@@ -36,6 +36,7 @@ features:
       istioctl:
   # features relating to controlling the traffic of the service mesh.
   traffic:
+    ambient:
     locality:
     reachability:
     shifting:

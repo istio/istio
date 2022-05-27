@@ -34,9 +34,8 @@ import (
 func IsL7() echo.Checker {
 	return check.Each(func(r echot.Response) error {
 		// TODO: response headers?
-		_, f1 := r.RequestHeaders["x-b3-traceid"]
-		_, f2 := r.RequestHeaders["X-B3-Traceid"]
-		if !f1 && !f2 {
+		_, f := r.RequestHeaders[http.CanonicalHeaderKey("x-b3-traceid")]
+		if !f {
 			return fmt.Errorf("x-b3-traceid not set, is L7 processing enabled?")
 		}
 		return nil
@@ -46,9 +45,8 @@ func IsL7() echo.Checker {
 func IsL4() echo.Checker {
 	return check.Each(func(r echot.Response) error {
 		// TODO: response headers?
-		_, f1 := r.RequestHeaders["x-b3-traceid"]
-		_, f2 := r.RequestHeaders["X-B3-Traceid"]
-		if f1 || f2 {
+		_, f := r.RequestHeaders[http.CanonicalHeaderKey("x-b3-traceid")]
+		if f {
 			return fmt.Errorf("x-b3-traceid set, is L7 processing enabled unexpectedly?")
 		}
 		return nil
@@ -125,10 +123,6 @@ func TestServices(t *testing.T) {
 func TestPodIP(t *testing.T) {
 	t.Skipf("not implemented yet")
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		workloads := []echo.Workload{}
-		for _, i := range apps.All {
-			workloads = append(workloads, i.WorkloadsOrFail(t)...)
-		}
 		for _, src := range apps.All {
 			for _, srcWl := range src.WorkloadsOrFail(t) {
 				srcWl := srcWl
@@ -286,7 +280,7 @@ var CheckDeny = check.Or(
 )
 
 func runTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		svcs := apps.All
 		for _, src := range svcs {
 			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {

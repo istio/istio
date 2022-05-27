@@ -39,6 +39,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestVersion(t *testing.T) {
+	t.Skip("https://github.com/solo-io/istio-sidecarless/issues/84")
 	runBinariesTest(t, func(t *testing.T, name string) {
 		cmd := path.Join(*releasedir, name)
 		args := []string{"version", "-ojson"}
@@ -99,6 +100,9 @@ func TestBinarySizes(t *testing.T) {
 	}
 
 	runBinariesTest(t, func(t *testing.T, name string) {
+		if name == "pilot-agent" {
+			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/85")
+		}
 		tt, f := cases[name]
 		if !f {
 			t.Fatalf("min/max binary size not specified for %v", name)

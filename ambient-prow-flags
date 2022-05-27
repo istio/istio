@@ -1,0 +1,1 @@
+--istio.test.skipWorkloads="delta,vm,tproxy,proxyless,statefulset,headless"

@@ -135,7 +135,7 @@ func (a *Aggregate) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan st
 
 func (a *Aggregate) ClusterDeleted(clusterID cluster.ID) error {
 	a.mu.Lock()
-	a.mu.Unlock()
+	defer a.mu.Unlock()
 	return a.clusterDeleted(clusterID)
 }
 

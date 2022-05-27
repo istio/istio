@@ -2787,16 +2787,17 @@ spec:
 `, mode)
 }
 
-func serverFirstTestCases(apps *deployment.SingleNamespaceView) []TrafficTestCase {
+func serverFirstTestCases(t framework.TestContext, apps *deployment.SingleNamespaceView) []TrafficTestCase {
 	cases := make([]TrafficTestCase, 0)
 	from := apps.A
 	to := apps.C
-	configs := []struct {
+	type config struct {
 		port    string
 		dest    string
 		auth    string
 		checker echo.Checker
-	}{
+	}
+	configs := []config{
 		// TODO: All these cases *should* succeed (except the TLS mismatch cases) - but don't due to issues in our implementation
 
 		// For auto port, outbound request will be delayed by the protocol sniffer, regardless of configuration
@@ -2807,15 +2808,6 @@ func serverFirstTestCases(apps *deployment.SingleNamespaceView) []TrafficTestCas
 		{"auto-tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", check.Error()},
 		{"auto-tcp-server", "ISTIO_MUTUAL", "STRICT", check.Error()},
 
-		// These is broken because we will still enable inbound sniffing for the port. Since there is no tls,
-		// there is no server-first "upgrading" to client-first
-		{"tcp-server", "DISABLE", "DISABLE", check.OK()},
-		{"tcp-server", "DISABLE", "PERMISSIVE", check.OK()},
-
-		// For sidecars expected to fail, incompatible configuration. For HBONE, not supported at all
-		{"tcp-server", "DISABLE", "STRICT", check.OK()},
-		{"tcp-server", "ISTIO_MUTUAL", "DISABLE", check.OK()},
-
 		// In these cases, we expect success
 		// There is no sniffer on either side
 		{"tcp-server", "DISABLE", "DISABLE", check.OK()},
@@ -2825,6 +2817,31 @@ func serverFirstTestCases(apps *deployment.SingleNamespaceView) []TrafficTestCas
 		{"tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", check.OK()},
 		{"tcp-server", "ISTIO_MUTUAL", "STRICT", check.OK()},
 	}
+
+	// TODO ambient
+	if t.Settings().Ambient {
+		configs = append(configs,
+			// These is broken because we will still enable inbound sniffing for the port. Since there is no tls,
+			// there is no server-first "upgrading" to client-first
+			config{"tcp-server", "DISABLE", "DISABLE", check.OK()},
+
+			// For sidecars expected to fail, incompatible configuration. For HBONE, not supported at all
+			config{"tcp-server", "DISABLE", "STRICT", check.OK()},
+			config{"tcp-server", "ISTIO_MUTUAL", "DISABLE", check.OK()},
+		)
+	} else {
+		configs = append(configs,
+			// These is broken because we will still enable inbound sniffing for the port. Since there is no tls,
+			// there is no server-first "upgrading" to client-first
+			config{"tcp-server", "DISABLE", "DISABLE", check.OK()},
+			config{"tcp-server", "DISABLE", "PERMISSIVE", check.Error()},
+
+			// Expected to fail, incompatible configuration
+			config{"tcp-server", "DISABLE", "STRICT", check.Error()},
+			config{"tcp-server", "ISTIO_MUTUAL", "DISABLE", check.Error()},
+		)
+	}
+
 	for _, client := range from {
 		for _, c := range configs {
 			client, c := client, c

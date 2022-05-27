@@ -191,7 +191,7 @@ type SubsetConfig struct {
 	Version string
 	// Annotations provides metadata hints for deployment of the instance.
 	Annotations Annotations
-	// Annotations provides metadata hints for deployment of the instance.
+	// Labels provides metadata hints for deployment of the instance.
 	Labels map[string]string
 	// Replicas of this deployment
 	Replicas int

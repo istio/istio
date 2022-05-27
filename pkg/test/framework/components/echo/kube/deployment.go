@@ -85,7 +85,9 @@ spec:
 {{- if .Headless }}
   clusterIP: None
 {{- end }}
+  {{- if .Ambient }}
   type: LoadBalancer
+  {{- end }}
   ports:
 {{- range $i, $p := .ServicePorts }}
   - name: {{ $p.Name }}
@@ -706,7 +708,8 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 		"Revisions":         settings.Revisions.TemplateMap(),
 		"Compatibility":     settings.Compatibility,
 		"WorkloadClass":     cfg.WorkloadClass(),
-		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()) && false,
+		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient,
+		"Ambient":           settings.Ambient,
 		"IPFamilies":        cfg.IPFamilies,
 		"IPFamilyPolicy":    cfg.IPFamilyPolicy,
 	}

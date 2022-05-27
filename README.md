@@ -10,9 +10,10 @@ TAG=ambient
 # Build Istiod and proxy (uproxy and remote proxy are the same image)
 tools/docker --targets=pilot,proxyv2,app --hub=$HUB --tag=$TAG --push
 # Install Istio without gateway or webhook
-# uproxyType can be "kind" or "GKE"
+# profile can be "ambient" or "ambient-gke"
 # Mesh config options are optional to improve debugging
-istioctl install -d manifests/ --set hub=$HUB --set tag=$TAG -y --set unvalidatedValues.uproxyType=gke \
+istioctl install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
+  --profile ambient # or ambient-gke
   --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0
 ```
 
@@ -56,7 +57,7 @@ k exec -it $(k get po -lapp=sleep -ojsonpath='{.items[0].metadata.name}') -- sh
 curl helloworld:5000/hello
 ```
 
-# Debugging
+## Debugging
 
 Turning on debug logs
 
@@ -76,4 +77,14 @@ kubectl -n istio-system logs $WORKER1 -f
 kubectl -n istio-system logs $WORKER2 -f
 
 curl "localhost:15000/config_dump"
+```
+
+## Run the tests
+
+Note: We have to use the custom image to allow installing `ipsets`.
+
+```shell
+INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
+  --kind-config prow/config/ambient-sc.yaml --node-image kindest/node:v1.24.0 \
+  test.integration.uproxy.kube
 ```

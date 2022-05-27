@@ -231,7 +231,7 @@ meshConfig:
   # No hurry to do this in 1.6, we're trying to prove the code.
 
   ambientMesh:
-    mode: DEFAULT
+    mode: "OFF"
 
 global:
   # Used to locate istiod.
