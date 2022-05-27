@@ -61,8 +61,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		RequireSingleCluster().
-		RequireMultiPrimary().
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret)).
 		Run()
