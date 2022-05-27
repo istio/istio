@@ -951,13 +951,13 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		}
 	} else if features.EnableCAServer && features.PilotCertProvider == constants.CertProviderIstiod {
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, args.Namespace)
+		err = s.initDNSCerts()
 	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, args.Namespace)
+		err = s.initDNSCerts()
 	} else if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, args.Namespace)
+		err = s.initDNSCerts()
 	} else {
 		return nil
 	}
