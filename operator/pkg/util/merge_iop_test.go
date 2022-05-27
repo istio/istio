@@ -21,6 +21,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
@@ -30,20 +31,22 @@ import (
 
 func TestOverlayIOP(t *testing.T) {
 	cases := []struct {
-		file string
+		path string
 	}{
 		{
-			"manifests/profiles/default.yaml",
+			filepath.Join(env.IstioSrc, "manifests/profiles/default.yaml"),
 		},
 		{
-			"manifests/profiles/demo.yaml",
+			filepath.Join(env.IstioSrc, "manifests/profiles/demo.yaml"),
+		},
+		{
+			filepath.Join("testdata", "overlay-iop.yaml"),
 		},
 	}
 
 	for _, tc := range cases {
-		t.Run(tc.file, func(t *testing.T) {
-			defaultFilepath := filepath.Join(env.IstioSrc, tc.file)
-			b, err := os.ReadFile(defaultFilepath)
+		t.Run(tc.path, func(t *testing.T) {
+			b, err := os.ReadFile(tc.path)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -52,6 +55,49 @@ func TestOverlayIOP(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+// TestOverlayIOPExhaustiveness exhaustiveness check of `OverlayIOP`
+// Once some one add a new `Provider` in api, we should update `wellknownProviders` and
+// add to `meshConfigExtensionProvider`
+func TestOverlayIOPExhaustiveness(t *testing.T) {
+	wellknownProviders := map[string]struct{}{
+		"prometheus":            {},
+		"envoy_file_access_log": {},
+		"stackdriver":           {},
+		"envoy_otel_als":        {},
+		"envoy_ext_authz_http":  {},
+		"envoy_ext_authz_grpc":  {},
+		"zipkin":                {},
+		"lightstep":             {},
+		"datadog":               {},
+		"opencensus":            {},
+		"skywalking":            {},
+		"envoy_http_als":        {},
+		"envoy_tcp_als":         {},
+	}
+
+	unexpectedProviders := make([]string, 0)
+
+	msg := &meshconfig.MeshConfig_ExtensionProvider{}
+	pb := msg.ProtoReflect()
+	md := pb.Descriptor()
+
+	of := md.Oneofs().Get(0)
+	for i := 0; i < of.Fields().Len(); i++ {
+		o := of.Fields().Get(i)
+		n := string(o.Name())
+		if _, ok := wellknownProviders[n]; ok {
+			delete(wellknownProviders, n)
+		} else {
+			unexpectedProviders = append(unexpectedProviders, n)
+		}
+	}
+
+	if len(wellknownProviders) != 0 || len(unexpectedProviders) != 0 {
+		t.Errorf("unexpected provider not implemented in OverlayIOP, wellknownProviders: %v unexpectedProviders: %v", wellknownProviders, unexpectedProviders)
+		t.Fail()
 	}
 }
 
