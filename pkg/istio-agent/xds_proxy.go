@@ -533,7 +533,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 						// to prevent concurrent access to forwardToEnvoy
 						select {
 						case forwardEnvoyCh <- resp:
-							proxyLog.Infof("wasm send resp to forwardEnvoCh: %v", resp.TypeUrl)
+							proxyLog.Debugf("wasm send response: %v", resp.TypeUrl)
 						case <-con.stopChan:
 						}
 					})
