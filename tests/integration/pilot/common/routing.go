@@ -1616,7 +1616,8 @@ spec:
 			config: cfg,
 			call:   c.CallOrFail,
 			opts: echo.CallOptions{
-				To: t.Apps.B,
+				To:    t.Apps.B,
+				Count: 1,
 				Port: echo.Port{
 					Name: "http",
 				},
@@ -1666,7 +1667,8 @@ func hostCases(t TrafficContext) {
 				name: name,
 				call: c.CallOrFail,
 				opts: echo.CallOptions{
-					To: t.Apps.Headless,
+					To:    t.Apps.Headless,
+					Count: 1,
 					Port: echo.Port{
 						Name: "auto-http",
 					},
@@ -2619,7 +2621,6 @@ func VMTestCases(vms echo.Instances) func(t TrafficContext) {
 						Name: "http",
 					},
 					Address: c.host,
-					Count:   callCountMultiplier * c.to.MustWorkloads().Clusters().Len(),
 					Check:   checker,
 				},
 			})

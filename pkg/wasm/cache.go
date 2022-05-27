@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -38,19 +39,6 @@ import (
 var wasmLog = log.RegisterScope("wasm", "", 0)
 
 const (
-	// DefaultWasmModulePurgeInterval is the default interval for periodic stale Wasm module clean up.
-	DefaultWasmModulePurgeInterval = 10 * time.Minute
-
-	// DefaultWasmModuleExpiry is the default duration for least recently touched Wasm module to become stale.
-	DefaultWasmModuleExpiry = 24 * time.Hour
-
-	// Default timeout per a HTTP/HTTPS request for HTTP/HTTPS-based wasm pulling.
-	DefaultWasmHTTPRequestTimeout = 5 * time.Second
-
-	// Default maximum number of HTTP/HTTPS request retries for HTTP/HTTPS-based wasm pulling.
-	// Note that, if the timeout specified in WasmPlugin is reaching out, then the pulling is stopped even though the retry count is still less than this value.
-	DefaultWasmHTTPRequestMaxRetries = 5
-
 	// oci URL prefix
 	ociURLPrefix = "oci://"
 
@@ -80,12 +68,8 @@ type LocalFileCache struct {
 	// mux is needed because stale Wasm module files will be purged periodically.
 	mux sync.Mutex
 
-	// Duration for stale Wasm module purging.
-	purgeInterval              time.Duration
-	wasmModuleExpiry           time.Duration
-	insecureRegistries         sets.Set
-	allowAllInsecureRegistries bool
-
+	// option sets for configurating the cache.
+	cacheOptions
 	// stopChan currently is only used by test
 	stopChan chan struct{}
 }
@@ -126,20 +110,52 @@ type cacheEntry struct {
 	referencingURLs sets.Set
 }
 
+type cacheOptions struct {
+	Options
+	allowAllInsecureRegistries bool
+}
+
+func (o cacheOptions) sanitize() cacheOptions {
+	ret := cacheOptions{
+		Options: defaultOptions(),
+	}
+	if o.InsecureRegistries != nil {
+		ret.InsecureRegistries = o.InsecureRegistries
+	}
+	ret.allowAllInsecureRegistries = ret.InsecureRegistries.Contains("*")
+
+	if o.PurgeInterval != 0 {
+		ret.PurgeInterval = o.PurgeInterval
+	}
+	if o.ModuleExpiry != 0 {
+		ret.ModuleExpiry = o.ModuleExpiry
+	}
+	if o.HTTPRequestTimeout != 0 {
+		ret.HTTPRequestTimeout = o.HTTPRequestTimeout
+	}
+	if o.HTTPRequestMaxRetries != 0 {
+		ret.HTTPRequestMaxRetries = o.HTTPRequestMaxRetries
+	}
+
+	return ret
+}
+
+func (o cacheOptions) allowInsecure(host string) bool {
+	return o.allowAllInsecureRegistries || o.InsecureRegistries.Contains(host)
+}
+
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
-func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
-	ir := sets.New(insecureRegistries...)
+func NewLocalFileCache(dir string, options Options) *LocalFileCache {
+	wasmLog.Debugf("LocalFileCache is created with the option\n%#v", options)
+
+	cacheOptions := cacheOptions{Options: options}
 	cache := &LocalFileCache{
-		httpFetcher:        NewHTTPFetcher(DefaultWasmHTTPRequestTimeout),
-		modules:            make(map[moduleKey]*cacheEntry),
-		checksums:          make(map[string]*checksumEntry),
-		dir:                dir,
-		purgeInterval:      purgeInterval,
-		wasmModuleExpiry:   moduleExpiry,
-		stopChan:           make(chan struct{}),
-		insecureRegistries: ir,
-		// If the set of the given insecure registries contains "*", then allow all the insecure registries.
-		allowAllInsecureRegistries: ir.Contains("*"),
+		httpFetcher:  NewHTTPFetcher(options.HTTPRequestTimeout, options.HTTPRequestMaxRetries),
+		modules:      make(map[moduleKey]*cacheEntry),
+		checksums:    make(map[string]*checksumEntry),
+		dir:          dir,
+		cacheOptions: cacheOptions.sanitize(),
+		stopChan:     make(chan struct{}),
 	}
 
 	go func() {
@@ -171,6 +187,19 @@ func pullIfNotPresent(pullPolicy extensions.PullPolicy, u *url.URL) bool {
 	}
 	// If http/https is used, it has `always` semantics at this time.
 	return false
+}
+
+func getModulePath(baseDir string, mkey moduleKey) (string, error) {
+	sha := sha256.Sum256([]byte(mkey.name))
+	hashedName := hex.EncodeToString(sha[:])
+	moduleDir := filepath.Join(baseDir, hashedName)
+	if _, err := os.Stat(moduleDir); errors.Is(err, os.ErrNotExist) {
+		err := os.Mkdir(moduleDir, 0o755)
+		if err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(moduleDir, fmt.Sprintf("%s.wasm", mkey.checksum)), nil
 }
 
 // Get returns path the local Wasm module file.
@@ -209,7 +238,7 @@ func (c *LocalFileCache) Get(
 	// Hex-Encoded sha256 checksum of binary.
 	var dChecksum string
 	var binaryFetcher func() ([]byte, error)
-	insecure := c.allowAllInsecureRegistries || c.insecureRegistries.Contains(u.Host)
+	insecure := c.allowInsecure(u.Host)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -273,12 +302,16 @@ func (c *LocalFileCache) Get(
 	wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()
 
 	key.checksum = dChecksum
-	f := filepath.Join(c.dir, fmt.Sprintf("%s.wasm", dChecksum))
 
-	if err := c.addEntry(key, b, f); err != nil {
+	modulePath, err = getModulePath(c.dir, key.moduleKey)
+	if err != nil {
 		return "", err
 	}
-	return f, nil
+
+	if err := c.addEntry(key, b, modulePath); err != nil {
+		return "", err
+	}
+	return modulePath, nil
 }
 
 // Cleanup closes background Wasm module purge routine.
@@ -395,14 +428,14 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (str
 
 // Purge periodically clean up the stale Wasm modules local file and the cache map.
 func (c *LocalFileCache) purge() {
-	ticker := time.NewTicker(c.purgeInterval)
+	ticker := time.NewTicker(c.PurgeInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			c.mux.Lock()
 			for k, m := range c.modules {
-				if !m.expired(c.wasmModuleExpiry) {
+				if !m.expired(c.ModuleExpiry) {
 					continue
 				}
 				// The module has not be touched for expiry duration, delete it from the map as well as the local dir.

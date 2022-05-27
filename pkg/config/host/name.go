@@ -58,6 +58,39 @@ func (n Name) Matches(o Name) bool {
 	return n == o
 }
 
+// MatchesSingleLabel is a variant of Matches that only will match a single label for wildcard.
+// This means "*.com", will match "a.b.com" for Matches, but not MatchesSingleLabel
+func (n Name) MatchesSingleLabel(o Name) bool {
+	hWildcard := n.IsWildCarded()
+	oWildcard := o.IsWildCarded()
+
+	if hWildcard {
+		if oWildcard {
+			return n == o
+		}
+		t := strings.TrimSuffix(o.String(), n.String()[1:])
+		if len(t) == len(o) {
+			// Suffix not found
+			return false
+		}
+		// Suffix found, make sure only a single label matches
+		return !strings.Contains(t, ".")
+	}
+
+	if oWildcard {
+		t := strings.TrimSuffix(n.String(), o.String()[1:])
+		if len(t) == len(n) {
+			// Suffix not found
+			return false
+		}
+		// Suffix found, make sure only a single label matches
+		return !strings.Contains(t, ".")
+	}
+
+	// both are non-wildcards, so do normal string comparison
+	return n == o
+}
+
 // SubsetOf returns true if this hostname is a valid subset of the other hostname. The semantics are
 // the same as "Matches", but only in one direction (i.e., h is covered by o).
 func (n Name) SubsetOf(o Name) bool {

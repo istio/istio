@@ -82,10 +82,10 @@ require (
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0-20220512140231-539c8e751b99
+	gopkg.in/yaml.v3 v3.0.0
 	helm.sh/helm/v3 v3.9.0
-	istio.io/api v0.0.0-20220520163314-27e3bb7f1ac6
-	istio.io/client-go v1.12.0-alpha.5.0.20220520163716-0f8b29211dd2
+	istio.io/api v0.0.0-20220525153140-e3c48c9ac324
+	istio.io/client-go v1.12.0-alpha.5.0.20220523183928-68e393ac0b53
 	istio.io/pkg v0.0.0-20220519183359-907110f1545f
 	k8s.io/api v0.24.0
 	k8s.io/apiextensions-apiserver v0.24.0
@@ -98,7 +98,7 @@ require (
 	k8s.io/kubectl v0.24.0
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	sigs.k8s.io/controller-runtime v0.12.1
-	sigs.k8s.io/gateway-api v0.4.1-0.20220419214231-03f50b47814e
+	sigs.k8s.io/gateway-api v0.4.1-0.20220519093007-c7fe7e445dfb
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -230,6 +230,7 @@ require (
 	go.starlark.net v0.0.0-20211013185944-b0039bd2cfe3 // indirect
 	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f // indirect
+	golang.org/x/exp v0.0.0-20220407100705-7b9b53b0aca4 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect

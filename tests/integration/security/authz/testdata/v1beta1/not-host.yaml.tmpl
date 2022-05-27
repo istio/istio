@@ -1,0 +1,45 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: gw-{{ .To.ServiceName }}
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.{{ .To.ServiceName }}.com"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: vw-{{ .To.ServiceName }}
+spec:
+  hosts:
+    - "allow.{{ .To.ServiceName }}.com"
+    - "deny.{{ .To.ServiceName }}.com"
+  gateways:
+    - gw-{{ .To.ServiceName }}
+  http:
+    - route:
+        - destination:
+            host: "{{ .To.ClusterLocalFQDN }}"
+            port:
+              number: {{ (.To.PortForName "http").ServicePort }}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-{{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: ALLOW
+  rules:
+    - to:
+      - operation:
+          notHosts: [ "deny.{{ .To.ServiceName }}.com" ]
