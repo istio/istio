@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -250,7 +251,6 @@ func TestToEnvoySocketProtocol(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-
 	tests := []struct {
 		name  string
 		value uint
