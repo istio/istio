@@ -36,7 +36,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/security/v1beta1"
@@ -985,7 +984,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		err = s.initIstiodCertLoader()
 	} else if features.PilotCertProvider == constants.CertProviderNone {
 		return nil
-	} else if s.EnableCA() && features.PilotCertProvider == constants.CertProviderIstiod {
+	} else if features.EnableCAServer && features.PilotCertProvider == constants.CertProviderIstiod {
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
 		err = s.initDNSCerts(host, args.Namespace)
 		if err == nil {
@@ -1010,7 +1009,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
-	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isDisableCa() {
+	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isCADisabled() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
@@ -1102,36 +1101,31 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 // maybeCreateCA creates and initializes CA Key if needed.
 func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 	// CA signing certificate must be created only if CA is enabled.
-	if s.EnableCA() {
+	if features.EnableCAServer {
 		log.Info("creating CA and initializing public key")
 		var err error
-		var corev1 v1.CoreV1Interface
-		if s.kubeClient != nil {
-			corev1 = s.kubeClient.Kube().CoreV1()
-		}
 		if useRemoteCerts.Get() {
-			if err = s.loadRemoteCACerts(caOpts, LocalCertDir.Get()); err != nil {
+			if err = s.loadCACerts(caOpts, LocalCertDir.Get()); err != nil {
 				return fmt.Errorf("failed to load remote CA certs: %v", err)
 			}
 		}
 		// May return nil, if the CA is missing required configs - This is not an error.
 		if caOpts.ExternalCAType != "" {
-			if s.RA, err = s.createIstioRA(s.kubeClient, caOpts); err != nil {
+			if s.RA, err = s.createIstioRA(caOpts); err != nil {
 				return fmt.Errorf("failed to create RA: %v", err)
 			}
 		}
-		if !s.isDisableCa() {
-			if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
+		if !s.isCADisabled() {
+			if s.CA, err = s.createIstioCA(caOpts); err != nil {
 				return fmt.Errorf("failed to create CA: %v", err)
 			}
 		}
-
 	}
 	return nil
 }
 
 func (s *Server) shouldStartNsController() bool {
-	if s.isDisableCa() {
+	if s.isCADisabled() {
 		return true
 	}
 	if s.CA == nil {
@@ -1257,19 +1251,20 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	return nil
 }
 
-// isDisableCa returns whether CA functionality is disabled in istiod.
-// It return true only if istiod certs is signed by Kubernetes and
+// isCADisabled returns whether CA functionality is disabled in istiod.
+// It returns true only if istiod certs is signed by Kubernetes or
 // workload certs are signed by external CA
-func (s *Server) isDisableCa() bool {
-	if s.RA != nil {
-		// do not create CA server if PilotCertProvider is `kubernetes` and RA server exists
-		if features.PilotCertProvider == constants.CertProviderKubernetes {
-			return true
-		}
-		// do not create CA server if PilotCertProvider is `k8s.io/*` and RA server exists
-		if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-			return true
-		}
+func (s *Server) isCADisabled() bool {
+	if s.RA == nil {
+		return false
+	}
+	// do not create CA server if PilotCertProvider is `kubernetes` and RA server exists
+	if features.PilotCertProvider == constants.CertProviderKubernetes {
+		return true
+	}
+	// do not create CA server if PilotCertProvider is `k8s.io/*` and RA server exists
+	if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+		return true
 	}
 	return false
 }
