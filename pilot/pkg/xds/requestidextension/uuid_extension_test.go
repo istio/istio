@@ -27,7 +27,6 @@ import (
 )
 
 func TestBuildUUIDRequestIDExtension(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		ctx      *UUIDRequestIDExtensionContext
@@ -68,5 +67,4 @@ func TestBuildUUIDRequestIDExtension(t *testing.T) {
 			t.Errorf("Test %s failed, expected: %v ,got: %v", tt.name, spew.Sdump(result), spew.Sdump(tt.expected))
 		}
 	}
-
 }
