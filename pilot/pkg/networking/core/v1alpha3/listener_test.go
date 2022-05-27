@@ -376,6 +376,15 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			if listeners[0].ConnectionBalanceConfig != nil {
 				t.Fatalf("expected connection balance config to be set to empty, found %v", listeners[0].ConnectionBalanceConfig)
 			}
+
+			for _, l := range listeners {
+				for _, fc := range l.GetFilterChains() {
+					listenertest.VerifyFilterChain(t, fc, listenertest.FilterChainTest{
+						NetworkFilters: []string{wellknown.TCPProxy},
+						TotalMatch:     true,
+					})
+				}
+			}
 		})
 	}
 }
