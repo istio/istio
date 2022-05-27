@@ -64,7 +64,7 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 	if len(updates) == 0 {
 		return true
 	}
-	if len(model.ConfigNamesOfKind(updates, gvk.Secret)) > 0 {
+	if model.ConfigsHaveKind(updates, gvk.Secret) || model.ConfigsHaveKind(updates, gvk.ReferencePolicy) {
 		return true
 	}
 	return false
