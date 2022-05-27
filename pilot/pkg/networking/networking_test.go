@@ -122,8 +122,8 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			ListenerProtocolUnknown,
 		},
 		{
-			"Unkown protocal",
-			"Bad Protocal",
+			"Unknown Protocol",
+			"Bad Protocol",
 			core.TrafficDirection_INBOUND,
 			true,
 			false,
@@ -216,7 +216,7 @@ func TestSupportH2Tunnel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := TunnelAbility.SupportH2Tunnel(TunnelAbility(tt.value)); got != tt.want {
+			if got := TunnelAbility(tt.value).SupportH2Tunnel(); got != tt.want {
 				t.Errorf("Failed to get SupportH2Tunnel:: got = %v, want = %v", got, tt.want)
 			}
 		})
@@ -243,7 +243,7 @@ func TestToEnvoySocketProtocol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := TransportProtocol.ToEnvoySocketProtocol(TransportProtocol(tt.value)); got != tt.want {
+			if got := TransportProtocol(tt.value).ToEnvoySocketProtocol(); got != tt.want {
 				t.Errorf("Failed to get ToEnvoySocketProtocol:: got = %v, want = %v", got, tt.want)
 			}
 		})
@@ -257,17 +257,17 @@ func TestString(t *testing.T) {
 		want  string
 	}{
 		{
-			"test String method for tcp transport protocal",
+			"test String method for tcp transport protocol",
 			TransportProtocolTCP,
 			"tcp",
 		},
 		{
-			"test String method for quic transport protocal",
+			"test String method for quic transport protocol",
 			TransportProtocolQUIC,
 			"quic",
 		},
 		{
-			"test String method for invalid transport protocal",
+			"test String method for invalid transport protocol",
 			3,
 			"unknown",
 		},
@@ -275,7 +275,7 @@ func TestString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := TransportProtocol.String(TransportProtocol(tt.value)); got != tt.want {
+			if got := TransportProtocol(tt.value).String(); got != tt.want {
 				t.Errorf("Failed to get TransportProtocol.String :: got = %v, want %v", got, tt.want)
 			}
 		})
