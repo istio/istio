@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 39162
+
+releaseNotes:
+- |
+  **Fixed** fix envoy cluster metrics prometheus name (#39143)[https://github.com/istio/istio/issues/39143).
