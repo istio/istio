@@ -75,7 +75,6 @@ func TestRequestAuthentication(t *testing.T) {
 						ConditionallyTo(echotest.ReachableDestinations).
 						ToMatch(util.DestMatcher(ns, true)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							for _, c := range cases {
 								t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 									opts := echo.CallOptions{
@@ -83,7 +82,6 @@ func TestRequestAuthentication(t *testing.T) {
 										Port: echo.Port{
 											Name: "http",
 										},
-										Count: callCount,
 									}
 
 									// Apply any custom options for the test.
@@ -396,7 +394,8 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			ns := apps.Namespace1
 
 			// Apply the policy.
-			t.ConfigIstio().EvalFile(newRootNS(t).Name(), map[string]string{
+			systemNS := istio.ClaimSystemNamespaceOrFail(t, t)
+			t.ConfigIstio().EvalFile(systemNS.Name(), map[string]string{
 				"Namespace":     ns.Name(),
 				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}, "testdata/requestauthn/global-jwt.yaml.tmpl").ApplyOrFail(t, apply.Wait)
@@ -426,7 +425,6 @@ func TestIngressRequestAuthentication(t *testing.T) {
 						}).
 						ToMatch(util.DestMatcher(ns, false)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							for _, c := range cases {
 								t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 									opts := echo.CallOptions{
@@ -434,7 +432,6 @@ func TestIngressRequestAuthentication(t *testing.T) {
 										Port: echo.Port{
 											Name: "http",
 										},
-										Count: callCount,
 									}
 
 									// Apply any custom options for the test.
