@@ -11,6 +11,9 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 // TODO merge https://github.com/envoyproxy/envoy/pull/19435
 replace github.com/envoyproxy/go-control-plane => github.com/stevenctl/go-control-plane v0.10.2-0.20220426172517-14a8eb229f41
 
+// TODO replace when merged with OSS project
+replace istio.io/api => github.com/solo-io/istio-api-sidecarless v0.0.0-20220513171139-b76e722b2e0e
+
 require (
 	cloud.google.com/go/compute v1.6.1
 	cloud.google.com/go/security v1.3.0
@@ -87,7 +90,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.8.2
-	istio.io/api v0.0.0-20220505220656-579e7e6982e1
+	istio.io/api v0.0.0-20220523183528-706b04d34c0f
 	istio.io/client-go v1.12.0-alpha.5.0.20220505221157-09ee06bb9680
 	istio.io/pkg v0.0.0-20220503155136-6392f74eaba4
 	k8s.io/api v0.23.6

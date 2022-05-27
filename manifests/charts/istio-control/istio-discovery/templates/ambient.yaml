@@ -1,21 +1,29 @@
+{{- if not (eq .Values.meshConfig.ambientMesh.mode "OFF") }}
 apiVersion: v1
 kind: ServiceAccount
-metadata:
-  name: "uproxy"
-  namespace: {{ .Release.Namespace }}
----
-{{- if eq .Values.uproxyType "kind" }}
-apiVersion: v1
-kind: ServiceAccount
+  {{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+  {{- range .Values.global.imagePullSecrets }}
+  - name: {{ . }}
+  {{- end }}
+  {{- end }}
 metadata:
   name: uproxy
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: uproxy
+    release: {{ .Release.Name }}
 ---
+{{- if eq .Values.uproxyType "kind" }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: uproxy
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{- range $key, $val := .Values.uproxy.deploymentLabels }}
+    {{ $key }}: "{{ $val }}"
+{{- end }}
 spec:
   selector:
     matchLabels:
@@ -25,13 +33,25 @@ spec:
       labels:
         app: uproxy
         ambient-type: uproxy
+        {{- range $key, $val := .Values.uproxy.podLabels }}
+        {{ $key }}: "{{ $val }}"
+        {{- end }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        {{- if .Values.uproxy.podAnnotations }}
+{{ toYaml .Values.uproxy.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: uproxy
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: istio-proxy
-        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- if contains "/" .Values.uproxy.image }}
+        image: "{{ .Values.uproxy.image }}"
+{{- else }}
+        image: "{{ .Values.uproxy.hub | default .Values.global.hub }}/{{ .Values.uproxy.image | default "proxyv2" }}:{{ .Values.uproxy.tag | default .Values.global.tag }}"
+{{- end }}
         imagePullPolicy: Always
         securityContext:
           capabilities:
@@ -71,6 +91,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        {{- if .Values.uproxy.env }}
+        {{- range $key, $val := .Values.uproxy.env }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
@@ -98,6 +124,10 @@ kind: DaemonSet
 metadata:
   name: uproxy
   namespace: {{ .Release.Namespace }}
+  labels:
+{{- range $key, $val := .Values.uproxy.deploymentLabels }}
+    {{ $key }}: "{{ $val }}"
+{{- end }}
 spec:
   selector:
     matchLabels:
@@ -107,11 +137,22 @@ spec:
       labels:
         app: uproxy
         asm-type: proxy
+        {{- range $key, $val := .Values.uproxy.podLabels }}
+        {{ $key }}: "{{ $val }}"
+        {{- end }}
+      annotations:
+        {{- if .Values.uproxy.podAnnotations }}
+{{ toYaml .Values.uproxy.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: uproxy
       initContainers:
       - name: istio-init
-        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- if contains "/" .Values.uproxy.image }}
+        image: "{{ .Values.uproxy.image }}"
+{{- else }}
+        image: "{{ .Values.uproxy.hub | default .Values.global.hub }}/{{ .Values.uproxy.image | default "proxyv2" }}:{{ .Values.uproxy.tag | default .Values.global.tag }}"
+{{- end }}
         securityContext:
           privileged: true
           capabilities:
@@ -142,9 +183,19 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        {{- if .Values.uproxy.env }}
+        {{- range $key, $val := .Values.uproxy.env }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
       containers:
       - name: istio-proxy
-        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- if contains "/" .Values.uproxy.image }}
+        image: "{{ .Values.uproxy.image }}"
+{{- else }}
+        image: "{{ .Values.uproxy.hub | default .Values.global.hub }}/{{ .Values.uproxy.image | default "proxyv2" }}:{{ .Values.uproxy.tag | default .Values.global.tag }}"
+{{- end }}
         readinessProbe:
           httpGet:
             port: 15020 # TODO: use 15021, but it spams logs
@@ -179,6 +230,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        {{- if .Values.uproxy.env }}
+        {{- range $key, $val := .Values.uproxy.env }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
@@ -205,4 +262,5 @@ spec:
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
+{{- end }}
 {{- end }}
