@@ -453,7 +453,8 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 			name:       "Credential test with buildin gateway secret type URI",
 			secretName: "builtin://",
 			expected:   defaultSDSConfig,
-		}, {
+		},
+		{
 			name:       "Credential test with buildin gateway secret type URI and Suffix",
 			secretName: "builtin://-cacert",
 			expected:   rootSDSConfig,
