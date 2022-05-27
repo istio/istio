@@ -98,8 +98,32 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			ListenerProtocolAuto,
 		},
 		{
+			"Outbound unknown to Auto (disable sniffing for outbound)",
+			protocol.Unsupported,
+			core.TrafficDirection_OUTBOUND,
+			true,
+			false,
+			ListenerProtocolTCP,
+		},
+		{
 			"Inbound unknown to Auto (disable sniffing for outbound)",
 			protocol.Unsupported,
+			core.TrafficDirection_INBOUND,
+			true,
+			false,
+			ListenerProtocolAuto,
+		},
+		{
+			"UDP to UDP",
+			protocol.UDP,
+			core.TrafficDirection_INBOUND,
+			true,
+			false,
+			ListenerProtocolUnknown,
+		},
+		{
+			"Unknown Protocol",
+			"Bad Protocol",
 			core.TrafficDirection_INBOUND,
 			true,
 			false,
@@ -113,6 +137,146 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			test.SetBoolForTest(t, &features.EnableProtocolSniffingForInbound, tt.sniffingEnabledForInbound)
 			if got := ModelProtocolToListenerProtocol(tt.protocol, tt.direction); got != tt.want {
 				t.Errorf("ModelProtocolToListenerProtocol() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMakeTunnelAbility(t *testing.T) {
+	tests := []struct {
+		name  string
+		value TunnelType
+		want  TunnelAbility
+	}{
+		{
+			"test TunnelAbility method for H2Tunnel",
+			H2Tunnel,
+			1,
+		},
+		{
+			"test TunnelAbility method for NoTunnel",
+			NoTunnel,
+			0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := MakeTunnelAbility(tt.value); got != tt.want {
+				t.Errorf("Failed to get MakeTunnelAbility: got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestToString(t *testing.T) {
+	tests := []struct {
+		name  string
+		value TunnelType
+		want  string
+	}{
+		{
+			"test ToString method for H2Tunnel",
+			H2Tunnel,
+			"H2Tunnel",
+		},
+		{
+			"test ToString method for NoTunnel",
+			NoTunnel,
+			"notunnel",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.value.ToString(); got != tt.want {
+				t.Errorf("Failed to get ToString: got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSupportH2Tunnel(t *testing.T) {
+	tests := []struct {
+		name  string
+		value TunnelType
+		want  bool
+	}{
+		{
+			"test SupportH2Tunnel method for NoTunnel",
+			NoTunnel,
+			false,
+		},
+		{
+			"test SupportH2Tunnel method for H2Tunnel",
+			H2Tunnel,
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TunnelAbility(tt.value).SupportH2Tunnel(); got != tt.want {
+				t.Errorf("Failed to get SupportH2Tunnel:: got = %v, want = %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestToEnvoySocketProtocol(t *testing.T) {
+	tests := []struct {
+		name  string
+		value TunnelType
+		want  core.SocketAddress_Protocol
+	}{
+		{
+			"test ToEnvoySocketProtocol method for Notunnel",
+			NoTunnel,
+			0,
+		},
+		{
+			"test ToEnvoySocketProtocol method for H2Tunnel",
+			H2Tunnel,
+			1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TransportProtocol(tt.value).ToEnvoySocketProtocol(); got != tt.want {
+				t.Errorf("Failed to get ToEnvoySocketProtocol:: got = %v, want = %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestString(t *testing.T) {
+	tests := []struct {
+		name  string
+		value uint
+		want  string
+	}{
+		{
+			"test String method for tcp transport protocol",
+			TransportProtocolTCP,
+			"tcp",
+		},
+		{
+			"test String method for quic transport protocol",
+			TransportProtocolQUIC,
+			"quic",
+		},
+		{
+			"test String method for invalid transport protocol",
+			3,
+			"unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TransportProtocol(tt.value).String(); got != tt.want {
+				t.Errorf("Failed to get TransportProtocol.String :: got = %v, want %v", got, tt.want)
 			}
 		})
 	}
