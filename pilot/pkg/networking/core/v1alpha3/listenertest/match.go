@@ -126,10 +126,10 @@ func VerifyListener(t test.Failer, l *listener.Listener, lt ListenerTest) {
 	if lt.Filters != nil {
 		if lt.TotalMatch {
 			assert.Equal(t, lt.Filters, haveFilters, l.Name+": listener filters should be equal")
-		}
-	} else {
-		if missing := sets.New(lt.Filters...).Difference(sets.New(haveFilters...)).SortedList(); len(missing) > 0 {
-			t.Fatalf("%v: missing listener filters: %v", l.Name, missing)
+		} else {
+			if missing := sets.New(lt.Filters...).Difference(sets.New(haveFilters...)).SortedList(); len(missing) > 0 {
+				t.Fatalf("%v: missing listener filters: %v", l.Name, missing)
+			}
 		}
 	}
 
@@ -147,21 +147,9 @@ func VerifyListener(t test.Failer, l *listener.Listener, lt ListenerTest) {
 			// Now check they are equivalent
 			for i := range lt.FilterChains {
 				have := l.FilterChains[i]
-				haveType := classifyFilterChain(have)
 				want := lt.FilterChains[i]
-				context := func(s string) string {
-					return fmt.Sprintf("%v/%v: %v", have.Name, haveType, s)
-				}
-				if want.Name != "" {
-					assert.Equal(t, want.Name, have.Name, context("name should be equal"))
-				}
-				if want.Type != "" {
-					assert.Equal(t, want.Type, haveType, context("type should be equal"))
-				}
-				if want.Port != 0 {
-					assert.Equal(t, want.Port, have.GetFilterChainMatch().GetDestinationPort().GetValue(), context("port should be equal"))
-				}
-				assertFilterChain(t, have, want)
+
+				VerifyFilterChain(t, have, want)
 			}
 		} else {
 			for _, want := range lt.FilterChains {
@@ -178,7 +166,7 @@ func VerifyListener(t test.Failer, l *listener.Listener, lt ListenerTest) {
 						continue
 					}
 					found++
-					assertFilterChain(t, have, want)
+					VerifyFilterChain(t, have, want)
 				}
 				if found == 0 {
 					t.Fatalf("No matching chain found for %+v", want)
@@ -191,11 +179,20 @@ func VerifyListener(t test.Failer, l *listener.Listener, lt ListenerTest) {
 	}
 }
 
-func assertFilterChain(t test.Failer, have *listener.FilterChain, want FilterChainTest) {
+func VerifyFilterChain(t test.Failer, have *listener.FilterChain, want FilterChainTest) {
 	t.Helper()
 	haveType := classifyFilterChain(have)
 	context := func(s string) string {
 		return fmt.Sprintf("%v/%v: %v", have.Name, haveType, s)
+	}
+	if want.Name != "" {
+		assert.Equal(t, want.Name, have.Name, context("name should be equal"))
+	}
+	if want.Type != "" {
+		assert.Equal(t, want.Type, haveType, context("type should be equal"))
+	}
+	if want.Port != 0 {
+		assert.Equal(t, want.Port, have.GetFilterChainMatch().GetDestinationPort().GetValue(), context("port should be equal"))
 	}
 	haveNetwork, haveHTTP := xdstest.ExtractFilterNames(t, have)
 	if want.TotalMatch {
@@ -207,10 +204,10 @@ func assertFilterChain(t test.Failer, have *listener.FilterChain, want FilterCha
 		}
 	} else {
 		if missing := sets.New(want.NetworkFilters...).Difference(sets.New(haveNetwork...)).SortedList(); len(missing) > 0 {
-			t.Fatalf("%v/%v: missing network filters: %v", have.Name, haveType, missing)
+			t.Fatalf("%v/%v: missing network filters: %v, have %v", have.Name, haveType, missing, haveNetwork)
 		}
 		if missing := sets.New(want.HTTPFilters...).Difference(sets.New(haveHTTP...)).SortedList(); len(missing) > 0 {
-			t.Fatalf("%v/%v: missing network filters: %v", have.Name, haveType, missing)
+			t.Fatalf("%v/%v: missing network filters: %v, have %v", have.Name, haveType, missing, haveHTTP)
 		}
 	}
 	if want.ValidateHCM != nil {

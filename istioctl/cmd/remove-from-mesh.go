@@ -212,7 +212,8 @@ The typical usage scenario is Mesh Expansion on VMs.`,
 }
 
 func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.Deployment,
-	svcName, svcNamespace string, writer io.Writer) error {
+	svcName, svcNamespace string, writer io.Writer,
+) error {
 	var errs error
 	name := strings.Join([]string{svcName, svcNamespace}, ".")
 	for _, dep := range deps {
@@ -287,7 +288,8 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 
 // removeServiceOnVMFromMesh removes the Service Entry and K8s service for the specified external service
 func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernetes.Interface, ns string,
-	svcName string, writer io.Writer) error {
+	svcName string, writer io.Writer,
+) error {
 	// Pre-check Kubernetes service and service entry does not exist.
 	_, err := client.CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
 	if err != nil {

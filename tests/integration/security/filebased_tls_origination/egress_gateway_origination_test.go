@@ -129,7 +129,8 @@ func TestEgressGatewayTls(t *testing.T) {
 						t.ConfigIstio().YAML(systemNamespace.Name(), bufDestinationRule.String()).ApplyOrFail(t)
 
 						opts := echo.CallOptions{
-							To: externalServer,
+							To:    externalServer,
+							Count: 1,
 							Port: echo.Port{
 								Name: "http",
 							},
@@ -213,7 +214,8 @@ spec:
 )
 
 func createDestinationRule(t framework.TestContext, serviceNamespace namespace.Instance,
-	destinationRuleMode string, fakeRootCert bool) bytes.Buffer {
+	destinationRuleMode string, fakeRootCert bool,
+) bytes.Buffer {
 	var destinationRuleToParse string
 	var rootCertPathToUse string
 	if destinationRuleMode == "MUTUAL" {

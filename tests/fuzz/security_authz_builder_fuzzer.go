@@ -18,10 +18,10 @@
 package builder
 
 import (
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
+
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-
-	fuzz "github.com/AdaLogics/go-fuzz-headers"
 )
 
 func InternalFuzzBuildHTTP(data []byte) int {
@@ -34,13 +34,26 @@ func InternalFuzzBuildHTTP(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if in.Push == nil {
+		return 0
+	}
+	if in.Push.AuthzPolicies == nil {
+		return 0
+	}
+	if in.Node == nil {
+		return 0
+	}
+	if in.Node.Metadata == nil {
+		return 0
+	}
 
+	policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
 	option := Option{}
 	err = f.GenerateStruct(&option)
 	if err != nil {
 		return 0
 	}
-	g := New(bundle, in, option)
+	g := New(bundle, in.Push, policies, option)
 	if g == nil {
 		return 0
 	}
@@ -58,13 +71,26 @@ func InternalFuzzBuildTCP(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if in.Push == nil {
+		return 0
+	}
+	if in.Push.AuthzPolicies == nil {
+		return 0
+	}
+	if in.Node == nil {
+		return 0
+	}
+	if in.Node.Metadata == nil {
+		return 0
+	}
 
+	policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
 	option := Option{}
 	err = f.GenerateStruct(&option)
 	if err != nil {
 		return 0
 	}
-	g := New(bundle, in, option)
+	g := New(bundle, in.Push, policies, option)
 	if g == nil {
 		return 0
 	}

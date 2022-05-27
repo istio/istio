@@ -21,10 +21,8 @@ package plugin
 
 import "errors"
 
-var (
-	// ErrNotImplemented is returned when a requested feature is not implemented.
-	ErrNotImplemented = errors.New("not implemented")
-)
+// ErrNotImplemented is returned when a requested feature is not implemented.
+var ErrNotImplemented = errors.New("not implemented")
 
 // Program defines a method which programs iptables based on the parameters
 // provided in Redirect.

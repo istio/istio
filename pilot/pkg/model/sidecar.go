@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -351,7 +352,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 				Namespace: vs.Namespace,
 			})
 
-			for _, h := range virtualServiceDestinationHosts(v) {
+			for h, ports := range virtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
 				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
@@ -359,7 +360,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 					if matchPort {
 						vss = serviceMatchingListenerPort(s, listener)
 					} else {
-						vss = s
+						vss = serviceMatchingVirtualServicePorts(s, ports)
 					}
 					if vss != nil {
 						addService(vss)
@@ -390,7 +391,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						if matchPort {
 							vss = serviceMatchingListenerPort(byNamespace[ns[0]], listener)
 						} else {
-							vss = byNamespace[ns[0]]
+							vss = serviceMatchingVirtualServicePorts(byNamespace[ns[0]], ports)
 						}
 						if vss != nil {
 							addService(vss)
@@ -437,7 +438,8 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 }
 
 func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
-	istioListener *networking.IstioEgressListener) *IstioEgressListenerWrapper {
+	istioListener *networking.IstioEgressListener,
+) *IstioEgressListenerWrapper {
 	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
 	}
@@ -660,6 +662,40 @@ func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapp
 			return sc
 		}
 	}
+	return nil
+}
+
+func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.IntSet) *Service {
+	// A value of 0 in vsDestPorts is used as a sentinel to indicate a dependency
+	// on every port of the service.
+	if len(vsDestPorts) == 0 || vsDestPorts.Contains(0) {
+		return service
+	}
+
+	foundPorts := make([]*Port, 0)
+	for _, port := range service.Ports {
+		if vsDestPorts.Contains(port.Port) {
+			foundPorts = append(foundPorts, port)
+		}
+	}
+
+	if len(foundPorts) == len(service.Ports) {
+		return service
+	}
+
+	if len(foundPorts) > 0 {
+		sc := service.DeepCopy()
+		sc.Ports = foundPorts
+		return sc
+	}
+
+	// If the service has more than one port, and the Virtual Service only
+	// specifies destination ports not found in the service, we'll simply
+	// not add the service to the sidecar as an optimization, because
+	// traffic will not route properly anyway. This matches the above
+	// behavior in serviceMatchingListenerPort for ports specified on the
+	// sidecar egress listener.
+	log.Warnf("Failed to find any VirtualService destination ports %v exposed by Service %s", vsDestPorts, service.Hostname)
 	return nil
 }
 

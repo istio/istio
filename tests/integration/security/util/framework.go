@@ -45,9 +45,6 @@ const (
 	NakedSvc         = "naked"
 	HeadlessNakedSvc = "headless-naked"
 	ExternalSvc      = "external"
-
-	// CallsPerCluster is used to ensure cross-cluster load balancing has a chance to work
-	CallsPerCluster = 5
 )
 
 type EchoDeployments struct {

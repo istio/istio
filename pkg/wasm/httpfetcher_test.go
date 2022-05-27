@@ -84,7 +84,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 				gotNumRequest++
 			}))
 			defer ts.Close()
-			fetcher := NewHTTPFetcher(1 * time.Second)
+			fetcher := NewHTTPFetcher(DefaultHTTPRequestTimeout, DefaultHTTPRequestMaxRetries)
 			fetcher.initialBackoff = time.Microsecond
 			ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 			defer cancel()
@@ -143,7 +143,7 @@ func TestWasmHTTPInsecureServer(t *testing.T) {
 				gotNumRequest++
 			}))
 			defer ts.Close()
-			fetcher := NewHTTPFetcher(1 * time.Second)
+			fetcher := NewHTTPFetcher(DefaultHTTPRequestTimeout, DefaultHTTPRequestMaxRetries)
 			fetcher.initialBackoff = time.Microsecond
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()

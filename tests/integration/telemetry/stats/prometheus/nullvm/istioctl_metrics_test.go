@@ -40,7 +40,7 @@ func TestIstioctlMetrics(t *testing.T) {
 				if err := common.SendTraffic(common.GetClientInstances()[0]); err != nil {
 					return err
 				}
-				return validateDefaultOutput(t, "server")
+				return validateDefaultOutput(t, common.GetTarget().Config().Service)
 			}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 		})
 }

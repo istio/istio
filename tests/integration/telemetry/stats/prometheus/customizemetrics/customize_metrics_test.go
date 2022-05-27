@@ -51,10 +51,9 @@ var (
 )
 
 const (
-	removedTag            = "source_principal"
-	requestCountMultipler = 3
-	httpProtocol          = "http"
-	grpcProtocol          = "grpc"
+	removedTag   = "source_principal"
+	httpProtocol = "http"
+	grpcProtocol = "grpc"
 
 	// Same user name and password as specified at pkg/test/fakes/imageregistry
 	registryUser   = "user"
@@ -85,14 +84,16 @@ func TestCustomizeMetrics(t *testing.T) {
 				}
 				var err error
 				if !httpChecked {
-					httpMetricVal, err = common.QueryPrometheus(t, t.Clusters().Default(), httpDestinationQuery, promInst)
+					httpMetricVal, err = common.QueryPrometheus(t, cluster, httpDestinationQuery, promInst)
 					if err != nil {
+						util.PromDiff(t, promInst, cluster, httpDestinationQuery)
 						return err
 					}
 					httpChecked = true
 				}
-				_, err = common.QueryPrometheus(t, t.Clusters().Default(), grpcDestinationQuery, promInst)
+				_, err = common.QueryPrometheus(t, cluster, grpcDestinationQuery, promInst)
 				if err != nil {
+					util.PromDiff(t, promInst, cluster, grpcDestinationQuery)
 					return err
 				}
 				return nil
@@ -266,7 +267,6 @@ func setupWasmExtension(ctx resource.Context) error {
 
 func sendTraffic() error {
 	for _, cltInstance := range client {
-		count := requestCountMultipler * server.MustWorkloads().Len()
 		httpOpts := echo.CallOptions{
 			To: server,
 			Port: echo.Port{
@@ -276,7 +276,6 @@ func sendTraffic() error {
 				Path:   "/path",
 				Method: "GET",
 			},
-			Count: count,
 			Retry: echo.Retry{
 				NoRetry: true,
 			},
@@ -296,7 +295,6 @@ func sendTraffic() error {
 			Port: echo.Port{
 				Name: "grpc",
 			},
-			Count: count,
 		}
 		if _, err := cltInstance.Call(grpcOpts); err != nil {
 			return err

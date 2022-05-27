@@ -566,6 +566,8 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	}
 	c.Unlock()
 
+	// This full push needed to update ALL ends endpoints, even though we do a full push on service add/update
+	// as that full push is only triggered for the specific service.
 	if needsFullPush {
 		// networks are different, we need to update all eds endpoints
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
@@ -995,7 +997,8 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 }
 
 func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.Port,
-	targetPort serviceTargetPort, wi *model.WorkloadInstance) *model.ServiceInstance {
+	targetPort serviceTargetPort, wi *model.WorkloadInstance,
+) *model.ServiceInstance {
 	// create an instance with endpoint whose service port name matches
 	istioEndpoint := *wi.Endpoint
 
@@ -1311,7 +1314,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 }
 
 func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
-	service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
+	service *v1.Service, proxy *model.Proxy,
+) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 
 	for _, svc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(service)) {

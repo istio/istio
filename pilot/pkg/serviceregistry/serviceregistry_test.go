@@ -59,7 +59,8 @@ func setupTest(t *testing.T) (
 	*serviceentry.Controller,
 	model.ConfigStoreController,
 	kubernetes.Interface,
-	*xds.FakeXdsUpdater) {
+	*xds.FakeXdsUpdater,
+) {
 	t.Helper()
 	client := kubeclient.NewFakeClient()
 
@@ -1330,7 +1331,8 @@ func createEndpointSlice(t *testing.T, c kubernetes.Interface, name, serviceName
 
 // nolint: unparam
 func createEndpointSliceWithType(t *testing.T, c kubernetes.Interface, name, serviceName, namespace string,
-	ports []v1.EndpointPort, ips []string, addrType discovery.AddressType) {
+	ports []v1.EndpointPort, ips []string, addrType discovery.AddressType,
+) {
 	esps := make([]discovery.EndpointPort, 0)
 	for _, name := range ports {
 		n := name // Create a stable reference to take the pointer from

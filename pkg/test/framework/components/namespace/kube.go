@@ -116,30 +116,44 @@ func (n *kubeNamespace) ID() resource.ID {
 	return n.id
 }
 
-// Close implements io.Closer
 func (n *kubeNamespace) Close() error {
-	// Clear out the name to mark this namespace as closed.
-	n.name = ""
+	// Get the cleanup funcs and clear the array to prevent us from cleaning up multiple times.
+	n.cleanupMutex.Lock()
+	cleanupFuncs := n.cleanupFuncs
+	n.cleanupFuncs = nil
+	n.cleanupMutex.Unlock()
 
-	err := n.doCleanup()
+	// Perform the cleanup across all clusters concurrently.
+	var err error
+	if len(cleanupFuncs) > 0 {
+		scopes.Framework.Debugf("%s deleting namespace", n.id)
+
+		g := multierror.Group{}
+		for _, cleanup := range cleanupFuncs {
+			g.Go(cleanup)
+		}
+
+		err = g.Wait().ErrorOrNil()
+	}
+
 	scopes.Framework.Debugf("%s close complete (err:%v)", n.id, err)
 	return err
 }
 
-func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
+func claimKube(ctx resource.Context, cfg *Config) (Instance, error) {
+	name := cfg.Prefix
 	n := &kubeNamespace{
 		ctx:    ctx,
-		prefix: nsConfig.Prefix,
-		name:   nsConfig.Prefix,
+		prefix: name,
+		name:   name,
 	}
 
 	id := ctx.TrackResource(n)
 	n.id = id
-	name := nsConfig.Prefix
 
 	if err := n.forEachCluster(func(_ int, c cluster.Cluster) error {
 		if !kube2.NamespaceExists(c.Kube(), name) {
-			return n.createInCluster(c, nsConfig)
+			return n.createInCluster(c, cfg)
 		}
 		return nil
 	}); err != nil {
@@ -154,10 +168,9 @@ func (n *kubeNamespace) setNamespaceLabel(key, value string) error {
 	// need to convert '/' to '~1' as per the JSON patch spec http://jsonpatch.com/#operations
 	jsonPatchEscapedKey := strings.ReplaceAll(key, "/", "~1")
 	nsLabelPatch := fmt.Sprintf(`[{"op":"replace","path":"/metadata/labels/%s","value":"%s"}]`, jsonPatchEscapedKey, value)
-	name := n.name
 
 	return n.forEachCluster(func(_ int, c cluster.Cluster) error {
-		_, err := c.Kube().CoreV1().Namespaces().Patch(context.TODO(), name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{})
+		_, err := c.Kube().CoreV1().Namespaces().Patch(context.TODO(), n.name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{})
 		return err
 	})
 }
@@ -176,24 +189,24 @@ func (n *kubeNamespace) removeNamespaceLabel(key string) error {
 }
 
 // NewNamespace allocates a new testing namespace.
-func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
+func newKube(ctx resource.Context, cfg *Config) (Instance, error) {
 	mu.Lock()
 	idctr++
 	nsid := idctr
 	r := rnd.Intn(99999)
 	mu.Unlock()
 
-	name := fmt.Sprintf("%s-%d-%d", nsConfig.Prefix, nsid, r)
+	name := fmt.Sprintf("%s-%d-%d", cfg.Prefix, nsid, r)
 	n := &kubeNamespace{
 		name:   name,
-		prefix: nsConfig.Prefix,
+		prefix: cfg.Prefix,
 		ctx:    ctx,
 	}
 	id := ctx.TrackResource(n)
 	n.id = id
 
 	if err := n.forEachCluster(func(_ int, c cluster.Cluster) error {
-		return n.createInCluster(c, nsConfig)
+		return n.createInCluster(c, cfg)
 	}); err != nil {
 		return nil, err
 	}
@@ -239,25 +252,6 @@ func (n *kubeNamespace) addCleanup(fn func() error) {
 	n.cleanupMutex.Lock()
 	defer n.cleanupMutex.Unlock()
 	n.cleanupFuncs = append(n.cleanupFuncs, fn)
-}
-
-func (n *kubeNamespace) doCleanup() error {
-	n.cleanupMutex.Lock()
-	cleanupFuncs := n.cleanupFuncs
-	n.cleanupFuncs = nil
-	n.cleanupMutex.Unlock()
-
-	if len(cleanupFuncs) > 0 {
-		scopes.Framework.Debugf("%s deleting namespace", n.id)
-
-		g := multierror.Group{}
-		for _, cleanup := range cleanupFuncs {
-			g.Go(cleanup)
-		}
-
-		return g.Wait().ErrorOrNil()
-	}
-	return nil
 }
 
 // createNamespaceLabels will take a namespace config and generate the proper k8s labels

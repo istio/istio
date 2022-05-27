@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 	sdstlsutil "istio.io/istio/tests/integration/security/sds_tls_origination/util"
-	"istio.io/istio/tests/integration/security/util"
 )
 
 // TestSimpleTlsOrigination test SIMPLE TLS mode with TLS origination happening at Gateway proxy
@@ -328,7 +327,8 @@ spec:
 
 // Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
 func CreateDestinationRule(t framework.TestContext, to echo.Instances,
-	destinationRuleMode string, credentialName string) {
+	destinationRuleMode string, credentialName string,
+) {
 	args := map[string]interface{}{
 		"to":             to,
 		"Mode":           destinationRuleMode,
@@ -352,8 +352,7 @@ type TLSTestCase struct {
 
 func CallOpts(to echo.Target, host string, tc TLSTestCase) echo.CallOptions {
 	return echo.CallOptions{
-		To:    to,
-		Count: util.CallsPerCluster * to.MustWorkloads().Len(),
+		To: to,
 		Port: echo.Port{
 			Name: "http",
 		},

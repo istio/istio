@@ -26,13 +26,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
+	sa "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	listersv1 "k8s.io/client-go/listers/core/v1"
-	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/credentials"
@@ -63,8 +61,6 @@ type CredentialsController struct {
 	secretInformer cache.SharedIndexInformer
 	secretLister   listersv1.SecretLister
 	sar            authorizationv1client.SubjectAccessReviewInterface
-
-	clusterID cluster.ID
 
 	mu                 sync.RWMutex
 	authorizationCache map[authorizationKey]authorizationResponse
@@ -100,17 +96,11 @@ func NewCredentialsController(client kube.Client, clusterID cluster.ID) *Credent
 	})
 
 	return &CredentialsController{
-		secretInformer: informer,
-		secretLister:   listersv1.NewSecretLister(informer.GetIndexer()),
-
+		secretInformer:     informer,
+		secretLister:       listersv1.NewSecretLister(informer.GetIndexer()),
 		sar:                client.Kube().AuthorizationV1().SubjectAccessReviews(),
-		clusterID:          clusterID,
 		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
-}
-
-func toUser(serviceAccount, namespace string) string {
-	return fmt.Sprintf("system:serviceaccount:%s:%s", namespace, serviceAccount)
 }
 
 const cacheTTL = time.Minute
@@ -156,19 +146,8 @@ func (s *CredentialsController) insertCache(user string, response error) {
 	}
 }
 
-// DisableAuthorizationForTest makes the authorization check always pass. Should be used only for tests.
-func DisableAuthorizationForTest(fake *fake.Clientset) {
-	fake.Fake.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		return true, &authorizationv1.SubjectAccessReview{
-			Status: authorizationv1.SubjectAccessReviewStatus{
-				Allowed: true,
-			},
-		}, nil
-	})
-}
-
 func (s *CredentialsController) Authorize(serviceAccount, namespace string) error {
-	user := toUser(serviceAccount, namespace)
+	user := sa.MakeUsername(namespace, serviceAccount)
 	if cached, f := s.cachedAuthorization(user); f {
 		return cached
 	}

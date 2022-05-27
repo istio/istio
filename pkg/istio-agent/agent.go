@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
@@ -49,6 +50,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -204,7 +206,7 @@ type AgentOptions struct {
 
 	IstiodSAN string
 
-	WASMInsecureRegistries []string
+	WASMOptions wasm.Options
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -508,11 +510,56 @@ func (a *Agent) initSdsServer() error {
 	if err != nil {
 		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
-	pkpConf := a.proxyConfig.GetPrivateKeyProvider()
-	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache, pkpConf)
-	a.secretCache.RegisterSecretHandler(a.sdsServer.OnSecretUpdate)
+	if a.cfg.DisableEnvoy {
+		// For proxyless we don't need an SDS server, but still need the keys and
+		// we need them refreshed periodically.
+		//
+		// This is based on the code from newSDSService, but customized to have explicit rotation.
+		go func() {
+			st := a.secretCache
+			st.RegisterSecretHandler(func(resourceName string) {
+				// The secret handler is called when a secret should be renewed, after invalidating the cache.
+				// The handler does not call GenerateSecret - it is a side-effect of the SDS generate() method, which
+				// is called by sdsServer.OnSecretUpdate, which triggers a push and eventually calls sdsservice.Generate
+				// TODO: extract the logic to detect expiration time, and use a simpler code to rotate to files.
+				_, _ = a.getWorkloadCerts(st)
+			})
+			_, _ = a.getWorkloadCerts(st)
+		}()
+	} else {
+		pkpConf := a.proxyConfig.GetPrivateKeyProvider()
+		a.sdsServer = sds.NewServer(a.secOpts, a.secretCache, pkpConf)
+		a.secretCache.RegisterSecretHandler(a.sdsServer.OnSecretUpdate)
+	}
 
 	return nil
+}
+
+// getWorkloadCerts will attempt to get a cert, with infinite exponential backoff
+// It will not return until both workload cert and root cert are generated.
+//
+// TODO: evaluate replacing the STS server with a file data source, to simplify Envoy config
+func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.SecretItem, err error) {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 0
+
+	for {
+		sk, err = st.GenerateSecret(security.WorkloadKeyCertResourceName)
+		if err == nil {
+			break
+		}
+		log.Warnf("failed to get certificate: %v", err)
+		time.Sleep(b.NextBackOff())
+	}
+	for {
+		_, err := st.GenerateSecret(security.RootCertReqResourceName)
+		if err == nil {
+			break
+		}
+		log.Warnf("failed to get root certificate: %v", err)
+		time.Sleep(b.NextBackOff())
+	}
+	return
 }
 
 func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {

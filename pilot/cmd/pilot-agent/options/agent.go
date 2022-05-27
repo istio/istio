@@ -23,6 +23,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	istioagent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wasm"
 )
 
 // Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.
@@ -30,15 +32,21 @@ const xdsHeaderPrefix = "XDS_HEADER_"
 
 func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
 	o := &istioagent.AgentOptions{
-		XDSRootCerts:                xdsRootCA,
-		CARootCerts:                 caRootCA,
-		XDSHeaders:                  map[string]string{},
-		XdsUdsPath:                  filepath.Join(cfg.ConfigPath, "XDS"),
-		IsIPv6:                      proxy.IsIPv6(),
-		ProxyType:                   proxy.Type,
-		EnableDynamicProxyConfig:    enableProxyConfigXdsEnv,
-		EnableDynamicBootstrap:      enableBootstrapXdsEnv,
-		WASMInsecureRegistries:      strings.Split(wasmInsecureRegistries, ","),
+		XDSRootCerts:             xdsRootCA,
+		CARootCerts:              caRootCA,
+		XDSHeaders:               map[string]string{},
+		XdsUdsPath:               filepath.Join(cfg.ConfigPath, "XDS"),
+		IsIPv6:                   proxy.IsIPv6(),
+		ProxyType:                proxy.Type,
+		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
+		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
+		WASMOptions: wasm.Options{
+			InsecureRegistries:    sets.New(strings.Split(wasmInsecureRegistries, ",")...),
+			ModuleExpiry:          wasmModuleExpiry,
+			PurgeInterval:         wasmPurgeInterval,
+			HTTPRequestTimeout:    wasmHTTPRequestTimeout,
+			HTTPRequestMaxRetries: wasmHTTPRequestMaxRetries,
+		},
 		ProxyIPAddresses:            proxy.IPAddresses,
 		ServiceNode:                 proxy.ServiceNode(),
 		EnvoyStatusPort:             envoyStatusPortEnv,

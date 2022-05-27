@@ -291,7 +291,8 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 
 // Creates all the relevant config for the given workload group and cluster
 func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP, internalIP,
-	externalIP string, outputDir string, out io.Writer) error {
+	externalIP string, outputDir string, out io.Writer,
+) error {
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
 	}
@@ -352,7 +353,7 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 	}
 
 	if isRevisioned(revision) {
-		overrides["CA_ADDR"] = istiodAddr(revision)
+		overrides["CA_ADDR"] = IstiodAddr(istioNamespace, revision)
 	}
 	if len(internalIP) > 0 {
 		overrides["ISTIO_SVC_IP"] = internalIP
@@ -456,7 +457,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		return nil, err
 	}
 	if isRevisioned(revision) && meshConfig.DefaultConfig.DiscoveryAddress == "" {
-		meshConfig.DefaultConfig.DiscoveryAddress = istiodAddr(revision)
+		meshConfig.DefaultConfig.DiscoveryAddress = IstiodAddr(istioNamespace, revision)
 	}
 
 	// performing separate map-merge, apply seems to completely overwrite all metadata
@@ -576,10 +577,10 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision
 
 	var hosts string
 	if net.ParseIP(ingressIP) != nil {
-		hosts = fmt.Sprintf("%s %s\n", ingressIP, istiodHost(revision))
+		hosts = fmt.Sprintf("%s %s\n", ingressIP, IstiodHost(istioNamespace, revision))
 	} else {
 		log.Warnf("Could not auto-detect IP for %s/%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
-			istiodHost(revision), istioNamespace)
+			IstiodHost(istioNamespace, revision), istioNamespace)
 	}
 	return os.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }
@@ -588,17 +589,17 @@ func isRevisioned(revision string) bool {
 	return revision != "" && revision != "default"
 }
 
-func istiodHost(revision string) string {
+func IstiodHost(ns string, revision string) string {
 	istiod := "istiod"
 	if isRevisioned(revision) {
 		istiod = fmt.Sprintf("%s-%s", istiod, revision)
 	}
-	return fmt.Sprintf("%s.%s.svc", istiod, istioNamespace)
+	return fmt.Sprintf("%s.%s.svc", istiod, ns)
 }
 
-func istiodAddr(revision string) string {
+func IstiodAddr(ns, revision string) string {
 	// TODO make port configurable
-	return fmt.Sprintf("%s:%d", istiodHost(revision), 15012)
+	return fmt.Sprintf("%s:%d", IstiodHost(ns, revision), 15012)
 }
 
 // Returns a map with each k,v entry on a new line

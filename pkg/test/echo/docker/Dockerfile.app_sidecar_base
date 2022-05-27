@@ -11,12 +11,19 @@ ENV DEBIAN_FRONTEND=noninteractive
 # hadolint ignore=DL3005,DL3008
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
+    ca-certificates \
+    curl \
     iptables \
     iproute2 \
-    sudo \
-    curl \
+    iputils-ping \
+    knot-dnsutils \
+    netcat \
+    tcpdump \
+    conntrack \
+    bsdmainutils \
     net-tools \
-    ca-certificates \
+    lsof \
+    sudo \
     && apt-get upgrade -y \
     && apt-get clean \
     && rm -rf  /var/log/*log /var/lib/apt/lists/* /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old

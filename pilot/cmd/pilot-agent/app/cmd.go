@@ -49,22 +49,9 @@ const (
 	localHostIPv6 = "[::1]"
 )
 
-// TODO: Move most of this to pkg options.
 var (
-	dnsDomain          string
-	stsPort            int
-	tokenManagerPlugin string
-
-	meshConfigFile string
-
-	// proxy config flags (named identically)
-	serviceCluster         string
-	proxyLogLevel          string
-	proxyComponentLogLevel string
-	concurrency            int
-	templateFile           string
-	loggingOptions         = log.DefaultOptions()
-	outlierLogPath         string
+	loggingOptions = log.DefaultOptions()
+	proxyArgs      options.ProxyArgs
 )
 
 func NewRootCommand() *cobra.Command {
@@ -119,7 +106,7 @@ func newProxyCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, options.ProxyConfigEnv, concurrency, proxy)
+			proxyConfig, err := config.ConstructProxyConfig(proxyArgs.MeshConfigFile, proxyArgs.ServiceCluster, options.ProxyConfigEnv, proxyArgs.Concurrency, proxy)
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
@@ -129,7 +116,7 @@ func newProxyCommand() *cobra.Command {
 				log.Infof("Effective config: %s", out)
 			}
 
-			secOpts, err := options.NewSecurityOptions(proxyConfig, stsPort, tokenManagerPlugin)
+			secOpts, err := options.NewSecurityOptions(proxyConfig, proxyArgs.StsPort, proxyArgs.TokenManagerPlugin)
 			if err != nil {
 				return err
 			}
@@ -138,7 +125,7 @@ func newProxyCommand() *cobra.Command {
 			// listen on STS port for STS requests. For STS, see
 			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
 			// STS is used for stackdriver or other Envoy services using google gRPC.
-			if stsPort > 0 {
+			if proxyArgs.StsPort > 0 {
 				stsServer, err := initStsServer(proxy, secOpts.TokenManager)
 				if err != nil {
 					return err
@@ -147,17 +134,17 @@ func newProxyCommand() *cobra.Command {
 			}
 
 			// If we are using a custom template file (for control plane proxy, for example), configure this.
-			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
-				proxyConfig.ProxyBootstrapTemplatePath = templateFile
+			if proxyArgs.TemplateFile != "" && proxyConfig.CustomConfigFile == "" {
+				proxyConfig.ProxyBootstrapTemplatePath = proxyArgs.TemplateFile
 			}
 
 			envoyOptions := envoy.ProxyConfig{
-				LogLevel:          proxyLogLevel,
-				ComponentLogLevel: proxyComponentLogLevel,
+				LogLevel:          proxyArgs.ProxyLogLevel,
+				ComponentLogLevel: proxyArgs.ProxyComponentLogLevel,
 				LogAsJSON:         loggingOptions.JSONEncoding,
 				NodeIPs:           proxy.IPAddresses,
 				Sidecar:           proxy.Type == model.SidecarProxy,
-				OutlierLogPath:    outlierLogPath,
+				OutlierLogPath:    proxyArgs.OutlierLogPath,
 			}
 			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
@@ -188,34 +175,36 @@ func newProxyCommand() *cobra.Command {
 }
 
 func addFlags(proxyCmd *cobra.Command) {
-	proxyCmd.PersistentFlags().StringVar(&dnsDomain, "domain", "",
+	proxyArgs = options.NewProxyArgs()
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
-	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.MeshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
 			"PROXY_CONFIG environment variable or proxy.istio.io/config annotation.")
-	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
+	proxyCmd.PersistentFlags().IntVar(&proxyArgs.StsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
-	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.TokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
 		"Token provider specific plugin name.")
 	// DEPRECATED. Flags for proxy configuration
-	proxyCmd.PersistentFlags().StringVar(&serviceCluster, "serviceCluster", constants.ServiceClusterName, "Service cluster")
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.ServiceCluster, "serviceCluster", constants.ServiceClusterName, "Service cluster")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
-	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "warning,misc:error",
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.ProxyLogLevel, "proxyLogLevel", "warning,misc:error",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})."+
 			"Level may also include one or more scopes, such as 'info,misc:error,upstream:debug'",
 			"trace", "debug", "info", "warning", "error", "critical", "off"))
-	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", 0, "number of worker threads to run")
+	proxyCmd.PersistentFlags().IntVar(&proxyArgs.Concurrency, "concurrency", 0, "number of worker threads to run")
 	// See https://www.envoyproxy.io/docs/envoy/latest/operations/cli#cmdoption-component-log-level
-	proxyCmd.PersistentFlags().StringVar(&proxyComponentLogLevel, "proxyComponentLogLevel", "",
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.ProxyComponentLogLevel, "proxyComponentLogLevel", "",
 		"The component log level used to start the Envoy proxy. Deprecated, use proxyLogLevel instead")
-	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.TemplateFile, "templateFile", "",
 		"Go template bootstrap config")
-	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.OutlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
 }
 
 func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
-	envoyPrometheusPort int, agent *istio_agent.Agent) error {
+	envoyPrometheusPort int, agent *istio_agent.Agent,
+) error {
 	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort
 	o.Context = ctx
@@ -234,7 +223,7 @@ func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*sts
 	}
 	stsServer, err := stsserver.NewServer(stsserver.Config{
 		LocalHostAddr: localHostAddr,
-		LocalPort:     stsPort,
+		LocalPort:     proxyArgs.StsPort,
 	}, tokenManager)
 	if err != nil {
 		return nil, err
@@ -296,13 +285,11 @@ func initProxy(args []string) (*model.Proxy, error) {
 	proxy.DiscoverIPMode()
 
 	// Extract pod variables.
-	podName := options.PodNameVar.Get()
-	podNamespace := options.PodNamespaceVar.Get()
-	proxy.ID = podName + "." + podNamespace
+	proxy.ID = proxyArgs.PodName + "." + proxyArgs.PodNamespace
 
 	// If not set, set a default based on platform - podNamespace.svc.cluster.local for
 	// K8S
-	proxy.DNSDomain = getDNSDomain(podNamespace, dnsDomain)
+	proxy.DNSDomain = getDNSDomain(proxyArgs.PodNamespace, proxyArgs.DNSDomain)
 	log.WithLabels("ips", proxy.IPAddresses, "type", proxy.Type, "id", proxy.ID, "domain", proxy.DNSDomain).Info("Proxy role")
 
 	return proxy, nil

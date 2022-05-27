@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
 	"istio.io/istio/tests/integration/security/util/scheck"
 )
@@ -116,7 +115,6 @@ func TestSecureNaming(t *testing.T) {
 				return checkCACert(t, testNamespace)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 			to := match.Namespace(testNamespace).GetMatches(apps.B)
-			callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					a := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.A)[0]
@@ -133,7 +131,6 @@ func TestSecureNaming(t *testing.T) {
 								Port: echo.Port{
 									Name: "http",
 								},
-								Count: callCount,
 							}
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
 							a.CallOrFail(t, opts)
@@ -176,7 +173,6 @@ func TestSecureNaming(t *testing.T) {
 									Port: echo.Port{
 										Name: "http",
 									},
-									Count: callCount,
 								}
 								if tc.expectSuccess {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
