@@ -940,14 +940,44 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	// Skip all certificates
 	var err error
 
+	s.dnsNames = getDnsNames(args, host)
+	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
+		// Use the DNS certificate provided via args.
+		err = s.initCertificateWatches(args.ServerOptions.TLSOptions)
+		if err != nil {
+			// Not crashing istiod - This typically happens if certs are missing and in tests.
+			log.Errorf("error initializing certificate watches: %v", err)
+			return nil
+		}
+	} else if features.EnableCAServer && features.PilotCertProvider == constants.CertProviderIstiod {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts(host, args.Namespace)
+	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts(host, args.Namespace)
+	} else if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts(host, args.Namespace)
+	} else {
+		return nil
+	}
+
+	if err == nil {
+		err = s.initIstiodCertLoader()
+	}
+
+	return err
+}
+
+func getDnsNames(args *PilotArgs, host string) []string {
+	dnsNames := []string{host}
 	// Append custom hostname if there is any
 	customHost := features.IstiodServiceCustomHost
-	s.dnsNames = []string{host}
 	cHosts := strings.Split(customHost, ",")
 	for _, cHost := range cHosts {
 		if cHost != "" && cHost != host {
 			log.Infof("Adding custom hostname %s", cHost)
-			s.dnsNames = append(s.dnsNames, cHost)
+			dnsNames = append(dnsNames, cHost)
 		}
 	}
 
@@ -969,42 +999,11 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 			}
 		}
 		if !exist {
-			s.dnsNames = append(s.dnsNames, name)
+			dnsNames = append(dnsNames, name)
 		}
 	}
 
-	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
-		// Use the DNS certificate provided via args.
-		err = s.initCertificateWatches(args.ServerOptions.TLSOptions)
-		if err != nil {
-			// Not crashing istiod - This typically happens if certs are missing and in tests.
-			log.Errorf("error initializing certificate watches: %v", err)
-			return nil
-		}
-		err = s.initIstiodCertLoader()
-	} else if features.PilotCertProvider == constants.CertProviderNone {
-		return nil
-	} else if features.EnableCAServer && features.PilotCertProvider == constants.CertProviderIstiod {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, args.Namespace)
-		if err == nil {
-			err = s.initIstiodCertLoader()
-		}
-	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, args.Namespace)
-		if err == nil {
-			err = s.initIstiodCertLoader()
-		}
-	} else if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, args.Namespace)
-		if err == nil {
-			err = s.initIstiodCertLoader()
-		}
-	}
-
-	return err
+	return dnsNames
 }
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
