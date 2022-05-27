@@ -21,7 +21,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -444,7 +443,7 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 		{
 			name:       "Credential test with resourceName",
 			secretName: "spiffe://cluster.local/ns/bar/sa/foo",
-			expected: &tls.SdsSecretConfig{
+			expected: &auth.SdsSecretConfig{
 				Name:      credentials.ToResourceName("spiffe://cluster.local/ns/bar/sa/foo"),
 				SdsConfig: SDSAdsConfig,
 			},
@@ -478,13 +477,13 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 	testCases := []struct {
 		name       string
-		tlsContext *tls.CommonTlsContext
+		tlsContext *auth.CommonTlsContext
 		tlsOpts    *networking.ClientTLSSettings
 		expected   *auth.CommonTlsContext
 	}{
 		{
 			name:       "test SDSToClient without ClientTLS settings",
-			tlsContext: &tls.CommonTlsContext{},
+			tlsContext: &auth.CommonTlsContext{},
 			tlsOpts: &networking.ClientTLSSettings{
 				CredentialName:  "testCredential",
 				SubjectAltNames: []string{"testCredential"},
@@ -508,7 +507,7 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 		},
 		{
 			name:       "test SDSToClient with ClientTLS settings",
-			tlsContext: &tls.CommonTlsContext{},
+			tlsContext: &auth.CommonTlsContext{},
 			tlsOpts: &networking.ClientTLSSettings{
 				CredentialName:  "testCredential",
 				SubjectAltNames: []string{"testCredential"},
@@ -557,13 +556,13 @@ func TestApplyCustomSDSToClientCommonTLSContext(t *testing.T) {
 func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 	testCases := []struct {
 		name       string
-		tlsContext *tls.CommonTlsContext
+		tlsContext *auth.CommonTlsContext
 		tlsOpts    *networking.ServerTLSSettings
 		expected   *auth.CommonTlsContext
 	}{
 		{
 			name:       "test SDSToClient without ServerTLS settings",
-			tlsContext: &tls.CommonTlsContext{},
+			tlsContext: &auth.CommonTlsContext{},
 			tlsOpts: &networking.ServerTLSSettings{
 				CredentialName:  "testCredential",
 				SubjectAltNames: []string{"testCredential"},
@@ -589,7 +588,7 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 		},
 		{
 			name:       "test SDSToClient with ServerTLS settings",
-			tlsContext: &tls.CommonTlsContext{},
+			tlsContext: &auth.CommonTlsContext{},
 			tlsOpts: &networking.ServerTLSSettings{
 				CredentialName:        "testCredential",
 				SubjectAltNames:       []string{"testCredential"},
