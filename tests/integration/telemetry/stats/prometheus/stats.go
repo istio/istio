@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	cdeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -214,14 +215,29 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(t framework.TestContext) {
+			base := filepath.Join(env.IstioSrc, "tests/integration/telemetry/stats/prometheus/testdata/")
+			// Following resources are being deployed to test sidecar->gateway communication. With following resources,
+			// routing is being setup from sidecar to external site, via egress gateway.
+			// clt(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway-> vs(tcp:443) -> cnn.com
+			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-dest-rule.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-gateway.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-vs.yaml")).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						t.Logf("sending tcp traffic to gateway from sidecar")
-						requestURL := "curl --insecure -s -o /dev/null -w '%{http_code}' https://edition.cnn.com/politics"
-						if err := sendTrafficFromSidecarToGateway(cltInstance, requestURL); err != nil {
+						if _, err := cltInstance.Call(echo.CallOptions{
+							Address: apps.External.All[0].Address(),
+							HTTP:    echo.HTTP{
+								// Headers: HostHeader(t.Apps.External.All.Config().DefaultHostHeader),
+							},
+							Scheme: scheme.HTTPS,
+							Port:   echo.Port{ServicePort: ports.All().MustForName(ports.HTTPS).ServicePort},
+							Count:  1,
+							Retry:  echo.Retry{NoRetry: true}, // we do retry in outer loop
+							Check:  check.OK(),
+						}); err != nil {
 							return err
 						}
 
@@ -298,29 +314,6 @@ proxyMetadata:
 	mockProm = match.ServiceName(echo.NamespacedName{Name: "mock-prom", Namespace: apps.Namespace}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
-		return
-	}
-	// Following resources are being deployed to test sidecar->gateway communication. With following resources,
-	// routing is being setup from sidecar to external site, edition.cnn.com, via egress gateway.
-	// clt(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway-> vs(tcp:443) -> cnn.com
-	if err = ctx.ConfigIstio().File(GetAppNamespace().Name(),
-		filepath.Join(env.IstioSrc,
-			"tests/integration/telemetry/stats/prometheus/testdata/cnn-service-entry.yaml")).Apply(); err != nil {
-		return
-	}
-	if err = ctx.ConfigIstio().File(GetAppNamespace().Name(),
-		filepath.Join(env.IstioSrc,
-			"tests/integration/telemetry/stats/prometheus/testdata/istio-mtls-dest-rule.yaml")).Apply(); err != nil {
-		return
-	}
-	if err = ctx.ConfigIstio().File(GetAppNamespace().Name(),
-		filepath.Join(env.IstioSrc,
-			"tests/integration/telemetry/stats/prometheus/testdata/istio-mtls-gateway.yaml")).Apply(); err != nil {
-		return
-	}
-	if err = ctx.ConfigIstio().File(GetAppNamespace().Name(),
-		filepath.Join(env.IstioSrc,
-			"tests/integration/telemetry/stats/prometheus/testdata/istio-mtls-vs.yaml")).Apply(); err != nil {
 		return
 	}
 	return nil
