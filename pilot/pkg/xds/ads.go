@@ -364,13 +364,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	previousInfo := con.proxy.WatchedResources[request.TypeUrl]
 	con.proxy.RUnlock()
 
-	log.Infof("------------ADS:%s: REQ %s nonce %s version %s", stype,
-		con.conID, request.ResponseNonce, request.VersionInfo)
-	if previousInfo != nil {
-		log.Infof("------------ADS:%s: REQ %s previous nonce %s version %s", stype,
-			con.conID, previousInfo.NonceSent, previousInfo.VersionSent)
-	}
-
 	// This can happen in two cases:
 	// 1. Envoy initially send request to Istiod
 	// 2. Envoy reconnect to Istiod i.e. Istiod does not have
