@@ -1125,13 +1125,6 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 }
 
 func (s *Server) shouldStartNsController() bool {
-	if s.isCADisabled() {
-		return true
-	}
-	if s.CA == nil {
-		return false
-	}
-
 	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
 	if features.PilotCertProvider == constants.CertProviderKubernetes {
 		return false
