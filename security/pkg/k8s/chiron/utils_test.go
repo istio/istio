@@ -137,8 +137,7 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 			continue
 		}
 
-		_, _, _, err = GenKeyCertK8sCA(wc.clientset, tc.dnsNames[0], tc.secretNames[0],
-			tc.secretNamespace, wc.k8sCaCertFile, "testSigner", true, DefaulCertTTL)
+		_, _, _, err = GenKeyCertK8sCA(wc.clientset, tc.dnsNames[0], wc.k8sCaCertFile, "testSigner", true, DefaulCertTTL)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("should have failed")
