@@ -23,7 +23,7 @@ import (
 )
 
 func TestClusterNameRegex(t *testing.T) {
-	regexList, err := ReadClusterNameRegex(METRICS_FILENAME)
+	regexList, err := ReadClusterNameRegex(metricsFileName)
 	if err != nil {
 		log.Fatal(err)
 	}

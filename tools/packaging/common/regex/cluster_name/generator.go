@@ -21,10 +21,10 @@ import (
 	"strings"
 )
 
-const METRICS_FILENAME string = "regex.list"
+const metricsFileName string = "regex.list"
 
 func ReadClusterNameRegex(filename string) ([]string, error) {
-	file, err := os.Open(METRICS_FILENAME)
+	file, err := os.Open(filename)
 	if err != nil {
 		return []string{}, err
 	}
@@ -44,7 +44,7 @@ func BuildClusterNameRegex(regexList []string) string {
 }
 
 func main() {
-	regexList, err := ReadClusterNameRegex(METRICS_FILENAME)
+	regexList, err := ReadClusterNameRegex(metricsFileName)
 	if err != nil {
 		log.Fatal(err)
 	}
