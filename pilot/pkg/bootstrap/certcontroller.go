@@ -102,12 +102,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 //
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
-func (s *Server) initDNSCerts(hostname, namespace string) error {
-	// Name in the Istiod cert - support the old service names as well.
-	// validate hostname contains namespace
-	parts := strings.Split(hostname, ".")
-	hostnamePrefix := parts[0]
-
+func (s *Server) initDNSCerts() error {
 	var certChain, keyPEM, caBundle []byte
 	var err error
 	pilotCertProviderName := features.PilotCertProvider
@@ -115,7 +110,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 		signerName := strings.TrimPrefix(pilotCertProviderName, constants.CertProviderKubernetesSignerPrefix)
 		log.Infof("Generating K8S-signed cert for %v using signer %v", s.dnsNames, signerName)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
-			strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, "", signerName, true, SelfSignedCACertTTL.Get())
+			strings.Join(s.dnsNames, ","), "", signerName, true, SelfSignedCACertTTL.Get())
 		if err != nil {
 			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)
 		}
@@ -128,7 +123,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 			newCaBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
 			if newCaBundle != nil && !bytes.Equal(newCaBundle, s.istiodCertBundleWatcher.GetKeyCertBundle().CABundle) {
 				newCertChain, newKeyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
-					strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, "", signerName, true, SelfSignedCACertTTL.Get())
+					strings.Join(s.dnsNames, ","), "", signerName, true, SelfSignedCACertTTL.Get())
 				if err != nil {
 					log.Fatalf("failed regenerating key and cert for istiod by kubernetes: %v", err)
 				}
@@ -138,7 +133,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 	} else if pilotCertProviderName == constants.CertProviderKubernetes {
 		log.Infof("Generating K8S-signed cert for %v", s.dnsNames)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
-			strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
+			strings.Join(s.dnsNames, ","), defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
 		if err != nil {
 			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)
 		}
