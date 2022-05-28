@@ -62,9 +62,9 @@ func TestRemoteCerts(t *testing.T) {
 
 	g.Expect(os.ReadFile(path.Join(dir, "root-cert.pem"))).Should(Equal(expectedRoot))
 
-	// Should fail because certs already exist locally.
+	// Should do nothing because certs already exist locally.
 	err = s.loadCACerts(caOpts, dir)
-	g.Expect(err).NotTo(BeNil())
+	g.Expect(err).Should(BeNil())
 }
 
 func createCASecret(client kube.Client) error {

@@ -940,7 +940,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	// Skip all certificates
 	var err error
 
-	s.dnsNames = getDnsNames(args, host)
+	s.dnsNames = getDNSNames(args, host)
 	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
 		// Use the DNS certificate provided via args.
 		err = s.initCertificateWatches(args.ServerOptions.TLSOptions)
@@ -969,7 +969,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	return err
 }
 
-func getDnsNames(args *PilotArgs, host string) []string {
+func getDNSNames(args *PilotArgs, host string) []string {
 	dnsNames := []string{host}
 	// Append custom hostname if there is any
 	customHost := features.IstiodServiceCustomHost

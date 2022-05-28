@@ -232,10 +232,8 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 	signingKeyFile := path.Join(dir, ca.CAPrivateKeyFile)
 	if _, err := os.Stat(signingKeyFile); err == nil {
 		return nil
-	} else {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("signing key file %s already exists", signingKeyFile)
-		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("signing key file %s already exists", signingKeyFile)
 	}
 
 	secret, err := s.kubeClient.Kube().CoreV1().Secrets(caOpts.Namespace).Get(
