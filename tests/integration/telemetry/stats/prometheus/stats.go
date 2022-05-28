@@ -228,15 +228,12 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if _, err := cltInstance.Call(echo.CallOptions{
-							Address: apps.External.All[0].Address(),
-							HTTP:    echo.HTTP{
-								// Headers: HostHeader(t.Apps.External.All.Config().DefaultHostHeader),
-							},
-							Scheme: scheme.HTTPS,
-							Port:   echo.Port{ServicePort: ports.All().MustForName(ports.HTTPS).ServicePort},
-							Count:  1,
-							Retry:  echo.Retry{NoRetry: true}, // we do retry in outer loop
-							Check:  check.OK(),
+							Address: "fake.external.com",
+							Scheme:  scheme.HTTPS,
+							Port:    echo.Port{ServicePort: ports.All().MustForName(ports.HTTPS).ServicePort},
+							Count:   1,
+							Retry:   echo.Retry{NoRetry: true}, // we do retry in outer loop
+							Check:   check.OK(),
 						}); err != nil {
 							return err
 						}
