@@ -19,9 +19,7 @@ package prometheus
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -504,24 +502,4 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 		Metric: "istio_tcp_connections_opened_total",
 		Labels: labels,
 	}
-}
-
-func sendTrafficFromSidecarToGateway(clt echo.Instance, testRequestCmd string) error {
-	pods, err := clt.Config().Cluster.PodsForSelector(context.TODO(), GetAppNamespace().Name(), "app=a")
-	if err != nil || len(pods.Items) == 0 {
-		return fmt.Errorf("could not get client pods. err: %v", err)
-	}
-	clientPodName := pods.Items[0].Name
-	out, _, err := clt.Config().Cluster.PodExec(
-		clientPodName,
-		GetAppNamespace().Name(),
-		"app",
-		testRequestCmd)
-	if err != nil {
-		return fmt.Errorf("failed to execute command in %s pod: %v: %s", clientPodName, err, out)
-	}
-	if strings.Contains(out, "200") {
-		return nil
-	}
-	return fmt.Errorf("test request failed because of unexpected response code: %s", out)
 }
