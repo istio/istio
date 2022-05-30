@@ -272,7 +272,7 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 	opts = append(opts,
 		option.NodeMetadata(node.Metadata, node.RawMetadata),
-		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig)),
+		option.RuntimeFlags(extractRuntimeFlags(node.Metadata)),
 		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
@@ -280,7 +280,11 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 var StripFragment = env.RegisterBoolVar("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
-func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
+func extractRuntimeFlags(meta *model.BootstrapNodeMetadata) map[string]string {
+	dualStack := "false"
+	if meta.DualStack {
+		dualStack = "true"
+	}
 	// Setup defaults
 	runtimeFlags := map[string]string{
 		"overload.global_downstream_max_connections":                                                           "2147483647",
@@ -289,12 +293,13 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 		"re2.max_program_size.error_level":                                                                     "32768",
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
 		"envoy.reloadable_features.no_extension_lookup_by_name":                                                "false",
+		"envoy.reloadable_features.listener_wildcard_match_ip_family":                                          dualStack,
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
 		runtimeFlags["envoy.reloadable_features.http_strip_fragment_from_path_unsafe_if_disabled"] = "false"
 	}
-	for k, v := range cfg.RuntimeValues {
+	for k, v := range meta.ProxyConfig.RuntimeValues {
 		if v == "" {
 			// Envoy runtime doesn't see "" as a special value, so we use it to mean 'unset default flag'
 			delete(runtimeFlags, k)
