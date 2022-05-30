@@ -36,7 +36,7 @@ json.dump(yml, sys.stdout, indent=4)
 source "${ROOT}/prow/lib.sh"
 buildx-create
 
-HUBS="${HUBS:?specify a space seperated list of hubs}"
+HUBS="${HUBS:?specify a space separated list of hubs}"
 TAG="${TAG:?specify a tag}"
 defaultTargets="$(< "${ROOT}/tools/docker.yaml" toJson | toJson | jq '[.images[] | select(.base) | .name] | join(",")' -r)"
 DOCKER_TARGETS="${DOCKER_TARGETS:-${defaultTargets}}"
