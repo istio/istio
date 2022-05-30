@@ -382,9 +382,6 @@ var (
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
-	ExternalIstiod = env.RegisterBoolVar("EXTERNAL_ISTIOD", true,
-		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
-
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
 		"If this is set to false, will not create CA server in istiod.").Get()
 

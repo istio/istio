@@ -132,7 +132,6 @@ func Test_KubeSecretController(t *testing.T) {
 }
 
 func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
-	test.SetBoolForTest(t, &features.ExternalIstiod, true)
 	test.SetStringForTest(t, &features.InjectionWebhookConfigName, "")
 	clientset := kube.NewFakeClient()
 	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
