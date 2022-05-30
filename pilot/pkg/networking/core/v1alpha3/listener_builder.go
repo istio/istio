@@ -375,7 +375,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(configgen, lb.node, lb.push)
 
-	wildCards := getActualWildcardAndLocalHostWithDualStack(lb.node)
+	wildCards := getActualWildcardAndLocalHost(lb.node)
 	for _, wildcard := range wildCards {
 		actualWildcard := wildcard[0]
 		listenerName := model.VirtualOutboundListenerName
@@ -410,7 +410,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	wildCards := getActualWildcardAndLocalHostWithDualStack(lb.node)
+	wildCards := getActualWildcardAndLocalHost(lb.node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	filterChains, passthroughInspector, usesQUIC := buildInboundCatchAllFilterChains(configgen, lb.node, lb.push)
 	for _, wildcard := range wildCards {
@@ -755,7 +755,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
 			// user has provided an explicit destination for all the unknown traffic.
 			// build a cluster out of this destination
-			egressClusters = append(egressClusters, istio_route.GetDestinationClusterWithDualStack(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
+			egressClusters = append(egressClusters, istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
 				nil, 0)...)
 		} else {
 			// We need a passthrough filter to fill in the filter stack for orig_dst listener

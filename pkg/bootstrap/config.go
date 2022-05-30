@@ -525,6 +525,7 @@ type MetadataOptions struct {
 	EnvoyStatusPort             int
 	EnvoyPrometheusPort         int
 	ExitOnZeroActiveConnections bool
+	DualStack                   bool
 }
 
 // GetNodeMetaData function uses an environment variable contract
@@ -621,6 +622,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.XDSRootCert = options.XDSRootCert
 	meta.OutlierLogPath = options.OutlierLogPath
 	meta.ProvCert = options.ProvCert
+	meta.DualStack = options.DualStack
 
 	return &model.Node{
 		ID:          options.ID,

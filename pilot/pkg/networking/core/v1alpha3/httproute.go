@@ -386,7 +386,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		virtualServices = selectVirtualServices(virtualServices, servicesByName)
 	}
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapperWithDualStack(routeCache, node, push, servicesByName, virtualServices, listenerPort, routeName)
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push, servicesByName, virtualServices, listenerPort, routeName)
 
 	resource, exist := xdsCache.Get(routeCache)
 	if exist && !features.EnableUnsafeAssertions {
@@ -804,7 +804,7 @@ func buildCatchAllVirtualHost(node *model.Proxy) []*route.VirtualHost {
 		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
 			// user has provided an explicit destination for all the unknown traffic.
 			// build a cluster out of this destination
-			egressClusters = istio_route.GetDestinationClusterWithDualStack(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
+			egressClusters = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
 				nil, 0)
 		}
 
