@@ -292,10 +292,6 @@ func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
 func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
-	if m.opts.ClusterID == clusterID {
-		log.Warnf("unable to delete config cluster")
-		return nil
-	}
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.opts.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
