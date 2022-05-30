@@ -30,16 +30,16 @@ type secretHandler func(name string, namespace string)
 type Multicluster struct {
 	remoteKubeControllers map[cluster.ID]*CredentialsController
 	m                     sync.Mutex // protects remoteKubeControllers
-	localCluster          cluster.ID
+	configCluster         cluster.ID
 	secretHandlers        []secretHandler
 }
 
 var _ credentials.MulticlusterController = &Multicluster{}
 
-func NewMulticluster(localCluster cluster.ID) *Multicluster {
+func NewMulticluster(configCluster cluster.ID) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[cluster.ID]*CredentialsController{},
-		localCluster:          localCluster,
+		configCluster:         configCluster,
 	}
 
 	return m
@@ -81,13 +81,13 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 	agg := &AggregateController{}
 	agg.controllers = []*CredentialsController{}
 	agg.authController = m.remoteKubeControllers[clusterID]
-	if clusterID != m.localCluster {
-		// If the request cluster is not the local cluster, we will append it and use it for auth
-		// This means we will prioritize the proxy cluster, then the local cluster for credential lookup
+	if clusterID != m.configCluster {
+		// If the request cluster is not the config cluster, we will append it and use it for auth
+		// This means we will prioritize the proxy cluster, then the config cluster for credential lookup
 		// Authorization will always use the proxy cluster.
 		agg.controllers = append(agg.controllers, m.remoteKubeControllers[clusterID])
 	}
-	agg.controllers = append(agg.controllers, m.remoteKubeControllers[m.localCluster])
+	agg.controllers = append(agg.controllers, m.remoteKubeControllers[m.configCluster])
 	return agg, nil
 }
 
@@ -99,7 +99,7 @@ func (m *Multicluster) AddSecretHandler(h secretHandler) {
 }
 
 type AggregateController struct {
-	// controllers to use to look up certs. Generally this will consistent of the local (config) cluster
+	// controllers to use to look up certs. Generally this will consistent of the primary (config) cluster
 	// and a single remote cluster where the proxy resides
 	controllers    []*CredentialsController
 	authController *CredentialsController
