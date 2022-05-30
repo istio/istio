@@ -271,7 +271,6 @@ func SendTraffic(from echo.Instance) error {
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
-		Count: 1,
 	})
 	if err != nil {
 		return err
@@ -284,7 +283,6 @@ func SendTraffic(from echo.Instance) error {
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
-		Count: 1,
 	})
 	if err != nil {
 		return err
