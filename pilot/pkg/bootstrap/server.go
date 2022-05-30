@@ -1009,7 +1009,7 @@ func getDNSNames(args *PilotArgs, host string) []string {
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
-	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isCADisabled() {
+	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
@@ -1114,17 +1114,29 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 			if s.RA, err = s.createIstioRA(caOpts); err != nil {
 				return fmt.Errorf("failed to create RA: %v", err)
 			}
-		}
-		if !s.isCADisabled() {
-			if s.CA, err = s.createIstioCA(caOpts); err != nil {
-				return fmt.Errorf("failed to create CA: %v", err)
+			// do not create CA server if PilotCertProvider is `kubernetes` and RA server exists
+			if features.PilotCertProvider == constants.CertProviderKubernetes {
+				return nil
 			}
+			// do not create CA server if PilotCertProvider is `k8s.io/*` and RA server exists
+			if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+				return nil
+			}
+		}
+		if s.CA, err = s.createIstioCA(caOpts); err != nil {
+			return fmt.Errorf("failed to create CA: %v", err)
 		}
 	}
 	return nil
 }
 
+// shouldStartNsController returns whether it should
+// start namespace controller to patch root cert for each namespace.
 func (s *Server) shouldStartNsController() bool {
+	// When CA disabled, no need to patch
+	if !features.EnableCAServer {
+		return false
+	}
 	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
 	if features.PilotCertProvider == constants.CertProviderKubernetes {
 		return false
