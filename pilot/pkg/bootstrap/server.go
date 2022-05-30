@@ -1256,24 +1256,6 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	return nil
 }
 
-// isCADisabled returns whether CA functionality is disabled in istiod.
-// It returns true only if istiod certs is signed by Kubernetes or
-// workload certs are signed by external CA
-func (s *Server) isCADisabled() bool {
-	if s.RA == nil {
-		return false
-	}
-	// do not create CA server if PilotCertProvider is `kubernetes` and RA server exists
-	if features.PilotCertProvider == constants.CertProviderKubernetes {
-		return true
-	}
-	// do not create CA server if PilotCertProvider is `k8s.io/*` and RA server exists
-	if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-		return true
-	}
-	return false
-}
-
 func (s *Server) initStatusManager(_ *PilotArgs) {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		s.statusManager = status.NewManager(s.RWConfigStore)
