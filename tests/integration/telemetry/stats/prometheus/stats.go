@@ -102,6 +102,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
+						t.Logf(">>>>>>>>>> # of target:%v", GetTarget().MustWorkloads())
 						if err := SendTraffic(cltInstance); err != nil {
 							return err
 						}
@@ -212,9 +213,10 @@ func TestSetup(ctx resource.Context) (err error) {
 		return err
 	}
 
-	outputCertAnnot := `
+	proxyMetadata := `
 proxyMetadata:
-  OUTPUT_CERTS: /etc/certs/custom`
+  OUTPUT_CERTS: /etc/certs/custom
+  WASM_INSECURE_REGISTRIES: "*"`
 
 	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
@@ -233,7 +235,7 @@ proxyMetadata:
 							Value: "",
 						},
 						echo.SidecarProxyConfig: {
-							Value: outputCertAnnot,
+							Value: proxyMetadata,
 						},
 						echo.SidecarVolumeMount: {
 							Value: `[{"name": "custom-certs", "mountPath": "/etc/certs/custom"}]`,
