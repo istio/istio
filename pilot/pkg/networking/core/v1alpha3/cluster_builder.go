@@ -235,9 +235,9 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	return subsetCluster.build()
 }
 
-// applyDestinationRuleWithDualStack applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
+// applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
-func (cb *ClusterBuilder) applyDestinationRuleWithDualStack(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
+func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
 	port *model.Port, proxyView model.ProxyView, destRule *config.Config, serviceAccounts []string, traffic model.TrafficDirection) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
@@ -495,7 +495,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	if proxy != nil && proxy.SupportsIPv6() && proxy.SupportsIPv4() && bind == LocalhostIPv6Address {
 		dualIP = true
 	}
-	clusterName := model.BuildInboundSubsetKeyWithDualStack(clusterPort, dualIP)
+	clusterName := model.BuildInboundSubsetKey(clusterPort, dualIP)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	clusterType := cluster.Cluster_ORIGINAL_DST
 	if len(localityLbEndpoints) > 0 {

@@ -40,11 +40,11 @@ const (
 	InboundPassthroughBindIpv6 = "::6"
 )
 
-// getActualWildcardAndLocalHostWithDualStack will return corresponding Wildcard and LocalHost
+// getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
 // depending on value of proxy's IPAddresses. This function checks each element
 // and if there is at least one ipv4 address other than 127.0.0.1, it will use ipv4 address,
 // if all addresses are ipv6  addresses then ipv6 address will be used to get wildcard and local host address.
-func getActualWildcardAndLocalHostWithDualStack(node *model.Proxy) [][2]string {
+func getActualWildcardAndLocalHost(node *model.Proxy) [][2]string {
 	result := make([][2]string, 0, 2)
 	if node.SupportsIPv4() {
 		result = append(result, [2]string{WildcardAddress, LocalhostAddress})
@@ -75,10 +75,10 @@ func getPassthroughBindIP(node *model.Proxy) string {
 	return InboundPassthroughBindIpv6
 }
 
-// getSidecarInboundBindIPWithDualStack returns the IP that the proxy can bind to along with the sidecar specified port.
+// getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
 // It looks for an unicast address, if none found, then the default wildcard address is used.
 // This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.
-func getSidecarInboundBindIPWithDualStack(node *model.Proxy) []string {
+func getSidecarInboundBindIP(node *model.Proxy) []string {
 	// Return the IP if its a global unicast address.
 	result := make([]string, 0, 2)
 	if len(node.GlobalUnicastIP) > 0 {

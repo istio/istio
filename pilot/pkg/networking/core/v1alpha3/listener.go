@@ -345,7 +345,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		var bindAddresses []string
 		if len(ingressListener.Bind) == 0 {
 			// User did not provide one. Pick the proxy's IP or wildcard inbound listener.
-			bindAddresses = getSidecarInboundBindIPWithDualStack(node)
+			bindAddresses = getSidecarInboundBindIP(node)
 		} else {
 			bindAddresses = append(bindAddresses, ingressListener.Bind)
 		}
@@ -477,9 +477,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	// Setup filter chain options and call plugins
 	var clusterName string
 	if dualIpv6 {
-		clusterName = model.BuildInboundSubsetKeyWithDualStack(int(pluginParams.ServiceInstance.Endpoint.EndpointPort), true)
+		clusterName = model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort), true)
 	} else {
-		clusterName = model.BuildInboundSubsetKeyWithDualStack(int(pluginParams.ServiceInstance.Endpoint.EndpointPort), false)
+		clusterName = model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort), false)
 	}
 
 	fcOpts := configgen.buildInboundFilterchains(pluginParams, listenerOpts, "", clusterName, false, dualIpv6)
@@ -815,7 +815,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 
 	var returnListener []*listener.Listener
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	wildCards := getActualWildcardAndLocalHostWithDualStack(node)
+	wildCards := getActualWildcardAndLocalHost(node)
 	for _, wildcard := range wildCards {
 		listenAddress := wildcard[1]
 		httpOpts := &core.Http1ProtocolOptions{

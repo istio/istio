@@ -87,11 +87,11 @@ type VirtualHostWrapper struct {
 	Routes []*route.Route
 }
 
-// BuildSidecarVirtualHostWrapperWithDualStack creates virtual hosts from
+// BuildSidecarVirtualHostWrapper creates virtual hosts from
 // the given set of virtual Services and a list of Services from the
 // service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
-func BuildSidecarVirtualHostWrapperWithDualStack(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
+func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
 	virtualServices []config.Config, listenPort int, routeName string) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
@@ -120,7 +120,7 @@ func BuildSidecarVirtualHostWrapperWithDualStack(routeCache *Cache, node *model.
 
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildSidecarVirtualHostsForVirtualServiceWithDualStack(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh, routeName)
+		wrappers := buildSidecarVirtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh, routeName)
 		out = append(out, wrappers...)
 	}
 
@@ -152,7 +152,7 @@ func BuildSidecarVirtualHostWrapperWithDualStack(routeCache *Cache, node *model.
 	}
 
 	// append default hosts for the service missing virtual Services
-	out = append(out, buildSidecarVirtualHostsForServiceWithDualStack(node, serviceRegistry, hashByService, push.Mesh)...)
+	out = append(out, buildSidecarVirtualHostsForService(node, serviceRegistry, hashByService, push.Mesh)...)
 	return out
 }
 
@@ -206,10 +206,10 @@ func separateVSHostsAndServices(virtualService config.Config,
 	return hosts, servicesInVirtualService
 }
 
-// buildSidecarVirtualHostsForVirtualServiceWithDualStack creates virtual hosts corresponding to a virtual service.
+// buildSidecarVirtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
-func buildSidecarVirtualHostsForVirtualServiceWithDualStack(
+func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
@@ -226,7 +226,7 @@ func buildSidecarVirtualHostsForVirtualServiceWithDualStack(
 			vskey += constants.IPv6Suffix
 		}
 	}
-	routes, err := BuildHTTPRoutesForVirtualServiceWithDualStack(node, virtualService, serviceRegistry, hashByDestination,
+	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService, serviceRegistry, hashByDestination,
 		listenPort, meshGateway, false /* isH3DiscoveryNeeded */, mesh, vskey)
 	if err != nil || len(routes) == 0 {
 		return nil
@@ -269,7 +269,7 @@ func buildSidecarVirtualHostsForVirtualServiceWithDualStack(
 	return out
 }
 
-func buildSidecarVirtualHostsForServiceWithDualStack(
+func buildSidecarVirtualHostsForService(
 	node *model.Proxy,
 	serviceRegistry map[host.Name]*model.Service,
 	hashByService map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB,
@@ -317,9 +317,9 @@ func buildSidecarVirtualHostsForServiceWithDualStack(
 	return out
 }
 
-// GetDestinationClusterWithDualStack generates a cluster name for the route, or error if no cluster
+// GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func GetDestinationClusterWithDualStack(destination *networking.Destination, service *model.Service, listenerPort int) []string {
+func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) []string {
 	port := listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
@@ -346,7 +346,7 @@ func GetDestinationClusterWithDualStack(destination *networking.Destination, ser
 	return clusterNames
 }
 
-// BuildHTTPRoutesForVirtualServiceWithDualStack creates data plane HTTP routes from the virtual service spec.
+// BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
 //
@@ -354,7 +354,7 @@ func GetDestinationClusterWithDualStack(destination *networking.Destination, ser
 // Each VirtualService is tried, with a list of Services that listen on the port.
 // Error indicates the given virtualService can't be used on the port.
 // This function is used by both the gateway and the sidecar
-func BuildHTTPRoutesForVirtualServiceWithDualStack(
+func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
@@ -375,14 +375,14 @@ func BuildHTTPRoutesForVirtualServiceWithDualStack(
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRouteWithDualStack(node, http, nil, listenPort, virtualService, serviceRegistry,
+			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry,
 				hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh, vskey); r != nil {
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
-				if r := translateRouteWithDualStack(node, http, match, listenPort, virtualService, serviceRegistry,
+				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry,
 					hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh, vskey); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
@@ -426,8 +426,8 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Inst
 	return false
 }
 
-// translateRouteWithDualStack translates HTTP routes
-func translateRouteWithDualStack(
+// translateRoute translates HTTP routes
+func translateRoute(
 	node *model.Proxy,
 	in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest,
@@ -475,7 +475,7 @@ func translateRouteWithDualStack(
 	if in.Redirect != nil {
 		applyRedirect(out, in.Redirect, listenPort)
 	} else {
-		applyHTTPRouteDestinationWithDualStack(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination, vskey)
+		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination, vskey)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -497,7 +497,7 @@ func translateRouteWithDualStack(
 	return out
 }
 
-func applyHTTPRouteDestinationWithDualStack(
+func applyHTTPRouteDestination(
 	out *route.Route,
 	node *model.Proxy,
 	in *networking.HTTPRoute,
@@ -549,7 +549,7 @@ func applyHTTPRouteDestinationWithDualStack(
 	if in.Mirror != nil {
 		if mp := mirrorPercent(in); mp != nil {
 			dualStackNode := node.SupportsIPv4() && node.SupportsIPv6()
-			clusterNames := GetDestinationClusterWithDualStack(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort)
+			clusterNames := GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort)
 			for _, clusterName := range clusterNames {
 				if len(in.Mirror.Host) > 0 && serviceRegistry[host.Name(in.Mirror.Host)] != nil &&
 					len(serviceRegistry[host.Name(in.Mirror.Host)].DefaultAddresses) > 1 {
@@ -589,7 +589,7 @@ func applyHTTPRouteDestinationWithDualStack(
 			}
 		}
 		hostname := host.Name(dst.GetDestination().GetHost())
-		n := GetDestinationClusterWithDualStack(dst.Destination, serviceRegistry[hostname], listenerPort)
+		n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
 		for _, clusterName := range n {
 			if serviceRegistry != nil && serviceRegistry[hostname] != nil {
 				if len(serviceRegistry[hostname].DefaultAddresses) > 1 {

@@ -218,7 +218,7 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 	}
 }
 
-func buildClusterKeyWithDualStack(service *model.Service, port *model.Port,
+func buildClusterKey(service *model.Service, port *model.Port,
 	cb *ClusterBuilder, proxy *model.Proxy, direction model.TrafficDirection,
 	efKeys []string) *clusterCache {
 	clusterName := model.BuildSubsetKey(direction, "", service.Hostname, port.Port)
@@ -273,7 +273,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 
 			for _, obDirection := range outboundList {
-				clusterKey := buildClusterKeyWithDualStack(service, port, cb, proxy, obDirection, efKeys)
+				clusterKey := buildClusterKey(service, port, cb, proxy, obDirection, efKeys)
 				// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
 				lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.proxyView, service, port.Port, nil)
 
@@ -301,7 +301,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 						string(service.Hostname), "", port, &service.Attributes)
 				}
 
-				subsetClusters := cb.applyDestinationRuleWithDualStack(defaultCluster, DefaultClusterMode, service, port,
+				subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
 					clusterKey.proxyView, clusterKey.destinationRule, clusterKey.serviceAccounts, obDirection)
 
 				if patched := cp.applyResource(nil, defaultCluster.build()); patched != nil {
@@ -398,7 +398,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if defaultCluster == nil {
 				continue
 			}
-			subsetClusters := cb.applyDestinationRuleWithDualStack(defaultCluster,
+			subsetClusters := cb.applyDestinationRule(defaultCluster,
 				SniDnatClusterMode,
 				service,
 				port,
@@ -445,7 +445,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 	sidecarScope := proxy.SidecarScope
 	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
 
-	wildCards := getActualWildcardAndLocalHostWithDualStack(proxy)
+	wildCards := getActualWildcardAndLocalHost(proxy)
 
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners
 	if !sidecarScope.HasIngressListener() {
