@@ -6,4 +6,3 @@ issue:
 releaseNotes:
   - |
     **Fixed** cluster VIPs are not cortrect and stale IP exists after a multi-cluster service is deleted in one cluster. This will cause DNS Proxy returns stale IP for service resolution and then traffic outage.
-    
