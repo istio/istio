@@ -100,17 +100,23 @@ values:
       #    no identities ([spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]) matched istio-fd-sds-1-4523/default
       XDS_AUTH: "false"
     extraVolumes:
-      - name: server-certs
+      - name: "cert-manager"
         secret:
           secretName: ` + PilotSecretName + `
           defaultMode: 420
+      - name: "ca-root-cert"
+        configMap:
+	  name: "istio-ca-root-cert"
     extraVolumeMounts:
-      - name: server-certs
-        mountPath: /server-certs
-    extraArgs:
-      - --caCertFile=/server-certs/root-cert.pem
-      - --tlsCertFile=/server-certs/cert-chain.pem
-      - --tlsKeyFile=/server-certs/key.pem
+      - name: "cert-manager"
+        mountPath: "/etc/cert-manager/tls"
+      - name: "ca-root-cert"
+        mountPath: "/etc/cert-manager/ca"
+	readOnly: true
+    tlsCerts:
+      tlsCertFile: "/etc/cert-manager/tls/tls.crt"
+      tlsKeyFile: "/etc/cert-manager/tls/tls.key"
+      caCertFile: "/etc/cert-manager/ca/root-cert.pem"
   gateways:
     istio-ingressgateway:
       secretVolumes:

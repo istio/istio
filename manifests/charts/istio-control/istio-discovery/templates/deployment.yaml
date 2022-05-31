@@ -105,10 +105,10 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
-{{- if .Values.pilot.extraArgs }}
-  {{-  range .Values.pilot.extraArgs }}
-          - {{ . | quote }}
-  {{- end }}
+{{- if and .Values.pilot.tlsCerts.tlsCertFile .Values.pilot.tlsCerts.tlsKeyFile .Values.pilot.tlsCerts.caCertFile }}
+          - "--tlsCertFile={{ .Values.pilot.tlsCerts.tlsCertFile }}"
+          - "--tlsKeyFile={{ .Values.pilot.tlsCerts.tlsKeyFile }}"
+          - "--caCertFile={{ .Values.pilot.tlsCerts.caCertFile }}"
 {{- end }}
           ports:
           - containerPort: 8080

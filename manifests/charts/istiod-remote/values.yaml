@@ -13,15 +13,43 @@ pilot:
   # Can be a full hub/image:tag
   image: pilot
   traceSampling: 1.0
-  extraArgs: []
-  extraVolumeMounts: []
-  extraVolumes: []
   # Resources for a small pilot install
   resources:
     requests:
       cpu: 500m
       memory: 2048Mi
   env: {}
+  # Used to supply your own certificates.
+  # See https://istio.io/latest/docs/reference/commands/pilot-discovery/#pilot-discovery-discovery
+  tlsCerts:
+    # sets Pilot tls serving cert
+    # tlsCertFile: /etc/cert-manager/tls/tls.crt
+    tlsCertFile: ""
+    # sets Pilot tls private key
+    # tlsKeyFile: /etc/cert-manager/tls/tls.key
+    tlsKeyFile: ""
+    # sets Pilot Root of trust
+    # caCertFile: /etc/cert-manager/ca/root-cert.pem
+    caCertFile: ""
+  # Defines extra volumes
+  # eg to load istio-csr pilot tls cert and root:
+  # extraVolumes:
+  #  - name: "cert-manager",
+  #    secret:
+  #          secretName: "istiod-tls"
+  #  - name: "ca-root-cert"
+  #    configMap:
+  #      name: "istio-ca-root-cert"
+  extraVolumes: []
+  # Defines extra volume mounts, to be used with extraVolumes,
+  # eg to load previous secret volume:
+  # extraVolumeMounts:
+  # - name: "ca-root-cert"
+  #   mountPath: "/etc/cert-manager/ca"
+  #   readOnly: true
+  # - name: "cert-manager"
+  #   mountPath: "/etc/cert-manager/tls"
+  extraVolumeMounts: []
   cpu:
     targetAverageUtilization: 80
   # if protocol sniffing is enabled for outbound

@@ -10,7 +10,7 @@ docs: []
 
 releaseNotes:
 - |
-  **Added** values to the Istio Pilot Helm chart to add extra arguments and extra volume mounts to the Deployment.
+  **Added** values to the Istio Pilot Helm chart to load external certificates and add extra volume mounts to the Deployment.
 
 upgradeNotes: []
 
