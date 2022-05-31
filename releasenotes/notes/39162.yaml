@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** fix envoy cluster metrics prometheus name (#39143)[https://github.com/istio/istio/issues/39143).
+  **Fixed** envoy cluster name tag regex [#39143](https://github.com/istio/istio/issues/39143).
