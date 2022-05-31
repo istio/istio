@@ -165,6 +165,7 @@ spec:
         - '*'
         - -d
         - 15090,15021,15020
+        - --log_output_level=default:info
         - --run-validation
         - --skip-rule-apply
         image: gcr.io/istio-testing/proxyv2:latest
