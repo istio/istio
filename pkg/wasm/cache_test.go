@@ -798,7 +798,7 @@ func setupOCIRegistry(t *testing.T, host string) (dockerImageDigest, invalidOCII
 	return
 }
 
-func TestWasmCachePolicyChanges(t *testing.T) {
+func TestWasmCachePolicyChangesUsingHTTP(t *testing.T) {
 	tmpDir := t.TempDir()
 	cache := NewLocalFileCache(tmpDir, defaultOptions())
 	defer close(cache.stopChan)
