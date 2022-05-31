@@ -41,14 +41,9 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
-
-// deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
-// in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.New(gvk.ServiceEntry.Kind)
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -84,8 +79,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 
 // BuildDeltaClusters generates the deltas (add and delete) for a given proxy. Currently, only service changes are reflected with deltas.
 // Otherwise, we fall back onto generating everything.
-func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, req *model.PushRequest,
-	watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
+func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, req *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
 	var services []*model.Service
 	// for delta, we'll pass in all services to buildClusters, and buildClusters should filter
 	// based on cache dependencies.
@@ -100,7 +94,8 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, req
 
 // buildClusters builds clusters for the proxy with the services passed.
 func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *model.PushRequest,
-	services []*model.Service, alreadyKnown []string) ([]*discovery.Resource, []string, model.XdsLogDetails) {
+	services []*model.Service, alreadyKnown []string,
+) ([]*discovery.Resource, []string, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
@@ -166,7 +161,8 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 
 // buildOutboundClusters generates all outbound (including subsets) clusters for a given proxy.
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, proxy *model.Proxy,
-	cp clusterPatcher, services []*model.Service, updated map[model.ConfigKey]struct{}, deleted sets.Set, delta bool) ([]*discovery.Resource, cacheStats) {
+	cp clusterPatcher, services []*model.Service, updated map[model.ConfigKey]struct{}, deleted sets.Set, delta bool,
+) ([]*discovery.Resource, cacheStats) {
 	oldCacheKeys := proxy.WatchedResources[v3.ClusterType].CacheKeys
 	resources := make([]*discovery.Resource, 0)
 	efKeys := cp.efw.Keys()

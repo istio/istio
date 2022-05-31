@@ -330,6 +330,8 @@ type WatchedResource struct {
 	// For Delta Xds, all resources of the TypeUrl that a client has subscribed to.
 	ResourceNames []string
 
+	// CacheKeys maps resource names to actual cache entries, which contain the dependencies
+	// of that resource. We use this for delta.
 	CacheKeys map[string]XdsCacheEntry
 
 	// VersionSent is the version of the resource included in the last sent response.
