@@ -321,7 +321,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 
 	for clusterID, kubeConfig := range s.Data {
 		if cluster.ID(clusterID) == c.configClusterID {
-			log.Infof("ignoring cluster %v from secret %v as it would overwrite the primary cluster", clusterID, secretKey)
+			log.Infof("ignoring cluster %v from secret %v as it would overwrite the config cluster", clusterID, secretKey)
 			continue
 		}
 
@@ -362,7 +362,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 func (c *Controller) deleteSecret(secretKey string) {
 	for _, cluster := range c.cs.GetExistingClustersFor(secretKey) {
 		if cluster.ID == c.configClusterID {
-			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the primary cluster", c.configClusterID, secretKey)
+			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", c.configClusterID, secretKey)
 			continue
 		}
 		log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
