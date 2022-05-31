@@ -634,15 +634,15 @@ func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []net.IP, ipv6 []net.IP, _ []string) {
 			for host := range althosts {
 				if _, exists := nt.Table[host]; !exists {
-					adresses := make([]string, len(ipv4)+len(ipv6))
+					addresses := make([]string, len(ipv4)+len(ipv6))
 					for _, ip := range ipv4 {
-						adresses = append(adresses, ip.String())
+						addresses = append(addresses, ip.String())
 					}
 					for _, ip := range ipv6 {
-						adresses = append(adresses, ip.String())
+						addresses = append(addresses, ip.String())
 					}
 					nt.Table[host] = &dnsProto.NameTable_NameInfo{
-						Ips:      adresses,
+						Ips:      addresses,
 						Registry: "Kubernetes",
 					}
 				}
