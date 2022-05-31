@@ -36,7 +36,6 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/webhooks"
-	"istio.io/istio/pkg/webhooks/validation/controller"
 )
 
 const (
@@ -239,8 +238,6 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 				go patcher.Run(clusterStopCh)
 			}
 		}
-		// Patch validation webhook cert
-		go controller.NewValidatingWebhookController(client, m.revision, m.secretNamespace, m.caBundleWatcher).Run(clusterStopCh)
 	}
 
 	// setting up the serviceexport controller if and only if it is turned on in the meshconfig.
