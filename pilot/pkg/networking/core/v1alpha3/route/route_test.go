@@ -1782,13 +1782,20 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 	},
 }
 
-func TestCombineVHostRoutes(t *testing.T) {
-	regexEngine := &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-		MaxProgramSize: &wrappers.UInt32Value{
-			Value: uint32(10),
-		},
-	}}
+func TestSortVHostRoutes(t *testing.T) {
+	regexEngine := &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 	first := []*envoyroute.Route{
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: regexEngine,
+				Regex:      ".*?regex1",
+			},
+		}}},
+	}
+	wantFirst := []*envoyroute.Route{
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
@@ -1827,15 +1834,7 @@ func TestCombineVHostRoutes(t *testing.T) {
 		}},
 	}
 
-	want := []*envoyroute.Route{
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
-			SafeRegex: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      ".*?regex1",
-			},
-		}}},
+	wantSecond := []*envoyroute.Route{
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
@@ -1861,19 +1860,39 @@ func TestCombineVHostRoutes(t *testing.T) {
 				},
 			},
 		}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
 	}
 
-	got := route.CombineVHostRoutes(first, second)
-	if !reflect.DeepEqual(want, got) {
-		t.Errorf("CombineVHostRoutes: \n")
-		t.Errorf("got: \n")
-		for _, g := range got {
-			t.Errorf("%v\n", g.Match.PathSpecifier)
-		}
-		t.Errorf("want: \n")
-		for _, g := range want {
-			t.Errorf("%v\n", g.Match.PathSpecifier)
-		}
+	testCases := []struct {
+		name     string
+		in       []*envoyroute.Route
+		expected []*envoyroute.Route
+	}{
+		{
+			name:     "routes with catchall match",
+			in:       first,
+			expected: wantFirst,
+		},
+		{
+			name:     "routes without catchall match",
+			in:       second,
+			expected: wantSecond,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := route.SortVHostRoutes(tc.in)
+			if !reflect.DeepEqual(tc.expected, got) {
+				t.Errorf("SortVHostRoutes: \n")
+				t.Errorf("got: \n")
+				for _, g := range got {
+					t.Errorf("%v\n", g.Match.PathSpecifier)
+				}
+				t.Errorf("want: \n")
+				for _, g := range tc.expected {
+					t.Errorf("%v\n", g.Match.PathSpecifier)
+				}
+			}
+		})
 	}
 }
