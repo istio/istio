@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 func TestTlsGatewaysWithQUIC(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresSingleCluster().
+		// RequiresSingleCluster().
 		Features("security.ingress.quic.sds.tls").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
@@ -72,7 +72,7 @@ func TestTlsGatewaysWithQUIC(t *testing.T) {
 func TestMtlsGatewaysWithQUIC(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresSingleCluster().
+		// RequiresSingleCluster().
 		Features("security.ingress.quic.sds.mtls").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
