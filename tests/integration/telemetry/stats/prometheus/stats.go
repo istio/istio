@@ -20,7 +20,6 @@ package prometheus
 import (
 	"context"
 	"testing"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 
