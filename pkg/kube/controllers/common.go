@@ -156,12 +156,12 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	}
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: single,
-		UpdateFunc: func(oldInterface, newInterace interface{}) {
+		UpdateFunc: func(oldInterface, newInterface interface{}) {
 			oldObj := extractObject(oldInterface)
 			if oldObj == nil {
 				return
 			}
-			newObj := extractObject(newInterace)
+			newObj := extractObject(newInterface)
 			if newObj == nil {
 				return
 			}

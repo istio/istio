@@ -42,7 +42,7 @@ func main() {
 
 	rootCmd.Flags().StringSliceVar(&globalArgs.Targets, "targets", globalArgs.Targets, "targets to build")
 	rootCmd.Flags().StringSliceVar(&globalArgs.Variants, "variants", globalArgs.Variants, "variants to build")
-	rootCmd.Flags().StringSliceVar(&globalArgs.Architectures, "architecures", globalArgs.Architectures, "architectures to build")
+	rootCmd.Flags().StringSliceVar(&globalArgs.Architectures, "architectures", globalArgs.Architectures, "architectures to build")
 	rootCmd.Flags().BoolVar(&globalArgs.Push, "push", globalArgs.Push, "push targets to registry")
 	rootCmd.Flags().BoolVar(&globalArgs.Save, "save", globalArgs.Save, "save targets to tar.gz")
 	rootCmd.Flags().BoolVar(&globalArgs.NoCache, "no-cache", globalArgs.NoCache, "disable caching")
