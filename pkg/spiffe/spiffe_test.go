@@ -103,7 +103,7 @@ var (
 }`
 
 	// validRootCertFile, validIntCertFile and validWorkloadCertFile are in a certification chain.
-	// They are generated using tools/certs/Makefile. Replace "cluster.local" with "foo.doamin.com"
+	// They are generated using tools/certs/Makefile. Replace "cluster.local" with "foo.domain.com"
 	// export INTERMEDIATE_DAYS=3650
 	// export WORKLOAD_DAYS=3650
 	// make foo-certs-selfSigned

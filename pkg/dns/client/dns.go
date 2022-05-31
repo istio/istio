@@ -222,7 +222,7 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 	}
 }
 
-// upstrem sends the requeset to the upstream server, with associated logs and metrics
+// upstream sends the request to the upstream server, with associated logs and metrics
 func (h *LocalDNSServer) upstream(proxy *dnsProxy, req *dns.Msg, hostname string) *dns.Msg {
 	upstreamRequests.Increment()
 	start := time.Now()

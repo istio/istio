@@ -17,7 +17,7 @@ help:
 	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/##//'
 
 #------------------------------------------------------------------------
-##root-ca:	generate root CA files (key and certifcate) in current directory.
+##root-ca:	generate root CA files (key and certificate) in current directory.
 .PHONY: root-ca
 
 root-ca: root-key.pem root-cert.pem
