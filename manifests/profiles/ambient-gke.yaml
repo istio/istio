@@ -14,6 +14,7 @@ spec:
     ambientMesh:
       mode: DEFAULT
 
+  components:
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -25,4 +26,5 @@ spec:
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/charts/global.yaml
   values:
-    operatorManageWebhooks: true
+    global:
+      operatorManageWebhooks: true
