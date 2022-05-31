@@ -209,43 +209,6 @@ func deltaAwareConfigTypes(cfgs map[model.ConfigKey]struct{}) bool {
 	return true
 }
 
-type cacheStats struct {
-	hits, miss int
-}
-
-func (c cacheStats) empty() bool {
-	return c.hits == 0 && c.miss == 0
-}
-
-func (c cacheStats) merge(other cacheStats) cacheStats {
-	return cacheStats{
-		hits: c.hits + other.hits,
-		miss: c.miss + other.miss,
-	}
-}
-
-func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) *clusterCache {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-	clusterKey := &clusterCache{
-		clusterName:     clusterName,
-		proxyVersion:    cb.proxyVersion,
-		locality:        cb.locality,
-		proxyClusterID:  cb.clusterID,
-		proxySidecar:    cb.sidecarProxy(),
-		proxyView:       cb.proxyView,
-		http2:           port.Protocol.IsHTTP2(),
-		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
-		supportsIPv4:    cb.supportsIPv4,
-		service:         service,
-		destinationRule: proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname),
-		envoyFilterKeys: efKeys,
-		metadataCerts:   cb.metadataCerts,
-		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
-		serviceAccounts: cb.req.Push.ServiceAccounts[service.Hostname][port.Port],
-	}
-	return clusterKey
-}
-
 // buildOutboundClusters generates all outbound (including subsets) clusters for a given proxy.
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, proxy *model.Proxy, cp clusterPatcher,
 	services []*model.Service,

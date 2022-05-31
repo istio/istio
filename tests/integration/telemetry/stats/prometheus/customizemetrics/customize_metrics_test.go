@@ -28,13 +28,13 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/containerregistry"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
@@ -47,7 +47,7 @@ var (
 	client, server echo.Instances
 	appNsInst      namespace.Instance
 	promInst       prometheus.Instance
-	registry       containerregistry.Instance
+	registry       registryredirector.Instance
 )
 
 const (
@@ -85,14 +85,16 @@ func TestCustomizeMetrics(t *testing.T) {
 				}
 				var err error
 				if !httpChecked {
-					httpMetricVal, err = common.QueryPrometheus(t, t.Clusters().Default(), httpDestinationQuery, promInst)
+					httpMetricVal, err = common.QueryPrometheus(t, cluster, httpDestinationQuery, promInst)
 					if err != nil {
+						util.PromDiff(t, promInst, cluster, httpDestinationQuery)
 						return err
 					}
 					httpChecked = true
 				}
-				_, err = common.QueryPrometheus(t, t.Clusters().Default(), grpcDestinationQuery, promInst)
+				_, err = common.QueryPrometheus(t, cluster, grpcDestinationQuery, promInst)
 				if err != nil {
+					util.PromDiff(t, promInst, cluster, grpcDestinationQuery)
 					return err
 				}
 				return nil
@@ -139,7 +141,7 @@ spec:
 		return err
 	}
 
-	registry, err = containerregistry.New(ctx, containerregistry.Config{Cluster: ctx.AllClusters().Default()})
+	registry, err = registryredirector.New(ctx, registryredirector.Config{Cluster: ctx.AllClusters().Default()})
 	if err != nil {
 		return
 	}

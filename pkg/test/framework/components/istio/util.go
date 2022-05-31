@@ -105,7 +105,8 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (
 }
 
 func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, label, svcName string,
-	port int) (interface{}, bool, error) {
+	port int,
+) (interface{}, bool, error) {
 	if !s.LoadBalancerSupported {
 		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", label))
 		if err != nil {
@@ -127,7 +128,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 			return nil, false, fmt.Errorf("no Host IP available on the remote service node yet")
 		}
 
-		svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
+		svc, err := cluster.Kube().CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
 		if err != nil {
 			return nil, false, err
 		}
@@ -151,7 +152,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 	}
 
 	// Otherwise, get the load balancer IP.
-	svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
+	svc, err := cluster.Kube().CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
 	if err != nil {
 		return nil, false, err
 	}
@@ -179,7 +180,8 @@ func (i *operatorComponent) isExternalControlPlane() bool {
 }
 
 func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters,
-	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) error {
+	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy,
+) error {
 	errG := multierror.Group{}
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
@@ -192,7 +194,7 @@ func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters,
 		c := c
 		errG.Go(func() error {
 			// Read the config map from the cluster.
-			cm, err := c.CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
+			cm, err := c.Kube().CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -224,7 +226,7 @@ func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters,
 			}
 
 			// Write the config map back to the cluster.
-			_, err = c.CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
+			_, err = c.Kube().CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
 			if err != nil {
 				return err
 			}
@@ -242,12 +244,12 @@ func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters,
 			cn, mcYaml := cn, mcYaml
 			c := clusters.GetByName(cn)
 			errG.Go(func() error {
-				cm, err := c.CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
+				cm, err := c.Kube().CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				cm.Data["mesh"] = mcYaml
-				_, err = c.CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
+				_, err = c.Kube().CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
 				return err
 			})
 		}
@@ -259,7 +261,8 @@ func UpdateMeshConfig(t resource.Context, ns string, clusters cluster.Clusters,
 }
 
 func UpdateMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters,
-	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) {
+	update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy,
+) {
 	t.Helper()
 	if err := UpdateMeshConfig(t, ns, clusters, update, cleanupStrategy); err != nil {
 		t.Fatal(err)

@@ -77,18 +77,6 @@ const (
 	// which determines the endpoint level transport socket configuration.
 	EnvoyTransportSocketMetadataKey = "envoy.transport_socket_match"
 
-	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
-	// endpoint level plantext transport socket configuration
-	EnvoyRawBufferSocketName = wellknown.TransportSocketRawBuffer
-
-	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
-	// level tls transport socket configuration
-	EnvoyTLSSocketName = wellknown.TransportSocketTls
-
-	// EnvoyQUICSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
-	// level QUIC transport socket configuration
-	EnvoyQUICSocketName = wellknown.TransportSocketQuic
-
 	// Well-known header names
 	AltSvcHeader = "alt-svc"
 )
@@ -123,9 +111,6 @@ var ALPNHttp3OverQUIC = []string{"h3"}
 
 // ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
-
-// ALPNDownstream advertises that Proxy is going to talk http2 or http 1.1.
-var ALPNDownstream = []string{"h2", "http/1.1"}
 
 // RegexEngine is the default google RE2 regex engine.
 var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}

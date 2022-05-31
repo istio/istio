@@ -38,7 +38,7 @@ type workloadCache struct {
 func initWorkloadCache(opts *Options) *workloadCache {
 	wc := &workloadCache{
 		xds:  opts.xds,
-		pods: opts.Client.CoreV1().Pods,
+		pods: opts.Client.Kube().CoreV1().Pods,
 		// 3 types of things here: uProxies, PEPs and Workloads.
 		// While we don't have to look up all of these by the same keys, the indexes should be pretty cheap.
 		indexes: map[ambient.NodeType]*ambient.WorkloadIndex{

@@ -79,8 +79,6 @@ var (
 	).Get()
 
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
-	// TODO enable by default once https://github.com/istio/istio/issues/28315 is resolved
-	// Currently this may cause a bug when we go from N clusters -> 0 clusters -> N clusters
 	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
 		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
 
@@ -617,6 +615,9 @@ var (
 
 	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", true,
 		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()
+
+	EnableHCMInternalNetworks = env.RegisterBoolVar("ENABLE_HCM_INTERNAL_NETWORKS", false,
+		"If enable, endpoints defined in mesh networks will be configured as internal addresses in Http Connection Manager").Get()
 
 	CanonicalServiceForMeshExternalServiceEntry = env.RegisterBoolVar("LABEL_CANONICAL_SERVICES_FOR_MESH_EXTERNAL_SERVICE_ENTRIES", false,
 		"If enabled, metadata representing canonical services for ServiceEntry resources with a location of mesh_external will be populated"+

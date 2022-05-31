@@ -30,7 +30,6 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
@@ -86,7 +85,8 @@ type IstiodAnalyzer struct {
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
 func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration) *IstiodAnalyzer {
+	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration,
+) *IstiodAnalyzer {
 	return NewIstiodAnalyzer(analyzer, namespace, istioNamespace, cr, serviceDiscovery)
 }
 
@@ -94,7 +94,8 @@ func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioName
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
-	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool) *IstiodAnalyzer {
+	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool,
+) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
@@ -262,28 +263,7 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
-	for _, tag := range listRevision(c).UnsortedList() {
-		sa.AddRunningKubeSourceWithRevision(c, tag)
-	}
-}
-
-func listRevision(c kubelib.Client) sets.Set {
-	revisions := sets.New("default")
-	tagWebhooks, err := tag.GetTagWebhooks(context.Background(), c)
-	if err != nil {
-		return revisions
-	}
-
-	for _, wh := range tagWebhooks {
-		tagName, err := tag.GetWebhookTagName(wh)
-		if err != nil {
-			continue
-		}
-
-		revisions.Insert(tagName)
-	}
-
-	return revisions
+	sa.AddRunningKubeSourceWithRevision(c, "default")
 }
 
 func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
@@ -309,7 +289,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
 	if err := sa.addRunningKubeIstioConfigMapSource(c); err != nil {
-		_, err := c.CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
+		_, err := c.Kube().CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			// An AnalysisMessage already show up to warn the absence of istio-system namespace, so making it debug level.
 			scope.Analysis.Debugf("%v namespace not found. Istio may not be installed in the target cluster. "+
@@ -377,7 +357,7 @@ func (sa *IstiodAnalyzer) AddDefaultResources() error {
 }
 
 func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Client) error {
-	meshConfigMap, err := client.CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
 	}

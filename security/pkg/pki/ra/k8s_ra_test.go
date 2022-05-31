@@ -163,7 +163,7 @@ func createFakeCsr(t *testing.T) []byte {
 func initFakeKubeClient(t test.Failer, certificate []byte) kube.ExtendedClient {
 	client := kube.NewFakeClient()
 	ctx := test.NewContext(t)
-	w, _ := client.CertificatesV1().CertificateSigningRequests().Watch(ctx, metav1.ListOptions{})
+	w, _ := client.Kube().CertificatesV1().CertificateSigningRequests().Watch(ctx, metav1.ListOptions{})
 	go func() {
 		for {
 			select {
@@ -175,7 +175,7 @@ func initFakeKubeClient(t test.Failer, certificate []byte) kube.ExtendedClient {
 					continue
 				}
 				csr.Status.Certificate = certificate
-				client.CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
+				client.Kube().CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
 			}
 		}
 	}()
@@ -193,7 +193,7 @@ func createFakeK8sRA(client kube.Client, caCertFile string) (*KubernetesRA, erro
 		CaSigner:       caSigner,
 		CaCertFile:     caCertFile,
 		VerifyAppendCA: true,
-		K8sClient:      client,
+		K8sClient:      client.Kube(),
 	}
 	return NewKubernetesRA(raOpts)
 }

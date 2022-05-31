@@ -20,7 +20,6 @@ package uproxy
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/ambient"
 	"testing"
 	"time"
 
@@ -28,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -172,7 +172,7 @@ spec:
 	}
 
 	_, whErr := t.Clusters().Default().
-		AdmissionregistrationV1().MutatingWebhookConfigurations().
+		Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().
 		Get(context.Background(), "istio-sidecar-injector", metav1.GetOptions{})
 	if whErr != nil && !kerrors.IsNotFound(whErr) {
 		return whErr

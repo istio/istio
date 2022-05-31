@@ -28,47 +28,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 )
 
-func TestGetLocalityFromTopology(t *testing.T) {
-	cases := []struct {
-		name     string
-		topology map[string]string
-		locality string
-	}{
-		{
-			"all standard kubernetes labels",
-			map[string]string{
-				NodeRegionLabelGA: "region",
-				NodeZoneLabelGA:   "zone",
-			},
-			"region/zone",
-		},
-		{
-			"all standard kubernetes labels and Istio custom labels",
-			map[string]string{
-				NodeRegionLabelGA:          "region",
-				NodeZoneLabelGA:            "zone",
-				label.TopologySubzone.Name: "subzone",
-			},
-			"region/zone/subzone",
-		},
-		{
-			"missing zone",
-			map[string]string{
-				NodeRegionLabelGA: "region",
-			},
-			"region",
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getLocalityFromTopology(tt.topology)
-			if !reflect.DeepEqual(tt.locality, got) {
-				t.Fatalf("Expected %v, got %v", tt.topology, got)
-			}
-		})
-	}
-}
-
 func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	const (
 		ns      = "nsa"

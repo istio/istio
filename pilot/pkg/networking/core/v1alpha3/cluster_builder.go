@@ -15,13 +15,9 @@
 package v1alpha3
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"sort"
-	"strconv"
-	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -29,6 +25,7 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -48,7 +45,6 @@ import (
 	istio_cluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -72,6 +68,7 @@ var h2UpgradeMap = map[upgradeTuple]bool{
 
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
+// revive:disable-next-line
 var passthroughHttpProtocolOptions = util.MessageToAny(&http.HttpProtocolOptions{
 	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
@@ -414,84 +411,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	return ec
 }
 
-type clusterCache struct {
-	clusterName string
-
-	// proxy related cache fields
-	proxyVersion   string         // will be matched by envoyfilter patches
-	locality       *core.Locality // identifies the locality the cluster is generated for
-	proxyClusterID string         // identifies the kubernetes cluster a proxy is in
-	proxySidecar   bool           // identifies if this proxy is a Sidecar
-	proxyView      model.ProxyView
-	metadataCerts  *metadataCerts // metadata certificates of proxy
-
-	// service attributes
-	http2          bool // http2 identifies if the cluster is for an http2 service
-	downstreamAuto bool
-	supportsIPv4   bool
-
-	// Dependent configs
-	service         *model.Service
-	destinationRule *config.Config
-	envoyFilterKeys []string
-	peerAuthVersion string   // identifies the versions of all peer authentications
-	serviceAccounts []string // contains all the service accounts associated with the service
-}
-
-func (t *clusterCache) Key() string {
-	params := []string{
-		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
-		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
-		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto), strconv.FormatBool(t.supportsIPv4),
-	}
-	if t.proxyView != nil {
-		params = append(params, t.proxyView.String())
-	}
-	if t.metadataCerts != nil {
-		params = append(params, t.metadataCerts.String())
-	}
-	if t.service != nil {
-		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
-	}
-	if t.destinationRule != nil {
-		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
-	}
-	params = append(params, t.envoyFilterKeys...)
-	params = append(params, t.peerAuthVersion)
-	params = append(params, t.serviceAccounts...)
-
-	hash := md5.New()
-	for _, param := range params {
-		hash.Write([]byte(param))
-	}
-	sum := hash.Sum(nil)
-	return hex.EncodeToString(sum)
-}
-
-func (t clusterCache) DependentConfigs() []model.ConfigKey {
-	configs := []model.ConfigKey{}
-	if t.destinationRule != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace})
-	}
-	if t.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace})
-	}
-	for _, efKey := range t.envoyFilterKeys {
-		items := strings.Split(efKey, "/")
-		configs = append(configs, model.ConfigKey{Kind: gvk.EnvoyFilter, Name: items[1], Namespace: items[0]})
-	}
-	return configs
-}
-
-func (t *clusterCache) DependentTypes() []config.GroupVersionKind {
-	return nil
-}
-
-func (t clusterCache) Cacheable() bool {
-	return true
-}
-
-// buildInboundClusterForPortOrUDS constructs a single inbound listener. The cluster will be bound to
+// buildInboundClusterForPortOrUDS constructs a single inbound cluster. The cluster will be bound to
 // `inbound|clusterPort||`, and send traffic to <bind>:<instance.Endpoint.EndpointPort>. A workload
 // will have a single inbound cluster per port. In general this works properly, with the exception of
 // the Service-oriented DestinationRule, and upstream protocol selection. Our documentation currently
@@ -1004,7 +924,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 
 	if tlsContext != nil {
 		c.cluster.TransportSocket = &core.TransportSocket{
-			Name:       util.EnvoyTLSSocketName,
+			Name:       wellknown.TransportSocketTls,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
 		}
 	}
@@ -1068,7 +988,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
 		// We add `istio-peer-exchange` to the list of alpn strings.
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
-		if cb.IsHttp2Cluster(c) {
+		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if features.MetadataExchange {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
@@ -1088,8 +1008,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
-		// Set auto-sni if sni field is not explicitly set
-		cb.setAutoSni(c, tls)
+
+		cb.setAutoSniAndAutoSanValidation(c, tls)
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
@@ -1117,7 +1037,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
-		if cb.IsHttp2Cluster(c) {
+		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
@@ -1128,8 +1048,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			Sni:              tls.Sni,
 		}
 
-		// Set auto-sni if sni field is not explicitly set
-		cb.setAutoSni(c, tls)
+		cb.setAutoSniAndAutoSanValidation(c, tls)
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
@@ -1170,7 +1089,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
-		if cb.IsHttp2Cluster(c) {
+		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
@@ -1178,15 +1097,35 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	return tlsContext, nil
 }
 
-func (cb *ClusterBuilder) setAutoSni(mc *MutableCluster, tls *networking.ClientTLSSettings) {
-	if mc != nil && features.EnableAutoSni && len(tls.Sni) == 0 {
+// Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
+// Set auto_san_validation if VerifyCertAtClient feature flag is enabled and if there is no explicit SubjectAltNames specified  in DR.
+func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls *networking.ClientTLSSettings) {
+	if mc == nil || !features.EnableAutoSni {
+		return
+	}
+
+	setAutoSni := false
+	setAutoSanValidation := false
+	if len(tls.Sni) == 0 {
+		setAutoSni = true
+	}
+	if features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0 {
+		setAutoSanValidation = true
+	}
+
+	if setAutoSni || setAutoSanValidation {
 		if mc.httpProtocolOptions == nil {
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
 		if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
 		}
-		mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
+		if setAutoSni {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
+		}
+		if setAutoSanValidation {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
+		}
 	}
 }
 
@@ -1213,7 +1152,8 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 }
 
 // nolint
-func (cb *ClusterBuilder) IsHttp2Cluster(mc *MutableCluster) bool {
+// revive:disable-next-line
+func (cb *ClusterBuilder) isHttp2Cluster(mc *MutableCluster) bool {
 	options := mc.httpProtocolOptions
 	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
 }

@@ -217,10 +217,10 @@ func CreateCustomSecret(ctx resource.Context, name string, namespace namespace.I
 		},
 	}
 
-	_, err = kubeAccessor.CoreV1().Secrets(namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
+	_, err = kubeAccessor.Kube().CoreV1().Secrets(namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
 		if kerrors.IsAlreadyExists(err) {
-			if _, err := kubeAccessor.CoreV1().Secrets(namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+			if _, err := kubeAccessor.Kube().CoreV1().Secrets(namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("failed updating secret %s: %v", secret.Name, err)
 			}
 		} else {

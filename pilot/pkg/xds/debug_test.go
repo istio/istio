@@ -136,8 +136,8 @@ func verifySyncStatus(t *testing.T, s *xds.DiscoveryServer, nodeID string, wantS
 				if (ss.EndpointAcked != "") != wantAcked {
 					errorHandler("wanted EndpointAcked set %v got %v for %v", wantAcked, ss.EndpointAcked, nodeID)
 				}
-				if (ss.ExtesionConfigSent != "") != wantSent {
-					errorHandler("wanted ExtesionConfigSent set %v got %v for %v", wantSent, ss.ExtesionConfigSent, nodeID)
+				if (ss.ExtensionConfigSent != "") != wantSent {
+					errorHandler("wanted ExtesionConfigSent set %v got %v for %v", wantSent, ss.ExtensionConfigSent, nodeID)
 				}
 				if (ss.ExtensionConfigAcked != "") != wantAcked {
 					errorHandler("wanted ExtensionConfigAcked set %v got %v for %v", wantAcked, ss.ExtensionConfigAcked, nodeID)

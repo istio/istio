@@ -114,7 +114,7 @@ func (t TokenRequestPlugin) GetPlatformCredential(ctx context.Context) (string, 
 			BoundObjectRef:    ref,
 		},
 	}
-	tok, err := t.client.CoreV1().ServiceAccounts(sp.Namespace).CreateToken(context.Background(), sp.ServiceAccount, token, metav1.CreateOptions{})
+	tok, err := t.client.Kube().CoreV1().ServiceAccounts(sp.Namespace).CreateToken(context.Background(), sp.ServiceAccount, token, metav1.CreateOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not create a token for %v/%v: %v", sp, ref, err)
 	}

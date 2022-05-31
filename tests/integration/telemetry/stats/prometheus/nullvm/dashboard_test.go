@@ -161,7 +161,7 @@ func TestDashboard(t *testing.T) {
 							continue
 						}
 						t.Logf("Verifying %s for cluster %s", d.name, cl.Name())
-						cm, err := cl.CoreV1().ConfigMaps((*common.GetIstioInstance()).Settings().TelemetryNamespace).Get(
+						cm, err := cl.Kube().CoreV1().ConfigMaps((*common.GetIstioInstance()).Settings().TelemetryNamespace).Get(
 							context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
 						if err != nil {
 							t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
@@ -281,7 +281,7 @@ spec:
         exact: /echo-%s
     route:
     - destination:
-        host: server
+        host: b
         port:
           number: 80
   tcp:
@@ -289,9 +289,9 @@ spec:
     - port: 31400
     route:
     - destination:
-        host: server
+        host: b
         port:
-          number: 9000
+          number: 9090
 `
 
 func setupDashboardTest(done <-chan struct{}) {

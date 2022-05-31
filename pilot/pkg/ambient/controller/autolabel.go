@@ -68,7 +68,7 @@ func ambientLabelFilter(ignoredNamespaces sets.Set) func(o controllers.Object) b
 
 func ambientLabelPatcher(client kubelib.Client) func(types.NamespacedName) error {
 	return func(key types.NamespacedName) error {
-		_, err := client.CoreV1().
+		_, err := client.Kube().CoreV1().
 			Pods(key.Namespace).
 			Patch(
 				context.Background(),

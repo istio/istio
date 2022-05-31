@@ -141,7 +141,8 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 
 // GetEnvoySecrets parses the secrets section of the config dump into []SecretItem
 func GetEnvoySecrets(
-	wrapper *configdump.Wrapper) ([]SecretItem, error) {
+	wrapper *configdump.Wrapper,
+) ([]SecretItem, error) {
 	secretConfigDump, err := wrapper.GetSecretConfigDump()
 	if err != nil {
 		return nil, err

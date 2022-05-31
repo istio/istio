@@ -112,6 +112,21 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 		},
 		{
+			name: "non-k8s service",
+			service: &model.Service{
+				Hostname:     "foo.default.svc.bar.baz",
+				MeshExternal: false,
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "default.svc.cluster.local",
+			},
+			want: []string{
+				"foo.default.svc.bar.baz",
+				"foo.default.svc.bar.baz:8123",
+			},
+		},
+		{
 			name: "k8s service with default domain and different namespace",
 			service: &model.Service{
 				Hostname:     "echo.default.svc.cluster.local",
@@ -418,15 +433,11 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			})
 
 			vHostCache := make(map[int][]*route.VirtualHost)
-			routeName := "80"
 			resource, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
 				cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, "80", vHostCache, nil, nil)
 			routeCfg := &route.RouteConfiguration{}
 			resource.Resource.UnmarshalTo(routeCfg)
 			xdstest.ValidateRouteConfiguration(t, routeCfg)
-			if routeCfg == nil {
-				t.Fatalf("got nil route for %s", routeName)
-			}
 
 			got := map[string][]string{}
 			clusters := map[string]string{}
@@ -1513,9 +1524,6 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	routeCfg := &route.RouteConfiguration{}
 	resource.Resource.UnmarshalTo(routeCfg)
 	xdstest.ValidateRouteConfiguration(t, routeCfg)
-	if routeCfg == nil {
-		t.Fatalf("got nil route for %s", routeName)
-	}
 
 	if expectedRoutes == 0 {
 		expectedRoutes = len(expectedHosts)

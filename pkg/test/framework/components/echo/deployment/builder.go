@@ -215,7 +215,7 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 	for _, c := range b.ctx.Clusters().Kube() {
 		out[c.Name()] = sets.New()
 		// TODO find a place to read revision(s) and avoid listing
-		cms, err := c.CoreV1().ConfigMaps(ns).List(context.TODO(), metav1.ListOptions{})
+		cms, err := c.Kube().CoreV1().ConfigMaps(ns).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}

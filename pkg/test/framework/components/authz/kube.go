@@ -78,7 +78,7 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 	// Create the namespace, if unspecified.
 	if ns == nil {
 		ns, err = namespace.New(ctx, namespace.Config{
-			Prefix: "ext-authz",
+			Prefix: "authz",
 			Inject: true,
 		})
 		if err != nil {
@@ -166,7 +166,7 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 	for _, c := range ctx.Clusters() {
 		c := c
 		g.Go(func() error {
-			_, _, err := kube.WaitUntilServiceEndpointsAreReady(c, s.ns.Name(), "ext-authz")
+			_, _, err := kube.WaitUntilServiceEndpointsAreReady(c.Kube(), s.ns.Name(), "ext-authz")
 			return err
 		})
 	}

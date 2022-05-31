@@ -19,6 +19,7 @@ package gateway
 
 import (
 	"fmt"
+
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 )
 

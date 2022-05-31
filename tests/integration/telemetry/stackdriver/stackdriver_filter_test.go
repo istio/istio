@@ -143,7 +143,7 @@ func validateTraces(t test.Failer) error {
 	// span.
 
 	wantSpanName := fmt.Sprintf("srv.%s.svc.cluster.local:80/*", EchoNsInst.Name())
-	traces, err := SDInst.ListTraces(EchoNsInst.Name())
+	traces, err := SDInst.ListTraces(EchoNsInst.Name(), "")
 	if err != nil {
 		return fmt.Errorf("traces: could not retrieve traces from Stackdriver: %v", err)
 	}

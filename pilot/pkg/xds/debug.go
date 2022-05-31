@@ -121,7 +121,7 @@ type SyncStatus struct {
 	RouteAcked           string `json:"route_acked,omitempty"`
 	EndpointSent         string `json:"endpoint_sent,omitempty"`
 	EndpointAcked        string `json:"endpoint_acked,omitempty"`
-	ExtesionConfigSent   string `json:"extensionconfig_sent,omitempty"`
+	ExtensionConfigSent  string `json:"extensionconfig_sent,omitempty"`
 	ExtensionConfigAcked string `json:"extensionconfig_acked,omitempty"`
 }
 
@@ -287,8 +287,8 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 				RouteAcked:           con.NonceAcked(v3.RouteType),
 				EndpointSent:         con.NonceSent(v3.EndpointType),
 				EndpointAcked:        con.NonceAcked(v3.EndpointType),
-				ExtesionConfigSent:   con.NonceSent(v3.ExtensionConfigurationType),
-				ExtensionConfigAcked: con.NonceSent(v3.ExtensionConfigurationType),
+				ExtensionConfigSent:  con.NonceSent(v3.ExtensionConfigurationType),
+				ExtensionConfigAcked: con.NonceAcked(v3.ExtensionConfigurationType),
 			})
 		}
 	}

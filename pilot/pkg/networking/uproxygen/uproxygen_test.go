@@ -129,9 +129,9 @@ func TestUproxygen(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	serviceAccounts, _ := ds.KubeClient().CoreV1().ServiceAccounts(v1.NamespaceAll).List(ctx, v1.ListOptions{})
+	serviceAccounts, _ := ds.KubeClient().Kube().CoreV1().ServiceAccounts(v1.NamespaceAll).List(ctx, v1.ListOptions{})
 	sa := len(serviceAccounts.Items)
-	services, _ := ds.KubeClient().CoreV1().Services(v1.NamespaceAll).List(ctx, v1.ListOptions{})
+	services, _ := ds.KubeClient().Kube().CoreV1().Services(v1.NamespaceAll).List(ctx, v1.ListOptions{})
 	svc := len(services.Items)
 	testCases := []struct {
 		msg     NamedMessage

@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -81,9 +82,10 @@ type LocalFileCache struct {
 	mux sync.Mutex
 
 	// Duration for stale Wasm module purging.
-	purgeInterval      time.Duration
-	wasmModuleExpiry   time.Duration
-	insecureRegistries sets.Set
+	purgeInterval              time.Duration
+	wasmModuleExpiry           time.Duration
+	insecureRegistries         sets.Set
+	allowAllInsecureRegistries bool
 
 	// stopChan currently is only used by test
 	stopChan chan struct{}
@@ -127,6 +129,7 @@ type cacheEntry struct {
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
 func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
+	ir := sets.New(insecureRegistries...)
 	cache := &LocalFileCache{
 		httpFetcher:        NewHTTPFetcher(DefaultWasmHTTPRequestTimeout),
 		modules:            make(map[moduleKey]*cacheEntry),
@@ -135,8 +138,11 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, in
 		purgeInterval:      purgeInterval,
 		wasmModuleExpiry:   moduleExpiry,
 		stopChan:           make(chan struct{}),
-		insecureRegistries: sets.New(insecureRegistries...),
+		insecureRegistries: ir,
+		// If the set of the given insecure registries contains "*", then allow all the insecure registries.
+		allowAllInsecureRegistries: ir.Contains("*"),
 	}
+
 	go func() {
 		cache.purge()
 	}()
@@ -168,10 +174,24 @@ func pullIfNotPresent(pullPolicy extensions.PullPolicy, u *url.URL) bool {
 	return false
 }
 
+func getModulePath(baseDir string, mkey moduleKey) (string, error) {
+	sha := sha256.Sum256([]byte(mkey.name))
+	hashedName := hex.EncodeToString(sha[:])
+	moduleDir := filepath.Join(baseDir, hashedName)
+	if _, err := os.Stat(moduleDir); errors.Is(err, os.ErrNotExist) {
+		err := os.Mkdir(moduleDir, 0o755)
+		if err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(moduleDir, fmt.Sprintf("%s.wasm", mkey.checksum)), nil
+}
+
 // Get returns path the local Wasm module file.
 func (c *LocalFileCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
-	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
+	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
+) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -192,6 +212,7 @@ func (c *LocalFileCache) Get(
 	var modulePath string
 	modulePath, key.checksum = c.getEntry(key, pullIfNotPresent(pullPolicy, u))
 	if modulePath != "" {
+		c.touchEntry(key)
 		return modulePath, nil
 	}
 
@@ -202,7 +223,7 @@ func (c *LocalFileCache) Get(
 	// Hex-Encoded sha256 checksum of binary.
 	var dChecksum string
 	var binaryFetcher func() ([]byte, error)
-	insecure := c.insecureRegistries.Contains(u.Host)
+	insecure := c.allowAllInsecureRegistries || c.insecureRegistries.Contains(u.Host)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -242,6 +263,7 @@ func (c *LocalFileCache) Get(
 		key.checksum = dChecksum
 		// check again if the cache is having the checksum.
 		if modulePath, _ := c.getEntry(key, true); modulePath != "" {
+			c.touchEntry(key)
 			return modulePath, nil
 		}
 	} else if dChecksum != key.checksum {
@@ -265,12 +287,16 @@ func (c *LocalFileCache) Get(
 	wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()
 
 	key.checksum = dChecksum
-	f := filepath.Join(c.dir, fmt.Sprintf("%s.wasm", dChecksum))
 
-	if err := c.addEntry(key, b, f); err != nil {
+	modulePath, err = getModulePath(c.dir, key.moduleKey)
+	if err != nil {
 		return "", err
 	}
-	return f, nil
+
+	if err := c.addEntry(key, b, modulePath); err != nil {
+		return "", err
+	}
+	return modulePath, nil
 }
 
 // Cleanup closes background Wasm module purge routine.
@@ -278,13 +304,32 @@ func (c *LocalFileCache) Cleanup() {
 	close(c.stopChan)
 }
 
-func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) error {
+func (c *LocalFileCache) updateChecksum(key cacheKey) bool {
 	// If OCI URL having a tag, we need to update checksum.
 	needChecksumUpdate := strings.HasPrefix(key.downloadURL, ociURLPrefix) && !strings.Contains(key.downloadURL, "@")
+	if needChecksumUpdate {
+		ce := c.checksums[key.downloadURL]
+		if ce == nil {
+			ce = new(checksumEntry)
+			ce.resourceVersionByResource = make(map[string]string)
+			c.checksums[key.downloadURL] = ce
+		}
+		ce.checksum = key.checksum
+		ce.resourceVersionByResource[key.resourceName] = key.resourceVersion
+	}
+	return needChecksumUpdate
+}
 
+func (c *LocalFileCache) touchEntry(key cacheKey) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
+	c.updateChecksum(key)
+}
 
+func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) error {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	needChecksumUpdate := c.updateChecksum(key)
 	if needChecksumUpdate {
 		ce := c.checksums[key.downloadURL]
 		if ce == nil {
@@ -375,17 +420,18 @@ func (c *LocalFileCache) purge() {
 		case <-ticker.C:
 			c.mux.Lock()
 			for k, m := range c.modules {
-				if m.expired(c.wasmModuleExpiry) {
-					// The module has not be touched for expiry duration, delete it from the map as well as the local dir.
-					if err := os.Remove(m.modulePath); err != nil {
-						wasmLog.Errorf("failed to purge Wasm module %v: %v", m.modulePath, err)
-					} else {
-						for downloadURL := range m.referencingURLs {
-							delete(c.checksums, downloadURL)
-						}
-						delete(c.modules, k)
-						wasmLog.Debugf("successfully removed stale Wasm module %v", m.modulePath)
+				if !m.expired(c.wasmModuleExpiry) {
+					continue
+				}
+				// The module has not be touched for expiry duration, delete it from the map as well as the local dir.
+				if err := os.Remove(m.modulePath); err != nil {
+					wasmLog.Errorf("failed to purge Wasm module %v: %v", m.modulePath, err)
+				} else {
+					for downloadURL := range m.referencingURLs {
+						delete(c.checksums, downloadURL)
 					}
+					delete(c.modules, k)
+					wasmLog.Debugf("successfully removed stale Wasm module %v", m.modulePath)
 				}
 			}
 			wasmCacheEntries.Record(float64(len(c.modules)))

@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
@@ -246,49 +245,39 @@ func skipAmbient(t framework.TestContext, cases []TrafficTestCase, reason string
 	return cases
 }
 
-func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *deployment.SingleNamespaceView) {
-	cases := map[string][]TrafficTestCase{}
-	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
-		skipAmbient(t, jwtClaimRoute(apps), "needs ingress")
-	}
-	cases["virtualservice"] = virtualServiceCases(t, t.Settings().Skip(echo.VM))
-	cases["sniffing"] = protocolSniffingCases(apps)
-	cases["selfcall"] = selfCallsCases()
-	cases["serverfirst"] = serverFirstTestCases(t, apps)
-	cases["gateway"] = gatewayCases()
-	cases["autopassthrough"] = skipAmbient(t, autoPassthroughCases(t, apps), "needs ingress")
-	cases["loop"] = trafficLoopCases(apps)
-	cases["tls-origination"] = tlsOriginationCases(apps)
-	cases["instanceip"] = skipAmbient(t, instanceIPTests(apps), "not supported")
-	cases["services"] = serviceCases(apps)
-	if h, err := hostCases(apps); err != nil {
-		t.Fatal("failed to setup host cases: %v", err)
-	} else {
-		cases["host"] = h
-	}
-	cases["envoyfilter"] = skipAmbient(t, envoyFilterCases(apps), "not supported")
-	if len(t.Clusters().ByNetwork()) == 1 {
-		// Consistent hashing does not work for multinetwork. The first request will consistently go to a
-		// gateway, but that gateway will tcp_proxy it to a random pod.
-		cases["consistent-hash"] = consistentHashCases(apps)
-	}
-	cases["use-client-protocol"] = skipAmbient(t, useClientProtocolCases(apps), "not working, not sure why")
-	cases["destinationrule"] = destinationRuleCases(apps)
-	if !t.Settings().Skip(echo.VM) {
-		cases["vm"] = VMTestCases(t, apps.VM, apps)
-	}
-	cases["dns"] = DNSTestCases(apps, i.Settings().EnableCNI)
-	for name, tts := range cases {
+func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployment.SingleNamespaceView) {
+	RunCase := func(name string, f func(t TrafficContext)) {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
-			for _, tt := range tts {
-				if tt.workloadAgnostic {
-					tt.RunForApps(t, apps.All.Instances(), apps.Namespace.Name())
-				} else {
-					tt.Run(t, apps.Namespace.Name())
-				}
+			f(TrafficContext{TestContext: t, Apps: apps, Istio: i})
+		})
+	}
+	RunSkipAmbient := func(name string, f func(t TrafficContext), reason string) {
+		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			if t.Settings().Ambient {
+				t.Skipf("ambient skipped: %v", reason)
+			} else {
+				f(TrafficContext{TestContext: t, Apps: apps, Istio: i})
 			}
 		})
 	}
+	RunSkipAmbient("jwt-claim-route", jwtClaimRoute, "ingress needed")
+	RunCase("virtualservice", virtualServiceCases)
+	RunCase("sniffing", protocolSniffingCases)
+	RunCase("selfcall", selfCallsCases)
+	RunCase("serverfirst", serverFirstTestCases)
+	RunCase("gateway", gatewayCases)
+	RunSkipAmbient("autopassthrough", autoPassthroughCases, "ingress needed")
+	RunCase("loop", trafficLoopCases)
+	RunCase("tls-origination", tlsOriginationCases)
+	RunSkipAmbient("instanceip", instanceIPTests, "not supported")
+	RunCase("services", serviceCases)
+	RunCase("host", hostCases)
+	RunSkipAmbient("envoyfilter", envoyFilterCases, "not supported")
+	RunCase("consistent-hash", consistentHashCases)
+	RunSkipAmbient("use-client-protocol", useClientProtocolCases, "not working for unknown reasons")
+	RunCase("destinationrule", destinationRuleCases)
+	RunCase("vm", VMTestCases(apps.VM))
+	RunCase("dns", DNSTestCases)
 }
 
 func ExpectString(got, expected, help string) error {
@@ -305,4 +294,46 @@ func AlmostEquals(a, b, precision int) bool {
 		return false
 	}
 	return true
+}
+
+type TrafficContext struct {
+	framework.TestContext
+	Apps  deployment.SingleNamespaceView
+	Istio istio.Instance
+
+	// sourceFilters defines default filters for all cases
+	sourceMatchers []match.Matcher
+	// targetFilters defines default filters for all cases
+	targetMatchers []match.Matcher
+	// comboFilters defines default filters for all cases
+	comboFilters []echotest.CombinationFilter
+}
+
+func (t *TrafficContext) SetDefaultSourceMatchers(f ...match.Matcher) {
+	t.sourceMatchers = f
+}
+
+func (t *TrafficContext) SetDefaultTargetMatchers(f ...match.Matcher) {
+	t.targetMatchers = f
+}
+
+func (t *TrafficContext) SetDefaultComboFilter(f ...echotest.CombinationFilter) {
+	t.comboFilters = f
+}
+
+func (t TrafficContext) RunTraffic(tt TrafficTestCase) {
+	if tt.sourceMatchers == nil {
+		tt.sourceMatchers = t.sourceMatchers
+	}
+	if tt.targetMatchers == nil {
+		tt.targetMatchers = t.targetMatchers
+	}
+	if tt.comboFilters == nil {
+		tt.comboFilters = t.comboFilters
+	}
+	if tt.workloadAgnostic {
+		tt.RunForApps(t, t.Apps.All.Instances(), t.Apps.Namespace.Name())
+	} else {
+		tt.Run(t, t.Apps.Namespace.Name())
+	}
 }

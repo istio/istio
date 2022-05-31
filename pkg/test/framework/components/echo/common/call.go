@@ -83,25 +83,33 @@ func callInternal(srcName string, from echo.Caller, opts echo.CallOptions, send 
 	return result, err
 }
 
-func CallEcho(from echo.Caller, opts echo.CallOptions) (echo.CallResult, error) {
+type Caller struct {
+	f *forwarder.Instance
+}
+
+func NewCaller() *Caller {
+	return &Caller{
+		f: forwarder.New(),
+	}
+}
+
+func (c *Caller) Close() error {
+	return c.f.Close()
+}
+
+func (c *Caller) CallEcho(from echo.Caller, opts echo.CallOptions) (echo.CallResult, error) {
 	if err := opts.FillDefaults(); err != nil {
 		return echo.CallResult{}, err
 	}
 
 	send := func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
-		instance, err := forwarder.New(forwarder.Config{
+		ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+		defer cancel()
+
+		ret, err := c.f.ForwardEcho(ctx, &forwarder.Config{
 			Request: req,
 			Proxy:   opts.HTTP.HTTPProxy,
 		})
-		if err != nil {
-			return nil, err
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
-		defer func() {
-			cancel()
-			_ = instance.Close()
-		}()
-		ret, err := instance.Run(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -113,26 +121,28 @@ func CallEcho(from echo.Caller, opts echo.CallOptions) (echo.CallResult, error) 
 
 func newForwardRequest(opts echo.CallOptions) *proto.ForwardEchoRequest {
 	return &proto.ForwardEchoRequest{
-		Url:                getTargetURL(opts),
-		Count:              int32(opts.Count),
-		Headers:            common.HTTPToProtoHeaders(opts.HTTP.Headers),
-		TimeoutMicros:      common.DurationToMicros(opts.Timeout),
-		Message:            opts.Message,
-		ExpectedResponse:   opts.TCP.ExpectedResponse,
-		Http2:              opts.HTTP.HTTP2,
-		Http3:              opts.HTTP.HTTP3,
-		Method:             opts.HTTP.Method,
-		ServerFirst:        opts.Port.ServerFirst,
-		Cert:               opts.TLS.Cert,
-		Key:                opts.TLS.Key,
-		CaCert:             opts.TLS.CaCert,
-		CertFile:           opts.TLS.CertFile,
-		KeyFile:            opts.TLS.KeyFile,
-		CaCertFile:         opts.TLS.CaCertFile,
-		InsecureSkipVerify: opts.TLS.InsecureSkipVerify,
-		Alpn:               getProtoALPN(opts.TLS.Alpn),
-		FollowRedirects:    opts.HTTP.FollowRedirects,
-		ServerName:         opts.TLS.ServerName,
+		Url:                     getTargetURL(opts),
+		Count:                   int32(opts.Count),
+		Headers:                 common.HTTPToProtoHeaders(opts.HTTP.Headers),
+		TimeoutMicros:           common.DurationToMicros(opts.Timeout),
+		Message:                 opts.Message,
+		ExpectedResponse:        opts.TCP.ExpectedResponse,
+		Http2:                   opts.HTTP.HTTP2,
+		Http3:                   opts.HTTP.HTTP3,
+		Method:                  opts.HTTP.Method,
+		ServerFirst:             opts.Port.ServerFirst,
+		Cert:                    opts.TLS.Cert,
+		Key:                     opts.TLS.Key,
+		CaCert:                  opts.TLS.CaCert,
+		CertFile:                opts.TLS.CertFile,
+		KeyFile:                 opts.TLS.KeyFile,
+		CaCertFile:              opts.TLS.CaCertFile,
+		InsecureSkipVerify:      opts.TLS.InsecureSkipVerify,
+		Alpn:                    getProtoALPN(opts.TLS.Alpn),
+		FollowRedirects:         opts.HTTP.FollowRedirects,
+		ServerName:              opts.TLS.ServerName,
+		NewConnectionPerRequest: opts.NewConnectionPerRequest,
+		ForceDNSLookup:          opts.ForceDNSLookup,
 	}
 }
 

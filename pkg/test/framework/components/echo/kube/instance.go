@@ -86,7 +86,7 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 	c.id = ctx.TrackResource(c)
 
 	// Now retrieve the service information to find the ClusterIP
-	s, err := c.cluster.CoreV1().Services(cfg.Namespace.Name()).Get(context.TODO(), cfg.Service, metav1.GetOptions{})
+	s, err := c.cluster.Kube().CoreV1().Services(cfg.Namespace.Name()).Get(context.TODO(), cfg.Service, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (c *instance) Workloads() (echo.Workloads, error) {
 	if err != nil {
 		return nil, err
 	}
-	final := []echo.Workload{}
+	var final []echo.Workload
 	for _, wl := range wls {
 		filtered := false
 		for _, filter := range c.workloadFilter {
@@ -168,14 +168,6 @@ func (c *instance) Clusters() cluster.Clusters {
 
 func (c *instance) Instances() echo.Instances {
 	return echo.Instances{c}
-}
-
-func (c *instance) firstClient() (*echoClient.Client, error) {
-	workloads, err := c.Workloads()
-	if err != nil {
-		return nil, err
-	}
-	return workloads[0].(*workload).Client()
 }
 
 func (c *instance) Close() (err error) {

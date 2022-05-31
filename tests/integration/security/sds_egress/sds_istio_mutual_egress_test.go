@@ -88,7 +88,8 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 }
 
 func doIstioMutualTest(
-	ctx framework.TestContext, ns namespace.Instance, configPath string, expectedCode int) {
+	ctx framework.TestContext, ns namespace.Instance, configPath string, expectedCode int,
+) {
 	var client echo.Instance
 	deployment.New(ctx).
 		With(&client, util.EchoConfig("client", ns, false, nil)).

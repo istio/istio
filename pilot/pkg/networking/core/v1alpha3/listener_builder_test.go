@@ -22,14 +22,18 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/jsonpb"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -387,6 +391,45 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 					{
 						Name: "outbound-listener",
 					},
+					{
+						Name: "new-outbound-listener",
+					},
+				},
+			},
+		},
+		{
+			name:  "remove HTTP Proxy listener",
+			proxy: sidecarProxy,
+			fields: fields{
+				httpProxyListener: &listener.Listener{
+					Name: "127.0.0.1_81",
+					Address: &core.Address{
+						Address: &core.Address_SocketAddress{
+							SocketAddress: &core.SocketAddress{
+								PortSpecifier: &core.SocketAddress_PortValue{
+									PortValue: 81,
+								},
+							},
+						},
+					},
+					FilterChains: []*listener.FilterChain{
+						{
+							Filters: []*listener.Filter{
+								{
+									Name: wellknown.HTTPConnectionManager,
+								},
+							},
+						},
+					},
+				},
+			},
+			want: fields{
+				inboundListeners: []*listener.Listener{
+					{
+						Name: "new-inbound-listener",
+					},
+				},
+				outboundListeners: []*listener.Listener{
 					{
 						Name: "new-outbound-listener",
 					},
@@ -768,4 +811,74 @@ spec:
   mtls:
     mode: %s
 `, m)
+}
+
+func TestHCMInternalAddressConfig(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{})
+	sidecarProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
+	test.SetBoolForTest(t, &features.EnableHCMInternalNetworks, true)
+	push := cg.PushContext()
+	cases := []struct {
+		name           string
+		networks       *meshconfig.MeshNetworks
+		expectedconfig *hcm.HttpConnectionManager_InternalAddressConfig
+	}{
+		{
+			name:           "nil networks",
+			expectedconfig: nil,
+		},
+		{
+			name:           "empty networks",
+			networks:       &meshconfig.MeshNetworks{},
+			expectedconfig: nil,
+		},
+		{
+			name: "networks populated",
+			networks: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"default": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "192.168/16",
+								},
+							},
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "172.16/12",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedconfig: &hcm.HttpConnectionManager_InternalAddressConfig{
+				CidrRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "192.168",
+						PrefixLen:     &wrappers.UInt32Value{Value: 16},
+					},
+					{
+						AddressPrefix: "172.16",
+						PrefixLen:     &wrappers.UInt32Value{Value: 12},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			push.Networks = tt.networks
+			lb := &ListenerBuilder{
+				push:               push,
+				node:               sidecarProxy,
+				authzCustomBuilder: &authz.Builder{},
+				authzBuilder:       &authz.Builder{},
+			}
+			httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{})
+			if !reflect.DeepEqual(tt.expectedconfig, httpConnManager.InternalAddressConfig) {
+				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
+			}
+		})
+	}
 }

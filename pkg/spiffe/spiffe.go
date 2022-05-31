@@ -128,9 +128,12 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 // We ensure the returned list does not contain duplicates; the original input is always retained.
 // For example,
 // ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/def"}, {"td1", "td2"}) returns
-//   {"spiffe://td1/ns/def/sa/def", "spiffe://td2/ns/def/sa/def"}.
+//
+//	{"spiffe://td1/ns/def/sa/def", "spiffe://td2/ns/def/sa/def"}.
+//
 // ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/a", "spiffe://td1/ns/def/sa/b"}, {"td2"}) returns
-//   {"spiffe://td1/ns/def/sa/a", "spiffe://td2/ns/def/sa/a", "spiffe://td1/ns/def/sa/b", "spiffe://td2/ns/def/sa/b"}.
+//
+//	{"spiffe://td1/ns/def/sa/a", "spiffe://td2/ns/def/sa/a", "spiffe://td1/ns/def/sa/b", "spiffe://td2/ns/def/sa/b"}.
 func ExpandWithTrustDomains(spiffeIdentities, trustDomainAliases []string) map[string]struct{} {
 	out := map[string]struct{}{}
 	for _, id := range spiffeIdentities {
@@ -163,7 +166,8 @@ func GetTrustDomainFromURISAN(uriSan string) (string, error) {
 // The input endpointTuples should be in the format of:
 // "foo|URL1||bar|URL2||baz|URL3..."
 func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrustedCerts []*x509.Certificate) (
-	map[string][]*x509.Certificate, error) {
+	map[string][]*x509.Certificate, error,
+) {
 	spiffeLog.Infof("Processing SPIFFE bundle configuration: %v", inputString)
 	config := make(map[string]string)
 	tuples := strings.Split(inputString, "||")
@@ -190,7 +194,8 @@ func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrust
 // RetrieveSpiffeBundleRootCerts retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
 // It can use the system cert pool and the supplied certificates to validate the endpoints.
 func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.CertPool, retryTimeout time.Duration) (
-	map[string][]*x509.Certificate, error) {
+	map[string][]*x509.Certificate, error,
+) {
 	httpClient := &http.Client{
 		Timeout: time.Second * 10,
 	}

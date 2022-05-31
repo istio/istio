@@ -247,6 +247,8 @@ type PushContext struct {
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkMgr *NetworkManager
 
+	Networks *meshconfig.MeshNetworks
+
 	InitDone        atomic.Bool
 	initializeMutex sync.Mutex
 }
@@ -1107,6 +1109,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Mesh = env.Mesh()
+	ps.Networks = env.MeshNetworks()
 	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first
@@ -1598,13 +1601,11 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sidecarConfigWithSelector := make([]config.Config, 0)
 	sidecarConfigWithoutSelector := make([]config.Config, 0)
-	sidecarsWithoutSelectorByNamespace := sets.New()
 	for _, sidecarConfig := range sidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
 			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
 		} else {
-			sidecarsWithoutSelectorByNamespace.Insert(sidecarConfig.Namespace)
 			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
 		}
 	}

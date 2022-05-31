@@ -54,7 +54,8 @@ type deployment struct {
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
 func WaitForResources(objects object.K8sObjects, client kube.Client,
-	waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
+	waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog,
+) error {
 	if dryRun || TestMode {
 		return nil
 	}
@@ -67,12 +68,12 @@ func WaitForResources(objects object.K8sObjects, client kube.Client,
 	var debugInfo map[string]string
 
 	// Check if we are ready immediately, to avoid the 2s delay below when we are already redy
-	if ready, _, _, err := waitForResources(objects, client, l); err == nil && ready {
+	if ready, _, _, err := waitForResources(objects, client.Kube(), l); err == nil && ready {
 		return nil
 	}
 
 	errPoll := wait.Poll(2*time.Second, waitTimeout, func() (bool, error) {
-		isReady, notReadyObjects, debugInfoObjects, err := waitForResources(objects, client, l)
+		isReady, notReadyObjects, debugInfoObjects, err := waitForResources(objects, client.Kube(), l)
 		notReady = notReadyObjects
 		debugInfo = debugInfoObjects
 		return isReady, err
