@@ -156,7 +156,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	}
 
 	if alreadyKnown != nil {
-		log.Errorf("howardjohn: after build\n~:%v\n-:%v\n+:%v", sets.New(alreadyKnown...).SortedList(), deleted.SortedList(), built.SortedList())
+		log.Errorf("after build\n~:%v\n-:%v\n+:%v", sets.New(alreadyKnown...).SortedList(), deleted.SortedList(), built.SortedList())
 	}
 	if cacheStats.empty() {
 		return resources, deleted.SortedList(), model.DefaultXdsLogDetails

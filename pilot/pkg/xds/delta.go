@@ -445,7 +445,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	newSotw := currentResources
 	if usedDelta {
 		resp.RemovedResources = deletedRes
-		newSotw = sets.New(w.ResourceNames...).Insert(currentResources...).Delete(deletedRes...).SortedList()
+		newSotw = sets.New(w.ResourceNames...).InsertAll(currentResources...).Delete(deletedRes...).SortedList()
 	} else if req.Full {
 		// similar to sotw
 		subscribed := sets.New(w.ResourceNames...)

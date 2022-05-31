@@ -139,7 +139,7 @@ func (s *DiscoveryServer) compareDiff(
 				n := newByName[c.Name]
 				if diff := cmp.Diff(c.Resource, n.Resource, protocmp.Transform()); diff != "" {
 					// Resource was modified
-					log.Errorf("howardjohn: diff: %v", diff)
+					log.Errorf("diff: %v", diff)
 				}
 			}
 		}
