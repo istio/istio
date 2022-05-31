@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: extensibility
+issue: []
+releaseNotes:
+  - |
+    **Added** Extends the scope of ImagePullPolicy in WasmPlugin to not only OCI Images URLs, but also http/https URLs.
