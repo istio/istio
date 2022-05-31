@@ -531,12 +531,12 @@ var (
 	// production.
 	EnableUnsafeDeltaTest = env.RegisterBoolVar(
 		"UNSAFE_PILOT_ENABLE_DELTA_TEST",
-		true,
+		false,
 		"If enabled, addition runtime tests for Delta XDS efficiency are added. "+
 			"These checks are extremely expensive, so this should be used only for testing, not production.",
 	).Get()
 
-	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", true,
+	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
 
