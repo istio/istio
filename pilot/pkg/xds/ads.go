@@ -631,7 +631,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			switch conf.Kind {
 			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar, gvk.HTTPRoute, gvk.TCPRoute:
 				sidecar = true
-			case gvk.Gateway, gvk.KubernetesGateway, gvk.GatewayClass:
+			case gvk.Gateway, gvk.KubernetesGateway, gvk.GatewayClass, gvk.ReferencePolicy:
 				gateway = true
 			case gvk.Ingress:
 				sidecar = true
