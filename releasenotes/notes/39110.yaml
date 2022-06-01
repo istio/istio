@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 39110
+releaseNotes:
+  - |
+    **Improved** the number of pushes to gateway proxies by preventing the push when services are not visible from them.
