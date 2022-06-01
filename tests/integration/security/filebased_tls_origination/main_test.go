@@ -57,4 +57,19 @@ values:
            secretName: egress-gw-cacerts
            mountPath: /etc/certs/custom
 `
+	cfg.ConfigClusterValues = `
+components:
+  egressGateways:
+  - enabled: false
+    name: istio-egressgateway
+  istiodRemote:
+  - enabled: true
+values:
+   gateways:
+      istio-egressgateway:
+         secretVolumes:
+         - name: client-custom-certs
+           secretName: egress-gw-cacerts
+           mountPath: /etc/certs/custom
+`
 }
