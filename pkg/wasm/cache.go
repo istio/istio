@@ -174,19 +174,18 @@ func urlAsResourceName(fullURLStr string) string {
 	return fullURLStr
 }
 
-func pullIfNotPresent(pullPolicy extensions.PullPolicy, u *url.URL) bool {
-	if u.Scheme == "oci" {
-		switch pullPolicy {
-		case extensions.PullPolicy_Always:
-			return false
-		case extensions.PullPolicy_IfNotPresent:
-			return true
-		default:
-			return !strings.HasSuffix(u.Path, ":latest")
-		}
+func shouldIgnoreResourceVersion(pullPolicy extensions.PullPolicy, u *url.URL) bool {
+	switch pullPolicy {
+	case extensions.PullPolicy_Always:
+		// When Always, pull a wasm module when the resource version is changed.
+		return false
+	case extensions.PullPolicy_IfNotPresent:
+		// When IfNotPresent, use the cached one regardless of the resource version.
+		return true
+	default:
+		// Default is IfNotPresent except OCI images tagged with `latest`.
+		return u.Scheme != "oci" || !strings.HasSuffix(u.Path, ":latest")
 	}
-	// If http/https is used, it has `always` semantics at this time.
-	return false
 }
 
 func getModulePath(baseDir string, mkey moduleKey) (string, error) {
@@ -225,7 +224,7 @@ func (c *LocalFileCache) Get(
 
 	// First check if the cache entry is already downloaded and policy does not require to pull always.
 	var modulePath string
-	modulePath, key.checksum = c.getEntry(key, pullIfNotPresent(pullPolicy, u))
+	modulePath, key.checksum = c.getEntry(key, shouldIgnoreResourceVersion(pullPolicy, u))
 	if modulePath != "" {
 		c.touchEntry(key)
 		return modulePath, nil
@@ -255,7 +254,6 @@ func (c *LocalFileCache) Get(
 		sha := sha256.Sum256(b)
 		dChecksum = hex.EncodeToString(sha[:])
 	case "oci":
-
 		// TODO: support imagePullSecret and pass it to ImageFetcherOption.
 		imgFetcherOps := ImageFetcherOption{
 			Insecure: insecure,
@@ -320,8 +318,8 @@ func (c *LocalFileCache) Cleanup() {
 }
 
 func (c *LocalFileCache) updateChecksum(key cacheKey) bool {
-	// If OCI URL having a tag, we need to update checksum.
-	needChecksumUpdate := strings.HasPrefix(key.downloadURL, ociURLPrefix) && !strings.Contains(key.downloadURL, "@")
+	// If OCI URL having a tag or just http/https URL, we need to update checksum.
+	needChecksumUpdate := !strings.HasPrefix(key.downloadURL, ociURLPrefix) || !strings.Contains(key.downloadURL, "@")
 	if needChecksumUpdate {
 		ce := c.checksums[key.downloadURL]
 		if ce == nil {
@@ -345,16 +343,6 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	needChecksumUpdate := c.updateChecksum(key)
-	if needChecksumUpdate {
-		ce := c.checksums[key.downloadURL]
-		if ce == nil {
-			ce = new(checksumEntry)
-			ce.resourceVersionByResource = make(map[string]string)
-			c.checksums[key.downloadURL] = ce
-		}
-		ce.checksum = key.checksum
-		ce.resourceVersionByResource[key.resourceName] = key.resourceVersion
-	}
 
 	// Check if the module has already been added. If so, avoid writing the file again.
 	if ce, ok := c.modules[key.moduleKey]; ok {
@@ -392,9 +380,6 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (str
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	// Only apply this for OCI image, not http/https because OCI image has ImagePullPolicy
-	// to control the pull policy, but http/https currently rely on existence of checksum.
-	// At this point, we don't need to break the current behavior for http/https.
 	if len(key.checksum) == 0 && strings.HasPrefix(key.downloadURL, ociURLPrefix) {
 		if d, err := name.NewDigest(key.downloadURL[len(ociURLPrefix):]); err == nil {
 			// If there is no checksum and the digest is suffixed in URL, use the digest.
@@ -403,16 +388,19 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (str
 				key.checksum = dstr[len(sha256SchemePrefix):]
 			}
 			// For other digest scheme, give up to use cache.
-		} else {
-			// If no checksum, try the checksum cache.
-			// If the image was pulled before, there should be a checksum of the most recently pulled image.
-			if ce, found := c.checksums[key.downloadURL]; found {
-				if ignoreResourceVersion || key.resourceVersion == ce.resourceVersionByResource[key.resourceName] {
-					key.checksum = ce.checksum
-				}
-				// update resource version here
-				ce.resourceVersionByResource[key.resourceName] = key.resourceVersion
+		}
+	}
+
+	if len(key.checksum) == 0 {
+		// If no checksum, try the checksum cache.
+		// If the image was pulled before, there should be a checksum of the most recently pulled image.
+		if ce, found := c.checksums[key.downloadURL]; found {
+			if ignoreResourceVersion || key.resourceVersion == ce.resourceVersionByResource[key.resourceName] {
+				// update checksum
+				key.checksum = ce.checksum
 			}
+			// update resource version here
+			ce.resourceVersionByResource[key.resourceName] = key.resourceVersion
 		}
 	}
 
