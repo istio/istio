@@ -25,6 +25,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcase "github.com/envoyproxy/go-control-plane/envoy/extensions/http/header_formatters/preserve_case/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -98,6 +99,15 @@ var (
 
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 )
+
+var PreserveCaseFormatter = &core.Http1ProtocolOptions_HeaderKeyFormat{
+	HeaderFormat: &core.Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter{
+		StatefulFormatter: &core.TypedExtensionConfig{
+			Name:        "preserve_case",
+			TypedConfig: util.MessageToAny(&hcase.PreserveCaseFormatterConfig{}),
+		},
+	},
+}
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,

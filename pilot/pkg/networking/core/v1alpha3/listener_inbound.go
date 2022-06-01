@@ -655,7 +655,8 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 
 	if features.HTTP10 || enableHTTP10(lb.node.Metadata.HTTP10) {
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
-			AcceptHttp_10: true,
+			AcceptHttp_10:   true,
+			HeaderKeyFormat: PreserveCaseFormatter,
 		}
 	}
 
