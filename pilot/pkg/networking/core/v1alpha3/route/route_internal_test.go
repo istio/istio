@@ -186,7 +186,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 					},
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "uri regex with headers",
