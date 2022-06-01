@@ -115,15 +115,19 @@ func TestWasmCache(t *testing.T) {
 			name:                   "cache miss",
 			initialCachedModules:   map[moduleKey]cacheEntry{},
 			initialCachedChecksums: map[string]*checksumEntry{},
+			resourceName:           "namespace.resource",
+			resourceVersion:        "0",
 			fetchURL:               ts.URL,
 			checksum:               httpDataCheckSum,
 			requestTimeout:         time.Second * 10,
 			wantCachedModules: map[moduleKey]*cacheEntry{
 				{name: ts.URL, checksum: httpDataCheckSum}: {modulePath: httpDataCheckSum + ".wasm"},
 			},
-			wantCachedChecksums: map[string]*checksumEntry{},
-			wantFileName:        fmt.Sprintf("%s.wasm", httpDataCheckSum),
-			wantVisitServer:     true,
+			wantCachedChecksums: map[string]*checksumEntry{
+				ts.URL: {checksum: httpDataCheckSum, resourceVersionByResource: map[string]string{"namespace.resource": "0"}},
+			},
+			wantFileName:    fmt.Sprintf("%s.wasm", httpDataCheckSum),
+			wantVisitServer: true,
 		},
 		{
 			name: "cache hit",
@@ -131,15 +135,19 @@ func TestWasmCache(t *testing.T) {
 				{name: urlAsResourceName(ts.URL), checksum: cacheHitSum}: {modulePath: "test.wasm"},
 			},
 			initialCachedChecksums: map[string]*checksumEntry{},
+			resourceName:           "namespace.resource",
+			resourceVersion:        "0",
 			fetchURL:               ts.URL,
 			checksum:               cacheHitSum,
 			requestTimeout:         time.Second * 10,
 			wantCachedModules: map[moduleKey]*cacheEntry{
 				{name: ts.URL, checksum: cacheHitSum}: {modulePath: "test.wasm"},
 			},
-			wantCachedChecksums: map[string]*checksumEntry{},
-			wantFileName:        "test.wasm",
-			wantVisitServer:     false,
+			wantCachedChecksums: map[string]*checksumEntry{
+				ts.URL: {checksum: cacheHitSum, resourceVersionByResource: map[string]string{"namespace.resource": "0"}},
+			},
+			wantFileName:    "test.wasm",
+			wantVisitServer: false,
 		},
 		{
 			name:                   "invalid scheme",
@@ -790,7 +798,7 @@ func setupOCIRegistry(t *testing.T, host string) (dockerImageDigest, invalidOCII
 	return
 }
 
-func TestWasmCacheMissChecksum(t *testing.T) {
+func TestWasmCachePolicyChangesUsingHTTP(t *testing.T) {
 	tmpDir := t.TempDir()
 	cache := NewLocalFileCache(tmpDir, defaultOptions())
 	defer close(cache.stopChan)
@@ -809,42 +817,38 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 		gotNumRequest++
 	}))
 	defer ts.Close()
-	wantFilePath1 := generateModulePath(t, tmpDir, ts.URL, fmt.Sprintf("%x.wasm", sha256.Sum256(binary1)))
-	wantFilePath2 := generateModulePath(t, tmpDir, ts.URL, fmt.Sprintf("%x.wasm", sha256.Sum256(binary2)))
+	url1 := ts.URL
+	url2 := ts.URL + "/next"
+	wantFilePath1 := generateModulePath(t, tmpDir, url1, fmt.Sprintf("%x.wasm", sha256.Sum256(binary1)))
+	wantFilePath2 := generateModulePath(t, tmpDir, url2, fmt.Sprintf("%x.wasm", sha256.Sum256(binary2)))
 	var defaultPullPolicy extensions.PullPolicy
 
-	// Get wasm module three times, since checksum is not specified, it will be fetched from module server every time.
-	// 1st time
-	gotFilePath, err := cache.Get(ts.URL, "", "namespace.resource", "123456", time.Second*10, []byte{}, defaultPullPolicy)
-	if err != nil {
-		t.Fatalf("failed to download Wasm module: %v", err)
-	}
-	if gotFilePath != wantFilePath1 {
-		t.Errorf("wasm download path got %v want %v", gotFilePath, wantFilePath1)
-	}
-
-	// 2nd time
-	gotFilePath, err = cache.Get(ts.URL, "", "namespace.resource", "123456", time.Second*10, []byte{}, defaultPullPolicy)
-	if err != nil {
-		t.Fatalf("failed to download Wasm module: %v", err)
-	}
-	if gotFilePath != wantFilePath1 {
-		t.Errorf("wasm download path got %v want %v", gotFilePath, wantFilePath1)
+	testWasmGet := func(downloadURL string, policy extensions.PullPolicy, resourceVersion string, wantFilePath string, wantNumRequest int) {
+		t.Helper()
+		gotFilePath, err := cache.Get(downloadURL, "", "namespace.resource", resourceVersion, time.Second*10, []byte{}, policy)
+		if err != nil {
+			t.Fatalf("failed to download Wasm module: %v", err)
+		}
+		if gotFilePath != wantFilePath {
+			t.Fatalf("wasm download path got %v want %v", gotFilePath, wantFilePath)
+		}
+		if gotNumRequest != wantNumRequest {
+			t.Fatalf("wasm download call got %v want %v", gotNumRequest, wantNumRequest)
+		}
 	}
 
-	// 3rd time
-	gotFilePath, err = cache.Get(ts.URL, "", "namespace.resource", "123456", time.Second*10, []byte{}, defaultPullPolicy)
-	if err != nil {
-		t.Fatalf("failed to download Wasm module: %v", err)
-	}
-	if gotFilePath != wantFilePath2 {
-		t.Errorf("wasm download path got %v want %v", gotFilePath, wantFilePath2)
-	}
-
-	wantNumRequest := 3
-	if gotNumRequest != wantNumRequest {
-		t.Errorf("wasm download call got %v want %v", gotNumRequest, wantNumRequest)
-	}
+	// 1st time: Initially load the binary1.
+	testWasmGet(url1, defaultPullPolicy, "1", wantFilePath1, 1)
+	// 2nd time: Should not pull the binary and use the cache because defaultPullPolicy is IfNotPresent
+	testWasmGet(url1, defaultPullPolicy, "2", wantFilePath1, 1)
+	// 3rd time: Should not pull the binary because the policy is IfNotPresent
+	testWasmGet(url1, extensions.PullPolicy_IfNotPresent, "3", wantFilePath1, 1)
+	// 4th time: Should not pull the binary because the resource version is not changed
+	testWasmGet(url1, extensions.PullPolicy_Always, "3", wantFilePath1, 1)
+	// 5th time: Should pull the binary because the resource version is changed.
+	testWasmGet(url1, extensions.PullPolicy_Always, "4", wantFilePath1, 2)
+	// 6th time: Should pull the binary because URL is changed.
+	testWasmGet(url2, extensions.PullPolicy_Always, "4", wantFilePath2, 3)
 }
 
 func TestAllInsecureServer(t *testing.T) {
