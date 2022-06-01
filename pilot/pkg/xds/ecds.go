@@ -61,6 +61,18 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 
 // Generate returns ECDS resources for a given proxy.
 func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	isWorkloadMeta := false
+	for _, name := range w.ResourceNames {
+		if strings.EqualFold(name, WorkloadMetadataListenerFilterName) {
+			isWorkloadMeta = true
+			break
+		}
+	}
+	if isWorkloadMeta {
+		wg := &WorkloadMetadataGenerator{Server: e.Server}
+		return wg.Generate(proxy, w, req)
+	}
+
 	if !ecdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}

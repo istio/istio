@@ -571,13 +571,14 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 // InitGenerators initializes generators to be used by XdsServer.
 func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string) {
 	edsGen := &EdsGenerator{Server: s}
+	ecdsGen := &EcdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
 	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
 	s.Generators[v3.EndpointType] = edsGen
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
-	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
+	s.Generators[v3.ExtensionConfigurationType] = ecdsGen
 	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
@@ -586,10 +587,13 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
 
+	s.Generators["grpc/"+v3.ExtensionConfigurationType] = ecdsGen
+
 	s.Generators["uproxy-envoy"] = &uproxygen.UProxyConfigGenerator{EndpointIndex: s.EndpointIndex}
 	s.Generators["uproxy-envoy/"+v3.ListenerType] = s.Generators["uproxy-envoy"]
 	s.Generators["uproxy-envoy/"+v3.ClusterType] = s.Generators["uproxy-envoy"]
 	s.Generators["uproxy-envoy/"+v3.EndpointType] = s.Generators["uproxy-envoy"]
+	s.Generators["uproxy-envoy/"+v3.ExtensionConfigurationType] = ecdsGen
 
 	pepGen := &uproxygen.PEPGenerator{
 		ConfigGenerator: s.ConfigGenerator,
