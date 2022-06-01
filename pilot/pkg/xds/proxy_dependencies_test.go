@@ -19,22 +19,24 @@ import (
 	"strconv"
 	"testing"
 
-	model "istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
 )
 
 func TestProxyNeedsPush(t *testing.T) {
 	const (
-		invalidKind = "INVALID_KIND"
-		svcName     = "svc1.com"
-		drName      = "dr1"
-		vsName      = "vs1"
-		scName      = "sc1"
-		nsName      = "ns1"
-		nsRoot      = "rootns"
-		generalName = "name1"
+		invalidKind    = "INVALID_KIND"
+		svcName        = "svc1.com"
+		privateSvcName = "private.com"
+		drName         = "dr1"
+		vsName         = "vs1"
+		scName         = "sc1"
+		nsName         = "ns1"
+		nsRoot         = "rootns"
+		generalName    = "name1"
 
 		invalidNameSuffix = "invalid"
 	)
@@ -50,7 +52,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{},
 		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName, RootNamespace: nsRoot},
 	}
-	gateway := &model.Proxy{Type: model.Router}
+	gateway := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{Namespace: nsName}}
 
 	sidecarScopeKindNames := map[config.GroupVersionKind]string{
 		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName, gvk.Sidecar: scName,
@@ -68,6 +70,26 @@ func TestProxyNeedsPush(t *testing.T) {
 				})
 			}
 		}
+	}
+
+	push := model.NewPushContext()
+	push.ServiceIndex.HostnameAndNamespace[svcName] = map[string]*model.Service{
+		nsName: {
+			Hostname: svcName,
+			Attributes: model.ServiceAttributes{
+				ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+				Namespace: nsName,
+			},
+		},
+	}
+	push.ServiceIndex.HostnameAndNamespace[privateSvcName] = map[string]*model.Service{
+		nsName: {
+			Hostname: privateSvcName,
+			Attributes: model.ServiceAttributes{
+				ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+				Namespace: nsName,
+			},
+		},
 	}
 
 	cases := []Case{
@@ -172,9 +194,25 @@ func TestProxyNeedsPush(t *testing.T) {
 		}
 	}
 
+	// test for gateway proxy dependencies.
+	cases = append(cases,
+		Case{
+			name:    "service with public visibility for gateway",
+			proxy:   gateway,
+			configs: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: svcName, Namespace: nsName}: {}},
+			want:    true,
+		},
+		Case{
+			name:    "service with none visibility for gateway",
+			proxy:   gateway,
+			configs: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: privateSvcName, Namespace: nsName}: {}},
+			want:    false,
+		},
+	)
+
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs})
+			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: push})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
 			}
