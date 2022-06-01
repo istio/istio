@@ -232,19 +232,6 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	}
 }
 
-func skipAmbient(t framework.TestContext, cases []TrafficTestCase, reason string) []TrafficTestCase {
-	if !t.Settings().Ambient {
-		return nil
-	}
-	for i := range cases {
-		if cases[i].skip.skip {
-			continue
-		}
-		cases[i].skip = skip{skip: true, reason: fmt.Sprintf("ambient (%s)", reason)}
-	}
-	return cases
-}
-
 func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployment.SingleNamespaceView) {
 	RunCase := func(name string, f func(t TrafficContext)) {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {

@@ -74,7 +74,7 @@ func Redirection(ctx resource.Context) error {
 			if err := enableRedirection(ctx, cName); err != nil {
 				return err
 			}
-			if err := updateIpSet(ctx, cName); err != nil {
+			if err := updateIPSet(ctx, cName); err != nil {
 				return err
 			}
 			return nil
@@ -108,7 +108,7 @@ func enableRedirection(ctx resource.Context, clusterName string) error {
 	return nil
 }
 
-func updateIpSet(ctx resource.Context, clusterName string) error {
+func updateIPSet(ctx resource.Context, clusterName string) error {
 	var ipsetCmd *exec.Cmd
 	if err := retry.UntilSuccess(func() error {
 		ipsetCmd = exec.Command(ipsetSh, clusterName)

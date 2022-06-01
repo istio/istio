@@ -8,7 +8,7 @@ metadata:
     app: istiod
     release: {{ .Release.Name }}
 rules:
-    # sidecar injection controller
+  # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update", "patch"]
@@ -44,7 +44,7 @@ rules:
 
   # discovery and routing
   - apiGroups: [""]
-    resources: [ "nodes", "services", "endpoints"]
+    resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["discovery.k8s.io"]
     resources: ["endpointslices"]
@@ -149,4 +149,7 @@ rules:
 - apiGroups: [""]
   verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
   resources: [ "pods"]
+- apiGroups: [""]
+  verbs: [ "get", "watch", "list" ]
+  resources: [ "serviceaccounts"]
 {{- end }}

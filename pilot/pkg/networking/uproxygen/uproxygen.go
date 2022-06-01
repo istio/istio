@@ -157,7 +157,7 @@ func (g *UProxyConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.Pu
 	for sa := range workloads.ByIdentity {
 		for _, svc := range services {
 			for _, port := range svc.Ports {
-				c := remoteOutboundCluster(proxy, sa, svc, port.Name)
+				c := remoteOutboundCluster(sa, svc, port.Name)
 				out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
 			}
 		}
@@ -508,7 +508,7 @@ func passthroughFilterChain() *listener.FilterChain {
 	}
 }
 
-func remoteOutboundCluster(proxy *model.Proxy, sa string, svc *model.Service, port string) *cluster.Cluster {
+func remoteOutboundCluster(sa string, svc *model.Service, port string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 remoteOutboundClusterName(sa, port, svc.Hostname.String()),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},

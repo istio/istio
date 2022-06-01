@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
 )
 
 // Config for new echo deployment.
@@ -292,14 +291,6 @@ func SetupSingleNamespace(view *SingleNamespaceView, cfg Config) resource.SetupF
 
 		// Store the view.
 		*view = apps.SingleNamespaceView()
-		if err := ctx.ConfigIstio().YAML(view.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: Gateway
-metadata:
-  name: remote
-spec:
-  gatewayClassName: istio-mesh`).Apply(apply.NoCleanup); err != nil {
-			return err
-		}
 		return nil
 	}
 }

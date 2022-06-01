@@ -18,8 +18,10 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/ambient"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -118,8 +120,12 @@ func initForCluster(opts *Options) *ambientController {
 	if opts.LocalCluster {
 		// TODO handle istiodless remote clusters
 		initAutolabel(opts)
-		remoteProxy := NewRemoteProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
-		go remoteProxy.Run(opts.Stop)
+		go func() {
+			if crdclient.WaitForCRD(gvk.KubernetesGateway, opts.Stop) {
+				remoteProxy := NewRemoteProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
+				remoteProxy.Run(opts.Stop)
+			}
+		}()
 	}
 	return &ambientController{
 		workloads: initWorkloadCache(opts),

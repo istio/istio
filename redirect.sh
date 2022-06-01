@@ -72,6 +72,7 @@ function exec_on_node() {
     if [ -z "${cmd}" ]; then
       docker exec -i "$node_name" sh -x
     else
+      # shellcheck disable=SC2086
       docker exec -it "$node_name" $cmd
     fi
   elif [ "${K8S_TYPE}" == aws ]; then

@@ -55,11 +55,11 @@ ${DEPENDENCIES:-$(cat <<EOD
   istio:
     localpath: ${ROOT}
   api:
-    git: https://github.com/istio/api
-    auto: modules
+    git: https://github.com/solo-io/istio-api-sidecarless
+    sha: b76e722b2e0e # auto does not support replace
   proxy:
-    git: https://github.com/istio/proxy
-    auto: deps
+    git: https://github.com/solo-io/proxy-sidecarless
+    auto: 5caff0e989181903ff729e34e7b0aa406e937249 # auto does not support custom repo
   pkg:
     git: https://github.com/istio/pkg
     auto: modules

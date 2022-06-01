@@ -19,13 +19,6 @@ spec:
       app: istiod
       istio: pilot
 ---
-# Source: istiod/templates/ambient.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: "uproxy"
-  namespace: istio-system
----
 # Source: istiod/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -54,6 +47,8 @@ data:
     networks: {}
 
   mesh: |-
+    ambientMesh:
+      mode: "OFF"
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
       tracing:
@@ -1300,9 +1295,19 @@ data:
             {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` }}
             {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) }}
           - name: "{{ $index }}"
-          {{ toYaml $value | indent 4 }}
-          {{ end }}
-          {{ end }}
+            {{ toYaml $value | indent 4 }}
+            {{ end }}
+            {{ end }}
+          {{- if .Values.global.imagePullSecrets }}
+          imagePullSecrets:
+            {{- range .Values.global.imagePullSecrets }}
+            - name: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "true") "true" }}
+          securityContext:
+            fsGroup: 1337
+          {{- end }}
       remote: |
         apiVersion: v1
         kind: Pod
@@ -1313,7 +1318,7 @@ data:
             prometheus.io/path: /stats/prometheus
             prometheus.io/port: "15020"
             prometheus.io/scrape: "true"
-          labels:    
+          labels:
             ambient-type: pep
             asm-proxy: {{.ServiceAccount}}-proxy
             ambient-proxy:  {{.ServiceAccount}}-proxy
@@ -1497,7 +1502,7 @@ metadata:
     app: istiod
     release: istio
 rules:
-    # sidecar injection controller
+  # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update", "patch"]
@@ -1527,7 +1532,7 @@ rules:
 
   # discovery and routing
   - apiGroups: [""]
-    resources: [ "nodes", "services", "endpoints"]
+    resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["discovery.k8s.io"]
     resources: ["endpointslices"]
@@ -1624,6 +1629,9 @@ rules:
 - apiGroups: [""]
   verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
   resources: [ "pods"]
+- apiGroups: [""]
+  verbs: [ "get", "watch", "list" ]
+  resources: [ "serviceaccounts"]
 ---
 # Source: istiod/templates/reader-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1814,120 +1822,6 @@ spec:
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
     istio: pilot
----
-# Source: istiod/templates/ambient.yaml
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: uproxy
-  namespace: istio-system
-spec:
-  selector:
-    matchLabels:
-      app: uproxy
-  template:
-    metadata:
-      labels:
-        app: uproxy
-        asm-type: proxy
-    spec:
-      serviceAccountName: uproxy
-      initContainers:
-      - name: istio-init
-        image: "gcr.io/istio-testing/proxyv2:latest"
-        securityContext:
-          privileged: true
-          capabilities:
-            add:
-            - NET_ADMIN
-        command:
-          - sh
-          - -c
-          - |
-            # HBONE traffic goes to HBONE port...
-            iptables -t nat -A PREROUTING -p tcp --dport 15008 ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn 15008] "
-            iptables -t nat -A PREROUTING -p tcp --dport 15008 ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j REDIRECT --to-ports 15008
-            # Special logic to handle the case where we have a remote proxy (no interception) and server (interception) on the node
-            # Without this, packets from remote proxy -> server would not go through uProxy, but the response would, causing breakage.
-            # This ensures the response does not go through uProxy
-            iptables -t nat -A PREROUTING -m state --state NEW -p tcp --tcp-flags ACK ACK ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn remote] "
-            iptables -t nat -A PREROUTING -m state --state NEW -p tcp --tcp-flags ACK ACK ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j ACCEPT
-            # Send everything else through the "outbound" port. For now, DPv2 cannot distinguish inbound vs outbound, so we
-            # do some (semi-reliable) heuristics on the outbound port to treat it as inbound, when needed. Typically inbound is
-            # HBONE though.
-            iptables -t nat -A PREROUTING -p tcp ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn outbound] "
-            iptables -t nat -A PREROUTING -p tcp ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j REDIRECT --to-ports 15001
-
-            iptables -t nat -I OUTPUT 1 -p tcp --dport 15088 -j LOG --log-prefix="[howardjohn local] "
-            iptables -t nat -I OUTPUT 1 -p tcp --dport 15088 -j REDIRECT --to-port 15008
-        env:
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-      containers:
-      - name: istio-proxy
-        image: "gcr.io/istio-testing/proxyv2:latest"
-        readinessProbe:
-          httpGet:
-            port: 15020 # TODO: use 15021, but it spams logs
-            path: /healthz/ready
-        args:
-        - proxy
-        - sidecar
-        env:
-        - name: ISTIO_META_GENERATOR
-          value: "uproxy-envoy"
-        - name: ISTIO_META_SIDECARLESS_TYPE
-          value: "uproxy"
-        - name: CREDENTIAL_FETCHER_TYPE
-          value: "TokenRequest"
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        - name: SERVICE_ACCOUNT
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.serviceAccountName
-        - name: ISTIO_META_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        volumeMounts:
-        - mountPath: /var/run/secrets/istio
-          name: istiod-ca-cert
-        - mountPath: /var/run/secrets/tokens
-          name: istio-token
-        - mountPath: /var/lib/kubelet/pki # Must match due to symlinks...
-          name: kubelet-creds
-        securityContext:
-          privileged: true
-          capabilities:
-            add:
-            - NET_ADMIN
-      volumes:
-      - name: kubelet-creds
-        hostPath:
-          path: /var/lib/kubelet/pki
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: istio-token
-              expirationSeconds: 43200
-              audience: istio-ca
-      - name: istiod-ca-cert
-        configMap:
-          name: istio-ca-root-cert
 ---
 # Source: istiod/templates/deployment.yaml
 apiVersion: apps/v1

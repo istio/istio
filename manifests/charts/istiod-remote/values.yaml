@@ -51,6 +51,21 @@ pilot:
   configMap: false
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
+uproxy:
+  hub: ""
+  tag: ""
+  # Can be a full hub/image:tag
+  image: proxyv2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2048Mi
+  env: {}
+  podAnnotations: {}
+  # Additional labels to apply to the deployment.
+  deploymentLabels: {}
+  # Additional labels to apply on the pod level for monitoring and logging configuration.
+  podLabels: {}
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.
@@ -180,6 +195,8 @@ meshConfig:
 
   # What we may configure in mesh config is the ".global" - and use of other suffixes.
   # No hurry to do this in 1.6, we're trying to prove the code.
+  ambientMesh:
+    mode: "OFF"
 global:
   # Used to locate istiod.
   istioNamespace: istio-system

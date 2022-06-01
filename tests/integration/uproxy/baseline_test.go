@@ -121,7 +121,7 @@ func TestServices(t *testing.T) {
 }
 
 func TestPodIP(t *testing.T) {
-	t.Skip("Not yet supported")
+	t.Skip("https://github.com/solo-io/istio-sidecarless/issues/106")
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		for _, src := range apps.All {
 			for _, srcWl := range src.WorkloadsOrFail(t) {
@@ -186,7 +186,7 @@ func TestServerRouting(t *testing.T) {
 		if src.Config().IsUncaptured() {
 			// For this case, it is broken if the src and dst are on the same node.
 			// TODO: fix this and remove this skip
-			t.Skip("broken")
+			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
 		}
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": dst.Config().Service,
@@ -219,18 +219,19 @@ func TestAuthorization(t *testing.T) {
 			// No destination means no RBAC to apply
 			return
 		}
+		if opt.Scheme != scheme.HTTP {
+			// TODO: add TCP
+			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/105")
+		}
 		if src.Config().IsUncaptured() {
 			// For this case, it is broken if the src and dst are on the same node.
 			// TODO: fix this and remove this skip
-			t.Skip("broken")
+			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
 		}
 		if !dst.Config().IsRemote() {
 			// Currently, uProxy inbound is just passthrough, no policy applied
 			// TODO: fix this and remove this skip
-			t.Skip("broken")
-		}
-		if opt.Scheme != scheme.HTTP {
-			t.Skip("only HTTP implemented")
+			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/104")
 		}
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": dst.Config().Service,
