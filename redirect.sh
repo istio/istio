@@ -70,9 +70,9 @@ function exec_on_node() {
   if [ "${K8S_TYPE}" == kind ]; then
     # if unset, read from stdin
     if [ -z "${cmd}" ]; then
-      docker exec -i "$node_name" sh -x
+      docker exec -it "$node_name" sh -x
     else
-      docker exec -i "$node_name" $cmd
+      docker exec -it "$node_name" $cmd
     fi
   elif [ "${K8S_TYPE}" == aws ]; then
     NODE_IP=$(kubectl get nodes -l kubernetes.io/hostname="$node_name" -o jsonpath="{.items[*].status.addresses[?(@.type=='ExternalIP')].address}")
@@ -94,7 +94,7 @@ if [ -z "${IPTABLES}" ]; then
     if ! exec_on_node "$node" 'iptables-nft --help'; then
       IPTABLES=iptables
       break
-    elif ! exec_on_node "$node" 'iptables-nft-save' | grep 'Warning: iptables-legacy'; then
+    elif exec_on_node "$node" 'iptables-nft-save' | grep 'Warning: iptables-legacy'; then
       IPTABLES=iptables-legacy
       break
     fi
