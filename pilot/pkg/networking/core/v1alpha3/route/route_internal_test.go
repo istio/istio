@@ -142,6 +142,18 @@ func TestIsCatchAllRoute(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "catch all prefix >= 1.14",
+			route: &route.Route{
+				Name: "catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_PathSeparatedPrefix{
+						PathSeparatedPrefix: "/",
+					},
+				},
+			},
+			want: true,
+		},
+		{
 			name: "catch all regex",
 			route: &route.Route{
 				Name: "catch-all",
@@ -150,6 +162,26 @@ func TestIsCatchAllRoute(t *testing.T) {
 						SafeRegex: &matcher.RegexMatcher{
 							EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}},
 							Regex:      "*",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "catch all prefix with headers",
+			route: &route.Route{
+				Name: "catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Prefix{
+						Prefix: "/",
+					},
+					Headers: []*route.HeaderMatcher{
+						{
+							Name: "Authentication",
+							HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+								ExactMatch: "test",
+							},
 						},
 					},
 				},
