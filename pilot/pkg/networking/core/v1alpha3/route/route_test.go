@@ -164,6 +164,18 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[1].Name).To(gomega.Equal("route.catch-all"))
 	})
 
+	t.Run("for virtual service with catch all route：port match", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithCatchAllPort,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].Name).To(gomega.Equal("route 1.catch-all for 8080"))
+	})
+
 	t.Run("for internally generated virtual service with ingress semantics (istio version<1.14)", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
@@ -1139,6 +1151,74 @@ var virtualServiceWithCatchAllRoute = config.Config{
 							},
 						},
 						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithCatchAllPort = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "route 1",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "catch-all for 8080",
+						Port: 8080,
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example1.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "route 2",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "header match",
+						Headers: map[string]*networking.StringMatch{
+							"cookie": {
+								MatchType: &networking.StringMatch_Exact{Exact: "canary"},
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example2.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "route 3",
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example1.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
 					},
 				},
 			},
