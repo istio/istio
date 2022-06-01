@@ -107,7 +107,7 @@ func (s *suiteAnalyzer) RequireMultiPrimary() Suite {
 	return s
 }
 
-func (s *suiteAnalyzer) IgnoreConfigClusterTopology() Suite {
+func (s *suiteAnalyzer) SkipConfigClusterTopology() Suite {
 	return s
 }
 

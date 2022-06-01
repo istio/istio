@@ -82,7 +82,7 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireMinVersion(19).
-		IgnoreConfigClusterTopology().
+		SkipConfigClusterTopology().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return SetupApps(ctx, apps)
@@ -160,8 +160,11 @@ components:
                 verbs:
                 - approve
 `, map[string]interface{}{
-		"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert,
-		"signer2": cert2.Signer, "isConfigCluster": isConfigCluster,
+		"rootcert1":       cert1.Rootcert,
+		"signer1":         cert1.Signer,
+		"rootcert2":       cert2.Rootcert,
+		"signer2":         cert2.Signer,
+		"isConfigCluster": isConfigCluster,
 	})
 	return cfgYaml
 }
