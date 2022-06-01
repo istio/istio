@@ -1,0 +1,30 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+spec:
+  hub: gcr.io/istio-testing
+  tag: latest
+
+  unvalidatedValues:
+    uproxyType: aws
+
+  # You may override parts of meshconfig by uncommenting the following lines.
+  meshConfig:
+    ambientMesh:
+      mode: DEFAULT
+
+  components:
+    # Istio Gateway feature
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: false
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: false
+
+  # Global values passed through to helm global.yaml.
+  # Please keep this in sync with manifests/charts/global.yaml
+  values:
+    global:
+      operatorManageWebhooks: true

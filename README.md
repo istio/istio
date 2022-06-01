@@ -5,16 +5,16 @@
 ```shell
 ./local-test-utils/kind-registry.sh
 
-HUB=gcr.io/xyz
+HUB=gcr.io/xyz # consider localhost:5000
 TAG=ambient
+GOPRIVATE=github.com/solo-io/istio-api-sidecarless
 # Build Istiod and proxy (uproxy and remote proxy are the same image)
 tools/docker --targets=pilot,proxyv2,app --hub=$HUB --tag=$TAG --push
 # Install Istio without gateway or webhook
-# profile can be "ambient" or "ambient-gke"
+# profile can be "ambient" or "ambient-gke" or "ambient-aws"
 # Mesh config options are optional to improve debugging
-istioctl install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
-  --profile ambient # or ambient-gke
-  --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0
+go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
+  --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0
 ```
 
 ## Cluster setup (kind)

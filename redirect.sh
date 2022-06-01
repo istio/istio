@@ -45,13 +45,56 @@ INCOMING_INTERFACE=eth0
 # a route table number number we can use to send traffic to envoy (should be unused).
 ROUTE_TABLE=100
 
-WORKER_NODES=$(kind get nodes --name "${1:-kind}" | grep worker)
+WORKER_NODES="$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o custom-columns=:.metadata.name --no-headers)"
+
+# if k8s type var not set, default to kind
+if [ -z "${K8S_TYPE}" ]; then
+   K8S_TYPE='kind'
+fi
+
+# update interface vars based on type
+if [ "${K8S_TYPE}" == aws ]; then
+  INTERFACE_PREFIX=eni
+  # if k8s type var not set, default to kind
+  if [ -z "${SSH_KEY}" ]; then
+     echo "need to set ssh key location for updating cluster nodes"
+     exit 1
+  fi
+elif [ "${K8S_TYPE}" == calico ]; then
+  INTERFACE_PREFIX=cali
+fi
+
+function exec_on_node() {
+  local node_name="$1"
+  local cmd="$2"
+  if [ "${K8S_TYPE}" == kind ]; then
+    # if unset, read from stdin
+    if [ -z "${cmd}" ]; then
+      docker exec -i "$node_name" sh -x
+    else
+      docker exec -i "$node_name" $cmd
+    fi
+  elif [ "${K8S_TYPE}" == aws ]; then
+    NODE_IP=$(kubectl get nodes -l kubernetes.io/hostname="$node_name" -o jsonpath="{.items[*].status.addresses[?(@.type=='ExternalIP')].address}")
+    # rewrite with sudo to get root shell in front
+    ROOT_CMD="sudo su $cmd"
+    # aws doesn't let you ssh as root, and you need root to use iptables
+    # thus we ssh as ec2-user and then prefix all our commands with sudo su
+    ssh -i "$SSH_KEY" ec2-user@"$NODE_IP" "$ROOT_CMD"
+  else
+    echo "not a supported k8s deployment type"
+    exit 1
+  fi
+}
 
 # if iptables var not set, default to iptables-nft, but detect legacy.
 if [ -z "${IPTABLES}" ]; then
   IPTABLES=iptables-nft
   for node in ${WORKER_NODES}; do
-    if docker exec -it "${1:-kind}"-worker iptables-nft-save | grep 'Warning: iptables-legacy'; then
+    if ! exec_on_node "$node" 'iptables-nft --help'; then
+      IPTABLES=iptables
+      break
+    elif ! exec_on_node "$node" 'iptables-nft-save' | grep 'Warning: iptables-legacy'; then
       IPTABLES=iptables-legacy
       break
     fi
@@ -61,7 +104,7 @@ fi
 if [[ "${2:-}" == clean ]]; then
   # clean up previous chains
   for node in ${WORKER_NODES}; do
-    docker exec -i "$node" sh -x <<EOF
+    exec_on_node "$node" <<EOF
     $IPTABLES -t nat -F uproxy-PREROUTING
     $IPTABLES -t mangle -F uproxy-PREROUTING
     $IPTABLES -t mangle -F uproxy-POSTROUTING
@@ -75,6 +118,11 @@ if [[ "${2:-}" == clean ]]; then
     $IPTABLES -t mangle -X uproxy-PREROUTING
     $IPTABLES -t nat -D PREROUTING -j uproxy-PREROUTING
     $IPTABLES -t nat -X uproxy-PREROUTING
+    # Clean up previous rules, if any
+    $IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j REDIRECT --to-port $POD_INBOUND
+    $IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j LOG --log-prefix="[$node-internal] "
+    ip rule del fwmark $MARK lookup $ROUTE_TABLE
+    ip rule del fwmark $OUTMARK_RET lookup $ROUTE_TABLE
     ip route del local 0.0.0.0/0 dev lo table $ROUTE_TABLE
     ipset destroy uproxy-pods-ips
 EOF
@@ -85,10 +133,17 @@ fi
 
 
 for node in ${WORKER_NODES}; do
-docker exec -i "$node" sh <<EOF
-  if ! command -v ipset; then
-    apt update
-    apt install ipset -y
+exec_on_node "$node" <<EOF
+  if ! ipset --help; then
+    if apt --help; then
+      apt update
+      apt install ipset -y
+    elif yum --help; then
+      yum makecache --refresh
+      yum -y install ipset
+    else
+      echo "*** ERROR no supported way to install ipset ***"
+    fi
   fi
 EOF
 done
@@ -96,7 +151,7 @@ done
 # add our tables if not exist yet, flush them if they do exist.
 for node in ${WORKER_NODES}; do
 
-docker exec -i "$node" sh -x <<EOF
+exec_on_node "$node" <<EOF
 if $IPTABLES -t nat -C PREROUTING -j uproxy-PREROUTING; then
   $IPTABLES -t nat -F uproxy-PREROUTING
   $IPTABLES -t mangle -F uproxy-PREROUTING
@@ -117,7 +172,7 @@ done
 
 # create our rules
 for node in ${WORKER_NODES}; do
-docker exec -i "$node" sh -x <<EOF
+exec_on_node "$node" <<EOF
 # copy the env vars in
 POD_OUTBOUND=$POD_OUTBOUND
 POD_INBOUND=$POD_INBOUND
@@ -135,11 +190,13 @@ ROUTE_TABLE=$ROUTE_TABLE
 
 # get the bridge IP where requests from host network will show up as
 # There is probably a better way...
+# TODO: fix this on aws (not needed for our primary testing cases; this is used for uncaptured to captured pod on same node)
 HOST_IP="\$(ip addr show | grep 'inet.*veth' | head -n1 | tr -s ' ' | cut -d' ' -f3)"
 
 ## Prep:
 
 # Setup a route table that sends all packets to 'lo' device
+ip route del local 0.0.0.0/0 dev lo table $ROUTE_TABLE # potentially delete previous route
 ip route add local 0.0.0.0/0 dev lo table $ROUTE_TABLE
 
 # Route packets with tproxy mark locally so they end up with envoy.
@@ -159,6 +216,9 @@ $IPTABLES -t nat -I uproxy-PREROUTING 1 -m mark --mark $MARK -j LOG --log-prefix
 # we can't use tproxy here because it's on the output chain and tproxy only works in prerouting.
 # we don't want to use REDIRECT, as it doesn't work with all CNIs. 
 # so hopefully we will fix this soon by either using SNI, or even better, making this hop internal to envoy.
+# Clean up previous rules, if any
+$IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j REDIRECT --to-port $POD_INBOUND
+$IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j LOG --log-prefix="[$node-internal] "
 $IPTABLES -t nat -I OUTPUT 1 -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j REDIRECT --to-port $POD_INBOUND
 $IPTABLES -t nat -I OUTPUT 1 -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j LOG --log-prefix="[$node-internal] "
 
@@ -179,6 +239,7 @@ $IPTABLES -t mangle -A uproxy-POSTROUTING -m mark --mark $OUTMARK -j CONNMARK --
 
 # If we see the connmark in the PREROUTING, this is a packet coming back and should be directed to envoy. mark it with $OUTMARK_RET and send it to envoy with an ip rule.
 # We set a different mark on return path, as we only want these packages to go back to localhost, the outgoing packet needs to be routed to the local network card that belongs to the destination.
+ip rule del fwmark $OUTMARK_RET lookup $ROUTE_TABLE # potentially delete previous rule
 ip rule add fwmark $OUTMARK_RET lookup $ROUTE_TABLE
 $IPTABLES -t mangle -A uproxy-PREROUTING -m connmark --mark $OUTMARK -j LOG --log-prefix="[$node-saw-conmark] "
 $IPTABLES -t mangle -A uproxy-PREROUTING -m connmark --mark $OUTMARK -j MARK --set-mark $OUTMARK_RET
@@ -193,6 +254,7 @@ $IPTABLES -t mangle -A uproxy-PREROUTING -m connmark --mark $SKIPMARK -j RETURN
 
 ## Pod membership and tproxy setup.
 
+ipset destroy uproxy-pods-ips # potentially delete previous ipset
 ipset create uproxy-pods-ips hash:ip
 # Request is from uncaptured pod to captured pod on the same node. The request will make it *to* the pod without issue, but the packets coming back would be redirected
 # Instead, we mark these and later skip them

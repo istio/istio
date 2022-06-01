@@ -48,8 +48,16 @@ spec:
       labels:
         app: sleep
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: ambient-worker
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: version
+                    operator: In
+                    values:
+                      - v2
+              topologyKey: kubernetes.io/hostname
       terminationGracePeriodSeconds: 0
       serviceAccountName: sleep
       containers:

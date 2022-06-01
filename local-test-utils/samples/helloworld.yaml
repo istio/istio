@@ -31,8 +31,16 @@ spec:
         app: helloworld
         version: v1
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: ambient-worker2
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: version
+                    operator: In
+                    values:
+                      - v2
+              topologyKey: kubernetes.io/hostname
       containers:
       - name: helloworld
         image: docker.io/istio/examples-helloworld-v1
@@ -59,8 +67,16 @@ spec:
         app: helloworld
         version: v2
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: ambient-worker
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: version
+                    operator: In
+                    values:
+                      - v1
+              topologyKey: kubernetes.io/hostname
       containers:
       - name: helloworld
         image: docker.io/istio/examples-helloworld-v2

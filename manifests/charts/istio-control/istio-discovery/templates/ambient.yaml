@@ -14,7 +14,24 @@ metadata:
     app: uproxy
     release: {{ .Release.Name }}
 ---
-{{- if eq .Values.uproxyType "kind" }}
+{{- if eq .Values.uproxyType "aws" }}
+# not needed long term, just for aws until we fix token request logic
+# https://github.com/kubernetes/kubernetes/blob/1e7fa3478ed9de606b761be4f70be4ca60e6e697/plugin/pkg/auth/authorizer/node/node_authorizer.go#L223
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: add-on-cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: uproxy
+    namespace: {{ .Release.Namespace }}
+---
+{{- end }}
+{{- if or (eq .Values.uproxyType "kind") (eq .Values.uproxyType "aws") }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
