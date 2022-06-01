@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func IsL7() echo.Checker {
@@ -170,8 +171,53 @@ func TestPodIP(t *testing.T) {
 }
 
 func TestServerSideLB(t *testing.T) {
-	t.Skipf("test not implemented yet")
 	// TODO: test that naked client reusing connections will load balance
+	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		// Need HTTP
+		if opt.Scheme != scheme.HTTP {
+			return
+		}
+		if src.Config().IsUncaptured() {
+			// For this case, it is broken if the src and dst are on the same node.
+			// TODO: fix this and remove this skip
+			t.Skip("broken")
+		}
+		var singleHost echo.Checker = func(result echo.CallResult, _ error) error {
+			hostnames := make([]string, len(result.Responses))
+			for i, r := range result.Responses {
+				hostnames[i] = r.Hostname
+			}
+			unique := sets.New(hostnames...).SortedList()
+			if len(unique) != 1 {
+				return fmt.Errorf("excepted only one destination, got: %v", unique)
+			}
+			return nil
+		}
+		var multipleHost echo.Checker = func(result echo.CallResult, _ error) error {
+			hostnames := make([]string, len(result.Responses))
+			for i, r := range result.Responses {
+				hostnames[i] = r.Hostname
+			}
+			unique := sets.New(hostnames...).SortedList()
+			if len(unique) != dst.WorkloadsOrFail(t).Len() {
+				return fmt.Errorf("excepted only all destinations, got: %v", unique)
+			}
+			return nil
+		}
+
+		shouldBalance := dst.Config().IsRemote() || src.Config().IsRemote()
+		// Istio client will not reuse connections for HTTP/1.1
+		opt.HTTP.HTTP2 = true
+		// Make sure we make multiple calls
+		opt.Count = 10
+		c := singleHost
+		if shouldBalance {
+			c = multipleHost
+		}
+		opt.Check = check.And(check.OK(), c)
+		opt.NewConnectionPerRequest = false
+		src.CallOrFail(t, opt)
+	})
 }
 
 func TestServerRouting(t *testing.T) {
