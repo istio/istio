@@ -246,7 +246,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		}
 	}
 	
-	f !rootArgs.dryRun {
+	if !rootArgs.dryRun {
 		_, _ = fmt.Fprintln(cmd.OutOrStderr(), "\nThank you for installing Istio 1.14.  Please take a few minutes to "+
 			"tell us about your install/upgrade experience!  https://forms.gle/yEtCbt45FZ3VoDT5A")
 	}
