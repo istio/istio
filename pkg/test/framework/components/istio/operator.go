@@ -31,6 +31,7 @@ import (
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
@@ -143,14 +144,16 @@ func (i *operatorComponent) Ingresses() ingress.Instances {
 }
 
 func (i *operatorComponent) IngressFor(c cluster.Cluster) ingress.Instance {
-	return i.CustomIngressFor(c, defaultIngressServiceName, defaultIngressIstioLabel)
+	name := types.NamespacedName{Namespace: defaultIngressServiceName, Name: i.settings.SystemNamespace}
+	return i.CustomIngressFor(c, name, defaultIngressIstioLabel)
 }
 
 func (i *operatorComponent) EastWestGatewayFor(c cluster.Cluster) ingress.Instance {
-	return i.CustomIngressFor(c, eastWestIngressServiceName, eastWestIngressIstioLabel)
+	name := types.NamespacedName{Namespace: eastWestIngressServiceName, Name: i.settings.SystemNamespace}
+	return i.CustomIngressFor(c, name, eastWestIngressIstioLabel)
 }
 
-func (i *operatorComponent) CustomIngressFor(c cluster.Cluster, serviceName, istioLabel string) ingress.Instance {
+func (i *operatorComponent) CustomIngressFor(c cluster.Cluster, service types.NamespacedName, labelSelector string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	if c.Kind() != cluster.Kubernetes {
@@ -160,19 +163,18 @@ func (i *operatorComponent) CustomIngressFor(c cluster.Cluster, serviceName, ist
 	if i.ingress[c.Name()] == nil {
 		i.ingress[c.Name()] = map[string]ingress.Instance{}
 	}
-	if _, ok := i.ingress[c.Name()][istioLabel]; !ok {
+	if _, ok := i.ingress[c.Name()][labelSelector]; !ok {
 		ingr := newIngress(i.ctx, ingressConfig{
-			Namespace:   i.settings.SystemNamespace,
-			Cluster:     c,
-			ServiceName: serviceName,
-			IstioLabel:  istioLabel,
+			Cluster:       c,
+			Service:       service,
+			LabelSelector: labelSelector,
 		})
 		if closer, ok := ingr.(io.Closer); ok {
 			i.ctx.Cleanup(func() { _ = closer.Close() })
 		}
-		i.ingress[c.Name()][istioLabel] = ingr
+		i.ingress[c.Name()][labelSelector] = ingr
 	}
-	return i.ingress[c.Name()][istioLabel]
+	return i.ingress[c.Name()][labelSelector]
 }
 
 func (i *operatorComponent) Close() error {
@@ -416,7 +418,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			}
 
 			// Wait for the eastwestgateway to have a public IP.
-			_ = i.CustomIngressFor(c, eastWestIngressServiceName, eastWestIngressIstioLabel).DiscoveryAddress()
+			name := types.NamespacedName{eastWestIngressServiceName, i.settings.SystemNamespace}
+			_ = i.CustomIngressFor(c, name, eastWestIngressIstioLabel).DiscoveryAddress()
 		}
 	}
 

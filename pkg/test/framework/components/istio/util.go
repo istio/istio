@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/framework"
@@ -96,7 +97,8 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (
 		}
 		addr = address.(net.TCPAddr)
 	} else {
-		addr = i.CustomIngressFor(primary, eastWestIngressServiceName, eastWestIngressIstioLabel).DiscoveryAddress()
+		name := types.NamespacedName{Namespace: eastWestIngressServiceName, Name: i.settings.SystemNamespace}
+		addr = i.CustomIngressFor(primary, name, eastWestIngressIstioLabel).DiscoveryAddress()
 	}
 	if addr.IP.String() == "<nil>" {
 		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", primary.Name())
@@ -108,7 +110,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 	port int,
 ) (interface{}, bool, error) {
 	if !s.LoadBalancerSupported {
-		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", label))
+		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("%s", label))
 		if err != nil {
 			return nil, false, err
 		}
