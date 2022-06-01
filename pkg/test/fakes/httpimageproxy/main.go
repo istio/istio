@@ -24,11 +24,12 @@ import (
 	"net/http"
 	"regexp"
 
+	"istio.io/pkg/log"
+
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -64,7 +65,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ref := matches[re.SubexpIndex("Reference")] + ":" + matches[re.SubexpIndex("Tag")]
 	filePath := matches[re.SubexpIndex("FilePath")]
 
-	log.Debugf("Retreive file from oci://%v:%v", ref, filePath)
+	log.Debugf("Retrieve file from oci://%v:%v", ref, filePath)
 
 	reader, err := h.extractFile(ref, filePath)
 	if err != nil {
