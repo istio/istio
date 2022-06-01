@@ -174,11 +174,13 @@ func urlAsResourceName(fullURLStr string) string {
 	return fullURLStr
 }
 
-func pullIfNotPresent(pullPolicy extensions.PullPolicy, u *url.URL) bool {
+func shouldIgnoreResourceVersion(pullPolicy extensions.PullPolicy, u *url.URL) bool {
 	switch pullPolicy {
 	case extensions.PullPolicy_Always:
+		// When Always, pull a wasm module when the resource version is changed.
 		return false
 	case extensions.PullPolicy_IfNotPresent:
+		// When IfNotPresent, use the cached one regardless of the resource version.
 		return true
 	default:
 		// Default is IfNotPresent except OCI images tagged with `latest`.
@@ -222,7 +224,7 @@ func (c *LocalFileCache) Get(
 
 	// First check if the cache entry is already downloaded and policy does not require to pull always.
 	var modulePath string
-	modulePath, key.checksum = c.getEntry(key, pullIfNotPresent(pullPolicy, u))
+	modulePath, key.checksum = c.getEntry(key, shouldIgnoreResourceVersion(pullPolicy, u))
 	if modulePath != "" {
 		c.touchEntry(key)
 		return modulePath, nil
