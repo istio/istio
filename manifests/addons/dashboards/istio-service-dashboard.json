@@ -2941,7 +2941,7 @@
         "definition": "",
         "hide": 0,
         "includeAll": true,
-        "label": "Service Cluster",
+        "label": "Service Workload Cluster",
         "multi": true,
         "name": "dstcluster",
         "options": [],

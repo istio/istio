@@ -652,7 +652,7 @@ data:
     by (source_workload) or sum(istio_tcp_sent_bytes_total{reporter=~\\\"$qrep\\\",
     destination_service=~\\\"$service\\\", source_workload_namespace=~\\\"$srcns\\\"})
     by (source_workload))\",\"refresh\":1,\"regex\":\"/.*workload=\\\"([^\\\"]*).*/\",\"skipUrlSync\":false,\"sort\":4,\"tagValuesQuery\":\"\",\"tags\":[],\"tagsQuery\":\"\",\"type\":\"query\",\"useTags\":false},{\"allValue\":null,\"current\":{},\"datasource\":\"Prometheus\",\"definition\":\"\",\"hide\":0,\"includeAll\":true,\"label\":\"Service
-    Cluster\",\"multi\":true,\"name\":\"dstcluster\",\"options\":[],\"query\":\"query_result(sum(istio_requests_total{reporter=\\\"destination\\\",
+    Workload Cluster\",\"multi\":true,\"name\":\"dstcluster\",\"options\":[],\"query\":\"query_result(sum(istio_requests_total{reporter=\\\"destination\\\",
     destination_service=\\\"$service\\\"}) by (destination_cluster) or sum(istio_tcp_sent_bytes_total{reporter=\\\"destination\\\",
     destination_service=~\\\"$service\\\"}) by (destination_cluster))\",\"refresh\":1,\"regex\":\"/.*cluster=\\\"([^\\\"]*).*/\",\"skipUrlSync\":false,\"sort\":2,\"tagValuesQuery\":\"\",\"tags\":[],\"tagsQuery\":\"\",\"type\":\"query\",\"useTags\":false},{\"allValue\":null,\"current\":{},\"datasource\":\"Prometheus\",\"definition\":\"\",\"hide\":0,\"includeAll\":true,\"label\":\"Service
     Workload Namespace\",\"multi\":true,\"name\":\"dstns\",\"options\":[],\"query\":\"query_result(sum(istio_requests_total{reporter=\\\"destination\\\",
