@@ -70,7 +70,7 @@ function exec_on_node() {
   if [ "${K8S_TYPE}" == kind ]; then
     # if unset, read from stdin
     if [ -z "${cmd}" ]; then
-      docker exec -it "$node_name" sh -x
+      docker exec -i "$node_name" sh -x
     else
       docker exec -it "$node_name" $cmd
     fi
