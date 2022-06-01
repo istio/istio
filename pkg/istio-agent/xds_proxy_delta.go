@@ -211,6 +211,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
+	forwardEnvoyCh := make(chan *discovery.DeltaDiscoveryResponse, 1)
 	for {
 		select {
 		case resp := <-con.deltaResponsesChan:
@@ -243,7 +244,14 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			case v3.ExtensionConfigurationType:
 				if features.WasmRemoteLoadConversion {
 					// If Wasm remote load conversion feature is enabled, rewrite and send.
-					go p.deltaRewriteAndForward(con, resp)
+					go p.deltaRewriteAndForward(con, resp, func(resp *discovery.DeltaDiscoveryResponse) {
+						// Forward the response using the thread of `handleUpstreamResponse`
+						// to prevent concurrent access to forwardToEnvoy
+						select {
+						case forwardEnvoyCh <- resp:
+						case <-con.stopChan:
+						}
+					})
 				} else {
 					// Otherwise, forward ECDS resource update directly to Envoy.
 					forwardDeltaToEnvoy(con, resp)
@@ -251,13 +259,15 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			default:
 				forwardDeltaToEnvoy(con, resp)
 			}
+		case resp := <-forwardEnvoyCh:
+			forwardDeltaToEnvoy(con, resp)
 		case <-con.stopChan:
 			return
 		}
 	}
 }
 
-func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
+func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse, forward func(resp *discovery.DeltaDiscoveryResponse)) {
 	resources := make([]*any.Any, 0, len(resp.Resources))
 	for i := range resp.Resources {
 		resources = append(resources, resp.Resources[i].Resource)
@@ -276,7 +286,7 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 		return
 	}
 	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
-	forwardDeltaToEnvoy(con, resp)
+	forward(resp)
 }
 
 func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
