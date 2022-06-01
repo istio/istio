@@ -76,6 +76,7 @@ func (a *Aggregate) SidecarlessWorkloads() ambient.Indexes {
 		Workloads: ambient.NewWorkloadIndex(),
 		PEPs:      ambient.NewWorkloadIndex(),
 		UProxies:  ambient.NewWorkloadIndex(),
+		None:      ambient.NewWorkloadIndex(),
 	}
 
 	// consistent ordering should be handled somewhere (config gen, workload index), but not in the cluster iteration
@@ -84,6 +85,7 @@ func (a *Aggregate) SidecarlessWorkloads() ambient.Indexes {
 	for _, c := range a.clusters {
 		ci := c.workloads.SidecarlessWorkloads()
 		ci.Workloads.MergeInto(out.Workloads)
+		ci.None.MergeInto(out.None)
 		ci.PEPs.MergeInto(out.PEPs)
 		ci.UProxies.MergeInto(out.UProxies)
 	}

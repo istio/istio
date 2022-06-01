@@ -114,6 +114,8 @@ if [[ "${2:-}" == clean ]]; then
     $IPTABLES -t mangle -X uproxy-POSTROUTING
     $IPTABLES -t mangle -D OUTPUT -j uproxy-OUTPUT
     $IPTABLES -t mangle -X uproxy-OUTPUT
+    $IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j REDIRECT --to-port $POD_INBOUND
+    $IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j LOG --log-prefix="[$node-internal] "
     $IPTABLES -t mangle -D PREROUTING -j uproxy-PREROUTING
     $IPTABLES -t mangle -X uproxy-PREROUTING
     $IPTABLES -t nat -D PREROUTING -j uproxy-PREROUTING
@@ -241,6 +243,8 @@ $IPTABLES -t mangle -A uproxy-POSTROUTING -m mark --mark $OUTMARK -j CONNMARK --
 # We set a different mark on return path, as we only want these packages to go back to localhost, the outgoing packet needs to be routed to the local network card that belongs to the destination.
 ip rule del fwmark $OUTMARK_RET lookup $ROUTE_TABLE # potentially delete previous rule
 ip rule add fwmark $OUTMARK_RET lookup $ROUTE_TABLE
+#$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp --dport 15008 -d 127.0.0.1 -m mark --mark $OUTMARK -j LOG --log-prefix="[$node-returnd] "
+#$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp --dport 15008 -d 127.0.0.1 -m mark --mark $OUTMARK -j RETURN
 $IPTABLES -t mangle -A uproxy-PREROUTING -m connmark --mark $OUTMARK -j LOG --log-prefix="[$node-saw-conmark] "
 $IPTABLES -t mangle -A uproxy-PREROUTING -m connmark --mark $OUTMARK -j MARK --set-mark $OUTMARK_RET
 # if a packet has the return mark, accept it (as no futher processing is needed, and ip rule above will send it to envoy)

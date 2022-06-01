@@ -754,7 +754,10 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 
 	endpointsDump := &adminapi.EndpointsConfigDump{}
 	if w := conn.Watched(v3.EndpointType); s.Generators[v3.EndpointType] != nil && w != nil {
-		eps, _, _ := s.Generators[v3.EndpointType].Generate(conn.proxy, w, req)
+		eps, _, err := s.findGenerator(v3.EndpointType, conn).Generate(conn.proxy, w, req)
+		if err != nil {
+			log.Warnf("failed to generate endpoints: %v", err)
+		}
 		if len(eps) > 0 {
 			for _, epAny := range eps {
 				endpointsDump.DynamicEndpointConfigs = append(endpointsDump.DynamicEndpointConfigs, &adminapi.EndpointsConfigDump_DynamicEndpointConfig{

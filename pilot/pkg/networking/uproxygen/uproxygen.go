@@ -167,9 +167,19 @@ func (g *UProxyConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.Pu
 		c := outboundTunnelCluster(proxy, push, sa, &saWorkloads[0])
 		out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
 	}
+	for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
+		c := outboundPodTunnelCluster(proxy, push, sa, &saWorkloads[0])
+		out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+	}
+	if features.SidecarlessCapture == model.VariantIptables {
+		for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
+			c := outboundPodLocalTunnelCluster(proxy, push, sa, &saWorkloads[0])
+			out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+		}
+	}
 
 	out = append(out, buildPepClusters(proxy, push)...)
-	out = append(out, g.buildVirtualInboundCluster(), passthroughCluster(push), blackholeCluster(push))
+	out = append(out, g.buildVirtualInboundCluster(), passthroughCluster(push), tcpPassthroughCluster(push), blackholeCluster(push))
 	return out
 }
 
@@ -208,6 +218,16 @@ func passthroughCluster(push *model.PushContext) *discovery.Resource {
 				},
 			}),
 		},
+	}
+	return &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)}
+}
+
+func tcpPassthroughCluster(push *model.PushContext) *discovery.Resource {
+	c := &cluster.Cluster{
+		Name:                 util.PassthroughCluster + "-tcp",
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		ConnectTimeout:       push.Mesh.ConnectTimeout,
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 	}
 	return &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)}
 }
@@ -263,13 +283,14 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 	destPortMatch.Map[strconv.Itoa(int(l.GetAddress().GetSocketAddress().GetPortValue()))] = match.ToChain(util.BlackHoleCluster)
 
 	services := proxy.SidecarScope.Services()
-	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
+	seen := sets.New()
+	for _, sourceWl := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
 		sourceAndDestMatch := match.NewDestinationIP()
-		sourceMatch.Map[workload.Status.PodIP] = match.ToMatcher(sourceAndDestMatch.Matcher)
+		// TODO: handle host network better, which has a shared IP
+		sourceMatch.Map[sourceWl.Status.PodIP] = match.ToMatcher(sourceAndDestMatch.Matcher)
 
-		clientPeps := push.SidecarlessIndex.PEPs.ByIdentity[workload.Identity()] // TODO need to use this instead of ServiceAccountName
-		clientPepChain := buildPepChain(workload, clientPeps, "client")
-		seen := sets.New()
+		clientPeps := push.SidecarlessIndex.PEPs.ByIdentity[sourceWl.Identity()] // TODO need to use this instead of ServiceAccountName
+		clientPepChain := buildPepChain(sourceWl, clientPeps, "client")
 
 		for _, svc := range services {
 			// No client PEP, we build a chain per destination VIP
@@ -290,7 +311,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 						continue
 					}
 					// TODO if there are multiple PEPs we are picking a random one
-					serverPepChain = buildPepChain(workload, push.SidecarlessIndex.PEPs.ByIdentity[wl.Identity()], "server")
+					serverPepChain = buildPepChain(sourceWl, push.SidecarlessIndex.PEPs.ByIdentity[wl.Identity()], "server")
 					break
 				}
 				if serverPepChain != nil {
@@ -301,14 +322,15 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 					chain = clientPepChain
 				} else {
 					// No PEP
+					name := remoteOutboundClusterName(sourceWl.Identity(), port.Name, svc.Hostname.String())
 					chain = &listener.FilterChain{
-						Name: workload.Name + "_" + workload.Status.PodIP + "_to_" + port.Name + "_" + svc.Hostname.String() + "_" + vip,
+						Name: name,
 						Filters: []*listener.Filter{{
 							Name: wellknown.TCPProxy,
 							ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
 								AccessLog:        accessLogString("capture outbound (no pep)"),
-								StatPrefix:       "uproxy_out_" + workload.Name + "_" + workload.Status.PodIP + "_to_" + port.Name + "_" + svc.Hostname.String() + "_" + vip,
-								ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: remoteOutboundClusterName(kube.SecureNamingSAN(workload.Pod), vip, port.Name, svc.Hostname.String())},
+								StatPrefix:       name,
+								ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
 							},
 							)},
 						}},
@@ -320,7 +342,94 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 				}
 				portMatch.Map[fmt.Sprint(port.Port)] = match.ToChain(chain.Name)
 			}
-			// TODO headless if we know the source, but the destination is not a known VIP (go straight to outbound tunnel cluster, add headers here)
+		}
+		// Add chain for each pod IP
+		wls := push.SidecarlessIndex.Workloads.All()
+		wls = append(wls, push.SidecarlessIndex.None.All()...)
+		for _, wl := range wls {
+			var chain *listener.FilterChain
+			// Need to decide if there is a server PEP. This is somewhat problematic because a Service may span PEP and non-PEP.
+			// If any workload behind the service has a PEP, we will use the PEP. In 99% of cases this is homogenous.
+			serverPepChain := buildPepChain(sourceWl, push.SidecarlessIndex.PEPs.ByIdentity[wl.Identity()], "server")
+			if serverPepChain != nil {
+				// Has server PEP, send traffic there
+				chain = serverPepChain
+			} else if clientPepChain != nil {
+				// Has client PEP, send traffic there
+				chain = clientPepChain
+			} else {
+				// No PEP
+				// Naively, we could simply create a FC with tunnel_config here and point to an original_dst cluster.
+				// This won't work for a few reasons:
+				// * We need to override the port. `x-envoy-original-dst-host` cannot be used since it is an
+				//   upstream header; the cluster looks for downstream headers
+				// * We could add config to orig_dst cluster to override the port. This would almost work, but
+				//   then we run into issues with the original_src filter. Currently, this filter is on the listener filter
+				//   but it only applies for direct connections. When we go through another internal listener, the effect is lost.
+				//   Ultimately that means for tunneling, we do not use the original_src but for direct calls we do. This means
+				//   that we will need to go through an internal listener to "break" the original_src effect.
+				// TODO: this is broken
+				// If we use outboundTunnelClusterName, we get orig_dst, but x-envoy-original-dst-host is an upstream header
+				// while the cluster looks for downstream headers.
+				// if we make a dedicate cluster, we cannot pass the original port anymore since the context is lost.
+				// We cannot create a cluster per port since it can be any port.
+				// TODO2: this is still broken even with custom orig_dst. the listener sets the orig_src mark
+				// If we
+
+				name := sourceWl.Identity() + "_to_" + wl.Status.PodIP
+				tunnel := &tcp.TcpProxy_TunnelingConfig{
+					Hostname: "istio-uproxy-to-pep", // (unused, per extended connect)
+					HeadersToAdd: []*core.HeaderValueOption{
+						// This is for server uProxy - not really needed for PEP
+						{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
+
+						// These are the HBONE headers
+						{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DOWNSTREAM_LOCAL_ADDRESS_WITHOUT_PORT%"}},
+						{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DOWNSTREAM_LOCAL_PORT%"}},
+						{Header: &core.HeaderValue{Key: "x-original-src", Value: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"}},
+						{Header: &core.HeaderValue{Key: "x-direction", Value: "outbound"}},
+					},
+				}
+				// Case 1: tunnel cross node
+				cluster := outboundPodTunnelClusterName(sourceWl.Identity())
+				// Case 2: same node tunnel (iptables)
+				if node := wl.Spec.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantIptables {
+					cluster = outboundPodLocalTunnelClusterName(sourceWl.Identity())
+				}
+				// Case 3: direct
+				if wl.Labels[ambient.LabelType] != ambient.TypeWorkload {
+					cluster = util.PassthroughCluster + "-tcp"
+					tunnel = nil
+				}
+				// Case 4: same node tunnel (bpf)
+				// Currently we don't get redirection from remote -> pod on same node
+				if node := wl.Spec.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
+					cluster = util.PassthroughCluster + "-tcp"
+					tunnel = nil
+				}
+
+				chain = &listener.FilterChain{
+					Name: name,
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.TCPProxy,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+									AccessLog:        accessLogString("capture outbound pod (no pep)"),
+									StatPrefix:       name,
+									ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: cluster},
+									TunnelingConfig:  tunnel,
+								}),
+							},
+						},
+					},
+				}
+			}
+
+			if !seen.InsertContains(chain.Name) {
+				l.FilterChains = append(l.FilterChains, chain)
+			}
+			sourceAndDestMatch.Map[wl.Status.PodIP] = match.ToChain(chain.Name)
 		}
 	}
 
@@ -351,18 +460,19 @@ func buildPepChain(workload ambient.Workload, peps []ambient.Workload, t string)
 		return nil
 	}
 	pep, pepIP := peps[0], peps[0].Status.PodIP
-	chainName := fmt.Sprintf("%s_%s_to_%s_pep_%s", workload.Name, workload.Status.PodIP, t, pepIP)
+	// For client PEP, we know the PEP and client are always the same identity which simplifies things; we can share a cluster for all
 	cluster := pepClusterName(pep.Identity())
 	if t == "server" {
-		cluster = serverPepClusterName(pep.Identity())
+		// For server, we need to create the product of source identity x PEP
+		cluster = serverPepClusterName(pep.Identity(), workload.Identity())
 	}
 	return &listener.FilterChain{
-		Name: chainName,
+		Name: cluster,
 		Filters: []*listener.Filter{{
 			Name: wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
 				AccessLog:        accessLogString(fmt.Sprintf("capture outbound (to %v pep %v)", t, pepIP)),
-				StatPrefix:       chainName,
+				StatPrefix:       cluster,
 				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: cluster},
 				TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 					Hostname: "istio-uproxy-to-pep", // (unused, per extended connect)
@@ -398,10 +508,9 @@ func passthroughFilterChain() *listener.FilterChain {
 	}
 }
 
-// remoteOutboundCluster points to outboundTunnelListener (internal listener) via EDS metadata.
 func remoteOutboundCluster(proxy *model.Proxy, sa string, svc *model.Service, port string) *cluster.Cluster {
 	return &cluster.Cluster{
-		Name:                 remoteOutboundClusterName(sa, svc.GetAddressForProxy(proxy), port, svc.Hostname.String()),
+		Name:                 remoteOutboundClusterName(sa, port, svc.Hostname.String()),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 		EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 			EdsConfig: &core.ConfigSource{
@@ -416,29 +525,30 @@ func remoteOutboundCluster(proxy *model.Proxy, sa string, svc *model.Service, po
 	}
 }
 
-func remoteOutboundClusterName(sa, vip string, port string, hostname string) string {
-	return fmt.Sprintf("%s_to_%s_%s_%s_outbound_internal", sa, vip, port, hostname)
+func remoteOutboundClusterName(sa, port string, hostname string) string {
+	return fmt.Sprintf("%s_to_%s_%s_outbound_internal", sa, port, hostname)
 }
 
-func parseRemoteOutboundClusterName(clusterName string) (sa, vip string, port string, hostname string, err error) {
+func parseRemoteOutboundClusterName(clusterName string) (sa, port string, hostname string, err error) {
 	p := strings.Split(clusterName, "_")
 	if !strings.HasSuffix(clusterName, "_outbound_internal") || len(p) < 3 {
 		err = fmt.Errorf("parseRemoteOutboundClusterName: invalid cluster")
 		return
 	}
-	return p[0], p[2], p[3], p[4], err
+	return p[0], p[2], p[3], err
 }
 
-func pepClusterName(sa string) string {
-	return sa + "_pep"
+func pepClusterName(pep string) string {
+	return fmt.Sprintf("to_client_pep_%s", pep)
 }
 
-func serverPepClusterName(sa string) string {
-	return sa + "_pep_server"
+func serverPepClusterName(pep, workload string) string {
+	return fmt.Sprintf("%s_to_server_pep_%s", workload, pep)
 }
 
 func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resources {
 	var clusters []*cluster.Cluster
+	// Client PEPs
 	for sa, peps := range push.SidecarlessIndex.PEPs.ByIdentity {
 		saWorkloads := push.SidecarlessIndex.Workloads.NodeLocalBySA(proxy.Metadata.NodeName)[sa]
 		if len(saWorkloads) == 0 || len(peps) == 0 {
@@ -450,39 +560,49 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 			log.Errorf("warning: multiple PEPs: %v", peps)
 		}
 
-		clusters = append(clusters,
-			&cluster.Cluster{
-				Name:                          pepClusterName(sa),
-				ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-				LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
-				ConnectTimeout:                durationpb.New(2 * time.Second),
-				TypedExtensionProtocolOptions: h2connectUpgrade(),
-				TransportSocket: &core.TransportSocket{
-					Name: "envoy.transport_sockets.tls",
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
-						CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
-					})},
-				},
-				LoadAssignment: &endpoint.ClusterLoadAssignment{
-					ClusterName: pepClusterName(sa),
-					Endpoints: []*endpoint.LocalityLbEndpoints{{
-						LbEndpoints: []*endpoint.LbEndpoint{{
-							HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-								Address: &core.Address{
-									Address: &core.Address_SocketAddress{
-										SocketAddress: &core.SocketAddress{
-											Address:       peps[0].Status.PodIP, // TODO support multiple
-											PortSpecifier: &core.SocketAddress_PortValue{PortValue: UproxyOutboundCapturePort},
-										},
+		clusters = append(clusters, &cluster.Cluster{
+			Name:                          pepClusterName(sa),
+			ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+			LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
+			ConnectTimeout:                durationpb.New(2 * time.Second),
+			TypedExtensionProtocolOptions: h2connectUpgrade(),
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+					CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
+				})},
+			},
+			LoadAssignment: &endpoint.ClusterLoadAssignment{
+				ClusterName: pepClusterName(sa),
+				Endpoints: []*endpoint.LocalityLbEndpoints{{
+					LbEndpoints: []*endpoint.LbEndpoint{{
+						HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
+							Address: &core.Address{
+								Address: &core.Address_SocketAddress{
+									SocketAddress: &core.SocketAddress{
+										Address:       peps[0].Status.PodIP, // TODO support multiple
+										PortSpecifier: &core.SocketAddress_PortValue{PortValue: UproxyOutboundCapturePort},
 									},
 								},
-							}},
+							},
 						}},
 					}},
-				},
+				}},
 			},
-			&cluster.Cluster{
-				Name:                          serverPepClusterName(sa),
+		})
+	}
+	for pepSA, peps := range push.SidecarlessIndex.PEPs.ByIdentity {
+		for workloadSA, workloads := range push.SidecarlessIndex.Workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
+			if len(workloads) == 0 || len(peps) == 0 {
+				// no peps or no workloads that use this identity on the node
+				continue
+			}
+			workload := workloads[0] // we use this pod id for fetching cert
+			if len(peps) > 1 {
+				log.Errorf("warning: multiple PEPs: %v", peps)
+			}
+			clusters = append(clusters, &cluster.Cluster{
+				Name:                          serverPepClusterName(pepSA, workloadSA),
 				ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 				LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
 				ConnectTimeout:                durationpb.New(2 * time.Second),
@@ -494,7 +614,7 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 					})},
 				},
 				LoadAssignment: &endpoint.ClusterLoadAssignment{
-					ClusterName: pepClusterName(sa),
+					ClusterName: serverPepClusterName(pepSA, workloadSA),
 					Endpoints: []*endpoint.LocalityLbEndpoints{{
 						LbEndpoints: []*endpoint.LbEndpoint{{
 							HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
@@ -511,6 +631,7 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 					}},
 				},
 			})
+		}
 	}
 	var out model.Resources
 	for _, c := range clusters {
@@ -526,7 +647,7 @@ func (g *UProxyConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.P
 	out := model.Resources{}
 	for _, clusterName := range names {
 		// sa here is already our "envoy friendly" one
-		sa, _, port, hostname, err := parseRemoteOutboundClusterName(clusterName)
+		sa, port, hostname, err := parseRemoteOutboundClusterName(clusterName)
 		if err != nil {
 			continue
 		}
@@ -559,12 +680,6 @@ func (g *UProxyConfigGenerator) llbEndpointsFromShards(proxy *model.Proxy, sa st
 			if port != istioEndpoint.ServicePortName {
 				continue
 			}
-			capturePort := UproxyInboundCapturePort
-			// TODO passthrough for node-local upstreams without PEPs
-			// if proxy.Metadata.SidecarlessVariant == model.VariantIptables {
-			if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName {
-				capturePort = UproxyInboundNodeLocalCapturePort
-			}
 			lbe := &endpoint.LbEndpoint{
 				HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 					Address: &core.Address{
@@ -579,9 +694,19 @@ func (g *UProxyConfigGenerator) llbEndpointsFromShards(proxy *model.Proxy, sa st
 				LoadBalancingWeight: wrappers.UInt32(1),
 			}
 
+			capturePort := UproxyInboundCapturePort
+			// TODO passthrough for node-local upstreams without PEPs
+			if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantIptables {
+				capturePort = UproxyInboundNodeLocalCapturePort
+			}
 			supportsTunnel := false
 			if al := istioEndpoint.Labels[ambient.LabelType]; al == ambient.TypePEP || al == ambient.TypeWorkload {
 				supportsTunnel = true
+			}
+			// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
+			// Instead, just go direct
+			if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
+				supportsTunnel = false
 			}
 			if supportsTunnel {
 				// TODO re-use some eds code; stable eds ordering, support multi-cluster cluster local rules, and multi-network stuff
@@ -653,6 +778,7 @@ func outboundTunnelListener(name string, sa string) *discovery.Resource {
 
 func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push *model.PushContext, inbound bool) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
+	// TODO san match
 	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), inbound)
 
 	// TODO always use the below flow, always specify which workload
@@ -673,11 +799,61 @@ func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push 
 // outboundTunnelCluster is per-workload SA, but requires one workload that uses that SA so we can send the Pod UID
 func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa string, workload *ambient.Workload) *cluster.Cluster {
 	return &cluster.Cluster{
-		Name:                          outboundTunnelClusterName(sa),
-		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:                durationpb.New(2 * time.Second),
-		CleanupInterval:               durationpb.New(60 * time.Second),
+		Name:                 outboundTunnelClusterName(sa),
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:       durationpb.New(2 * time.Second),
+		CleanupInterval:      durationpb.New(60 * time.Second),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{UseHttpHeader: true},
+		},
+		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		TransportSocket: &core.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+				CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
+			})},
+		},
+	}
+}
+
+// outboundTunnelCluster is per-workload SA, but requires one workload that uses that SA so we can send the Pod UID
+func outboundPodTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa string, workload *ambient.Workload) *cluster.Cluster {
+	return &cluster.Cluster{
+		Name:                 outboundPodTunnelClusterName(sa),
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:       durationpb.New(2 * time.Second),
+		CleanupInterval:      durationpb.New(60 * time.Second),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UpstreamPortOverride: UproxyInboundCapturePort,
+			},
+		},
+		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		TransportSocket: &core.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+				CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
+			})},
+		},
+	}
+}
+
+// outboundTunnelCluster is per-workload SA, but requires one workload that uses that SA so we can send the Pod UID
+func outboundPodLocalTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa string, workload *ambient.Workload) *cluster.Cluster {
+	return &cluster.Cluster{
+		Name:                 outboundPodLocalTunnelClusterName(sa),
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:       durationpb.New(2 * time.Second),
+		CleanupInterval:      durationpb.New(60 * time.Second),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UseHttpHeader:        true,
+				UpstreamPortOverride: UproxyInboundNodeLocalCapturePort,
+			},
+		},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
@@ -692,6 +868,14 @@ func outboundTunnelClusterName(sa string) string {
 	return "outbound_tunnel_clus_" + sa
 }
 
+func outboundPodTunnelClusterName(sa string) string {
+	return "outbound_pod_tunnel_clus_" + sa
+}
+
+func outboundPodLocalTunnelClusterName(sa string) string {
+	return "outbound_pod_local_tunnel_clus_" + sa
+}
+
 // buildInboundCaptureListener creates a single listener with a FilterChain for each pod on the node.
 func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, push *model.PushContext) *discovery.Resource {
 	// TODO L7 stuff (deny at l4 for l7 auth if there is a remote proxy for the dest workload)
@@ -699,7 +883,6 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 	l := &listener.Listener{
 		Name:           "uproxy_inbound",
 		UseOriginalDst: wrappers.Bool(true),
-		Transparent:    wrappers.Bool(true),
 		ListenerFilters: []*listener.ListenerFilter{{
 			Name: wellknown.OriginalDestination,
 			ConfigType: &listener.ListenerFilter_TypedConfig{
@@ -728,6 +911,7 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 				}),
 			},
 		})
+		l.Transparent = wrappers.Bool(true)
 	}
 
 	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
@@ -764,6 +948,7 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 													ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 												}},
 												ClusterSpecifier: &route.RouteAction_Cluster{
+													// TODO this cluster passes through arbitrary requests; including unauthenticated destinations.
 													Cluster: "virtual_inbound",
 												},
 											},
@@ -803,7 +988,6 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 	l := &listener.Listener{
 		Name:           "uproxy_inbound_plaintext",
 		UseOriginalDst: wrappers.Bool(true),
-		Transparent:    wrappers.Bool(true),
 		ListenerFilters: []*listener.ListenerFilter{{
 			Name: wellknown.OriginalDestination,
 			ConfigType: &listener.ListenerFilter_TypedConfig{
@@ -832,6 +1016,7 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 				}),
 			},
 		})
+		l.Transparent = wrappers.Bool(true)
 	}
 
 	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {

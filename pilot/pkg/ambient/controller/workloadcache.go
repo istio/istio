@@ -45,6 +45,7 @@ func initWorkloadCache(opts *Options) *workloadCache {
 			ambient.TypeUProxy:   ambient.NewWorkloadIndex(),
 			ambient.TypePEP:      ambient.NewWorkloadIndex(),
 			ambient.TypeWorkload: ambient.NewWorkloadIndex(),
+			ambient.TypeNone:     ambient.NewWorkloadIndex(),
 		},
 	}
 	queue := controllers.NewQueue("ambient workload cache",
@@ -116,6 +117,7 @@ func (wc *workloadCache) removeFromAll(key types.NamespacedName) {
 func (wc *workloadCache) SidecarlessWorkloads() ambient.Indexes {
 	return ambient.Indexes{
 		Workloads: wc.indexes[ambient.TypeWorkload].Copy(),
+		None:      wc.indexes[ambient.TypeNone].Copy(),
 		PEPs:      wc.indexes[ambient.TypePEP].Copy(),
 		UProxies:  wc.indexes[ambient.TypeUProxy].Copy(),
 	}

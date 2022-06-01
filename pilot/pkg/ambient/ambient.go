@@ -44,6 +44,7 @@ const (
 	LegacyLabelType = "asm-type"
 
 	TypeWorkload NodeType = "workload"
+	TypeNone     NodeType = "none"
 	TypeUProxy   NodeType = "uproxy"
 	TypePEP      NodeType = "pep"
 
@@ -63,6 +64,7 @@ type Cache interface {
 
 type Indexes struct {
 	Workloads *WorkloadIndex `json:"workloads"`
+	None      *WorkloadIndex `json:"none"`
 	PEPs      *WorkloadIndex `json:"peps"`
 	UProxies  *WorkloadIndex `json:"uproxies"`
 }

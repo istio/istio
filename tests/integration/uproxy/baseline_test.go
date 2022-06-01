@@ -121,7 +121,7 @@ func TestServices(t *testing.T) {
 }
 
 func TestPodIP(t *testing.T) {
-	t.Skipf("not implemented yet")
+	t.Skip("Not yet supported")
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		for _, src := range apps.All {
 			for _, srcWl := range src.WorkloadsOrFail(t) {
@@ -130,9 +130,12 @@ func TestPodIP(t *testing.T) {
 					for _, dst := range apps.All {
 						for _, dstWl := range dst.WorkloadsOrFail(t) {
 							t.NewSubTestf("to %v %v", dst.Config().Service, dstWl.Address()).Run(func(t framework.TestContext) {
+								src, dst, srcWl, dstWl := src, dst, srcWl, dstWl
+								if src.Config().IsRemote() || dst.Config().IsRemote() {
+									t.Skip("not supported yet")
+								}
 								for _, opt := range callOptions {
 									opt := opt.DeepCopy()
-									src, dst, srcWl, dstWl := src, dst, srcWl, dstWl
 									selfSend := dstWl.Address() == srcWl.Address()
 									if supportsL7(opt, src, dst) {
 										opt.Check = httpValidator
@@ -154,7 +157,6 @@ func TestPodIP(t *testing.T) {
 									opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
 									opt.ToWorkload = dst.WithWorkloads(dstWl)
 									t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
-										t.Log(src.WithWorkloads(srcWl).MustWorkloads()[0].PodName(), src.WithWorkloads(srcWl).MustWorkloads()[0].Address())
 										src.WithWorkloads(srcWl).CallOrFail(t, opt)
 									})
 								}
