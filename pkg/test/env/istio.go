@@ -80,6 +80,9 @@ var (
 
 	// RegistryRedirectorServerInstallFilePath is the registry redirector installation file.
 	RegistryRedirectorServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("registryredirector/registry_redirector_server.yaml"))
+
+	// HTTPImageProxyInstallFilePath is the httpimageproxy installation file.
+	HTTPImageProxyInstallFilePath = path.Join(IstioSrc, getInstallationFile("httpimageproxy/httpimageproxy.yaml"))
 )
 
 var (
