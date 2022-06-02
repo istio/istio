@@ -160,6 +160,20 @@ type (
 	meshConfigExtensionProvider struct {
 		Name     string                              `json:"string"`
 		Provider meshConfigExtensionProviderInstance `json:"provider"`
+
+		EnvoyOtelAls       struct{} `json:"envoyOtelAls"`
+		Prometheus         struct{} `json:"prometheus"`
+		EnvoyFileAccessLog struct{} `json:"envoyFileAccessLog"`
+		Stackdriver        struct{} `json:"stackdriver"`
+		EnvoyExtAuthzHTTP  struct{} `json:"envoyExtAuthzHttp"`
+		EnvoyExtAuthzGrpc  struct{} `json:"envoyExtAuthzGrpc"`
+		Zipkin             struct{} `json:"zipkin"`
+		Lightstep          struct{} `json:"lightstep"`
+		Datadog            struct{} `json:"datadog"`
+		Opencensus         struct{} `json:"opencensus"`
+		Skywalking         struct{} `json:"skywalking"`
+		EnvoyHTTPAls       struct{} `json:"envoyHttpAls"`
+		EnvoyTCPAls        struct{} `json:"envoyTcpAls"`
 	}
 	clusterName struct {
 		ServiceCluster     *v1alpha13.ProxyConfig_ServiceCluster      `json:"serviceCluster,omitempty"`
