@@ -175,7 +175,7 @@ func createTar(t *testing.T, b []byte) []byte {
 	tw := tar.NewWriter(&buf)
 	hdr := &tar.Header{
 		Name: "plugin.wasm",
-		Mode: 0600,
+		Mode: 0o600,
 		Size: int64(len(b)),
 	}
 	if err := tw.WriteHeader(hdr); err != nil {

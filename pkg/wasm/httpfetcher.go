@@ -29,8 +29,10 @@ import (
 	"github.com/cenkalti/backoff/v4"
 )
 
-var tarMagicNumber = []byte{0x75, 0x73, 0x74, 0x61, 0x72}
-var gzMagicNumber = []byte{0x1f, 0x8b}
+var (
+	tarMagicNumber = []byte{0x75, 0x73, 0x74, 0x61, 0x72}
+	gzMagicNumber  = []byte{0x1f, 0x8b}
+)
 
 // HTTPFetcher fetches remote wasm module with HTTP get.
 type HTTPFetcher struct {
