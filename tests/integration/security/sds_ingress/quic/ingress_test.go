@@ -41,6 +41,8 @@ func TestMain(m *testing.M) {
 		// RequireMultiPrimary().
 		Setup(istio.Setup(&inst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.PrimaryClusterIOPFile = istio.IntegrationTestDefaultsIOPWithQUIC
+			cfg.RemoteClusterIOPFile = istio.IntegrationTestDefaultsIOPWithQUIC
+			// cfg.ConfigClusterIOPFile = istio.IntegrationTestDefaultsRemoteIOPWithQUIC
 		})).
 		Setup(func(ctx resource.Context) error {
 			return ingressutil.SetupTest(ctx, apps)
