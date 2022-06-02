@@ -61,8 +61,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		RequireSingleCluster().
-		RequireMultiPrimary().
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret)).
 		Run()
@@ -174,7 +172,40 @@ values:
       #    no identities ([spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]) matched istio-fd-sds-1-4523/default
       XDS_AUTH: "false"
 `
-	cfg.DeployEastWestGW = false
+	cfg.EastWestGatewayValues = `
+components:
+  ingressGateways:
+  - enabled: true
+    name: istio-eastwestgateway
+    label:
+      istio: eastwestgateway
+      app: istio-eastwestgateway
+    k8s:
+      overlays:
+        - kind: Deployment
+          name: istio-eastwestgateway
+          patches:
+            - path: spec.template.spec.volumes[100]
+              value: |-
+                name: server-certs
+                secret:
+                  secretName: ` + PilotSecretName + `
+                  defaultMode: 420
+            - path: spec.template.spec.volumes[101]
+              value: |-
+                name: client-certs
+                secret:
+                  secretName: ` + PilotSecretName + `
+                  defaultMode: 420
+            - path: spec.template.spec.containers[0].volumeMounts[100]
+              value: |-
+                name: server-certs
+                mountPath: /server-certs
+            - path: spec.template.spec.containers[0].volumeMounts[101]
+              value: |-
+                name: client-certs
+                mountPath: /client-certs
+`
 }
 
 func CreateCustomIstiodSecret(ctx resource.Context) error {

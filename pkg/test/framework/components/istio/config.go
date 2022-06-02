@@ -153,6 +153,9 @@ type Config struct {
 
 	// EnableCNI indicates the test should have CNI enabled.
 	EnableCNI bool
+
+	// Custom settings for east-west gateway
+	EastWestGatewayValues string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {

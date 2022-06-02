@@ -411,7 +411,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			if c.IsConfig() {
 				spec = istioctlConfigFiles.configOperatorSpec
 			}
-			if err := i.deployEastWestGateway(c, spec.Revision); err != nil {
+			if err := i.deployEastWestGateway(c, spec.Revision, cfg.EastWestGatewayValues); err != nil {
 				return i, err
 			}
 
@@ -506,7 +506,7 @@ func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg 
 			return nil
 		}
 
-		if err := i.deployEastWestGateway(c, spec.Revision); err != nil {
+		if err := i.deployEastWestGateway(c, spec.Revision, cfg.EastWestGatewayValues); err != nil {
 			return err
 		}
 		// Other clusters should only use this for discovery if its a config cluster.

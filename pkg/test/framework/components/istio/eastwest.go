@@ -48,7 +48,7 @@ var (
 )
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
-func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revision string) error {
+func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revision string, customSettings string) error {
 	// generate istio operator yaml
 	args := []string{
 		"--cluster", cluster.Name(),
@@ -71,8 +71,13 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 
 	// Save the manifest generate output so we can later cleanup
 	s := i.ctx.Settings()
+	var inFileNames []string
+	inFileNames = append(inFileNames, iopFile)
+	if customSettings != "" {
+		inFileNames = append(inFileNames, customSettings)
+	}
 	manifestGenArgs := &mesh.ManifestGenerateArgs{
-		InFilenames: []string{iopFile},
+		InFilenames: inFileNames,
 		Set: []string{
 			"hub=" + s.Image.Hub,
 			"tag=" + s.Image.Tag,
@@ -95,7 +100,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 	}
 
 	installArgs := &mesh.InstallArgs{
-		InFilenames:    []string{iopFile},
+		InFilenames:    inFileNames,
 		KubeConfigPath: kubeConfigFile,
 		Set:            manifestGenArgs.Set,
 		ManifestsPath:  manifestGenArgs.ManifestsPath,
