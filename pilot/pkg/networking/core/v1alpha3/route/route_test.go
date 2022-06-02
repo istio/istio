@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/gogo"
 )
 
@@ -156,6 +157,17 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(2))
 		g.Expect(routes[0].Name).To(gomega.Equal("route.non-catch-all"))
 		g.Expect(routes[1].Name).To(gomega.Equal("route.catch-all"))
+	})
+
+	t.Run("for virtual service with catch all route：port match", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, virtualServiceWithCatchAllPort,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].Name).To(gomega.Equal("route 1.catch-all for 8080"))
 	})
 
 	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
@@ -909,6 +921,74 @@ var virtualServiceWithCatchAllRoute = config.Config{
 							},
 						},
 						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithCatchAllPort = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "route 1",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "catch-all for 8080",
+						Port: 8080,
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example1.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "route 2",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "header match",
+						Headers: map[string]*networking.StringMatch{
+							"cookie": {
+								MatchType: &networking.StringMatch_Exact{Exact: "canary"},
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example2.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "route 3",
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example1.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
 					},
 				},
 			},
