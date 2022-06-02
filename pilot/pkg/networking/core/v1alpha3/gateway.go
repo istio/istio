@@ -768,7 +768,12 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gateway) {
-				return buildOutboundNetworkFilters(node, tcp.Route, push, port, v.Meta)
+				out := make([]*listener.Filter, 0)
+				if server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL {
+					out = append(out,
+						buildMetadataExchangeNetworkFiltersForTCPIstioMTLSGateway()...)
+				}
+				return append(out, buildOutboundNetworkFilters(node, tcp.Route, push, port, v.Meta)...)
 			}
 		}
 	}
