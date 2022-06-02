@@ -703,8 +703,8 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host
 }
 
 // BuildInboundSubsetKey generates a unique string referencing service instances with port for dual-stack enable.
-func BuildInboundSubsetKey(port int, dualIpv6 bool) string {
-	if dualIpv6 {
+func BuildInboundSubsetKey(port int, isIpv6 bool) string {
+	if isIpv6 {
 		return BuildSubsetKey(TrafficDirectionInbound6, "", "", port)
 	}
 	return BuildSubsetKey(TrafficDirectionInbound, "", "", port)

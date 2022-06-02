@@ -492,7 +492,10 @@ func (t clusterCache) Cacheable() bool {
 func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
 	proxy *model.Proxy, instance *model.ServiceInstance, allInstance []*model.ServiceInstance) *MutableCluster {
 	dualIP := false
-	if proxy != nil && proxy.SupportsIPv6() && proxy.SupportsIPv4() && bind == LocalhostIPv6Address {
+	// features.EnableDualStack is required to make sure that
+	// there is no any impact if dual stack is disable
+	if features.EnableDualStack && proxy != nil && proxy.SupportsIPv6() &&
+		proxy.SupportsIPv4() && bind == LocalhostIPv6Address {
 		dualIP = true
 	}
 	clusterName := model.BuildInboundSubsetKey(clusterPort, dualIP)
