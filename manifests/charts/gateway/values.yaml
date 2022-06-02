@@ -34,6 +34,13 @@ podAnnotations:
 securityContext: ~
 containerSecurityContext: ~
 
+# Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+# system-node-critical, it is better to configure this in order to make sure your Istio pods
+# will not be killed because of low priority class.
+# Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+# for more detail.
+priorityClassName: ""
+
 service:
   # Type of service. Set to "None" to disable the service entirely
   type: LoadBalancer
