@@ -280,18 +280,24 @@ func buildSidecarVirtualHostsForService(
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				var clusters []string
-				clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port))
-				if features.EnableDualStack && node.SupportsIPv6() && node.SupportsIPv4() {
-					if len(svc.DefaultAddresses) > 1 {
-						for _, addr := range svc.DefaultAddresses {
-							if net.ParseIP(addr) != nil && net.ParseIP(addr).To4() == nil && net.ParseIP(addr).To16() != nil {
-								clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound6, "", svc.Hostname, port.Port))
-							}
+				for _, addr := range svc.DefaultAddresses {
+					netIP := net.ParseIP(addr)
+					if netIP != nil && netIP.To4() == nil && netIP.To16() != nil {
+						// if dual stack enable, IPv6 only service should use 'outbound6',
+						// otherwise, keep the same behavior as IPv4 service
+						if features.EnableDualStack && node.SupportsIPv6() {
+							clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound6, "", svc.Hostname, port.Port))
+						} else {
+							clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port))
 						}
-					} else if len(svc.DefaultAddresses) == 1 && svc.DefaultAddresses[0] == coreV1.ClusterIPNone {
-						// headless service case
-						clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound6, "", svc.Hostname, port.Port))
+					} else {
+						clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port))
 					}
+				}
+				if len(svc.DefaultAddresses) == 1 && svc.DefaultAddresses[0] == coreV1.ClusterIPNone {
+					// headless service case, Don't know about the DefaultAddresses, only can enable for all
+					// 'outbound' already is added above, only 'outbound6' should be added here
+					clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound6, "", svc.Hostname, port.Port))
 				}
 
 				for _, cluster := range clusters {

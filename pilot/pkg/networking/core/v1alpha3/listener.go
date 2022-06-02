@@ -303,7 +303,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			}
 
 			dualIpv6 := false
-			if node.SupportsIPv6() && node.SupportsIPv4() && bind == "::" {
+			// features.EnableDualStack is required to make sure that
+			// there is no any impact if dual stack is disable
+			if features.EnableDualStack && node.SupportsIPv6() && node.SupportsIPv4() && bind == "::" {
 				dualIpv6 = true
 			}
 			if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, dualIpv6); l != nil {
@@ -475,12 +477,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 		listenerOpts.needHTTPInspector = true
 	}
 	// Setup filter chain options and call plugins
-	var clusterName string
-	if dualIpv6 {
-		clusterName = model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort), true)
-	} else {
-		clusterName = model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort), false)
-	}
+	clusterName := model.BuildInboundSubsetKey(int(pluginParams.ServiceInstance.Endpoint.EndpointPort), dualIpv6)
 
 	fcOpts := configgen.buildInboundFilterchains(pluginParams, listenerOpts, "", clusterName, false, dualIpv6)
 	listenerOpts.filterChainOpts = fcOpts

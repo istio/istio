@@ -258,18 +258,24 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			discoveryType := convertResolution(cb.proxyType, service)
 
 			var outboundList []model.TrafficDirection
-			outboundList = append(outboundList, model.TrafficDirectionOutbound)
-			if features.EnableDualStack && proxy.SupportsIPv4() && proxy.SupportsIPv6() {
-				if len(service.DefaultAddresses) > 1 {
-					for _, addr := range service.DefaultAddresses {
-						if net.ParseIP(addr) != nil && net.ParseIP(addr).To4() == nil && net.ParseIP(addr).To16() != nil {
-							outboundList = append(outboundList, model.TrafficDirectionOutbound6)
-						}
+			for _, addr := range service.DefaultAddresses {
+				netIP := net.ParseIP(addr)
+				if netIP != nil && netIP.To4() == nil && netIP.To16() != nil {
+					// if dual stack enable, IPv6 only service should use 'outbound6',
+					// otherwise, keep the same behavior as IPv4 service
+					if features.EnableDualStack && proxy.SupportsIPv6() {
+						outboundList = append(outboundList, model.TrafficDirectionOutbound6)
+					} else {
+						outboundList = append(outboundList, model.TrafficDirectionOutbound)
 					}
-				} else if len(service.DefaultAddresses) == 1 && service.DefaultAddresses[0] == coreV1.ClusterIPNone {
-					// headless case, Don't know about the DefaultAddresses, only can enable for all
-					outboundList = append(outboundList, model.TrafficDirectionOutbound6)
+				} else {
+					outboundList = append(outboundList, model.TrafficDirectionOutbound)
 				}
+			}
+			if len(service.DefaultAddresses) == 1 && service.DefaultAddresses[0] == coreV1.ClusterIPNone {
+				// headless case, Don't know about the DefaultAddresses, only can enable for all
+				// 'outbound' already is added above, only 'outbound6' should be added here
+				outboundList = append(outboundList, model.TrafficDirectionOutbound6)
 			}
 
 			for _, obDirection := range outboundList {
