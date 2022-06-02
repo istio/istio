@@ -144,12 +144,12 @@ func (i *operatorComponent) Ingresses() ingress.Instances {
 }
 
 func (i *operatorComponent) IngressFor(c cluster.Cluster) ingress.Instance {
-	name := types.NamespacedName{Namespace: defaultIngressServiceName, Name: i.settings.SystemNamespace}
+	name := types.NamespacedName{Name: defaultIngressServiceName, Namespace: i.settings.SystemNamespace}
 	return i.CustomIngressFor(c, name, defaultIngressIstioLabel)
 }
 
 func (i *operatorComponent) EastWestGatewayFor(c cluster.Cluster) ingress.Instance {
-	name := types.NamespacedName{Namespace: eastWestIngressServiceName, Name: i.settings.SystemNamespace}
+	name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.settings.SystemNamespace}
 	return i.CustomIngressFor(c, name, eastWestIngressIstioLabel)
 }
 
@@ -418,7 +418,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			}
 
 			// Wait for the eastwestgateway to have a public IP.
-			name := types.NamespacedName{eastWestIngressServiceName, i.settings.SystemNamespace}
+			name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.settings.SystemNamespace}
 			_ = i.CustomIngressFor(c, name, eastWestIngressIstioLabel).DiscoveryAddress()
 		}
 	}

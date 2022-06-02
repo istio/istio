@@ -97,7 +97,7 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (
 		}
 		addr = address.(net.TCPAddr)
 	} else {
-		name := types.NamespacedName{Namespace: eastWestIngressServiceName, Name: i.settings.SystemNamespace}
+		name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.settings.SystemNamespace}
 		addr = i.CustomIngressFor(primary, name, eastWestIngressIstioLabel).DiscoveryAddress()
 	}
 	if addr.IP.String() == "<nil>" {
@@ -110,7 +110,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 	port int,
 ) (interface{}, bool, error) {
 	if !s.LoadBalancerSupported {
-		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("%s", label))
+		pods, err := cluster.PodsForSelector(context.TODO(), ns, label)
 		if err != nil {
 			return nil, false, err
 		}
