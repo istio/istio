@@ -189,8 +189,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 			// replace old cache key with our generated key
 			oldCacheKeys[clusterKey.clusterName] = clusterKey
-			for _, ss := range subsetKeys {
-				oldCacheKeys[ss.clusterName] = &ss
+			for i, ss := range subsetKeys {
+				oldCacheKeys[ss.clusterName] = &subsetKeys[i]
 			}
 			// if the service is eligible for skip and we are using delta, skip it
 			if canSkip && delta {
