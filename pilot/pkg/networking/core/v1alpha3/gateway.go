@@ -770,10 +770,8 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 			if l4MultiMatch(tcp.Match, server, gateway) {
 				out := make([]*listener.Filter, 0)
 				if server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL {
-					// TODO(vikaschoudhary16): figure out a better approach, instead of using a special listener class,
-					// for signaling of tcp MX filter addition
 					out = append(out,
-						buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassTCPIstioMTLSGateway)...)
+						buildMetadataExchangeNetworkFiltersForTCPIstioMTLSGateway()...)
 				}
 				return append(out, buildOutboundNetworkFilters(node, tcp.Route, push, port, v.Meta)...)
 			}
