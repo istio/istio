@@ -121,6 +121,7 @@ func isPosixTar(b []byte) bool {
 	return len(b) > 262 && bytes.Equal(b[257:262], tarMagicNumber)
 }
 
+// wasm plugin should be the only file in the tarball.
 func getFirstFileFromTar(b []byte) []byte {
 	buf := bytes.NewBuffer(b)
 
