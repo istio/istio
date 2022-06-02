@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** run `istioctl verify-install` fail with `demo` profile. 
