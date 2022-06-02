@@ -351,7 +351,7 @@ func BuildHTTPRoutesForVirtualService(
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
-					if isCatchAllMatch(match) {
+					if isCatchAllRoute(r) {
 						catchall = true
 						break
 					}
@@ -1344,10 +1344,12 @@ func isCatchAllRoute(r *route.Route) bool {
 	switch ir := r.Match.PathSpecifier.(type) {
 	case *route.RouteMatch_Prefix:
 		catchall = ir.Prefix == "/"
+	case *route.RouteMatch_PathSeparatedPrefix:
+		catchall = ir.PathSeparatedPrefix == "/"
 	case *route.RouteMatch_SafeRegex:
 		catchall = ir.SafeRegex.GetRegex() == "*"
 	}
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
-	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0
+	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
 }
