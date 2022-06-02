@@ -653,12 +653,12 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
 	}
 
-	if features.HTTP10 || enableHTTP10(lb.node.Metadata.HTTP10) {
-		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
-			AcceptHttp_10:   true,
-			HeaderKeyFormat: PreserveCaseFormatter,
-		}
+	//	if features.HTTP10 || enableHTTP10(lb.node.Metadata.HTTP10) {
+	httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
+		//		AcceptHttp_10:   true,
+		HeaderKeyFormat: PreserveCaseFormatter,
 	}
+	//	}
 
 	return httpOpts
 }
