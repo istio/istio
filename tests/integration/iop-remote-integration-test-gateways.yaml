@@ -40,6 +40,10 @@ spec:
               - port: 31400
                 targetPort: 31400
                 name: tcp
+              - name: http3
+                port: 443
+                targetPort: 8443
+                protocol: UDP
     # Enable the egressgateway for all tests by default.
     egressGateways:
       - name: istio-egressgateway
