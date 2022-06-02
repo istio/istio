@@ -1339,5 +1339,5 @@ func isCatchAllRoute(r *route.Route) bool {
 	}
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
-	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0
+	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
 }
