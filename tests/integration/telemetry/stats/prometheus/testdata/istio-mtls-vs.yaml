@@ -1,0 +1,34 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: direct-cnn-through-egress-gateway
+spec:
+  hosts:
+  - fake.external.com
+  gateways:
+  - istio-egressgateway
+  - mesh
+  tls:
+  - match:
+    - gateways:
+      - mesh
+      port: 443
+      sniHosts:
+      - fake.external.com
+    route:
+    - destination:
+        host: istio-egressgateway.istio-system.svc.cluster.local
+        port:
+          number: 443
+      weight: 100
+  tcp:
+  - match:
+    - gateways:
+      - istio-egressgateway
+      port: 443
+    route:
+    - destination:
+        host: fake.external.com
+        port:
+          number: 443
+      weight: 100

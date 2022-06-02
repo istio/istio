@@ -52,6 +52,16 @@ func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []
 	return filterstack
 }
 
+func buildMetadataExchangeNetworkFiltersForTCPIstioMTLSGateway() []*listener.Filter {
+	filterstack := make([]*listener.Filter, 0)
+	// We add metadata exchange on inbound only; outbound is handled in cluster filter
+	if features.MetadataExchange {
+		filterstack = append(filterstack, xdsfilters.TCPListenerMx)
+	}
+
+	return filterstack
+}
+
 func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) []*listener.Filter {
 	return push.Telemetry.TCPFilters(proxy, class)
 }
