@@ -340,22 +340,15 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	}
 
 	var clusterNames []string
-	if service != nil {
+	clusterNames = append(clusterNames, model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port))
+	if service != nil && len(service.DefaultAddresses) > 1 {
 		for _, addr := range service.DefaultAddresses {
-			netIP := net.ParseIP(addr)
-			if netIP != nil && netIP.To4() == nil && netIP.To16() != nil {
-				// if dual stack enable, IPv6 only service should use 'outbound6',
-				// otherwise, keep the same behavior as IPv4 service
-				if features.EnableDualStack {
-					clusterNames = append(clusterNames, model.BuildSubsetKey(model.TrafficDirectionOutbound6, destination.Subset, host.Name(destination.Host), port))
-				} else {
-					clusterNames = append(clusterNames, model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port))
-				}
-			} else {
-				clusterNames = append(clusterNames, model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port))
+			if net.ParseIP(addr) != nil && net.ParseIP(addr).To4() == nil && net.ParseIP(addr).To16() != nil {
+				clusterNames = append(clusterNames, model.BuildSubsetKey(model.TrafficDirectionOutbound6, destination.Subset, host.Name(destination.Host), port))
 			}
 		}
 	}
+
 	return clusterNames
 }
 
@@ -489,10 +482,6 @@ func translateRoute(
 		applyRedirect(out, in.Redirect, listenPort)
 	} else {
 		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination, vskey)
-		if out.Action == nil {
-			log.Infof("Action is nil")
-			return nil
-		}
 	}
 
 	out.Decorator = &route.Decorator{
@@ -663,7 +652,6 @@ func applyHTTPRouteDestination(
 			}
 		}
 	} else if len(weighted) == 0 {
-		out.Action = nil
 		return
 	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
