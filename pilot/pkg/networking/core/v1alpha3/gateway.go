@@ -419,9 +419,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService, nameToServiceMap)
 				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap,
 					hashByDestination, port, map[string]bool{gatewayName: true}, isH3DiscoveryNeeded, push.Mesh, vskey)
-				if err != nil || len(routes) == 0 {
+				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
-					return nil
+					continue
 				}
 				gatewayRoutes[gatewayName][vskey] = routes
 			}
@@ -447,6 +447,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 		}
 
+		// no route configuration for given gateway based on the port and virtual service
+		if len(gatewayRoutes[gatewayName]) == 0 {
+			continue
+		}
 		// check all hostname in vHostDedupMap and if is not exist with HttpsRedirect set to true
 		// create VirtualHost to redirect
 		for _, hostname := range server.Hosts {
@@ -465,6 +469,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 			vHostDedupMap[host.Name(hostname)] = newVHost
 		}
+	}
+
+	noInvalidGWRoutes := true
+	for gwName, _ := range gatewayRoutes {
+		if len(gatewayRoutes[gwName]) > 0 {
+			noInvalidGWRoutes = false
+		}
+	}
+	// no any route configuration for all gateways based on given ports and virtual services
+	if noInvalidGWRoutes {
+		return nil
 	}
 
 	var virtualHosts []*route.VirtualHost
