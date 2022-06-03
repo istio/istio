@@ -475,6 +475,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	for gwName, _ := range gatewayRoutes {
 		if len(gatewayRoutes[gwName]) > 0 {
 			noInvalidGWRoutes = false
+			break
 		}
 	}
 	// no any route configuration for all gateways based on given ports and virtual services
