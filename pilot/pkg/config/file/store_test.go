@@ -20,9 +20,9 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"istio.io/istio/pkg/config/schema/gvk"
 
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestUpdateExistingContents(t *testing.T) {
@@ -71,7 +71,8 @@ spec:
   - name: v1
     labels:
       version: v1`,
-			newConfigs: []string{`apiVersion: networking.istio.io/v1alpha3
+			newConfigs: []string{
+				`apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: productpage
@@ -96,7 +97,8 @@ spec:
   subsets:
   - name: v2
     labels:
-      version: v2`},
+      version: v2`,
+			},
 			expectedResourceVersion: "v3",
 		},
 	}
