@@ -124,7 +124,7 @@ func TestMain(m *testing.M) {
 		SkipIf("test requires VMs", func(ctx resource.Context) bool {
 			return ctx.Settings().Skip(echo.VM)
 		}).
-		// RequireMultiPrimary().
+		RequireMultiPrimary().
 		Setup(func(ctx resource.Context) error {
 			var err error
 			// Unlike other tests, we use GCE metadata server unconditionally for VMs because they would not have

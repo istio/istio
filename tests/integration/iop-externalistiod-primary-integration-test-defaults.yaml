@@ -49,27 +49,10 @@ spec:
           value: istio
     ingressGateways:
     - name: istio-ingressgateway
-      enabled: true
-      k8s:
-        service:
-        ports:
-        ## Default ports
-        - port: 15021
-          targetPort: 15021
-          name: status-port
-        - port: 80
-          targetPort: 8080
-          name: http2
-        - port: 443
-          targetPort: 8443
-          name: https
-        - port: 443
-          targetPort: 8443
-          name: http3
-          protocol: UDP
+      enabled: false
     egressGateways:
     - name: istio-egressgateway
-      enabled: true
+      enabled: false
   values:
     global:
       operatorManageWebhooks: true
