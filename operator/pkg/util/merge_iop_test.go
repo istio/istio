@@ -28,14 +28,31 @@ import (
 )
 
 func TestOverlayIOP(t *testing.T) {
-	defaultFilepath := filepath.Join(env.IstioSrc, "manifests/profiles/default.yaml")
-	b, err := os.ReadFile(defaultFilepath)
-	if err != nil {
-		t.Fatal(err)
+	cases := []struct {
+		path string
+	}{
+		{
+			filepath.Join(env.IstioSrc, "manifests/profiles/default.yaml"),
+		},
+		{
+			filepath.Join(env.IstioSrc, "manifests/profiles/demo.yaml"),
+		},
+		{
+			filepath.Join("testdata", "overlay-iop.yaml"),
+		},
 	}
-	// overlaying tree over itself exercises all paths for merging
-	if _, err := OverlayIOP(string(b), string(b)); err != nil {
-		t.Fatal(err)
+
+	for _, tc := range cases {
+		t.Run(tc.path, func(t *testing.T) {
+			b, err := os.ReadFile(tc.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// overlaying tree over itself exercises all paths for merging
+			if _, err := OverlayIOP(string(b), string(b)); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 
