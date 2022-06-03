@@ -54,8 +54,10 @@ func RunDocker(args Args) error {
 	}
 
 	makeStart := time.Now()
-	if err := RunMake(args, args.Plan.Targets()...); err != nil {
-		return err
+	for _, arch := range args.Architectures {
+		if err := RunMake(args, arch, args.PlanFor(arch).Targets()...); err != nil {
+			return err
+		}
 	}
 	if err := CopyInputs(args); err != nil {
 		return err
@@ -75,11 +77,13 @@ func RunDocker(args Args) error {
 
 func CopyInputs(a Args) error {
 	for _, target := range a.Targets {
-		bp := a.Plan.Find(target)
-		args := bp.Dependencies()
-		args = append(args, filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target)))
-		if err := RunCommand(a, "tools/docker-copy.sh", args...); err != nil {
-			return fmt.Errorf("copy: %v", err)
+		for _, arch := range a.Architectures {
+			bp := a.PlanFor(arch).Find(target)
+			args := bp.Dependencies()
+			args = append(args, filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target)))
+			if err := RunCommand(a, "tools/docker-copy.sh", args...); err != nil {
+				return fmt.Errorf("copy: %v", err)
+			}
 		}
 	}
 	return nil
@@ -187,7 +191,8 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	allDestinations := sets.New()
 	for _, variant := range a.Variants {
 		for _, target := range a.Targets {
-			bp := a.Plan.Find(target)
+			// Just for Dockerfile, so do not worry about architecture
+			bp := a.PlanFor(a.Architectures[0]).Find(target)
 			if variant == DefaultVariant && hasDoubleDefault {
 				// This will be process by the PrimaryVariant, skip it here
 				continue
@@ -201,7 +206,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			t := Target{
 				Context:    sp(p),
 				Dockerfile: sp(filepath.Base(bp.Dockerfile)),
-				Args:       createArgs(a, target, variant),
+				Args:       createArgs(a, target, variant, ""),
 				Platforms:  a.Architectures,
 			}
 
