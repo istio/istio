@@ -20,12 +20,19 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestUpdateExistingContents(t *testing.T) {
-	yaml1 := `apiVersion: networking.istio.io/v1alpha3
+	cases := []struct {
+		existingConfig          string
+		newConfigs              []string
+		expectedResourceVersion string
+	}{
+		{
+			existingConfig: `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: productpage
@@ -34,9 +41,8 @@ spec:
   subsets:
   - name: v1
     labels:
-      version: v1`
-
-	yaml2 := `apiVersion: networking.istio.io/v1alpha3
+      version: v1`,
+			newConfigs: []string{`apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: productpage
@@ -48,12 +54,14 @@ spec:
   subsets:
   - name: v1
     labels:
-      version: v1`
-
-	yaml3 := `apiVersion: networking.istio.io/v1alpha3
+      version: v1`},
+			expectedResourceVersion: "v2",
+		},
+		{
+			existingConfig: `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: productpage-1
+  name: productpage
 spec:
   host: productpage
   trafficPolicy:
@@ -62,12 +70,11 @@ spec:
   subsets:
   - name: v1
     labels:
-      version: v1`
-
-	yaml4 := `apiVersion: networking.istio.io/v1alpha3
+      version: v1`,
+			newConfigs: []string{`apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: productpage-1
+  name: productpage
 spec:
   host: productpage
   trafficPolicy:
@@ -76,34 +83,36 @@ spec:
   subsets:
   - name: v2
     labels:
-      version: v2`
-
-	tests := []struct {
-		name string
-		text string
-	}{
-		{
-			name: "yaml1",
-			text: yaml1,
-		},
-		{
-			name: "yaml2",
-			text: yaml2,
-		},
-		{
-			name: "yaml3",
-			text: yaml3,
-		},
-		{
-			name: "yaml4",
-			text: yaml4,
+      version: v2`,
+				`apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: productpage
+spec:
+  host: productpage
+  trafficPolicy:
+    tls:
+      mode: DISABLE 
+  subsets:
+  - name: v2
+    labels:
+      version: v2`},
+			expectedResourceVersion: "v3",
 		},
 	}
-
 	g := NewWithT(t)
-	for _, t := range tests {
+	for _, c := range cases {
 		src := NewKubeSource(collections.Istio)
-		err := src.ApplyContent(t.name, t.text)
+
+		err := src.ApplyContent("test", c.existingConfig)
 		g.Expect(err).To(BeNil())
+
+		// apply the same resource, should overwrite the existing one
+		for _, cfg := range c.newConfigs {
+			err = src.ApplyContent("test", cfg)
+			g.Expect(err).To(BeNil())
+		}
+		existing := src.Get(gvk.DestinationRule, "productpage", "")
+		g.Expect(c.expectedResourceVersion, existing.ResourceVersion)
 	}
 }

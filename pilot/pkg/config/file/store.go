@@ -207,6 +207,9 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 			if !found {
 				r.config.ResourceVersion = fmt.Sprintf("v%d", s.versionCtr)
 			} else {
+				// If the old resource version exists, and we want to overwrite the old object to the new object,
+				// we should set the resource version in the annotation to avoid of conflicting resource reported
+				// from the config store.
 				if r.config.Annotations == nil {
 					r.config.Annotations = map[string]string{}
 				}
