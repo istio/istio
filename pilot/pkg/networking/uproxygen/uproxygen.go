@@ -25,12 +25,12 @@ Listener uproxy_outbound:
 							tunnel: outbound_tunnel_lis_<identity>
   Chain: <srcpodname>_<srcpodip>_to_client_pep_<pep>
       tunneling_config: istio-uproxy-to-pep
-      -> CDS: <identity>_pep (no EDS)
+      -> CDS: _to_client_pep_<source identity> (EDS)
            address: PEP_IP
            transport: TLS
   Chain: <srcpodname>_<srcpodip>_to_server_pep_<pep>
       tunneling_config: istio-uproxy-to-pep
-      -> CDS: <identity>_server_pep (no EDS)
+      -> CDS: <source identity>_to_server_pep_<server identity> (EDS)
            address: PEP_IP
            transport: TLS
   Chain: passthrough
@@ -310,7 +310,6 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 					if !labels.Instance(svc.Attributes.Labels).SubsetOf(wl.Labels) {
 						continue
 					}
-					// TODO if there are multiple PEPs we are picking a random one
 					serverPepChain = buildPepChain(sourceWl, push.SidecarlessIndex.PEPs.ByIdentity[wl.Identity()], "server")
 					break
 				}
@@ -459,7 +458,9 @@ func buildPepChain(workload ambient.Workload, peps []ambient.Workload, t string)
 	if len(peps) == 0 {
 		return nil
 	}
-	pep, pepIP := peps[0], peps[0].Status.PodIP
+
+	// pep is just for identity (same across multiple PEPs)
+	pep := peps[0]
 	// For client PEP, we know the PEP and client are always the same identity which simplifies things; we can share a cluster for all
 	cluster := pepClusterName(pep.Identity())
 	if t == "server" {
@@ -471,7 +472,7 @@ func buildPepChain(workload ambient.Workload, peps []ambient.Workload, t string)
 		Filters: []*listener.Filter{{
 			Name: wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-				AccessLog:        accessLogString(fmt.Sprintf("capture outbound (to %v pep %v)", t, pepIP)),
+				AccessLog:        accessLogString(fmt.Sprintf("capture outbound (to %v pep)", t)),
 				StatPrefix:       cluster,
 				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: cluster},
 				TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
@@ -529,21 +530,29 @@ func remoteOutboundClusterName(sa, port string, hostname string) string {
 	return fmt.Sprintf("%s_to_%s_%s_outbound_internal", sa, port, hostname)
 }
 
-func parseRemoteOutboundClusterName(clusterName string) (sa, port string, hostname string, err error) {
+func parseRemoteOutboundClusterName(clusterName string) (sa, port string, hostname string, ok bool) {
 	p := strings.Split(clusterName, "_")
 	if !strings.HasSuffix(clusterName, "_outbound_internal") || len(p) < 3 {
-		err = fmt.Errorf("parseRemoteOutboundClusterName: invalid cluster")
-		return
+		return "", "", "", false
 	}
-	return p[0], p[2], p[3], err
+	return p[0], p[2], p[3], true
 }
 
 func pepClusterName(pep string) string {
-	return fmt.Sprintf("to_client_pep_%s", pep)
+	return fmt.Sprintf("_to_client_pep_%s", pep)
 }
 
 func serverPepClusterName(pep, workload string) string {
 	return fmt.Sprintf("%s_to_server_pep_%s", workload, pep)
+}
+
+// pep cluster names are in the format {src}_to_{t}_pep_{dst} where src/dst are identities
+func parsePepClusterName(name string) (src, dst, t string, ok bool) {
+	p := strings.Split(name, "_")
+	if len(p) != 5 || p[1] != "to" || p[3] != "pep" {
+		return "", "", "", false
+	}
+	return p[0], p[4], p[2], true
 }
 
 func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resources {
@@ -556,13 +565,10 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 			continue
 		}
 		workload := saWorkloads[0] // we use this pod id for fetching cert
-		if len(peps) > 1 {
-			log.Errorf("warning: multiple PEPs: %v", peps)
-		}
 
 		clusters = append(clusters, &cluster.Cluster{
 			Name:                          pepClusterName(sa),
-			ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+			ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 			LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
 			ConnectTimeout:                durationpb.New(2 * time.Second),
 			TypedExtensionProtocolOptions: h2connectUpgrade(),
@@ -572,22 +578,14 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 					CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
 				})},
 			},
-			LoadAssignment: &endpoint.ClusterLoadAssignment{
-				ClusterName: pepClusterName(sa),
-				Endpoints: []*endpoint.LocalityLbEndpoints{{
-					LbEndpoints: []*endpoint.LbEndpoint{{
-						HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-							Address: &core.Address{
-								Address: &core.Address_SocketAddress{
-									SocketAddress: &core.SocketAddress{
-										Address:       peps[0].Status.PodIP, // TODO support multiple
-										PortSpecifier: &core.SocketAddress_PortValue{PortValue: UproxyOutboundCapturePort},
-									},
-								},
-							},
-						}},
-					}},
-				}},
+			EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+				EdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
+					},
+					InitialFetchTimeout: durationpb.New(0),
+					ResourceApiVersion:  core.ApiVersion_V3,
+				},
 			},
 		})
 	}
@@ -598,12 +596,9 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 				continue
 			}
 			workload := workloads[0] // we use this pod id for fetching cert
-			if len(peps) > 1 {
-				log.Errorf("warning: multiple PEPs: %v", peps)
-			}
 			clusters = append(clusters, &cluster.Cluster{
 				Name:                          serverPepClusterName(pepSA, workloadSA),
-				ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+				ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 				LbPolicy:                      cluster.Cluster_ROUND_ROBIN,
 				ConnectTimeout:                durationpb.New(2 * time.Second),
 				TypedExtensionProtocolOptions: h2connectUpgrade(),
@@ -613,22 +608,14 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 						CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
 					})},
 				},
-				LoadAssignment: &endpoint.ClusterLoadAssignment{
-					ClusterName: serverPepClusterName(pepSA, workloadSA),
-					Endpoints: []*endpoint.LocalityLbEndpoints{{
-						LbEndpoints: []*endpoint.LbEndpoint{{
-							HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-								Address: &core.Address{
-									Address: &core.Address_SocketAddress{
-										SocketAddress: &core.SocketAddress{
-											Address:       peps[0].Status.PodIP, // TODO support multiple
-											PortSpecifier: &core.SocketAddress_PortValue{PortValue: UproxyInbound2CapturePort},
-										},
-									},
-								},
-							}},
-						}},
-					}},
+				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+					EdsConfig: &core.ConfigSource{
+						ConfigSourceSpecifier: &core.ConfigSource_Ads{
+							Ads: &core.AggregatedConfigSource{},
+						},
+						InitialFetchTimeout: durationpb.New(0),
+						ResourceApiVersion:  core.ApiVersion_V3,
+					},
 				},
 			})
 		}
@@ -645,10 +632,11 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 
 func (g *UProxyConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.PushContext, names []string) model.Resources {
 	out := model.Resources{}
+	// uproxy outbound to upstream
 	for _, clusterName := range names {
 		// sa here is already our "envoy friendly" one
-		sa, port, hostname, err := parseRemoteOutboundClusterName(clusterName)
-		if err != nil {
+		sa, port, hostname, ok := parseRemoteOutboundClusterName(clusterName)
+		if !ok {
 			continue
 		}
 		svc := push.ServiceForHostname(proxy, host.Name(hostname))
@@ -656,14 +644,28 @@ func (g *UProxyConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.P
 			Name: clusterName,
 			Resource: util.MessageToAny(&endpoint.ClusterLoadAssignment{
 				ClusterName: clusterName,
-				Endpoints:   g.llbEndpointsFromShards(proxy, sa, svc, port),
+				Endpoints:   g.upstreamLbEndpointsFromShards(proxy, sa, svc, port),
+			}),
+		})
+	}
+	// uproxy to pep
+	for _, clusterName := range names {
+		_, dst, t, ok := parsePepClusterName(clusterName)
+		if !ok {
+			continue
+		}
+		out = append(out, &discovery.Resource{
+			Name: clusterName,
+			Resource: util.MessageToAny(&endpoint.ClusterLoadAssignment{
+				ClusterName: clusterName,
+				Endpoints:   buildPepLbEndpoints(dst, t, push),
 			}),
 		})
 	}
 	return out
 }
 
-func (g *UProxyConfigGenerator) llbEndpointsFromShards(proxy *model.Proxy, sa string, svc *model.Service, port string) []*endpoint.LocalityLbEndpoints {
+func (g *UProxyConfigGenerator) upstreamLbEndpointsFromShards(proxy *model.Proxy, sa string, svc *model.Service, port string) []*endpoint.LocalityLbEndpoints {
 	if svc == nil {
 		return nil
 	}
@@ -733,6 +735,33 @@ func (g *UProxyConfigGenerator) llbEndpointsFromShards(proxy *model.Proxy, sa st
 		}
 	}
 	return []*endpoint.LocalityLbEndpoints{eps}
+}
+
+func buildPepLbEndpoints(pepIdentity, t string, push *model.PushContext) []*endpoint.LocalityLbEndpoints {
+	port := UproxyOutboundCapturePort
+	if t == "server" {
+		port = UproxyInbound2CapturePort
+	}
+	peps := push.SidecarlessIndex.PEPs.ByIdentity[pepIdentity]
+
+	lbEndpoints := &endpoint.LocalityLbEndpoints{
+		LbEndpoints: []*endpoint.LbEndpoint{},
+	}
+	for _, pep := range peps {
+		lbEndpoints.LbEndpoints = append(lbEndpoints.LbEndpoints, &endpoint.LbEndpoint{
+			HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
+				Address: &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{
+							Address:       pep.Status.PodIP,
+							PortSpecifier: &core.SocketAddress_PortValue{PortValue: port},
+						},
+					},
+				},
+			}},
+		})
+	}
+	return []*endpoint.LocalityLbEndpoints{lbEndpoints}
 }
 
 func outboundTunnelListenerName(sa string) string {

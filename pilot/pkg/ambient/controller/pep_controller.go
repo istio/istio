@@ -18,15 +18,15 @@ import (
 	"context"
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	listerappsv1 "k8s.io/client-go/listers/apps/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
@@ -55,7 +55,7 @@ type Proxy struct {
 type RemoteProxyController struct {
 	client          kubelib.Client
 	queue           controllers.Queue
-	pods            listerv1.PodLister
+	deployments     listerappsv1.DeploymentLister
 	serviceAccounts listerv1.ServiceAccountLister
 	gateways        v1alpha2.GatewayLister
 
@@ -85,9 +85,10 @@ func NewRemoteProxyController(client kubelib.Client, clusterID cluster.ID, confi
 	rc.gateways = gateways.Lister()
 	gateways.Informer().AddEventHandler(controllers.ObjectHandler(rc.queue.AddObject))
 
-	pods := rc.client.KubeInformer().Core().V1().Pods()
-	rc.pods = pods.Lister()
-	pods.Informer().AddEventHandler(controllers.ObjectHandler(controllers.EnqueueForParentHandler(rc.queue, gvk.KubernetesGateway)))
+	deployments := rc.client.KubeInformer().Apps().V1().Deployments()
+	rc.deployments = deployments.Lister()
+
+	deployments.Informer().AddEventHandler(controllers.ObjectHandler(controllers.EnqueueForParentHandler(rc.queue, gvk.KubernetesGateway)))
 
 	sas := rc.client.KubeInformer().Core().V1().ServiceAccounts()
 	rc.serviceAccounts = sas.Lister()
@@ -105,29 +106,6 @@ func NewRemoteProxyController(client kubelib.Client, clusterID cluster.ID, confi
 func (rc *RemoteProxyController) Run(stop <-chan struct{}) {
 	go rc.queue.Run(stop)
 	<-stop
-}
-
-func (rc *RemoteProxyController) proxiesForWorkload(pod *v1.Pod) []string {
-	if pod.Labels["asm-proxy"] != "" {
-		// Remote proxy
-		return nil
-	}
-	if pod.Labels["asm-type"] != "workload" {
-		// Not in mesh
-		return nil
-	}
-	var ips []string
-	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller")
-	proxyPods, _ := rc.pods.Pods(pod.Namespace).List(proxyLbl)
-	for _, p := range proxyPods {
-		if !kubecontroller.IsPodReady(p) {
-			continue
-		}
-		if p.Spec.ServiceAccountName == pod.Spec.ServiceAccountName {
-			ips = append(ips, p.Status.PodIP)
-		}
-	}
-	return ips
 }
 
 func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
@@ -159,8 +137,9 @@ func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 	wantProxies := sets.New()
 
 	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + gw.Name)
-	proxyPods, _ := rc.pods.Pods(gw.Namespace).List(proxyLbl)
-	for _, p := range proxyPods {
+	proxyDeployments, _ := rc.deployments.Deployments(gw.Namespace).List(proxyLbl)
+	for _, d := range proxyDeployments {
+		p := d.Spec.Template
 		haveProxies.Insert(p.Spec.ServiceAccountName)
 	}
 	// by default, match all
@@ -183,7 +162,7 @@ func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 	}
 	for _, k := range remove {
 		log.Infof("removing proxy %q", k+"-proxy")
-		if err := rc.client.Kube().CoreV1().Pods(gw.Namespace).Delete(context.Background(), k+"-proxy", metav1.DeleteOptions{}); err != nil {
+		if err := rc.client.Kube().AppsV1().Deployments(gw.Namespace).Delete(context.Background(), k+"-proxy", metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("pod remove: %v", err)
 		}
 	}
@@ -196,21 +175,22 @@ func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 			ServiceAccount: k,
 			Cluster:        rc.cluster.String(),
 		}
-		proxyPod, err := rc.RenderPodMerged(input)
+		proxyDeploy, err := rc.RenderDeploymentMerged(input)
 		if err != nil {
 			return err
 		}
 
-		if _, err := rc.client.Kube().CoreV1().Pods(name.Namespace).Create(context.Background(), proxyPod, metav1.CreateOptions{}); err != nil {
+		if _, err := rc.client.Kube().AppsV1().Deployments(name.Namespace).Create(context.Background(), proxyDeploy, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("pod create: %v", err)
 		}
 	}
 	return nil
 }
 
-func (rc *RemoteProxyController) RenderPodMerged(input MergedInput) (*v1.Pod, error) {
+func (rc *RemoteProxyController) RenderDeploymentMerged(input MergedInput) (*appsv1.Deployment, error) {
 	cfg := rc.injectConfig()
 
+	// TODO watch for template changes, update the Deployment if it does
 	podTemplate := cfg.Templates["remote"]
 	if podTemplate == nil {
 		return nil, fmt.Errorf("no remote template defined")
@@ -220,7 +200,7 @@ func (rc *RemoteProxyController) RenderPodMerged(input MergedInput) (*v1.Pod, er
 	if err != nil {
 		return nil, err
 	}
-	proxyPod, err := unmarshalPod([]byte(remoteBytes))
+	proxyPod, err := unmarshalDeploy([]byte(remoteBytes))
 	if err != nil {
 		return nil, fmt.Errorf("render: %v\n%v", err, remoteBytes)
 	}
@@ -231,23 +211,23 @@ func (rc *RemoteProxyController) RenderPodMerged(input MergedInput) (*v1.Pod, er
 // This is not super required since Kubernetes GC can do it as well
 func (rc *RemoteProxyController) pruneGateway(gw types.NamespacedName) error {
 	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + gw.Name)
-	proxyPods, _ := rc.pods.Pods(gw.Namespace).List(proxyLbl)
-	for _, p := range proxyPods {
-		log.Infof("pruning proxy %v", p.Name)
-		if err := rc.client.Kube().CoreV1().Pods(gw.Namespace).Delete(context.Background(), p.Spec.ServiceAccountName+"-proxy", metav1.DeleteOptions{}); err != nil {
-			return fmt.Errorf("pod remove: %v", err)
+	proxyDeployments, _ := rc.deployments.Deployments(gw.Namespace).List(proxyLbl)
+	for _, d := range proxyDeployments {
+		log.Infof("pruning proxy %v", d.Name)
+		if err := rc.client.Kube().AppsV1().Deployments(gw.Namespace).Delete(context.Background(), d.Name, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("deployment remove: %v", err)
 		}
 	}
 	return nil
 }
 
-func unmarshalPod(pyaml []byte) (*v1.Pod, error) {
-	pod := &v1.Pod{}
-	if err := yaml.Unmarshal(pyaml, pod); err != nil {
+func unmarshalDeploy(dyaml []byte) (*appsv1.Deployment, error) {
+	deploy := &appsv1.Deployment{}
+	if err := yaml.Unmarshal(dyaml, deploy); err != nil {
 		return nil, err
 	}
 
-	return pod, nil
+	return deploy, nil
 }
 
 type MergedInput struct {

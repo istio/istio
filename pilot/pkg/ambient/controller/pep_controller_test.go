@@ -88,8 +88,8 @@ global:
 		time.Sleep(time.Millisecond * 100)
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
 		assertCreated(t, cc.client,
-			TypedNamed{Kind: gvk.Pod, Name: "sa-1-proxy", Namespace: "test"},
-			TypedNamed{Kind: gvk.Pod, Name: "sa-2-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-2-proxy", Namespace: "test"},
 		)
 
 		assert.NoError(t, cc.client.GatewayAPI().GatewayV1alpha2().Gateways("test").
@@ -97,8 +97,8 @@ global:
 		time.Sleep(time.Millisecond * 100)
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
 		assertDeleted(t, cc.client,
-			TypedNamed{Kind: gvk.Pod, Name: "sa-1-proxy", Namespace: "test"},
-			TypedNamed{Kind: gvk.Pod, Name: "sa-2-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-2-proxy", Namespace: "test"},
 		)
 	})
 
@@ -109,7 +109,7 @@ global:
 		time.Sleep(time.Millisecond * 100)
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
 		assertCreated(t, cc.client,
-			TypedNamed{Kind: gvk.Pod, Name: "sa-1-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-proxy", Namespace: "test"},
 		)
 
 		assert.NoError(t, cc.client.GatewayAPI().GatewayV1alpha2().Gateways("test").
@@ -117,7 +117,7 @@ global:
 		time.Sleep(time.Millisecond * 100)
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
 		assertDeleted(t, cc.client,
-			TypedNamed{Kind: gvk.Pod, Name: "sa-1-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-proxy", Namespace: "test"},
 		)
 	})
 }
@@ -129,7 +129,7 @@ type TypedNamed struct {
 
 func assertCreated(t test.Failer, c kube.Client, expected ...TypedNamed) {
 	t.Helper()
-	have := []TypedNamed{}
+	var have []TypedNamed
 	actions := c.Kube().(*fake.Clientset).Actions()
 	for _, action := range actions {
 		c, ok := action.(ktesting.CreateAction)

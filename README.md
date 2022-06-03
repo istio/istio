@@ -88,3 +88,15 @@ INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
   --kind-config prow/config/ambient-sc.yaml --node-image kindest/node:v1.24.0 \
   test.integration.uproxy.kube
 ```
+
+A workaround for private repo in-containers:
+
+```shell
+# add a replace directive for istio/api to ../api
+# clone/checkout ambient branch in api repo
+# run with CONDITIONAL_HOST_MOUNTS
+CONDITIONAL_HOST_MOUNTS="--mount type=bind,source=$(cd ../api && pwd),destination=/api" \
+INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
+  --kind-config prow/config/ambient-sc.yaml --node-image kindest/node:v1.24.0 \
+  test.integration.uproxy.kube
+```
