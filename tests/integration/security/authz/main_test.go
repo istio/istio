@@ -37,6 +37,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Skip("https://github.com/istio/istio/issues/39255").
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
