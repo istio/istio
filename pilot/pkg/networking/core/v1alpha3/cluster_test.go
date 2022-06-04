@@ -1725,6 +1725,11 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLbPolicy: cluster.Cluster_MAGLEV,
 		},
 		{
+			name:             "redis cluster protocol",
+			port:             &model.Port{Protocol: protocol.RedisCluster},
+			expectedLbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
+		},
+		{
 			name: "Loadbalancer has distribute",
 			lbSettings: &networking.LoadBalancerSettings{
 				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
@@ -1765,7 +1770,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 				c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 			}
 
-			if tt.port != nil && tt.port.Protocol == protocol.Redis {
+			if tt.port != nil && (tt.port.Protocol == protocol.Redis || tt.port.Protocol == protocol.RedisCluster) {
 				test.SetBoolForTest(t, &features.EnableRedisFilter, true)
 			}
 
@@ -1777,6 +1782,16 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
 				t.Errorf("cluster expected to have weighed config, but is nil")
+			}
+
+			if tt.port != nil && tt.port.Protocol == protocol.RedisCluster {
+				if c.GetClusterType().Name != "envoy.clusters.redis" {
+					t.Errorf("unexpected cluster type for redis cluster, got %s", c.GetClusterType().Name)
+				}
+				if !strings.HasSuffix(c.GetClusterType().TypedConfig.TypeUrl, "envoy.config.cluster.redis.RedisClusterConfig") {
+					t.Errorf("unexpected type config for redis cluster, expected:%s, got: %s",
+						"envoy.config.cluster.redis.RedisClusterConfig", c.GetClusterType().TypedConfig.TypeUrl)
+				}
 			}
 		})
 	}

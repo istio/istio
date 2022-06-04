@@ -64,6 +64,16 @@ func TestConvertProtocol(t *testing.T) {
 			expectedProto: protocol.GRPCWeb,
 		},
 		{
+			name:          "resolves redis",
+			portName:      "redis-x",
+			expectedProto: protocol.Redis,
+		},
+		{
+			name:          "resolves redis cluster",
+			portName:      "redis-cluster",
+			expectedProto: protocol.RedisCluster,
+		},
+		{
 			name:          "makes sure grpc-web is not resolved incorrectly",
 			portName:      "grpcweb-x",
 			expectedProto: protocol.Unsupported,

@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	redis "github.com/envoyproxy/go-control-plane/envoy/config/cluster/redis"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -705,6 +706,21 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
 	if features.EnableRedisFilter && port != nil && port.Protocol == protocol.Redis {
 		c.LbPolicy = cluster.Cluster_MAGLEV
+		return
+	}
+
+	// RedisCluster protocol must use CLUSTER_PROVIDED lb policy to get the benefits
+	// of Envoy redis cluster implementation.
+	if features.EnableRedisFilter && port != nil && port.Protocol == protocol.RedisCluster {
+		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+		c.ClusterDiscoveryType = &cluster.Cluster_ClusterType{
+			ClusterType: &cluster.Cluster_CustomClusterType{
+				Name: "envoy.clusters.redis",
+				TypedConfig: util.MessageToAny(&redis.RedisClusterConfig{
+					ClusterRefreshRate: &durationpb.Duration{Seconds: 30},
+				}),
+			},
+		}
 		return
 	}
 

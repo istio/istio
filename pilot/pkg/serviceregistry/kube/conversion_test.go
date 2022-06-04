@@ -71,6 +71,8 @@ func TestConvertProtocol(t *testing.T) {
 		{8888, "mongo-test", nil, coreV1.ProtocolTCP, protocol.Mongo},
 		{8888, "redis", nil, coreV1.ProtocolTCP, protocol.Redis},
 		{8888, "redis-test", nil, coreV1.ProtocolTCP, protocol.Redis},
+		{8888, "redis-cluster-test", nil, coreV1.ProtocolTCP, protocol.RedisCluster},
+		{8888, "redis-cluster", nil, coreV1.ProtocolTCP, protocol.RedisCluster},
 		{8888, "mysql", nil, coreV1.ProtocolTCP, protocol.MySQL},
 		{8888, "mysql-test", nil, coreV1.ProtocolTCP, protocol.MySQL},
 		{8888, "tcp", &http, coreV1.ProtocolTCP, protocol.HTTP},

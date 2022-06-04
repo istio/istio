@@ -52,6 +52,8 @@ const (
 	Mongo Instance = "Mongo"
 	// Redis declares that the port carries Redis traffic.
 	Redis Instance = "Redis"
+	// RedisCluster declares that the port carries Redis traffic targeted for Redis Cluster.
+	RedisCluster Instance = "Redis-Cluster"
 	// MySQL declares that the port carries MySQL traffic.
 	MySQL Instance = "MySQL"
 	// Unsupported - value to signify that the protocol is unsupported.
@@ -83,6 +85,8 @@ func Parse(s string) Instance {
 		return Mongo
 	case "redis":
 		return Redis
+	case "redis-cluster":
+		return RedisCluster
 	case "mysql":
 		return MySQL
 	}
@@ -113,7 +117,7 @@ func (i Instance) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (i Instance) IsTCP() bool {
 	switch i {
-	case TCP, HTTPS, TLS, Mongo, Redis, MySQL:
+	case TCP, HTTPS, TLS, Mongo, Redis, RedisCluster, MySQL:
 		return true
 	default:
 		return false

@@ -38,6 +38,7 @@ var protocols = []protocol.Instance{
 	protocol.TLS,
 	protocol.Mongo,
 	protocol.Redis,
+	protocol.RedisCluster,
 	protocol.MySQL,
 }
 

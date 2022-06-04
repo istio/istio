@@ -39,8 +39,10 @@ var wellKnownPorts = map[int32]struct{}{
 }
 
 var (
-	grpcWeb    = string(protocol.GRPCWeb)
-	grpcWebLen = len(grpcWeb)
+	grpcWeb         = string(protocol.GRPCWeb)
+	grpcWebLen      = len(grpcWeb)
+	redisCluster    = string(protocol.RedisCluster)
+	redisClusterLen = len(redisCluster)
 )
 
 // ConvertProtocol from k8s protocol and port name
@@ -60,6 +62,12 @@ func ConvertProtocol(port int32, portName string, proto coreV1.Protocol, appProt
 	// prefix check below, since it contains a hyphen.
 	if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
 		return protocol.GRPCWeb
+	}
+
+	// Check if the port name prefix is "redis-cluster". Need to do this before the general
+	// prefix check below, since it contains a hyphen.
+	if len(name) >= redisClusterLen && strings.EqualFold(name[:redisClusterLen], redisCluster) {
+		return protocol.RedisCluster
 	}
 
 	// Parse the port name to find the prefix, if any.

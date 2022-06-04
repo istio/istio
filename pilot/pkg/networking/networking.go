@@ -52,7 +52,7 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 	case protocol.HTTP, protocol.HTTP2, protocol.HTTP_PROXY, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
 	case protocol.TCP, protocol.HTTPS, protocol.TLS,
-		protocol.Mongo, protocol.Redis, protocol.MySQL:
+		protocol.Mongo, protocol.Redis, protocol.RedisCluster, protocol.MySQL:
 		return ListenerProtocolTCP
 	case protocol.UDP:
 		return ListenerProtocolUnknown

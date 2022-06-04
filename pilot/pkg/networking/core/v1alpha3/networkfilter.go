@@ -187,7 +187,7 @@ func buildNetworkFiltersStack(p protocol.Instance, tcpFilter *listener.Filter, s
 		} else {
 			filterstack = append(filterstack, tcpFilter)
 		}
-	case protocol.Redis:
+	case protocol.Redis, protocol.RedisCluster:
 		if features.EnableRedisFilter {
 			// redis filter has route config, it is a terminating filter, no need append tcp filter.
 			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName))
