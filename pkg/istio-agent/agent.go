@@ -201,7 +201,8 @@ type AgentOptions struct {
 // associated clients to sign certificates (when not using files), and the local XDS proxy (including
 // health checking for VMs and DNS proxying).
 func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options,
-	eopts envoy.ProxyConfig) *Agent {
+	eopts envoy.ProxyConfig,
+) *Agent {
 	return &Agent{
 		proxyConfig: proxyConfig,
 		cfg:         agentOpts,
@@ -240,17 +241,18 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	log.Infof("Pilot SAN: %v", pilotSAN)
 
 	return bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
-		ID:                  a.cfg.ServiceNode,
-		Envs:                os.Environ(),
-		Platform:            a.cfg.Platform,
-		InstanceIPs:         a.cfg.ProxyIPAddresses,
-		StsPort:             a.secOpts.STSPort,
-		ProxyConfig:         a.proxyConfig,
-		PilotSubjectAltName: pilotSAN,
-		OutlierLogPath:      a.envoyOpts.OutlierLogPath,
-		ProvCert:            provCert,
-		EnvoyPrometheusPort: a.cfg.EnvoyPrometheusPort,
-		EnvoyStatusPort:     a.cfg.EnvoyStatusPort,
+		ID:                          a.cfg.ServiceNode,
+		Envs:                        os.Environ(),
+		Platform:                    a.cfg.Platform,
+		InstanceIPs:                 a.cfg.ProxyIPAddresses,
+		StsPort:                     a.secOpts.STSPort,
+		ProxyConfig:                 a.proxyConfig,
+		PilotSubjectAltName:         pilotSAN,
+		OutlierLogPath:              a.envoyOpts.OutlierLogPath,
+		ProvCert:                    provCert,
+		EnvoyPrometheusPort:         a.cfg.EnvoyPrometheusPort,
+		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
+		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
 	})
 }
 
