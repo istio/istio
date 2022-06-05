@@ -1,0 +1,20 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-egressgateway
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - port:
+      number: 80
+      name: tcp-80
+      protocol: TCP
+    hosts:
+    - external.{{ .externalNamespace }}.svc.cluster.local
+  - port:
+      number: 443
+      name: tcp-443
+      protocol: TCP
+    hosts:
+    - external.{{ .externalNamespace }}.svc.cluster.local

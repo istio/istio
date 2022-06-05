@@ -46,6 +46,9 @@ spec:
   - name: http-localhost
     port: 84
     targetPort: 18084
+  - name: tcp-for-http
+    port: 86
+    targetPort: 18086
   selector:
     app: a
 ---
@@ -100,6 +103,7 @@ spec:
         - --bind-localhost=18084
         - --tcp=19092
         - --port=18083
+        - --port=18086
         - --port=8080
         - --port=3333
         - --version=v1
@@ -136,6 +140,7 @@ spec:
         - containerPort: 18084
         - containerPort: 19092
         - containerPort: 18083
+        - containerPort: 18086
         - containerPort: 8080
         - containerPort: 3333
           name: tcp-health-port

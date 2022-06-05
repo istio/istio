@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** support for tunneling outbound traffic via external HTTP forward proxies using HTTP CONNECT or POST methods.
+  Tunnel settings can be applied only to TCP and TLS listeners. HTTP listeners are not supported for now.

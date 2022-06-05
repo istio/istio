@@ -1,0 +1,29 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route-outbound-traffic-to-external-app-via-external-forward-proxy
+spec:
+  hosts:
+  - external.{{ .externalNamespace }}.svc.cluster.local
+  gateways:
+  - mesh
+  tcp:
+  - match:
+    - port: {{ .externalSvcTcpPort }}
+    route:
+    - destination:
+        host: external-forward-proxy.{{ .externalNamespace }}.svc.cluster.local
+        subset: external-svc-tcp
+        port:
+          number: {{ .forwardProxyPort }}
+  tls:
+  - match:
+    - sniHosts:
+      - external.{{ .externalNamespace }}.svc.cluster.local
+      port: {{ .externalSvcTlsPort }}
+    route:
+    - destination:
+        host: external-forward-proxy.{{ .externalNamespace }}.svc.cluster.local
+        subset: external-svc-tls
+        port:
+          number: {{ .forwardProxyPort }}

@@ -1,0 +1,35 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: tunnel-outbound-traffic-to-external-svc-via-external-forward-proxy
+spec:
+  host: external-forward-proxy.{{ .externalNamespace }}.svc.cluster.local
+  subsets:
+  - name: external-svc-tcp
+    trafficPolicy:
+      tunnel:
+        protocol: CONNECT
+        targetHost: external.{{ .externalNamespace }}.svc.cluster.local
+        targetPort: {{ .externalSvcTcpPort }}
+  - name: external-svc-tls
+    trafficPolicy:
+      tunnel:
+        protocol: CONNECT
+        targetHost: external.{{ .externalNamespace }}.svc.cluster.local
+        targetPort: {{ .externalSvcTlsPort }}
+---
+{{ if .tlsEnabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: originate-tls-for-outbound-traffic-to-external-forward-proxy
+spec:
+  host: external-forward-proxy.{{ .externalNamespace }}.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: {{ .forwardProxyPort }}
+      tls:
+        mode: SIMPLE
+        sni: external-forward-proxy.{{ .externalNamespace }}.svc.cluster.local
+{{ end }}
