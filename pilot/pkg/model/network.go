@@ -25,6 +25,7 @@ import (
 
 	"github.com/miekg/dns"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
@@ -79,18 +80,36 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 }
 
 func (mgr *NetworkManager) reloadAndPush() {
+	changed := mgr.reloadNetworkEndpoints()
+
 	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
 	oldGateways := make(NetworkGatewaySet)
 	for _, gateway := range mgr.allGateways() {
 		oldGateways.Add(gateway)
 	}
-	changed := !mgr.reload().Equals(oldGateways)
+	changed = changed || !mgr.reload().Equals(oldGateways)
+	mgr.mu.Unlock()
 
 	if changed && mgr.xdsUpdater != nil {
 		log.Infof("gateways changed, triggering push")
 		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: []TriggerReason{NetworksTrigger}})
 	}
+}
+
+func (mgr *NetworkManager) reloadNetworkEndpoints() bool {
+	oldNetworks := mgr.env.NetworksWatcher.PrevNetworks()
+	currNetworks := mgr.env.NetworksWatcher.Networks()
+
+	oldEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
+	newEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
+	for _, networkconf := range currNetworks.Networks {
+		oldEndpoints = append(oldEndpoints, networkconf.Endpoints...)
+	}
+	for _, networkconf := range oldNetworks.Networks {
+		newEndpoints = append(newEndpoints, networkconf.Endpoints...)
+	}
+
+	return !reflect.DeepEqual(newEndpoints, oldEndpoints)
 }
 
 func (mgr *NetworkManager) reload() NetworkGatewaySet {
