@@ -156,7 +156,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 		// to handle mTLS vs plaintext and HTTP vs TCP (depending on protocol and PeerAuthentication).
 		var opts []FilterChainMatchOptions
 		mtls := lb.authnBuilder.ForPort(cc.port.TargetPort)
-		// Chain has explicit user TLS config. This can only apply when the mTLS settings are DISABLE to avoid conflicts
+		// Chain has explicit user TLS config. This can only apply when the TLS mode is DISABLE to avoid conflicts.
 		if cc.tlsSettings != nil && mtls.Mode == model.MTLSDisable {
 			// Since we are terminating TLS, we need to treat the protocol as if its terminated.
 			// Example: user specifies protocol=HTTPS and user TLS, we will use HTTP
