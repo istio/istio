@@ -80,17 +80,17 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 }
 
 func (mgr *NetworkManager) reloadAndPush() {
-	endpointsChanged := mgr.reloadNetworkEndpoints()
+	changed := mgr.reloadNetworkEndpoints()
 
 	mgr.mu.Lock()
 	oldGateways := make(NetworkGatewaySet)
 	for _, gateway := range mgr.allGateways() {
 		oldGateways.Add(gateway)
 	}
-	gatewaysChanged := !mgr.reload().Equals(oldGateways)
+	changed = changed || !mgr.reload().Equals(oldGateways)
 	mgr.mu.Unlock()
 
-	if (endpointsChanged || gatewaysChanged) && mgr.xdsUpdater != nil {
+	if changed && mgr.xdsUpdater != nil {
 		log.Infof("gateways changed, triggering push")
 		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: []TriggerReason{NetworksTrigger}})
 	}
@@ -99,11 +99,17 @@ func (mgr *NetworkManager) reloadAndPush() {
 func (mgr *NetworkManager) reloadNetworkEndpoints() bool {
 	oldNetworks := mgr.env.NetworksWatcher.PrevNetworks()
 	currNetworks := mgr.env.NetworksWatcher.Networks()
+	// This is the first network endpoint update - need to push.
+	if oldNetworks == nil {
+		return true
+	}
 
 	oldEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
 	newEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
-	for _, networkconf := range currNetworks.Networks {
-		oldEndpoints = append(oldEndpoints, networkconf.Endpoints...)
+	if currNetworks != nil {
+		for _, networkconf := range currNetworks.Networks {
+			oldEndpoints = append(oldEndpoints, networkconf.Endpoints...)
+		}
 	}
 	for _, networkconf := range oldNetworks.Networks {
 		newEndpoints = append(newEndpoints, networkconf.Endpoints...)
