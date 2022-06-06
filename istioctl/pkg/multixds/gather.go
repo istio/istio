@@ -150,22 +150,32 @@ func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptio
 	return MultiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
 }
 
-func getXdsAddressFromWebhooks(client kube.ExtendedClient) (string, error) {
+type xdsAddr struct {
+	gcpProject, host, istiod string
+}
+
+func getXdsAddressFromWebhooks(client kube.ExtendedClient) (*xdsAddr, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,!istio.io/tag", label.IoIstioRev.Name, client.Revision()),
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	for _, whc := range webhooks.Items {
 		for _, wh := range whc.Webhooks {
 			if wh.ClientConfig.URL != nil {
-				u, _ := url.Parse(*wh.ClientConfig.URL)
-				return u.Host, nil
+				u, err := url.Parse(*wh.ClientConfig.URL)
+				if err != nil {
+					return nil, fmt.Errorf("parsing webhook URL: %w", err)
+				}
+				if isMCPAddr(u) {
+					return parseMCPAddr(u)
+				}
+				return &xdsAddr{host: u.Host}, nil
 			}
 		}
 	}
-	return "", errors.New("xds address not found")
+	return nil, errors.New("xds address not found")
 }
 
 // nolint: lll
@@ -199,7 +209,9 @@ func MultiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpt
 			// Attempt to get the XDS address from the webhook and try again
 			addr, err := getXdsAddressFromWebhooks(kubeClient)
 			if err == nil {
-				centralOpts.Xds = addr
+				centralOpts.Xds = addr.host
+				centralOpts.GCPProject = addr.gcpProject
+				centralOpts.IstiodAddr = addr.istiod
 				dialOpts, err := xds.DialOptions(centralOpts, istioNamespace, tokenServiceAccount, kubeClient)
 				if err != nil {
 					return nil, err
