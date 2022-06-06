@@ -106,7 +106,7 @@ type Suite interface {
 	// Deprecated: All new tests should work for any control plane topology.
 	RequireMultiPrimary() Suite
 	// Skip the tests in external plane and config cluster topology
-	SkipConfigClusterTopology() Suite
+	SkipExternalControlPlaneTopology() Suite
 	// RequireMinVersion validates the environment meets a minimum version
 	RequireMinVersion(minorVersion uint) Suite
 	// RequireMaxVersion validates the environment meets a maximum version
@@ -266,7 +266,7 @@ func (s *suiteImpl) RequireMultiPrimary() Suite {
 	return s
 }
 
-func (s *suiteImpl) SkipConfigClusterTopology() Suite {
+func (s *suiteImpl) SkipExternalControlPlaneTopology() Suite {
 	fn := func(ctx resource.Context) error {
 		for _, c := range ctx.Clusters() {
 			if c.IsConfig() && !c.IsPrimary() {
