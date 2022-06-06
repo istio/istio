@@ -20,6 +20,7 @@ package pilot
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/yaml"
 	"testing"
 	"time"
 
@@ -221,6 +222,19 @@ func TestBadRemoteSecret(t *testing.T) {
 				}
 			})
 
+			retry.UntilSuccessOrFail(t, func() error {
+				pod, err := pods.Get(context.TODO(), pod, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				for _, status := range pod.Status.ContainerStatuses {
+					if status.Started != nil && !*status.Started {
+						return fmt.Errorf("container %s in %s is not started", status.Name, pod)
+					}
+				}
+				return nil
+			}, retry.Timeout(5*time.Minute), retry.Delay(time.Second))
+
 			// make sure the pod comes up healthy
 			retry.UntilSuccessOrFail(t, func() error {
 				pod, err := pods.Get(context.TODO(), pod, metav1.GetOptions{})
@@ -229,7 +243,8 @@ func TestBadRemoteSecret(t *testing.T) {
 				}
 				status := pod.Status.ContainerStatuses
 				if len(status) < 1 || !status[0].Ready {
-					return fmt.Errorf("%s not ready", pod)
+					conditions, _ := yaml.Marshal(pod.Status.ContainerStatuses)
+					return fmt.Errorf("%s not ready: %s", conditions)
 				}
 				return nil
 			}, retry.Timeout(time.Minute), retry.Delay(time.Second))
