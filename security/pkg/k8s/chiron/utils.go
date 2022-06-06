@@ -15,7 +15,6 @@
 package chiron
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/pem"
@@ -167,22 +166,6 @@ func isTCPReachable(host string, port int) bool {
 	}
 	conn.Close()
 	return true
-}
-
-// Reload CA cert from file and return whether CA cert is changed
-func reloadCACert(wc *WebhookController) (bool, error) {
-	certChanged := false
-	wc.certMutex.Lock()
-	defer wc.certMutex.Unlock()
-	caCert, err := readCACert(wc.k8sCaCertFile)
-	if err != nil {
-		return certChanged, err
-	}
-	if !bytes.Equal(caCert, wc.CACert) {
-		wc.CACert = append([]byte(nil), caCert...)
-		certChanged = true
-	}
-	return certChanged, nil
 }
 
 func submitCSR(clientset clientset.Interface,

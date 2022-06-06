@@ -115,11 +115,11 @@ var (
 	PodName      = env.RegisterStringVar("POD_NAME", "", "").Get()
 	JwtRule      = env.RegisterStringVar("JWT_RULE", "",
 		"The JWT rule used by istiod authentication").Get()
-)
 
-// Revision is the value of the Istio control plane revision, e.g. "canary",
-// and is the value used by the "istio.io/rev" label.
-var Revision = env.RegisterStringVar("REVISION", "", "").Get()
+	// Revision is the value of the Istio control plane revision, e.g. "canary",
+	// and is the value used by the "istio.io/rev" label.
+	Revision = env.RegisterStringVar("REVISION", "", "").Get()
+)
 
 // NewPilotArgs constructs pilotArgs with default values.
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {

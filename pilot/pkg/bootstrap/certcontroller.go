@@ -33,13 +33,6 @@ import (
 )
 
 const (
-	// defaultCertGracePeriodRatio is the default length of certificate rotation grace period,
-	// configured as the ratio of the certificate TTL.
-	defaultCertGracePeriodRatio = 0.5
-
-	// defaultMinCertGracePeriod is the default minimum grace period for workload cert rotation.
-	defaultMinCertGracePeriod = 10 * time.Minute
-
 	// the interval polling root cert and re sign istiod cert when it changes.
 	rootCertPollingInterval = 60 * time.Second
 
@@ -47,50 +40,6 @@ const (
 	// Currently, custom CA path is not supported; no API to get custom CA cert yet.
 	defaultCACertPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
-
-// CertController can create certificates signed by K8S server.
-func (s *Server) initCertController(args *PilotArgs) error {
-	var err error
-	var secretNames, dnsNames []string
-
-	meshConfig := s.environment.Mesh()
-	if meshConfig.GetCertificates() == nil || len(meshConfig.GetCertificates()) == 0 {
-		// TODO: if the provider is set to Citadel, use that instead of k8s so the API is still preserved.
-		log.Info("No certificates specified, skipping K8S DNS certificate controller")
-		return nil
-	}
-
-	k8sClient := s.kubeClient
-	for _, c := range meshConfig.GetCertificates() {
-		name := strings.Join(c.GetDnsNames(), ",")
-		if len(name) == 0 { // must have a DNS name
-			continue
-		}
-		if len(c.GetSecretName()) > 0 {
-			// Chiron will generate the key and certificate and save them in a secret
-			secretNames = append(secretNames, c.GetSecretName())
-			dnsNames = append(dnsNames, name)
-		}
-	}
-
-	// Provision and manage the certificates for non-Pilot services.
-	// If services are empty, the certificate controller will do nothing.
-	s.certController, err = chiron.NewWebhookController(defaultCertGracePeriodRatio, defaultMinCertGracePeriod,
-		k8sClient.Kube(), defaultCACertPath, secretNames, dnsNames, args.Namespace, "")
-	if err != nil {
-		return fmt.Errorf("failed to create certificate controller: %v", err)
-	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		go func() {
-			// Run Chiron to manage the lifecycles of certificates
-			s.certController.Run(stop)
-		}()
-
-		return nil
-	})
-
-	return nil
-}
 
 // initDNSCerts will create the certificates to be used by Istiod GRPC server and webhooks.
 // If the certificate creation fails - for example no support in K8S - returns an error.
