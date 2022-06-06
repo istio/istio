@@ -1950,6 +1950,154 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 		},
 		{
+			name: "tls mode ISTIO_MUTUAL, with AutoSni enabled and no sni specified in tls",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"SAN"},
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
+								},
+							},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+														},
+													},
+												},
+											},
+										},
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
+										ResourceApiVersion:  core.ApiVersion_V3,
+									},
+								},
+							},
+						},
+						AlpnProtocols: util.ALPNInMeshWithMxc,
+					},
+				},
+				err: nil,
+			},
+			enableAutoSni: true,
+		},
+		{
+			name: "tls mode ISTIO_MUTUAL, with AutoSni enabled and sni specified in tls",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
+								},
+							},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+														},
+													},
+												},
+											},
+										},
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
+										ResourceApiVersion:  core.ApiVersion_V3,
+									},
+								},
+							},
+						},
+						AlpnProtocols: util.ALPNInMeshWithMxc,
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+			enableAutoSni: true,
+		},
+		{
 			name: "tls mode SIMPLE, with no certs specified in tls",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
@@ -2941,7 +3089,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 		name            string
 		tls             *networking.ClientTLSSettings
 		sans            []string
-		sni             string
 		proxy           *model.Proxy
 		autoMTLSEnabled bool
 		meshExternal    bool
@@ -2953,7 +3100,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			"Destination rule TLS sni and SAN override",
 			tlsSettings,
 			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			false, false, model.MTLSUnknown,
 			tlsSettings,
@@ -2963,7 +3109,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			"Metadata cert path override ISTIO_MUTUAL",
 			tlsSettings,
 			[]string{"custom.foo.com"},
-			"custom.foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{
 				TLSClientCertChain: "/custom/chain.pem",
 				TLSClientKey:       "/custom/key.pem",
@@ -2984,13 +3129,11 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			"Auto fill nil settings when mTLS nil for internal service in strict mode",
 			nil,
 			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSStrict,
 			&networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
-				Sni:             "foo.com",
 			},
 			autoDetected,
 		},
@@ -2998,13 +3141,11 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			"Auto fill nil settings when mTLS nil for internal service in permissive mode",
 			nil,
 			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSPermissive,
 			&networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
-				Sni:             "foo.com",
 			},
 			autoDetected,
 		},
@@ -3012,7 +3153,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			"Auto fill nil settings when mTLS nil for internal service in plaintext mode",
 			nil,
 			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSDisable,
 			nil,
@@ -3022,7 +3162,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			"Auto fill nil settings when mTLS nil for internal service in unknown mode",
 			nil,
 			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSUnknown,
 			nil,
@@ -3032,7 +3171,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			"Do not auto fill nil settings for external",
 			nil,
 			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, true, model.MTLSUnknown,
 			nil,
@@ -3042,7 +3180,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			"Do not auto fill nil settings if server mTLS is disabled",
 			nil,
 			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			false, false, model.MTLSDisable,
 			nil,
@@ -3052,7 +3189,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			"TLS nil auto build tls with metadata cert path",
 			nil,
 			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{
 				TLSClientCertChain: "/custom/chain.pem",
 				TLSClientKey:       "/custom/key.pem",
@@ -3065,7 +3201,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				PrivateKey:        "/custom/key.pem",
 				CaCertificates:    "/custom/root.pem",
 				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
-				Sni:               "foo.com",
 			},
 			autoDetected,
 		},
@@ -3078,7 +3213,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				CaCertificates:    "/custom/root.pem",
 			},
 			[]string{"custom.foo.com"},
-			"custom.foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{
 				TLSClientCertChain: "/custom/meta/chain.pem",
 				TLSClientKey:       "/custom/meta/key.pem",
@@ -3098,7 +3232,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cb := NewClusterBuilder(tt.proxy, nil, nil)
-			gotTLS, gotCtxType := cb.buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni,
+			gotTLS, gotCtxType := cb.buildAutoMtlsSettings(tt.tls, tt.sans,
 				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)

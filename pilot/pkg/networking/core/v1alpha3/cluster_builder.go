@@ -729,7 +729,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
-			tls, mtlsCtxType := cb.buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
+			tls, mtlsCtxType := cb.buildAutoMtlsSettings(tls, opts.serviceAccounts,
 				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 		}
@@ -746,7 +746,6 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 func (cb *ClusterBuilder) buildAutoMtlsSettings(
 	tls *networking.ClientTLSSettings,
 	serviceAccounts []string,
-	sni string,
 	autoMTLSEnabled bool,
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode,
@@ -765,19 +764,12 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(
 		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
 			return tls, userSupplied
 		}
-		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
-		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
-		// are useful when routing via gateways. Use Service Accounts if Subject Alt names
-		// are not specified in TLS settings.
-		sniToUse := tls.Sni
-		if len(sniToUse) == 0 {
-			sniToUse = sni
-		}
+
 		subjectAltNamesToUse := tls.SubjectAltNames
 		if subjectAltNamesToUse == nil {
 			subjectAltNamesToUse = serviceAccounts
 		}
-		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
+		return cb.buildIstioMutualTLS(subjectAltNamesToUse, tls.Sni), userSupplied
 	}
 
 	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
@@ -786,11 +778,11 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(
 
 	// For backward compatibility, use metadata certs if provided.
 	if cb.hasMetadataCerts() {
-		return cb.buildMutualTLS(serviceAccounts, sni), autoDetected
+		return cb.buildMutualTLS(serviceAccounts, ""), autoDetected
 	}
 
 	// Build settings for auto MTLS.
-	return cb.buildIstioMutualTLS(serviceAccounts, sni), autoDetected
+	return cb.buildIstioMutualTLS(serviceAccounts, ""), autoDetected
 }
 
 func (cb *ClusterBuilder) hasMetadataCerts() bool {
@@ -971,10 +963,22 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
 			},
 		}
-		// Set default SNI of cluster name for istio_mutual if sni is not set.
+
+		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
+		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
+		// are useful when routing via gateways.
 		if len(tlsContext.Sni) == 0 {
-			tlsContext.Sni = c.cluster.Name
+			if autoSni, _ := cb.setAutoSniAndAutoSanValidation(c, tls); !autoSni {
+				if len(opts.istioMtlsSni) != 0 {
+					tlsContext.Sni = opts.istioMtlsSni
+				} else {
+					// Set default SNI of cluster name for istio_mutual if istio mtls sni is not set.
+					// This could happen for inbound cluster.
+					tlsContext.Sni = c.cluster.Name
+				}
+			}
 		}
+
 		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
 		// We add `istio-peer-exchange` to the list of alpn strings.
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
@@ -1089,13 +1093,14 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 // Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
 // Set auto_san_validation if VerifyCertAtClient feature flag is enabled and if there is no explicit SubjectAltNames specified  in DR.
-func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls *networking.ClientTLSSettings) {
+func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls *networking.ClientTLSSettings) (setAutoSni, setAutoSanValidation bool) {
+	setAutoSni = false
+	setAutoSanValidation = false
+
 	if mc == nil || !features.EnableAutoSni {
 		return
 	}
 
-	setAutoSni := false
-	setAutoSanValidation := false
 	if len(tls.Sni) == 0 {
 		setAutoSni = true
 	}
@@ -1117,6 +1122,8 @@ func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
 		}
 	}
+
+	return
 }
 
 func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster) {
