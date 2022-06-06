@@ -135,6 +135,7 @@ func virtualServiceCases(t TrafficContext) {
 	// TODO include proxyless as different features become supported
 	t.SetDefaultSourceMatchers(match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
 	t.SetDefaultTargetMatchers(match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
+	includeProxyless := []match.Matcher{match.NotNaked, match.NotHeadless}
 
 	skipVM := t.Settings().Skip(echo.VM)
 	t.RunTraffic(TrafficTestCase{
@@ -600,7 +601,7 @@ spec:
 		workloadAgnostic: true,
 	})
 	// Retry conditions have been added to just check that config is correct.
-	// Retries are not specifically tested.
+	// Retries are not specifically tested. TODO if we actually test retries, include proxyless
 	t.RunTraffic(TrafficTestCase{
 		name: "retry conditions",
 		config: `
@@ -686,6 +687,7 @@ spec:
 			Check:  check.GRPCStatus(codes.Unavailable),
 		},
 		workloadAgnostic: true,
+		sourceMatchers:   includeProxyless,
 	})
 
 	splits := [][]int{
@@ -703,7 +705,7 @@ spec:
 		t.RunTraffic(TrafficTestCase{
 			name:           fmt.Sprintf("shifting-%d", split[0]),
 			toN:            len(split),
-			sourceMatchers: []match.Matcher{match.NotHeadless, match.NotNaked, match.NotProxylessGRPC},
+			sourceMatchers: []match.Matcher{match.NotHeadless, match.NotNaked},
 			targetMatchers: []match.Matcher{match.NotHeadless, match.NotNaked, match.NotExternal, match.NotProxylessGRPC},
 			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
