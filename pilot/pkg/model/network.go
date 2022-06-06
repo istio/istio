@@ -80,17 +80,17 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 }
 
 func (mgr *NetworkManager) reloadAndPush() {
-	changed := mgr.reloadNetworkEndpoints()
+	endpointsChanged := mgr.reloadNetworkEndpoints()
 
 	mgr.mu.Lock()
 	oldGateways := make(NetworkGatewaySet)
 	for _, gateway := range mgr.allGateways() {
 		oldGateways.Add(gateway)
 	}
-	changed = changed || !mgr.reload().Equals(oldGateways)
+	gatewaysChanged := !mgr.reload().Equals(oldGateways)
 	mgr.mu.Unlock()
 
-	if changed && mgr.xdsUpdater != nil {
+	if (endpointsChanged || gatewaysChanged) && mgr.xdsUpdater != nil {
 		log.Infof("gateways changed, triggering push")
 		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: []TriggerReason{NetworksTrigger}})
 	}
