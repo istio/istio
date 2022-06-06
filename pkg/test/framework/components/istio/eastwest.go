@@ -35,8 +35,9 @@ import (
 )
 
 const (
-	eastWestIngressIstioLabel  = "eastwestgateway"
-	eastWestIngressServiceName = "istio-" + eastWestIngressIstioLabel
+	eastWestIngressIstioNameLabel = "eastwestgateway"
+	eastWestIngressIstioLabel     = "istio=" + eastWestIngressIstioNameLabel
+	eastWestIngressServiceName    = "istio-" + eastWestIngressIstioNameLabel
 )
 
 var (
@@ -112,7 +113,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 	// wait for a ready pod
 	if err := retry.UntilSuccess(func() error {
 		pods, err := cluster.Kube().CoreV1().Pods(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{
-			LabelSelector: "istio=" + eastWestIngressIstioLabel,
+			LabelSelector: eastWestIngressIstioLabel,
 		})
 		if err != nil {
 			return err
@@ -122,7 +123,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 				return nil
 			}
 		}
-		return fmt.Errorf("no ready pods for istio=" + eastWestIngressIstioLabel)
+		return fmt.Errorf("no ready pods for " + eastWestIngressIstioLabel)
 	}, componentDeployTimeout, componentDeployDelay); err != nil {
 		return fmt.Errorf("failed waiting for %s to become ready: %v", eastWestIngressServiceName, err)
 	}
