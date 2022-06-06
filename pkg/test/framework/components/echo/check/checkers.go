@@ -17,6 +17,7 @@ package check
 import (
 	"errors"
 	"fmt"
+	"google.golang.org/grpc/codes"
 	"net/http"
 	"strconv"
 	"strings"
@@ -160,6 +161,26 @@ func Status(expected int) echo.Checker {
 		}
 		return nil
 	})
+}
+
+// GRPCStatus checks that the gRPC response status code matches the expected value.
+func GRPCStatus(expected codes.Code) echo.Checker {
+	return func(result echo.CallResult, err error) error {
+		if expected == codes.OK {
+			if err != nil {
+				return fmt.Errorf("unexpected error: %w", err)
+			}
+			return nil
+		}
+		if err == nil {
+			return fmt.Errorf("expected gRPC error with status %s, but got OK", expected.String())
+		}
+		expectedSubstr := fmt.Sprintf("code = %s", expected.String())
+		if strings.Contains(err.Error(), expectedSubstr) {
+			return nil
+		}
+		return fmt.Errorf("expected gRPC response code %q. Instead got: %w", expected.String(), err)
+	}
 }
 
 // BodyContains checks that the response body contains the given string.
