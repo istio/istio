@@ -59,7 +59,7 @@ ${DEPENDENCIES:-$(cat <<EOD
     sha: b76e722b2e0e # auto does not support replace
   proxy:
     git: https://github.com/solo-io/proxy-sidecarless
-    auto: 5caff0e989181903ff729e34e7b0aa406e937249 # auto does not support custom repo
+    sha: 5caff0e989181903ff729e34e7b0aa406e937249 # auto does not support custom repo
   pkg:
     git: https://github.com/istio/pkg
     auto: modules
