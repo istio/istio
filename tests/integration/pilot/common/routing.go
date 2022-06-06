@@ -19,6 +19,7 @@ package common
 
 import (
 	"fmt"
+	"google.golang.org/grpc/codes"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -653,6 +654,36 @@ spec:
 			},
 			Count: 1,
 			Check: check.Status(http.StatusTeapot),
+		},
+		workloadAgnostic: true,
+	})
+
+	t.RunTraffic(TrafficTestCase{
+		name: "fault abort gRPC",
+		config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        grpcStatus: "UNAVAILABLE"`,
+		opts: echo.CallOptions{
+			Port: echo.Port{
+				Name: "grpc",
+			},
+			Scheme: scheme.GRPC,
+			Count:  1,
+			Check:  check.GRPCStatus(codes.Unavailable),
 		},
 		workloadAgnostic: true,
 	})
