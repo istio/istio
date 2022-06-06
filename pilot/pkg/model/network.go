@@ -73,7 +73,9 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 	}
 	mgr := &NetworkManager{env: env, NameCache: nameCache, xdsUpdater: xdsUpdater}
 	env.AddNetworksHandler(mgr.reloadGateways)
-	env.AddNetworksHandler(mgr.reloadNetworkEndpoints)
+	if features.EnableHCMInternalNetworks {
+		env.AddNetworksHandler(mgr.reloadNetworkEndpoints)
+	}
 	env.AppendNetworkGatewayHandler(mgr.reloadGateways)
 	nameCache.AppendNetworkGatewayHandler(mgr.reloadGateways)
 	mgr.reload()
