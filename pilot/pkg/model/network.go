@@ -25,6 +25,7 @@ import (
 
 	"github.com/miekg/dns"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
@@ -71,24 +72,65 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 		return nil, err
 	}
 	mgr := &NetworkManager{env: env, NameCache: nameCache, xdsUpdater: xdsUpdater}
-	env.AddNetworksHandler(mgr.reloadAndPush)
-	env.AppendNetworkGatewayHandler(mgr.reloadAndPush)
-	nameCache.AppendNetworkGatewayHandler(mgr.reloadAndPush)
+	env.AddNetworksHandler(mgr.reloadGateways)
+	if features.EnableHCMInternalNetworks {
+		env.AddNetworksHandler(mgr.reloadNetworkEndpoints)
+	}
+	env.AppendNetworkGatewayHandler(mgr.reloadGateways)
+	nameCache.AppendNetworkGatewayHandler(mgr.reloadGateways)
 	mgr.reload()
 	return mgr, nil
 }
 
-func (mgr *NetworkManager) reloadAndPush() {
+// reloadGaeways reloads NetworkGateways and triggers a push if they change.
+func (mgr *NetworkManager) reloadGateways() {
 	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
 	oldGateways := make(NetworkGatewaySet)
 	for _, gateway := range mgr.allGateways() {
 		oldGateways.Add(gateway)
 	}
+
 	changed := !mgr.reload().Equals(oldGateways)
+	mgr.mu.Unlock()
 
 	if changed && mgr.xdsUpdater != nil {
 		log.Infof("gateways changed, triggering push")
+		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: []TriggerReason{NetworksTrigger}})
+	}
+}
+
+// reloadNetworkEndpoints reloads NetworkEndpoints and triggers a push if they change.
+func (mgr *NetworkManager) reloadNetworkEndpoints() {
+	oldNetworks := mgr.env.NetworksWatcher.PrevNetworks()
+	currNetworks := mgr.env.NetworksWatcher.Networks()
+	// There are no network endpoints - no need to push.
+	if oldNetworks == nil && currNetworks == nil {
+		return
+	}
+
+	oldEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
+	newEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
+	if currNetworks != nil {
+		for _, networkconf := range currNetworks.Networks {
+			for _, ne := range networkconf.Endpoints {
+				if len(ne.GetFromCidr()) > 0 {
+					newEndpoints = append(newEndpoints, ne)
+				}
+			}
+		}
+	}
+	if oldNetworks != nil {
+		for _, networkconf := range oldNetworks.Networks {
+			for _, ne := range networkconf.Endpoints {
+				if len(ne.GetFromCidr()) > 0 {
+					newEndpoints = append(newEndpoints, ne)
+				}
+			}
+		}
+	}
+
+	if !reflect.DeepEqual(newEndpoints, oldEndpoints) && mgr.xdsUpdater != nil {
+		log.Infof("endpoints changed, triggering push")
 		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: []TriggerReason{NetworksTrigger}})
 	}
 }
