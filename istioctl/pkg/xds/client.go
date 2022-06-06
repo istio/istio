@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
@@ -47,6 +48,7 @@ func GetXdsResponse(dr *xdsapi.DiscoveryRequest, ns string, serviceAccount strin
 			Generator:      "event",
 			ServiceAccount: serviceAccount,
 			Namespace:      ns,
+			CloudrunAddr:   opts.IstiodAddr,
 		}.ToStruct(),
 		CertDir:            opts.CertDir,
 		InsecureSkipVerify: opts.InsecureSkipVerify,
@@ -72,14 +74,28 @@ func GetXdsResponse(dr *xdsapi.DiscoveryRequest, ns string, serviceAccount strin
 // DialOptions constructs gRPC dial options from command line configuration
 func DialOptions(opts clioptions.CentralControlPlaneOptions,
 	ns string, serviceAccount string, kubeClient kube.ExtendedClient) ([]grpc.DialOption, error) {
+	ctx := context.TODO()
 	// If we are using the insecure 15010 don't bother getting a token
 	if opts.Plaintext || opts.CertDir != "" {
 		return make([]grpc.DialOption, 0), nil
 	}
 	// Use bearer token
-	supplier, err := kubeClient.CreatePerRPCCredentials(context.TODO(), ns, serviceAccount, tokenAudiences, defaultExpirationSeconds)
+	aud := tokenAudiences
+	isMCP := strings.HasSuffix(opts.Xds, ".googleapis.com") || strings.HasSuffix(opts.Xds, ".googleapis.com:443")
+	if isMCP {
+		// Special credentials handling when using ASM Managed Control Plane.
+		mem, err := getHubMembership(ctx, kubeClient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query Hub membership: %w", err)
+		}
+		aud = []string{mem.WorkloadIdentityPool}
+	}
+	k8sCreds, err := kubeClient.CreatePerRPCCredentials(ctx, ns, serviceAccount, aud, defaultExpirationSeconds)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create RPC credentials for \"%s.%s\": %w", serviceAccount, ns, err)
+	}
+	if isMCP {
+		return mcpDialOptions(ctx, opts.GCPProject, k8sCreds)
 	}
 	return []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewTLS(
@@ -88,6 +104,6 @@ func DialOptions(opts clioptions.CentralControlPlaneOptions,
 				// We don't set the XDSSAN for the same reason.
 				InsecureSkipVerify: true,
 			})),
-		grpc.WithPerRPCCredentials(supplier),
-	}, err
+		grpc.WithPerRPCCredentials(k8sCreds),
+	}, nil
 }
