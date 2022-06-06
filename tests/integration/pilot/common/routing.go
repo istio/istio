@@ -19,7 +19,6 @@ package common
 
 import (
 	"fmt"
-	"google.golang.org/grpc/codes"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -27,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/codes"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/model"

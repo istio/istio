@@ -16,7 +16,6 @@ package route
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/util/grpc"
 	"regexp"
 	"sort"
 	"strconv"
@@ -47,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/grpc"
 	"istio.io/pkg/log"
 )
 

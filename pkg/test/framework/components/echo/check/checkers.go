@@ -17,12 +17,12 @@ package check
 import (
 	"errors"
 	"fmt"
-	"google.golang.org/grpc/codes"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pkg/config/protocol"
 	echoClient "istio.io/istio/pkg/test/echo"
