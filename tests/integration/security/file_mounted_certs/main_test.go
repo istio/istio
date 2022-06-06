@@ -235,7 +235,6 @@ func CreateCustomSecret(ctx resource.Context, name string, namespace namespace.I
 		return err
 	}
 
-	kubeAccessor := ctx.Clusters().Default()
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -247,15 +246,16 @@ func CreateCustomSecret(ctx resource.Context, name string, namespace namespace.I
 			"root-cert.pem":  caCert,
 		},
 	}
-
-	_, err = kubeAccessor.Kube().CoreV1().Secrets(namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		if kerrors.IsAlreadyExists(err) {
-			if _, err := kubeAccessor.Kube().CoreV1().Secrets(namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
-				return fmt.Errorf("failed updating secret %s: %v", secret.Name, err)
+	for _, cluster := range ctx.AllClusters() {
+		_, err = cluster.Kube().CoreV1().Secrets(namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
+		if err != nil {
+			if kerrors.IsAlreadyExists(err) {
+				if _, err := cluster.Kube().CoreV1().Secrets(namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+					return fmt.Errorf("failed updating secret %s: %v", secret.Name, err)
+				}
+			} else {
+				return fmt.Errorf("failed creating secret %s: %v", secret.Name, err)
 			}
-		} else {
-			return fmt.Errorf("failed creating secret %s: %v", secret.Name, err)
 		}
 	}
 	return nil

@@ -125,12 +125,13 @@ func removeCRDs(istioYaml string) string {
 }
 
 type istioctlConfigFiles struct {
-	iopFile            string
-	operatorSpec       *opAPI.IstioOperatorSpec
-	configIopFile      string
-	configOperatorSpec *opAPI.IstioOperatorSpec
-	remoteIopFile      string
-	remoteOperatorSpec *opAPI.IstioOperatorSpec
+	iopFile             string
+	operatorSpec        *opAPI.IstioOperatorSpec
+	configIopFile       string
+	configOperatorSpec  *opAPI.IstioOperatorSpec
+	remoteIopFile       string
+	remoteOperatorSpec  *opAPI.IstioOperatorSpec
+	eastWestGatewayFile string
 }
 
 func (i *operatorComponent) Ingresses() ingress.Instances {
@@ -350,7 +351,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	for _, c := range ctx.AllClusters().Kube().Primaries() {
 		c := c
 		errG.Go(func() error {
-			return installControlPlaneCluster(s, i, cfg, c, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec)
+			return installControlPlaneCluster(s, i, cfg, c, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec, istioctlConfigFiles.eastWestGatewayFile)
 		})
 	}
 	if err := errG.Wait().ErrorOrNil(); err != nil {
@@ -411,7 +412,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			if c.IsConfig() {
 				spec = istioctlConfigFiles.configOperatorSpec
 			}
-			if err := i.deployEastWestGateway(c, spec.Revision, cfg.EastWestGatewayValues); err != nil {
+			if err := i.deployEastWestGateway(c, spec.Revision, istioctlConfigFiles.eastWestGatewayFile); err != nil {
 				return i, err
 			}
 
@@ -463,7 +464,7 @@ spec:
 // The cluster is considered a "primary" cluster if it is also a "config cluster", in which case components
 // like ingress will be installed.
 func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg Config, c cluster.Cluster, iopFile string,
-	spec *opAPI.IstioOperatorSpec,
+	spec *opAPI.IstioOperatorSpec, eastwestSettings string,
 ) error {
 	scopes.Framework.Infof("setting up %s as control-plane cluster", c.Name())
 
@@ -506,7 +507,7 @@ func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg 
 			return nil
 		}
 
-		if err := i.deployEastWestGateway(c, spec.Revision, cfg.EastWestGatewayValues); err != nil {
+		if err := i.deployEastWestGateway(c, spec.Revision, eastwestSettings); err != nil {
 			return err
 		}
 		// Other clusters should only use this for discovery if its a config cluster.
@@ -927,9 +928,10 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config) (istioctlConfigFiles, error) {
 	var err error
 	configFiles := istioctlConfigFiles{
-		iopFile:       "",
-		configIopFile: "",
-		remoteIopFile: "",
+		iopFile:             "",
+		configIopFile:       "",
+		remoteIopFile:       "",
+		eastWestGatewayFile: "",
 	}
 	// Generate the istioctl config file for control plane(primary) cluster
 	configFiles.iopFile = filepath.Join(workDir, "iop.yaml")
@@ -953,6 +955,14 @@ func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config) 
 	if cfg.ConfigClusterValues != "" {
 		configFiles.configIopFile = filepath.Join(workDir, "config.yaml")
 		if configFiles.configOperatorSpec, err = initIOPFile(s, cfg, configFiles.configIopFile, cfg.ConfigClusterValues); err != nil {
+			return configFiles, err
+		}
+	}
+
+	if cfg.EastWestGatewayValues != "" {
+		configFiles.eastWestGatewayFile = filepath.Join(workDir, "eastwest.yaml")
+		_, err = initIOPFile(s, cfg, configFiles.eastWestGatewayFile, cfg.EastWestGatewayValues)
+		if err != nil {
 			return configFiles, err
 		}
 	}
