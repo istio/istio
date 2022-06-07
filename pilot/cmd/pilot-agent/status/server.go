@@ -184,7 +184,7 @@ func NewServer(config Options) (*Server, error) {
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
-		appProbersDestination: wrapIPv6(config.PodIP),
+		appProbersDestination: config.PodIP,
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
@@ -847,16 +847,4 @@ func notifyExit() {
 	if err := p.Signal(syscall.SIGTERM); err != nil {
 		log.Errorf("failed to send SIGTERM to self: %v", err)
 	}
-}
-
-// wrapIPv6 wraps the ip into "[]" in case of ipv6
-func wrapIPv6(ipAddr string) string {
-	addr := net.ParseIP(ipAddr)
-	if addr == nil {
-		return ipAddr
-	}
-	if addr.To4() != nil {
-		return ipAddr
-	}
-	return fmt.Sprintf("[%s]", ipAddr)
 }
