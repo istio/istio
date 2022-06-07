@@ -82,8 +82,7 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireMinVersion(19).
-		RequireSingleCluster().
-		RequireMultiPrimary().
+		SkipExternalControlPlaneTopology().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return SetupApps(ctx, apps)
@@ -94,15 +93,19 @@ func TestMain(m *testing.M) {
 }
 
 func setupConfig(ctx resource.Context, cfg *istio.Config) {
-	certsChan := make(chan *csrctrl.SignerRootCert, 2)
-	go csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false,
-		ctx.Clusters()[0].RESTConfig(), stopChan, certsChan)
-	cert1 := <-certsChan
-	cert2 := <-certsChan
-
+	certs := csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false, stopChan, ctx.AllClusters())
 	if cfg == nil {
 		return
 	}
+
+	cfg.ControlPlaneValues = generateConfigYaml(certs, false)
+	cfg.ConfigClusterValues = generateConfigYaml(certs, true)
+}
+
+func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool) string {
+	cert1 := certs[0]
+	cert2 := certs[1]
+
 	cfgYaml := tmpl.MustEvaluate(`
 values:
   meshConfig:
@@ -121,8 +124,18 @@ values:
       certSigners:
       - {{.signer2}}
 components:
+{{- if .isConfigCluster}}
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: false
+  egressGateways:
+  - name: istio-egressgateway
+    enabled: false
+  istiodRemote:
+{{- else }}
   pilot:
     enabled: true
+{{- end }}
     k8s:
       env:
       - name: CERT_SIGNER_DOMAIN
@@ -146,7 +159,12 @@ components:
                 - signers
                 verbs:
                 - approve
-`, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
-	cfg.ControlPlaneValues = cfgYaml
-	cfg.DeployEastWestGW = false
+`, map[string]interface{}{
+		"rootcert1":       cert1.Rootcert,
+		"signer1":         cert1.Signer,
+		"rootcert2":       cert2.Rootcert,
+		"signer2":         cert2.Signer,
+		"isConfigCluster": isConfigCluster,
+	})
+	return cfgYaml
 }
