@@ -114,14 +114,16 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		AddEventHandler(handler)
 
 	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
-	client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
+	deployInformer := client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
 		return appsinformersv1.NewFilteredDeploymentInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 			func(options *metav1.ListOptions) {
 				options.LabelSelector = "gateway.istio.io/managed=istio.io-gateway-controller"
 			},
 		)
-	}).AddEventHandler(handler)
+	})
+	_ = deployInformer.SetTransform(kube.StripUnusedFields)
+	deployInformer.AddEventHandler(handler)
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
 	gw.Informer().AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))

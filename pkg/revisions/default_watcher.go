@@ -60,6 +60,7 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 	}
 	p.queue = controllers.NewQueue("default revision", controllers.WithReconciler(p.setDefault))
 	p.webhookInformer = client.KubeInformer().Admissionregistration().V1().MutatingWebhookConfigurations().Informer()
+	_ = p.webhookInformer.SetTransform(kube.StripUnusedFields)
 	p.webhookInformer.AddEventHandler(controllers.FilteredObjectHandler(p.queue.AddObject, isDefaultTagWebhook))
 
 	return p
