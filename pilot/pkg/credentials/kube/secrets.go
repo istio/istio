@@ -94,7 +94,7 @@ func NewCredentialsController(client kube.Client, clusterID cluster.ID) *Credent
 			},
 		)
 	})
-	informer.SetTransform(kube.StripUnusedFields)
+	_ = informer.SetTransform(kube.StripUnusedFields)
 
 	return &CredentialsController{
 		secretInformer:     informer,

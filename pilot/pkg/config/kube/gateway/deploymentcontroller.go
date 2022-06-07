@@ -122,7 +122,7 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 			},
 		)
 	})
-	deployInformer.SetTransform(kube.StripUnusedFields)
+	_ = deployInformer.SetTransform(kube.StripUnusedFields)
 	deployInformer.AddEventHandler(handler)
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic

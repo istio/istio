@@ -55,7 +55,7 @@ type serviceExportCache interface {
 func newServiceExportCache(c *Controller) serviceExportCache {
 	if features.EnableMCSServiceDiscovery {
 		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceExportGVR)
-		dInformer.Informer().SetTransform(kube.StripUnusedFields)
+		_ = dInformer.Informer().SetTransform(kube.StripUnusedFields)
 		ec := &serviceExportCacheImpl{
 			Controller: c,
 			informer:   dInformer.Informer(),

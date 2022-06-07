@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	kubeApiCore "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -309,7 +308,7 @@ func TestStripUnusedFields(t *testing.T) {
 	}{
 		{
 			name: "transform pods",
-			obj: &v1.Pod{
+			obj: &kubeApiCore.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "foo",
 					Name:        "bar",
@@ -322,7 +321,7 @@ func TestStripUnusedFields(t *testing.T) {
 					},
 				},
 			},
-			want: &v1.Pod{
+			want: &kubeApiCore.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "foo",
 					Name:        "bar",
@@ -333,7 +332,7 @@ func TestStripUnusedFields(t *testing.T) {
 		},
 		{
 			name: "transform endpoints",
-			obj: &v1.Endpoints{
+			obj: &kubeApiCore.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "foo",
 					Name:        "bar",
@@ -346,7 +345,7 @@ func TestStripUnusedFields(t *testing.T) {
 					},
 				},
 			},
-			want: &v1.Endpoints{
+			want: &kubeApiCore.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "foo",
 					Name:        "bar",

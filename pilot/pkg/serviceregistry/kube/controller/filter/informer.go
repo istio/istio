@@ -39,7 +39,7 @@ func NewFilteredSharedIndexInformer(
 	filterFunc func(obj interface{}) bool,
 	sharedIndexInformer cache.SharedIndexInformer,
 ) FilteredSharedIndexInformer {
-	sharedIndexInformer.SetTransform(kube.StripUnusedFields)
+	_ = sharedIndexInformer.SetTransform(kube.StripUnusedFields)
 	return &filteredSharedIndexInformer{
 		filterFunc:          filterFunc,
 		SharedIndexInformer: sharedIndexInformer,

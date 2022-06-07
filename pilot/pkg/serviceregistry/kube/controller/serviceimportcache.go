@@ -69,7 +69,7 @@ type serviceImportCache interface {
 func newServiceImportCache(c *Controller) serviceImportCache {
 	if features.EnableMCSHost {
 		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceImportGVR)
-		dInformer.Informer().SetTransform(kubelib.StripUnusedFields)
+		_ = dInformer.Informer().SetTransform(kubelib.StripUnusedFields)
 		sic := &serviceImportCacheImpl{
 			Controller: c,
 			informer:   dInformer.Informer(),
