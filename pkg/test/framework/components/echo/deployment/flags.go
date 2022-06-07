@@ -18,20 +18,49 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"os"
-
 	"gopkg.in/yaml.v3"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/tmpl"
+	"os"
+	"regexp"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/util/file"
 )
 
-var additionalConfigs = &configs{}
+const defaultEchoConfigFilterTmpl = "{{.Service}}"
+
+var (
+	additionalConfigs = &configs{}
+
+	configFilter, configFilterTmpl string
+)
 
 func init() {
 	flag.Var(additionalConfigs, "istio.test.echo.configs", "The path to a file containing a list of "+
 		"echo.Config in YAML which will be added to the set of echos for every suite.")
+	flag.StringVar(&configFilter, "istio.test.echo.filter.match", "", "A regex that all echo configs must match "+
+		"or deployment will be skipped.")
+	flag.StringVar(&configFilterTmpl, "istio.test.echo.filter.matchTemplate", defaultEchoConfigFilterTmpl, "Template rendered from the echo.Config that "+
+		"builds a string for istio.test.echo.filter.match to check against.")
+}
+
+func filterConfig(config echo.Config) bool {
+	if configFilter == "" {
+		return true
+	}
+	configFilterRe, err := regexp.Compile(configFilter)
+	if err != nil {
+		scopes.Framework.Errorf("failed to compile regexp for istio.test.echo.filter.match: %v", err)
+		return true
+	}
+	filterStr, err := tmpl.Evaluate(configFilterTmpl, config)
+	if err != nil {
+		scopes.Framework.Errorf("failed evaluating template for istio.test.echo.filter.matchTemplate: %v", err)
+		return true
+	}
+	return configFilterRe.MatchString(filterStr)
 }
 
 // configs wraps a slice of echo.Config to implement the config.Value interface, allowing
