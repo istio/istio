@@ -721,7 +721,6 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		LocalAddr: s.upstreamLocalAddress,
 		Timeout:   timeout,
 	}
-
 	conn, err := d.Dial("tcp", net.JoinHostPort(s.appProbersDestination, strconv.Itoa(port)))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
