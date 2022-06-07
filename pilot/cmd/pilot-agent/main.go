@@ -288,6 +288,10 @@ func initProxy(args []string) (*model.Proxy, error) {
 	// After IP addresses are set, let us discover IPMode.
 	proxy.DiscoverIPMode()
 
+	if proxy.SupportsIPv4() && proxy.SupportsIPv6() && !options.DualStackEnv {
+		log.Info("proxy has both an IPv6 and IPv4 address, but ISTIO_AGENT_DUAL_STACK not set to true")
+	}
+
 	// Extract pod variables.
 	podName := options.PodNameVar.Get()
 	podNamespace := options.PodNamespaceVar.Get()
