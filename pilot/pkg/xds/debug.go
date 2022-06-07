@@ -987,10 +987,30 @@ func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Reque
 	_, _ = w.Write([]byte("OK"))
 }
 
+func cloneProxy(proxy *model.Proxy) *model.Proxy {
+	if proxy == nil {
+		return nil
+	}
+
+	proxy.RLock()
+	defer proxy.RUnlock()
+
+	out := &(*proxy)
+	// clone WatchedResources which can be mutated when processing request
+	out.WatchedResources = make(map[string]*model.WatchedResource, len(proxy.WatchedResources))
+	for k, v := range proxy.WatchedResources {
+		out.WatchedResources[k] = &(*v)
+	}
+
+	return out
+}
+
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	for _, con := range s.Clients() {
 		if strings.Contains(con.conID, proxyID) {
-			return con
+			out := *con
+			out.proxy = cloneProxy(con.proxy)
+			return &out
 		}
 	}
 
