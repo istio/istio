@@ -218,7 +218,7 @@ func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *mesh
 
 func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
 	localHostAddr := localHostIPv4
-	if proxy.IsIPv6() {
+	if network.AllIPv6(proxy.IPAddresses) {
 		localHostAddr = localHostIPv6
 	}
 	stsServer, err := stsserver.NewServer(stsserver.Config{
