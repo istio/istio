@@ -17,6 +17,7 @@ package util
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -73,7 +74,9 @@ func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, e
 		localHostAddr = "localhost"
 	}
 
-	readinessURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, readyStatsRegex)
+	strPort := strconv.Itoa(int(adminPort))
+	hostPort := net.JoinHostPort(localHostAddr, strPort)
+	readinessURL := fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, readyStatsRegex)
 	stats, err := http.DoHTTPGetWithTimeout(readinessURL, readinessTimeout)
 	if err != nil {
 		return nil, false, err
@@ -105,7 +108,9 @@ func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error
 		localHostAddr = "localhost"
 	}
 
-	stats, err := http.DoHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, updateStatsRegex))
+	strPort := strconv.Itoa(int(adminPort))
+	hostPort := net.JoinHostPort(localHostAddr, strPort)
+	stats, err := http.DoHTTPGet(fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, updateStatsRegex))
 	if err != nil {
 		return nil, err
 	}

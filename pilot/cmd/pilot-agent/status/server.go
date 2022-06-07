@@ -341,8 +341,8 @@ func (s *Server) Run(ctx context.Context) {
 	}
 	// for testing.
 	if s.statusPort == 0 {
-		addrs := strings.Split(l.Addr().String(), ":")
-		allocatedPort, _ := strconv.Atoi(addrs[len(addrs)-1])
+		_, hostPort, _ := net.SplitHostPort(l.Addr().String())
+		allocatedPort, _ := strconv.Atoi(hostPort)
 		s.mutex.Lock()
 		s.statusPort = uint16(allocatedPort)
 		s.mutex.Unlock()
