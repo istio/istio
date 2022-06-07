@@ -16,6 +16,8 @@ package filter
 
 import (
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pkg/kube"
 )
 
 type FilteredSharedIndexInformer interface {
@@ -37,6 +39,7 @@ func NewFilteredSharedIndexInformer(
 	filterFunc func(obj interface{}) bool,
 	sharedIndexInformer cache.SharedIndexInformer,
 ) FilteredSharedIndexInformer {
+	_ = sharedIndexInformer.SetTransform(kube.StripUnusedFields)
 	return &filteredSharedIndexInformer{
 		filterFunc:          filterFunc,
 		SharedIndexInformer: sharedIndexInformer,

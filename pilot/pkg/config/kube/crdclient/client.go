@@ -168,6 +168,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 		beginSync:   atomic.NewBool(false),
 		initialSync: atomic.NewBool(false),
 	}
+	_ = out.crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 
 	known, err := knownCRDs(client.Ext())
 	if err != nil {
@@ -534,6 +535,8 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 		scope.Errorf("failed to create informer for %v: %v", resourceGVK, err)
 		return
 	}
+	_ = i.Informer().SetTransform(kube.StripUnusedFields)
+
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
 	if w, f := crdWatches[resourceGVK]; f {
 		scope.Infof("notifying watchers %v was created", resourceGVK)
