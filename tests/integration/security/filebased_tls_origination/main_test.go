@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.CustomSetup).
 		Label("CustomSetup").
-		// RequireMultiPrimary().
+		SkipExternalControlPlaneTopology().
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Run()
 }
@@ -56,15 +56,5 @@ values:
          - name: client-custom-certs
            secretName: egress-gw-cacerts
            mountPath: /etc/certs/custom
-`
-	cfg.ConfigClusterValues = `
-components:
-  istiodRemote:
-    enabled: true
-  pilot:
-    enabled: false
-  egressGateways:
-  - enabled: false
-    name: istio-egressgateway
 `
 }
