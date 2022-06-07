@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: [39209]
+releaseNotes:
+- |
+  **Fixed** any issue that can cause xDS configuration updates to be blocked during high traffic.
