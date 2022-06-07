@@ -288,7 +288,7 @@ stringData:
 				status := pod.Status.ContainerStatuses
 				if len(status) < 1 || !status[0].Ready {
 					conditions, _ := yaml.Marshal(pod.Status.ContainerStatuses)
-					return fmt.Errorf("%s not ready: %s", conditions)
+					return fmt.Errorf("%s not ready: %s", pod.Name, conditions)
 				}
 				return nil
 			}, retry.Timeout(time.Minute), retry.Delay(time.Second))
