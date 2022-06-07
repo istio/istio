@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -91,15 +92,37 @@ type Controller struct {
 
 // NewController returns a new secret controller
 func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID) *Controller {
+	informerClient := kubeclientset
+
+	// When these two are set to true, Istiod will be watching the namespace in which
+	// Istiod is running on the external cluster. Use the inCluster credentials to
+	// create a kubeclientset
+	if features.LocalClusterSecretWatcher && features.ExternalIstiod {
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			log.Errorf("Could not get istiod incluster configuration: %v", err)
+			return nil
+		}
+		log.Info("Successfully retrieved incluster config.")
+
+		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config))
+		if err != nil {
+			log.Errorf("Could not create a client to access local cluster API server: %v", err)
+			return nil
+		}
+		log.Infof("Successfully created in cluster kubeclient at %s", localKubeClient.RESTConfig().Host)
+		informerClient = localKubeClient
+	}
+
 	secretsInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
-				return kubeclientset.Kube().CoreV1().Secrets(namespace).List(context.TODO(), opts)
+				return informerClient.Kube().CoreV1().Secrets(namespace).List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
-				return kubeclientset.Kube().CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
+				return informerClient.Kube().CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
 			},
 		},
 		&corev1.Secret{}, 0, cache.Indexers{},

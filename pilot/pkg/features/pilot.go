@@ -622,6 +622,9 @@ var (
 	CanonicalServiceForMeshExternalServiceEntry = env.RegisterBoolVar("LABEL_CANONICAL_SERVICES_FOR_MESH_EXTERNAL_SERVICE_ENTRIES", false,
 		"If enabled, metadata representing canonical services for ServiceEntry resources with a location of mesh_external will be populated"+
 			"in the cluster metadata for those endpoints.").Get()
+
+	LocalClusterSecretWatcher = env.RegisterBoolVar("LOCAL_CLUSTER_SECERT_WATCHER", false,
+		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
