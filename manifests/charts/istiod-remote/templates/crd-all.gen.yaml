@@ -41,8 +41,6 @@ spec:
               WebAssembly filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/wasm-plugin.html'
             properties:
               imagePullPolicy:
-                description: The pull behaviour to be applied when fetching an OCI
-                  image.
                 enum:
                 - UNSPECIFIED_POLICY
                 - IfNotPresent
