@@ -383,7 +383,7 @@ func checkReachedNetworks(result echo.CallResult, allClusters cluster.Clusters, 
 	// Verify that all expected networks were reached.
 	for network := range expectedByNetwork {
 		if networkHits[network] == 0 {
-			return fmt.Errorf("did not reach network %q, got %v", network, networkHits)
+			return fmt.Errorf("did not reach network %v, got %v", network, networkHits)
 		}
 	}
 
