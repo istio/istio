@@ -1119,8 +1119,6 @@ func TestAuthz_EgressGateway(t *testing.T) {
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Features("security.authorization.egress-gateway").
 		Run(func(t framework.TestContext) {
-			t.Skip("https://github.com/istio/istio/issues/39255")
-
 			allowed := apps.Ns1.A
 			denied := apps.Ns2.A
 
