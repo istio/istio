@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 
@@ -438,17 +439,17 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 			endpointAddress = ingressListener.DefaultEndpoint
 		} else if len(ingressListener.DefaultEndpoint) > 0 {
 			// parse the ip, port. Validation guarantees presence of :
-			parts := strings.Split(ingressListener.DefaultEndpoint, ":")
-			if len(parts) < 2 {
+			hostIP, hostPort, hostErr := net.SplitHostPort(ingressListener.DefaultEndpoint)
+			if hostPort == "" || hostErr != nil {
 				continue
 			}
 			var err error
-			if port, err = strconv.Atoi(parts[1]); err != nil {
+			if port, err = strconv.Atoi(hostPort); err != nil {
 				continue
 			}
-			if parts[0] == model.PodIPAddressPrefix {
+			if hostIP == model.PodIPAddressPrefix {
 				endpointAddress = cb.proxyIPAddresses[0]
-			} else if parts[0] == model.LocalhostAddressPrefix {
+			} else if hostIP == model.LocalhostAddressPrefix {
 				endpointAddress = actualLocalHost
 			}
 		}
