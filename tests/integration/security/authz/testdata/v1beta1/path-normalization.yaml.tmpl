@@ -1,0 +1,13 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  rules:
+  - to:
+    - operation:
+        paths: ["/public*"]
+        methods: ["GET"]

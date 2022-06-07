@@ -29,6 +29,7 @@ import (
 	kubesr "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -54,6 +55,7 @@ type serviceExportCache interface {
 func newServiceExportCache(c *Controller) serviceExportCache {
 	if features.EnableMCSServiceDiscovery {
 		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceExportGVR)
+		_ = dInformer.Informer().SetTransform(kube.StripUnusedFields)
 		ec := &serviceExportCacheImpl{
 			Controller: c,
 			informer:   dInformer.Informer(),

@@ -454,7 +454,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		vHostDedupMap = collapseDuplicateRoutes(vHostDedupMap)
 		for _, v := range vHostDedupMap {
-			v.Routes = istio_route.CombineVHostRoutes(v.Routes)
+			v.Routes = istio_route.SortVHostRoutes(v.Routes)
 			virtualHosts = append(virtualHosts, v)
 		}
 	}
@@ -768,7 +768,12 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gateway) {
-				return buildOutboundNetworkFilters(node, tcp.Route, push, port, v.Meta)
+				out := make([]*listener.Filter, 0)
+				if server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL {
+					out = append(out,
+						buildMetadataExchangeNetworkFiltersForTCPIstioMTLSGateway()...)
+				}
+				return append(out, buildOutboundNetworkFilters(node, tcp.Route, push, port, v.Meta)...)
 			}
 		}
 	}

@@ -142,7 +142,8 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 					Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
 							result, err := from.Call(echo.CallOptions{
-								To: to,
+								To:    to,
+								Count: 1,
 								Port: echo.Port{
 									Name: trafficType,
 								},

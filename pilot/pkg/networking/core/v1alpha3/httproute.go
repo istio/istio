@@ -220,8 +220,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 // selectVirtualServices selects the virtual services by matching given services' host names.
 func selectVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*model.Service) []config.Config {
 	out := make([]config.Config, 0)
-	for _, c := range virtualServices {
-		rule := c.Spec.(*networking.VirtualService)
+	// As a performance optimization, find out wildcard service hosts first, so that
+	// if non wildcard vs hosts can't be looked up directly in the service map, only need to
+	// loop through wildcard service hosts instead of all.
+	wcSvcHosts := []host.Name{}
+	for svcHost := range servicesByName {
+		if svcHost.IsWildCarded() {
+			wcSvcHosts = append(wcSvcHosts, svcHost)
+		}
+	}
+
+	for i := range virtualServices {
+		rule := virtualServices[i].Spec.(*networking.VirtualService)
 		var match bool
 
 		// Selection algorithm:
@@ -237,10 +247,23 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 				break
 			}
 
-			for svcHost := range servicesByName {
-				if host.Name(h).Matches(svcHost) {
-					match = true
-					break
+			if host.Name(h).IsWildCarded() {
+				// Process wildcard vs host as it need to follow the slow path of
+				// looping through all services in the map.
+				for svcHost := range servicesByName {
+					if host.Name(h).Matches(svcHost) {
+						match = true
+						break
+					}
+				}
+			} else {
+				// If non wildcard vs host isn't be found in service map, only loop through
+				// wildcard service hosts to avoid repeated matching.
+				for _, svcHost := range wcSvcHosts {
+					if host.Name(h).Matches(svcHost) {
+						match = true
+						break
+					}
 				}
 			}
 
@@ -250,7 +273,7 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 		}
 
 		if match {
-			out = append(out, c)
+			out = append(out, virtualServices[i])
 		}
 	}
 

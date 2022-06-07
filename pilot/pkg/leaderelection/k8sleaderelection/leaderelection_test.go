@@ -442,8 +442,8 @@ func TestLeaseSpecToLeaderElectionRecordRoundTrip(t *testing.T) {
 	oldSpec := coordinationv1.LeaseSpec{
 		HolderIdentity:       &holderIdentity,
 		LeaseDurationSeconds: &leaseDurationSeconds,
-		AcquireTime:          &metav1.MicroTime{time.Now()},
-		RenewTime:            &metav1.MicroTime{time.Now()},
+		AcquireTime:          &metav1.MicroTime{Time: time.Now()},
+		RenewTime:            &metav1.MicroTime{Time: time.Now()},
 		LeaseTransitions:     &leaseTransitions,
 	}
 

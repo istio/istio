@@ -1,0 +1,15 @@
+# The following policy selects workloads for the service in all namespaces
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-system-{{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  rules:
+  - to:
+    - operation:
+        paths: ["/policy-system-{{ .To.ServiceName }}"]
+---

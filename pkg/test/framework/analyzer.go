@@ -107,6 +107,10 @@ func (s *suiteAnalyzer) RequireMultiPrimary() Suite {
 	return s
 }
 
+func (s *suiteAnalyzer) SkipExternalControlPlaneTopology() Suite {
+	return s
+}
+
 func (s *suiteAnalyzer) RequireMinVersion(minorVersion uint) Suite {
 	return s
 }

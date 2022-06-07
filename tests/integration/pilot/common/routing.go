@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/codes"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -134,6 +135,7 @@ func virtualServiceCases(t TrafficContext) {
 	// TODO include proxyless as different features become supported
 	t.SetDefaultSourceMatchers(match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
 	t.SetDefaultTargetMatchers(match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
+	includeProxyless := []match.Matcher{match.NotNaked, match.NotHeadless}
 
 	skipVM := t.Settings().Skip(echo.VM)
 	t.RunTraffic(TrafficTestCase{
@@ -599,7 +601,7 @@ spec:
 		workloadAgnostic: true,
 	})
 	// Retry conditions have been added to just check that config is correct.
-	// Retries are not specifically tested.
+	// Retries are not specifically tested. TODO if we actually test retries, include proxyless
 	t.RunTraffic(TrafficTestCase{
 		name: "retry conditions",
 		config: `
@@ -657,6 +659,37 @@ spec:
 		workloadAgnostic: true,
 	})
 
+	t.RunTraffic(TrafficTestCase{
+		name: "fault abort gRPC",
+		config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        grpcStatus: "UNAVAILABLE"`,
+		opts: echo.CallOptions{
+			Port: echo.Port{
+				Name: "grpc",
+			},
+			Scheme: scheme.GRPC,
+			Count:  1,
+			Check:  check.GRPCStatus(codes.Unavailable),
+		},
+		workloadAgnostic: true,
+		sourceMatchers:   includeProxyless,
+	})
+
 	splits := [][]int{
 		{50, 25, 25},
 		{80, 10, 10},
@@ -672,7 +705,7 @@ spec:
 		t.RunTraffic(TrafficTestCase{
 			name:           fmt.Sprintf("shifting-%d", split[0]),
 			toN:            len(split),
-			sourceMatchers: []match.Matcher{match.NotHeadless, match.NotNaked, match.NotProxylessGRPC},
+			sourceMatchers: []match.Matcher{match.NotHeadless, match.NotNaked},
 			targetMatchers: []match.Matcher{match.NotHeadless, match.NotNaked, match.NotExternal, match.NotProxylessGRPC},
 			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
@@ -1616,7 +1649,8 @@ spec:
 			config: cfg,
 			call:   c.CallOrFail,
 			opts: echo.CallOptions{
-				To: t.Apps.B,
+				To:    t.Apps.B,
+				Count: 1,
 				Port: echo.Port{
 					Name: "http",
 				},
@@ -1666,7 +1700,8 @@ func hostCases(t TrafficContext) {
 				name: name,
 				call: c.CallOrFail,
 				opts: echo.CallOptions{
-					To: t.Apps.Headless,
+					To:    t.Apps.Headless,
+					Count: 1,
 					Port: echo.Port{
 						Name: "auto-http",
 					},
@@ -2619,7 +2654,6 @@ func VMTestCases(vms echo.Instances) func(t TrafficContext) {
 						Name: "http",
 					},
 					Address: c.host,
-					Count:   callCountMultiplier * c.to.MustWorkloads().Clusters().Len(),
 					Check:   checker,
 				},
 			})

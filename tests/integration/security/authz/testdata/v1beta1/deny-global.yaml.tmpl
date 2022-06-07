@@ -1,0 +1,21 @@
+# The following policy denies access to path /global-deny for all workloads
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-deny-system
+spec:
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        # Generally we don't expect users to set global policies, since they
+        # impact anything in the istio-system namespace. For these tests,
+        # the target port is needed to avoid the DENY policy also applying to
+        # traffic through the eastwest-gateway. Since all eastwest-gateway
+        # traffic is TCP, the policy will attempt to be as restrictive as
+        # possible and block all traffic through the eastwest-gateway.
+        ports: [ "18080", "18085" ]
+        paths: ["/global-deny*"]
+        notPaths: ["/global-deny/allow"]
+---

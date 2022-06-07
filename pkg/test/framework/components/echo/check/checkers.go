@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pkg/config/protocol"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -160,6 +161,26 @@ func Status(expected int) echo.Checker {
 		}
 		return nil
 	})
+}
+
+// GRPCStatus checks that the gRPC response status code matches the expected value.
+func GRPCStatus(expected codes.Code) echo.Checker {
+	return func(result echo.CallResult, err error) error {
+		if expected == codes.OK {
+			if err != nil {
+				return fmt.Errorf("unexpected error: %w", err)
+			}
+			return nil
+		}
+		if err == nil {
+			return fmt.Errorf("expected gRPC error with status %s, but got OK", expected.String())
+		}
+		expectedSubstr := fmt.Sprintf("code = %s", expected.String())
+		if strings.Contains(err.Error(), expectedSubstr) {
+			return nil
+		}
+		return fmt.Errorf("expected gRPC response code %q. Instead got: %w", expected.String(), err)
+	}
 }
 
 // BodyContains checks that the response body contains the given string.
@@ -362,7 +383,7 @@ func checkReachedNetworks(result echo.CallResult, allClusters cluster.Clusters, 
 	// Verify that all expected networks were reached.
 	for network := range expectedByNetwork {
 		if networkHits[network] == 0 {
-			return fmt.Errorf("did not reach network %v, got %v", network, networkHits)
+			return fmt.Errorf("did not reach network %q, got %v", network, networkHits)
 		}
 	}
 

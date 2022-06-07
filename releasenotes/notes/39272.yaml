@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 39271
+releaseNotes:
+  - |
+    **Fixed** The %REQ_WITHOUT_QUERY(X?:Y):Z% command operator should now work when using JSON encoding for log format

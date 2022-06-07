@@ -23,11 +23,12 @@ import (
 	capi "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	// +kubebuilder:scaffold:imports
 	"istio.io/istio/pkg/test/csrctrl/signer"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/pkg/log"
 )
 
@@ -51,27 +52,18 @@ type SignerRootCert struct {
 	Rootcert string
 }
 
-func RunCSRController(signerNames string, appendRootCert bool, config *rest.Config, c <-chan struct{},
-	certChan chan *SignerRootCert,
-) {
+func RunCSRController(signerNames string, appendRootCert bool, c <-chan struct{},
+	clusters cluster.Clusters,
+) []SignerRootCert {
 	// Config Istio log
 	if err := log.Configure(loggingOptions); err != nil {
 		log.Infof("Unable to configure Istio log error: %v", err)
 		os.Exit(-1)
 	}
-	mgr, err := ctrl.NewManager(config, ctrl.Options{
-		Scheme: scheme,
-		// disable the metric server to avoid the port conflicting
-		MetricsBindAddress: "0",
-	})
-	if err != nil {
-		log.Infof("Unable to start manager error: %v", err)
-		os.Exit(-1)
-	}
-
-	arrSingers := strings.Split(signerNames, ",")
-	signersMap := make(map[string]*signer.Signer, len(arrSingers))
-	for _, signerName := range arrSingers {
+	arrSigners := strings.Split(signerNames, ",")
+	signersMap := make(map[string]*signer.Signer, len(arrSigners))
+	var rootCertSignerArr []SignerRootCert
+	for _, signerName := range arrSigners {
 		signer, sErr := signer.NewSigner(signerRoot, signerName, certificateDuration)
 		if sErr != nil {
 			log.Infof("Unable to start signer for [%s], error: %v", signerName, sErr)
@@ -83,19 +75,36 @@ func RunCSRController(signerNames string, appendRootCert bool, config *rest.Conf
 			log.Infof("Unable to read root cert for signer [%s], error: %v", signerName, sErr)
 			os.Exit(-1)
 		}
-		rootCertsForSigner := &SignerRootCert{
+		rootCertsForSigner := SignerRootCert{
 			Signer:   signerName,
 			Rootcert: string(rootCert),
 		}
-		certChan <- rootCertsForSigner
+		rootCertSignerArr = append(rootCertSignerArr, rootCertsForSigner)
 	}
 
+	for _, cluster := range clusters {
+		mgr, err := ctrl.NewManager(cluster.RESTConfig(), ctrl.Options{
+			Scheme: scheme,
+			// disabel the metric server to avoid the port conflicting
+			MetricsBindAddress: "0",
+		})
+		if err != nil {
+			log.Infof("Unable to start manager error: %v", err)
+			os.Exit(-1)
+		}
+		go runManager(mgr, arrSigners, signersMap, appendRootCert, c)
+	}
+
+	return rootCertSignerArr
+}
+
+func runManager(mgr manager.Manager, arrSigners []string, signersMap map[string]*signer.Signer, appendRootCert bool, c <-chan struct{}) {
 	if err := (&CertificateSigningRequestSigningReconciler{
 		Client:         mgr.GetClient(),
 		SignerRoot:     signerRoot,
 		CtrlCertTTL:    certificateDuration,
 		Scheme:         mgr.GetScheme(),
-		SignerNames:    arrSingers,
+		SignerNames:    arrSigners,
 		Signers:        signersMap,
 		appendRootCert: appendRootCert,
 	}).SetupWithManager(mgr); err != nil {
