@@ -764,12 +764,11 @@ func getTargetClusterListForCluster(targetClusters []cluster.Cluster, c cluster.
 	var outClusters []cluster.Cluster
 	scopes.Framework.Infof("Secret from cluster: %s will be placed in following clusters", c.Name())
 	for _, cc := range targetClusters {
-		if c.IsConfig() && !cc.IsConfig() && !cc.IsRemote() {
-			// if cc is an external cluster, config cluster's secret should have already been
-			// placed on the cluster.
-			continue
-		} else if c.Name() != cc.Name() {
-			// if the given cluster is not the same as the cluster in the target list.
+		// if cc is an external cluster, config cluster's secret should have already been
+		// placed on the cluster, or the given cluster is the same as the cluster in
+		// the target list. Only when c is not config cluster, cc is not external cluster
+		// and the given cluster is not the same as the target, c's secret goes onto cc.
+		if (!c.IsConfig() || !cc.IsExternalControlPlane()) && c.Name() != cc.Name() {
 			scopes.Framework.Infof("Target cluster: %s", cc.Name())
 			outClusters = append(outClusters, cc)
 		}
