@@ -104,6 +104,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		},
 		&corev1.Secret{}, 0, cache.Indexers{},
 	)
+	_ = secretsInformer.SetTransform(kube.StripUnusedFields)
 
 	// init gauges
 	localClusters.Record(1.0)

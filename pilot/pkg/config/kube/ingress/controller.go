@@ -149,13 +149,14 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	}
 
 	ingressInformer := client.KubeInformer().Networking().V1beta1().Ingresses()
+	_ = ingressInformer.Informer().SetTransform(kube.StripUnusedFields)
 	serviceInformer := client.KubeInformer().Core().V1().Services()
 
 	var classes v1beta1.IngressClassInformer
 	if NetworkingIngressAvailable(client) {
 		classes = client.KubeInformer().Networking().V1beta1().IngressClasses()
 		// Register the informer now, so it will be properly started
-		_ = classes.Informer()
+		_ = classes.Informer().SetTransform(kube.StripUnusedFields)
 	} else {
 		log.Infof("Skipping IngressClass, resource not supported")
 	}

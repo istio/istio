@@ -330,6 +330,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
+	_ = c.nsInformer.SetTransform(kubelib.StripUnusedFields)
 	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
 	if c.opts.SystemNamespace != "" {
 		nsInformer := filter.NewFilteredSharedIndexInformer(func(obj interface{}) bool {
@@ -363,6 +364,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
+	_ = c.nodeInformer.SetTransform(kubelib.StripUnusedFields)
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	c.registerHandlers(c.nodeInformer, "Nodes", c.onNodeEvent, nil)
 
