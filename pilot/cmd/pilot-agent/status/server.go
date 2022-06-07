@@ -650,7 +650,7 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 		proberPath = "/" + proberPath
 	}
 	var url string
-	strPort := strconv.Itoa(int(prober.HTTPGet.Port.IntValue()))
+	strPort := strconv.Itoa(prober.HTTPGet.Port.IntValue())
 	hostPort := net.JoinHostPort(s.appProbersDestination, strPort)
 	if prober.HTTPGet.Scheme == apimirror.URISchemeHTTPS {
 		url = fmt.Sprintf("https://%s%s", hostPort, proberPath)
@@ -722,7 +722,7 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		Timeout:   timeout,
 	}
 
-	conn, err := d.Dial("tcp", net.JoinHostPort(s.appProbersDestination, strconv.Itoa(int(port))))
+	conn, err := d.Dial("tcp", net.JoinHostPort(s.appProbersDestination, strconv.Itoa(port)))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
