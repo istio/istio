@@ -23,6 +23,7 @@ import (
 	"net/http/pprof"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
@@ -994,14 +995,15 @@ func cloneProxy(proxy *model.Proxy) *model.Proxy {
 
 	proxy.Lock()
 	defer proxy.Unlock()
-
-	out := &(*proxy)
+	tmp := *proxy
+	out := &tmp
+	out.RWMutex = sync.RWMutex{}
 	// clone WatchedResources which can be mutated when processing request
 	out.WatchedResources = make(map[string]*model.WatchedResource, len(proxy.WatchedResources))
 	for k, v := range proxy.WatchedResources {
-		out.WatchedResources[k] = &(*v)
+		v := *v
+		out.WatchedResources[k] = &v
 	}
-
 	return out
 }
 
