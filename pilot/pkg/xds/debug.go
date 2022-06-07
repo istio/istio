@@ -992,8 +992,8 @@ func cloneProxy(proxy *model.Proxy) *model.Proxy {
 		return nil
 	}
 
-	proxy.RLock()
-	defer proxy.RUnlock()
+	proxy.Lock()
+	defer proxy.Unlock()
 
 	out := &(*proxy)
 	// clone WatchedResources which can be mutated when processing request
