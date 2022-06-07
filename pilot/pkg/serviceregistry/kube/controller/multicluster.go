@@ -290,7 +290,9 @@ func (m *Multicluster) checkCanLead(client kubelib.Client) bool {
 			},
 		},
 	}
+	log.Infof("check resource:\n%v", s)
 	response, err := client.Kube().AuthorizationV1().SelfSubjectAccessReviews().Create(context.TODO(), s, metav1.CreateOptions{})
+	log.Infof("check responce:\n%v", response)
 	if err != nil {
 		log.Errorf("could not determine leadership permission: %v", err)
 		return true
