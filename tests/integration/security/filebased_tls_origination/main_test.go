@@ -35,7 +35,14 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.CustomSetup).
 		Label("CustomSetup").
+<<<<<<< HEAD
 		RequireMultiPrimary(). // SkipExternalControlPlaneTopology(). TODO this test fails when running with istiodless remotes
+=======
+<<<<<<< HEAD
+		SkipExternalControlPlaneTopology().
+=======
+>>>>>>> bf63b0ec55 (added a custom gateway operator)
+>>>>>>> 3539fc5ea2 (added a custom gateway operator)
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Run()
 }
@@ -45,6 +52,28 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.ControlPlaneValues = `
+components:
+  egressGateways:
+  - enabled: true
+    name: istio-egressgateway
+values:
+   gateways:
+      istio-egressgateway:
+         secretVolumes:
+         - name: client-custom-certs
+           secretName: egress-gw-cacerts
+           mountPath: /etc/certs/custom
+`
+	cfg.ConfigClusterValues = `
+components:
+  istiodRemote:
+    enabled: true
+  egressGateways:
+  - enabled: false
+    name: istio-egressgateway
+`
+
+	cfg.GatewayValues = `
 components:
   egressGateways:
   - enabled: true
