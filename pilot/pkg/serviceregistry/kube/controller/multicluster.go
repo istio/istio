@@ -174,8 +174,8 @@ func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan
 // are removed.
 func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 	m.m.Lock()
-	defer m.m.Unlock()
 	m.deleteCluster(clusterID)
+	m.m.Unlock()
 	if m.XDSUpdater != nil {
 		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
 	}
@@ -211,7 +211,7 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*Controller, *
 func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegistry *Controller, options Options,
 	configCluster bool, clusterStopCh <-chan struct{},
 ) error {
-	client := kubeRegistry.client
+	client := cluster.Client
 
 	if m.serviceEntryController != nil && features.EnableServiceEntrySelectPods {
 		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
