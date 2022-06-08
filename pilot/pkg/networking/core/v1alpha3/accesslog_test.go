@@ -323,8 +323,8 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				Name: "grpc-http-als",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls{
 					EnvoyHttpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
-						LogName:                         "grpc-otel-als",
-						Service:                         "otel.foo.svc.cluster.local",
+						LogName:                         "grpc-http-als",
+						Service:                         "grpc-als.foo.svc.cluster.local",
 						Port:                            9811,
 						AdditionalRequestHeadersToLog:   []string{"fake-request-header1"},
 						AdditionalResponseHeadersToLog:  []string{"fake-response-header1"},
@@ -350,8 +350,8 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				Name: "grpc-tcp-als",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls{
 					EnvoyTcpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
-						LogName:                 "grpc-tcp-otel-als",
-						Service:                 "otel.foo.svc.cluster.local",
+						LogName:                 "grpc-tcp-als",
+						Service:                 "grpc-als.foo.svc.cluster.local",
 						Port:                    9811,
 						FilterStateObjectsToLog: fakeFilterStateObjects,
 					},
@@ -391,7 +391,7 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
-	grpcBackEndClusterName := "outbound|9811||otel.foo.svc.cluster.local"
+	grpcBackEndClusterName := "outbound|9811||grpc-als.foo.svc.cluster.local"
 	otelCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: otelEnvoyAccessLogFriendlyName,
@@ -514,7 +514,7 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 
 	grpcout := &grpcaccesslog.HttpGrpcAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
-			LogName: "grpc-otel-als",
+			LogName: "grpc-http-als",
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
@@ -532,7 +532,7 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 
 	grpcTCPOut := &grpcaccesslog.TcpGrpcAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
-			LogName: "grpc-tcp-otel-als",
+			LogName: "grpc-tcp-als",
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{

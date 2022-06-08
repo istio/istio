@@ -367,15 +367,29 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
+	// Need to determine if there is a setting to watch cluster secret in config cluster
+	// or in external cluster. The flag is named LOCAL_CLUSTER_SECERT_WATCHER and set as
+	// an environment variable for istiod.
+	watchLocalNamespace := false
+	if istioctlConfigFiles.operatorSpec != nil && istioctlConfigFiles.operatorSpec.Values != nil {
+		localClusterSecretWatcher := GetConfigValue("pilot.env.LOCAL_CLUSTER_SECERT_WATCHER",
+			istioctlConfigFiles.operatorSpec.Values.Fields)
+		if localClusterSecretWatcher.GetStringValue() == "true" && i.isExternalControlPlane() {
+			watchLocalNamespace = true
+		}
+	}
+
+	if ctx.Clusters().IsMulticluster() {
+		if err := i.configureDirectAPIServerAccess(ctx, cfg, watchLocalNamespace); err != nil {
+			return nil, err
+		}
+	}
+
 	// Install (non-config) remote clusters.
 	errG = multierror.Group{}
 	for _, c := range ctx.Clusters().Kube().Remotes(ctx.Clusters().Configs()...) {
 		c := c
 		errG.Go(func() error {
-			// Configure API server access for the remote cluster's primary cluster control plane.
-			if err := i.configureDirectAPIServiceAccessBetweenClusters(ctx, cfg, c, c.Config()); err != nil {
-				return fmt.Errorf("failed providing primary cluster access for remote cluster %s: %v", c.Name(), err)
-			}
 			if err := installRemoteCluster(s, i, cfg, c, istioctlConfigFiles.remoteIopFile); err != nil {
 				return fmt.Errorf("failed installing remote cluster %s: %v", c.Name(), err)
 			}
@@ -384,13 +398,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 	if errs := errG.Wait(); errs != nil {
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
-	}
-
-	// For multicluster, configure direct access so each control plane can get endpoints from all API servers.
-	if ctx.Clusters().IsMulticluster() {
-		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
-			return nil, err
-		}
 	}
 
 	// Configure gateways for remote clusters.
@@ -735,28 +742,8 @@ func waitForIstioReady(ctx resource.Context, c cluster.Cluster, cfg Config) erro
 	return nil
 }
 
-func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context, cfg Config) error {
-	// Configure direct access for each control plane to each APIServer. This allows each control plane to
-	// automatically discover endpoints in remote clusters.
-	for _, c := range ctx.Clusters().Kube() {
-		if err := i.configureDirectAPIServiceAccessForCluster(ctx, cfg, c); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, cfg Config,
-	c cluster.Cluster,
-) error {
-	clusters := ctx.Clusters().Configs(c.Config())
-	if len(clusters) == 0 {
-		// giving 0 clusters to ctx.ConfigKube() means using all clusters
-		return nil
-	}
-	return i.configureDirectAPIServiceAccessBetweenClusters(ctx, cfg, c, clusters...)
-}
-
+// configureDirectAPIServiceAccessBetweenClusters - create a remote secret of cluster `c`` and place
+// the secret in all `from` clusters
 func (i *operatorComponent) configureDirectAPIServiceAccessBetweenClusters(ctx resource.Context, cfg Config,
 	c cluster.Cluster, from ...cluster.Cluster,
 ) error {
@@ -769,6 +756,46 @@ func (i *operatorComponent) configureDirectAPIServiceAccessBetweenClusters(ctx r
 		YAML(cfg.SystemNamespace, secret).
 		Apply(apply.NoCleanup); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
+	}
+	return nil
+}
+
+func getTargetClusterListForCluster(targetClusters []cluster.Cluster, c cluster.Cluster) []cluster.Cluster {
+	var outClusters []cluster.Cluster
+	scopes.Framework.Infof("Secret from cluster: %s will be placed in following clusters", c.Name())
+	for _, cc := range targetClusters {
+		// if cc is an external cluster, config cluster's secret should have already been
+		// placed on the cluster, or the given cluster is the same as the cluster in
+		// the target list. Only when c is not config cluster, cc is not external cluster
+		// and the given cluster is not the same as the target, c's secret goes onto cc.
+		if (!c.IsConfig() || !cc.IsExternalControlPlane()) && c.Name() != cc.Name() {
+			scopes.Framework.Infof("Target cluster: %s", cc.Name())
+			outClusters = append(outClusters, cc)
+		}
+	}
+	return outClusters
+}
+
+func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context, cfg Config, watchLocalNamespace bool) error {
+	var targetClusters []cluster.Cluster
+	if watchLocalNamespace {
+		// when configured to watch istiod local namespace, secrets go to the external cluster
+		// and primary clusters
+		targetClusters = ctx.AllClusters().Primaries()
+	} else {
+		// when configured to watch istiod config namespace, secrets go to config clusters
+		targetClusters = ctx.AllClusters().Configs()
+	}
+
+	// Now look through entire mesh, create secret for every cluster other than external control plane and
+	// place the secret into the target clusters.
+	for _, c := range ctx.Clusters().Kube().MeshClusters() {
+		theTargetClusters := getTargetClusterListForCluster(targetClusters, c)
+		if len(theTargetClusters) > 0 {
+			if err := i.configureDirectAPIServiceAccessBetweenClusters(ctx, cfg, c, theTargetClusters...); err != nil {
+				return fmt.Errorf("failed providing primary cluster access for remote cluster %s: %v", c.Name(), err)
+			}
+		}
 	}
 	return nil
 }
