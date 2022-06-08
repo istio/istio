@@ -19,8 +19,10 @@ import (
 
 	k8sext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -84,6 +86,10 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeCRD(r, ctx)
 		return true
 	})
+	ctx.ForEach(collections.IstioMeshV1Alpha1MeshConfig.Name(), func(r *resource.Instance) bool {
+		fa.analyzeMeshConfig(r, ctx)
+		return true
+	})
 	for _, name := range collections.Deprecated.CollectionNames() {
 		ctx.ForEach(name, func(r *resource.Instance) bool {
 			ctx.Report(name,
@@ -135,6 +141,17 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.C
 				}
 			}
 		}
+	}
+}
+
+func (*FieldAnalyzer) analyzeMeshConfig(r *resource.Instance, ctx analysis.Context) {
+	if r.Metadata.FullName.Name != util.MeshConfigName {
+		return
+	}
+	meshConfig := r.Message.(*v1alpha1.MeshConfig)
+	if len(meshConfig.Certificates) != 0 {
+		ctx.Report(collections.IstioMeshV1Alpha1MeshConfig.Name(),
+			msg.NewDeprecated(r, ignoredMessage("Certificates")))
 	}
 }
 
