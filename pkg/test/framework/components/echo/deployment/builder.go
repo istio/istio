@@ -132,11 +132,6 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 		return b
 	}
 
-	if !filterConfig(cfg) {
-		scopes.Framework.Infof("filtered echo config %s due to istio.test.echo.filter.match", cfg)
-		return b
-	}
-
 	cfg = cfg.DeepCopy()
 	if err := cfg.FillDefaults(b.ctx); err != nil {
 		b.errs = multierror.Append(b.errs, err)
