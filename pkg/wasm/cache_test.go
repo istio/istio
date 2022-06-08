@@ -695,17 +695,17 @@ func TestWasmCache(t *testing.T) {
 				}
 			}
 
-			if diff := cmp.Diff(cache.modules, c.wantCachedModules,
+			if diff := cmp.Diff(c.wantCachedModules, cache.modules,
 				cmpopts.IgnoreFields(cacheEntry{}, "last", "referencingURLs"),
 				cmp.AllowUnexported(cacheEntry{}),
 			); diff != "" {
-				t.Errorf("unexpected module cache: (+want, -got)\n%v", diff)
+				t.Errorf("unexpected module cache: (-want, +got)\n%v", diff)
 			}
 
-			if diff := cmp.Diff(cache.checksums, c.wantCachedChecksums,
+			if diff := cmp.Diff(c.wantCachedChecksums, cache.checksums,
 				cmp.AllowUnexported(checksumEntry{}),
 			); diff != "" {
-				t.Errorf("unexpected checksums: (+want, -got)\n%v", diff)
+				t.Errorf("unexpected checksums: (-want, +got)\n%v", diff)
 			}
 
 			cache.mux.Unlock()

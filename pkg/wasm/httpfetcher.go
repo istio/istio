@@ -15,14 +15,25 @@
 package wasm
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+)
+
+var (
+	// Referred to https://en.wikipedia.org/wiki/Tar_(computing)#UStar_format
+	tarMagicNumber = []byte{0x75, 0x73, 0x74, 0x61, 0x72}
+	// Referred to https://en.wikipedia.org/wiki/Gzip#File_format
+	gzMagicNumber = []byte{0x1f, 0x8b}
 )
 
 // HTTPFetcher fetches remote wasm module with HTTP get.
@@ -87,7 +98,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 		if resp.StatusCode == http.StatusOK {
 			body, err := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return body, err
+			return unboxIfPossible(body), err
 		}
 		lastError = fmt.Errorf("wasm module download request failed: status code %v", resp.StatusCode)
 		if retryable(resp.StatusCode) {
@@ -108,4 +119,68 @@ func retryable(code int) bool {
 		!(code == http.StatusNotImplemented ||
 			code == http.StatusHTTPVersionNotSupported ||
 			code == http.StatusNetworkAuthenticationRequired)
+}
+
+func isPosixTar(b []byte) bool {
+	return len(b) > 262 && bytes.Equal(b[257:262], tarMagicNumber)
+}
+
+// wasm plugin should be the only file in the tarball.
+func getFirstFileFromTar(b []byte) []byte {
+	buf := bytes.NewBuffer(b)
+
+	tr := tar.NewReader(buf)
+
+	h, err := tr.Next()
+	if err != nil {
+		return nil
+	}
+
+	ret := make([]byte, h.Size)
+	_, err = io.ReadFull(tr, ret)
+	if err != nil {
+		return nil
+	}
+	return ret
+}
+
+func isGZ(b []byte) bool {
+	return len(b) > 2 && bytes.Equal(b[:2], gzMagicNumber)
+}
+
+func getFileFromGZ(b []byte) []byte {
+	buf := bytes.NewBuffer(b)
+
+	zr, err := gzip.NewReader(buf)
+	if err != nil {
+		return nil
+	}
+
+	ret, err := ioutil.ReadAll(zr)
+	if err != nil {
+		return nil
+	}
+	return ret
+}
+
+// Just do the best effort.
+// If an error is encountered, just return the original bytes.
+// Errors will be handled upper layers.
+func unboxIfPossible(origin []byte) []byte {
+	b := origin
+	for {
+		if isValidWasmBinary(b) {
+			return b
+		} else if isGZ(b) {
+			if b = getFileFromGZ(b); b == nil {
+				return origin
+			}
+		} else if isPosixTar(b) {
+			if b = getFirstFileFromTar(b); b == nil {
+				return origin
+			}
+		} else {
+			return origin
+		}
+	}
 }
