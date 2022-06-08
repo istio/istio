@@ -418,8 +418,8 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	case model.XdsDeltaResourceGenerator:
 		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, req, w)
 		if features.EnableUnsafeDeltaTest {
-			fullRes, _, _ := g.Generate(con.proxy, originalW, req)
-			s.compareDiff(con, originalW, fullRes, res, deletedRes, usedDelta, req.Delta)
+			fullRes, l, _ := g.Generate(con.proxy, originalW, req)
+			s.compareDiff(con, originalW, fullRes, res, deletedRes, usedDelta, req.Delta, l.Incremental)
 		}
 	case model.XdsResourceGenerator:
 		res, logdata, err = g.Generate(con.proxy, w, req)
