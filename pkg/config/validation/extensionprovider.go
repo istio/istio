@@ -192,6 +192,32 @@ func ValidateExtensionProviderEnvoyOtelAls(provider *meshconfig.MeshConfig_Exten
 	return
 }
 
+func ValidateExtensionProviderEnvoyHTTPAls(provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) (errs error) {
+	if provider == nil {
+		return fmt.Errorf("nil EnvoyHttpGrpcV3LogProvider")
+	}
+	if err := ValidatePort(int(provider.Port)); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	if err := validateExtensionProviderService(provider.Service); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	return
+}
+
+func ValidateExtensionProviderEnvoyTCPAls(provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider) (errs error) {
+	if provider == nil {
+		return fmt.Errorf("nil EnvoyTcpGrpcV3LogProvider")
+	}
+	if err := ValidatePort(int(provider.Port)); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	if err := validateExtensionProviderService(provider.Service); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	return
+}
+
 func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 	definedProviders := map[string]struct{}{}
 	for _, c := range config.ExtensionProviders {
@@ -229,6 +255,11 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyFileAccessLog(provider.EnvoyFileAccessLog))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
 			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyOtelAls(provider.EnvoyOtelAls))
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
+			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyHTTPAls(provider.EnvoyHttpAls))
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
+			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyTCPAls(provider.EnvoyTcpAls))
+			// TODO: add exhaustiveness test
 		default:
 			currentErrs = appendErrors(currentErrs, fmt.Errorf("unsupported provider: %v of type %T", provider, provider))
 		}
