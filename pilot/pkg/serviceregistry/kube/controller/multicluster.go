@@ -324,14 +324,13 @@ func (m *Multicluster) checkCanLead(client kubelib.Client) bool {
 	if !features.ExternalIstiod {
 		return false
 	}
-	//user := "system:serviceaccount:istio-system:istio-reader-service-account"
 	s := &authorizationapi.SelfSubjectAccessReview{
 		Spec: authorizationapi.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationapi.ResourceAttributes{
-				//Namespace: m.opts.SystemNamespace,
-				Verb:     "create",
-				Group:    "",
-				Resource: "configmaps",
+				Namespace: m.opts.SystemNamespace,
+				Verb:      "create",
+				Group:     "",
+				Resource:  "configmaps",
 			},
 		},
 	}
