@@ -1,0 +1,14 @@
+defaultConfig:
+  discoveryAddress: istiod.istio-system.svc:15012
+  proxyMetadata: {}
+  tracing:
+    zipkin:
+      address: zipkin.istio-system:9411
+enablePrometheusMerge: true
+rootNamespace: istio-system
+trustDomain: cluster.local
+certificates:
+- secretName: galley-cert
+  dnsNames:
+  - galley.istio-system.svc
+  - galley.mydomain.com

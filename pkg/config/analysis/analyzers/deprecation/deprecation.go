@@ -22,7 +22,6 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/analysis"
-	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -62,6 +61,7 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 		collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 		collections.IstioNetworkingV1Alpha3Sidecars.Name(),
 		collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
+		collections.IstioMeshV1Alpha1MeshConfig.Name(),
 	}
 
 	return analysis.Metadata{
@@ -145,9 +145,6 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.C
 }
 
 func (*FieldAnalyzer) analyzeMeshConfig(r *resource.Instance, ctx analysis.Context) {
-	if r.Metadata.FullName.Name != util.MeshConfigName {
-		return
-	}
 	meshConfig := r.Message.(*v1alpha1.MeshConfig)
 	if len(meshConfig.Certificates) != 0 {
 		ctx.Report(collections.IstioMeshV1Alpha1MeshConfig.Name(),

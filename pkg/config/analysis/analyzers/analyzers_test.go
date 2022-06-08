@@ -109,6 +109,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:           "meshConfig.Certificates deprecation",
+		meshConfigFile: "testdata/meshConfig-with-certificates.yaml",
+		analyzer:       &deprecation.FieldAnalyzer{},
+		expected: []message{
+			{msg.Deprecated, "MeshConfig istio-system/meshconfig"},
+		},
+	},
+	{
 		name:       "gatewayNoWorkload",
 		inputFiles: []string{"testdata/gateway-no-workload.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
