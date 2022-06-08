@@ -272,7 +272,7 @@ type ProxyConnection struct {
 	downstreamError    chan error
 	requestsChan       *channels.Unbounded
 	responsesChan      chan *discovery.DiscoveryResponse
-	deltaRequestsChan  chan *discovery.DeltaDiscoveryRequest
+	deltaRequestsChan  *channels.Unbounded
 	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
 	stopChan           chan struct{}
 	downstream         adsStream
