@@ -104,8 +104,10 @@ while (( "$#" )); do
   esac
 done
 
-echo "Checking CPU..."
-grep 'model' /proc/cpuinfo
+if [ -f /proc/cpuinfo ]; then
+  echo "Checking CPU..."
+  grep 'model' /proc/cpuinfo
+fi
 
 # Default IP family of the cluster is IPv4
 export IP_FAMILY="${IP_FAMILY:-ipv4}"

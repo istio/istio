@@ -114,6 +114,9 @@ type Settings struct {
 	// SkipWorkloadClasses can be used to skip deploying special workload types like TPROXY, VMs, etc.
 	SkipWorkloadClasses ArrayFlags
 
+	// OnlyWorkloadClasses can be used to only deploy specific workload types like TPROXY, VMs, etc.
+	OnlyWorkloadClasses ArrayFlags
+
 	// The label selector, in parsed form.
 	Selector label.Selector
 
@@ -159,11 +162,21 @@ type Settings struct {
 }
 
 func (s Settings) Skip(class string) bool {
-	return s.SkipWorkloadClassesAsSet().Contains(class)
+	if s.SkipWorkloadClassesAsSet().Contains(class) {
+		return true
+	}
+	if len(s.OnlyWorkloadClasses) > 0 && !s.OnlyWorkloadClassesAsSet().Contains(class) {
+		return true
+	}
+	return false
 }
 
 func (s *Settings) SkipWorkloadClassesAsSet() sets.Set {
 	return sets.New(s.SkipWorkloadClasses...)
+}
+
+func (s *Settings) OnlyWorkloadClassesAsSet() sets.Set {
+	return sets.New(s.OnlyWorkloadClasses...)
 }
 
 // RunDir is the name of the dir to output, for this particular run.
