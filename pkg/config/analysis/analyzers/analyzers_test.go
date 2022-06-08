@@ -552,6 +552,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "missing Addresses and Protocol in Service Entry with ISTIO_META_DNS_AUTO_ALLOCATE enabled",
+		inputFiles: []string{
+			"testdata/serviceentry-missing-addresses-protocol.yaml",
+		},
+		meshConfigFile: "testdata/serviceentry-missing-addresses-protocol-mesh-cfg.yaml",
+		analyzer:       &serviceentry.ProtocolAdressesAnalyzer{},
+		expected:       []message{},
+	},
+	{
 		name: "certificate duplication in Gateway",
 		inputFiles: []string{
 			"testdata/gateway-duplicate-certificate.yaml",
