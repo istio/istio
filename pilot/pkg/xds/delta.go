@@ -120,6 +120,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 			}
 		case <-con.stop:
 			return nil
+		default:
 		}
 		// If there wasn't already a request, poll for requests and pushes. Note: if we have a huge
 		// amount of incoming requests, we may still send some pushes, as we do not `continue` above;
