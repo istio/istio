@@ -142,7 +142,7 @@ func ReadSampleCertFromFile(f string) ([]byte, error) {
 
 // CreateCustomEgressSecret creates a k8s secret "cacerts" to store egress gateways CA key and cert.
 func CreateCustomEgressSecret(ctx resource.Context) error {
-	name := "egress-gw-cacerts"
+	name := "cacerts"
 	systemNs, err := istio.ClaimSystemNamespace(ctx)
 	if err != nil {
 		return err
