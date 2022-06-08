@@ -318,7 +318,7 @@ func sendDownstreamDelta(deltaDownstream discovery.AggregatedDiscoveryService_De
 func (p *XdsProxy) persistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {
 	p.connectedMutex.Lock()
 	// Immediately send if we are currently connect
-	if p.connected != nil {
+	if p.connected != nil && p.connected.deltaRequestsChan != nil {
 		p.connected.deltaRequestsChan.Put(req)
 	}
 	// Otherwise place it as our initial request for new connections

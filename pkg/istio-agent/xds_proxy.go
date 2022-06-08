@@ -238,7 +238,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
 	p.connectedMutex.Lock()
 	// Immediately send if we are currently connect
-	if p.connected != nil {
+	if p.connected != nil && p.connected.requestsChan != nil {
 		p.connected.requestsChan.Put(req)
 	}
 	// Otherwise place it as our initial request for new connections
