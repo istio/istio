@@ -995,12 +995,14 @@ func cloneProxy(proxy *model.Proxy) *model.Proxy {
 
 	proxy.Lock()
 	defer proxy.Unlock()
-	tmp := *proxy
-	out := &tmp
+	// nolint: govet
+	copied := *proxy
+	out := &copied
 	out.RWMutex = sync.RWMutex{}
 	// clone WatchedResources which can be mutated when processing request
 	out.WatchedResources = make(map[string]*model.WatchedResource, len(proxy.WatchedResources))
 	for k, v := range proxy.WatchedResources {
+		// nolint: govet
 		v := *v
 		out.WatchedResources[k] = &v
 	}
