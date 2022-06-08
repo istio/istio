@@ -325,6 +325,9 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			}
 			// replace service in slice
 			out.services[foundSvc.index] = copied
+			// Update index as well, so that future reads will merge into the new service
+			foundSvc.svc = copied
+			servicesAdded[foundSvc.svc.Hostname] = foundSvc
 		}
 	}
 

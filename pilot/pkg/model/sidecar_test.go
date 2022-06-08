@@ -1796,6 +1796,52 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 			&mergedDr1and3,
 		},
+		{
+			name: "multi-service-merge",
+			sidecarConfig: &config.Config{
+				Meta: config.Meta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: &networking.Sidecar{},
+			},
+			services: []*Service{
+				{
+					Hostname: "proxy",
+					Ports:    port7000,
+					Attributes: ServiceAttributes{
+						Name:      "s1",
+						Namespace: "default",
+					},
+				},
+				{
+					Hostname: "proxy",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:      "s2",
+						Namespace: "default",
+					},
+				},
+				{
+					Hostname: "proxy",
+					Ports:    port7442,
+					Attributes: ServiceAttributes{
+						Name:      "s3",
+						Namespace: "default",
+					},
+				},
+			},
+			excpectedServices: []*Service{
+				{
+					Hostname: "proxy",
+					Ports:    PortList{port7000[0], port7443[0], port7442[0]},
+					Attributes: ServiceAttributes{
+						Name:      "s1",
+						Namespace: "default",
+					},
+				},
+			},
+		},
 	}
 
 	for idx, tt := range tests {
