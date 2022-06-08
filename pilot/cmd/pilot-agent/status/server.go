@@ -164,14 +164,6 @@ func NewServer(config Options) (*Server, error) {
 	if config.IPv6 {
 		localhost = localHostIPv6
 		upstreamLocalAddress = UpstreamLocalAddressIPv6
-	} else {
-		// if not ipv6-only, it can be ipv4-only or dual-stack
-		// let InstanceIP decide the localhost
-		netIP := net.ParseIP(config.PodIP)
-		if netIP.To4() == nil && netIP.To16() != nil && !netIP.IsLinkLocalUnicast() {
-			localhost = localHostIPv6
-			upstreamLocalAddress = UpstreamLocalAddressIPv6
-		}
 	}
 	probes := make([]ready.Prober, 0)
 	if !config.NoEnvoy {
@@ -191,7 +183,7 @@ func NewServer(config Options) (*Server, error) {
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
-		appProbersDestination: config.PodIP,
+		appProbersDestination: wrapIPv6(config.PodIP),
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
@@ -349,8 +341,8 @@ func (s *Server) Run(ctx context.Context) {
 	}
 	// for testing.
 	if s.statusPort == 0 {
-		_, hostPort, _ := net.SplitHostPort(l.Addr().String())
-		allocatedPort, _ := strconv.Atoi(hostPort)
+		addrs := strings.Split(l.Addr().String(), ":")
+		allocatedPort, _ := strconv.Atoi(addrs[len(addrs)-1])
 		s.mutex.Lock()
 		s.statusPort = uint16(allocatedPort)
 		s.mutex.Unlock()
@@ -658,12 +650,10 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 		proberPath = "/" + proberPath
 	}
 	var url string
-	strPort := strconv.Itoa(prober.HTTPGet.Port.IntValue())
-	hostPort := net.JoinHostPort(s.appProbersDestination, strPort)
 	if prober.HTTPGet.Scheme == apimirror.URISchemeHTTPS {
-		url = fmt.Sprintf("https://%s%s", hostPort, proberPath)
+		url = fmt.Sprintf("https://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
 	} else {
-		url = fmt.Sprintf("http://%s%s", hostPort, proberPath)
+		url = fmt.Sprintf("http://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
 	}
 	appReq, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -730,7 +720,7 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		Timeout:   timeout,
 	}
 
-	conn, err := d.Dial("tcp", net.JoinHostPort(s.appProbersDestination, strconv.Itoa(port)))
+	conn, err := d.Dial("tcp", fmt.Sprintf("%s:%d", s.appProbersDestination, port))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
@@ -764,7 +754,7 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	addr := net.JoinHostPort(s.appProbersDestination, strconv.Itoa(int(prober.GRPC.Port)))
+	addr := fmt.Sprintf("%s:%d", s.appProbersDestination, prober.GRPC.Port)
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
 		log.Errorf("Failed to create grpc connection to probe app: %v", err)
@@ -848,3 +838,14 @@ func notifyExit() {
 	}
 }
 
+// wrapIPv6 wraps the ip into "[]" in case of ipv6
+func wrapIPv6(ipAddr string) string {
+	addr := net.ParseIP(ipAddr)
+	if addr == nil {
+		return ipAddr
+	}
+	if addr.To4() != nil {
+		return ipAddr
+	}
+	return fmt.Sprintf("[%s]", ipAddr)
+}

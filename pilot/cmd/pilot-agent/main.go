@@ -222,7 +222,7 @@ func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *mesh
 
 func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
 	localHostAddr := localHostIPv4
-	if network.AllIPv6(proxy.IPAddresses) {
+	if proxy.IsIPv6() {
 		localHostAddr = localHostIPv6
 	}
 	stsServer, err := stsserver.NewServer(stsserver.Config{
@@ -287,10 +287,6 @@ func initProxy(args []string) (*model.Proxy, error) {
 
 	// After IP addresses are set, let us discover IPMode.
 	proxy.DiscoverIPMode()
-
-	if proxy.SupportsIPv4() && proxy.SupportsIPv6() && !options.DualStackEnv {
-		log.Info("proxy has both an IPv6 and IPv4 address, but ISTIO_AGENT_DUAL_STACK not set to true")
-	}
 
 	// Extract pod variables.
 	podName := options.PodNameVar.Get()

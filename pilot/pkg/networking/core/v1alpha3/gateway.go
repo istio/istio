@@ -447,13 +447,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 		}
 
-		// no route configuration for given gateway based on the port and virtual service
-		if len(gatewayRoutes[gatewayName]) == 0 {
-			// only handle the same route such as 'http.8080' with 2 route names 'http.8080' and 'http.8080.ipv6' for supporting dual stack
-			if features.EnableDualStack && adjustedRouteName != routeName {
-				continue
-			}
-		}
 		// check all hostname in vHostDedupMap and if is not exist with HttpsRedirect set to true
 		// create VirtualHost to redirect
 		for _, hostname := range server.Hosts {
@@ -474,23 +467,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		}
 	}
 
-	// only handle the same route such as 'http.8080' with 2 route names 'http.8080' and 'http.8080.ipv6' for supporting dual stack
-	if features.EnableDualStack && adjustedRouteName != routeName {
-		noInvalidGWRoutes := true
-		for gwName, _ := range gatewayRoutes {
-			if len(gatewayRoutes[gwName]) > 0 {
-				noInvalidGWRoutes = false
-				break
-			}
-		}
-		// no any route configuration for all gateways based on given ports and virtual services
-		if noInvalidGWRoutes {
-			return nil
-		}
-	}
-
 	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
+		if features.EnableDualStack && adjustedRouteName != routeName {
+			return nil
+		}
 		port := int(servers[0].Port.Number)
 		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", adjustedRouteName, port)
 		virtualHosts = []*route.VirtualHost{{
