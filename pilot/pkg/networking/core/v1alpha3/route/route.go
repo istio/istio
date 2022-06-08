@@ -355,6 +355,8 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 				clusterNames = append(clusterNames, model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port))
 			}
 		}
+	} else {
+		clusterNames = append(clusterNames, model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port))
 	}
 	return clusterNames
 }
