@@ -15,6 +15,9 @@
 package wasm
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"net/http"
@@ -23,6 +26,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestWasmHTTPFetch(t *testing.T) {
@@ -159,6 +164,104 @@ func TestWasmHTTPInsecureServer(t *testing.T) {
 				}
 			} else if string(b) != wantWasmModule {
 				t.Errorf("downloaded wasm module got %v, want wasm", string(b))
+			}
+		})
+	}
+}
+
+func createTar(t *testing.T, b []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	hdr := &tar.Header{
+		Name: "plugin.wasm",
+		Mode: 0o600,
+		Size: int64(len(b)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write(b); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func createGZ(t *testing.T, b []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if _, err := zw.Write(b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	return buf.Bytes()
+}
+
+func TestWasmHTTPFetchCompressedOrTarFile(t *testing.T) {
+	wasmBinary := append(wasmMagicNumber, 0x00, 0x00, 0x00, 0x00)
+	tarball := createTar(t, wasmBinary)
+	gz := createGZ(t, wasmBinary)
+	gzTarball := createGZ(t, tarball)
+	cases := []struct {
+		name    string
+		handler func(http.ResponseWriter, *http.Request, int)
+	}{
+		{
+			name: "plain wasm binary",
+			handler: func(w http.ResponseWriter, r *http.Request, num int) {
+				w.Write(wasmBinary)
+			},
+		},
+		{
+			name: "tarball of wasm binary",
+			handler: func(w http.ResponseWriter, r *http.Request, num int) {
+				w.Write(tarball)
+			},
+		},
+		{
+			name: "gzipped wasm binary",
+			handler: func(w http.ResponseWriter, r *http.Request, num int) {
+				w.Write(gz)
+			},
+		},
+		{
+			name: "gzipped tarball of wasm binary",
+			handler: func(w http.ResponseWriter, r *http.Request, num int) {
+				w.Write(gzTarball)
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotNumRequest := 0
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				c.handler(w, r, gotNumRequest)
+				gotNumRequest++
+			}))
+			defer ts.Close()
+			fetcher := NewHTTPFetcher(DefaultHTTPRequestTimeout, DefaultHTTPRequestMaxRetries)
+			fetcher.initialBackoff = time.Microsecond
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			b, err := fetcher.Fetch(ctx, ts.URL, false)
+			if err != nil {
+				t.Errorf("Wasm download got an unexpected error: %v", err)
+			}
+
+			if diff := cmp.Diff(wasmBinary, b); diff != "" {
+				if len(diff) > 500 {
+					diff = diff[:500]
+				}
+				t.Errorf("unexpected binary: (-want, +got)\n%v", diff)
 			}
 		})
 	}
