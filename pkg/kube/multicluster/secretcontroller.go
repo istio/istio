@@ -174,16 +174,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func (c *Controller) close() {
-	c.cs.Lock()
-	defer c.cs.Unlock()
-	for _, clusterMap := range c.cs.remoteClusters {
-		for _, cluster := range clusterMap {
-			cluster.Stop()
-		}
-	}
-}
-
 func (c *Controller) hasSynced() bool {
 	if !c.queue.HasSynced() {
 		log.Debug("secret controller did not sync secrets presented at startup")
@@ -358,6 +348,8 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 				log.Infof("skipping update of cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
 				continue
 			}
+			// stop previous remote cluster
+			prev.Stop()
 		} else if c.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
 			log.Warnf("cluster %d from secret %s has already been registered", clusterID, secretKey)
