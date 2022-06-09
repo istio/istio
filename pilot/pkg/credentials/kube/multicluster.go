@@ -49,29 +49,36 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, _ <-chan stru
 	log.Infof("initializing Kubernetes credential reader for cluster %v", cluster.ID)
 	sc := NewCredentialsController(cluster.Client, cluster.ID)
 	m.m.Lock()
-	m.remoteKubeControllers[cluster.ID] = sc
-	for _, onCredential := range m.secretHandlers {
-		sc.AddEventHandler(onCredential)
-	}
-	m.m.Unlock()
+	defer m.m.Unlock()
+	m.addCluster(cluster, sc)
 	return nil
 }
 
 func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
-	if err := m.ClusterDeleted(cluster.ID); err != nil {
-		return err
-	}
-	if err := m.ClusterAdded(cluster, stop); err != nil {
-		return err
-	}
+	sc := NewCredentialsController(cluster.Client, cluster.ID)
+	m.m.Lock()
+	defer m.m.Unlock()
+	m.deleteCluster(cluster.ID)
+	m.addCluster(cluster, sc)
 	return nil
 }
 
 func (m *Multicluster) ClusterDeleted(key cluster.ID) error {
 	m.m.Lock()
+	defer m.m.Unlock()
 	delete(m.remoteKubeControllers, key)
-	m.m.Unlock()
 	return nil
+}
+
+func (m *Multicluster) addCluster(cluster *multicluster.Cluster, sc *CredentialsController) {
+	m.remoteKubeControllers[cluster.ID] = sc
+	for _, onCredential := range m.secretHandlers {
+		sc.AddEventHandler(onCredential)
+	}
+}
+
+func (m *Multicluster) deleteCluster(key cluster.ID) {
+	delete(m.remoteKubeControllers, key)
 }
 
 func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller, error) {
