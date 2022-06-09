@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue: [38704]
-releaseNotes:
-- |
-  **Fixed** improper filtering of endpoints from East-West Gateway caused by `DestinationRule` TLS settings.
