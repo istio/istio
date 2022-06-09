@@ -24,10 +24,11 @@ import (
 	"regexp"
 	"strings"
 
+	"istio.io/pkg/log"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -109,7 +110,6 @@ func (h *Handler) getFirstLayerURL(imageName string, tag string) (string, error)
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	switch p := r.URL.Path; {
 	case p == "/ready":
 		w.WriteHeader(http.StatusOK)
