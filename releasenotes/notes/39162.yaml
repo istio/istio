@@ -2,8 +2,8 @@ apiVersion: release-notes/v2
 kind: bug-fix
 area: telemetry
 issue:
-  - 39162
+  - 39143
 
 releaseNotes:
 - |
-  **Fixed** envoy cluster name tag regex [#39143](https://github.com/istio/istio/issues/39143).
+  **Fixed** envoy cluster name tag regex.
