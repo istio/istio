@@ -77,11 +77,15 @@ function exec_on_node() {
     fi
   elif [ "${K8S_TYPE}" == aws ]; then
     NODE_IP=$(kubectl get nodes -l kubernetes.io/hostname="$node_name" -o jsonpath="{.items[*].status.addresses[?(@.type=='ExternalIP')].address}")
-    # rewrite with sudo to get root shell in front
-    ROOT_CMD="sudo su $cmd"
     # aws doesn't let you ssh as root, and you need root to use iptables
-    # thus we ssh as ec2-user and then prefix all our commands with sudo su
-    ssh -i "$SSH_KEY" ec2-user@"$NODE_IP" "$ROOT_CMD"
+    # thus we ssh as ec2-user and then prefix all our commands with sudo su.
+    # if unset, read from stdin
+    if [ -z "${cmd}" ]; then
+      ssh -i "$SSH_KEY" ec2-user@"$NODE_IP" "sudo su"
+    else
+      # shellcheck disable=SC2086
+      ssh -t -i "$SSH_KEY" ec2-user@"$NODE_IP" "sudo $cmd"
+    fi
   else
     echo "not a supported k8s deployment type"
     exit 1
@@ -259,7 +263,6 @@ $IPTABLES -t mangle -A uproxy-PREROUTING -m connmark --mark $SKIPMARK -j RETURN
 
 ## Pod membership and tproxy setup.
 
-ipset destroy uproxy-pods-ips # potentially delete previous ipset
 ipset create uproxy-pods-ips hash:ip
 # Request is from uncaptured pod to captured pod on the same node. The request will make it *to* the pod without issue, but the packets coming back would be redirected
 # Instead, we mark these and later skip them

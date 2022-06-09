@@ -144,7 +144,7 @@ func (s *secretCache) SetRoot(rootCert []byte) {
 func (s *secretCache) GetWorkload() *security.SecretItem {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.workload == nil {
+	if s.workload == nil || os.Getenv("ISTIO_META_SIDECARLESS_TYPE") == "uproxy" {
 		return nil
 	}
 	return s.workload

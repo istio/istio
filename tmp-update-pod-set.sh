@@ -38,15 +38,19 @@ function exec_on_node() {
       docker exec -i "$node_name" sh -x
     else
       # shellcheck disable=SC2086
-      docker exec -i "$node_name" $cmd
+      docker exec -it "$node_name" $cmd
     fi
   elif [ "${K8S_TYPE}" == aws ]; then
     NODE_IP=$(kubectl get nodes -l kubernetes.io/hostname="$node_name" -o jsonpath="{.items[*].status.addresses[?(@.type=='ExternalIP')].address}")
-    # rewrite with sudo to get root shell in front
-    ROOT_CMD="sudo su $cmd"
     # aws doesn't let you ssh as root, and you need root to use iptables
-    # thus we ssh as ec2-user and then prefix all our commands with sudo su
-    ssh -i "$SSH_KEY" ec2-user@"$NODE_IP" "$ROOT_CMD"
+    # thus we ssh as ec2-user and then prefix all our commands with sudo su.
+    # if unset, read from stdin
+    if [ -z "${cmd}" ]; then
+      ssh -i "$SSH_KEY" ec2-user@"$NODE_IP" "sudo su"
+    else
+      # shellcheck disable=SC2086
+      ssh -t -i "$SSH_KEY" ec2-user@"$NODE_IP" "sudo $cmd"
+    fi
   else
     echo "not a supported k8s deployment type"
     exit 1

@@ -100,3 +100,23 @@ INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
   --kind-config prow/config/ambient-sc.yaml --node-image kindest/node:v1.24.0 \
   test.integration.uproxy.kube
 ```
+
+## EKS specific notes
+
+`kubectl version` against working setup:
+
+```shell
+Server Version: version.Info{Major:"1", Minor:"21+", GitVersion:"v1.21.12-eks-a64ea69", GitCommit:"d4336843ba36120e9ed1491fddff5f2fec33eb77", GitTreeState:"clean", BuildDate:"2022-05-12T18:29:27Z", GoVersion:"go1.16.15", Compiler:"gc", Platform:"linux/amd64"}
+```
+
+`kg nodes` against working setup (node version only):
+
+```shell
+v1.21.12-eks-5308cf7
+```
+
+newer versions appear to be slightly broken (same node works, cross node request to other envoy looks malformed), such as
+
+```shell
+v1.22.6-eks-7d68063
+```

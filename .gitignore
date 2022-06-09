@@ -11,6 +11,7 @@ tools/vagrant/.vagrant/
 .run/
 # Visual Studio Code
 .vscode/
+.devcontainer
 # Bazel
 /bazel-*
 # vi backups
