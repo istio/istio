@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"istio.io/pkg/log"
 )
@@ -103,16 +104,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encoded := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v:%v", User, Passwd)))
-	authHdr := r.Header.Get("Authorization")
-	wantHdr := fmt.Sprintf("Basic %s", encoded)
-	if authHdr != wantHdr {
-		log.Infof("Unauthorized: " + r.URL.Path)
-		log.Infof("Got header %q want header %q", authHdr, wantHdr)
-		w.Header().Set("WWW-Authenticate", "Basic")
-		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		return
+	if !strings.Contains(r.URL.Path, "/v2/") || !strings.Contains(r.URL.Path, "/blobs/") {
+		// only requires authentication for getting manifests, not blobs,
+		// in order to use the registry in HTTP tests.
+		encoded := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v:%v", User, Passwd)))
+		authHdr := r.Header.Get("Authorization")
+		wantHdr := fmt.Sprintf("Basic %s", encoded)
+		if authHdr != wantHdr {
+			log.Infof("Unauthorized: " + r.URL.Path)
+			log.Infof("Got header %q want header %q", authHdr, wantHdr)
+			w.Header().Set("WWW-Authenticate", "Basic")
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
 	}
+
 	rurl := fmt.Sprintf("https://%v%v", *registry, h.convertTag(r.URL.Path))
 	log.Infof("Get %q, send redirect to %q", r.URL, rurl)
 	http.Redirect(w, r, rurl, http.StatusMovedPermanently)
