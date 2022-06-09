@@ -47,6 +47,7 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/istio-agent/health"
@@ -235,24 +236,14 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 // PersistRequest sends a request to the currently connected proxy. Additionally, on any reconnection
 // to the upstream XDS request we will resend this request.
 func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
-	var ch chan *discovery.DiscoveryRequest
-	var stop chan struct{}
-
 	p.connectedMutex.Lock()
-	if p.connected != nil {
-		ch = p.connected.requestsChan
-		stop = p.connected.stopChan
+	// Immediately send if we are currently connect
+	if p.connected != nil && p.connected.requestsChan != nil {
+		p.connected.requestsChan.Put(req)
 	}
+	// Otherwise place it as our initial request for new connections
 	p.initialRequest = req
 	p.connectedMutex.Unlock()
-
-	// Immediately send if we are currently connect
-	if ch != nil {
-		select {
-		case ch <- req:
-		case <-stop:
-		}
-	}
 }
 
 func (p *XdsProxy) unregisterStream(c *ProxyConnection) {
@@ -279,9 +270,9 @@ type ProxyConnection struct {
 	conID              uint32
 	upstreamError      chan error
 	downstreamError    chan error
-	requestsChan       chan *discovery.DiscoveryRequest
+	requestsChan       *channels.Unbounded
 	responsesChan      chan *discovery.DiscoveryResponse
-	deltaRequestsChan  chan *discovery.DeltaDiscoveryRequest
+	deltaRequestsChan  *channels.Unbounded
 	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
 	stopChan           chan struct{}
 	downstream         adsStream
@@ -293,10 +284,7 @@ type ProxyConnection struct {
 // sendRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
 // block forever on
 func (con *ProxyConnection) sendRequest(req *discovery.DiscoveryRequest) {
-	select {
-	case con.requestsChan <- req:
-	case <-con.stopChan:
-	}
+	con.requestsChan.Put(req)
 }
 
 type adsStream interface {
@@ -319,10 +307,29 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		conID:           connectionNumber.Inc(),
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
 		downstreamError: make(chan error, 2), // can be produced by recv and send
-		requestsChan:    make(chan *discovery.DiscoveryRequest, 10),
-		responsesChan:   make(chan *discovery.DiscoveryResponse, 10),
-		stopChan:        make(chan struct{}),
-		downstream:      downstream,
+		// Requests channel is unbounded. The Envoy<->XDS Proxy<->Istiod system produces a natural
+		// looping of Recv and Send. Due to backpressure introduce by gRPC natively (that is, Send() can
+		// only send so much data without being Recv'd before it starts blocking), along with the
+		// backpressure provided by our channels, we have a risk of deadlock where both xdsproxy and
+		// Istiod are trying to Send, but both are blocked by gRPC backpressure until Recv() is called.
+		// However, Recv can fail to be called by Send being blocked. This can be triggered by the two
+		// sources in our system (Envoy request and Istiod pushes) producing more events than we can keep
+		// up with.
+		// See https://github.com/istio/istio/issues/39209 for more information
+		//
+		// To prevent these issues, we need to either:
+		// 1. Apply backpressure directly to Envoy requests or Istiod pushes
+		// 2. Make part of the system unbounded
+		//
+		// (1) is challenging because we cannot do a conditional Recv (for Envoy requests), and changing
+		// the control plane requires substantial changes. Instead, we make the requests channel
+		// unbounded. This is the least likely to cause issues as the messages we store here are the
+		// smallest relative to other channels.
+		requestsChan: channels.NewUnbounded(),
+		// Allow a buffer of 1. This ensures we queue up at most 2 (one in process, 1 pending) responses before forwarding.
+		responsesChan: make(chan *discovery.DiscoveryResponse, 1),
+		stopChan:      make(chan struct{}),
+		downstream:    downstream,
 	}
 
 	p.registerStream(con)
@@ -469,7 +476,9 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 	defer con.upstream.CloseSend() // nolint
 	for {
 		select {
-		case req := <-con.requestsChan:
+		case requ := <-con.requestsChan.Get():
+			con.requestsChan.Load()
+			req := requ.(*discovery.DiscoveryRequest)
 			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent.Load() {
 				// only send healthcheck probe after LDS request has been sent
 				continue
