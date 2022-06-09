@@ -12,6 +12,22 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
+# Our build tools, post jammy, breaks old versions of docker.
+# These old versions are surprisingly common, so build in a check here
+define warning
+Docker version is too old, please upgrade to a newer version.
+endef
+ifneq ($(findstring google,$(HOSTNAME)),)
+warning+=Googlers: go/installdocker\#the-version-of-docker-thats-installed-is-old-eg-1126
+endif
+# The old docker issue manifests as not being able to run *any* binary. So we can test
+# by trying to run a trivial program and ensuring it actually ran. If not, emit our warning.
+# Note: we cannot do anything like $(shell docker version) to check, since that would also fail.
+CAN_RUN := $(shell echo "can I run echo")
+ifeq ($(CAN_RUN),)
+$(error $(warning))
+endif
+
 #-----------------------------------------------------------------------------
 # Global Variables
 #-----------------------------------------------------------------------------
