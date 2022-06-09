@@ -17,7 +17,7 @@ package echotest
 import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 type (
@@ -32,7 +32,9 @@ type (
 //       Run()
 func (t *T) From(filters ...Filter) *T {
 	for _, filter := range filters {
+		log.Errorf("howardjohn: filter before %v", len(t.sources))
 		t.sources = filter(t.sources)
+		log.Errorf("howardjohn: filter after %v", len(t.sources))
 	}
 	return t
 }
@@ -75,11 +77,13 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 //   Only a, headless, naked and vm are used as sources.
 //   Subtests are generated only for reachable destinations.
 //   Pod a will not be in destinations, but b will (one simpe pod not in sources)
-func (t *T) WithDefaultFilters() *T {
+func (t *T) WithDefaultFilters(minimumFrom, minimumTo int) *T {
+	log.Errorf("howardjohn: apply default")
 	return t.
-		From(SingleSimplePodServiceAndAllSpecial(), FilterMatch(match.NotExternal)).
+		From(FilterMatch(match.NotExternal)).
+		From(SingleSimplePodServiceAndAllSpecial(minimumFrom)).
 		ConditionallyTo(ReachableDestinations).
-		To(SingleSimplePodServiceAndAllSpecial(t.sources...))
+		To(SingleSimplePodServiceAndAllSpecial(minimumTo, t.sources...))
 }
 
 func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.Instances {
@@ -97,13 +101,19 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 //     The plain-pods are a, b and c.
 //     This filter would result in a, headless, naked and vm.
 // TODO this name is not good
-func SingleSimplePodServiceAndAllSpecial(exclude ...echo.Instance) Filter {
+func SingleSimplePodServiceAndAllSpecial(min int, exclude ...echo.Instance) Filter {
 	return func(instances echo.Instances) echo.Instances {
-		return oneRegularPodPerNamespace(exclude)(instances).Append(notRegularPods()(instances))
+		nonRegular := notRegularPods()(instances)
+		needed := min - len(nonRegular)
+		if needed <= 0 {
+			needed = 1
+		}
+
+		return nRegularPodPerNamespace(needed, exclude)(instances).Append(nonRegular)
 	}
 }
 
-func oneRegularPodPerNamespace(exclude echo.Instances) Filter {
+func nRegularPodPerNamespace(needed int, exclude echo.Instances) Filter {
 	return func(instances echo.Instances) echo.Instances {
 		// Apply the filters.
 		regularPods := match.And(
@@ -114,13 +124,13 @@ func oneRegularPodPerNamespace(exclude echo.Instances) Filter {
 			return regularPods
 		}
 
-		// Pick a single regular pod per namespace.
-		namespaces := sets.New()
+		// Pick regular pods per namespace, up to needed
+		namespaces := map[string]int{}
 		var outServices echo.Services
 		for _, svc := range regularPods.Services() {
 			ns := svc.Config().Namespace.Name()
-			if !namespaces.Contains(ns) {
-				namespaces.Insert(ns)
+			if namespaces[ns] < needed {
+				namespaces[ns]++
 				outServices = append(outServices, svc)
 			}
 		}
