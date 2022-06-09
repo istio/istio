@@ -15,6 +15,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -24,11 +25,17 @@ import (
 	"strings"
 
 	"istio.io/pkg/log"
+
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
 var (
-	port     = flag.Int("port", 1338, "port to run registry on")
-	registry = flag.String("registry", "gcr.io", "name of registry to redirect registry request to")
+	port             = flag.Int("port", 1338, "port to run registry on")
+	registry         = flag.String("registry", "gcr.io", "name of registry to redirect registry request to")
+	regexForManifest = regexp.MustCompile(`(?P<Prefix>/v\d+)?/(?P<ImageName>.+)/manifests/(?P<Tag>[^:]*)$`)
+	regexForLayer    = regexp.MustCompile(`/layer/v1/(?P<ImageName>[^:]+):(?P<Tag>[^:]+)`)
 )
 
 const (
@@ -48,20 +55,18 @@ type Handler struct {
 	tagMap map[string]string
 }
 
-var re = regexp.MustCompile(`(?P<Prefix>/v\d+)?/(?P<ImageName>.+)/manifests/(?P<Tag>[^:]*)$`)
-
 // Convert tag based on the tag map.
 // If the given path does not have tagged form or the image name and tag is not the registered one,
 // just return the path without modification.
 func (h *Handler) convertTag(path string) string {
-	matches := re.FindStringSubmatch(path)
+	matches := regexForManifest.FindStringSubmatch(path)
 	if matches == nil {
 		return path
 	}
 
-	prefix := matches[re.SubexpIndex("Prefix")]
-	imageName := matches[re.SubexpIndex("ImageName")]
-	tag := matches[re.SubexpIndex("Tag")]
+	prefix := matches[regexForManifest.SubexpIndex("Prefix")]
+	imageName := matches[regexForManifest.SubexpIndex("ImageName")]
+	tag := matches[regexForManifest.SubexpIndex("Tag")]
 	key := imageName + ":" + tag
 
 	log.Infof("key: %v", key)
@@ -72,14 +77,44 @@ func (h *Handler) convertTag(path string) string {
 	return path
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/ready" {
-		w.WriteHeader(http.StatusOK)
-		return
+// getFirstLayerURL returns the URL for the first layer of the given image.
+// `tag` will be converted by using `tagMap`
+func (h *Handler) getFirstLayerURL(imageName string, tag string) (string, error) {
+	convertedTag := tag
+	if converted, found := h.tagMap[imageName+":"+tag]; found {
+		convertedTag = converted
 	}
 
-	// convert the requested tag to the other tag or sha of the real registry
-	if r.URL.Path == "/admin/v1/tagmap" {
+	u := fmt.Sprintf("%v/%v:%v", *registry, imageName, convertedTag)
+	ref, err := name.ParseReference(u)
+	if err != nil {
+		return "", fmt.Errorf("could not parse url in image reference: %v", err)
+	}
+
+	t := remote.DefaultTransport.Clone()
+	t.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	desc, err := remote.Get(ref, remote.WithTransport(t))
+	if err != nil {
+		return "", fmt.Errorf("could not get the description: %v", err)
+	}
+
+	manifest, err := partial.Manifest(desc)
+	if err != nil {
+		return "", fmt.Errorf("failed to get manifest: %v", err)
+	}
+	if len(manifest.Layers) != 1 {
+		return "", fmt.Errorf("docker image does not have one layer (got %v)", len(manifest.Layers))
+	}
+
+	return fmt.Sprintf("https://%v/v2/%v/blobs/%v", *registry, imageName, manifest.Layers[0].Digest.String()), nil
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch p := r.URL.Path; {
+	case p == "/ready":
+		w.WriteHeader(http.StatusOK)
+	case p == "/admin/v1/tagmap":
+		// convert the requested tag to the other tag or sha of the real registry
 		switch r.Method {
 		case http.MethodPost:
 			m := map[string]string{}
@@ -101,12 +136,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
-		return
-	}
-
-	if !strings.Contains(r.URL.Path, "/v2/") || !strings.Contains(r.URL.Path, "/blobs/") {
-		// only requires authentication for getting manifests, not blobs,
-		// in order to use the registry in HTTP tests.
+	case strings.HasPrefix(p, "/layer/v1/"):
+		// returns the blob URL of the first layer in the given OCI image
+		// URL path would have the form of /layer/v1/<image name>:<tag>
+		matches := regexForLayer.FindStringSubmatch(p)
+		if matches == nil {
+			http.Error(w, fmt.Sprintf("Malformed URL Path: %q", p), http.StatusBadRequest)
+			return
+		}
+		imageName := matches[regexForLayer.SubexpIndex("ImageName")]
+		tag := matches[regexForLayer.SubexpIndex("Tag")]
+		rurl, err := h.getFirstLayerURL(imageName, tag)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Infof("Get %q, send redirect to %q", r.URL, rurl)
+		http.Redirect(w, r, rurl, http.StatusMovedPermanently)
+	case !strings.Contains(p, "/v2/") || !strings.Contains(p, "/blobs/"):
+		// only requires authentication for getting manifests, not blobs
 		encoded := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v:%v", User, Passwd)))
 		authHdr := r.Header.Get("Authorization")
 		wantHdr := fmt.Sprintf("Basic %s", encoded)
@@ -117,11 +165,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
+		fallthrough
+	default:
+		rurl := fmt.Sprintf("https://%v%v", *registry, h.convertTag(r.URL.Path))
+		log.Infof("Get %q, send redirect to %q", r.URL, rurl)
+		http.Redirect(w, r, rurl, http.StatusMovedPermanently)
 	}
-
-	rurl := fmt.Sprintf("https://%v%v", *registry, h.convertTag(r.URL.Path))
-	log.Infof("Get %q, send redirect to %q", r.URL, rurl)
-	http.Redirect(w, r, rurl, http.StatusMovedPermanently)
 }
 
 func main() {
