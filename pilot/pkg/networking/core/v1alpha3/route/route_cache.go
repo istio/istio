@@ -17,6 +17,7 @@ package route
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"io"
 	"strconv"
 	"strings"
 
@@ -102,25 +103,37 @@ func (r *Cache) DependentTypes() []config.GroupVersionKind {
 }
 
 func (r *Cache) Key() string {
-	params := []string{
-		r.RouteName, r.ProxyVersion, r.ClusterID, r.DNSDomain,
-		strconv.FormatBool(r.DNSCapture), strconv.FormatBool(r.DNSAutoAllocate),
-	}
-	for _, svc := range r.Services {
-		params = append(params, string(svc.Hostname)+"/"+svc.Attributes.Namespace)
-	}
-	for _, vs := range r.VirtualServices {
-		params = append(params, vs.Name+"/"+vs.Namespace)
-	}
-	for _, dr := range r.DestinationRules {
-		params = append(params, dr.Name+"/"+dr.Namespace)
-	}
-	params = append(params, r.EnvoyFilterKeys...)
-
 	hash := md5.New()
-	for _, param := range params {
-		hash.Write([]byte(param))
+
+	io.WriteString(hash, r.RouteName)
+	io.WriteString(hash, r.ProxyVersion)
+	io.WriteString(hash, r.ClusterID)
+	io.WriteString(hash, r.DNSDomain)
+	io.WriteString(hash, strconv.FormatBool(r.DNSCapture))
+	io.WriteString(hash, strconv.FormatBool(r.DNSAutoAllocate))
+
+	for _, svc := range r.Services {
+		io.WriteString(hash, svc.Hostname.String())
+		io.WriteString(hash, "/")
+		io.WriteString(hash, svc.Attributes.Namespace)
 	}
+
+	for _, vs := range r.VirtualServices {
+		io.WriteString(hash, vs.Name)
+		io.WriteString(hash, "/")
+		io.WriteString(hash, vs.Namespace)
+	}
+
+	for _, dr := range r.DestinationRules {
+		io.WriteString(hash, dr.Name)
+		io.WriteString(hash, "/")
+		io.WriteString(hash, dr.Namespace)
+	}
+
+	for _, efk := range r.EnvoyFilterKeys {
+		io.WriteString(hash, efk)
+	}
+
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
 }

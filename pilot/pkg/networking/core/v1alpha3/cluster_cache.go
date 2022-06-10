@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"io"
 	"strconv"
 	"strings"
 
@@ -55,31 +56,40 @@ type clusterCache struct {
 }
 
 func (t *clusterCache) Key() string {
-	params := []string{
-		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
-		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
-		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto), strconv.FormatBool(t.supportsIPv4),
-	}
+	hash := md5.New()
+	io.WriteString(hash, t.clusterName)
+	io.WriteString(hash, t.proxyVersion)
+	io.WriteString(hash, util.LocalityToString(t.locality))
+	io.WriteString(hash, t.proxyClusterID)
+	io.WriteString(hash, strconv.FormatBool(t.proxySidecar))
+	io.WriteString(hash, strconv.FormatBool(t.http2))
+	io.WriteString(hash, strconv.FormatBool(t.downstreamAuto))
+	io.WriteString(hash, strconv.FormatBool(t.supportsIPv4))
+
 	if t.proxyView != nil {
-		params = append(params, t.proxyView.String())
+		io.WriteString(hash, t.proxyView.String())
 	}
 	if t.metadataCerts != nil {
-		params = append(params, t.metadataCerts.String())
+		io.WriteString(hash, t.metadataCerts.String())
 	}
 	if t.service != nil {
-		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
+		io.WriteString(hash, t.service.Hostname.String())
+		io.WriteString(hash, "/")
+		io.WriteString(hash, t.service.Attributes.Namespace)
 	}
 	if t.destinationRule != nil {
-		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
+		io.WriteString(hash, t.destinationRule.Name)
+		io.WriteString(hash, "/")
+		io.WriteString(hash, t.destinationRule.Namespace)
 	}
-	params = append(params, t.envoyFilterKeys...)
-	params = append(params, t.peerAuthVersion)
-	params = append(params, t.serviceAccounts...)
+	for _, efk := range t.envoyFilterKeys {
+		io.WriteString(hash, efk)
+	}
+	io.WriteString(hash, t.peerAuthVersion)
+	for _, sa := range t.serviceAccounts {
+		io.WriteString(hash, sa)
+	}
 
-	hash := md5.New()
-	for _, param := range params {
-		hash.Write([]byte(param))
-	}
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
 }
