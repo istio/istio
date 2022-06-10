@@ -32,8 +32,6 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		// Requires custom CP installations. Consider merging into pilot/revisions
 		Label(label.CustomSetup).
-		RequireSingleCluster().
-		RequireMultiPrimary().
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 revision: stable

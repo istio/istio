@@ -42,7 +42,6 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
-		RequireMultiPrimary().
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
