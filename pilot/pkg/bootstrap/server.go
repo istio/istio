@@ -308,6 +308,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// is used as the authentication result.
 	authenticators := []security.Authenticator{
 		&authenticate.ClientCertAuthenticator{},
+		&authenticate.XfccAuthenticator{},
 	}
 	if args.JwtRule != "" {
 		jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)

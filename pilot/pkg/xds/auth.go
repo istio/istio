@@ -32,7 +32,7 @@ import (
 )
 
 var AuthPlaintext = env.RegisterBoolVar("XDS_AUTH_PLAINTEXT", false,
-	"Authenticate plain text requests - used if Istiod is behind a gateway handling TLS").Get()
+	"Authenticate plain text requests - used if Istiod is behind a gateway or proxy handling TLS").Get()
 
 // authenticate authenticates the ADS request using the configured authenticators.
 // Returns the validated principals or an error.
