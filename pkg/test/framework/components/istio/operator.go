@@ -367,24 +367,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
-	// Need to determine if there is a setting to watch cluster secret in config cluster
-	// or in external cluster. The flag is named LOCAL_CLUSTER_SECERT_WATCHER and set as
-	// an environment variable for istiod.
-	watchLocalNamespace := false
-	if istioctlConfigFiles.operatorSpec != nil && istioctlConfigFiles.operatorSpec.Values != nil {
-		localClusterSecretWatcher := GetConfigValue("pilot.env.LOCAL_CLUSTER_SECERT_WATCHER",
-			istioctlConfigFiles.operatorSpec.Values.Fields)
-		if localClusterSecretWatcher.GetStringValue() == "true" && i.isExternalControlPlane() {
-			watchLocalNamespace = true
-		}
-	}
-
-	if ctx.Clusters().IsMulticluster() {
-		if err := i.configureDirectAPIServerAccess(ctx, cfg, watchLocalNamespace); err != nil {
-			return nil, err
-		}
-	}
-
 	// Install (non-config) remote clusters.
 	errG = multierror.Group{}
 	for _, c := range ctx.Clusters().Kube().Remotes(ctx.Clusters().Configs()...) {
@@ -398,6 +380,23 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 	if errs := errG.Wait(); errs != nil {
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
+	}
+
+	if ctx.Clusters().IsMulticluster() {
+		// Need to determine if there is a setting to watch cluster secret in config cluster
+		// or in external cluster. The flag is named LOCAL_CLUSTER_SECERT_WATCHER and set as
+		// an environment variable for istiod.
+		watchLocalNamespace := false
+		if istioctlConfigFiles.operatorSpec != nil && istioctlConfigFiles.operatorSpec.Values != nil {
+			localClusterSecretWatcher := GetConfigValue("pilot.env.LOCAL_CLUSTER_SECERT_WATCHER",
+				istioctlConfigFiles.operatorSpec.Values.Fields)
+			if localClusterSecretWatcher.GetStringValue() == "true" && i.isExternalControlPlane() {
+				watchLocalNamespace = true
+			}
+		}
+		if err := i.configureDirectAPIServerAccess(ctx, cfg, watchLocalNamespace); err != nil {
+			return nil, err
+		}
 	}
 
 	// Configure gateways for remote clusters.
