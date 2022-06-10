@@ -17,7 +17,6 @@ package xds
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"io"
 	"sort"
 	"strconv"
 
@@ -126,28 +125,28 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
 	hash := md5.New()
-	io.WriteString(hash, b.clusterName)
-	io.WriteString(hash, b.network.String())
-	io.WriteString(hash, b.clusterID.String())
-	io.WriteString(hash, strconv.FormatBool(b.clusterLocal))
-	io.WriteString(hash, util.LocalityToString(b.locality))
-	io.WriteString(hash, b.tunnelType.ToString())
+	hash.Write([]byte(b.clusterName))
+	hash.Write([]byte(b.network))
+	hash.Write([]byte(b.clusterID))
+	hash.Write([]byte(strconv.FormatBool(b.clusterLocal)))
+	hash.Write([]byte(util.LocalityToString(b.locality)))
+	hash.Write([]byte(b.tunnelType.ToString()))
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
-		io.WriteString(hash, b.push.AuthnPolicies.GetVersion())
+		hash.Write([]byte(b.push.AuthnPolicies.GetVersion()))
 	}
 	if b.destinationRule != nil {
-		io.WriteString(hash, b.destinationRule.Name)
-		io.WriteString(hash, "/")
-		io.WriteString(hash, b.destinationRule.Namespace)
+		hash.Write([]byte(b.destinationRule.Name))
+		hash.Write([]byte{'/'})
+		hash.Write([]byte(b.destinationRule.Namespace))
 	}
 	if b.service != nil {
-		io.WriteString(hash, b.service.Hostname.String())
-		io.WriteString(hash, "/")
-		io.WriteString(hash, b.service.Attributes.Namespace)
+		hash.Write([]byte(b.service.Hostname))
+		hash.Write([]byte{'/'})
+		hash.Write([]byte(b.service.Attributes.Namespace))
 	}
 	if b.proxyView != nil {
-		io.WriteString(hash, b.proxyView.String())
+		hash.Write([]byte(b.proxyView.String()))
 	}
 
 	sum := hash.Sum(nil)

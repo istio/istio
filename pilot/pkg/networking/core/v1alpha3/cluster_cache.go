@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"io"
 	"strconv"
 	"strings"
 
@@ -57,37 +56,37 @@ type clusterCache struct {
 
 func (t *clusterCache) Key() string {
 	hash := md5.New()
-	io.WriteString(hash, t.clusterName)
-	io.WriteString(hash, t.proxyVersion)
-	io.WriteString(hash, util.LocalityToString(t.locality))
-	io.WriteString(hash, t.proxyClusterID)
-	io.WriteString(hash, strconv.FormatBool(t.proxySidecar))
-	io.WriteString(hash, strconv.FormatBool(t.http2))
-	io.WriteString(hash, strconv.FormatBool(t.downstreamAuto))
-	io.WriteString(hash, strconv.FormatBool(t.supportsIPv4))
+	hash.Write([]byte(t.clusterName))
+	hash.Write([]byte(t.proxyVersion))
+	hash.Write([]byte(util.LocalityToString(t.locality)))
+	hash.Write([]byte(t.proxyClusterID))
+	hash.Write([]byte(strconv.FormatBool(t.proxySidecar)))
+	hash.Write([]byte(strconv.FormatBool(t.http2)))
+	hash.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
+	hash.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
 
 	if t.proxyView != nil {
-		io.WriteString(hash, t.proxyView.String())
+		hash.Write([]byte(t.proxyView.String()))
 	}
 	if t.metadataCerts != nil {
-		io.WriteString(hash, t.metadataCerts.String())
+		hash.Write([]byte(t.metadataCerts.String()))
 	}
 	if t.service != nil {
-		io.WriteString(hash, t.service.Hostname.String())
-		io.WriteString(hash, "/")
-		io.WriteString(hash, t.service.Attributes.Namespace)
+		hash.Write([]byte(t.service.Hostname))
+		hash.Write([]byte{'/'})
+		hash.Write([]byte(t.service.Attributes.Namespace))
 	}
 	if t.destinationRule != nil {
-		io.WriteString(hash, t.destinationRule.Name)
-		io.WriteString(hash, "/")
-		io.WriteString(hash, t.destinationRule.Namespace)
+		hash.Write([]byte(t.destinationRule.Name))
+		hash.Write([]byte{'/'})
+		hash.Write([]byte(t.destinationRule.Namespace))
 	}
 	for _, efk := range t.envoyFilterKeys {
-		io.WriteString(hash, efk)
+		hash.Write([]byte(efk))
 	}
-	io.WriteString(hash, t.peerAuthVersion)
+	hash.Write([]byte(t.peerAuthVersion))
 	for _, sa := range t.serviceAccounts {
-		io.WriteString(hash, sa)
+		hash.Write([]byte(sa))
 	}
 
 	sum := hash.Sum(nil)
