@@ -45,7 +45,7 @@ metadata:
     app: sidecar-injector
     release: {{ .Release.Name }}
 {{- if .Values.global.externalIstiod }}
-    externalIstiod: true
+    externalIstiod: "true"
 {{- end }}
 webhooks:
 {{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
