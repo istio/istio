@@ -123,23 +123,23 @@ type ConfigError struct {
 	Message string
 }
 
-type condition struct {
-	// reason defines the reason to report on success. Ignored if error is set
-	reason string
-	// message defines the message to report on success. Ignored if error is set
-	message string
-	// status defines the status to report on success. The inverse will be set if error is set
+type Condition struct {
+	// Reason defines the reason to report on success. Ignored if error is set
+	Reason string
+	// Message defines the message to report on success. Ignored if error is set
+	Message string
+	// Status defines the status to report on success. The inverse will be set if error is set
 	// If not set, will default to StatusTrue
-	status metav1.ConditionStatus
-	// error defines an error state; the reason and message will be replaced with that of the error and
+	Status metav1.ConditionStatus
+	// Error defines an error state; the reason and message will be replaced with that of the error and
 	// the status inverted
-	error *ConfigError
-	// setOnce, if enabled, will only set the condition if it is not yet present or set to this reason
-	setOnce string
+	Error *ConfigError
+	// SetOnce, if enabled, will only set the condition if it is not yet present or set to this reason
+	SetOnce string
 }
 
-// setConditions sets the existingConditions with the new conditions
-func setConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*condition) []metav1.Condition {
+// SetConditions sets the existingConditions with the new conditions
+func SetConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*Condition) []metav1.Condition {
 	// Sort keys for deterministic ordering
 	condKeys := make([]string, 0, len(conditions))
 	for k := range conditions {
@@ -149,9 +149,9 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	for _, k := range condKeys {
 		cond := conditions[k]
 		setter := kstatus.UpdateConditionIfChanged
-		if cond.setOnce != "" {
+		if cond.SetOnce != "" {
 			setter = func(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
-				return kstatus.CreateCondition(conditions, condition, cond.setOnce)
+				return kstatus.CreateCondition(conditions, condition, cond.SetOnce)
 			}
 		}
 		// A condition can be "negative polarity" (ex: ListenerInvalid) or "positive polarity" (ex:
@@ -161,17 +161,17 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 		// will be inverted to StatusTrue to indicate listeners are invalid. See
 		// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 		// for more information
-		if cond.error != nil {
+		if cond.Error != nil {
 			existingConditions = setter(existingConditions, metav1.Condition{
 				Type:               k,
-				Status:             kstatus.InvertStatus(cond.status),
+				Status:             kstatus.InvertStatus(cond.Status),
 				ObservedGeneration: generation,
 				LastTransitionTime: metav1.Now(),
-				Reason:             cond.error.Reason,
-				Message:            cond.error.Message,
+				Reason:             cond.Error.Reason,
+				Message:            cond.Error.Message,
 			})
 		} else {
-			status := cond.status
+			status := cond.Status
 			if status == "" {
 				status = kstatus.StatusTrue
 			}
@@ -180,18 +180,18 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 				Status:             status,
 				ObservedGeneration: generation,
 				LastTransitionTime: metav1.Now(),
-				Reason:             cond.reason,
-				Message:            cond.message,
+				Reason:             cond.Reason,
+				Message:            cond.Message,
 			})
 		}
 	}
 	return existingConditions
 }
 
-func reportGatewayCondition(obj config.Config, conditions map[string]*condition) {
+func reportGatewayCondition(obj config.Config, conditions map[string]*Condition) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
-		gs.Conditions = setConditions(obj.Generation, gs.Conditions, conditions)
+		gs.Conditions = SetConditions(obj.Generation, gs.Conditions, conditions)
 		return gs
 	})
 }
@@ -209,7 +209,7 @@ func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {
 	})
 }
 
-func reportListenerCondition(index int, l k8s.Listener, obj config.Config, conditions map[string]*condition) {
+func reportListenerCondition(index int, l k8s.Listener, obj config.Config, conditions map[string]*Condition) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
 		for index >= len(gs.Listeners) {
@@ -220,7 +220,7 @@ func reportListenerCondition(index int, l k8s.Listener, obj config.Config, condi
 			Name:           l.Name,
 			AttachedRoutes: 0, // this will be reported later
 			SupportedKinds: generateSupportedKinds(l),
-			Conditions:     setConditions(obj.Generation, cond, conditions),
+			Conditions:     SetConditions(obj.Generation, cond, conditions),
 		}
 		return gs
 	})

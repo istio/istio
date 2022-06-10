@@ -1192,24 +1192,24 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 		}
 
 		// Setup initial conditions to the success state. If we encounter errors, we will update this.
-		gatewayConditions := map[string]*condition{
+		gatewayConditions := map[string]*Condition{
 			string(k8s.GatewayConditionReady): {
-				reason:  "ListenersValid",
-				message: "Listeners valid",
+				Reason:  "ListenersValid",
+				Message: "Listeners valid",
 			},
 		}
 		if IsManaged(kgw) {
-			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
-				error: &ConfigError{
+			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &Condition{
+				Error: &ConfigError{
 					Reason:  "ResourcesPending",
 					Message: "Resources not yet deployed to the cluster",
 				},
-				setOnce: string(k8s.GatewayReasonNotReconciled), // Default reason
+				SetOnce: string(k8s.GatewayReasonNotReconciled), // Default reason
 			}
 		} else {
-			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
-				reason:  "ResourcesAvailable",
-				message: "Resources available",
+			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &Condition{
+				Reason:  "ResourcesAvailable",
+				Message: "Resources available",
 			}
 		}
 		servers := []*istio.Server{}
@@ -1295,17 +1295,17 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 			} else {
 				msg = fmt.Sprintf("failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 			}
-			gatewayConditions[string(k8s.GatewayConditionReady)].error = &ConfigError{
+			gatewayConditions[string(k8s.GatewayConditionReady)].Error = &ConfigError{
 				Reason:  string(k8s.GatewayReasonAddressNotAssigned),
 				Message: msg,
 			}
 		} else if len(invalidListeners) > 0 {
-			gatewayConditions[string(k8s.GatewayConditionReady)].error = &ConfigError{
+			gatewayConditions[string(k8s.GatewayConditionReady)].Error = &ConfigError{
 				Reason:  string(k8s.GatewayReasonListenersNotValid),
 				Message: fmt.Sprintf("Invalid listeners: %v", invalidListeners),
 			}
 		} else {
-			gatewayConditions[string(k8s.GatewayConditionReady)].message = fmt.Sprintf("Gateway valid, assigned to service(s) %s", humanReadableJoin(internal))
+			gatewayConditions[string(k8s.GatewayConditionReady)].Message = fmt.Sprintf("Gateway valid, assigned to service(s) %s", humanReadableJoin(internal))
 		}
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			gs := s.(*k8s.GatewayStatus)
@@ -1421,35 +1421,35 @@ func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
 }
 
 func buildListener(r *KubernetesResources, obj config.Config, l k8s.Listener, listenerIndex int) (*istio.Server, bool) {
-	listenerConditions := map[string]*condition{
+	listenerConditions := map[string]*Condition{
 		string(k8s.ListenerConditionReady): {
-			reason:  "ListenerReady",
-			message: "No errors found",
+			Reason:  "ListenerReady",
+			Message: "No errors found",
 		},
 		string(k8s.ListenerConditionDetached): {
-			reason:  "ListenerReady",
-			message: "No errors found",
-			status:  kstatus.StatusFalse,
+			Reason:  "ListenerReady",
+			Message: "No errors found",
+			Status:  kstatus.StatusFalse,
 		},
 		string(k8s.ListenerConditionConflicted): {
-			reason:  "ListenerReady",
-			message: "No errors found",
-			status:  kstatus.StatusFalse,
+			Reason:  "ListenerReady",
+			Message: "No errors found",
+			Status:  kstatus.StatusFalse,
 		},
 		string(k8s.ListenerConditionResolvedRefs): {
-			reason:  "ListenerReady",
-			message: "No errors found",
+			Reason:  "ListenerReady",
+			Message: "No errors found",
 		},
 	}
 
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
 	tls, err := buildTLS(l.TLS, obj.Namespace, isAutoPassthrough(obj, l))
 	if err != nil {
-		listenerConditions[string(k8s.ListenerConditionReady)].error = &ConfigError{
+		listenerConditions[string(k8s.ListenerConditionReady)].Error = &ConfigError{
 			Reason:  string(k8s.ListenerReasonInvalid),
 			Message: err.Message,
 		}
-		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = &ConfigError{
+		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].Error = &ConfigError{
 			Reason:  string(k8s.ListenerReasonInvalidCertificateRef),
 			Message: err.Message,
 		}

@@ -21,13 +21,17 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	listerappsv1 "k8s.io/client-go/listers/apps/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
+	istiogw "istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -57,7 +61,8 @@ type RemoteProxyController struct {
 	queue           controllers.Queue
 	deployments     listerappsv1.DeploymentLister
 	serviceAccounts listerv1.ServiceAccountLister
-	gateways        v1alpha2.GatewayLister
+	gateways        gwlister.GatewayLister
+	patcher         istiogw.Patcher
 
 	cluster cluster.ID
 
@@ -75,6 +80,15 @@ func NewRemoteProxyController(client kubelib.Client, clusterID cluster.ID, confi
 		client:       client,
 		cluster:      clusterID,
 		injectConfig: config,
+		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+			c := client.Dynamic().Resource(gvr).Namespace(namespace)
+			t := true
+			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
+				Force:        &t,
+				FieldManager: "remote proxy controller",
+			}, subresources...)
+			return err
+		},
 	}
 
 	rc.queue = controllers.NewQueue("remote proxy",
@@ -165,6 +179,20 @@ func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 		if err := rc.client.Kube().AppsV1().Deployments(gw.Namespace).Delete(context.Background(), k+"-proxy", metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("pod remove: %v", err)
 		}
+
+		msg := fmt.Sprintf("Removed pep from %q namespace", gw.Namespace)
+		if gatewaySA != "" {
+			msg += fmt.Sprintf(" for %q service account", gatewaySA)
+		}
+		err := rc.UpdateStatus(gw, map[string]*istiogw.Condition{
+			string(v1alpha2.GatewayConditionScheduled): {
+				Reason:  string(v1alpha2.GatewayReasonScheduled),
+				Message: msg,
+			},
+		})
+		if err != nil {
+			log.Errorf("unable to update Gateway status %v on delete: %v", gw.Name, err)
+		}
 	}
 	for _, k := range add {
 		log.Infof("adding proxy %v", k+"-proxy")
@@ -183,8 +211,62 @@ func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 		if _, err := rc.client.Kube().AppsV1().Deployments(name.Namespace).Create(context.Background(), proxyDeploy, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("pod create: %v", err)
 		}
+
+		msg := fmt.Sprintf("Deployed pep to %q namespace", gw.Namespace)
+		if gatewaySA != "" {
+			msg += fmt.Sprintf(" for %q service account", gatewaySA)
+		}
+		err = rc.UpdateStatus(gw, map[string]*istiogw.Condition{
+			string(v1alpha2.GatewayConditionReady): {
+				Reason:  string(v1alpha2.GatewayReasonReady),
+				Message: msg,
+			},
+		})
+		if err != nil {
+			log.Errorf("unable to update Gateway status %v on create: %v", gw.Name, err)
+		}
 	}
 	return nil
+}
+
+func (rc *RemoteProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions map[string]*istiogw.Condition) error {
+	if gw == nil {
+		return nil
+	}
+	gws := &v1alpha2.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       gvk.KubernetesGateway.Kind,
+			APIVersion: gvk.KubernetesGateway.Group + "/" + gvk.KubernetesGateway.Version,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gw.Name,
+			Namespace: gw.Namespace,
+		},
+		Status: v1alpha2.GatewayStatus{
+			Conditions: istiogw.SetConditions(gw.Generation, nil, conditions),
+		},
+	}
+	if err := rc.ApplyObject(gws, "status"); err != nil {
+		return fmt.Errorf("update gateway status: %v", err)
+	}
+	log.Info("gateway updated")
+	return nil
+}
+
+// ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
+func (rc *RemoteProxyController) ApplyObject(obj controllers.Object, subresources ...string) error {
+	j, err := config.ToJSON(obj)
+	if err != nil {
+		return err
+	}
+
+	gvr, err := controllers.ObjectToGVR(obj)
+	if err != nil {
+		return err
+	}
+	log.Debugf("applying %v", string(j))
+
+	return rc.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
 func (rc *RemoteProxyController) RenderDeploymentMerged(input MergedInput) (*appsv1.Deployment, error) {

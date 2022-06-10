@@ -71,13 +71,13 @@ type DeploymentController struct {
 	client             kube.Client
 	queue              controllers.Queue
 	templates          *template.Template
-	patcher            patcher
+	patcher            Patcher
 	gatewayLister      v1alpha2.GatewayLister
 	gatewayClassLister v1alpha2.GatewayClassLister
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
-type patcher func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error
+type Patcher func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error
 
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
@@ -206,10 +206,10 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 			Namespace: gw.Namespace,
 		},
 		Status: gateway.GatewayStatus{
-			Conditions: setConditions(gw.Generation, nil, map[string]*condition{
+			Conditions: SetConditions(gw.Generation, nil, map[string]*Condition{
 				string(gateway.GatewayConditionScheduled): {
-					reason:  "ResourcesAvailable",
-					message: "Deployed gateway to the cluster",
+					Reason:  "ResourcesAvailable",
+					Message: "Deployed gateway to the cluster",
 				},
 			}),
 		},
