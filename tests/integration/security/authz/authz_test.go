@@ -1622,7 +1622,7 @@ func newTrafficTest(t framework.TestContext, echos ...echo.Instances) *echotest.
 	}
 
 	return echotest.New(t, all).
-		WithDefaultFilters().
+		WithDefaultFilters(1, 1).
 		FromMatch(match.And(
 			match.NotNaked,
 			match.NotProxylessGRPC)).

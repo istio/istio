@@ -28,7 +28,7 @@ type (
 // From applies each of the filter functions in order to allow removing workloads from the set of clients.
 // Example:
 //     echotest.New(t, apps).
-//       From(echotest.SingleSimplePodServiceAndAllSpecial, echotest.NoExternalServices).
+//       From(echotest.SimplePodServiceAndAllSpecial, echotest.NoExternalServices).
 //       Run()
 func (t *T) From(filters ...Filter) *T {
 	for _, filter := range filters {
@@ -46,7 +46,7 @@ func (t *T) FromMatch(m match.Matcher) *T {
 // To applies each of the filter functions in order to allow removing workloads from the set of destinations.
 // Example:
 //     echotest.New(t, apps).
-//       To(echotest.SingleSimplePodServiceAndAllSpecial).
+//       To(echotest.SimplePodServiceAndAllSpecial).
 //       Run()
 func (t *T) To(filters ...Filter) *T {
 	for _, filter := range filters {
@@ -78,12 +78,11 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 //   Subtests are generated only for reachable destinations.
 //   Pod a will not be in destinations, but b will (one simpe pod not in sources)
 func (t *T) WithDefaultFilters(minimumFrom, minimumTo int) *T {
-	log.Errorf("howardjohn: apply default")
 	return t.
 		From(FilterMatch(match.NotExternal)).
-		From(SingleSimplePodServiceAndAllSpecial(minimumFrom)).
+		From(SimplePodServiceAndAllSpecial(minimumFrom)).
 		ConditionallyTo(ReachableDestinations).
-		To(SingleSimplePodServiceAndAllSpecial(minimumTo, t.sources...))
+		To(SimplePodServiceAndAllSpecial(minimumTo, t.sources...))
 }
 
 func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.Instances {
@@ -93,7 +92,7 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 	return to
 }
 
-// SingleSimplePodServiceAndAllSpecial finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
+// SimplePodServiceAndAllSpecial finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
 // other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
 // different cluster or revision will still be included.
 // Example:
@@ -101,7 +100,7 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 //     The plain-pods are a, b and c.
 //     This filter would result in a, headless, naked and vm.
 // TODO this name is not good
-func SingleSimplePodServiceAndAllSpecial(min int, exclude ...echo.Instance) Filter {
+func SimplePodServiceAndAllSpecial(min int, exclude ...echo.Instance) Filter {
 	return func(instances echo.Instances) echo.Instances {
 		nonRegular := notRegularPods()(instances)
 		needed := min - len(nonRegular)
@@ -111,6 +110,10 @@ func SingleSimplePodServiceAndAllSpecial(min int, exclude ...echo.Instance) Filt
 
 		return nRegularPodPerNamespace(needed, exclude)(instances).Append(nonRegular)
 	}
+}
+
+func SingleSimplePodServiceAndAllSpecial(exclude ...echo.Instance) Filter {
+	return SimplePodServiceAndAllSpecial(1, exclude...)
 }
 
 func nRegularPodPerNamespace(needed int, exclude echo.Instances) Filter {
