@@ -103,8 +103,6 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-require github.com/alecthomas/participle v0.4.1 // indirect
-
 require (
 	cloud.google.com/go v0.101.1 // indirect
 	cloud.google.com/go/logging v1.4.2 // indirect
@@ -122,6 +120,7 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
+	github.com/alecthomas/participle v0.4.1 // indirect
 	github.com/alecholmes/xfccparser v0.1.0
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
