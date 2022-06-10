@@ -39,11 +39,7 @@ func (xff *XfccAuthenticator) AuthenticatorType() string {
 	return XfccAuthenticatorType
 }
 
-// Authenticate extracts identities from presented client certificates
-// set in Xfcc Header.
-// This method assumes that certificate chain has been properly validated
-// before this method is called. In other words, this method does not do
-// certificate chain validation itself.
+// Authenticate extracts identities from Xfcc Header.
 func (xff *XfccAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
 	meta, ok := metadata.FromIncomingContext(ctx)
 
