@@ -374,10 +374,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
 	gatewayVirtualServices := make(map[string][]config.Config)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
+	unGenRouteMap := make(map[int]bool)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		port := int(server.Port.Number)
-
 		var virtualServices []config.Config
 		var exists bool
 
@@ -425,6 +425,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				}
 				gatewayRoutes[gatewayName][vskey] = routes
 			}
+			// No route configuation for gateway on related port and given virtual service
+			if len(gatewayRoutes[gatewayName][vskey]) == 0 {
+				unGenRouteMap[port] = true
+			}
 
 			for _, hostname := range intersectingHosts {
 				if vHost, exists := vHostDedupMap[hostname]; exists {
@@ -469,8 +473,22 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
-		if features.EnableDualStack && adjustedRouteName != routeName {
-			return nil
+		// If Dual Stack is enable, there would be some invalid cluster resource which
+		// may not have valid route configuration and need to return nil route configuration
+		if features.EnableDualStack {
+			if len(unGenRouteMap) == 0 {
+				return nil
+			}
+			returnNil := false
+			for _, need := range unGenRouteMap {
+				if !need {
+					returnNil = true
+					break
+				}
+			}
+			if returnNil {
+				return nil
+			}
 		}
 		port := int(servers[0].Port.Number)
 		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", adjustedRouteName, port)
