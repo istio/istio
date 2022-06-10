@@ -339,10 +339,6 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client) bool {
 	return false
 }
 
-func GetWebhooksWithRevision(context context.Context, client kubelib.Client, DefaultRevisionName string) {
-	panic("unimplemented")
-}
-
 // deleteCluster deletes cluster resources and does not trigger push.
 // This call is not thread safe.
 func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
