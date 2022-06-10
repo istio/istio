@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"golang.org/x/sync/errgroup"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
@@ -243,7 +244,10 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
 
-	if m.startNsController && (features.ExternalIstiod || configCluster) {
+	shouldLead := m.checkShouldLead(client)
+	log.Infof("should join leader-election for cluster %s: %t", cluster.ID, shouldLead)
+
+	if m.startNsController && (shouldLead || configCluster) {
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			log.Infof("joining leader-election for %s in %s on cluster %s",
@@ -269,7 +273,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 	// The config cluster has this patching set up elsewhere. We may eventually want to move it here.
 	// We can not use leader election for webhook patching because each revision needs to patch its own
 	// webhook.
-	if features.ExternalIstiod && !configCluster && m.caBundleWatcher != nil {
+	if shouldLead && !configCluster && m.caBundleWatcher != nil {
 		// Patch injection webhook cert
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
@@ -312,6 +316,31 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 	}
 
 	return nil
+}
+
+const ExternalIstiodLabel string = "externalIstiod"
+
+// checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
+func (m *Multicluster) checkShouldLead(client kubelib.Client) bool {
+	if features.ExternalIstiod {
+		webhooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", ExternalIstiodLabel, "true"),
+		})
+		if err != nil {
+			log.Errorf("could not access injection webhooks: %v", err)
+			// TODO retry in case it was just a transient error?
+			return false
+		}
+		if len(webhooks.Items) != 0 {
+			// found webhook with externalIstiod label, i.e., cluster is an istiodless remote
+			return true
+		}
+	}
+	return false
+}
+
+func GetWebhooksWithRevision(context context.Context, client kubelib.Client, DefaultRevisionName string) {
+	panic("unimplemented")
 }
 
 // deleteCluster deletes cluster resources and does not trigger push.
