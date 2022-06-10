@@ -334,14 +334,13 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client) bool {
 		if len(webhooks.Items) != 0 {
 			// found webhook with externalIstiod label, i.e., cluster is an istiodless remote
 			return true
-		} else {
-			webhooks, err = client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				log.Errorf("DEBUG could not access injection webhooks: %v", err)
-				return false
-			}
-			log.Infof("DEBUG all mutating webhooks:\n%v", webhooks)
 		}
+		webhooks, err = client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			log.Errorf("DEBUG could not access injection webhooks: %v", err)
+			return false
+		}
+		log.Infof("DEBUG all mutating webhooks:\n%v", webhooks)
 	}
 	return false
 }
