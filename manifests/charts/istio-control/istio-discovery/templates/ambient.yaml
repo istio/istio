@@ -179,7 +179,7 @@ spec:
           - sh
           - -c
           - |
-            # HBONE traffic goes to HBONE port...
+            # MTP traffic goes to MTP port...
             iptables -t nat -A PREROUTING -p tcp --dport 15008 ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn 15008] "
             iptables -t nat -A PREROUTING -p tcp --dport 15008 ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j REDIRECT --to-ports 15008
             # Special logic to handle the case where we have a remote proxy (no interception) and server (interception) on the node
@@ -189,7 +189,7 @@ spec:
             iptables -t nat -A PREROUTING -m state --state NEW -p tcp --tcp-flags ACK ACK ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j ACCEPT
             # Send everything else through the "outbound" port. For now, DPv2 cannot distinguish inbound vs outbound, so we
             # do some (semi-reliable) heuristics on the outbound port to treat it as inbound, when needed. Typically inbound is
-            # HBONE though.
+            # MTP though.
             iptables -t nat -A PREROUTING -p tcp ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn outbound] "
             iptables -t nat -A PREROUTING -p tcp ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j REDIRECT --to-ports 15001
 

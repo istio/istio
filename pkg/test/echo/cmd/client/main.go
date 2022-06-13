@@ -56,10 +56,17 @@ var (
 	followRedirects         bool
 	newConnectionPerRequest bool
 	forceDNSLookup          bool
-	clientCert              string
-	clientKey               string
+
+	clientCert string
+	clientKey  string
 
 	caFile string
+
+	mtpAddress    string
+	mtpHeaders    []string
+	mtpClientCert string
+	mtpClientKey  string
+	mtpCaFile     string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -151,6 +158,13 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceVarP(&alpn, "alpn", "", nil, "alpn to set")
 	rootCmd.PersistentFlags().StringVarP(&serverName, "server-name", "", serverName, "server name to set")
 
+	rootCmd.PersistentFlags().StringVar(&mtpAddress, "mtp", "", "address to send MTP request to")
+	rootCmd.PersistentFlags().StringSliceVarP(&mtpHeaders, "mtp-header", "M", mtpHeaders,
+		"A list of http headers for MTP connection (use Host for authority) - 'name: value', following curl syntax")
+	rootCmd.PersistentFlags().StringVar(&mtpCaFile, "mtp-ca", "", "CA root cert file used for the MTP request")
+	rootCmd.PersistentFlags().StringVar(&mtpClientCert, "mtp-client-cert", "", "client certificate file used for the MTP request")
+	rootCmd.PersistentFlags().StringVar(&mtpClientKey, "mtp-client-key", "", "client certificate key file used for the MTP request")
+
 	loggingOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
@@ -184,6 +198,27 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		InsecureSkipVerify:      insecureSkipVerify,
 		NewConnectionPerRequest: newConnectionPerRequest,
 		ForceDNSLookup:          forceDNSLookup,
+	}
+	if len(mtpAddress) > 0 {
+		request.Mtp = &proto.MTP{
+			Address:            mtpAddress,
+			CertFile:           mtpClientCert,
+			KeyFile:            mtpClientKey,
+			CaCertFile:         mtpCaFile,
+			InsecureSkipVerify: false,
+		}
+		for _, header := range mtpHeaders {
+			parts := strings.SplitN(header, ":", 2)
+			// require name:value format
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
+			}
+
+			request.Mtp.Headers = append(request.Mtp.Headers, &proto.Header{
+				Key:   parts[0],
+				Value: strings.Trim(parts[1], " "),
+			})
+		}
 	}
 
 	if expectSet {

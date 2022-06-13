@@ -65,11 +65,11 @@ func (c *websocketProtocol) makeRequest(ctx context.Context, cfg *Config, reques
 	}
 
 	dialContext := func(network, addr string) (net.Conn, error) {
-		return newDialer(cfg.forceDNSLookup).Dial(network, addr)
+		return newDialer(cfg).Dial(network, addr)
 	}
 	if len(cfg.UDS) > 0 {
 		dialContext = func(network, addr string) (net.Conn, error) {
-			return newDialer(cfg.forceDNSLookup).Dial("unix", cfg.UDS)
+			return newDialer(cfg).Dial("unix", cfg.UDS)
 		}
 	}
 

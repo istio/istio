@@ -25,6 +25,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/mtp"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -45,11 +46,19 @@ func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header)
 	}
 }
 
-func newDialer(forceDNSLookup bool) *net.Dialer {
+func newDialer(cfg *Config) mtp.Dialer {
+	if cfg.Request.Mtp.GetAddress() != "" {
+		out := mtp.NewDialer(mtp.Config{
+			ProxyAddress: cfg.Request.Mtp.GetAddress(),
+			Headers:      cfg.mtpHeaders,
+			TLS:          cfg.mtpTLSConfig,
+		})
+		return out
+	}
 	out := &net.Dialer{
 		Timeout: common.ConnectionTimeout,
 	}
-	if forceDNSLookup {
+	if cfg.forceDNSLookup {
 		out.Resolver = newResolver(common.ConnectionTimeout, "", "")
 	}
 	return out
