@@ -336,6 +336,9 @@ func (l *lruCache) ClearAll() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
+	// TODO: Purge with an evict function would turn up to be pretty slow since
+	// it runs the function for every key in the store, might be better to just
+	// create a new store.
 	l.store.Purge()
 	l.configIndex = map[ConfigKey]sets.Set{}
 	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
