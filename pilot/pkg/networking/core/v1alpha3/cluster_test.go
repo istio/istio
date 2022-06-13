@@ -1302,15 +1302,16 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 func TestSlowStartConfig(t *testing.T) {
 	g := NewWithT(t)
 	testcases := []struct {
-		name             string
-		lbType           networking.LoadBalancerSettings_SimpleLB
-		slowStartEnabled bool
+		name                string
+		lbType              networking.LoadBalancerSettings_SimpleLB
+		enableSlowStartMode bool
 	}{
-		{name: "roundrobin", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, slowStartEnabled: true},
-		{name: "leastrequest", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, slowStartEnabled: true},
-		{name: "passthrough", lbType: networking.LoadBalancerSettings_PASSTHROUGH, slowStartEnabled: true},
-		{name: "roundrobin-without-warmup", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, slowStartEnabled: false},
-		{name: "leastrequest-without-warmup", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, slowStartEnabled: false},
+		{name: "roundrobin", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, enableSlowStartMode: true},
+		{name: "leastrequest", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, enableSlowStartMode: true},
+		{name: "passthrough", lbType: networking.LoadBalancerSettings_PASSTHROUGH, enableSlowStartMode: true},
+		{name: "roundrobin-without-warmup", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, enableSlowStartMode: false},
+		{name: "leastrequest-without-warmup", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, enableSlowStartMode: false},
+		{name: "empty lb type", enableSlowStartMode: true},
 	}
 
 	for _, test := range testcases {
@@ -1322,14 +1323,14 @@ func TestSlowStartConfig(t *testing.T) {
 				mesh:            testMesh(),
 				destRule: &networking.DestinationRule{
 					Host:          test.name,
-					TrafficPolicy: getSlowStartTrafficPolicy(test.slowStartEnabled, test.lbType),
+					TrafficPolicy: getSlowStartTrafficPolicy(test.enableSlowStartMode, test.lbType),
 				},
 			})
 
 			c := xdstest.ExtractCluster("outbound|8080||"+test.name,
 				clusters)
 
-			if !test.slowStartEnabled {
+			if !test.enableSlowStartMode {
 				g.Expect(c.GetLbConfig()).To(BeNil())
 			} else {
 				switch c.LbPolicy {

@@ -695,8 +695,6 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
 	applyLocalityLBSetting(locality, proxyLabels, c, localityLbSetting)
 
-	// apply default round robin lb policy
-	c.LbPolicy = defaultLBAlgorithm()
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		return
@@ -705,10 +703,6 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
 	if features.EnableRedisFilter && port != nil && port.Protocol == protocol.Redis {
 		c.LbPolicy = cluster.Cluster_MAGLEV
-		return
-	}
-
-	if lb == nil {
 		return
 	}
 
@@ -725,10 +719,20 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
 	default:
-		c.LbPolicy = defaultLBAlgorithm()
+		ApplyDefaultLoadBalancer(c, lb)
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)
+}
+
+// ApplyDefaultLoadBalancer will set the DefaultLBPolicy and create an LbConfig if used in LoadBalancerSettings
+func ApplyDefaultLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+	switch defaultLBAlgorithm() {
+	case cluster.Cluster_ROUND_ROBIN:
+		ApplyRoundRobinLoadBalancer(c, loadbalancer)
+	case cluster.Cluster_LEAST_REQUEST:
+		ApplyLeastRequestLoadBalancer(c, loadbalancer)
+	}
 }
 
 // ApplyRoundRobinLoadBalancer will set the LbPolicy and create an LbConfig for ROUND_ROBIN if used in LoadBalancerSettings
