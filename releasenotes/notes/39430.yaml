@@ -5,4 +5,4 @@ issue:
   - 39430
 releaseNotes:
   - |
-    **Fixed** a bug when specifying warmupDuration with out Lb policy is not configuring warmup duration.
+    **Fixed** a bug where specifying warmupDuration without Lb policy is not configuring warmup duration.
