@@ -90,12 +90,36 @@ func indexConfig(configIndex map[ConfigKey]sets.Set, k string, entry XdsCacheEnt
 	}
 }
 
+func clearIndexConfig(configIndex map[ConfigKey]sets.Set, k string, dependentConfigs []ConfigKey) {
+	for _, cfg := range dependentConfigs {
+		index := configIndex[cfg]
+		if index != nil {
+			index.Delete(k)
+			if index.IsEmpty() {
+				delete(configIndex, cfg)
+			}
+		}
+	}
+}
+
 func indexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, entry XdsCacheEntry) {
 	for _, t := range entry.DependentTypes() {
 		if typeIndex[t] == nil {
 			typeIndex[t] = sets.New()
 		}
 		typeIndex[t].Insert(k)
+	}
+}
+
+func clearIndexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, dependentTypes []config.GroupVersionKind) {
+	for _, t := range dependentTypes {
+		index := typeIndex[t]
+		if index != nil {
+			index.Delete(k)
+			if index.IsEmpty() {
+				delete(typeIndex, t)
+			}
+		}
 	}
 }
 
@@ -141,22 +165,26 @@ type XdsCache interface {
 
 // NewXdsCache returns an instance of a cache.
 func NewXdsCache() XdsCache {
-	return &lruCache{
+	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
-		store:            newLru(),
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 	}
+	cache.store = newLru(cache)
+
+	return cache
 }
 
 // NewLenientXdsCache returns an instance of a cache that does not validate token based get/set and enable assertions.
 func NewLenientXdsCache() XdsCache {
-	return &lruCache{
+	cache := &lruCache{
 		enableAssertions: false,
-		store:            newLru(),
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 	}
+	cache.store = newLru(cache)
+
+	return cache
 }
 
 type lruCache struct {
@@ -172,16 +200,29 @@ type lruCache struct {
 
 var _ XdsCache = &lruCache{}
 
-func newLru() simplelru.LRUCache {
+func newLru(xdsCache *lruCache) simplelru.LRUCache {
 	sz := features.XDSCacheMaxSize
 	if sz <= 0 {
 		sz = 20000
 	}
-	l, err := simplelru.NewLRU(sz, evict)
+	l, err := simplelru.NewLRU(sz, xdsCache.evict)
 	if err != nil {
 		panic(fmt.Errorf("invalid lru configuration: %v", err))
 	}
 	return l
+}
+
+func (l *lruCache) evict(k interface{}, v interface{}) {
+	if features.EnableXDSCacheMetrics {
+		xdsCacheEvictions.Increment()
+	}
+
+	key := k.(string)
+	value := v.(cacheValue)
+
+	// we don't need to acquire locks, since this function is called when we write to the store
+	clearIndexConfig(l.configIndex, key, value.dependentConfigs)
+	clearIndexType(l.typesIndex, key, value.dependentTypes)
 }
 
 // assertUnchanged checks that a cache entry is not changed. This helps catch bad cache invalidation
@@ -245,8 +286,10 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 }
 
 type cacheValue struct {
-	value *discovery.Resource
-	token CacheToken
+	value            *discovery.Resource
+	token            CacheToken
+	dependentConfigs []ConfigKey
+	dependentTypes   []config.GroupVersionKind
 }
 
 func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
