@@ -299,9 +299,11 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 
 // CreateFakeJwks is a helper function to make a fake jwks when istiod failed to fetch it.
 func CreateFakeJwks(jwksURI string) string {
+	// Create a fake jwksURI
+	fakeJwksURI := "Error-IstiodFailedToFetchJwksUri-" + jwksURI
 	// Encode jwksURI with base64 to make dynamic n in jwks
-	encodedString := base64.RawURLEncoding.EncodeToString([]byte(jwksURI))
-	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"Error-IstiodFailedToFetchJwksUri-%s"}]}`, encodedString)
+	encodedString := base64.RawURLEncoding.EncodeToString([]byte(fakeJwksURI))
+	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"%s"}]}`, encodedString)
 }
 
 // Resolve jwks_uri through openID discovery.
