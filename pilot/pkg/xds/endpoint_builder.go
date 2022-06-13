@@ -39,6 +39,11 @@ import (
 	"istio.io/istio/pkg/network"
 )
 
+var (
+	Separator = []byte{'~'}
+	Slash     = []byte{'/'}
+)
+
 // Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
 // collection includes only the endpoints which support H2 tunnel and the non-tunnel endpoints. The latter case is to
 // support multi-cluster service.
@@ -124,30 +129,44 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
-	params := []string{
-		b.clusterName,
-		string(b.network),
-		string(b.clusterID),
-		strconv.FormatBool(b.clusterLocal),
-		util.LocalityToString(b.locality),
-		b.tunnelType.ToString(),
-	}
-	if b.push != nil && b.push.AuthnPolicies != nil {
-		params = append(params, b.push.AuthnPolicies.GetVersion())
-	}
-	if b.destinationRule != nil {
-		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)
-	}
-	if b.service != nil {
-		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
-	}
-	if b.proxyView != nil {
-		params = append(params, b.proxyView.String())
-	}
 	hash := md5.New()
-	for _, param := range params {
-		hash.Write([]byte(param))
+	hash.Write([]byte(b.clusterName))
+	hash.Write(Separator)
+	hash.Write([]byte(b.network))
+	hash.Write(Separator)
+	hash.Write([]byte(b.clusterID))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(b.clusterLocal)))
+	hash.Write(Separator)
+	hash.Write([]byte(util.LocalityToString(b.locality)))
+	hash.Write(Separator)
+	hash.Write([]byte(b.tunnelType.ToString()))
+	hash.Write(Separator)
+
+	if b.push != nil && b.push.AuthnPolicies != nil {
+		hash.Write([]byte(b.push.AuthnPolicies.GetVersion()))
 	}
+	hash.Write(Separator)
+
+	if b.destinationRule != nil {
+		hash.Write([]byte(b.destinationRule.Name))
+		hash.Write(Slash)
+		hash.Write([]byte(b.destinationRule.Namespace))
+	}
+	hash.Write(Separator)
+
+	if b.service != nil {
+		hash.Write([]byte(b.service.Hostname))
+		hash.Write(Slash)
+		hash.Write([]byte(b.service.Attributes.Namespace))
+	}
+	hash.Write(Separator)
+
+	if b.proxyView != nil {
+		hash.Write([]byte(b.proxyView.String()))
+	}
+	hash.Write(Separator)
+
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
 }
