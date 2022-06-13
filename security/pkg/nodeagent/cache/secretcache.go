@@ -30,6 +30,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc/metadata"
+	"k8s.io/utils/env"
 
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
@@ -144,7 +145,7 @@ func (s *secretCache) SetRoot(rootCert []byte) {
 func (s *secretCache) GetWorkload() *security.SecretItem {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.workload == nil || os.Getenv("ISTIO_META_SIDECARLESS_TYPE") == "uproxy" {
+	if s.workload == nil || env.GetString("ISTIO_META_SIDECARLESS_TYPE", "") == "uproxy" {
 		return nil
 	}
 	return s.workload
