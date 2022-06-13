@@ -165,6 +165,14 @@ func NewServer(config Options) (*Server, error) {
 	if config.IPv6 {
 		localhost = localHostIPv6
 		upstreamLocalAddress = UpstreamLocalAddressIPv6
+	} else {
+		// if not ipv6-only, it can be ipv4-only or dual-stack
+		// let InstanceIP decide the localhost
+		netIP := net.ParseIP(config.PodIP)
+		if netIP.To4() == nil && netIP.To16() != nil && !netIP.IsLinkLocalUnicast() {
+			localhost = localHostIPv6
+			upstreamLocalAddress = UpstreamLocalAddressIPv6
+		}
 	}
 	probes := make([]ready.Prober, 0)
 	if !config.NoEnvoy {
@@ -347,8 +355,8 @@ func (s *Server) Run(ctx context.Context) {
 	}
 	// for testing.
 	if s.statusPort == 0 {
-		addrs := strings.Split(l.Addr().String(), ":")
-		allocatedPort, _ := strconv.Atoi(addrs[len(addrs)-1])
+		_, hostPort, _ := net.SplitHostPort(l.Addr().String())
+		allocatedPort, _ := strconv.Atoi(hostPort)
 		s.mutex.Lock()
 		s.statusPort = uint16(allocatedPort)
 		s.mutex.Unlock()
@@ -659,10 +667,11 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 		proberPath = "/" + proberPath
 	}
 	var url string
+	hostPort := net.JoinHostPort(s.appProbersDestination, strconv.Itoa(prober.HTTPGet.Port.IntValue()))
 	if prober.HTTPGet.Scheme == apimirror.URISchemeHTTPS {
-		url = fmt.Sprintf("https://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
+		url = fmt.Sprintf("https://%s%s", hostPort, proberPath)
 	} else {
-		url = fmt.Sprintf("http://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
+		url = fmt.Sprintf("http://%s%s", hostPort, proberPath)
 	}
 	appReq, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
