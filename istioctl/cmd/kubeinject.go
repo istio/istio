@@ -92,6 +92,12 @@ func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, 
 		}
 	}
 	tlsClientConfig := &tls.Config{RootCAs: certPool}
+	client := http.Client{
+		Timeout: time.Second * 5,
+		Transport: &http.Transport{
+			TLSClientConfig: tlsClientConfig,
+		},
+	}
 	if cc.Service != nil {
 		svc, err := e.client.CoreV1().Services(cc.Service.Namespace).Get(context.Background(), cc.Service.Name, metav1.GetOptions{})
 		if err != nil {
@@ -130,12 +136,12 @@ func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, 
 			}()
 		}
 		tlsClientConfig.ServerName = fmt.Sprintf("%s.%s.%s", cc.Service.Name, cc.Service.Namespace, "svc")
-	}
-	client := http.Client{
-		Timeout: time.Second * 5,
-		Transport: &http.Transport{
-			TLSClientConfig: tlsClientConfig,
-		},
+	} else if isMCPAddr(address) {
+		var err error
+		client.Transport, err = mcpTransport(context.TODO(), client.Transport)
+		if err != nil {
+			return nil, err
+		}
 	}
 	podBytes, err := json.Marshal(pod)
 	if pod.Namespace != "" {
