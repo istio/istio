@@ -710,33 +710,34 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	switch lb.GetSimple() {
 	// nolint: staticcheck
 	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
-		ApplyLeastRequestLoadBalancer(c, lb)
+		applyLeastRequestLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_RANDOM:
 		c.LbPolicy = cluster.Cluster_RANDOM
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
-		ApplyRoundRobinLoadBalancer(c, lb)
+		applyRoundRobinLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
 	default:
-		ApplyDefaultLoadBalancer(c, lb)
+		applySimpleDefaultLoadBalancer(c, lb)
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)
 }
 
-// ApplyDefaultLoadBalancer will set the DefaultLBPolicy and create an LbConfig if used in LoadBalancerSettings
-func ApplyDefaultLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
-	switch defaultLBAlgorithm() {
+// applySimpleDefaultLoadBalancer will set the DefaultLBPolicy and create an LbConfig if used in LoadBalancerSettings
+func applySimpleDefaultLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+	c.LbPolicy = defaultLBAlgorithm()
+	switch c.LbPolicy {
 	case cluster.Cluster_ROUND_ROBIN:
-		ApplyRoundRobinLoadBalancer(c, loadbalancer)
+		applyRoundRobinLoadBalancer(c, loadbalancer)
 	case cluster.Cluster_LEAST_REQUEST:
-		ApplyLeastRequestLoadBalancer(c, loadbalancer)
+		applyLeastRequestLoadBalancer(c, loadbalancer)
 	}
 }
 
-// ApplyRoundRobinLoadBalancer will set the LbPolicy and create an LbConfig for ROUND_ROBIN if used in LoadBalancerSettings
-func ApplyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+// applyRoundRobinLoadBalancer will set the LbPolicy and create an LbConfig for ROUND_ROBIN if used in LoadBalancerSettings
+func applyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
 	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
 
 	if loadbalancer.GetWarmupDurationSecs() != nil {
@@ -748,8 +749,8 @@ func ApplyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.Lo
 	}
 }
 
-// ApplyLeastRequestLoadBalancer will set the LbPolicy and create an LbConfig for LEAST_REQUEST if used in LoadBalancerSettings
-func ApplyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+// applyLeastRequestLoadBalancer will set the LbPolicy and create an LbConfig for LEAST_REQUEST if used in LoadBalancerSettings
+func applyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
 	c.LbPolicy = cluster.Cluster_LEAST_REQUEST
 
 	if loadbalancer.GetWarmupDurationSecs() != nil {
