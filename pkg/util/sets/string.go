@@ -44,8 +44,14 @@ func (s Set) InsertAll(items ...string) Set {
 	return s
 }
 
+// Delete removes an item from the set.
+func (s Set) Delete(item string) Set {
+	delete(s, item)
+	return s
+}
+
 // Delete removes items from the set.
-func (s Set) Delete(items ...string) Set {
+func (s Set) DeleteAll(items ...string) Set {
 	for _, item := range items {
 		delete(s, item)
 	}
