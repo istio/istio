@@ -13,8 +13,12 @@ tools/vagrant/.vagrant/
 .vscode/
 # Bazel
 /bazel-*
+# vi swap files
+.*.swp
 # vi backups
 *.bak
+# common backups
+*~
 # python artifacts
 *.pyc
 # pilot
