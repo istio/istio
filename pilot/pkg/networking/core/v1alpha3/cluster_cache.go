@@ -28,6 +28,11 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
+var (
+	Separator = []byte{'~'}
+	Slash     = []byte{'/'}
+)
+
 // clusterCache includes the variables that can influence a Cluster Configuration.
 // Implements XdsCacheEntry interface.
 type clusterCache struct {
@@ -57,37 +62,60 @@ type clusterCache struct {
 func (t *clusterCache) Key() string {
 	hash := md5.New()
 	hash.Write([]byte(t.clusterName))
+	hash.Write(Separator)
 	hash.Write([]byte(t.proxyVersion))
+	hash.Write(Separator)
 	hash.Write([]byte(util.LocalityToString(t.locality)))
+	hash.Write(Separator)
 	hash.Write([]byte(t.proxyClusterID))
+	hash.Write(Separator)
 	hash.Write([]byte(strconv.FormatBool(t.proxySidecar)))
+	hash.Write(Separator)
 	hash.Write([]byte(strconv.FormatBool(t.http2)))
+	hash.Write(Separator)
 	hash.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
+	hash.Write(Separator)
 	hash.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
+	hash.Write(Separator)
 
 	if t.proxyView != nil {
 		hash.Write([]byte(t.proxyView.String()))
 	}
+	hash.Write(Separator)
+
 	if t.metadataCerts != nil {
 		hash.Write([]byte(t.metadataCerts.String()))
 	}
+	hash.Write(Separator)
+
 	if t.service != nil {
 		hash.Write([]byte(t.service.Hostname))
-		hash.Write([]byte{'/'})
+		hash.Write(Slash)
 		hash.Write([]byte(t.service.Attributes.Namespace))
 	}
+	hash.Write(Separator)
+
 	if t.destinationRule != nil {
 		hash.Write([]byte(t.destinationRule.Name))
-		hash.Write([]byte{'/'})
+		hash.Write(Slash)
 		hash.Write([]byte(t.destinationRule.Namespace))
 	}
+	hash.Write(Separator)
+
 	for _, efk := range t.envoyFilterKeys {
 		hash.Write([]byte(efk))
+		hash.Write(Separator)
 	}
+	hash.Write(Separator)
+
 	hash.Write([]byte(t.peerAuthVersion))
+	hash.Write(Separator)
+
 	for _, sa := range t.serviceAccounts {
 		hash.Write([]byte(sa))
+		hash.Write(Separator)
 	}
+	hash.Write(Separator)
 
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)

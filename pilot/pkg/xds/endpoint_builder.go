@@ -39,6 +39,11 @@ import (
 	"istio.io/istio/pkg/network"
 )
 
+var (
+	Separator = []byte{'~'}
+	Slash     = []byte{'/'}
+)
+
 // Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
 // collection includes only the endpoints which support H2 tunnel and the non-tunnel endpoints. The latter case is to
 // support multi-cluster service.
@@ -126,28 +131,41 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 func (b EndpointBuilder) Key() string {
 	hash := md5.New()
 	hash.Write([]byte(b.clusterName))
+	hash.Write(Separator)
 	hash.Write([]byte(b.network))
+	hash.Write(Separator)
 	hash.Write([]byte(b.clusterID))
+	hash.Write(Separator)
 	hash.Write([]byte(strconv.FormatBool(b.clusterLocal)))
+	hash.Write(Separator)
 	hash.Write([]byte(util.LocalityToString(b.locality)))
+	hash.Write(Separator)
 	hash.Write([]byte(b.tunnelType.ToString()))
+	hash.Write(Separator)
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
 		hash.Write([]byte(b.push.AuthnPolicies.GetVersion()))
 	}
+	hash.Write(Separator)
+
 	if b.destinationRule != nil {
 		hash.Write([]byte(b.destinationRule.Name))
-		hash.Write([]byte{'/'})
+		hash.Write(Slash)
 		hash.Write([]byte(b.destinationRule.Namespace))
 	}
+	hash.Write(Separator)
+
 	if b.service != nil {
 		hash.Write([]byte(b.service.Hostname))
-		hash.Write([]byte{'/'})
+		hash.Write(Slash)
 		hash.Write([]byte(b.service.Attributes.Namespace))
 	}
+	hash.Write(Separator)
+
 	if b.proxyView != nil {
 		hash.Write([]byte(b.proxyView.String()))
 	}
+	hash.Write(Separator)
 
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
