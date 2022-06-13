@@ -135,11 +135,13 @@ type sidecarIndex struct {
 	// computedSidecarsByNamespace contains the default sidecar for namespaces that do not have a sidecar.
 	// These may be DefaultSidecarScopeForNamespace if rootConfig is empty or ConvertToSidecarScope if not.
 	// These are lazy-loaded. Access protected by defaultSidecarMu
+	// +checklocks:defaultSidecarMu
 	computedSidecarsByNamespace map[string]*SidecarScope
 	// gatewayDefaultSidecarsByNamespace contains the default sidecar for namespaces that do not have a sidecar,
 	// for gateways.
 	// Unlike computedSidecarsByNamespace, this is *always* the output of DefaultSidecarScopeForNamespace.
 	// These are lazy-loaded. Access protected by defaultSidecarMu
+	// +checklocks:defaultSidecarMu
 	gatewayDefaultSidecarsByNamespace map[string]*SidecarScope
 	defaultSidecarMu                  *sync.Mutex
 }
@@ -598,6 +600,7 @@ var (
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
+	// +checklocks:LastPushMutex
 	LastPushStatus *PushContext
 	// LastPushMutex will protect the LastPushStatus
 	LastPushMutex sync.Mutex
