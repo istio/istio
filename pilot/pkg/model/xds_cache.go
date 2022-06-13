@@ -277,7 +277,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 		return
 	}
 
-	toWrite := cacheValue{value: value, token: token}
+	toWrite := cacheValue{value: value, token: token, dependentConfigs: entry.DependentConfigs(), dependentTypes: entry.DependentTypes()}
 	l.store.Add(k, toWrite)
 	l.token = token
 	indexConfig(l.configIndex, k, entry)
