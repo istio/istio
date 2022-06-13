@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 39430
+releaseNotes:
+  - |
+    **Fixed** a bug where specifying warmupDuration without Lb policy is not configuring warmup duration.
