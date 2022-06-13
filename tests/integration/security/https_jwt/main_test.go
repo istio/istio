@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
@@ -46,6 +47,8 @@ func loadCert(filename string) (string, error) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Label(label.CustomSetup).
+		Label("CustomSetup").
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return util.SetupApps(ctx, ist, apps, true)
