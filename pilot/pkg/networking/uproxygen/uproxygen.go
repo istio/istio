@@ -307,7 +307,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 					if wl.Namespace != svc.Attributes.Namespace {
 						continue
 					}
-					if !labels.Instance(svc.Attributes.Labels).SubsetOf(wl.Labels) {
+					if !labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.Labels) {
 						continue
 					}
 					serverPepChain = buildPepChain(sourceWl, push.SidecarlessIndex.PEPs.ByIdentity[wl.Identity()], "server")

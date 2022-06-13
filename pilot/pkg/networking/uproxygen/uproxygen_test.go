@@ -72,6 +72,8 @@ metadata:
     app: helloworld
     service: helloworld
 spec:
+  clusterIP: 1.2.3.4
+  clusterIPs: [1.2.3.4]
   ports:
   - port: 5000
     name: http
@@ -108,6 +110,26 @@ spec:
   serviceAccountName: default
 status:
   podIP: 10.0.0.3
+  conditions:
+  - type: Ready
+    status: "True"
+`
+
+const testPEP = `
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: default-proxy
+  namespace: ns1
+  labels:
+    app: default-proxy
+    ambient-type: pep
+spec:
+  nodeName: worker-1
+  serviceAccountName: default
+status:
+  podIP: 10.0.1.1
   conditions:
   - type: Ready
     status: "True"
@@ -169,5 +191,48 @@ func TestUproxygen(t *testing.T) {
 				t.Errorf("expected %d; got %d\n- %s", tc.want, n, strings.Join(names, "\n- "))
 			}
 		})
+	}
+}
+
+func TestUproxygenServerPep(t *testing.T) {
+	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		KubernetesObjectString: testData + testPEP,
+	})
+	ads := ds.ConnectADS().WithMetadata(model.NodeMetadata{
+		Generator: "uproxy-envoy",
+		NodeName:  "worker-1",
+	})
+	res := ads.WithType(v3.ListenerType).RequestResponseAck(t, &discoveryv3.DiscoveryRequest{})
+
+	listeners := map[string]*listenerv3.Listener{}
+	for _, resource := range res.Resources {
+		l := &listenerv3.Listener{}
+		if err := resource.UnmarshalTo(l); err != nil {
+			t.Fatal(err)
+		}
+		listeners[l.Name] = l
+	}
+
+	outboundListener, ok := listeners["uproxy_outbound"]
+	if !ok {
+		t.Fatal("did not find uproxy_outbound listener")
+	}
+
+	srcIPMatch := outboundListener.GetFilterChainMatcher().GetOnNoMatch().GetMatcher().GetMatcherTree().GetExactMatchMap().GetMap()
+	if srcIPMatch == nil || srcIPMatch["10.0.0.1"] == nil {
+		t.Fatal("no src ip match on sleep pod")
+	}
+	dstIPMatch := srcIPMatch["10.0.0.1"].GetMatcher().GetMatcherTree().GetExactMatchMap().GetMap()
+	if dstIPMatch == nil || dstIPMatch["1.2.3.4"] == nil {
+		t.Fatal("no dst ip match on helloworld vip")
+	}
+	portMatch := dstIPMatch["1.2.3.4"].GetMatcher().GetMatcherTree().GetExactMatchMap().GetMap()
+	if portMatch == nil || portMatch["5000"] == nil {
+		t.Fatal("no port match on helloworld port")
+	}
+
+	wantChain := "spiffe://cluster.local/ns/ns1/sa/sleep_to_server_pep_spiffe://cluster.local/ns/ns1/sa/default"
+	if chain := portMatch["5000"].GetAction().GetName(); chain != wantChain {
+		t.Fatalf("expected chain %q but got %q", wantChain, chain)
 	}
 }
