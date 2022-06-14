@@ -49,7 +49,6 @@ spec:
           runAsUser: 1338
           runAsGroup: 1338
         args:
-          - --forwarding_address=0.0.0.0:17777
           - --metrics=15014
           - --cluster=cluster-0
           - --port=8080
@@ -96,6 +95,7 @@ spec:
           runAsUser: 1338
           runAsGroup: 1338
         args:
+          - --forwarding_address=0.0.0.0:17777
           - --metrics=15014
           - --cluster=cluster-0
           - --xds-grpc-server=7070
