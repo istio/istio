@@ -43,7 +43,6 @@ images:
   files:
   - tools/packaging/common/envoy_bootstrap.json
   - tools/packaging/common/gcp_envoy_bootstrap.json
-  - tools/packaging/common/uproxy_bootstrap.json
   targets:
   - ${TARGET_OUT_LINUX}/pilot-discovery
 
@@ -53,7 +52,6 @@ images:
   files:
   - tools/packaging/common/envoy_bootstrap.json
   - tools/packaging/common/gcp_envoy_bootstrap.json
-  - tools/packaging/common/uproxy_bootstrap.json
   - ${TARGET_OUT_LINUX}/release/${SIDECAR}
   - ${TARGET_OUT_LINUX}/release/stats-filter.wasm
   - ${TARGET_OUT_LINUX}/release/stats-filter.compiled.wasm

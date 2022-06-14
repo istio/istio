@@ -199,8 +199,9 @@ func TestServerSideLB(t *testing.T) {
 				hostnames[i] = r.Hostname
 			}
 			unique := sets.New(hostnames...).SortedList()
-			if len(unique) != dst.WorkloadsOrFail(t).Len() {
-				return fmt.Errorf("excepted only all destinations, got: %v", unique)
+			want := dst.WorkloadsOrFail(t).Len()
+			if len(unique) != want {
+				return fmt.Errorf("excepted all destinations (%v), got: %v", want, unique)
 			}
 			return nil
 		}

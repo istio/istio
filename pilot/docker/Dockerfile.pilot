@@ -19,8 +19,6 @@ COPY ${TARGETARCH:-amd64}/pilot-discovery /usr/local/bin/pilot-discovery
 
 # Copy templates for bootstrap generation.
 COPY envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-# TODO(ambient)
-COPY uproxy_bootstrap.json /var/lib/istio/envoy/uproxy_bootstrap_tmpl.json
 COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 USER 1337:1337

@@ -48,6 +48,9 @@ func (r *redirection) ID() resource.ID {
 // Redirection component for the test framework enables redirection to uProxy for the duration of the suite.
 // TODO This is super hacky for now. Eventually, this should enable/disable the CNI.
 func Redirection(ctx resource.Context) error {
+	if !ctx.Settings().CIMode {
+		return nil
+	}
 	if strings.HasPrefix("TEST_ENV", "gke") {
 		scopes.Framework.Infof("=== SKIPPED: Apply ambient iptables redirection ===")
 		return nil
@@ -96,7 +99,7 @@ func enableRedirection(ctx resource.Context, clusterName string) error {
 	if err != nil {
 		return err
 	}
-	ctx.Cleanup(func() {
+	ctx.CleanupConditionally(func() {
 		if err := retry.UntilSuccess(func() error {
 			cleanCmd := exec.Command(redirectSh, clusterName, "clean")
 			scopes.Framework.Infof("Running %q", cleanCmd.String())
