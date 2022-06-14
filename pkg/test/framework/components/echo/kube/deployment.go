@@ -56,6 +56,8 @@ import (
 const (
 	// for proxyless we add a special gRPC server that doesn't get configured with xDS for test-runner use
 	grpcMagicPort = 17171
+	// for non-Go implementations of gRPC echo, this is the port used to forward non-gRPC requests to the Go server
+	grpcFallbackPort = 17777
 
 	serviceYAML = `
 {{- if .ServiceAccount }}
@@ -173,9 +175,10 @@ spec:
         - containerPort: 8000
         - containerPort: 9000
 {{- end }}
-      - name: app
-{{- if $.ImageFullPath }}
-        image: {{ $.ImageFullPath }}
+{{- range $i, $appContainer := $.AppContainers }}
+      - name: {{ $appContainer.Name }}
+{{- if $appContainer.ImageFullPath }}
+        image: {{ $appContainer.ImageFullPath }}
 {{- else }}
         image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
 {{- end }}
@@ -184,13 +187,15 @@ spec:
           runAsUser: 1338
           runAsGroup: 1338
         args:
+{{- if $appContainer.FallbackPort }}
+          - --forwarding_address=0.0.0.0:{{ $appContainer.FallbackPort }}
+{{- end }}
           - --metrics=15014
           - --cluster={{ $cluster }}
-{{- range $i, $p := $.ContainerPorts }}
-{{- if eq .Protocol "GRPC" }}
-{{- if and $.ProxylessGRPC (ne $p.Port $.GRPCMagicPort) }}
+{{- range $i, $p := $appContainer.ContainerPorts }}
+{{- if and $p.XDSServer (eq .Protocol "GRPC") }}
           - --xds-grpc-server={{ $p.Port }}
-{{- end }}
+{{- else if eq .Protocol "GRPC" }}
           - --grpc={{ $p.Port }}
 {{- else if eq .Protocol "TCP" }}
           - --tcp={{ $p.Port }}
@@ -223,7 +228,7 @@ spec:
           - --key=/cert.key
 {{- end }}
         ports:
-{{- range $i, $p := $.ContainerPorts }}
+{{- range $i, $p := $appContainer.ContainerPorts }}
         - containerPort: {{ $p.Port }}
 {{- if eq .Port 3333 }}
           name: tcp-health-port
@@ -273,6 +278,9 @@ spec:
         volumeMounts:
         - mountPath: /etc/certs/custom
           name: custom-certs
+{{- end }}
+{{- end }}
+{{- if $.TLSSettings }}
       volumes:
 {{- if $.TLSSettings.ProxyProvision }}
       - emptyDir:
@@ -710,18 +718,52 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	if err != nil {
 		return nil, err
 	}
+
+	containerPorts := getContainerPorts(cfg)
+	appContainers := []map[string]interface{}{{
+		"Name":           appContainerName,
+		"ImageFullPath":  settings.EchoImage, // This overrides image hub/tag if it's not empty.
+		"ContainerPorts": getContainerPorts(cfg),
+	}}
+
+	// Only use the custom image for proxyless gRPC instances. This will bind the gRPC ports on one container
+	// and all other ports on another. Additionally, we bind one port for communication between the custom image
+	// container, and the regular Go server.
+	if cfg.IsProxylessGRPC() && settings.CustomGRPCEchoImage != "" {
+		var grpcPorts, otherPorts echoCommon.PortList
+		for _, port := range containerPorts {
+			if port.Protocol == protocol.GRPC {
+				grpcPorts = append(grpcPorts, port)
+			} else {
+				otherPorts = append(otherPorts, port)
+			}
+		}
+		otherPorts = append(otherPorts, &echoCommon.Port{
+			Name:     "grpc-fallback",
+			Protocol: protocol.GRPC,
+			Port:     grpcFallbackPort,
+		})
+		appContainers[0]["ContainerPorts"] = otherPorts
+		appContainers = append(appContainers, map[string]interface{}{
+			"Name":           "custom-grpc-" + appContainerName,
+			"ImageFullPath":  settings.CustomGRPCEchoImage, // This overrides image hub/tag if it's not empty.
+			"ContainerPorts": grpcPorts,
+			"FallbackPort":   grpcFallbackPort,
+		})
+	}
+
 	params := map[string]interface{}{
 		"ImageHub":            settings.Image.Hub,
 		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
 		"ImagePullPolicy":     settings.Image.PullPolicy,
 		"ImagePullSecretName": imagePullSecretName,
-		"ImageFullPath":       settings.EchoImage, // This overrides image hub/tag if it's not empty.
 		"Service":             cfg.Service,
 		"StatefulSet":         cfg.StatefulSet,
 		"ProxylessGRPC":       cfg.IsProxylessGRPC(),
 		"GRPCMagicPort":       grpcMagicPort,
 		"Locality":            cfg.Locality,
 		"ServiceAccount":      cfg.ServiceAccount,
+		"AppContainers":       appContainers,
 		"ContainerPorts":      getContainerPorts(cfg),
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
@@ -1015,6 +1057,9 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 
 		switch p.Protocol {
 		case protocol.GRPC:
+			if cfg.IsProxylessGRPC() {
+				cport.XDSServer = true
+			}
 			continue
 		case protocol.HTTP:
 			if p.WorkloadPort == httpReadinessPort {
@@ -1042,6 +1087,8 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 			Port:     tcpHealthPort,
 		})
 	}
+
+	// gives something the test runner to connect to without being in the mesh
 	if cfg.IsProxylessGRPC() {
 		containerPorts = append(containerPorts, &echoCommon.Port{
 			Name:        "grpc-magic-port",
