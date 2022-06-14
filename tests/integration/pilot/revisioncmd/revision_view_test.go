@@ -70,6 +70,7 @@ type revisionResource struct {
 }
 
 func TestRevisionCommand(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
