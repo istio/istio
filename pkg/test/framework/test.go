@@ -37,15 +37,20 @@ type Test interface {
 	RequireIstioVersion(version string) Test
 	// RequiresMinClusters ensures that the current environment contains at least the expected number of clusters.
 	// Otherwise it stops test execution and skips the test.
+	//
+	// Deprecated: Tests should not make assumptions about number of clusters.
 	RequiresMinClusters(minClusters int) Test
-	// RequiresMaxClusters ensures that the current environment contains at most the expected number of clusters.
-	// Otherwise it stops test execution and skips the test.
-	RequiresMaxClusters(maxClusters int) Test
 	// RequiresSingleCluster this a utility that requires the min/max clusters to both = 1.
+	//
+	// Deprecated: All new tests should support multiple clusters.
 	RequiresSingleCluster() Test
 	// RequiresLocalControlPlane ensures that clusters are using locally-deployed control planes.
+	//
+	// Deprecated: Tests should not make assumptions regarding control plane topology.
 	RequiresLocalControlPlane() Test
 	// RequiresSingleNetwork ensures that clusters are in the same network
+	//
+	// Deprecated: Tests should not make assumptions regarding number of networks.
 	RequiresSingleNetwork() Test
 	// Run the test, supplied as a lambda.
 	Run(fn func(t TestContext))
@@ -164,13 +169,10 @@ func (t *testImpl) RequiresMinClusters(minClusters int) Test {
 	return t
 }
 
-func (t *testImpl) RequiresMaxClusters(maxClusters int) Test {
-	t.requiredMaxClusters = maxClusters
-	return t
-}
-
 func (t *testImpl) RequiresSingleCluster() Test {
-	return t.RequiresMaxClusters(1).RequiresMinClusters(1)
+	t.requiredMaxClusters = 1
+	// nolint: staticcheck
+	return t.RequiresMinClusters(1)
 }
 
 func (t *testImpl) RequiresLocalControlPlane() Test {

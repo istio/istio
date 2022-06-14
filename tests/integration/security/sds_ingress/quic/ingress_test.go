@@ -52,6 +52,7 @@ func TestMain(m *testing.M) {
 // private key and server certificate for each TLS gateway. Verifies that client can communicate by
 // using both QUIC and TCP/TLS
 func TestTlsGatewaysWithQUIC(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		Features("security.ingress.quic.sds.tls").
@@ -69,6 +70,7 @@ func TestTlsGatewaysWithQUIC(t *testing.T) {
 // private key, server certificate and CA certificate for each mTLS gateway. Verifies that client can communicate
 // by using both QUIC and TCP/mTLS
 func TestMtlsGatewaysWithQUIC(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		Features("security.ingress.quic.sds.mtls").
