@@ -32,9 +32,7 @@ type (
 //       Run()
 func (t *T) From(filters ...Filter) *T {
 	for _, filter := range filters {
-		log.Errorf("howardjohn: filter before %v", len(t.sources))
 		t.sources = filter(t.sources)
-		log.Errorf("howardjohn: filter after %v", len(t.sources))
 	}
 	return t
 }
