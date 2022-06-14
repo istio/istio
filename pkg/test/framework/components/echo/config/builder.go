@@ -81,34 +81,39 @@ func (b *Builder) Context(t framework.TestContext) *Builder {
 	return out
 }
 
-// Source returns a copy of this Builder with the given Source added.
-func (b *Builder) Source(s Source) *Builder {
+// Source returns a copy of this Builder with the given Source objects added.
+func (b *Builder) Source(sources ...Source) *Builder {
 	b.t.Helper()
 	out := b.Copy()
 
-	// If the caller set namespaces with literal strings, replace with namespace.Instance objects.
-	s = replaceNamespaceStrings(s)
+	for _, s := range sources {
+		// Split the source so that we process a single CRD at a time.
+		for _, s := range s.SplitOrFail(b.t) {
+			// If the caller set namespaces with literal strings, replace with namespace.Instance objects.
+			s = replaceNamespaceStrings(s)
 
-	tpl := s.TemplateOrFail(out.t)
-	need := tpl.MissingParams(s.Params())
-	needFrom := need.Contains(param.From.String())
-	needTo := need.Contains(param.To.String())
+			tpl := s.TemplateOrFail(out.t)
+			need := tpl.MissingParams(s.Params())
+			needFrom := need.Contains(param.From.String())
+			needTo := need.Contains(param.To.String())
 
-	if needFrom && needTo {
-		out.needFromAndTo = append(out.needFromAndTo, s)
-	} else if needFrom {
-		out.needFrom = append(out.needFrom, s)
-	} else if needTo {
-		out.needTo = append(out.needTo, s)
-	} else {
-		// No well-known parameters are missing.
-		out.complete = append(out.complete, s)
-	}
+			if needFrom && needTo {
+				out.needFromAndTo = append(out.needFromAndTo, s)
+			} else if needFrom {
+				out.needFrom = append(out.needFrom, s)
+			} else if needTo {
+				out.needTo = append(out.needTo, s)
+			} else {
+				// No well-known parameters are missing.
+				out.complete = append(out.complete, s)
+			}
 
-	// Delete all the wellknown parameters.
-	need.Delete(param.AllWellKnown().ToStringArray()...)
-	if len(need) > 0 {
-		panic(fmt.Sprintf("config source missing parameters: %v", need))
+			// Delete all the wellknown parameters.
+			need.Delete(param.AllWellKnown().ToStringArray()...)
+			if len(need) > 0 {
+				panic(fmt.Sprintf("config source missing parameters: %v", need))
+			}
+		}
 	}
 
 	return out

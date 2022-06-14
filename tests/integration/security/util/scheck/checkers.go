@@ -19,11 +19,8 @@ package scheck
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
-	"sort"
 	"strconv"
-	"strings"
 
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -48,47 +45,4 @@ func ReachedClusters(allClusters cluster.Clusters, opts *echo.CallOptions) echo.
 		return check.ReachedTargetClusters(allClusters)
 	}
 	return echo.NoChecker()
-}
-
-func HeaderContains(hType echoClient.HeaderType, expected map[string][]string) echo.Checker {
-	return check.Each(func(r echoClient.Response) error {
-		h := r.GetHeaders(hType)
-		for _, key := range sortKeys(expected) {
-			actual := h.Get(key)
-
-			for _, value := range expected[key] {
-				if !strings.Contains(actual, value) {
-					return fmt.Errorf("status code %s, expected %s header `%s` to contain `%s`, value=`%s`, raw content=%s",
-						r.Code, hType, key, value, actual, r.RawContent)
-				}
-			}
-		}
-		return nil
-	})
-}
-
-func HeaderNotContains(hType echoClient.HeaderType, expected map[string][]string) echo.Checker {
-	return check.Each(func(r echoClient.Response) error {
-		h := r.GetHeaders(hType)
-		for _, key := range sortKeys(expected) {
-			actual := h.Get(key)
-
-			for _, value := range expected[key] {
-				if strings.Contains(actual, value) {
-					return fmt.Errorf("status code %s, expected %s header `%s` to not contain `%s`, value=`%s`, raw content=%s",
-						r.Code, hType, key, value, actual, r.RawContent)
-				}
-			}
-		}
-		return nil
-	})
-}
-
-func sortKeys(v map[string][]string) []string {
-	out := make([]string, 0, len(v))
-	for k := range v {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }
