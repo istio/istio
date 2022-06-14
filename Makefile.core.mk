@@ -227,8 +227,7 @@ ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
 ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 
-# Pull dependencies, based on the checked in Gopkg.lock file.
-# Developers must manually run `dep ensure` if adding new deps
+# Pull dependencies such as envoy
 depend: init | $(TARGET_OUT)
 
 DIRS_TO_CLEAN := $(TARGET_OUT)
