@@ -170,7 +170,7 @@ func NewXdsCache() XdsCache {
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 	}
-	cache.store = newLru(cache)
+	cache.store = newLru(cache.evict)
 
 	return cache
 }
@@ -182,7 +182,7 @@ func NewLenientXdsCache() XdsCache {
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 	}
-	cache.store = newLru(cache)
+	cache.store = newLru(cache.evict)
 
 	return cache
 }
@@ -200,12 +200,12 @@ type lruCache struct {
 
 var _ XdsCache = &lruCache{}
 
-func newLru(xdsCache *lruCache) simplelru.LRUCache {
+func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
 	sz := features.XDSCacheMaxSize
 	if sz <= 0 {
 		sz = 20000
 	}
-	l, err := simplelru.NewLRU(sz, xdsCache.evict)
+	l, err := simplelru.NewLRU(sz, evictCallback)
 	if err != nil {
 		panic(fmt.Errorf("invalid lru configuration: %v", err))
 	}
@@ -339,7 +339,7 @@ func (l *lruCache) ClearAll() {
 	// Purge with an evict function would turn up to be pretty slow since
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
-	l.store = newLru(l)
+	l.store = newLru(l.evict)
 	l.configIndex = map[ConfigKey]sets.Set{}
 	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
 	size(l.store.Len())
