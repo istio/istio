@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/pull/39404
+releaseNotes:
+  - |
+    **Added** sidecar `traffic.sidecar.istio.io/excludeInterfaces` annotation definition.
