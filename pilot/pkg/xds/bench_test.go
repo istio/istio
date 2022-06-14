@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"testing"
 	"text/template"
@@ -34,10 +35,12 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -553,4 +556,58 @@ func BenchmarkPushRequest(b *testing.B) {
 			recordPushTriggers(req.Reason...)
 		}
 	}
+}
+
+func makeCacheKey(n int) model.XdsCacheEntry {
+	ns := strconv.Itoa(n)
+	key := &route.Cache{
+		RouteName:       "something",
+		ClusterID:       "my-cluster",
+		DNSDomain:       "some.domain.example.com",
+		DNSCapture:      true,
+		DNSAutoAllocate: false,
+		ListenerPort:    1234,
+		Services: []*model.Service{
+			{Hostname: host.Name(ns + "some1.example.com"), Attributes: model.ServiceAttributes{Namespace: "test1"}},
+			{Hostname: host.Name(ns + "some2.example.com"), Attributes: model.ServiceAttributes{Namespace: "test2"}},
+		},
+		DestinationRules: []*config.Config{
+			{Meta: config.Meta{Name: ns + "a", Namespace: "b"}},
+			{Meta: config.Meta{Name: ns + "d", Namespace: "e"}},
+		},
+		EnvoyFilterKeys: []string{ns + "1/a", ns + "2/b", ns + "3/c"},
+	}
+	return key
+}
+
+func BenchmarkCache(b *testing.B) {
+	// Ensure cache doesn't grow too large
+	test.SetIntForTest(b, &features.XDSCacheMaxSize, 1_000)
+	res := &discovery.Resource{Name: "test"}
+	zeroTime := time.Time{}
+	b.Run("key", func(b *testing.B) {
+		key := makeCacheKey(1)
+		for n := 0; n < b.N; n++ {
+			_ = key.Key()
+		}
+	})
+	b.Run("insert", func(b *testing.B) {
+		c := model.NewXdsCache()
+
+		for n := 0; n < b.N; n++ {
+			key := makeCacheKey(n)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
+			c.Add(key, req, res)
+		}
+	})
+	b.Run("get", func(b *testing.B) {
+		c := model.NewXdsCache()
+
+		key := makeCacheKey(1)
+		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
+		c.Add(key, req, res)
+		for n := 0; n < b.N; n++ {
+			c.Get(key)
+		}
+	})
 }

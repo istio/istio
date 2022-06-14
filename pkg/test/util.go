@@ -52,6 +52,15 @@ func SetBoolForTest(t Failer, vv *bool, v bool) {
 	})
 }
 
+// SetIntForTest sets a variable for the duration of a test, then resets it once the test is complete.
+func SetIntForTest(t Failer, vv *int, v int) {
+	old := *vv
+	*vv = v
+	t.Cleanup(func() {
+		*vv = old
+	})
+}
+
 // SetFloatForTest sets a variable for the duration of a test, then resets it once the test is complete.
 func SetFloatForTest(t Failer, vv *float64, v float64) {
 	old := *vv
