@@ -69,12 +69,6 @@ func miss() {
 	}
 }
 
-func evict(k interface{}, v interface{}) {
-	if features.EnableXDSCacheMetrics {
-		xdsCacheEvictions.Increment()
-	}
-}
-
 func size(cs int) {
 	if features.EnableXDSCacheMetrics {
 		xdsCacheSize.Record(float64(cs))
