@@ -142,6 +142,17 @@ func FilterMatch(matcher match.Matcher) Filter {
 	}
 }
 
+// SameNetwork filters out destinations that are on a different network from the source.
+var SameNetwork CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
+	return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to)
+}
+
+// NoSelfCalls disallows self-calls where from and to have the same service name. Self-calls can
+// by-pass the sidecar, so tests relying on sidecar logic will sent to disable self-calls by default.
+var NoSelfCalls CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
+	return match.Not(match.ServiceName(from.NamespacedName())).GetMatches(to)
+}
+
 // ReachableDestinations filters out known-unreachable destinations given a source.
 // - from a naked pod, we can't reach cross-network endpoints or VMs
 // - we can't reach cross-cluster headless endpoints

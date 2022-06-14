@@ -15,8 +15,11 @@
 package namespace
 
 import (
+	"time"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 // Config contains configuration information about the namespace instance
@@ -31,6 +34,19 @@ type Config struct {
 	Labels map[string]string
 }
 
+func (c *Config) overwriteRevisionIfEmpty(revision string) {
+	// Overwrite the default namespace label (istio-injection=enabled)
+	// with istio.io/rev=XXX. If a revision label is already provided,
+	// the label will remain as is.
+	if c.Revision == "" {
+		c.Revision = revision
+	}
+	// Allow setting revision explicitly to `default` to avoid configuration overwrite
+	if c.Revision == "default" {
+		c.Revision = ""
+	}
+}
+
 // Instance represents an allocated namespace that can be used to create config, or deploy components in.
 type Instance interface {
 	Name() string
@@ -41,9 +57,9 @@ type Instance interface {
 }
 
 // Claim an existing namespace in all clusters, or create a new one if doesn't exist.
-func Claim(ctx resource.Context, nsConfig Config) (i Instance, err error) {
-	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revisions.Default())
-	return claimKube(ctx, &nsConfig)
+func Claim(ctx resource.Context, cfg Config) (i Instance, err error) {
+	cfg.overwriteRevisionIfEmpty(ctx.Settings().Revisions.Default())
+	return claimKube(ctx, cfg)
 }
 
 // ClaimOrFail calls Claim and fails test if it returns error
@@ -61,12 +77,23 @@ func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
 }
 
 // New creates a new Namespace in all clusters.
-func New(ctx resource.Context, nsConfig Config) (i Instance, err error) {
+func New(ctx resource.Context, cfg Config) (i Instance, err error) {
+	start := time.Now()
+	scopes.Framework.Infof("=== BEGIN: Create namespace %s ===", cfg.Prefix)
+	defer func() {
+		if err != nil {
+			scopes.Framework.Errorf("=== FAILED: Create namespace %s ===", cfg.Prefix)
+			scopes.Framework.Error(err)
+		} else {
+			scopes.Framework.Infof("=== SUCCEEDED: Create namespace %s in %v ===", cfg.Prefix, time.Since(start))
+		}
+	}()
+
 	if ctx.Settings().StableNamespaces {
-		return Claim(ctx, nsConfig)
+		return Claim(ctx, cfg)
 	}
-	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revisions.Default())
-	return newKube(ctx, &nsConfig)
+	cfg.overwriteRevisionIfEmpty(ctx.Settings().Revisions.Default())
+	return newKube(ctx, cfg)
 }
 
 // NewOrFail calls New and fails test if it returns error
@@ -88,15 +115,31 @@ func GetAll(ctx resource.Context) ([]Instance, error) {
 	return out, nil
 }
 
-func overwriteRevisionIfEmpty(nsConfig *Config, revision string) {
-	// Overwrite the default namespace label (istio-injection=enabled)
-	// with istio.io/rev=XXX. If a revision label is already provided,
-	// the label will remain as is.
-	if nsConfig.Revision == "" {
-		nsConfig.Revision = revision
+// Setup is a utility function for creating a namespace in a test suite.
+func Setup(ns *Instance, cfg Config) resource.SetupFn {
+	return func(ctx resource.Context) (err error) {
+		*ns, err = New(ctx, cfg)
+		return
 	}
-	// Allow setting revision explicitly to `default` to avoid configuration overwrite
-	if nsConfig.Revision == "default" {
-		nsConfig.Revision = ""
+}
+
+// Getter for a namespace Instance
+type Getter func() Instance
+
+// Get is a utility method that helps in readability of call sites.
+func (g Getter) Get() Instance {
+	return g()
+}
+
+// Future creates a Getter for a variable that namespace that will be set at sometime in the future.
+// This is helpful for configuring a setup chain for a test suite that operates on global variables.
+func Future(ns *Instance) Getter {
+	return func() Instance {
+		return *ns
 	}
+}
+
+// NilGetter is a Getter that always returns nil.
+var NilGetter = func() Instance {
+	return nil
 }

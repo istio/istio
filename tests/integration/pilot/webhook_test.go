@@ -35,6 +35,7 @@ import (
 )
 
 func TestWebhook(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {

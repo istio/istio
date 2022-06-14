@@ -63,7 +63,7 @@ func newSuiteAnalyzer(testID string, fn mRunFn, osExit func(int)) Suite {
 	}
 }
 
-func (s *suiteAnalyzer) EnvironmentFactory(fn resource.EnvironmentFactory) Suite {
+func (s *suiteAnalyzer) EnvironmentFactory(_ resource.EnvironmentFactory) Suite {
 	if s.envFactoryCalls > 0 {
 		scopes.Framework.Warn("EnvironmentFactory overridden multiple times for Suite")
 	}
@@ -81,7 +81,7 @@ func (s *suiteAnalyzer) Skip(reason string) Suite {
 	return s
 }
 
-func (s *suiteAnalyzer) SkipIf(reason string, fn resource.ShouldSkipFn) Suite {
+func (s *suiteAnalyzer) SkipIf(reason string, _ resource.ShouldSkipFn) Suite {
 	s.skipMessage = reason
 	return s
 }
@@ -100,6 +100,7 @@ func (s *suiteAnalyzer) RequireMaxClusters(maxClusters int) Suite {
 }
 
 func (s *suiteAnalyzer) RequireSingleCluster() Suite {
+	// nolint: staticcheck
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
@@ -115,11 +116,16 @@ func (s *suiteAnalyzer) RequireMinVersion(minorVersion uint) Suite {
 	return s
 }
 
-func (s *suiteAnalyzer) RequireMaxVersion(minorVersion uint) Suite {
+func (s *suiteAnalyzer) RequireMaxVersion(uint) Suite {
 	return s
 }
 
-func (s *suiteAnalyzer) Setup(fn resource.SetupFn) Suite {
+func (s *suiteAnalyzer) Setup(resource.SetupFn) Suite {
+	// TODO track setup fns?
+	return s
+}
+
+func (s *suiteAnalyzer) SetupParallel(_ ...resource.SetupFn) Suite {
 	// TODO track setup fns?
 	return s
 }
