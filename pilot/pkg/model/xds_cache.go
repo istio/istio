@@ -81,8 +81,8 @@ func size(cs int) {
 	}
 }
 
-func indexConfig(configIndex map[ConfigKey]sets.Set, k string, entry XdsCacheEntry) {
-	for _, cfg := range entry.DependentConfigs() {
+func indexConfig(configIndex map[ConfigKey]sets.Set, k string, dependentConfigs []ConfigKey) {
+	for _, cfg := range dependentConfigs {
 		if configIndex[cfg] == nil {
 			configIndex[cfg] = sets.New()
 		}
@@ -102,8 +102,8 @@ func clearIndexConfig(configIndex map[ConfigKey]sets.Set, k string, dependentCon
 	}
 }
 
-func indexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, entry XdsCacheEntry) {
-	for _, t := range entry.DependentTypes() {
+func indexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, dependentTypes []config.GroupVersionKind) {
+	for _, t := range dependentTypes {
 		if typeIndex[t] == nil {
 			typeIndex[t] = sets.New()
 		}
@@ -277,11 +277,13 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 		return
 	}
 
-	toWrite := cacheValue{value: value, token: token, dependentConfigs: entry.DependentConfigs(), dependentTypes: entry.DependentTypes()}
+	dependentConfigs := entry.DependentConfigs()
+	dependentTypes := entry.DependentTypes()
+	toWrite := cacheValue{value: value, token: token, dependentConfigs: dependentConfigs, dependentTypes: dependentTypes}
 	l.store.Add(k, toWrite)
 	l.token = token
-	indexConfig(l.configIndex, k, entry)
-	indexType(l.typesIndex, k, entry)
+	indexConfig(l.configIndex, k, dependentConfigs)
+	indexType(l.typesIndex, k, dependentTypes)
 	size(l.store.Len())
 }
 
