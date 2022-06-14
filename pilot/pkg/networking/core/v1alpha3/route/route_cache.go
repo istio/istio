@@ -26,6 +26,11 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
+var (
+	Separator = []byte{'~'}
+	Slash     = []byte{'/'}
+)
+
 // Cache includes the variables that can influence a Route Configuration.
 // Implements XdsCacheEntry interface.
 type Cache struct {
@@ -102,25 +107,51 @@ func (r *Cache) DependentTypes() []config.GroupVersionKind {
 }
 
 func (r *Cache) Key() string {
-	params := []string{
-		r.RouteName, r.ProxyVersion, r.ClusterID, r.DNSDomain,
-		strconv.FormatBool(r.DNSCapture), strconv.FormatBool(r.DNSAutoAllocate),
-	}
-	for _, svc := range r.Services {
-		params = append(params, string(svc.Hostname)+"/"+svc.Attributes.Namespace)
-	}
-	for _, vs := range r.VirtualServices {
-		params = append(params, vs.Name+"/"+vs.Namespace)
-	}
-	for _, dr := range r.DestinationRules {
-		params = append(params, dr.Name+"/"+dr.Namespace)
-	}
-	params = append(params, r.EnvoyFilterKeys...)
-
 	hash := md5.New()
-	for _, param := range params {
-		hash.Write([]byte(param))
+
+	hash.Write([]byte(r.RouteName))
+	hash.Write(Separator)
+	hash.Write([]byte(r.ProxyVersion))
+	hash.Write(Separator)
+	hash.Write([]byte(r.ClusterID))
+	hash.Write(Separator)
+	hash.Write([]byte(r.DNSDomain))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(r.DNSCapture)))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(r.DNSAutoAllocate)))
+	hash.Write(Separator)
+
+	for _, svc := range r.Services {
+		hash.Write([]byte(svc.Hostname))
+		hash.Write(Slash)
+		hash.Write([]byte(svc.Attributes.Namespace))
+		hash.Write(Separator)
 	}
+	hash.Write(Separator)
+
+	for _, vs := range r.VirtualServices {
+		hash.Write([]byte(vs.Name))
+		hash.Write(Slash)
+		hash.Write([]byte(vs.Namespace))
+		hash.Write(Separator)
+	}
+	hash.Write(Separator)
+
+	for _, dr := range r.DestinationRules {
+		hash.Write([]byte(dr.Name))
+		hash.Write(Slash)
+		hash.Write([]byte(dr.Namespace))
+		hash.Write(Separator)
+	}
+	hash.Write(Separator)
+
+	for _, efk := range r.EnvoyFilterKeys {
+		hash.Write([]byte(efk))
+		hash.Write(Separator)
+	}
+	hash.Write(Separator)
+
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
 }
