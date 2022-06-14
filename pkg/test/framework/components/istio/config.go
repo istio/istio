@@ -156,6 +156,9 @@ type Config struct {
 
 	// Custom settings for east-west gateway
 	EastWestGatewayValues string
+
+	// custom deployment for ingress and egress gateway
+	GatewayValues string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {

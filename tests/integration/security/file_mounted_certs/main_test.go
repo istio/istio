@@ -212,6 +212,66 @@ components:
   pilot:
     enabled: false
 `
+	cfg.GatewayValues = `
+components:
+  egressGateways:
+  - enabled: true
+    name: istio-egressgateway
+    k8s:
+      overlays:
+        - kind: Deployment
+          name: istio-egressgateway
+          patches:
+            - path: spec.template.spec.volumes[100]
+              value: |-
+                name: server-certs
+                secret:
+                  secretName: ` + PilotSecretName + `
+                  defaultMode: 420
+            - path: spec.template.spec.volumes[101]
+              value: |-
+                name: client-certs
+                secret:
+                  secretName: ` + PilotSecretName + `
+                  defaultMode: 420
+            - path: spec.template.spec.containers[0].volumeMounts[100]
+              value: |-
+                name: server-certs
+                mountPath: /server-certs
+            - path: spec.template.spec.containers[0].volumeMounts[101]
+              value: |-
+                name: client-certs
+                mountPath: /client-certs
+
+  ingressGateways:
+  - enabled: true
+    name: istio-ingressgateway
+    k8s:
+      overlays:
+        - kind: Deployment
+          name: istio-ingressgateway
+          patches:
+            - path: spec.template.spec.volumes[100]
+              value: |-
+                name: server-certs
+                secret:
+                  secretName: ` + PilotSecretName + `
+                  defaultMode: 420
+            - path: spec.template.spec.volumes[101]
+              value: |-
+                name: client-certs
+                secret:
+                  secretName: ` + PilotSecretName + `
+                  defaultMode: 420
+            - path: spec.template.spec.containers[0].volumeMounts[100]
+              value: |-
+                name: server-certs
+                mountPath: /server-certs
+            - path: spec.template.spec.containers[0].volumeMounts[101]
+              value: |-
+                name: client-certs
+                mountPath: /client-certs
+`
 }
 
 func CreateCustomIstiodSecret(ctx resource.Context) error {

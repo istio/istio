@@ -132,6 +132,7 @@ type istioctlConfigFiles struct {
 	remoteIopFile       string
 	remoteOperatorSpec  *opAPI.IstioOperatorSpec
 	eastWestGatewayFile string
+	gatewayIopFile      string
 }
 
 func (i *operatorComponent) Ingresses() ingress.Instances {
@@ -401,7 +402,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			// before the external control plane cluster. Since remote clusters use gateway injection, we can't install the gateways
 			// until after the control plane is running, so we install them here. This is not really necessary for pure (non-config)
 			// remote clusters, but it's cleaner to just install gateways as a separate step for all remote clusters.
-			if err = installRemoteClusterGateways(s, i, c); err != nil {
+			if err = installRemoteClusterGateways(s, i, c, istioctlConfigFiles.gatewayIopFile); err != nil {
 				return i, err
 			}
 		}
@@ -585,18 +586,23 @@ func installRemoteCommon(s *resource.Settings, i *operatorComponent, cfg Config,
 	return nil
 }
 
-func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c cluster.Cluster) error {
+func installRemoteClusterGateways(s *resource.Settings, i *operatorComponent, c cluster.Cluster, gatewaySettings string) error {
 	kubeConfigFile, err := kubeConfigFileForCluster(c)
 	if err != nil {
 		return err
 	}
 
+	inFilenames := []string{
+		filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
+	}
+	if gatewaySettings != "" {
+		inFilenames = append(inFilenames, gatewaySettings)
+	}
+
 	installArgs := &mesh.InstallArgs{
 		KubeConfigPath: kubeConfigFile,
 		ManifestsPath:  filepath.Join(testenv.IstioSrc, "manifests"),
-		InFilenames: []string{
-			filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
-		},
+		InFilenames:    inFilenames,
 		Set: []string{
 			"values.global.imagePullPolicy=" + s.Image.PullPolicy,
 		},
@@ -932,6 +938,7 @@ func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config) 
 		configIopFile:       "",
 		remoteIopFile:       "",
 		eastWestGatewayFile: "",
+		gatewayIopFile:      "",
 	}
 	// Generate the istioctl config file for control plane(primary) cluster
 	configFiles.iopFile = filepath.Join(workDir, "iop.yaml")
@@ -962,6 +969,14 @@ func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config) 
 	if cfg.EastWestGatewayValues != "" {
 		configFiles.eastWestGatewayFile = filepath.Join(workDir, "eastwest.yaml")
 		_, err = initIOPFile(s, cfg, configFiles.eastWestGatewayFile, cfg.EastWestGatewayValues)
+		if err != nil {
+			return configFiles, err
+		}
+	}
+
+	if cfg.GatewayValues != "" {
+		configFiles.gatewayIopFile = filepath.Join(workDir, "custom_gateways.yaml")
+		_, err = initIOPFile(s, cfg, configFiles.gatewayIopFile, cfg.GatewayValues)
 		if err != nil {
 			return configFiles, err
 		}
