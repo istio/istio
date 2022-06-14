@@ -408,7 +408,7 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 		"Comma separated list of inbound ports to be excluded from redirection to Envoy (optional). "+
 			"Only applies when all inbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS)")
 
-	rootCmd.Flags().StringP(constants.ExcludeInterfaces, "", "",
+	rootCmd.Flags().StringP(constants.ExcludeInterfaces, "c", "",
 		"Comma separated list of NIC (optional). Neither inbound nor outbound traffic will be captured")
 
 	rootCmd.Flags().StringP(constants.ServiceCidr, "i", "",
