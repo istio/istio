@@ -54,6 +54,8 @@ type Instance interface {
 func New(cfg Config) (Instance, error) {
 	if cfg.Port != nil {
 		switch cfg.Port.Protocol {
+		case protocol.MTP:
+			return newMTP(cfg), nil
 		case protocol.HTTP, protocol.HTTPS:
 			return newHTTP(cfg), nil
 		case protocol.HTTP2, protocol.GRPC:

@@ -13,7 +13,7 @@ TODO
 
 #### CLI
 
-A binary client is available using the `client` binary.
+A CLI client is available using the `client` binary.
 
 Usage examples:
 
@@ -37,7 +37,7 @@ d := NewDialer(Config{
     Headers: map[string][]string{
         "some-addition-metadata": {"test-value"},
     },
-    TLS:          nil, // No TLS for simplification
+    TLS:          nil, // TLS is strongly recommended in real world
 })
 client, _ := d.Dial("tcp", testAddr)
 client.Write([]byte("hello world"))
@@ -45,4 +45,27 @@ client.Write([]byte("hello world"))
 
 ### Server
 
-TODO
+#### Server CLI
+
+A CLI client is available using the `server` binary.
+
+Usage examples:
+
+```shell
+go install ./pkg/test/echo/cmd/server
+# Serve on port 15008 (default) with TLS
+server --tls 15008 --crt tests/testdata/certs/cert.crt --key tests/testdata/certs/cert.key
+```
+
+#### Server Golang Library
+
+An (unstable) library to run an MTP server is available at `pkg/mtp`.
+
+Usage example:
+
+```go
+s := NewServer()
+// TLS is strongly recommended in real world
+l, _ := net.Listen("tcp", "0.0.0.0:15008")
+s.Serve(l)
+```

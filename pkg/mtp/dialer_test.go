@@ -57,8 +57,6 @@ func TestDialer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = client
-	t.Skip("test server not yet implemented")
 	defer client.Close()
 
 	go func() {
@@ -78,5 +76,16 @@ func TestDialer(t *testing.T) {
 }
 
 func newMTPServer(t *testing.T) string {
-	return "not implemented"
+	s := NewServer()
+	l, err := net.Listen("tcp", "0.0.0.0:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		_ = s.Serve(l)
+	}()
+	t.Cleanup(func() {
+		_ = l.Close()
+	})
+	return l.Addr().String()
 }

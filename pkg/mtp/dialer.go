@@ -123,12 +123,12 @@ func proxyTo(conn io.ReadWriteCloser, req Config, address string) error {
 	wg.Add(1)
 	go func() {
 		// handle upstream (mtp server) --> downstream (app)
-		copyBuffered(conn, resp.Body)
+		copyBuffered(conn, resp.Body, log.WithLabels("name", "body to conn"))
 		wg.Done()
 	}()
 	// Copy from conn into the pipe, which will then be sent as part of the request
 	// handle upstream (mtp server) <-- downstream (app)
-	copyBuffered(pw, conn)
+	copyBuffered(pw, conn, log.WithLabels("name", "conn to pipe"))
 
 	wg.Wait()
 	log.Info("stream closed in ", time.Since(t0))

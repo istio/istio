@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	istiolog "istio.io/pkg/log"
 )
 
 // createBuffer to get a buffer. io.Copy uses 32k.
@@ -28,7 +30,7 @@ var bufferPoolCopy = sync.Pool{New: func() interface{} {
 	return make([]byte, 0, 32*1024)
 }}
 
-func copyBuffered(dst io.Writer, src io.Reader) {
+func copyBuffered(dst io.Writer, src io.Reader, log *istiolog.Scope) {
 	buf1 := bufferPoolCopy.Get().([]byte)
 	// nolint: staticcheck
 	defer bufferPoolCopy.Put(buf1)
