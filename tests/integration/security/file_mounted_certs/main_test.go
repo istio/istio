@@ -206,6 +206,12 @@ components:
                 name: client-certs
                 mountPath: /client-certs
 `
+
+	cfg.RemoteClusterValues = `
+components:
+  pilot:
+    enabled: false
+`
 }
 
 func CreateCustomIstiodSecret(ctx resource.Context) error {
