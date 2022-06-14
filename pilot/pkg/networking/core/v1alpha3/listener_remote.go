@@ -424,7 +424,7 @@ func buildRemoteInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, 
 	// Typically we setup routes with the Host header match. However, for remote inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	routes, err := lb.remoteInboundRoute(vs, nil)
+	routes, err := lb.remoteInboundRoute(vs, nil, int(cc.port.Port))
 	if err != nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
@@ -442,7 +442,7 @@ func buildRemoteInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, 
 	}
 }
 
-func (lb *ListenerBuilder) remoteInboundRoute(virtualService config.Config, serviceRegistry map[host.Name]*model.Service) ([]*route.Route, error) {
+func (lb *ListenerBuilder) remoteInboundRoute(virtualService config.Config, serviceRegistry map[host.Name]*model.Service, listenPort int) ([]*route.Route, error) {
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
@@ -450,7 +450,6 @@ func (lb *ListenerBuilder) remoteInboundRoute(virtualService config.Config, serv
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
-	listenPort := 80 // TODO
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
