@@ -764,6 +764,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"Locality":            cfg.Locality,
 		"ServiceAccount":      cfg.ServiceAccount,
 		"AppContainers":       appContainers,
+		"ContainerPorts":      getContainerPorts(cfg),
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
 		"Cluster":             cfg.Cluster.Name(),
