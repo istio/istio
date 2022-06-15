@@ -112,6 +112,8 @@ type Suite interface {
 	RequireMultiPrimary() Suite
 	// SkipExternalControlPlaneTopology skips the tests in external plane and config cluster topology
 	SkipExternalControlPlaneTopology() Suite
+	// RequireExternalControlPlaneTopology requires the environment to be external control plane topology
+	RequireExternalControlPlaneTopology() Suite
 	// RequireMinVersion validates the environment meets a minimum version
 	RequireMinVersion(minorVersion uint) Suite
 	// RequireMaxVersion validates the environment meets a maximum version
@@ -282,6 +284,22 @@ func (s *suiteImpl) SkipExternalControlPlaneTopology() Suite {
 					c.Name()))
 			}
 		}
+		return nil
+	}
+	s.requireFns = append(s.requireFns, fn)
+	return s
+}
+
+func (s *suiteImpl) RequireExternalControlPlaneTopology() Suite {
+	fn := func(ctx resource.Context) error {
+		for _, c := range ctx.Clusters() {
+			if c.IsConfig() && !c.IsPrimary() {
+				// the test environment is an external control plane topology, the test can go on
+				return nil
+			}
+		}
+		// the test environment is not an external control plane topology, skip the test
+		s.Skip("Not an external control plane topology, skip this test")
 		return nil
 	}
 	s.requireFns = append(s.requireFns, fn)
