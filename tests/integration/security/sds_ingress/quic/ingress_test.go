@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		// Need support for MixedProtocolLBService
 		RequireMinVersion(20).
-		SkipExternalControlPlaneTopology().
+		RequireMultiPrimary().
 		Setup(istio.Setup(&inst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.PrimaryClusterIOPFile = istio.IntegrationTestDefaultsIOPWithQUIC
 		})).
@@ -55,6 +55,7 @@ func TestTlsGatewaysWithQUIC(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Features("security.ingress.quic.sds.tls").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
@@ -73,6 +74,7 @@ func TestMtlsGatewaysWithQUIC(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Features("security.ingress.quic.sds.mtls").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
