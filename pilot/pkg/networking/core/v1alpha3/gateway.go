@@ -96,7 +96,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			}
 			for _, wildcard := range wildCards {
 				bind := wildcard[0]
-				if len(port.Bind) > 0 {
+				if len(port.Bind) > 0 && !features.EnableDualStack {
 					bind = port.Bind
 				}
 
@@ -508,10 +508,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	}
 
 	util.SortVirtualHosts(virtualHosts)
-
 	routeCfg := &route.RouteConfiguration{
-		// Retain the adjustedRouteName as its used by EnvoyFilter patching logic
-		Name:             adjustedRouteName,
+		// Retain the routeName as its used by EnvoyFilter patching logic
+		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
 	}
