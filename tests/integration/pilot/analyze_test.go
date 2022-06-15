@@ -48,6 +48,7 @@ const (
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
 
 func TestEmptyCluster(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -69,6 +70,7 @@ func TestEmptyCluster(t *testing.T) {
 }
 
 func TestFileOnly(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -95,6 +97,7 @@ func TestFileOnly(t *testing.T) {
 }
 
 func TestDirectoryWithoutRecursion(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -119,6 +122,7 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 }
 
 func TestDirectoryWithRecursion(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -140,6 +144,7 @@ func TestDirectoryWithRecursion(t *testing.T) {
 }
 
 func TestInvalidFileError(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -175,6 +180,7 @@ func TestInvalidFileError(t *testing.T) {
 }
 
 func TestJsonInputFile(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -196,6 +202,7 @@ func TestJsonInputFile(t *testing.T) {
 }
 
 func TestJsonOutput(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -237,6 +244,7 @@ func TestJsonOutput(t *testing.T) {
 }
 
 func TestKubeOnly(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -260,6 +268,7 @@ func TestKubeOnly(t *testing.T) {
 }
 
 func TestFileAndKubeCombined(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -284,6 +293,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 }
 
 func TestAllNamespaces(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -342,6 +352,7 @@ func TestAllNamespaces(t *testing.T) {
 
 func TestTimeout(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/25893")
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -363,6 +374,7 @@ func TestTimeout(t *testing.T) {
 
 // Verify the error line number in the message is correct
 func TestErrorLine(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -454,6 +466,6 @@ func applyFileOrFail(t framework.TestContext, ns, filename string) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		t.Clusters().Default().DeleteYAMLFiles(ns, filename)
+		_ = t.Clusters().Default().DeleteYAMLFiles(ns, filename)
 	})
 }

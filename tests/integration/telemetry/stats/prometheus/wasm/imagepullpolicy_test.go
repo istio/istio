@@ -55,13 +55,14 @@ func mapTagToVersionOrFail(t framework.TestContext, tag, version string) {
 	}
 }
 
-func applyAndTestWasm(ctx framework.TestContext, c wasmTestConfigs) {
-	ctx.NewSubTest(c.desc).Run(func(t framework.TestContext) {
+func applyAndTestWasmWithOCI(ctx framework.TestContext, c wasmTestConfigs) {
+	ctx.NewSubTest("OCI_" + c.desc).Run(func(t framework.TestContext) {
 		defer func() {
 			generation++
 		}()
 		mapTagToVersionOrFail(t, c.tag, c.upstreamVersion)
-		if err := installWasmExtension(t, c.name, c.tag, c.policy, fmt.Sprintf("g-%d", generation)); err != nil {
+		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), imageName, c.tag)
+		if err := installWasmExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", generation)); err != nil {
 			t.Fatalf("failed to install WasmPlugin: %v", err)
 		}
 		sendTraffic(t, check.ResponseHeader(injectedHeader, c.expectedVersion))
@@ -82,7 +83,7 @@ func TestImagePullPolicy(t *testing.T) {
 		Features("extensibility.wasm.image-pull-policy").
 		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
-			applyAndTestWasm(t, wasmTestConfigs{
+			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "initial creation with latest",
 				name:            "wasm-test-module",
 				tag:             "latest",
@@ -92,7 +93,7 @@ func TestImagePullPolicy(t *testing.T) {
 			})
 
 			resetWasm(t, "wasm-test-module")
-			applyAndTestWasm(t, wasmTestConfigs{
+			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2. 0.0.1 is already present and policy is IfNotPresent, so should not pull",
 				name:            "wasm-test-module",
 				tag:             "latest",
@@ -102,7 +103,7 @@ func TestImagePullPolicy(t *testing.T) {
 			})
 
 			// Intentionally, do not reset here to see the upgrade from 0.0.1.
-			applyAndTestWasm(t, wasmTestConfigs{
+			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2. 0.0.1 is already present. But policy is default and tag is latest, so pull the image",
 				name:            "wasm-test-module",
 				tag:             "latest",
@@ -112,7 +113,7 @@ func TestImagePullPolicy(t *testing.T) {
 			})
 			resetWasm(t, "wasm-test-module")
 
-			applyAndTestWasm(t, wasmTestConfigs{
+			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "initial creation with 0.0.1",
 				name:            "wasm-test-module-test-tag-1",
 				tag:             "test-tag-1",
@@ -122,7 +123,7 @@ func TestImagePullPolicy(t *testing.T) {
 			})
 
 			resetWasm(t, "wasm-test-module-test-tag-1")
-			applyAndTestWasm(t, wasmTestConfigs{
+			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2, but 0.0.1 is already present and policy is IfNotPresent",
 				name:            "wasm-test-module-test-tag-1",
 				tag:             "test-tag-1",
@@ -132,7 +133,7 @@ func TestImagePullPolicy(t *testing.T) {
 			})
 
 			resetWasm(t, "wasm-test-module-test-tag-1")
-			applyAndTestWasm(t, wasmTestConfigs{
+			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2, but 0.0.1 is already present and policy is default",
 				name:            "wasm-test-module-test-tag-1",
 				tag:             "test-tag-1",
@@ -142,7 +143,7 @@ func TestImagePullPolicy(t *testing.T) {
 			})
 
 			// Intentionally, do not reset here to see the upgrade from 0.0.1.
-			applyAndTestWasm(t, wasmTestConfigs{
+			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2. 0.0.1 is already present but policy is Always, so pull 0.0.2",
 				name:            "wasm-test-module-test-tag-1",
 				tag:             "test-tag-1",
@@ -153,8 +154,7 @@ func TestImagePullPolicy(t *testing.T) {
 		})
 }
 
-func installWasmExtension(ctx framework.TestContext, pluginName, tag, imagePullPolicy, pluginVersion string) error {
-	wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), imageName, tag)
+func installWasmExtension(ctx framework.TestContext, pluginName, wasmModuleURL, imagePullPolicy, pluginVersion string) error {
 	args := map[string]interface{}{
 		"WasmPluginName":    pluginName,
 		"TestWasmModuleURL": wasmModuleURL,
@@ -209,4 +209,68 @@ func sendTraffic(ctx framework.TestContext, checker echo.Checker, options ...ret
 	}
 
 	_ = cltInstance.CallOrFail(ctx, httpOpts)
+}
+
+func applyAndTestWasmWithHTTP(ctx framework.TestContext, c wasmTestConfigs) {
+	ctx.NewSubTest("HTTP_" + c.desc).Run(func(t framework.TestContext) {
+		defer func() {
+			generation++
+		}()
+		mapTagToVersionOrFail(t, c.tag, c.upstreamVersion)
+		// registry-redirector will redirect to the gzipped tarball of the first layer with this request.
+		// The gzipped tarball should have a wasm module.
+		wasmModuleURL := fmt.Sprintf("http://%v/layer/v1/%v:%v", registry.Address(), imageName, c.tag)
+		t.Logf("Trying to get a wasm file from %v", wasmModuleURL)
+		if err := installWasmExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", generation)); err != nil {
+			t.Fatalf("failed to install WasmPlugin: %v", err)
+		}
+		sendTraffic(t, check.ResponseHeader(injectedHeader, c.expectedVersion))
+	})
+}
+
+// TestImagePullPolicyWithHTTP tests pulling Wasm Binary via HTTP and ImagePullPolicy.
+func TestImagePullPolicyWithHTTP(t *testing.T) {
+	framework.NewTest(t).
+		Features("extensibility.wasm.image-pull-policy").
+		Features("extensibility.wasm.remote-load").
+		Run(func(t framework.TestContext) {
+			applyAndTestWasmWithHTTP(t, wasmTestConfigs{
+				desc:            "initial creation with 0.0.1",
+				name:            "wasm-test-module-http",
+				tag:             "test-tag-http",
+				policy:          "",
+				upstreamVersion: "0.0.1",
+				expectedVersion: "0.0.1",
+			})
+
+			resetWasm(t, "wasm-test-module-http")
+			applyAndTestWasmWithHTTP(t, wasmTestConfigs{
+				desc:            "upstream is upgraded to 0.0.2, but 0.0.1 is already present and policy is IfNotPresent",
+				name:            "wasm-test-module-http",
+				tag:             "test-tag-http",
+				policy:          "IfNotPresent",
+				upstreamVersion: "0.0.2",
+				expectedVersion: "0.0.1",
+			})
+
+			resetWasm(t, "wasm-test-module-http")
+			applyAndTestWasmWithHTTP(t, wasmTestConfigs{
+				desc:            "upstream is upgraded to 0.0.2, but 0.0.1 is already present and policy is default",
+				name:            "wasm-test-module-http",
+				tag:             "test-tag-http",
+				policy:          "",
+				upstreamVersion: "0.0.2",
+				expectedVersion: "0.0.1",
+			})
+
+			// Intentionally, do not reset here to see the upgrade from 0.0.1.
+			applyAndTestWasmWithHTTP(t, wasmTestConfigs{
+				desc:            "upstream is upgraded to 0.0.2. 0.0.1 is already present but policy is Always, so pull 0.0.2",
+				name:            "wasm-test-module-http",
+				tag:             "test-tag-http",
+				policy:          "Always",
+				upstreamVersion: "0.0.2",
+				expectedVersion: "0.0.2",
+			})
+		})
 }

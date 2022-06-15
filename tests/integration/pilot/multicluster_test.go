@@ -42,6 +42,7 @@ var (
 )
 
 func TestClusterLocal(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		Features(
 			"installation.multicluster.cluster_local",
@@ -163,6 +164,7 @@ spec:
 }
 
 func TestBadRemoteSecret(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresMinClusters(2).
 		Features(

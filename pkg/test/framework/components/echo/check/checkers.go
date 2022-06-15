@@ -246,21 +246,42 @@ func Alpn(expected string) echo.Checker {
 	})
 }
 
+func isHTTPProtocol(r echoClient.Response) bool {
+	return strings.HasPrefix(r.RequestURL, "http://") ||
+		strings.HasPrefix(r.RequestURL, "grpc://") ||
+		strings.HasPrefix(r.RequestURL, "ws://")
+}
+
+func isMTLS(r echoClient.Response) bool {
+	_, f1 := r.RequestHeaders["X-Forwarded-Client-Cert"]
+	// nolint: staticcheck
+	_, f2 := r.RequestHeaders["x-forwarded-client-cert"] // grpc has different casing
+	return f1 || f2
+}
+
 func MTLSForHTTP() echo.Checker {
 	return Each(func(r echoClient.Response) error {
-		if !strings.HasPrefix(r.RequestURL, "http://") &&
-			!strings.HasPrefix(r.RequestURL, "grpc://") &&
-			!strings.HasPrefix(r.RequestURL, "ws://") {
+		if !isHTTPProtocol(r) {
 			// Non-HTTP traffic. Fail open, we cannot check mTLS.
 			return nil
 		}
-		_, f1 := r.RequestHeaders["X-Forwarded-Client-Cert"]
-		// nolint: staticcheck
-		_, f2 := r.RequestHeaders["x-forwarded-client-cert"] // grpc has different casing
-		if f1 || f2 {
+		if isMTLS(r) {
 			return nil
 		}
 		return fmt.Errorf("expected X-Forwarded-Client-Cert but not found: %v", r)
+	})
+}
+
+func PlaintextForHTTP() echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if !isHTTPProtocol(r) {
+			// Non-HTTP traffic. Fail open, we cannot check mTLS.
+			return nil
+		}
+		if !isMTLS(r) {
+			return nil
+		}
+		return fmt.Errorf("expected plaintext but found X-Forwarded-Client-Cert header: %v", r)
 	})
 }
 
@@ -358,6 +379,22 @@ func ReachedTargetClusters(allClusters cluster.Clusters) echo.Checker {
 // client were reached.
 func ReachedClusters(allClusters cluster.Clusters, expectedClusters cluster.Clusters) echo.Checker {
 	expectedByNetwork := expectedClusters.ByNetwork()
+	return func(result echo.CallResult, err error) error {
+		return checkReachedClusters(result, allClusters, expectedByNetwork)
+	}
+}
+
+// ReachedNetworks returns an error if requests did not load balance across the clusters in the expected
+// networks.
+func ReachedNetworks(allClusters cluster.Clusters, expectedNetworks ...string) echo.Checker {
+	allByNetwork := allClusters.ByNetwork()
+
+	// Populate a map containing just the expected clusters.
+	expectedByNetwork := make(map[string]cluster.Clusters)
+	for _, nw := range expectedNetworks {
+		expectedByNetwork[nw] = allByNetwork[nw]
+	}
+
 	return func(result echo.CallResult, err error) error {
 		return checkReachedClusters(result, allClusters, expectedByNetwork)
 	}
