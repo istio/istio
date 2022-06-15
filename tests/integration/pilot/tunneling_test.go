@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
-	forward_proxy "istio.io/istio/tests/integration/pilot/tunneling/forward-proxy"
+	"istio.io/istio/tests/integration/pilot/forwardproxy"
 )
 
 const tunnelingDestinationRuleFile = "testdata/tunneling/destination-rule.tmpl.yaml"
@@ -52,25 +52,25 @@ type testRequestSpec struct {
 	portName string
 }
 
-var forwardProxyConfigurations = []forward_proxy.ListenerSettings{
+var forwardProxyConfigurations = []forwardproxy.ListenerSettings{
 	{
 		Port:        3128,
-		HTTPVersion: forward_proxy.HTTP1,
+		HTTPVersion: forwardproxy.HTTP1,
 		TLSEnabled:  false,
 	},
 	{
 		Port:        4128,
-		HTTPVersion: forward_proxy.HTTP1,
+		HTTPVersion: forwardproxy.HTTP1,
 		TLSEnabled:  true,
 	},
 	{
 		Port:        5128,
-		HTTPVersion: forward_proxy.HTTP2,
+		HTTPVersion: forwardproxy.HTTP2,
 		TLSEnabled:  false,
 	},
 	{
 		Port:        6128,
-		HTTPVersion: forward_proxy.HTTP2,
+		HTTPVersion: forwardproxy.HTTP2,
 		TLSEnabled:  true,
 	},
 }
@@ -208,13 +208,13 @@ func verifyThatRequestWasTunneled(target echo.Instance, expectedSourceIP, expect
 func applyForwardProxyConfigMaps(ctx framework.TestContext, externalNs string) {
 	kubeClient := ctx.Clusters().Default().Kube()
 
-	bootstrapYaml, err := forward_proxy.GenerateForwardProxyBootstrapConfig(forwardProxyConfigurations)
+	bootstrapYaml, err := forwardproxy.GenerateForwardProxyBootstrapConfig(forwardProxyConfigurations)
 	if err != nil {
 		ctx.Fatalf("failed to generate bootstrap configuration for external-forward-proxy: %s", err)
 	}
 
 	subject := fmt.Sprintf("external-forward-proxy.%s.svc.cluster.local", externalNs)
-	key, crt, err := forward_proxy.GenerateKeyAndCertificate(subject, ctx.TempDir())
+	key, crt, err := forwardproxy.GenerateKeyAndCertificate(subject, ctx.TempDir())
 	if err != nil {
 		ctx.Fatalf("failed to generate private key and certificate: %s", err)
 	}
@@ -274,7 +274,7 @@ func listFilesInDirectory(ctx framework.TestContext, dir string) []string {
 }
 
 func selectPortName(httpVersion string) string {
-	if httpVersion == forward_proxy.HTTP1 {
+	if httpVersion == forwardproxy.HTTP1 {
 		return "http-connect"
 	}
 	return "http2-connect"
