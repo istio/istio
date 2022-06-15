@@ -55,6 +55,7 @@ type revisionedNamespace struct {
 // TestMultiVersionRevision tests traffic between data planes running under differently versioned revisions
 // should test all possible revisioned namespace pairings to test traffic between all versions
 func TestMultiVersionRevision(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().

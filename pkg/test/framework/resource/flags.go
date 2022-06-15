@@ -82,6 +82,10 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		s.EchoImage = env.ECHO_IMAGE.ValueOrDefault("")
 	}
 
+	if s.CustomGRPCEchoImage == "" {
+		s.CustomGRPCEchoImage = env.GRPC_ECHO_IMAGE.ValueOrDefault("")
+	}
+
 	if err = validate(s); err != nil {
 		return nil, err
 	}

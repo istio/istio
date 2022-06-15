@@ -58,6 +58,7 @@ type GatewayConformanceInputs struct {
 var gatewayConformanceInputs GatewayConformanceInputs
 
 func TestGatewayConformance(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().

@@ -28,6 +28,11 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
+var (
+	Separator = []byte{'~'}
+	Slash     = []byte{'/'}
+)
+
 // clusterCache includes the variables that can influence a Cluster Configuration.
 // Implements XdsCacheEntry interface.
 type clusterCache struct {
@@ -55,31 +60,63 @@ type clusterCache struct {
 }
 
 func (t *clusterCache) Key() string {
-	params := []string{
-		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
-		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
-		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto), strconv.FormatBool(t.supportsIPv4),
-	}
-	if t.proxyView != nil {
-		params = append(params, t.proxyView.String())
-	}
-	if t.metadataCerts != nil {
-		params = append(params, t.metadataCerts.String())
-	}
-	if t.service != nil {
-		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
-	}
-	if t.destinationRule != nil {
-		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
-	}
-	params = append(params, t.envoyFilterKeys...)
-	params = append(params, t.peerAuthVersion)
-	params = append(params, t.serviceAccounts...)
-
 	hash := md5.New()
-	for _, param := range params {
-		hash.Write([]byte(param))
+	hash.Write([]byte(t.clusterName))
+	hash.Write(Separator)
+	hash.Write([]byte(t.proxyVersion))
+	hash.Write(Separator)
+	hash.Write([]byte(util.LocalityToString(t.locality)))
+	hash.Write(Separator)
+	hash.Write([]byte(t.proxyClusterID))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(t.proxySidecar)))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(t.http2)))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
+	hash.Write(Separator)
+
+	if t.proxyView != nil {
+		hash.Write([]byte(t.proxyView.String()))
 	}
+	hash.Write(Separator)
+
+	if t.metadataCerts != nil {
+		hash.Write([]byte(t.metadataCerts.String()))
+	}
+	hash.Write(Separator)
+
+	if t.service != nil {
+		hash.Write([]byte(t.service.Hostname))
+		hash.Write(Slash)
+		hash.Write([]byte(t.service.Attributes.Namespace))
+	}
+	hash.Write(Separator)
+
+	if t.destinationRule != nil {
+		hash.Write([]byte(t.destinationRule.Name))
+		hash.Write(Slash)
+		hash.Write([]byte(t.destinationRule.Namespace))
+	}
+	hash.Write(Separator)
+
+	for _, efk := range t.envoyFilterKeys {
+		hash.Write([]byte(efk))
+		hash.Write(Separator)
+	}
+	hash.Write(Separator)
+
+	hash.Write([]byte(t.peerAuthVersion))
+	hash.Write(Separator)
+
+	for _, sa := range t.serviceAccounts {
+		hash.Write([]byte(sa))
+		hash.Write(Separator)
+	}
+	hash.Write(Separator)
+
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
 }

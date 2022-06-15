@@ -44,6 +44,7 @@ func createInjectionFuncmap() template.FuncMap {
 		"excludeInboundPort":  excludeInboundPort,
 		"includeInboundPorts": includeInboundPorts,
 		"kubevirtInterfaces":  kubevirtInterfaces,
+		"excludeInterfaces":   excludeInterfaces,
 		"applicationPorts":    applicationPorts,
 		"annotation":          getAnnotation,
 		"valueOrDefault":      valueOrDefault,
@@ -241,6 +242,10 @@ func getContainerPorts(containers []corev1.Container, shouldIncludePorts func(co
 }
 
 func kubevirtInterfaces(s string) string {
+	return s
+}
+
+func excludeInterfaces(s string) string {
 	return s
 }
 

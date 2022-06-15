@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 
@@ -438,17 +439,17 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 			endpointAddress = ingressListener.DefaultEndpoint
 		} else if len(ingressListener.DefaultEndpoint) > 0 {
 			// parse the ip, port. Validation guarantees presence of :
-			parts := strings.Split(ingressListener.DefaultEndpoint, ":")
-			if len(parts) < 2 {
+			hostIP, hostPort, hostErr := net.SplitHostPort(ingressListener.DefaultEndpoint)
+			if hostPort == "" || hostErr != nil {
 				continue
 			}
 			var err error
-			if port, err = strconv.Atoi(parts[1]); err != nil {
+			if port, err = strconv.Atoi(hostPort); err != nil {
 				continue
 			}
-			if parts[0] == model.PodIPAddressPrefix {
+			if hostIP == model.PodIPAddressPrefix {
 				endpointAddress = cb.proxyIPAddresses[0]
-			} else if parts[0] == model.LocalhostAddressPrefix {
+			} else if hostIP == model.LocalhostAddressPrefix {
 				endpointAddress = actualLocalHost
 			}
 		}
@@ -695,8 +696,6 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
 	applyLocalityLBSetting(locality, proxyLabels, c, localityLbSetting)
 
-	// apply default round robin lb policy
-	c.LbPolicy = defaultLBAlgorithm()
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		return
@@ -708,31 +707,38 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 		return
 	}
 
-	if lb == nil {
-		return
-	}
-
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
 	// nolint: staticcheck
 	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
-		ApplyLeastRequestLoadBalancer(c, lb)
+		applyLeastRequestLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_RANDOM:
 		c.LbPolicy = cluster.Cluster_RANDOM
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
-		ApplyRoundRobinLoadBalancer(c, lb)
+		applyRoundRobinLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
 	default:
-		c.LbPolicy = defaultLBAlgorithm()
+		applySimpleDefaultLoadBalancer(c, lb)
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)
 }
 
-// ApplyRoundRobinLoadBalancer will set the LbPolicy and create an LbConfig for ROUND_ROBIN if used in LoadBalancerSettings
-func ApplyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+// applySimpleDefaultLoadBalancer will set the DefaultLBPolicy and create an LbConfig if used in LoadBalancerSettings
+func applySimpleDefaultLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+	c.LbPolicy = defaultLBAlgorithm()
+	switch c.LbPolicy {
+	case cluster.Cluster_ROUND_ROBIN:
+		applyRoundRobinLoadBalancer(c, loadbalancer)
+	case cluster.Cluster_LEAST_REQUEST:
+		applyLeastRequestLoadBalancer(c, loadbalancer)
+	}
+}
+
+// applyRoundRobinLoadBalancer will set the LbPolicy and create an LbConfig for ROUND_ROBIN if used in LoadBalancerSettings
+func applyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
 	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
 
 	if loadbalancer.GetWarmupDurationSecs() != nil {
@@ -744,8 +750,8 @@ func ApplyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.Lo
 	}
 }
 
-// ApplyLeastRequestLoadBalancer will set the LbPolicy and create an LbConfig for LEAST_REQUEST if used in LoadBalancerSettings
-func ApplyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+// applyLeastRequestLoadBalancer will set the LbPolicy and create an LbConfig for LEAST_REQUEST if used in LoadBalancerSettings
+func applyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
 	c.LbPolicy = cluster.Cluster_LEAST_REQUEST
 
 	if loadbalancer.GetWarmupDurationSecs() != nil {

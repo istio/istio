@@ -154,6 +154,9 @@ type Settings struct {
 	// EchoImage is the app image to be used by echo deployments.
 	EchoImage string
 
+	// CustomGRPCEchoImage if specified will run an extra container in the echo Pods responsible for gRPC ports
+	CustomGRPCEchoImage string
+
 	// MaxDumps is the maximum number of full test dumps that are allowed to occur within a test suite.
 	MaxDumps uint64
 }

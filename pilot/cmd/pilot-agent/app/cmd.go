@@ -220,6 +220,13 @@ func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*sts
 	localHostAddr := localHostIPv4
 	if proxy.IsIPv6() {
 		localHostAddr = localHostIPv6
+	} else {
+		// if not ipv6-only, it can be ipv4-only or dual-stack
+		// let InstanceIP decide the localhost
+		netIP := net.ParseIP(options.InstanceIPVar.Get())
+		if netIP.To4() == nil && netIP.To16() != nil && !netIP.IsLinkLocalUnicast() {
+			localHostAddr = localHostIPv6
+		}
 	}
 	stsServer, err := stsserver.NewServer(stsserver.Config{
 		LocalHostAddr: localHostAddr,
