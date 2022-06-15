@@ -397,8 +397,8 @@ global:
   # Configure a remote cluster as the config cluster for an external istiod.
   configCluster: false
 
-  # Regex of cluster(s) with an istiod that should attempt leader election for
-  # a remote cluster.
+  # Comma-separated list of clusters (or * for any) with an istiod that should
+  # attempt leader election for a remote cluster.
   istiodClusterIDs: ""
 
   # Configure the policy for validating JWT.

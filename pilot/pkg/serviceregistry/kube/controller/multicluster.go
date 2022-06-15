@@ -17,7 +17,7 @@ package controller
 import (
 	"context"
 	"fmt"
-	"regexp"
+	"strings"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
@@ -341,13 +341,10 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client) bool {
 			for _, webhook := range webhooks.Items {
 				// check if we are a chosen istiod
 				if istiodCluster, found := webhook.Annotations[istiodClusterAnnotation]; found {
-					res, err := regexp.MatchString(istiodCluster, localCluster)
-					if err != nil {
-						log.Errorf("primary cluster regex match error: %v", err)
-						continue
-					}
-					if res {
-						return true
+					for _, cluster := range strings.Split(istiodCluster, ",") {
+						if cluster == "*" || cluster == localCluster {
+							return true
+						}
 					}
 				}
 			}

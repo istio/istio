@@ -430,7 +430,8 @@ message GlobalConfig {
   // Controls whether a remote cluster is the config cluster for an external istiod
   google.protobuf.BoolValue configCluster = 64;
 
-  // Regex of cluster(s) with an istiod that should attempt leader election for a remote cluster.
+  // Comma-separated list of clusters (or * for any) with an istiod that should
+  // attempt leader election for a remote cluster.
   string istiodClusterIDs = 67;
 
   // The name of the CA for workloads.

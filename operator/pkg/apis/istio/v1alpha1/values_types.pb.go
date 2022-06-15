@@ -1531,7 +1531,8 @@ type GlobalConfig struct {
 	ExternalIstiod *wrapperspb.BoolValue `protobuf:"bytes,62,opt,name=externalIstiod,proto3" json:"externalIstiod,omitempty"`
 	// Controls whether a remote cluster is the config cluster for an external istiod
 	ConfigCluster *wrapperspb.BoolValue `protobuf:"bytes,64,opt,name=configCluster,proto3" json:"configCluster,omitempty"`
-	// Regex of cluster(s) with an istiod that should attempt leader election for a remote cluster.
+	// Comma-separated list of clusters (or * for any) with an istiod that should
+	// attempt leader election for a remote cluster.
 	IstiodClusterIDs string `protobuf:"bytes,67,opt,name=istiodClusterIDs,proto3" json:"istiodClusterIDs,omitempty"`
 	// The name of the CA for workloads.
 	// For example, when caName=GkeWorkloadCertificate, GKE workload certificates
