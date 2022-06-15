@@ -545,6 +545,8 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 				log.Infof("skipping update of cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
 				continue
 			}
+			// stop previous remote cluster
+			prev.Stop()
 		}
 		if cluster.ID(clusterID) == c.localClusterID {
 			log.Infof("ignoring %s cluster %v from secret %v as it would overwrite the local cluster", action, clusterID, secretKey)
