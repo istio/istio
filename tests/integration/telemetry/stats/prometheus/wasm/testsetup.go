@@ -34,7 +34,7 @@ const (
 	registryPasswd = "passwd"
 )
 
-func registrySetup(ctx resource.Context) (err error) {
+func testSetup(ctx resource.Context) (err error) {
 	registry, err = registryredirector.New(ctx, registryredirector.Config{
 		Cluster: ctx.AllClusters().Default(),
 	})
@@ -50,6 +50,7 @@ func registrySetup(ctx resource.Context) (err error) {
 		Apply(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
