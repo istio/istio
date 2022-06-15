@@ -36,6 +36,7 @@ const (
 	HTTPLocalHost    = "http-localhost"
 	TCPWorkloadOnly  = "tcp-wl-only"
 	HTTPWorkloadOnly = "http-wl-only"
+	TCPForHTTP       = "tcp-for-http"
 )
 
 // All the common ports.
@@ -56,6 +57,7 @@ func All() echo.Ports {
 		{Name: HTTPLocalHost, Protocol: protocol.HTTP, ServicePort: 84, WorkloadPort: 18084, LocalhostIP: true},
 		{Name: TCPWorkloadOnly, Protocol: protocol.TCP, ServicePort: echo.NoServicePort, WorkloadPort: 19092},
 		{Name: HTTPWorkloadOnly, Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 18083},
+		{Name: TCPForHTTP, Protocol: protocol.HTTP, ServicePort: 86, WorkloadPort: 18086},
 	}
 }
 
