@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-forward-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: external-forward-proxy
+  template:
+    metadata:
+      labels:
+        app: external-forward-proxy
+    spec:
+      containers:
+      - name: external-forward-proxy
+        image: envoyproxy/envoy:v1.21.0
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: external-forward-proxy-config
+          mountPath: /etc/envoy
+      volumes:
+      - name: external-forward-proxy-config
+        configMap:
+          name: external-forward-proxy-config
