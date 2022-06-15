@@ -180,7 +180,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]config.Config, []Istio
 		}
 
 		gvk := obj.GroupVersionKind()
-		s, exists := collections.PilotGatewayAPI.FindByGroupVersionKind(resource.FromKubernetesGVK(&gvk))
+		s, exists := collections.PilotGatewayAPI.FindByGroupVersionAliasesKind(resource.FromKubernetesGVK(&gvk))
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)

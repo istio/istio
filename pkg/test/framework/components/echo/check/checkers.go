@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pkg/config/protocol"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -162,6 +163,26 @@ func Status(expected int) echo.Checker {
 	})
 }
 
+// GRPCStatus checks that the gRPC response status code matches the expected value.
+func GRPCStatus(expected codes.Code) echo.Checker {
+	return func(result echo.CallResult, err error) error {
+		if expected == codes.OK {
+			if err != nil {
+				return fmt.Errorf("unexpected error: %w", err)
+			}
+			return nil
+		}
+		if err == nil {
+			return fmt.Errorf("expected gRPC error with status %s, but got OK", expected.String())
+		}
+		expectedSubstr := fmt.Sprintf("code = %s", expected.String())
+		if strings.Contains(err.Error(), expectedSubstr) {
+			return nil
+		}
+		return fmt.Errorf("expected gRPC response code %q. Instead got: %w", expected.String(), err)
+	}
+}
+
 // BodyContains checks that the response body contains the given string.
 func BodyContains(expected string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
@@ -225,21 +246,42 @@ func Alpn(expected string) echo.Checker {
 	})
 }
 
+func isHTTPProtocol(r echoClient.Response) bool {
+	return strings.HasPrefix(r.RequestURL, "http://") ||
+		strings.HasPrefix(r.RequestURL, "grpc://") ||
+		strings.HasPrefix(r.RequestURL, "ws://")
+}
+
+func isMTLS(r echoClient.Response) bool {
+	_, f1 := r.RequestHeaders["X-Forwarded-Client-Cert"]
+	// nolint: staticcheck
+	_, f2 := r.RequestHeaders["x-forwarded-client-cert"] // grpc has different casing
+	return f1 || f2
+}
+
 func MTLSForHTTP() echo.Checker {
 	return Each(func(r echoClient.Response) error {
-		if !strings.HasPrefix(r.RequestURL, "http://") &&
-			!strings.HasPrefix(r.RequestURL, "grpc://") &&
-			!strings.HasPrefix(r.RequestURL, "ws://") {
+		if !isHTTPProtocol(r) {
 			// Non-HTTP traffic. Fail open, we cannot check mTLS.
 			return nil
 		}
-		_, f1 := r.RequestHeaders["X-Forwarded-Client-Cert"]
-		// nolint: staticcheck
-		_, f2 := r.RequestHeaders["x-forwarded-client-cert"] // grpc has different casing
-		if f1 || f2 {
+		if isMTLS(r) {
 			return nil
 		}
 		return fmt.Errorf("expected X-Forwarded-Client-Cert but not found: %v", r)
+	})
+}
+
+func PlaintextForHTTP() echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if !isHTTPProtocol(r) {
+			// Non-HTTP traffic. Fail open, we cannot check mTLS.
+			return nil
+		}
+		if !isMTLS(r) {
+			return nil
+		}
+		return fmt.Errorf("expected plaintext but found X-Forwarded-Client-Cert header: %v", r)
 	})
 }
 
@@ -342,6 +384,22 @@ func ReachedClusters(allClusters cluster.Clusters, expectedClusters cluster.Clus
 	}
 }
 
+// ReachedNetworks returns an error if requests did not load balance across the clusters in the expected
+// networks.
+func ReachedNetworks(allClusters cluster.Clusters, expectedNetworks ...string) echo.Checker {
+	allByNetwork := allClusters.ByNetwork()
+
+	// Populate a map containing just the expected clusters.
+	expectedByNetwork := make(map[string]cluster.Clusters)
+	for _, nw := range expectedNetworks {
+		expectedByNetwork[nw] = allByNetwork[nw]
+	}
+
+	return func(result echo.CallResult, err error) error {
+		return checkReachedClusters(result, allClusters, expectedByNetwork)
+	}
+}
+
 func checkReachedClusters(result echo.CallResult, allClusters cluster.Clusters, expectedByNetwork cluster.ClustersByNetwork) error {
 	if err := checkReachedNetworks(result, allClusters, expectedByNetwork); err != nil {
 		return err
@@ -362,7 +420,7 @@ func checkReachedNetworks(result echo.CallResult, allClusters cluster.Clusters, 
 	// Verify that all expected networks were reached.
 	for network := range expectedByNetwork {
 		if networkHits[network] == 0 {
-			return fmt.Errorf("did not reach network %q, got %v", network, networkHits)
+			return fmt.Errorf("did not reach network %v, got %v", network, networkHits)
 		}
 	}
 

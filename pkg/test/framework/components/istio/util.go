@@ -18,12 +18,16 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/types/known/structpb"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/framework"
@@ -96,7 +100,8 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (
 		}
 		addr = address.(net.TCPAddr)
 	} else {
-		addr = i.CustomIngressFor(primary, eastWestIngressServiceName, eastWestIngressIstioLabel).DiscoveryAddress()
+		name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.settings.SystemNamespace}
+		addr = i.CustomIngressFor(primary, name, eastWestIngressIstioLabel).DiscoveryAddress()
 	}
 	if addr.IP.String() == "<nil>" {
 		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", primary.Name())
@@ -108,7 +113,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 	port int,
 ) (interface{}, bool, error) {
 	if !s.LoadBalancerSupported {
-		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", label))
+		pods, err := cluster.PodsForSelector(context.TODO(), ns, label)
 		if err != nil {
 			return nil, false, err
 		}
@@ -280,4 +285,40 @@ func PatchMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.
 	if err := PatchMeshConfig(t, ns, clusters, patch); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// This regular expression matches list object index selection expression such as
+// abc[100], Tba_a[0].
+var listObjRex = regexp.MustCompile(`^([a-zA-Z]?[a-z_A-Z\d]*)\[([ ]*[\d]+)[ ]*\]$`)
+
+func getConfigValue(path []string, val map[string]*structpb.Value) *structpb.Value {
+	retVal := structpb.NewNullValue()
+	if len(path) > 0 {
+		match := listObjRex.FindStringSubmatch(path[0])
+		// valid list index
+		switch len(match) {
+		case 0: // does not match list object selection, should be name of a field, should be struct value
+			thisVal := val[path[0]]
+			// If it is a struct and looking for more down the path
+			if thisVal.GetStructValue() != nil && len(path) > 1 {
+				return getConfigValue(path[1:], thisVal.GetStructValue().Fields)
+			}
+			retVal = thisVal
+		case 3: // match somthing like aaa[100]
+			thisVal := val[match[1]]
+			// If it is a list and looking for more down the path
+			if thisVal.GetListValue() != nil && len(path) > 1 {
+				index, _ := strconv.Atoi(match[2])
+				return getConfigValue(path[1:], thisVal.GetListValue().Values[index].GetStructValue().Fields)
+			}
+			retVal = thisVal
+		}
+	}
+	return retVal
+}
+
+// This is method is to get a structpb value from a structpb map by
+// using a dotted path such as `pilot.env.LOCAL_CLUSTER_SECRET_WATCHER`.
+func GetConfigValue(path string, val map[string]*structpb.Value) *structpb.Value {
+	return getConfigValue(strings.Split(path, "."), val)
 }

@@ -1810,6 +1810,44 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 				HttpStatus: 200,
 			},
 		}, valid: false},
+		{name: "grpc: nil", in: nil, valid: true},
+		{name: "grpc: valid", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "DEADLINE_EXCEEDED",
+			},
+		}, valid: true},
+		{name: "grpc: valid default percentage", in: &networking.HTTPFaultInjection_Abort{
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "DEADLINE_EXCEEDED",
+			},
+		}, valid: true},
+		{name: "grpc: invalid status", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "BAD_STATUS",
+			},
+		}, valid: false},
+		{name: "grpc: valid percentage", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 0.001,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "INTERNAL",
+			},
+		}, valid: true},
+		{name: "grpc: invalid fractional percent", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: -10.0,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "DEADLINE_EXCEEDED",
+			},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {

@@ -144,16 +144,54 @@ func (m *Multicluster) close() (err error) {
 // to watch for resources being added, deleted or changed on remote clusters.
 func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}) error {
 	m.m.Lock()
-
-	if m.closing {
+	kubeRegistry, options, configCluster, err := m.addCluster(cluster)
+	if err != nil {
 		m.m.Unlock()
-		return fmt.Errorf("failed adding member cluster %s: server shutting down", cluster.ID)
+		return err
+	}
+	m.m.Unlock()
+	// clusterStopCh is a channel that will be closed when this cluster removed.
+	return m.initializeCluster(cluster, kubeRegistry, *options, configCluster, clusterStopCh)
+}
+
+// ClusterUpdated is passed to the secret controller as a callback to be called
+// when a remote cluster is updated.
+func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
+	m.m.Lock()
+	m.deleteCluster(cluster.ID)
+	kubeRegistry, options, configCluster, err := m.addCluster(cluster)
+	if err != nil {
+		m.m.Unlock()
+		return err
+	}
+	m.m.Unlock()
+	// clusterStopCh is a channel that will be closed when this cluster removed.
+	return m.initializeCluster(cluster, kubeRegistry, *options, configCluster, stop)
+}
+
+// ClusterDeleted is passed to the secret controller as a callback to be called
+// when a remote cluster is deleted.  Also must clear the cache so remote resources
+// are removed.
+func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
+	m.m.Lock()
+	m.deleteCluster(clusterID)
+	m.m.Unlock()
+	if m.XDSUpdater != nil {
+		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
+	}
+	return nil
+}
+
+// addCluster adds cluster related resources and updates internal structures.
+// This is not thread safe.
+func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*Controller, *Options, bool, error) {
+	if m.closing {
+		return nil, nil, false, fmt.Errorf("failed adding member cluster %s: server shutting down", cluster.ID)
 	}
 
 	client := cluster.Client
 	configCluster := m.opts.ClusterID == cluster.ID
 
-	// clusterStopCh is a channel that will be closed when this cluster removed.
 	options := m.opts
 	options.ClusterID = cluster.ID
 	// different clusters may have different k8s version, re-apply conditional default
@@ -166,8 +204,14 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	m.remoteKubeControllers[cluster.ID] = &kubeController{
 		Controller: kubeRegistry,
 	}
+	return kubeRegistry, &options, configCluster, nil
+}
 
-	m.m.Unlock()
+// initializeCluster initializes the cluster by setting various handlers.
+func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegistry *Controller, options Options,
+	configCluster bool, clusterStopCh <-chan struct{},
+) error {
+	client := cluster.Client
 
 	if m.serviceEntryController != nil && features.EnableServiceEntrySelectPods {
 		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
@@ -270,27 +314,15 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	return nil
 }
 
-// ClusterUpdated is passed to the secret controller as a callback to be called
-// when a remote cluster is updated.
-func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
-	if err := m.ClusterDeleted(cluster.ID); err != nil {
-		return err
-	}
-	return m.ClusterAdded(cluster, stop)
-}
-
-// ClusterDeleted is passed to the secret controller as a callback to be called
-// when a remote cluster is deleted.  Also must clear the cache so remote resources
-// are removed.
-func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
-	m.m.Lock()
-	defer m.m.Unlock()
+// deleteCluster deletes cluster resources and does not trigger push.
+// This call is not thread safe.
+func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
 	m.opts.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
 	m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
 	if !ok {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
-		return nil
+		return
 	}
 	if kc.workloadEntryController != nil {
 		m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.External)
@@ -299,11 +331,6 @@ func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	delete(m.remoteKubeControllers, clusterID)
-	if m.XDSUpdater != nil {
-		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
-	}
-
-	return nil
 }
 
 func createWleConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreController, error) {

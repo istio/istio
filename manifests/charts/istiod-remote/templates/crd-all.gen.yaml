@@ -41,8 +41,6 @@ spec:
               WebAssembly filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/wasm-plugin.html'
             properties:
               imagePullPolicy:
-                description: The pull behaviour to be applied when fetching an OCI
-                  image.
                 enum:
                 - UNSPECIFIED_POLICY
                 - IfNotPresent
@@ -3963,6 +3961,7 @@ spec:
                             - http2Error
                           properties:
                             grpcStatus:
+                              description: GRPC status code to use to abort the request.
                               type: string
                             http2Error:
                               type: string
@@ -4712,6 +4711,7 @@ spec:
                             - http2Error
                           properties:
                             grpcStatus:
+                              description: GRPC status code to use to abort the request.
                               type: string
                             http2Error:
                               type: string

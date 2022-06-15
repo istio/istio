@@ -64,7 +64,9 @@ func Headless() echo.Ports {
 	all := All()
 	headlessPorts := make([]echo.Port, len(all))
 	for i, p := range all {
-		p.ServicePort = p.WorkloadPort
+		if !p.IsWorkloadOnly() {
+			p.ServicePort = p.WorkloadPort
+		}
 		headlessPorts[i] = p
 	}
 	return headlessPorts

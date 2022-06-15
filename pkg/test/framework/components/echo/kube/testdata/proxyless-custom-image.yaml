@@ -1,0 +1,136 @@
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: foo
+  labels:
+    app: foo
+spec:
+  ports:
+  - name: grpc
+    port: 7070
+    targetPort: 7070
+  selector:
+    app: foo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foo-bar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foo
+      version: bar
+  template:
+    metadata:
+      labels:
+        app: foo
+        version: bar
+        test.istio.io/class: proxyless
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
+        inject.istio.io/templates: "grpc-agent"
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: istio-proxy
+        image: auto
+        imagePullPolicy: Always
+        securityContext: # to allow core dumps
+          readOnlyRootFilesystem: false
+      - name: app
+        image: testing.hub/app:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
+        args:
+          - --metrics=15014
+          - --cluster=cluster-0
+          - --port=8080
+          - --port=3333
+          - --grpc=17777
+          - --version=bar
+          - --istio-version=
+          - --crt=/cert.crt
+          - --key=/cert.key
+        ports:
+        - containerPort: 8080
+        - containerPort: 3333
+          name: tcp-health-port
+        - containerPort: 17777
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: EXPOSE_GRPC_ADMIN
+          value: "true"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
+          periodSeconds: 1
+          failureThreshold: 10
+      - name: custom-grpc-app
+        image: grpc/echo:cpp
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
+        args:
+          - --forwarding_address=0.0.0.0:17777
+          - --metrics=15014
+          - --cluster=cluster-0
+          - --xds-grpc-server=7070
+          - --grpc=17171
+          - --bind-localhost=17171
+          - --version=bar
+          - --istio-version=
+          - --crt=/cert.crt
+          - --key=/cert.key
+        ports:
+        - containerPort: 7070
+        - containerPort: 17171
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: EXPOSE_GRPC_ADMIN
+          value: "true"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
+          periodSeconds: 1
+          failureThreshold: 10
+---

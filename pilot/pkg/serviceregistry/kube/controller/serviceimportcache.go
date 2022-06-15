@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -68,6 +69,7 @@ type serviceImportCache interface {
 func newServiceImportCache(c *Controller) serviceImportCache {
 	if features.EnableMCSHost {
 		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceImportGVR)
+		_ = dInformer.Informer().SetTransform(kubelib.StripUnusedFields)
 		sic := &serviceImportCacheImpl{
 			Controller: c,
 			informer:   dInformer.Informer(),

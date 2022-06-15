@@ -43,7 +43,16 @@ func AsBytesOrFail(t test.Failer, filename string) []byte {
 	return content
 }
 
-// AsString is a convenience wrapper around os.ReadFile that converts the content to a string.
+// MustAsBytes calls AsBytes and panics the test if any errors occurred.
+func MustAsBytes(filename string) []byte {
+	content, err := AsBytes(filename)
+	if err != nil {
+		panic(err)
+	}
+	return content
+}
+
+// AsStringArray is a convenience wrapper around os.ReadFile that converts the content to a string.
 func AsStringArray(files ...string) ([]string, error) {
 	out := make([]string, 0, len(files))
 	for _, f := range files {
@@ -79,6 +88,11 @@ func AsString(filename string) (string, error) {
 func AsStringOrFail(t test.Failer, filename string) string {
 	t.Helper()
 	return string(AsBytesOrFail(t, filename))
+}
+
+// MustAsString calls MustAsBytes and then converts to string.
+func MustAsString(filename string) string {
+	return string(MustAsBytes(filename))
 }
 
 // NormalizePath expands the homedir (~) and returns an error if the file doesn't exist.

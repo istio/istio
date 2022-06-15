@@ -161,3 +161,18 @@ spec:
         tls:
           mode: ISTIO_MUTUAL
 ---
+# TODO(nmittler): Shouldn't need this. Workaround for https://github.com/istio/istio/issues/38704.
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: test-egress
+  namespace: {{ .SystemNamespace.Name }}
+spec:
+  host: "istio-egressgateway.{{ .SystemNamespace.Name }}.svc.cluster.local"
+  trafficPolicy:
+    portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: ISTIO_MUTUAL
+---

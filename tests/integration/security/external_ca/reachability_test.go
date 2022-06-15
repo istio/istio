@@ -36,18 +36,6 @@ func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.externalca.reachability").
 		Run(func(t framework.TestContext) {
-			/* Test cases cannot be run in multi-cluster environments when using per cluster K8s CA Signers. Revisit this when
-			 * (a) Test environment can be modified to deploy external-signer common to all clusters in multi-cluster environment OR
-			 * (b) When trust-bundle for workload ISTIO_MUTUAL mtls can be explicitly configured PER Istio Trust Domain
-			 */
-			if t.Clusters().IsMulticluster() {
-				t.Skip("https://github.com/istio/istio/issues/37307: Test cases cannot be run in " +
-					"multi-cluster environments when using per cluster K8s CA Signers. Revisit this when:\n" +
-					"* (a) Test environment can be modified to deploy external-signer common to all clusters " +
-					"in multi-cluster environment OR\n" +
-					"* (b) When trust-bundle for workload ISTIO_MUTUAL mtls can be explicitly configured PER " +
-					"Istio Trust Domain")
-			}
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
