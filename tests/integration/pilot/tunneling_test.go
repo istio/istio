@@ -27,6 +27,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -231,6 +232,13 @@ func applyForwardProxyConfigMaps(ctx framework.TestContext, externalNs string) {
 	}
 	if _, err := kubeClient.CoreV1().ConfigMaps(externalNs).Create(context.TODO(), cfgMap, metav1.CreateOptions{}); err != nil {
 		ctx.Fatalf("failed to create config map external-forward-proxy-config: %s", err)
+		if kerrors.IsAlreadyExists(err) {
+			if _, err := kubeClient.CoreV1().ConfigMaps(externalNs).Update(context.TODO(), cfgMap, metav1.UpdateOptions{}); err != nil {
+				ctx.Fatalf("failed to update config map external-forward-proxy-config: %s", err)
+			}
+		} else {
+			ctx.Fatalf("failed to create config map external-forward-proxy-config: %s", err)
+		}
 	}
 }
 
@@ -258,6 +266,13 @@ func applyForwardProxyService(ctx framework.TestContext, externalNs string) {
 	}
 	if _, err := kubeClient.CoreV1().Services(externalNs).Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
 		ctx.Fatalf("failed to create service external-forward-proxy: %s", err)
+		if kerrors.IsAlreadyExists(err) {
+			if _, err := kubeClient.CoreV1().Services(externalNs).Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
+				ctx.Fatalf("failed to update service external-forward-proxy: %s", err)
+			}
+		} else {
+			ctx.Fatalf("failed to create service external-forward-proxy: %s", err)
+		}
 	}
 }
 
