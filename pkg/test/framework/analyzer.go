@@ -16,19 +16,19 @@ package framework
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
-	"istio.io/istio/pkg/util/sets"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
+	"gopkg.in/yaml.v3"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -162,7 +162,7 @@ func (s *suiteAnalyzer) track() *suiteAnalysis {
 	}
 }
 
-var analyzerAllowlist = loadAllowlist(env.IstioSrc + "/pkg/test/framework/analyzer-allowlist.txt")
+var analyzerAllowlist = loadAllowlist(env.IstioSrc + "/pkg/test/framework/analyzer-allowlist.yaml")
 
 type allowlist struct {
 	Suites map[string][]string `yaml:"suites"`
@@ -189,7 +189,7 @@ func (s *suiteAnalyzer) validate() error {
 		if sets.New(analyzerAllowlist.Suites[name]...).Contains(s.testID) {
 			continue
 		}
-		if vErr := validator(s); vErr !=nil {
+		if vErr := validator(s); vErr != nil {
 			err = multierror.Append(err, vErr)
 		}
 	}
@@ -199,9 +199,9 @@ func (s *suiteAnalyzer) validate() error {
 
 var sutieValidators = map[string]func(s *suiteAnalyzer) error{
 	"supportMultipleClusters": func(s *suiteAnalyzer) error {
-		if s.maxClusters < 3 {
+		if s.maxClusters >= 0 && s.maxClusters < 3 {
 			return fmt.Errorf(
-				"%s is supports a maximum of %d clusters; "+
+				"%s supports a maximum of %d clusters; "+
 					"suites must be compatible with an arbitrary number of clusters",
 				s.testID, s.maxClusters,
 			)
