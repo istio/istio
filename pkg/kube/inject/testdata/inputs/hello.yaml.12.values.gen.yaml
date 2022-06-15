@@ -45,6 +45,7 @@
       "global",
       "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
     ],
+    "primaryCluster": "",
     "priorityClassName": "",
     "proxy": {
       "autoInject": "enabled",

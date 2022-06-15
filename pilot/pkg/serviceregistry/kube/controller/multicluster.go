@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
@@ -318,13 +319,16 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 	return nil
 }
 
-const ExternalIstiodLabel string = "externalIstiod"
+const (
+	externalIstiodLabel      = "externalIstiod"
+	primaryClusterAnnotation = "primaryCluster"
+)
 
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
 func (m *Multicluster) checkShouldLead(client kubelib.Client) bool {
 	if features.ExternalIstiod {
 		webhooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", ExternalIstiodLabel, "true"),
+			LabelSelector: fmt.Sprintf("%s=true", externalIstiodLabel),
 		})
 		if err != nil {
 			log.Errorf("could not access injection webhooks: %v", err)
@@ -333,7 +337,20 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client) bool {
 		}
 		if len(webhooks.Items) != 0 {
 			// found webhook with externalIstiod label, i.e., cluster is an istiodless remote
-			return true
+			localCluster := string(m.opts.ClusterID)
+			for _, webhook := range webhooks.Items {
+				// check if we are a chosen istiod
+				if primaryCluster, found := webhook.Annotations[primaryClusterAnnotation]; found {
+					res, err := regexp.MatchString(primaryCluster, localCluster)
+					if err != nil {
+						log.Errorf("primary cluster regex match error: %v", err)
+						continue
+					}
+					if res {
+						return true
+					}
+				}
+			}
 		}
 	}
 	return false

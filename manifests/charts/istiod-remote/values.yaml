@@ -332,8 +332,11 @@ global:
   # When set to true, istiod is not deployed locally and only a subset of the other
   # discovery charts are enabled.
   externalIstiod: true
-  #  Configure a remote cluster as the config cluster for an external istiod.
+  # Configure a remote cluster as the config cluster for an external istiod.
   configCluster: false
+  # Regex of cluster(s) with an istiod that should attempt leader election for
+  # a remote cluster.
+  primaryCluster: ""
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   jwtPolicy: "third-party-jwt"
