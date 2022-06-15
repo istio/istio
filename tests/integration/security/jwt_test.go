@@ -19,11 +19,13 @@ package security
 
 import (
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
@@ -33,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/scheck"
@@ -47,9 +50,26 @@ func TestRequestAuthentication(t *testing.T) {
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			t.ConfigKube().EvalFile(ns.Name(), map[string]string{
-				"Namespace": ns.Name(),
-			}, "../../../samples/jwt-server/jwt-server.yaml").ApplyOrFail(t)
+
+			for _, cluster := range t.Clusters() {
+				t.ConfigKube(cluster).EvalFile(ns.Name(), map[string]string{
+					"Namespace": ns.Name(),
+				}, filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")).ApplyOrFail(t)
+			}
+
+			for _, cluster := range t.Clusters() {
+				fetchFn := kube.NewPodFetch(cluster, ns.Name(), "app=jwt-server")
+				_, err := kube.WaitUntilPodsAreReady(fetchFn)
+				if err != nil {
+					t.Fatalf("pod is not getting ready : %v", err)
+				}
+			}
+
+			for _, cluster := range t.Clusters() {
+				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster.Kube(), ns.Name(), "jwt-server"); err != nil {
+					t.Fatalf("jwt-server failed with : %v", err)
+				}
+			}
 
 			type testCase struct {
 				name          string

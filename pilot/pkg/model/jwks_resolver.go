@@ -72,7 +72,7 @@ const (
 	// How many times should we retry the failed network fetch on refresh flow. The refresh flow
 	// means it's called when the periodically refresh job is triggered. We can retry more aggressively
 	// as it's running separately from the main flow.
-	networkFetchRetryCountOnRefreshFlow = 10
+	networkFetchRetryCountOnRefreshFlow = 7
 
 	// jwksExtraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
 	jwksExtraRootCABundlePath = "/cacerts/extra.pem"
