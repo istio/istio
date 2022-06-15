@@ -431,7 +431,7 @@ message GlobalConfig {
   google.protobuf.BoolValue configCluster = 64;
 
   // Regex of cluster(s) with an istiod that should attempt leader election for a remote cluster.
-  string primaryCluster = 67;
+  string istiodClusterIDs = 67;
 
   // The name of the CA for workloads.
   // For example, when caName=GkeWorkloadCertificate, GKE workload certificates

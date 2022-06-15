@@ -320,8 +320,8 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 }
 
 const (
-	externalIstiodLabel      = "externalIstiod"
-	primaryClusterAnnotation = "primaryCluster"
+	externalIstiodLabel     = "externalIstiod"
+	istiodClusterAnnotation = "istiodClusterIDs"
 )
 
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
@@ -340,8 +340,8 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client) bool {
 			localCluster := string(m.opts.ClusterID)
 			for _, webhook := range webhooks.Items {
 				// check if we are a chosen istiod
-				if primaryCluster, found := webhook.Annotations[primaryClusterAnnotation]; found {
-					res, err := regexp.MatchString(primaryCluster, localCluster)
+				if istiodCluster, found := webhook.Annotations[istiodClusterAnnotation]; found {
+					res, err := regexp.MatchString(istiodCluster, localCluster)
 					if err != nil {
 						log.Errorf("primary cluster regex match error: %v", err)
 						continue

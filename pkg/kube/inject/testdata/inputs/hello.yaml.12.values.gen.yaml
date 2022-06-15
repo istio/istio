@@ -23,6 +23,7 @@
     "istiod": {
       "enableAnalysis": false
     },
+    "istiodClusterIDs": "",
     "jwtPolicy": "third-party-jwt",
     "logAsJson": false,
     "logging": {
@@ -45,7 +46,6 @@
       "global",
       "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
     ],
-    "primaryCluster": "",
     "priorityClassName": "",
     "proxy": {
       "autoInject": "enabled",

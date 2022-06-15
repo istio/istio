@@ -584,7 +584,7 @@ func installRemoteCommon(s *resource.Settings, i *operatorComponent, cfg Config,
 	if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
 		installArgs.Set = append(installArgs.Set,
 			fmt.Sprintf("values.istiodRemote.injectionPath=/inject/net/%s/cluster/%s", c.NetworkName(), c.Name()),
-			"values.global.primaryCluster="+c.Primary().Name())
+			"values.global.istiodClusterIDs="+c.Config().Name()) // Use config cluster name because external control plane uses config cluster as its cluster ID
 	}
 
 	if err := install(i, installArgs, c.Name()); err != nil {

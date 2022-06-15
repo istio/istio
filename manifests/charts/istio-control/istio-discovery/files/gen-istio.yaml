@@ -92,6 +92,7 @@ data:
         "istiod": {
           "enableAnalysis": false
         },
+        "istiodClusterIDs": "",
         "jwtPolicy": "third-party-jwt",
         "logAsJson": false,
         "logging": {
@@ -109,7 +110,6 @@ data:
         "oneNamespace": false,
         "operatorManageWebhooks": false,
         "pilotCertProvider": "istiod",
-        "primaryCluster": "",
         "priorityClassName": "",
         "proxy": {
           "autoInject": "enabled",

@@ -47,7 +47,7 @@ metadata:
 {{- if .Values.global.externalIstiod }}
     externalIstiod: "true"
   annotations:
-    primaryCluster: {{ .Values.global.primaryCluster | default ".*" }}
+    istiodClusterIDs: {{ .Values.global.istiodClusterIDs | default ".*" }}
 {{- end }}
 webhooks:
 {{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
