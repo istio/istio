@@ -40,6 +40,8 @@ import (
 	forward_proxy "istio.io/istio/tests/integration/pilot/tunneling/forward-proxy"
 )
 
+const tunnelingDestinationRuleFile = "testdata/tunneling/destination-rule.tmpl.yaml"
+
 type tunnelingTestCase struct {
 	// configDir is a directory with Istio configuration files for a particular test case
 	configDir string
@@ -108,7 +110,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 			externalNs := apps.External.Namespace.Name()
 
 			applyForwardProxyConfigMaps(ctx, externalNs)
-			ctx.ConfigIstio().File(externalNs, "tunneling/forward-proxy/deployment.yaml").ApplyOrFail(ctx)
+			ctx.ConfigIstio().File(externalNs, "testdata/external-forward-proxy-deployment.yaml").ApplyOrFail(ctx)
 			applyForwardProxyService(ctx, externalNs)
 			waitForPodsReadyOrFail(ctx, externalNs, "external-forward-proxy")
 			externalForwardProxyIP := getPodIP(ctx, externalNs, "external-forward-proxy")
@@ -121,11 +123,11 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 					"externalSvcTcpPort": apps.External.All.PortForName(ports.TCPForHTTP).ServicePort,
 					"externalSvcTlsPort": apps.External.All.PortForName(ports.HTTPS).ServicePort,
 				}
-				ctx.ConfigIstio().EvalFile(externalNs, templateParams, "tunneling/forward-proxy/destination-rule.tmpl.yaml").ApplyOrFail(ctx)
+				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).ApplyOrFail(ctx)
 
 				for _, tc := range testCases {
-					for _, res := range listFilesInDirectory(ctx, tc.configDir) {
-						ctx.ConfigIstio().EvalFile(meshNs, templateParams, "tunneling/"+res).ApplyOrFail(ctx)
+					for _, file := range listFilesInDirectory(ctx, tc.configDir) {
+						ctx.ConfigIstio().EvalFile(meshNs, templateParams, file).ApplyOrFail(ctx)
 					}
 
 					for _, spec := range requestsSpec {
@@ -147,8 +149,8 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 						})
 					}
 
-					for _, res := range listFilesInDirectory(ctx, tc.configDir) {
-						ctx.ConfigIstio().EvalFile(meshNs, templateParams, "tunneling/"+res).DeleteOrFail(ctx)
+					for _, file := range listFilesInDirectory(ctx, tc.configDir) {
+						ctx.ConfigIstio().EvalFile(meshNs, templateParams, file).DeleteOrFail(ctx)
 					}
 
 					// Make sure that configuration changes were pushed to istio-proxies.
@@ -157,7 +159,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs)
 				}
 
-				ctx.ConfigIstio().EvalFile(externalNs, templateParams, "tunneling/forward-proxy/destination-rule.tmpl.yaml").DeleteOrFail(ctx)
+				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).DeleteOrFail(ctx)
 			}
 		})
 }
@@ -260,13 +262,13 @@ func applyForwardProxyService(ctx framework.TestContext, externalNs string) {
 }
 
 func listFilesInDirectory(ctx framework.TestContext, dir string) []string {
-	files, err := os.ReadDir("tunneling/" + dir)
+	files, err := os.ReadDir("testdata/tunneling/" + dir)
 	if err != nil {
 		ctx.Fatalf("failed to read files in directory: %s", err)
 	}
 	filesList := make([]string, 0, len(files))
 	for _, file := range files {
-		filesList = append(filesList, fmt.Sprintf("%s/%s", dir, file.Name()))
+		filesList = append(filesList, fmt.Sprintf("testdata/tunneling/%s/%s", dir, file.Name()))
 	}
 	return filesList
 }
