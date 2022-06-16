@@ -275,6 +275,8 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 		return
 	}
 
+	// we have to make sure we evict old entries with the same key
+	// to prevent leaking in the index maps
 	if old, ok := l.store.Get(k); ok {
 		l.evict(k, old)
 	}
