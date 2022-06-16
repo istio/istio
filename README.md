@@ -7,13 +7,17 @@
 
 HUB=gcr.io/xyz # consider localhost:5000
 TAG=ambient
-GOPRIVATE=github.com/solo-io/istio-api-sidecarless
+export GOPRIVATE=github.com/solo-io/istio-api-sidecarless
+
+# If using git with ssh key, you can use this:
+# git config --global url."ssh://git@github.com/solo-io".insteadOf https://github.com/solo-io
+
 # Build Istiod and proxy (uproxy and remote proxy are the same image)
-tools/docker --targets=pilot,proxyv2,app --hub=$HUB --tag=$TAG --push
+tools/docker --targets=pilot,proxyv2,app --hub=$HUB --tag=$TAG --push # consider --builder=crane
 # Install Istio without gateway or webhook
 # profile can be "ambient" or "ambient-gke" or "ambient-aws"
 # Mesh config options are optional to improve debugging
-go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
+CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
   --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0
 ```
 

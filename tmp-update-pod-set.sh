@@ -16,6 +16,8 @@
 
 set -x
 
+. $(dirname -- $0)/config.sh
+
 # if k8s type var not set, default to kind
 if [ -z "${K8S_TYPE}" ]; then
    K8S_TYPE='kind'
@@ -64,12 +66,37 @@ function add_ip_set() {
     ipset create tmp-uproxy-pods-ips hash:ip
     ipset flush tmp-uproxy-pods-ips
 EOF
-
-    for pip in $PODS; do
         exec_on_node "$node_name" <<EOF
-        ipset add tmp-uproxy-pods-ips $pip
+
+# try host side veth
+HOST_IP="\$(ip addr show | grep 'inet.*veth' | head -n1 | awk '{print \$2}' | cut -d/ -f1)"
+if [ -z "\$HOST_IP" ]; then
+  # try eth0
+  HOST_IP=\$(ip addr show eth0 | grep "inet\b" | awk '{print \$2}' | cut -d/ -f1)
+fi
+
+PODS="$PODS"
+
+# flush secondary table
+ip route flush table $INBOUND_ROUTE_TABLE2
+# fill in secondary table
+for pip in \$PODS; do
+        ipset add tmp-uproxy-pods-ips \$pip
+        ip route add table $INBOUND_ROUTE_TABLE2 \$pip/32 via $UPROXY_INBOUND_TUN_IP dev $INBOUND_TUN src \$HOST_IP
+done
+
+# activate secondary table
+ip rule add priority 20003 goto 20005
+
+# add everything to the primary table
+ip route flush table $INBOUND_ROUTE_TABLE
+for pip in \$PODS; do
+        ip route add table $INBOUND_ROUTE_TABLE \$pip/32 via $UPROXY_INBOUND_TUN_IP dev $INBOUND_TUN src \$HOST_IP
+done
+# deactivate the secondary table
+ip rule del priority 20003 goto 20005
+
 EOF
-    done
 
     exec_on_node "$node_name" <<EOF
     ipset swap tmp-uproxy-pods-ips uproxy-pods-ips

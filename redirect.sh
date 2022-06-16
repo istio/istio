@@ -16,34 +16,7 @@
 
 set -x
 
-# Allocate marks and route tables:
-# the main requirement here is that these won't class with other things running on the host.
-# note that the outmark needs to be configured by pilot as well, so envoy sets it on outgoing traffic.
-# though we can potentially avoid using it and user UID exclusions instead.
-# TPROXY port in envoy
-POD_OUTBOUND=15001
-POD_INBOUND=15008
-POD_INBOUND_PLAINTEXT=15006
-
-# TODO: assuming we need only 3 marks, we can use 2 bits of the mark space, instead of 12 currently.
-# we should also make the location of these 2 bits configurable, so we can change it based on what is already
-# in use.
-
-# socket mark setup
-MARK_MASK="0xfff"
-MARK="0x4d1/$MARK_MASK"
-OUTMARK_MASK="0xfff"
-# note that outmark needs to be set in envoy as well, as envoy originates this mark.
-OUTMARK="0x4d2/$OUTMARK_MASK"
-OUTMARK_RET_MASK="0xfff"
-OUTMARK_RET="0x4d3/$OUTMARK_RET_MASK"
-# note that outmark needs to be set in envoy as well, as envoy originates this mark.
-SKIPMARK="0x4d4/$MARK_MASK"
-# prefix for pod network interfaces on the host side
-INTERFACE_PREFIX=veth
-INCOMING_INTERFACE=eth0
-# a route table number number we can use to send traffic to envoy (should be unused).
-ROUTE_TABLE=100
+. $(dirname -- $0)/config.sh
 
 WORKER_NODES="$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o custom-columns=:.metadata.name --no-headers)"
 
@@ -111,27 +84,41 @@ if [[ "${2:-}" == clean ]]; then
   for node in ${WORKER_NODES}; do
     exec_on_node "$node" <<EOF
     $IPTABLES -t nat -F uproxy-PREROUTING
+    $IPTABLES -t nat -F uproxy-POSTROUTING
     $IPTABLES -t mangle -F uproxy-PREROUTING
-    $IPTABLES -t mangle -F uproxy-POSTROUTING
-    $IPTABLES -t mangle -F uproxy-OUTPUT
+    $IPTABLES -t mangle -F uproxy-FORWARD
+    $IPTABLES -t mangle -F uproxy-INPUT
     # we flush because sometimes -X doesn't work.
-    $IPTABLES -t mangle -D POSTROUTING -j uproxy-POSTROUTING
-    $IPTABLES -t mangle -X uproxy-POSTROUTING
-    $IPTABLES -t mangle -D OUTPUT -j uproxy-OUTPUT
-    $IPTABLES -t mangle -X uproxy-OUTPUT
-    $IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j REDIRECT --to-port $POD_INBOUND
-    $IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j LOG --log-prefix="[$node-internal] "
-    $IPTABLES -t mangle -D PREROUTING -j uproxy-PREROUTING
-    $IPTABLES -t mangle -X uproxy-PREROUTING
     $IPTABLES -t nat -D PREROUTING -j uproxy-PREROUTING
     $IPTABLES -t nat -X uproxy-PREROUTING
-    # Clean up previous rules, if any
-    $IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j REDIRECT --to-port $POD_INBOUND
-    $IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j LOG --log-prefix="[$node-internal] "
-    ip rule del fwmark $MARK lookup $ROUTE_TABLE
-    ip rule del fwmark $OUTMARK_RET lookup $ROUTE_TABLE
-    ip route del local 0.0.0.0/0 dev lo table $ROUTE_TABLE
+    $IPTABLES -t nat -D POSTROUTING -j uproxy-POSTROUTING
+    $IPTABLES -t nat -X uproxy-POSTROUTING
+    $IPTABLES -t mangle -D PREROUTING -j uproxy-PREROUTING
+    $IPTABLES -t mangle -X uproxy-PREROUTING
+    $IPTABLES -t mangle -D FORWARD -j uproxy-FORWARD
+    $IPTABLES -t mangle -X uproxy-FORWARD
+    $IPTABLES -t mangle -D INPUT -j uproxy-INPUT
+    $IPTABLES -t mangle -X uproxy-INPUT
+
+    ip route flush table $INBOUND_ROUTE_TABLE
+    ip route flush table $OUTBOUND_ROUTE_TABLE
+    ip route flush table $PROXY_ROUTE_TABLE
+    
+    ip rule del priority 20000
+    ip rule del priority 20001
+    ip rule del priority 20002
+    ip rule del priority 20003
+    ip rule del priority 20004
+    ip rule del priority 20005
+    ip rule del priority 20006
+    ip rule del priority 20007
+
+    ip link del name $INBOUND_TUN
+    ip link del name $OUTBOUND_TUN
+
     ipset destroy uproxy-pods-ips
+
+    echo If you need to clean the tunnel interface in the uproxy pod consider restarting it.
 EOF
   done
 
@@ -157,160 +144,74 @@ done
 
 # add our tables if not exist yet, flush them if they do exist.
 for node in ${WORKER_NODES}; do
-
-exec_on_node "$node" <<EOF
-if $IPTABLES -t nat -C PREROUTING -j uproxy-PREROUTING; then
-  $IPTABLES -t nat -F uproxy-PREROUTING
-  $IPTABLES -t mangle -F uproxy-PREROUTING
-  $IPTABLES -t mangle -F uproxy-POSTROUTING
-  $IPTABLES -t mangle -F uproxy-OUTPUT
-else
-  $IPTABLES -t nat -N uproxy-PREROUTING
-  $IPTABLES -t nat -I PREROUTING -j uproxy-PREROUTING
-  $IPTABLES -t mangle -N uproxy-PREROUTING
-  $IPTABLES -t mangle -I PREROUTING -j uproxy-PREROUTING
-  $IPTABLES -t mangle -N uproxy-OUTPUT
-  $IPTABLES -t mangle -I OUTPUT -j uproxy-OUTPUT
-  $IPTABLES -t mangle -N uproxy-POSTROUTING
-  $IPTABLES -t mangle -I POSTROUTING -j uproxy-POSTROUTING
-fi 
-EOF
+  cat "$(dirname -- $0)/config.sh" <(echo IPTABLES=$IPTABLES) <(echo INTERFACE_PREFIX=$INTERFACE_PREFIX) redirect-worker.sh | exec_on_node "$node"
 done
 
-# create our rules
+
+if [ "${DEBUG}" == "1" ]; then
+  # create a route table for the inbound traffic
 for node in ${WORKER_NODES}; do
-exec_on_node "$node" <<EOF
-# copy the env vars in
-POD_OUTBOUND=$POD_OUTBOUND
-POD_INBOUND=$POD_INBOUND
-POD_INBOUND_PLAINTEXT=$POD_INBOUND_PLAINTEXT
-MARK_MASK=$MARK_MASK
-MARK=$MARK
-OUTMARK_MASK=$OUTMARK_MASK
-OUTMARK=$OUTMARK
-SKIPMARK=$SKIPMARK
-OUTMARK_RET_MASK=$OUTMARK_RET_MASK
-OUTMARK_RET=$OUTMARK_RET
-INTERFACE_PREFIX=$INTERFACE_PREFIX
-INCOMING_INTERFACE=$INCOMING_INTERFACE
-ROUTE_TABLE=$ROUTE_TABLE
-
-# get the bridge IP where requests from host network will show up as
-# There is probably a better way...
-# TODO: fix this on aws (not needed for our primary testing cases; this is used for uncaptured to captured pod on same node)
-HOST_IP="\$(ip addr show | grep 'inet.*veth' | head -n1 | tr -s ' ' | cut -d' ' -f3)"
-
-## Prep:
-
-# Setup a route table that sends all packets to 'lo' device
-ip route del local 0.0.0.0/0 dev lo table $ROUTE_TABLE # potentially delete previous route
-ip route add local 0.0.0.0/0 dev lo table $ROUTE_TABLE
-
-# Route packets with tproxy mark locally so they end up with envoy.
-# TODO: double check if this is needed, we maybe be able to just use tproxy rule.
-ip rule del fwmark $MARK lookup $ROUTE_TABLE # potentially delete previous rule
-ip rule add fwmark $MARK lookup $ROUTE_TABLE
-
-# In the NAT table, accept stuff with our tproxy mark. This is done to we skip k8s NAT rules.
-# Obviously needs to be inserted before k8s rules.
-$IPTABLES -t nat -I uproxy-PREROUTING 1 -m mark --mark $MARK -j ACCEPT
-$IPTABLES -t nat -I uproxy-PREROUTING 1 -m mark --mark $MARK -j LOG --log-prefix="[$node-mark] "
+  exec_on_node "$node" <<EOF
+$IPTABLES-save | grep -v LOG | $IPTABLES-restore
+$IPTABLES -t mangle -I PREROUTING -i ${INTERFACE_PREFIX}+ -j LOG --log-prefix "mangle pre [$node] "
+$IPTABLES -t mangle -I POSTROUTING -o ${INTERFACE_PREFIX}+ -j LOG --log-prefix "mangle post [$node] "
+$IPTABLES -t mangle -I INPUT -i ${INTERFACE_PREFIX}+ -j LOG --log-prefix "mangle inp [$node] "
+$IPTABLES -t mangle -I OUTPUT -o ${INTERFACE_PREFIX}+ -j LOG --log-prefix "mangle out [$node] "
+$IPTABLES -t mangle -I FORWARD -i ${INTERFACE_PREFIX}+ -j LOG --log-prefix "mangle fw [$node] "
+$IPTABLES -t nat -I POSTROUTING -o ${INTERFACE_PREFIX}+ -j LOG --log-prefix "nat post [$node] "
+$IPTABLES -t nat -I INPUT -i ${INTERFACE_PREFIX}+ -j LOG --log-prefix "nat inp [$node] "
+$IPTABLES -t nat -I OUTPUT -o ${INTERFACE_PREFIX}+ -j LOG --log-prefix "nat out [$node] "
+$IPTABLES -t nat -I PREROUTING -i ${INTERFACE_PREFIX}+ -j LOG --log-prefix "nat pre [$node] "
+$IPTABLES -t raw -I PREROUTING -i ${INTERFACE_PREFIX}+ -j LOG --log-prefix "raw pre [$node] "
+$IPTABLES -t raw -I OUTPUT -o ${INTERFACE_PREFIX}+ -j LOG --log-prefix "raw out [$node] "
+$IPTABLES -t filter -I FORWARD -i ${INTERFACE_PREFIX}+ -j LOG --log-prefix "filt fw [$node] "
+$IPTABLES -t filter -I OUTPUT -o ${INTERFACE_PREFIX}+ -j LOG --log-prefix "filt out [$node] "
+$IPTABLES -t filter -I INPUT -i ${INTERFACE_PREFIX}+ -j LOG --log-prefix "filt inp [$node] "
 
 
+$IPTABLES -t mangle -I PREROUTING -i geneve+ -j LOG --log-prefix "mangle pre [$node|tun] "
+$IPTABLES -t mangle -I POSTROUTING -o geneve+ -j LOG --log-prefix "mangle post [$node|tun] "
+$IPTABLES -t mangle -I INPUT -i geneve+ -j LOG --log-prefix "mangle inp [$node|tun] "
+$IPTABLES -t mangle -I OUTPUT -o geneve+ -j LOG --log-prefix "mangle out [$node|tun] "
+$IPTABLES -t mangle -I FORWARD -i geneve+ -j LOG --log-prefix "mangle fw [$node|tun] "
+$IPTABLES -t nat -I POSTROUTING -o geneve+ -j LOG --log-prefix "nat post [$node|tun] "
+$IPTABLES -t nat -I INPUT -i geneve+ -j LOG --log-prefix "nat inp [$node|tun] "
+$IPTABLES -t nat -I OUTPUT -o geneve+ -j LOG --log-prefix "nat out [$node|tun] "
+$IPTABLES -t nat -I PREROUTING -i geneve+ -j LOG --log-prefix "nat pre [$node|tun] "
+$IPTABLES -t raw -I PREROUTING -i geneve+ -j LOG --log-prefix "raw pre [$node|tun] "
+$IPTABLES -t raw -I OUTPUT -o geneve+ -j LOG --log-prefix "raw out [$node|tun] "
+$IPTABLES -t filter -I FORWARD -i geneve+ -j LOG --log-prefix "filt fw [$node|tun] "
+$IPTABLES -t filter -I OUTPUT -o geneve+ -j LOG --log-prefix "filt out [$node|tun] "
+$IPTABLES -t filter -I INPUT -i geneve+ -j LOG --log-prefix "filt inp [$node|tun] "
 
-# move hack from init container to here, so all iptables are in one place. and use the same iptables (nft vs legacy)
-# TODO(@yuval-k): @stevenctl should this be in the init container?
-# we can't use tproxy here because it's on the output chain and tproxy only works in prerouting.
-# we don't want to use REDIRECT, as it doesn't work with all CNIs. 
-# so hopefully we will fix this soon by either using SNI, or even better, making this hop internal to envoy.
-# Clean up previous rules, if any
-$IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j REDIRECT --to-port $POD_INBOUND
-$IPTABLES -t nat -D OUTPUT -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j LOG --log-prefix="[$node-internal] "
-$IPTABLES -t nat -I OUTPUT 1 -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j REDIRECT --to-port $POD_INBOUND
-$IPTABLES -t nat -I OUTPUT 1 -p tcp -o "${INTERFACE_PREFIX}+" --dport 15088 -j LOG --log-prefix="[$node-internal] "
-
-
-## Original SRC setup (optional if original src is not desired).
-
-# OUTMARK is set by envoy when doing original src. if we see packets with that mark, save it to the connection mark,
-# so we can mark returning packets, as we need to divert them back to envoy.
-# (we can also do this on the output chain).
-$IPTABLES -t mangle -A uproxy-POSTROUTING -m mark --mark $OUTMARK -j LOG --log-prefix="[$node-save-conmark] "
-$IPTABLES -t mangle -A uproxy-POSTROUTING -m mark --mark $OUTMARK -j CONNMARK --save-mark --nfmask $OUTMARK_MASK --ctmask $OUTMARK_MASK
-
-# Alternativly, mark outgoing connections from envoy. we do need to exclude XDS if we do this.
-# this has the advantage that no mark needs to be configured in envoy, and pilot and uproxy do not need to agree on a mark.
-# TODO: make sure NEW doesn't include syn,ack.
-# $IPTABLES -t mangle -A uproxy-POSTROUTING -m owner --uid-owner $ENVOY_UID -m conntrack --ctstate NEW -j LOG --log-prefix="[$node-conmark-out] "
-# $IPTABLES -t mangle -A uproxy-POSTROUTING -m owner --uid-owner $ENVOY_UID -m conntrack --ctstate NEW -j CONNMARK --set-mark $OUTMARK --nfmask $OUTMARK_MASK --ctmask $OUTMARK_MASK
-
-# If we see the connmark in the PREROUTING, this is a packet coming back and should be directed to envoy. mark it with $OUTMARK_RET and send it to envoy with an ip rule.
-# We set a different mark on return path, as we only want these packages to go back to localhost, the outgoing packet needs to be routed to the local network card that belongs to the destination.
-ip rule del fwmark $OUTMARK_RET lookup $ROUTE_TABLE # potentially delete previous rule
-ip rule add fwmark $OUTMARK_RET lookup $ROUTE_TABLE
-#$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp --dport 15008 -d 127.0.0.1 -m mark --mark $OUTMARK -j LOG --log-prefix="[$node-returnd] "
-#$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp --dport 15008 -d 127.0.0.1 -m mark --mark $OUTMARK -j RETURN
-$IPTABLES -t mangle -A uproxy-PREROUTING -m connmark --mark $OUTMARK -j LOG --log-prefix="[$node-saw-conmark] "
-$IPTABLES -t mangle -A uproxy-PREROUTING -m connmark --mark $OUTMARK -j MARK --set-mark $OUTMARK_RET
-# if a packet has the return mark, accept it (as no futher processing is needed, and ip rule above will send it to envoy)
-$IPTABLES -t mangle -A uproxy-PREROUTING -m mark --mark $OUTMARK_RET -j LOG --log-prefix="[$node-return] "
-$IPTABLES -t mangle -A uproxy-PREROUTING -m mark --mark $OUTMARK_RET -j ACCEPT
-# return here, so filter network policy will potentially be applied. TODO: test if it is really needed.
-$IPTABLES -t mangle -A uproxy-PREROUTING -m mark --mark $OUTMARK -j LOG --log-prefix="[$node-outmark] "
-$IPTABLES -t mangle -A uproxy-PREROUTING -m mark --mark $OUTMARK -j RETURN
-$IPTABLES -t mangle -A uproxy-PREROUTING -m connmark --mark $SKIPMARK -j LOG --log-prefix="[$node-skipmark] "
-$IPTABLES -t mangle -A uproxy-PREROUTING -m connmark --mark $SKIPMARK -j RETURN
-
-## Pod membership and tproxy setup.
-
-ipset create uproxy-pods-ips hash:ip
-# Request is from uncaptured pod to captured pod on the same node. The request will make it *to* the pod without issue, but the packets coming back would be redirected
-# Instead, we mark these and later skip them
-# We match by interface and our ipset; this can probably be simplified
-$IPTABLES -t mangle -A uproxy-POSTROUTING -p tcp \
-  -o "${INTERFACE_PREFIX}+" -i "${INTERFACE_PREFIX}+" \
-  -m set --match-set uproxy-pods-ips dst -m set ! --match-set uproxy-pods-ips src \
-  -j LOG --log-prefix="[$node-skipmark] "
-$IPTABLES -t mangle -A uproxy-POSTROUTING -p tcp \
-  -o "${INTERFACE_PREFIX}+" -i "${INTERFACE_PREFIX}+" \
-  -m set --match-set uproxy-pods-ips dst -m set ! --match-set uproxy-pods-ips src \
-  -j CONNMARK --set-mark $SKIPMARK
-# Also capture node host network which wouldn't match the -i argument above...
-$IPTABLES -t mangle -A uproxy-POSTROUTING -p tcp \
-  -o "${INTERFACE_PREFIX}+" \
-  -m set --match-set uproxy-pods-ips dst -s \$HOST_IP \
-  -j LOG --log-prefix="[$node-skipmarkh] "
-$IPTABLES -t mangle -A uproxy-POSTROUTING -p tcp \
-  -o "${INTERFACE_PREFIX}+" \
-  -m set --match-set uproxy-pods-ips dst -s \$HOST_IP \
-  -j CONNMARK --set-mark $SKIPMARK
-
-# once we have a CNI the first tproxy rule can be changed to use an interface set. this has the advantage
-# of allowing granual selection of which pods belong to uproxy and removes one configuration knob (the interface prefix).
-# ipset create uproxy-pods-ifaces hash:iface
-
-# note sure if needed. right now as the proxy sends traffic to itself if pod is on the same node
-# $IPTABLES -t mangle -A uproxy-PREROUTING -p tcp -d 127.0.0.1 --dport $POD_INBOUND -j ACCEPT
-# disable rule above for now, as we have the nat rule in the init container
-
-# TODO: once we sort out the pod in the same node communication, we can remove the " ! --dport 15088" part here.
-
-# tproxy outbound connections from "injected" pods.
-$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp -i "${INTERFACE_PREFIX}+" ! --dport 15088 -m set --match-set uproxy-pods-ips src -j LOG --log-prefix="[$node-outbound] "
-$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp -i "${INTERFACE_PREFIX}+" ! --dport 15088 -m set --match-set uproxy-pods-ips src -j TPROXY --tproxy-mark $MARK --on-port $POD_OUTBOUND --on-ip 127.0.0.1
-
-# if we got here, this is not an outbound connection from pod in the mesh.
-# it could be an inbound connection from pod not in the mesh to a pod in the mesh.
-# tproxy connections to "injected" pods (that can come from pods not in the mesh, but on the same node).
-$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp -i "${INTERFACE_PREFIX}+" --dport 15008 -m set --match-set uproxy-pods-ips dst -j LOG --log-prefix="[$node-inbound] "
-$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp -i "${INTERFACE_PREFIX}+" --dport 15008 -m set --match-set uproxy-pods-ips dst -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND --on-ip 127.0.0.1
-
-# external traffic to pod
-# tproxy connections coming from outside the node to "injected" pods.
-$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp -i "${INTERFACE_PREFIX}+" -m set --match-set uproxy-pods-ips dst -j LOG --log-prefix="[$node-external in] "
-$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp -i "${INTERFACE_PREFIX}+" -m set --match-set uproxy-pods-ips dst -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND_PLAINTEXT --on-ip 127.0.0.1
-$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp -i "${INCOMING_INTERFACE}" ! --dport 15088 -m set --match-set uproxy-pods-ips dst -j LOG --log-prefix="[$node-external in2] "
-$IPTABLES -t mangle -A uproxy-PREROUTING -p tcp -i "${INCOMING_INTERFACE}" ! --dport 15088 -m set --match-set uproxy-pods-ips dst -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND_PLAINTEXT --on-ip 127.0.0.1
+# log martian packets
+echo 1 > /proc/sys/net/ipv4/conf/all/log_martians
 
 EOF
+
 done
+
+for uproxypod in $(kubectl get pods -n istio-system -lapp=uproxy -o custom-columns=:.metadata.name --no-headers); do
+  unset DEBUG
+  kubectl exec -i -n istio-system "$uproxypod" -- /bin/sh -x <<EOF
+$IPTABLES-save | grep -v LOG | $IPTABLES-restore
+$IPTABLES -t mangle -I PREROUTING -j LOG --log-prefix "mangle pre [$uproxypod] "
+$IPTABLES -t mangle -I POSTROUTING -j LOG --log-prefix "mangle post [$uproxypod] "
+$IPTABLES -t mangle -I INPUT -j LOG --log-prefix "mangle inp [$uproxypod] "
+$IPTABLES -t mangle -I OUTPUT -j LOG --log-prefix "mangle out [$uproxypod] "
+$IPTABLES -t mangle -I FORWARD -j LOG --log-prefix "mangle fw [$uproxypod] "
+$IPTABLES -t nat -I POSTROUTING -j LOG --log-prefix "nat post [$uproxypod] "
+$IPTABLES -t nat -I INPUT -j LOG --log-prefix "nat inp [$uproxypod] "
+$IPTABLES -t nat -I OUTPUT -j LOG --log-prefix "nat out [$uproxypod] "
+$IPTABLES -t nat -I PREROUTING -j LOG --log-prefix "nat pre [$uproxypod] "
+$IPTABLES -t raw -I PREROUTING -j LOG --log-prefix "raw pre [$uproxypod] "
+$IPTABLES -t raw -I OUTPUT -j LOG --log-prefix "raw out [$uproxypod] "
+$IPTABLES -t filter -I FORWARD -j LOG --log-prefix "filt fw [$uproxypod] "
+$IPTABLES -t filter -I OUTPUT -j LOG --log-prefix "filt out [$uproxypod] "
+$IPTABLES -t filter -I INPUT -j LOG --log-prefix "filt inp [$uproxypod] "
+
+EOF
+
+done
+
+fi

@@ -56,6 +56,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -133,7 +134,9 @@ const (
 	// either figure out a way to not hardcode it, or a way to not use it.
 	// i think the best solution is to have this mark configurable and run the
 	// iptables rules from the code, so we are sure the mark matches.
-	OriginalSrcMark uint32 = 1234
+	OriginalSrcMark = 0x4d2
+	OutboundMark    = 0x401
+	InboundMark     = 0x402
 )
 
 func (g *UProxyConfigGenerator) BuildListeners(proxy *model.Proxy, push *model.PushContext, names []string) (out model.Resources) {
@@ -240,6 +243,15 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 		UseOriginalDst: wrappers.Bool(true),
 		Transparent:    wrappers.Bool(true),
 		AccessLog:      accessLogString("outbound capture listener"),
+		SocketOptions: []*core.SocketOption{{
+			Description: "Set socket mark to packets coming back from outbound listener",
+			Level:       syscall.SOL_SOCKET,
+			Name:        syscall.SO_MARK,
+			Value: &core.SocketOption_IntValue{
+				IntValue: OutboundMark,
+			},
+			State: core.SocketOption_STATE_PREBIND,
+		}},
 		ListenerFilters: []*listener.ListenerFilter{
 			{
 				Name: wellknown.OriginalDestination,
@@ -919,6 +931,15 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 			},
 		}},
 		AccessLog: accessLogString("capture inbound listener"),
+		SocketOptions: []*core.SocketOption{{
+			Description: "Set socket mark to packets coming back from inbound listener",
+			Level:       syscall.SOL_SOCKET,
+			Name:        syscall.SO_MARK,
+			Value: &core.SocketOption_IntValue{
+				IntValue: InboundMark,
+			},
+			State: core.SocketOption_STATE_PREBIND,
+		}},
 		Address: &core.Address{Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
 				// TODO because of the port 15088 workaround, we need to use a redirect rule,
@@ -1024,6 +1045,15 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 			},
 		}},
 		AccessLog: accessLogString("capture inbound listener plaintext"),
+		SocketOptions: []*core.SocketOption{{
+			Description: "Set socket mark to packets coming back from inbound listener",
+			Level:       syscall.SOL_SOCKET,
+			Name:        syscall.SO_MARK,
+			Value: &core.SocketOption_IntValue{
+				IntValue: InboundMark,
+			},
+			State: core.SocketOption_STATE_PREBIND,
+		}},
 		Address: &core.Address{Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
 				// TODO because of the port 15088 workaround, we need to use a redirect rule,

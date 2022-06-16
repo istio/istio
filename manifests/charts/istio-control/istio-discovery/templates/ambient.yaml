@@ -60,7 +60,7 @@ spec:
         {{- end }}
     spec:
       serviceAccountName: uproxy
-      hostNetwork: true
+      hostNetwork: false
       dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: istio-proxy
