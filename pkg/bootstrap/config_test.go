@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/kubectl/pkg/util/fieldpath"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/test"
@@ -163,7 +163,7 @@ func TestGetStatOptions(t *testing.T) {
 			metadataOptions: MetadataOptions{
 				ID:                          "test",
 				Envs:                        os.Environ(),
-				ProxyConfig:                 &v1alpha1.ProxyConfig{},
+				ProxyConfig:                 &meshAPI.ProxyConfig{},
 				ExitOnZeroActiveConnections: true,
 			},
 			wantInclusionSuffixes: []string{"rbac.allowed", "rbac.denied", "shadow_allowed", "shadow_denied", "downstream_cx_active"},
@@ -173,7 +173,7 @@ func TestGetStatOptions(t *testing.T) {
 			metadataOptions: MetadataOptions{
 				ID:                          "test",
 				Envs:                        os.Environ(),
-				ProxyConfig:                 &v1alpha1.ProxyConfig{},
+				ProxyConfig:                 &meshAPI.ProxyConfig{},
 				ExitOnZeroActiveConnections: false,
 			},
 			wantInclusionSuffixes: []string{"rbac.allowed", "rbac.denied", "shadow_allowed", "shadow_denied"},
