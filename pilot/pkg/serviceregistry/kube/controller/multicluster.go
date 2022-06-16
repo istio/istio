@@ -319,16 +319,13 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 	return nil
 }
 
-const (
-	externalIstiodLabel     = "externalIstiod"
-	istiodClusterAnnotation = "istiodClusterIDs"
-)
+const istiodClusterLabel = "istiodClusterIDs"
 
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
 func (m *Multicluster) checkShouldLead(client kubelib.Client) bool {
 	if features.ExternalIstiod {
 		webhooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=true", externalIstiodLabel),
+			LabelSelector: istiodClusterLabel,
 		})
 		if err != nil {
 			log.Errorf("could not access injection webhooks: %v", err)
@@ -336,11 +333,10 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client) bool {
 			return false
 		}
 		if len(webhooks.Items) != 0 {
-			// found webhook with externalIstiod label, i.e., cluster is an istiodless remote
 			localCluster := string(m.opts.ClusterID)
 			for _, webhook := range webhooks.Items {
 				// check if we are a chosen istiod
-				if istiodCluster, found := webhook.Annotations[istiodClusterAnnotation]; found {
+				if istiodCluster, found := webhook.Labels[istiodClusterLabel]; found {
 					for _, cluster := range strings.Split(istiodCluster, ",") {
 						if cluster == "*" || cluster == localCluster {
 							return true

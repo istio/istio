@@ -45,8 +45,6 @@ metadata:
     app: sidecar-injector
     release: {{ .Release.Name }}
 {{- if .Values.global.externalIstiod }}
-    externalIstiod: "true"
-  annotations:
     istiodClusterIDs: {{ .Values.global.istiodClusterIDs | default "'*'" }}
 {{- end }}
 webhooks:
