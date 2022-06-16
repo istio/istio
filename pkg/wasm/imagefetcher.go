@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -31,9 +32,22 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/hashicorp/go-multierror"
+
+	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
+	acr "github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
+)
+
+var (
+	defaultKeychain = authn.NewMultiKeychain(
+		authn.DefaultKeychain,
+		google.Keychain,
+		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard))),
+		authn.NewKeychainFromHelper(acr.NewACRCredentialsHelper()),
+	)
 )
 
 // This file implements the fetcher of "Wasm Image Specification" compatible container images.
@@ -66,7 +80,7 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 	if opt.useDefaultKeyChain() {
 		// Note that default key chain reads the docker config from DOCKER_CONFIG
 		// so must set the envvar when reaching this branch is expected.
-		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(defaultKeychain))
 	} else {
 		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(&wasmKeyChain{data: opt.PullSecret}))
 	}
