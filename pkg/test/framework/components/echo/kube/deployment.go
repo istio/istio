@@ -250,9 +250,9 @@ spec:
 {{- else if $.ReadinessGRPCPort }}
           grpc:
             port: {{ $.ReadinessGRPCPort }}			
-{{- else if $.ImageFullPath }}
+{{- else if $appContainer.ImageFullPath }}
           tcpSocket:
-            port: tcp-health-port
+            port: 3333
 {{- else }}
           httpGet:
             path: /
@@ -263,14 +263,14 @@ spec:
           failureThreshold: 10
         livenessProbe:
           tcpSocket:
-            port: tcp-health-port
+            port: 3333
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
 {{- if $.StartupProbe }}
         startupProbe:
           tcpSocket:
-            port: tcp-health-port
+            port: 3333
           periodSeconds: 1
           failureThreshold: 10
 {{- end }}

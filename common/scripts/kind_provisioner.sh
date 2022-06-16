@@ -416,7 +416,7 @@ function cidr_to_ips() {
     python3 - <<EOF
 from ipaddress import ip_network;
 from itertools import islice;
-[print(str(ip) + "/" + str(ip.max_prefixlen)) for ip in islice(ip_network('$CIDR').hosts(), 1000, 1100)]
+[print(str(ip) + "/" + str(ip.max_prefixlen)) for ip in islice(ip_network('$CIDR').hosts(), 200, 1100)]
 EOF
 }
 
