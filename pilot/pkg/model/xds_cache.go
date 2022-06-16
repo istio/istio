@@ -75,10 +75,10 @@ func size(cs int) {
 	}
 }
 
-func indexConfig(configIndex map[ConfigKey]sets.Set, k string, dependentConfigs []ConfigKey) {
+func indexConfig(configIndex map[ConfigKey]sets.StringPointerSet, k *string, dependentConfigs []ConfigKey) {
 	for _, cfg := range dependentConfigs {
 		if configIndex[cfg] == nil {
-			configIndex[cfg] = sets.New()
+			configIndex[cfg] = sets.NewStringPointerSet()
 		}
 		configIndex[cfg].Insert(k)
 	}
@@ -96,10 +96,10 @@ func clearIndexConfig(configIndex map[ConfigKey]sets.Set, k string, dependentCon
 	}
 }
 
-func indexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, dependentTypes []config.GroupVersionKind) {
+func indexType(typeIndex map[config.GroupVersionKind]sets.StringPointerSet, k *string, dependentTypes []config.GroupVersionKind) {
 	for _, t := range dependentTypes {
 		if typeIndex[t] == nil {
-			typeIndex[t] = sets.New()
+			typeIndex[t] = sets.NewStringPointerSet()
 		}
 		typeIndex[t].Insert(k)
 	}
@@ -161,8 +161,8 @@ type XdsCache interface {
 func NewXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
-		configIndex:      map[ConfigKey]sets.Set{},
-		typesIndex:       map[config.GroupVersionKind]sets.Set{},
+		configIndex:      map[ConfigKey]sets.StringPointerSet{},
+		typesIndex:       map[config.GroupVersionKind]sets.StringPointerSet{},
 	}
 	cache.store = newLru(cache.evict)
 
@@ -173,8 +173,8 @@ func NewXdsCache() XdsCache {
 func NewLenientXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
-		configIndex:      map[ConfigKey]sets.Set{},
-		typesIndex:       map[config.GroupVersionKind]sets.Set{},
+		configIndex:      map[ConfigKey]sets.StringPointerSet{},
+		typesIndex:       map[config.GroupVersionKind]sets.StringPointerSet{},
 	}
 	cache.store = newLru(cache.evict)
 
@@ -186,10 +186,14 @@ type lruCache struct {
 	store            simplelru.LRUCache
 	// token stores the latest token of the store, used to prevent stale data overwrite.
 	// It is refreshed when Clear or ClearAll are called
-	token       CacheToken
-	mu          sync.RWMutex
-	configIndex map[ConfigKey]sets.Set
-	typesIndex  map[config.GroupVersionKind]sets.Set
+	token CacheToken
+	mu    sync.RWMutex
+	// configIndex and typesIndex stores the xds key pointer,
+	// because different configs or different kinds of resources can be part of a same xds key.
+	// Say route `80` can be influenced by hundreds of services with port 80.
+	// Thus, we can largely decrease the string memory.
+	configIndex map[ConfigKey]sets.StringPointerSet
+	typesIndex  map[config.GroupVersionKind]sets.StringPointerSet
 }
 
 var _ XdsCache = &lruCache{}
@@ -276,8 +280,8 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	toWrite := cacheValue{value: value, token: token, dependentConfigs: dependentConfigs, dependentTypes: dependentTypes}
 	l.store.Add(k, toWrite)
 	l.token = token
-	indexConfig(l.configIndex, k, dependentConfigs)
-	indexType(l.typesIndex, k, dependentTypes)
+	indexConfig(l.configIndex, &k, dependentConfigs)
+	indexType(l.typesIndex, &k, dependentTypes)
 	size(l.store.Len())
 }
 
@@ -317,12 +321,12 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 		referenced := l.configIndex[ckey]
 		delete(l.configIndex, ckey)
 		for key := range referenced {
-			l.store.Remove(key)
+			l.store.Remove(*key)
 		}
 		tReferenced := l.typesIndex[ckey.Kind]
 		delete(l.typesIndex, ckey.Kind)
 		for key := range tReferenced {
-			l.store.Remove(key)
+			l.store.Remove(*key)
 		}
 	}
 	size(l.store.Len())
@@ -336,8 +340,8 @@ func (l *lruCache) ClearAll() {
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
 	l.store = newLru(l.evict)
-	l.configIndex = map[ConfigKey]sets.Set{}
-	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
+	l.configIndex = map[ConfigKey]sets.StringPointerSet{}
+	l.typesIndex = map[config.GroupVersionKind]sets.StringPointerSet{}
 	size(l.store.Len())
 }
 
