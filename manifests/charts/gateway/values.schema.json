@@ -195,6 +195,16 @@
           }
         }
       }
+    },
+    "extraVolumeMounts": {
+      "description": "Mount additional volumes into pods",
+      "type": "array",
+      "default": []
+    },
+    "extraVolumes": {
+      "description": "Mount additional volumes into pods",
+      "type": "array",
+      "default": []
     }
   }
 }

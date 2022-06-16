@@ -91,3 +91,13 @@ affinity: {}
 networkGateway: ""
 
 imagePullSecrets: []
+
+extraVolumes: []
+#  - name: xds-certificate-rotation-secrets
+#    secret:
+#      secretName: xds-certificate-rotation-secrets
+
+extraVolumeMounts: []
+#  - name: xds-certificate-rotation-secrets
+#    mountPath: /etc/envoy/validation_context_sds_secret.yaml
+#    subPath: validation_context_sds_secret.yaml

@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: installation
+
+issue:
+  - 39493
+
+releaseNotes:
+  - |
+    **Added** values to the Istio Gateway Helm chart for configuring [volumes/volumeMounts](https://kubernetes.io/docs/concepts/storage/volumes/#secret) on the Deployment. Can be used to mount secrets and configs for envoy filter configurations.
