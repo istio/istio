@@ -126,12 +126,13 @@ func removeCRDs(istioYaml string) string {
 }
 
 type istioctlConfigFiles struct {
-	iopFile            string
-	operatorSpec       *opAPI.IstioOperatorSpec
-	configIopFile      string
-	configOperatorSpec *opAPI.IstioOperatorSpec
-	remoteIopFile      string
-	remoteOperatorSpec *opAPI.IstioOperatorSpec
+	iopFile                  string
+	operatorSpec             *opAPI.IstioOperatorSpec
+	configIopFile            string
+	configOperatorSpec       *opAPI.IstioOperatorSpec
+	remoteIopFile            string
+	remoteOperatorSpec       *opAPI.IstioOperatorSpec
+	externalControlPlaneFile string
 }
 
 func (i *operatorComponent) Ingresses() ingress.Instances {
@@ -352,7 +353,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	for _, c := range ctx.AllClusters().Kube().Primaries() {
 		c := c
 		errG.Go(func() error {
-			return installControlPlaneCluster(s, i, cfg, c, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec)
+			return installControlPlaneCluster(s, i, cfg, c, istioctlConfigFiles.iopFile, istioctlConfigFiles.externalControlPlaneFile, istioctlConfigFiles.operatorSpec)
 		})
 	}
 	if err := errG.Wait().ErrorOrNil(); err != nil {
@@ -473,7 +474,7 @@ spec:
 // The cluster is considered a "primary" cluster if it is also a "config cluster", in which case components
 // like ingress will be installed.
 func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg Config, c cluster.Cluster, iopFile string,
-	spec *opAPI.IstioOperatorSpec,
+	externalIopFile string, spec *opAPI.IstioOperatorSpec,
 ) error {
 	scopes.Framework.Infof("setting up %s as control-plane cluster", c.Name())
 
@@ -482,7 +483,14 @@ func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg 
 			return err
 		}
 	}
-	installArgs, err := i.generateCommonInstallArgs(s, cfg, c, cfg.PrimaryClusterIOPFile, iopFile)
+	var installArgs *mesh.InstallArgs
+	var err error
+	if externalIopFile != "" {
+		installArgs, err = i.generateCommonInstallArgs(s, cfg, c, cfg.PrimaryClusterIOPFile, externalIopFile)
+	} else {
+		installArgs, err = i.generateCommonInstallArgs(s, cfg, c, cfg.PrimaryClusterIOPFile, iopFile)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -957,9 +965,10 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config) (istioctlConfigFiles, error) {
 	var err error
 	configFiles := istioctlConfigFiles{
-		iopFile:       "",
-		configIopFile: "",
-		remoteIopFile: "",
+		iopFile:                  "",
+		configIopFile:            "",
+		remoteIopFile:            "",
+		externalControlPlaneFile: "",
 	}
 	// Generate the istioctl config file for control plane(primary) cluster
 	configFiles.iopFile = filepath.Join(workDir, "iop.yaml")
@@ -983,6 +992,14 @@ func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config) 
 	if cfg.ConfigClusterValues != "" {
 		configFiles.configIopFile = filepath.Join(workDir, "config.yaml")
 		if configFiles.configOperatorSpec, err = initIOPFile(s, cfg, configFiles.configIopFile, cfg.ConfigClusterValues); err != nil {
+			return configFiles, err
+		}
+	}
+
+	if cfg.ExternalControlPlaneClusterValues != "" {
+		configFiles.externalControlPlaneFile = filepath.Join(workDir, "custom_gateways.yaml")
+		_, err = initIOPFile(s, cfg, configFiles.externalControlPlaneFile, cfg.ExternalControlPlaneClusterValues)
+		if err != nil {
 			return configFiles, err
 		}
 	}

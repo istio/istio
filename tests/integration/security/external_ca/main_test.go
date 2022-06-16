@@ -110,6 +110,7 @@ components:
   pilot:
     enabled: false
 `
+	cfg.ExternalControlPlaneClusterValues = generateExtenalCPYaml(certs)
 }
 
 func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool) string {
@@ -175,6 +176,89 @@ components:
 		"rootcert2":       cert2.Rootcert,
 		"signer2":         cert2.Signer,
 		"isConfigCluster": isConfigCluster,
+	})
+	return cfgYaml
+}
+
+func generateExtenalCPYaml(certs []csrctrl.SignerRootCert) string {
+	cert1 := certs[0]
+	cert2 := certs[1]
+
+	cfgYaml := tmpl.MustEvaluate(`
+values:
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        PROXY_CONFIG_XDS_AGENT: "true"
+        ISTIO_META_CERT_SIGNER: signer1
+    trustDomainAliases: [some-other, trust-domain-foo]
+    caCertificates:
+    - pem: |
+{{.rootcert1 | indent 8}}
+      certSigners:
+      - {{.signer1}}
+    - pem: |
+{{.rootcert2 | indent 8}}
+      certSigners:
+      - {{.signer2}}
+components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: false
+  egressGateways:
+  - name: istio-egressgateway
+    enabled: false
+  pilot:
+    enabled: true
+    k8s:
+      env:
+      - name: CERT_SIGNER_DOMAIN
+        value: clusterissuers.istio.io
+      - name: EXTERNAL_CA
+        value: ISTIOD_RA_KUBERNETES_API
+      - name: PILOT_CERT_PROVIDER
+        value: k8s.io/clusterissuers.istio.io/signer2
+      overlays:
+        # Amend ClusterRole to add permission for istiod to approve certificate signing by custom signer
+        - kind: ClusterRole
+          name: istiod-clusterrole-istio-system
+          patches:
+            - path: rules[-1]
+              value: |
+                apiGroups:
+                - certificates.k8s.io
+                resourceNames:
+                - clusterissuers.istio.io/*
+                resources:
+                - signers
+                verbs:
+                - approve
+        - kind: Deployment
+          name: istiod
+          patches:
+            - path: spec.template.spec.volumes[100]
+              value: |-
+                name: config-volume
+                configMap:
+                  name: istio
+            - path: spec.template.spec.volumes[100]
+              value: |-
+                name: inject-volume
+                configMap:
+                  name: istio-sidecar-injector
+            - path: spec.template.spec.containers[0].volumeMounts[100]
+              value: |-
+                name: config-volume
+                mountPath: /etc/istio/config
+            - path: spec.template.spec.containers[0].volumeMounts[100]
+              value: |-
+                name: inject-volume
+                mountPath: /var/lib/istio/inject
+`, map[string]interface{}{
+		"rootcert1": cert1.Rootcert,
+		"signer1":   cert1.Signer,
+		"rootcert2": cert2.Rootcert,
+		"signer2":   cert2.Signer,
 	})
 	return cfgYaml
 }
