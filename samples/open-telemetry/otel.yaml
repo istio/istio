@@ -60,11 +60,9 @@ spec:
     type: RollingUpdate
   template:
     metadata:
-      annotations:
-        # do not inject
-        sidecar.istio.io/inject: "false"
       labels:
         app: otel-collector
+        sidecar.istio.io/inject: "false" # do not inject
     spec:
       containers:
         - command:
