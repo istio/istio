@@ -84,7 +84,7 @@ func indexConfig(configIndex map[ConfigKey]sets.StringPointerSet, k *string, dep
 	}
 }
 
-func clearIndexConfig(configIndex map[ConfigKey]sets.Set, k string, dependentConfigs []ConfigKey) {
+func clearIndexConfig(configIndex map[ConfigKey]sets.StringPointerSet, k string, dependentConfigs []ConfigKey) {
 	for _, cfg := range dependentConfigs {
 		index := configIndex[cfg]
 		if index != nil {
@@ -105,7 +105,7 @@ func indexType(typeIndex map[config.GroupVersionKind]sets.StringPointerSet, k *s
 	}
 }
 
-func clearIndexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, dependentTypes []config.GroupVersionKind) {
+func clearIndexType(typeIndex map[config.GroupVersionKind]sets.StringPointerSet, k string, dependentTypes []config.GroupVersionKind) {
 	for _, t := range dependentTypes {
 		index := typeIndex[t]
 		if index != nil {
