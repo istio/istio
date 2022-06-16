@@ -485,7 +485,7 @@ func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg 
 	}
 	var installArgs *mesh.InstallArgs
 	var err error
-	if externalIopFile != "" {
+	if externalIopFile != "" && c.IsExternalControlPlane() {
 		installArgs, err = i.generateCommonInstallArgs(s, cfg, c, cfg.PrimaryClusterIOPFile, externalIopFile)
 	} else {
 		installArgs, err = i.generateCommonInstallArgs(s, cfg, c, cfg.PrimaryClusterIOPFile, iopFile)

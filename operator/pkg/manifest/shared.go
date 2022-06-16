@@ -53,8 +53,6 @@ func GenManifests(inFilename []string, setFlags []string, force bool, filter []s
 	client kube.Client, l clog.Logger,
 ) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
 	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, client, l)
-	fmt.Println("---externel cp testing----")
-	fmt.Println(mergedYAML)
 	if err != nil {
 		return nil, nil, err
 	}
