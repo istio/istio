@@ -17,7 +17,6 @@ package echotest
 import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/pkg/log"
 )
 
 type (
