@@ -189,7 +189,7 @@ func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *
 
 func xdsProxyVersionWrapper(xdsResponse **xdsapi.DiscoveryResponse) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
-		pi := []istioVersion.ProxyInfo{}
+		var pi []istioVersion.ProxyInfo
 		for _, resource := range (*xdsResponse).Resources {
 			switch resource.TypeUrl {
 			case "type.googleapis.com/envoy.config.core.v3.Node":
