@@ -100,6 +100,17 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 
 	cfg.ControlPlaneValues = generateConfigYaml(certs, false)
 	cfg.ConfigClusterValues = generateConfigYaml(certs, true)
+	cfg.RemoteClusterValues = `
+components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: false
+  egressGateways:
+  - name: istio-egressgateway
+    enabled: false
+  pilot:
+    enabled: false
+`
 }
 
 func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool) string {
@@ -135,7 +146,6 @@ components:
 {{- else }}
   pilot:
     enabled: true
-{{- end }}
     k8s:
       env:
       - name: CERT_SIGNER_DOMAIN
@@ -159,6 +169,7 @@ components:
                 - signers
                 verbs:
                 - approve
+{{- end }}
 `, map[string]interface{}{
 		"rootcert1":       cert1.Rootcert,
 		"signer1":         cert1.Signer,
