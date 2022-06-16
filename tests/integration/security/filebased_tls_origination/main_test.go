@@ -71,19 +71,22 @@ components:
   egressGateways:
   - enabled: false
     name: istio-egressgateway
+  ingressGateways"
+  - enabled: false
+    name: istio-ingressgateway
 `
 
-	cfg.GatewayValues = `
-components:
-  egressGateways:
-  - enabled: true
-    name: istio-egressgateway
-values:
-   gateways:
-      istio-egressgateway:
-         secretVolumes:
-         - name: client-custom-certs
-           secretName: egress-gw-cacerts
-           mountPath: /etc/certs/custom
-`
+	// 	cfg.GatewayValues = `
+	// components:
+	//   egressGateways:
+	//   - enabled: true
+	//     name: istio-egressgateway
+	// values:
+	//    gateways:
+	//       istio-egressgateway:
+	//          secretVolumes:
+	//          - name: client-custom-certs
+	//            secretName: egress-gw-cacerts
+	//            mountPath: /etc/certs/custom
+	// `
 }
