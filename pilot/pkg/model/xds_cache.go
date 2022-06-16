@@ -275,6 +275,10 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 		return
 	}
 
+	if old, ok := l.store.Get(k); ok {
+		l.evict(k, old)
+	}
+
 	dependentConfigs := entry.DependentConfigs()
 	dependentTypes := entry.DependentTypes()
 	toWrite := cacheValue{value: value, token: token, dependentConfigs: dependentConfigs, dependentTypes: dependentTypes}
