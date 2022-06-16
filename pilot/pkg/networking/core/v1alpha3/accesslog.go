@@ -281,7 +281,7 @@ func buildTCPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.MeshC
 		filterObjects = prov.FilterStateObjectsToLog
 	}
 
-	_, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
+	hostname, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
 	if err != nil {
 		log.Errorf("could not find cluster for tcp grpc provider %q: %v", prov, err)
 		return nil
@@ -294,6 +294,7 @@ func buildTCPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.MeshC
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 						ClusterName: cluster,
+						Authority:   hostname,
 					},
 				},
 			},
@@ -398,7 +399,7 @@ func buildHTTPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.Mesh
 		filterObjects = prov.FilterStateObjectsToLog
 	}
 
-	_, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
+	hostname, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
 	if err != nil {
 		log.Errorf("could not find cluster for http grpc provider %q: %v", prov, err)
 		return nil
@@ -411,6 +412,7 @@ func buildHTTPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.Mesh
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 						ClusterName: cluster,
+						Authority:   hostname,
 					},
 				},
 			},
@@ -490,8 +492,9 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 }
 
 func buildOpenTelemetryLogHelper(pushCtx *model.PushContext,
-	provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider) *accesslog.AccessLog {
-	_, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
+	provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider,
+) *accesslog.AccessLog {
+	hostname, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
 	if err != nil {
 		log.Errorf("could not find cluster for open telemetry provider %q: %v", provider, err)
 		return nil
@@ -512,7 +515,7 @@ func buildOpenTelemetryLogHelper(pushCtx *model.PushContext,
 		labels = provider.LogFormat.Labels
 	}
 
-	cfg := buildOpenTelemetryAccessLogConfig(logName, cluster, f, labels)
+	cfg := buildOpenTelemetryAccessLogConfig(logName, hostname, cluster, f, labels)
 
 	return &accesslog.AccessLog{
 		Name:       otelEnvoyALSName,
@@ -520,7 +523,7 @@ func buildOpenTelemetryLogHelper(pushCtx *model.PushContext,
 	}
 }
 
-func buildOpenTelemetryAccessLogConfig(logName, clusterName, format string, labels *structpb.Struct) *otelaccesslog.OpenTelemetryAccessLogConfig {
+func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format string, labels *structpb.Struct) *otelaccesslog.OpenTelemetryAccessLogConfig {
 	cfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: logName,
@@ -528,6 +531,7 @@ func buildOpenTelemetryAccessLogConfig(logName, clusterName, format string, labe
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 						ClusterName: clusterName,
+						Authority:   hostname,
 					},
 				},
 			},
