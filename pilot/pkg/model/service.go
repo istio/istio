@@ -32,7 +32,6 @@ import (
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -460,11 +459,6 @@ type IstioEndpoint struct {
 
 	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
 	SubDomain string
-
-	// The ingress tunnel supportability of this endpoint.
-	// If this endpoint sidecar proxy does not support h2 tunnel, this endpoint will not show up in the EDS clusters
-	// which are generated for h2 tunnel.
-	TunnelAbility networking.TunnelAbility
 
 	// Determines the discoverability of this endpoint throughout the mesh.
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
