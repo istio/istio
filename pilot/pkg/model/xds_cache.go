@@ -84,7 +84,7 @@ func indexConfig(configIndex map[ConfigKey]sets.StringPointerSet, k *string, dep
 	}
 }
 
-func clearIndexConfig(configIndex map[ConfigKey]sets.StringPointerSet, k string, dependentConfigs []ConfigKey) {
+func clearIndexConfig(configIndex map[ConfigKey]sets.StringPointerSet, k *string, dependentConfigs []ConfigKey) {
 	for _, cfg := range dependentConfigs {
 		index := configIndex[cfg]
 		if index != nil {
@@ -105,7 +105,7 @@ func indexType(typeIndex map[config.GroupVersionKind]sets.StringPointerSet, k *s
 	}
 }
 
-func clearIndexType(typeIndex map[config.GroupVersionKind]sets.StringPointerSet, k string, dependentTypes []config.GroupVersionKind) {
+func clearIndexType(typeIndex map[config.GroupVersionKind]sets.StringPointerSet, k *string, dependentTypes []config.GroupVersionKind) {
 	for _, t := range dependentTypes {
 		index := typeIndex[t]
 		if index != nil {
@@ -219,8 +219,8 @@ func (l *lruCache) evict(k interface{}, v interface{}) {
 	value := v.(cacheValue)
 
 	// we don't need to acquire locks, since this function is called when we write to the store
-	clearIndexConfig(l.configIndex, key, value.dependentConfigs)
-	clearIndexType(l.typesIndex, key, value.dependentTypes)
+	clearIndexConfig(l.configIndex, &key, value.dependentConfigs)
+	clearIndexType(l.typesIndex, &key, value.dependentTypes)
 }
 
 // assertUnchanged checks that a cache entry is not changed. This helps catch bad cache invalidation

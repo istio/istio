@@ -42,8 +42,19 @@ func (s StringPointerSet) InsertAll(items ...*string) StringPointerSet {
 	return s
 }
 
+// Delete removes an item from the set.
+func (s StringPointerSet) Delete(item *string) StringPointerSet {
+	delete(s, item)
+	return s
+}
+
 // Contains returns whether the given item is in the set.
 func (s StringPointerSet) Contains(item *string) bool {
 	_, ok := s[item]
 	return ok
+}
+
+// IsEmpty indicates whether the set is the empty set.
+func (s StringPointerSet) IsEmpty() bool {
+	return len(s) == 0
 }
