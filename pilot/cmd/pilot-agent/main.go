@@ -47,7 +47,7 @@ import (
 
 const (
 	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
+	localHostIPv6 = "::1"
 )
 
 // TODO: Move most of this to pkg options.

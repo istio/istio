@@ -663,14 +663,6 @@ func TestAppProbe(t *testing.T) {
 			ipv6:       true,
 		},
 		{
-			name:       "tcp-livez-wrapped-ipv6",
-			probePath:  "app-health/hello-world/livez",
-			config:     simpleTCPConfig,
-			statusCode: http.StatusOK,
-			podIP:      "[::1]",
-			ipv6:       true,
-		},
-		{
 			name:       "tcp-livez-localhost",
 			probePath:  "app-health/hello-world/livez",
 			config:     simpleTCPConfig,
@@ -737,6 +729,8 @@ func TestAppProbe(t *testing.T) {
 		defer cancel()
 		go server.Run(ctx)
 
+		// make sure the upstreamLocalAddress would not be nil
+		server.upstreamLocalAddress = &net.TCPAddr{IP: net.ParseIP("127.0.0.1")}
 		if tc.ipv6 {
 			server.upstreamLocalAddress = &net.TCPAddr{IP: net.ParseIP("::1")} // required because ::6 is NOT a loopback address (IPv6 only has ::1)
 		}
