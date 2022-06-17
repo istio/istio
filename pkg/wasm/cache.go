@@ -261,7 +261,7 @@ func (c *LocalFileCache) Get(
 		binaryFetcher, dChecksum, err = fetcher.PrepareFetch(u.Host + u.Path)
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(manifestFailure)).Increment()
-			return "", fmt.Errorf("could not fetch oci image: %v", err)
+			return "", fmt.Errorf("could not fetch Wasm OCI image: %v", err)
 		}
 	default:
 		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", u.Scheme)
