@@ -81,19 +81,19 @@ func size(cs int) {
 	}
 }
 
-func indexConfig(configIndex map[ConfigKey]sets.StringPointerSet, k *string, entry XdsCacheEntry) {
+func indexConfig(configIndex map[ConfigKey]sets.Set, k string, entry XdsCacheEntry) {
 	for _, cfg := range entry.DependentConfigs() {
 		if configIndex[cfg] == nil {
-			configIndex[cfg] = sets.NewStringPointerSet()
+			configIndex[cfg] = sets.New()
 		}
 		configIndex[cfg].Insert(k)
 	}
 }
 
-func indexType(typeIndex map[config.GroupVersionKind]sets.StringPointerSet, k *string, entry XdsCacheEntry) {
+func indexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, entry XdsCacheEntry) {
 	for _, t := range entry.DependentTypes() {
 		if typeIndex[t] == nil {
-			typeIndex[t] = sets.NewStringPointerSet()
+			typeIndex[t] = sets.New()
 		}
 		typeIndex[t].Insert(k)
 	}
@@ -144,8 +144,8 @@ func NewXdsCache() XdsCache {
 	return &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
 		store:            newLru(),
-		configIndex:      map[ConfigKey]sets.StringPointerSet{},
-		typesIndex:       map[config.GroupVersionKind]sets.StringPointerSet{},
+		configIndex:      map[ConfigKey]sets.Set{},
+		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 	}
 }
 
@@ -154,8 +154,8 @@ func NewLenientXdsCache() XdsCache {
 	return &lruCache{
 		enableAssertions: false,
 		store:            newLru(),
-		configIndex:      map[ConfigKey]sets.StringPointerSet{},
-		typesIndex:       map[config.GroupVersionKind]sets.StringPointerSet{},
+		configIndex:      map[ConfigKey]sets.Set{},
+		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 	}
 }
 
@@ -164,14 +164,10 @@ type lruCache struct {
 	store            simplelru.LRUCache
 	// token stores the latest token of the store, used to prevent stale data overwrite.
 	// It is refreshed when Clear or ClearAll are called
-	token CacheToken
-	mu    sync.RWMutex
-	// configIndex and typesIndex stores the xds key pointer,
-	// because different configs or different kinds of resources can be part of a same xds key.
-	// Say route `80` can be influenced by hundreds of services with port 80.
-	// Thus, we can largely decrease the string memory.
-	configIndex map[ConfigKey]sets.StringPointerSet
-	typesIndex  map[config.GroupVersionKind]sets.StringPointerSet
+	token       CacheToken
+	mu          sync.RWMutex
+	configIndex map[ConfigKey]sets.Set
+	typesIndex  map[config.GroupVersionKind]sets.Set
 }
 
 var _ XdsCache = &lruCache{}
@@ -243,8 +239,8 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	toWrite := cacheValue{value: value, token: token}
 	l.store.Add(k, toWrite)
 	l.token = token
-	indexConfig(l.configIndex, &k, entry)
-	indexType(l.typesIndex, &k, entry)
+	indexConfig(l.configIndex, k, entry)
+	indexType(l.typesIndex, k, entry)
 	size(l.store.Len())
 }
 
@@ -282,12 +278,12 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 		referenced := l.configIndex[ckey]
 		delete(l.configIndex, ckey)
 		for key := range referenced {
-			l.store.Remove(*key)
+			l.store.Remove(key)
 		}
 		tReferenced := l.typesIndex[ckey.Kind]
 		delete(l.typesIndex, ckey.Kind)
 		for key := range tReferenced {
-			l.store.Remove(*key)
+			l.store.Remove(key)
 		}
 	}
 	size(l.store.Len())
@@ -298,8 +294,8 @@ func (l *lruCache) ClearAll() {
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
 	l.store.Purge()
-	l.configIndex = map[ConfigKey]sets.StringPointerSet{}
-	l.typesIndex = map[config.GroupVersionKind]sets.StringPointerSet{}
+	l.configIndex = map[ConfigKey]sets.Set{}
+	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
 	size(l.store.Len())
 }
 
