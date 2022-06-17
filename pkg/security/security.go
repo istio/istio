@@ -351,10 +351,35 @@ type Caller struct {
 	Identities []string
 }
 
+type AuthContext struct {
+	// RequestContext is the context from request.
+	RequestContext context.Context
+	// Authenticators is the list of authenticators that were executed before in the auth chain.
+	Authenticators map[string]*Caller
+}
+
 type Authenticator interface {
-	Authenticate(ctx context.Context) (*Caller, error)
+	Authenticate(ctx AuthContext) (*Caller, error)
 	AuthenticatorType() string
 	AuthenticateRequest(req *http.Request) (*Caller, error)
+}
+
+func NewAuthContext(ctx context.Context) AuthContext {
+	return AuthContext{RequestContext: ctx, Authenticators: make(map[string]*Caller)}
+}
+
+func (ac *AuthContext) AddAuthenticator(authenticator string, caller *Caller) {
+	ac.Authenticators[authenticator] = caller
+}
+
+func (ac *AuthContext) Identities() []string {
+	identities := []string{}
+	for _, caller := range ac.Authenticators {
+		if caller != nil {
+			identities = append(identities, caller.Identities...)
+		}
+	}
+	return identities
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {

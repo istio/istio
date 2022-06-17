@@ -165,7 +165,7 @@ func Authenticate(ctx context.Context, auth []security.Authenticator) *security.
 	// TODO: apply different authenticators in specific order / according to configuration.
 	var errMsg string
 	for id, authn := range auth {
-		u, err := authn.Authenticate(ctx)
+		u, err := authn.Authenticate(security.NewAuthContext(ctx))
 		if err != nil {
 			errMsg += fmt.Sprintf("Authenticator %s at index %d got error: %v. ", authn.AuthenticatorType(), id, err)
 		}

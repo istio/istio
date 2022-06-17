@@ -15,11 +15,13 @@
 package authenticate
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"net/http"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 
 	"github.com/alecholmes/xfccparser"
 
@@ -40,8 +42,12 @@ func (xff *XfccAuthenticator) AuthenticatorType() string {
 }
 
 // Authenticate extracts identities from Xfcc Header.
-func (xff *XfccAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
-	meta, ok := metadata.FromIncomingContext(ctx)
+func (xff *XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.Caller, error) {
+	// TODO: Extend this for other "trusted" IPs based on network policies.
+	if !isLocalHost(ctx.RequestContext) {
+		return nil, fmt.Errorf("call is not from trusted network, xfcc can not be used as authenticator")
+	}
+	meta, ok := metadata.FromIncomingContext(ctx.RequestContext)
 
 	if !ok || len(meta.Get(xfccparser.ForwardedClientCertHeader)) == 0 {
 		return nil, fmt.Errorf("xfcc header is not present")
@@ -49,6 +55,30 @@ func (xff *XfccAuthenticator) Authenticate(ctx context.Context) (*security.Calle
 
 	xfccHeader := meta.Get(xfccparser.ForwardedClientCertHeader)[0]
 	return buildSecurityCaller(xfccHeader)
+}
+
+func isLocalHost(ctx context.Context) bool {
+	peerInfo, _ := peer.FromContext(ctx)
+	if net.ParseIP(peerInfo.Addr.String()).IsLoopback() {
+		return true
+	}
+	ifaces, _ := net.Interfaces()
+	for _, i := range ifaces {
+		addrs, _ := i.Addrs()
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip.String() == peerInfo.Addr.String() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // AuthenticateRequest validates Xfcc Header.

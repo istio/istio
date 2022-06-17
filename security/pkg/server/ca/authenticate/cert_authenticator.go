@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
@@ -43,8 +42,8 @@ func (cca *ClientCertAuthenticator) AuthenticatorType() string {
 // method assumes that certificate chain has been properly validated before
 // this method is called. In other words, this method does not do certificate
 // chain validation itself.
-func (cca *ClientCertAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
-	peer, ok := peer.FromContext(ctx)
+func (cca *ClientCertAuthenticator) Authenticate(ctx security.AuthContext) (*security.Caller, error) {
+	peer, ok := peer.FromContext(ctx.RequestContext)
 	if !ok || peer.AuthInfo == nil {
 		return nil, fmt.Errorf("no client certificate is presented")
 	}

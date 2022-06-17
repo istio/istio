@@ -15,28 +15,35 @@
 package authenticate
 
 import (
+	"net"
 	"reflect"
 	"testing"
 
 	"github.com/alecholmes/xfccparser"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 
 	"istio.io/istio/pkg/security"
 )
 
-func TestAuthenticate_XfccAuthenticator(t *testing.T) {
-	testCases := map[string]struct {
+func TestXfccAuthenticator(t *testing.T) {
+	cases := []struct {
+		name               string
 		xfccHeader         string
 		caller             *security.Caller
 		authenticateErrMsg string
+		peer               string
 	}{
-		"No xfcc header": {
+		{
+			name:               "No xfcc header",
 			xfccHeader:         "",
 			caller:             nil,
 			authenticateErrMsg: "xfcc header is not present",
+			peer:               "127.0.0.1",
 		},
-		"Xfcc Header": {
+		{
+			name: "Xfcc Header from trusted ip",
 			// nolint lll
 			xfccHeader: `Hash=hash;Subject="CN=hello,OU=hello,O=Acme\, Inc.";URI=;DNS=hello.west.example.com;DNS=hello.east.example.com,By=spiffe://mesh.example.com/ns/hellons/sa/hellosa;Hash=again;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
 			caller: &security.Caller{
@@ -47,35 +54,43 @@ func TestAuthenticate_XfccAuthenticator(t *testing.T) {
 					"spiffe://mesh.example.com/ns/otherns/sa/othersa",
 				},
 			},
+			peer: "127.0.0.1",
+		},
+		{
+			name: "Xfcc Header from untrusted ip",
+			// nolint lll
+			xfccHeader:         `Hash=hash;Subject="CN=hello,OU=hello,O=Acme\, Inc.";URI=;DNS=hello.west.example.com;DNS=hello.east.example.com,By=spiffe://mesh.example.com/ns/hellons/sa/hellosa;Hash=again;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
+			authenticateErrMsg: "call is not from trusted network, xfcc can not be used as authenticator",
+			peer:               "172.0.0.1",
 		},
 	}
 
 	auth := &XfccAuthenticator{}
 
-	for id, tc := range testCases {
-		ctx := context.Background()
-		md := metadata.MD{}
-		if len(tc.xfccHeader) > 0 {
-			md.Append(xfccparser.ForwardedClientCertHeader, tc.xfccHeader)
-		}
-
-		ctx = metadata.NewIncomingContext(ctx, md)
-		result, err := auth.Authenticate(ctx)
-		if len(tc.authenticateErrMsg) > 0 {
-			if err == nil {
-				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
-			} else if err.Error() != tc.authenticateErrMsg {
-				t.Errorf("Case %s: Incorrect error message: want %s but got %s",
-					id, tc.authenticateErrMsg, err.Error())
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			md := metadata.MD{}
+			if len(tt.xfccHeader) > 0 {
+				md.Append(xfccparser.ForwardedClientCertHeader, tt.xfccHeader)
 			}
-			continue
-		} else if err != nil {
-			t.Fatalf("Case %s: Unexpected Error: %v", id, err)
-		}
+			ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: &net.IPAddr{IP: net.ParseIP(tt.peer).To4()}})
+			ctx = metadata.NewIncomingContext(ctx, md)
+			result, err := auth.Authenticate(security.NewAuthContext(ctx))
+			if len(tt.authenticateErrMsg) > 0 {
+				if err == nil {
+					t.Errorf("Succeeded. Error expected: %v", err)
+				} else if err.Error() != tt.authenticateErrMsg {
+					t.Errorf("Incorrect error message: want %s but got %s",
+						tt.authenticateErrMsg, err.Error())
+				}
+			} else if err != nil {
+				t.Fatalf("Unexpected Error: %v", err)
+			}
 
-		if !reflect.DeepEqual(tc.caller, result) {
-			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v",
-				id, tc.caller, result)
-		}
+			if !reflect.DeepEqual(tt.caller, result) {
+				t.Errorf("Unexpected authentication result: want %v but got %v",
+					tt.caller, result)
+			}
+		})
 	}
 }

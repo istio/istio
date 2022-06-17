@@ -403,6 +403,12 @@ var (
 		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
 	).Get()
 
+	EnableXfccHeaderAuth = env.RegisterBoolVar(
+		"PILOT_ENABLE_XDS_XFCC_HEADER_AUTH",
+		false,
+		"If enabled, pilot will authorize XDS clients based on Xfcc Header. This can be used when Istiod is running in a trusted/secure networks",
+	).Get()
+
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()

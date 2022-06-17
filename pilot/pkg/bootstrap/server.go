@@ -308,7 +308,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// is used as the authentication result.
 	authenticators := []security.Authenticator{
 		&authenticate.ClientCertAuthenticator{},
-		&authenticate.XfccAuthenticator{},
 	}
 	if args.JwtRule != "" {
 		jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)
@@ -324,6 +323,9 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// so we build it later.
 	authenticators = append(authenticators,
 		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+	if features.EnableXfccHeaderAuth {
+		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
+	}
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
