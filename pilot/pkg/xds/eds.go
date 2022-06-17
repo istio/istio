@@ -324,8 +324,6 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 		// To ensure we allow traffic only to mTLS endpoints, we filter out non-mTLS endpoints for these cluster types.
 		llbOpts = b.EndpointsWithMTLSFilter(llbOpts)
 	}
-	llbOpts = b.ApplyTunnelSetting(llbOpts, b.tunnelType)
-
 	l := b.createClusterLoadAssignment(llbOpts)
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
