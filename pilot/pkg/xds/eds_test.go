@@ -34,7 +34,6 @@ import (
 	uatomic "go.uber.org/atomic"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -200,78 +199,6 @@ func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint 
 			ServiceAccount:  account,
 		},
 	}
-}
-
-func TestTunnelServerEndpointEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
-	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
-		[]*model.IstioEndpoint{
-			{
-				Address:         "127.0.0.1",
-				ServicePortName: "http-main",
-				EndpointPort:    80,
-				// Labels:          map[string]string{"version": version},
-				ServiceAccount: "hello-sa",
-				TunnelAbility:  networking.MakeTunnelAbility(networking.H2Tunnel),
-			},
-		})
-
-	t.Run("TestClientWantsTunnelEndpoints", func(t *testing.T) {
-		t.Helper()
-		adscConn1 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}, Metadata: &model.NodeMetadata{
-			ProxyConfig: &model.NodeMetaProxyConfig{
-				ProxyMetadata: map[string]string{
-					"tunnel": networking.H2TunnelTypeName,
-				},
-			},
-		}}, nil, watchAll)
-		testTunnelEndpoints("127.0.0.1", 15009, adscConn1, t)
-	})
-	t.Run("TestClientWantsNoTunnelEndpoints", func(t *testing.T) {
-		t.Helper()
-		adscConn2 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}, Metadata: &model.NodeMetadata{
-			ProxyConfig: &model.NodeMetaProxyConfig{},
-		}}, nil, watchAll)
-		testTunnelEndpoints("127.0.0.1", 80, adscConn2, t)
-	})
-}
-
-func TestNoTunnelServerEndpointEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-
-	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
-	addTestClientEndpoints(s.Discovery)
-
-	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
-	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
-		[]*model.IstioEndpoint{
-			{
-				Address:         "127.0.0.1",
-				ServicePortName: "http-main",
-				EndpointPort:    80,
-				// Labels:          map[string]string{"version": version},
-				ServiceAccount: "hello-sa",
-				// No Tunnel Support at this endpoint.
-				TunnelAbility: networking.MakeTunnelAbility(),
-			},
-		})
-
-	t.Run("TestClientWantsTunnelEndpoints", func(t *testing.T) {
-		adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}, Metadata: &model.NodeMetadata{
-			ProxyConfig: &model.NodeMetaProxyConfig{
-				ProxyMetadata: map[string]string{
-					"tunnel": networking.H2TunnelTypeName,
-				},
-			},
-		}}, nil, watchAll)
-		testTunnelEndpoints("127.0.0.1", 80, adscConn, t)
-	})
-
-	t.Run("TestClientWantsNoTunnelEndpoints", func(t *testing.T) {
-		adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}, Metadata: &model.NodeMetadata{}}, nil, watchAll)
-		testTunnelEndpoints("127.0.0.1", 80, adscConn, t)
-	})
 }
 
 func mustReadFile(t *testing.T, fpaths ...string) string {
@@ -795,31 +722,6 @@ func testEndpoints(expected string, cluster string, adsc *adsc.ADSC, t *testing.
 		}
 	}
 	t.Fatalf("Expecting %s got %v", expected, found)
-}
-
-// Verify server sends the tunneled endpoints.
-// nolint: unparam
-func testTunnelEndpoints(expectIP string, expectPort uint32, adsc *adsc.ADSC, t *testing.T) {
-	t.Helper()
-	cluster := "outbound|8080||eds.test.svc.cluster.local"
-	allClusters := adsc.GetEndpoints()
-	cla, f := allClusters[cluster]
-	if !f || len(cla.Endpoints) == 0 {
-		t.Fatalf("No lb endpoints for %v, %v", cluster, adsc.EndpointsJSON())
-	}
-	var found []string
-	for _, lbe := range cla.Endpoints {
-		for _, e := range lbe.LbEndpoints {
-			addr := e.GetEndpoint().Address.GetSocketAddress().Address
-			port := e.GetEndpoint().Address.GetSocketAddress().GetPortValue()
-			found = append(found, fmt.Sprintf("%s:%d", addr, port))
-			if expectIP == addr && expectPort == port {
-				return
-			}
-		}
-	}
-	t.Errorf("REACH HERE cannot find %s:%d", expectIP, expectPort)
-	t.Fatalf("Expecting address %s:%d got %v", expectIP, expectPort, found)
 }
 
 func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *testing.T) {
