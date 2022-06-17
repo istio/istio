@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
@@ -454,7 +455,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		vHostDedupMap = collapseDuplicateRoutes(vHostDedupMap)
 		for _, v := range vHostDedupMap {
-			v.Routes = istio_route.CombineVHostRoutes(v.Routes)
+			v.Routes = istio_route.SortVHostRoutes(v.Routes)
 			virtualHosts = append(virtualHosts, v)
 		}
 	}
@@ -768,7 +769,12 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gateway) {
-				return buildOutboundNetworkFilters(node, tcp.Route, push, port, v.Meta)
+				out := make([]*listener.Filter, 0)
+				if server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL {
+					out = append(out,
+						buildMetadataExchangeNetworkFiltersForTCPIstioMTLSGateway()...)
+				}
+				return append(out, buildOutboundNetworkFilters(node, tcp.Route, push, port, v.Meta)...)
 			}
 		}
 	}
@@ -894,10 +900,11 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			// be possible for anyone to access a cluster without mTLS. Note that we cannot actually
 			// check for mTLS here, as we are doing passthrough TLS.
 			filterChains = append(filterChains, &filterChainOpts{
-				sniHosts:       []string{clusterName},
-				match:          &listener.FilterChainMatch{ApplicationProtocols: allIstioMtlsALPNs},
-				tlsContext:     nil, // NO TLS context because this is passthrough
-				networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, statPrefix, clusterName, "", port, destinationRule),
+				sniHosts:   []string{clusterName},
+				match:      &listener.FilterChainMatch{ApplicationProtocols: allIstioMtlsALPNs},
+				tlsContext: nil, // NO TLS context because this is passthrough
+				networkFilters: buildOutboundNetworkFiltersWithSingleDestination(
+					push, proxy, statPrefix, clusterName, "", port, destinationRule, tunnelingconfig.Skip),
 			})
 
 			// Do the same, but for each subset
@@ -909,10 +916,11 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 					subsetStatPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, &service.Attributes)
 				}
 				filterChains = append(filterChains, &filterChainOpts{
-					sniHosts:       []string{subsetClusterName},
-					match:          &listener.FilterChainMatch{ApplicationProtocols: allIstioMtlsALPNs},
-					tlsContext:     nil, // NO TLS context because this is passthrough
-					networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, subsetStatPrefix, subsetClusterName, subset.Name, port, destinationRule),
+					sniHosts:   []string{subsetClusterName},
+					match:      &listener.FilterChainMatch{ApplicationProtocols: allIstioMtlsALPNs},
+					tlsContext: nil, // NO TLS context because this is passthrough
+					networkFilters: buildOutboundNetworkFiltersWithSingleDestination(
+						push, proxy, subsetStatPrefix, subsetClusterName, subset.Name, port, destinationRule, tunnelingconfig.Skip),
 				})
 			}
 		}

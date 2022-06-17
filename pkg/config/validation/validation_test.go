@@ -1810,6 +1810,44 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 				HttpStatus: 200,
 			},
 		}, valid: false},
+		{name: "grpc: nil", in: nil, valid: true},
+		{name: "grpc: valid", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "DEADLINE_EXCEEDED",
+			},
+		}, valid: true},
+		{name: "grpc: valid default percentage", in: &networking.HTTPFaultInjection_Abort{
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "DEADLINE_EXCEEDED",
+			},
+		}, valid: true},
+		{name: "grpc: invalid status", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "BAD_STATUS",
+			},
+		}, valid: false},
+		{name: "grpc: valid percentage", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 0.001,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "INTERNAL",
+			},
+		}, valid: true},
+		{name: "grpc: invalid fractional percent", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: -10.0,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "DEADLINE_EXCEEDED",
+			},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -2142,6 +2180,101 @@ func TestValidateDestinationWithInheritance(t *testing.T) {
 				},
 			},
 		}, valid: true},
+		{name: "global tunnel settings with connect protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: true},
+		{name: "global tunnel settings with post protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "POST",
+					TargetHost: "example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: true},
+		{name: "subset tunnel settings with connect protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			Subsets: []*networking.Subset{
+				{
+					Name: "reviews-80",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tunnel: &networking.TrafficPolicy_TunnelSettings{
+							Protocol:   "CONNECT",
+							TargetHost: "example.com",
+							TargetPort: 80,
+						},
+					},
+				},
+			},
+		}, valid: true},
+		{name: "subset tunnel settings with post protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			Subsets: []*networking.Subset{
+				{
+					Name: "example-com-80",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tunnel: &networking.TrafficPolicy_TunnelSettings{
+							Protocol:   "POST",
+							TargetHost: "example.com",
+							TargetPort: 80,
+						},
+					},
+				},
+			},
+		}, valid: true},
+		{name: "global tunnel settings with IPv4 target host", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "192.168.1.2",
+					TargetPort: 80,
+				},
+			},
+		}, valid: true},
+		{name: "global tunnel settings with IPv6 target host", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "2001:db8:1234::",
+					TargetPort: 80,
+				},
+			},
+		}, valid: true},
+		{name: "global tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "masque",
+					TargetHost: "example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: false},
+		{name: "subset tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			Subsets: []*networking.Subset{
+				{
+					Name: "example-com-80",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tunnel: &networking.TrafficPolicy_TunnelSettings{
+							Protocol:   "masque",
+							TargetHost: "example.com",
+							TargetPort: 80,
+						},
+					},
+				},
+			},
+		}, valid: false},
 		{name: "global rule with subsets", in: &networking.DestinationRule{
 			TrafficPolicy: &networking.TrafficPolicy{
 				Tls: &networking.ClientTLSSettings{
@@ -2183,6 +2316,53 @@ func TestValidateDestinationWithInheritance(t *testing.T) {
 							MinHealthPercent: 20,
 						},
 					},
+				},
+			},
+		}, valid: false},
+		{name: "tunnel settings for wildcard target host", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "*.example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: false},
+		{name: "tunnel settings for with invalid port", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "example.com",
+					TargetPort: 0,
+				},
+			},
+		}, valid: false},
+		{name: "tunnel settings without required protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					TargetHost: "example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: false},
+		{name: "tunnel settings without required target host", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetPort: 80,
+				},
+			},
+		}, valid: false},
+		{name: "tunnel settings without required target port", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "example.com",
 				},
 			},
 		}, valid: false},

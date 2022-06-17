@@ -168,7 +168,7 @@ func (sg *StatusGen) debugConfigDump(proxyID string) (model.Resources, error) {
 		return nil, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
 	}
 
-	dump, err := sg.Server.configDump(conn)
+	dump, err := sg.Server.configDump(conn, false)
 	if err != nil {
 		return nil, err
 	}

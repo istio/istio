@@ -17,6 +17,7 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -48,7 +49,7 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 			}
 		}
 
-		if affected && checkProxyDependencies(proxy, config) {
+		if affected && checkProxyDependencies(proxy, config, req.Push) {
 			return true
 		}
 	}
@@ -56,7 +57,7 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 	return false
 }
 
-func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey) bool {
+func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey, push *model.PushContext) bool {
 	// Detailed config dependencies check.
 	switch proxy.Type {
 	case model.SidecarProxy:
@@ -65,6 +66,17 @@ func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey) bool {
 		} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config) {
 			return true
 		}
+	case model.Router:
+		if config.Kind == gvk.ServiceEntry {
+			// If config is ServiceEntry, name of the config is service's FQDN
+			svc, exist := push.ServiceIndex.HostnameAndNamespace[host.Name(config.Name)][config.Namespace]
+			if exist {
+				if !push.IsServiceVisible(svc, proxy.Metadata.Namespace) {
+					return false
+				}
+			}
+		}
+		return true
 	default:
 		// TODO We'll add the check for other proxy types later.
 		return true

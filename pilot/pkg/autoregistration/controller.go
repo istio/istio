@@ -198,6 +198,9 @@ type workItem struct {
 }
 
 func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
 	c.Annotations[WorkloadControllerAnnotation] = controller
 	c.Annotations[ConnectedAtAnnotation] = conTime.Format(timeFormat)
 	delete(c.Annotations, DisconnectedAtAnnotation)

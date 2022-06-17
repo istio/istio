@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 39188
+releaseNotes:
+  - |
+    **Fixed** building router's routes orders, a catch all route does not short circuit other routes behind.

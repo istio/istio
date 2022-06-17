@@ -346,3 +346,117 @@ func TestValidateExtensionProviderEnvoyOtelAls(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateExtensionProviderEnvoyHTTPAls(t *testing.T) {
+	cases := []struct {
+		name     string
+		provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider
+		valid    bool
+	}{
+		{
+			name: "normal",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
+				Service: "grpc-als.istio-syste.svc",
+				Port:    4000,
+			},
+			valid: true,
+		},
+		{
+			name: "service with namespace",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
+				Service: "namespace/grpc-als.istio-syste.svc",
+				Port:    4000,
+			},
+			valid: true,
+		},
+		{
+			name: "service with invalid namespace",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
+				Service: "name/space/grpc-als.istio-syste.svc",
+				Port:    4000,
+			},
+			valid: false,
+		},
+		{
+			name: "service with port",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
+				Service: "grpc-als.istio-syste.svc:4000",
+				Port:    4000,
+			},
+			valid: false,
+		},
+		{
+			name: "missing port",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
+				Service: "grpc-als.istio-syste.svc",
+			},
+			valid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateExtensionProviderEnvoyHTTPAls(c.provider)
+			valid := err == nil
+			if valid != c.valid {
+				t.Errorf("Expected valid=%v, got valid=%v for %v", c.valid, valid, c.provider)
+			}
+		})
+	}
+}
+
+func TestValidateExtensionProviderEnvoyTCPAls(t *testing.T) {
+	cases := []struct {
+		name     string
+		provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider
+		valid    bool
+	}{
+		{
+			name: "normal",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
+				Service: "grpc-als.istio-syste.svc",
+				Port:    4000,
+			},
+			valid: true,
+		},
+		{
+			name: "service with namespace",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
+				Service: "namespace/grpc-als.istio-syste.svc",
+				Port:    4000,
+			},
+			valid: true,
+		},
+		{
+			name: "service with invalid namespace",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
+				Service: "name/space/grpc-als.istio-syste.svc",
+				Port:    4000,
+			},
+			valid: false,
+		},
+		{
+			name: "service with port",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
+				Service: "grpc-als.istio-syste.svc:4000",
+				Port:    4000,
+			},
+			valid: false,
+		},
+		{
+			name: "missing port",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
+				Service: "grpc-als.istio-syste.svc",
+			},
+			valid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateExtensionProviderEnvoyTCPAls(c.provider)
+			valid := err == nil
+			if valid != c.valid {
+				t.Errorf("Expected valid=%v, got valid=%v for %v", c.valid, valid, c.provider)
+			}
+		})
+	}
+}

@@ -103,7 +103,10 @@ func FuzzOverlayIOP(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_, _ = util.OverlayIOP(base, overlay)
+	_, err = util.OverlayIOP(base, overlay)
+	if err != nil {
+		return 0
+	}
 	return 1
 }
 

@@ -44,6 +44,7 @@ func (s *DiscoveryServer) compareDiff(
 	deleted model.DeletedResources,
 	usedDelta bool,
 	delta model.ResourceDelta,
+	incremental bool,
 ) {
 	report := log.Errorf
 	if w.TypeUrl == v3.ClusterType {
@@ -126,8 +127,9 @@ func (s *DiscoveryServer) compareDiff(
 		if len(extraDeletes) > 0 {
 			report("%s: TEST for node:%s unexpected deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, extraDeletes)
 		}
-		if len(missedDeletes) > 0 {
-			report("%s: TEST for node:%s missed deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, missedDeletes)
+		if len(missedDeletes) > 0 && !incremental {
+			// We can skip this if we are incremental; this expects us to only send a partial list. So these are not actually deletes
+			log.Errorf("%s: TEST for node:%s missed deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, missedDeletes)
 		}
 		if len(missedChanges) > 0 {
 			report("%s: TEST for node:%s missed changes: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, missedChanges)

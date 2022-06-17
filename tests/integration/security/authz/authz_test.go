@@ -635,7 +635,7 @@ func TestAuthz_JWT(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/jwt.yaml.tmpl")).
+				Source(config.File("testdata/v1beta1/jwt.yaml.tmpl").WithNamespace(apps.Ns1.Namespace)).
 				BuildAll(nil, to).
 				Apply()
 

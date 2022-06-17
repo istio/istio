@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -91,19 +92,42 @@ type Controller struct {
 
 // NewController returns a new secret controller
 func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID) *Controller {
+	informerClient := kubeclientset
+
+	// When these two are set to true, Istiod will be watching the namespace in which
+	// Istiod is running on the external cluster. Use the inCluster credentials to
+	// create a kubeclientset
+	if features.LocalClusterSecretWatcher && features.ExternalIstiod {
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			log.Errorf("Could not get istiod incluster configuration: %v", err)
+			return nil
+		}
+		log.Info("Successfully retrieved incluster config.")
+
+		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config))
+		if err != nil {
+			log.Errorf("Could not create a client to access local cluster API server: %v", err)
+			return nil
+		}
+		log.Infof("Successfully created in cluster kubeclient at %s", localKubeClient.RESTConfig().Host)
+		informerClient = localKubeClient
+	}
+
 	secretsInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
-				return kubeclientset.Kube().CoreV1().Secrets(namespace).List(context.TODO(), opts)
+				return informerClient.Kube().CoreV1().Secrets(namespace).List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
-				return kubeclientset.Kube().CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
+				return informerClient.Kube().CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
 			},
 		},
 		&corev1.Secret{}, 0, cache.Indexers{},
 	)
+	_ = secretsInformer.SetTransform(kube.StripUnusedFields)
 
 	// init gauges
 	localClusters.Record(1.0)
@@ -148,16 +172,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		c.queue.Run(stopCh)
 	}()
 	return nil
-}
-
-func (c *Controller) close() {
-	c.cs.Lock()
-	defer c.cs.Unlock()
-	for _, clusterMap := range c.cs.remoteClusters {
-		for _, cluster := range clusterMap {
-			cluster.Stop()
-		}
-	}
 }
 
 func (c *Controller) hasSynced() bool {
@@ -321,7 +335,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 
 	for clusterID, kubeConfig := range s.Data {
 		if cluster.ID(clusterID) == c.configClusterID {
-			log.Infof("ignoring cluster %v from secret %v as it would overwrite the primary cluster", clusterID, secretKey)
+			log.Infof("ignoring cluster %v from secret %v as it would overwrite the config cluster", clusterID, secretKey)
 			continue
 		}
 
@@ -334,6 +348,8 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 				log.Infof("skipping update of cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
 				continue
 			}
+			// stop previous remote cluster
+			prev.Stop()
 		} else if c.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
 			log.Warnf("cluster %d from secret %s has already been registered", clusterID, secretKey)
@@ -362,7 +378,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 func (c *Controller) deleteSecret(secretKey string) {
 	for _, cluster := range c.cs.GetExistingClustersFor(secretKey) {
 		if cluster.ID == c.configClusterID {
-			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the primary cluster", c.configClusterID, secretKey)
+			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", c.configClusterID, secretKey)
 			continue
 		}
 		log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)

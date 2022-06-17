@@ -1,0 +1,8 @@
+suites:
+  supportMultipleClusters:
+  - helm
+  - helm_upgrade
+  - operator
+  - pilot_revisioncmd
+  - security_file_mounted_certs
+  - security_sds_egress

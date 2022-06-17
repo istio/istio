@@ -17,8 +17,10 @@ package config
 import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo/config/param"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 // Source of YAML text.
@@ -42,6 +44,15 @@ type Source interface {
 	// MustYAML calls GetYAML and panics if an error occurs.
 	MustYAML() string
 
+	// Split this source into individual CRDs.
+	Split() ([]Source, error)
+
+	// SplitOrFail calls Split and fails if an error occurs.
+	SplitOrFail(t test.Failer) []Source
+
+	// MustSplit calls Split and panics if an error occurs.
+	MustSplit() []Source
+
 	// Params returns a copy of the parameters for this Source.
 	Params() param.Params
 
@@ -51,6 +62,9 @@ type Source interface {
 	// a union of the two sets. If the same entry appears in the existing params,
 	// the new value overwrites the existing.
 	WithParams(params param.Params) Source
+
+	// WithNamespace calls WithParams with the given namespace set.
+	WithNamespace(namespace.Instance) Source
 }
 
 // YAML returns a Source of raw YAML text.
@@ -137,6 +151,42 @@ func (s sourceImpl) MustYAML() string {
 	return out
 }
 
+func (s sourceImpl) Split() ([]Source, error) {
+	raw, err := s.read()
+	if err != nil {
+		return nil, err
+	}
+
+	pieces := yml.SplitString(raw)
+	if len(pieces) == 1 {
+		// There was nothing to split. Just return the original source.
+		return []Source{s}, nil
+	}
+
+	out := make([]Source, 0, len(pieces))
+	for _, p := range pieces {
+		out = append(out, YAML(p).WithParams(s.Params()))
+	}
+	return out, nil
+}
+
+func (s sourceImpl) SplitOrFail(t test.Failer) []Source {
+	t.Helper()
+	out, err := s.Split()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func (s sourceImpl) MustSplit() []Source {
+	out, err := s.Split()
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
 func (s sourceImpl) Params() param.Params {
 	return s.params.Copy()
 }
@@ -167,4 +217,10 @@ func (s sourceImpl) WithParams(params param.Params) Source {
 		read:   s.read,
 		params: mergedParams,
 	}
+}
+
+func (s sourceImpl) WithNamespace(ns namespace.Instance) Source {
+	return s.WithParams(param.Params{
+		param.Namespace.String(): ns,
+	})
 }

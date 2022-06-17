@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -39,7 +40,7 @@ var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.ProxyConfig:           {},
 }
 
-// Map all configs that impacts CDS for gateways.
+// Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
 var pushCdsGatewayConfig = map[config.GroupVersionKind]struct{}{
 	gvk.VirtualService: {},
 	gvk.Gateway:        {},
@@ -58,9 +59,11 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if proxy.Type == model.Router {
-			if _, f := pushCdsGatewayConfig[config.Kind]; f {
-				return true
+		if features.FilterGatewayClusterConfig {
+			if proxy.Type == model.Router {
+				if _, f := pushCdsGatewayConfig[config.Kind]; f {
+					return true
+				}
 			}
 		}
 

@@ -173,6 +173,7 @@ items:
           - '*'
           - -d
           - 15090,15021,15020
+          - --log_output_level=default:info
           image: gcr.io/istio-testing/proxyv2:latest
           name: istio-init
           resources:

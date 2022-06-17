@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 39201
+releaseNotes:
+  - |
+    **Fixed** WorkloadEntry.Annotations is nil and then lead to abnormal exit of pilot.

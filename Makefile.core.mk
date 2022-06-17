@@ -12,6 +12,22 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
+# Our build tools, post jammy, breaks old versions of docker.
+# These old versions are surprisingly common, so build in a check here
+define warning
+Docker version is too old, please upgrade to a newer version.
+endef
+ifneq ($(findstring google,$(HOSTNAME)),)
+warning+=Googlers: go/installdocker\#the-version-of-docker-thats-installed-is-old-eg-1126
+endif
+# The old docker issue manifests as not being able to run *any* binary. So we can test
+# by trying to run a trivial program and ensuring it actually ran. If not, emit our warning.
+# Note: we cannot do anything like $(shell docker version) to check, since that would also fail.
+CAN_RUN := $(shell echo "can I run echo")
+ifeq ($(CAN_RUN),)
+$(error $(warning))
+endif
+
 #-----------------------------------------------------------------------------
 # Global Variables
 #-----------------------------------------------------------------------------
@@ -22,7 +38,7 @@ SHELL := /bin/bash -o pipefail
 export VERSION ?= 1.15-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2022-05-28T19-01-18
+BASE_VERSION ?= master-2022-06-09T19-01-27
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -211,8 +227,7 @@ ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
 ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 
-# Pull dependencies, based on the checked in Gopkg.lock file.
-# Developers must manually run `dep ensure` if adding new deps
+# Pull dependencies such as envoy
 depend: init | $(TARGET_OUT)
 
 DIRS_TO_CLEAN := $(TARGET_OUT)

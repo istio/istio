@@ -58,6 +58,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -1307,7 +1308,7 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 		return Validation{}
 	}
 	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
-		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil {
+		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil && policy.Tunnel == nil {
 		return WrapError(fmt.Errorf("traffic policy must have at least one field"))
 	}
 
@@ -1315,7 +1316,29 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer),
 		validateTLS(policy.Tls),
-		validatePortTrafficPolicies(policy.PortLevelSettings))
+		validatePortTrafficPolicies(policy.PortLevelSettings),
+		validateTunnelSettings(policy.Tunnel))
+}
+
+func validateTunnelSettings(tunnel *networking.TrafficPolicy_TunnelSettings) (errs error) {
+	if tunnel == nil {
+		return
+	}
+	if tunnel.Protocol == "" {
+		errs = appendErrors(errs, fmt.Errorf("tunnel protocol must be specified"))
+	}
+	if tunnel.Protocol != "CONNECT" && tunnel.Protocol != "POST" {
+		errs = appendErrors(errs, fmt.Errorf("tunnel protocol must be \"CONNECT\" or \"POST\""))
+	}
+	fqdnErr := ValidateFQDN(tunnel.TargetHost)
+	ipErr := ValidateIPAddress(tunnel.TargetHost)
+	if fqdnErr != nil && ipErr != nil {
+		errs = appendErrors(errs, fmt.Errorf("tunnel target host must be valid FQDN or IP address: %s; %s", fqdnErr, ipErr))
+	}
+	if err := ValidatePort(int(tunnel.TargetPort)); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("tunnel target port is invalid: %s", err))
+	}
+	return
 }
 
 func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Validation) {
@@ -2848,8 +2871,7 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 
 	switch abort.ErrorType.(type) {
 	case *networking.HTTPFaultInjection_Abort_GrpcStatus:
-		// TODO: gRPC status validation
-		errs = multierror.Append(errs, errors.New("gRPC abort fault injection not supported yet"))
+		errs = appendErrors(errs, validateGRPCStatus(abort.GetGrpcStatus()))
 	case *networking.HTTPFaultInjection_Abort_Http2Error:
 		// TODO: HTTP2 error validation
 		errs = multierror.Append(errs, errors.New("HTTP/2 abort fault injection not supported yet"))
@@ -2863,6 +2885,15 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 func validateHTTPStatus(status int32) error {
 	if status < 200 || status > 600 {
 		return fmt.Errorf("HTTP status %d is not in range 200-599", status)
+	}
+	return nil
+}
+
+func validateGRPCStatus(status string) error {
+	_, found := grpc.SupportedGRPCStatus[status]
+	if !found {
+		return fmt.Errorf("gRPC status %q is not supported. See https://github.com/grpc/grpc/blob/master/doc/statuscodes.md "+
+			"for a list of supported codes, for example 'NOT_FOUND'", status)
 	}
 	return nil
 }

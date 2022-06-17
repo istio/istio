@@ -23,6 +23,10 @@ import (
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
-func TestTcpMetric(t *testing.T) { // nolint:interfacer
+func TestTcpMetric(t *testing.T) {
 	common.TestStatsTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
+}
+
+func TestGatewayTCP(t *testing.T) {
+	common.TestStatsGatewayServerTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
 }

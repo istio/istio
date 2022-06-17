@@ -42,7 +42,7 @@ type Config struct {
 
 	// Namespaces is the user-provided list of echo namespaces. If empty, NamespaceCount
 	// namespaces will be generated.
-	Namespaces []namespace.Instance
+	Namespaces []namespace.Getter
 
 	// NoExternalNamespace if true, no external namespace will be generated and no external echo
 	// instance will be deployed. Ignored if ExternalNamespace is non-nil.
@@ -50,12 +50,20 @@ type Config struct {
 
 	// ExternalNamespace the namespace to use for the external deployment. If nil, a namespace
 	// will be generated unless NoExternalNamespace is specified.
-	ExternalNamespace namespace.Instance
+	ExternalNamespace namespace.Getter
 
 	// IncludeExtAuthz if enabled, an additional ext-authz container will be included in the deployment.
 	// This is mainly used to test the CUSTOM authorization policy when the ext-authz server is deployed
 	// locally with the application container in the same pod.
 	IncludeExtAuthz bool
+
+	// Custom allows for configuring custom echo deployments. If a deployment's namespace
+	// is nil, it will be created in all namespaces. Otherwise, it must match one of the
+	// namespaces configured above.
+	//
+	// Custom echo instances will be accessible from the `All` field in the namespace(s) under which they
+	// were created.
+	Custom []echo.Config
 }
 
 func (c *Config) fillDefaults(ctx resource.Context) error {
@@ -66,6 +74,23 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 		c.Echos = &Echos{}
 	}
 
+	// Verify the namespace for any custom deployments.
+	for _, custom := range c.Custom {
+		if custom.Namespace != nil {
+			found := false
+			for _, ns := range c.Namespaces {
+				if custom.Namespace.Name() == ns.Get().Name() {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("custom echo deployment %s uses unconfigured namespace %s",
+					custom.NamespacedName().String(), custom.NamespaceName())
+			}
+		}
+	}
+
 	if len(c.Namespaces) > 0 {
 		c.NamespaceCount = len(c.Namespaces)
 	} else if c.NamespaceCount <= 0 {
@@ -74,25 +99,33 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 
 	// Create the echo namespaces.
 	if len(c.Namespaces) == 0 {
-		c.Namespaces = make([]namespace.Instance, c.NamespaceCount)
+		c.Namespaces = make([]namespace.Getter, c.NamespaceCount)
 		if c.NamespaceCount == 1 {
 			// If only using a single namespace, preserve the "echo" prefix.
-			g.Go(func() (err error) {
-				c.Namespaces[0], err = namespace.New(ctx, namespace.Config{
+			g.Go(func() error {
+				ns, err := namespace.New(ctx, namespace.Config{
 					Prefix: "echo",
 					Inject: true,
 				})
-				return
+				if err != nil {
+					return err
+				}
+				c.Namespaces[0] = namespace.Future(&ns)
+				return nil
 			})
 		} else {
 			for i := 0; i < c.NamespaceCount; i++ {
 				i := i
-				g.Go(func() (err error) {
-					c.Namespaces[i], err = namespace.New(ctx, namespace.Config{
+				g.Go(func() error {
+					ns, err := namespace.New(ctx, namespace.Config{
 						Prefix: fmt.Sprintf("echo%d", i+1),
 						Inject: true,
 					})
-					return
+					if err != nil {
+						return err
+					}
+					c.Namespaces[i] = namespace.Future(&ns)
+					return nil
 				})
 			}
 		}
@@ -100,12 +133,16 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 
 	// Create the external namespace, if necessary.
 	if c.ExternalNamespace == nil && !c.NoExternalNamespace {
-		g.Go(func() (err error) {
-			c.ExternalNamespace, err = namespace.New(ctx, namespace.Config{
+		g.Go(func() error {
+			ns, err := namespace.New(ctx, namespace.Config{
 				Prefix: "external",
 				Inject: false,
 			})
-			return
+			if err != nil {
+				return err
+			}
+			c.ExternalNamespace = namespace.Future(&ns)
+			return nil
 		})
 	}
 
@@ -192,9 +229,9 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	apps := cfg.Echos
 	apps.NS = make([]EchoNamespace, len(cfg.Namespaces))
 	for i, ns := range cfg.Namespaces {
-		apps.NS[i].Namespace = ns
+		apps.NS[i].Namespace = ns.Get()
 	}
-	apps.External.Namespace = cfg.ExternalNamespace
+	apps.External.Namespace = cfg.ExternalNamespace.Get()
 
 	builder := deployment.New(ctx).WithClusters(ctx.Clusters()...)
 	for _, n := range apps.NS {

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 39366
+releaseNotes:
+  - |
+    **Fixed** bug when updating a multicluster secret, the previous cluster is not stopped. Even delete the secret can not stop the previous cluster
