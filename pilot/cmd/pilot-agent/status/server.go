@@ -71,7 +71,7 @@ const (
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
 
 	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
+	localHostIPv6 = "::1"
 )
 
 var (
