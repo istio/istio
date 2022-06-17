@@ -4,4 +4,4 @@ area: istioctl
 
 releaseNotes:
 - |
-  **Added** stats command `istioctl experimental envoy-stats` for retrieving istio-proxy envoy metrics.
+  **Added** `istioctl experimental envoy-stats -o prom-merged` for retrieving istio-proxy merged metrics from prometheus.
