@@ -484,14 +484,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	var envoy, application, agent []byte
 	var err error
 
-	localhost := localHostIPv4
-	if s.upstreamLocalAddress != nil && s.upstreamLocalAddress.IP.To4() == nil {
-		localhost = localHostIPv6
-	}
 	// Gather all the metrics we will merge
 	if !s.config.NoEnvoy {
-		hostPort := net.JoinHostPort(localhost, strconv.Itoa(s.envoyStatsPort))
-		if envoy, _, err = s.scrape(fmt.Sprintf("http://%s/stats/prometheus", hostPort), r.Header); err != nil {
+		if envoy, _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
 			log.Errorf("failed scraping envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
@@ -502,8 +497,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	var format expfmt.Format
 	if s.prometheus != nil {
 		var contentType string
-		hostPort := net.JoinHostPort(localhost, s.prometheus.Port)
-		url := fmt.Sprintf("http://%s%s", hostPort, s.prometheus.Path)
+		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
 		if application, contentType, err = s.scrape(url, r.Header); err != nil {
 			log.Errorf("failed scraping application metrics: %v", err)
 			metrics.AppScrapeErrors.Increment()
