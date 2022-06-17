@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -87,6 +86,7 @@ import (
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -802,18 +802,6 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 	return list.Items, nil
 }
 
-// ExtractExecResult wraps PodExec and return the execution result and error if has any.
-func (c *client) extractExecResult(podName, podNamespace, container, cmd string) (string, error) {
-	stdout, stderr, err := c.PodExec(podName, podNamespace, container, cmd)
-	if err != nil {
-		if stderr != "" {
-			return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s", podNamespace, podName, container, err, stderr)
-		}
-		return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w", podNamespace, podName, container, err)
-	}
-	return stdout, nil
-}
-
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
 	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
 		"labelSelector": "app=istiod",
@@ -1009,7 +997,10 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 	}
 	// If we are changing CRDs, invalidate the discovery client so future calls will not fail
 	if !dryRun {
-		f, _ := ioutil.ReadFile(file)
+		f, err := os.ReadFile(file)
+		if err != nil {
+			log.Warnf("Failed to read %s: %v", file, err)
+		}
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
 			c.discoveryClient.Invalidate()
 		}
