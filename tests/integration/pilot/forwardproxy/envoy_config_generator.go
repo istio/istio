@@ -102,8 +102,7 @@ func GenerateForwardProxyBootstrapConfig(listeners []ListenerSettings) (string, 
 }
 
 var dynamicForwardProxyCacheConfig = &envoy_common_dynamic_forward_proxy.DnsCacheConfig{
-	Name:            "dynamic_forward_proxy_cache_config",
-	DnsLookupFamily: envoy_cluster.Cluster_V4_ONLY,
+	Name: "dynamic_forward_proxy_cache_config",
 	TypedDnsResolverConfig: &envoy_core.TypedExtensionConfig{
 		Name: "envoy.network.dns_resolver.cares",
 		TypedConfig: networking.MessageToAny(&envoy_dns_cares.CaresDnsResolverConfig{
