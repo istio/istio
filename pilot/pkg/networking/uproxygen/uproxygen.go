@@ -56,7 +56,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -137,6 +136,13 @@ const (
 	OriginalSrcMark = 0x4d2
 	OutboundMark    = 0x401
 	InboundMark     = 0x402
+)
+
+// these exist on syscall package, but only on linux.
+// copy these here so this file can build on any platform
+const (
+	SOL_SOCKET = 0x1
+	SO_MARK    = 0x24
 )
 
 func (g *UProxyConfigGenerator) BuildListeners(proxy *model.Proxy, push *model.PushContext, names []string) (out model.Resources) {
@@ -245,8 +251,8 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 		AccessLog:      accessLogString("outbound capture listener"),
 		SocketOptions: []*core.SocketOption{{
 			Description: "Set socket mark to packets coming back from outbound listener",
-			Level:       syscall.SOL_SOCKET,
-			Name:        syscall.SO_MARK,
+			Level:       SOL_SOCKET,
+			Name:        SO_MARK,
 			Value: &core.SocketOption_IntValue{
 				IntValue: OutboundMark,
 			},
@@ -933,8 +939,8 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 		AccessLog: accessLogString("capture inbound listener"),
 		SocketOptions: []*core.SocketOption{{
 			Description: "Set socket mark to packets coming back from inbound listener",
-			Level:       syscall.SOL_SOCKET,
-			Name:        syscall.SO_MARK,
+			Level:       SOL_SOCKET,
+			Name:        SO_MARK,
 			Value: &core.SocketOption_IntValue{
 				IntValue: InboundMark,
 			},
@@ -1047,8 +1053,8 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 		AccessLog: accessLogString("capture inbound listener plaintext"),
 		SocketOptions: []*core.SocketOption{{
 			Description: "Set socket mark to packets coming back from inbound listener",
-			Level:       syscall.SOL_SOCKET,
-			Name:        syscall.SO_MARK,
+			Level:       SOL_SOCKET,
+			Name:        SO_MARK,
 			Value: &core.SocketOption_IntValue{
 				IntValue: InboundMark,
 			},
