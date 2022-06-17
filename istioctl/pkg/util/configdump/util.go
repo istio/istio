@@ -26,6 +26,7 @@ type configTypeURL string
 const (
 	bootstrap configTypeURL = "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump"
 	listeners configTypeURL = "type.googleapis.com/envoy.admin.v3.ListenersConfigDump"
+	endpoints configTypeURL = "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump"
 	clusters  configTypeURL = "type.googleapis.com/envoy.admin.v3.ClustersConfigDump"
 	routes    configTypeURL = "type.googleapis.com/envoy.admin.v3.RoutesConfigDump"
 	secrets   configTypeURL = "type.googleapis.com/envoy.admin.v3.SecretsConfigDump"
