@@ -20,7 +20,8 @@ import (
 )
 
 type ConfigGeneratorImpl struct {
-	Cache model.XdsCache
+	Cache                model.XdsCache
+	InvalidatedResources []string
 }
 
 func NewConfigGenerator(cache model.XdsCache) *ConfigGeneratorImpl {
@@ -32,4 +33,8 @@ func NewConfigGenerator(cache model.XdsCache) *ConfigGeneratorImpl {
 // MeshConfigChanged is called when mesh config is changed.
 func (configgen *ConfigGeneratorImpl) MeshConfigChanged(_ *meshconfig.MeshConfig) {
 	accessLogBuilder.reset()
+}
+
+func (configgen *ConfigGeneratorImpl) XdsCacheInvalidated(invalidated []string) {
+	configgen.InvalidatedResources = invalidated
 }

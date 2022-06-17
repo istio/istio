@@ -300,10 +300,19 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 	// If we don't know what updated, cannot safely cache. Clear the whole cache
 	if len(req.ConfigsUpdated) == 0 {
 		s.Cache.ClearAll()
+		s.ConfigGenerator.XdsCacheInvalidated(nil)
 	} else {
 		// Otherwise, just clear the updated configs
 		s.Cache.Clear(req.ConfigsUpdated)
+		s.ConfigGenerator.XdsCacheInvalidated(getNames(req.ConfigsUpdated))
 	}
+}
+
+func getNames(v map[model.ConfigKey]struct{}) (r []string) {
+	for k, _ := range v {
+		r = append(r, k.Name)
+	}
+	return r
 }
 
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,

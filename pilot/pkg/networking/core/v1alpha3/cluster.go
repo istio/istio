@@ -163,7 +163,21 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, proxy *model.Proxy,
 	cp clusterPatcher, services []*model.Service, updated map[model.ConfigKey]struct{}, deleted sets.Set, delta bool,
 ) ([]*discovery.Resource, cacheStats) {
+	// make global-ish so can modify outside
 	oldCacheKeys := proxy.WatchedResources[v3.ClusterType].CacheKeys
+	// nil -> delete all/reset oldCacheKeys
+	if configgen.InvalidatedResources == nil {
+		oldCacheKeys = map[string]model.XdsCacheEntry{}
+	}
+	// nonzero length -> delete some
+	if len(configgen.InvalidatedResources) != 0 {
+		// remove from oldCacheKeys
+		for _, k := range configgen.InvalidatedResources {
+			delete(oldCacheKeys, k)
+		}
+	}
+	// set to length 0 for next iteration (not nil)
+	configgen.InvalidatedResources = []string{}
 	resources := make([]*discovery.Resource, 0)
 	efKeys := cp.efw.Keys()
 	hit, miss := 0, 0
