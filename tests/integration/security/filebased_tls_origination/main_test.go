@@ -36,6 +36,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Label("CustomSetup").
 <<<<<<< HEAD
+<<<<<<< HEAD
 		RequireMultiPrimary(). // SkipExternalControlPlaneTopology(). TODO this test fails when running with istiodless remotes
 =======
 <<<<<<< HEAD
@@ -43,6 +44,8 @@ func TestMain(m *testing.M) {
 =======
 >>>>>>> bf63b0ec55 (added a custom gateway operator)
 >>>>>>> 3539fc5ea2 (added a custom gateway operator)
+=======
+>>>>>>> a84b4baf0e (fix for external CP topology)
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Run()
 }
@@ -64,6 +67,16 @@ values:
            secretName: egress-gw-cacerts
            mountPath: /etc/certs/custom
 `
+	cfg.ExternalControlPlaneClusterValues = `
+components:
+  egressGateways:
+  - enabled: false
+    name: istio-egressgateway
+  ingressGateways:
+  - enabled: false
+    name: istio-ingressgateway
+`
+
 	cfg.ConfigClusterValues = `
 components:
   istiodRemote:
@@ -71,22 +84,22 @@ components:
   egressGateways:
   - enabled: false
     name: istio-egressgateway
-  ingressGateways"
+  ingressGateways:
   - enabled: false
     name: istio-ingressgateway
 `
 
-	// 	cfg.GatewayValues = `
-	// components:
-	//   egressGateways:
-	//   - enabled: true
-	//     name: istio-egressgateway
-	// values:
-	//    gateways:
-	//       istio-egressgateway:
-	//          secretVolumes:
-	//          - name: client-custom-certs
-	//            secretName: egress-gw-cacerts
-	//            mountPath: /etc/certs/custom
-	// `
+	cfg.GatewayValues = `
+components:
+  egressGateways:
+  - enabled: true
+    name: istio-egressgateway
+values:
+  gateways:
+    istio-egressgateway:
+      secretVolumes:
+      - name: client-custom-certs
+        secretName: egress-gw-cacerts
+        mountPath: /etc/certs/custom
+`
 }

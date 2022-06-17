@@ -156,6 +156,9 @@ type Config struct {
 
 	// custom deployment for ingress and egress gateway
 	GatewayValues string
+
+	// Custom External Control Plane cluster values
+	ExternalControlPlaneClusterValues string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {
