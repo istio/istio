@@ -44,11 +44,6 @@ metadata:
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: {{ .Release.Name }}
-{{- if .Values.global.externalIstiod }}
-    externalIstiod: "true"
-  annotations:
-    istiodClusterIDs: {{ .Values.global.istiodClusterIDs | default "'*'" }}
-{{- end }}
 webhooks:
 {{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
 

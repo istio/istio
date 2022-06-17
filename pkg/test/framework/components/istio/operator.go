@@ -583,8 +583,7 @@ func installRemoteCommon(s *resource.Settings, i *operatorComponent, cfg Config,
 
 	if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
 		installArgs.Set = append(installArgs.Set,
-			fmt.Sprintf("values.istiodRemote.injectionPath=/inject/net/%s/cluster/%s", c.NetworkName(), c.Name()),
-			"values.global.istiodClusterIDs="+c.Config().Name()) // Use config cluster name because external control plane uses config cluster as its cluster ID
+			fmt.Sprintf("values.istiodRemote.injectionPath=/inject/net/%s/cluster/%s", c.NetworkName(), c.Name()))
 	}
 
 	if err := install(i, installArgs, c.Name()); err != nil {
@@ -865,10 +864,16 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		if env.IsMultinetwork() {
 			nsLabels = map[string]string{label.TopologyNetwork.Name: c.NetworkName()}
 		}
+		var nsAnnotations map[string]string
+		if c.IsRemote() {
+			const istiodClusterAnnotation = "topology.istio.io/istiodClusters"            // TODO proper API annotation.TopologyIstiodClusters.Name
+			nsAnnotations = map[string]string{istiodClusterAnnotation: c.Config().Name()} // Use config cluster name because external control plane uses config cluster as its cluster ID
+		}
 		if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
-				Labels: nsLabels,
-				Name:   cfg.SystemNamespace,
+				Labels:      nsLabels,
+				Annotations: nsAnnotations,
+				Name:        cfg.SystemNamespace,
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
 			if errors.IsAlreadyExists(err) {

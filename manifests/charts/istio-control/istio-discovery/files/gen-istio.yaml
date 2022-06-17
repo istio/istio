@@ -92,7 +92,6 @@ data:
         "istiod": {
           "enableAnalysis": false
         },
-        "istiodClusterIDs": "",
         "jwtPolicy": "third-party-jwt",
         "logAsJson": false,
         "logging": {
@@ -1485,9 +1484,6 @@ rules:
   - apiGroups: ["authorization.k8s.io"]
     resources: ["subjectaccessreviews"]
     verbs: ["create"]
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["mutatingwebhookconfigurations"]
-    verbs: ["list"]
 ---
 # Source: istiod/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1

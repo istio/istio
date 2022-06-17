@@ -23,7 +23,6 @@
     "istiod": {
       "enableAnalysis": false
     },
-    "istiodClusterIDs": "",
     "jwtPolicy": "third-party-jwt",
     "logAsJson": false,
     "logging": {

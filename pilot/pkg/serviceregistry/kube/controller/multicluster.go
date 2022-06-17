@@ -245,7 +245,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
 
-	shouldLead := m.checkShouldLead(client)
+	shouldLead := m.checkShouldLead(client, options.SystemNamespace)
 	log.Infof("should join leader-election for cluster %s: %t", cluster.ID, shouldLead)
 
 	if m.startNsController && (shouldLead || configCluster) {
@@ -319,32 +319,21 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 	return nil
 }
 
-const (
-	externalIstiodLabel     = "externalIstiod"
-	istiodClusterAnnotation = "istiodClusterIDs"
-)
+// Comma-separated list of clusters (or * for any) with an istiod that should
+// attempt leader election for a remote cluster.
+const istiodClusterAnnotation = "topology.istio.io/istiodClusters" // TODO make proper API annotation.TopologyIstiodClusters.Name
 
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
-func (m *Multicluster) checkShouldLead(client kubelib.Client) bool {
+func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace string) bool {
 	if features.ExternalIstiod {
-		webhooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=true", externalIstiodLabel),
-		})
-		if err != nil {
-			log.Errorf("could not access injection webhooks: %v", err)
-			// TODO retry in case it was just a transient error?
-			return false
-		}
-		if len(webhooks.Items) != 0 {
-			// found webhook with externalIstiod label, i.e., cluster is an istiodless remote
+		namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
+		if err == nil {
+			// found same system namespace on the remote cluster so check if we are a selected istiod to lead
 			localCluster := string(m.opts.ClusterID)
-			for _, webhook := range webhooks.Items {
-				// check if we are a chosen istiod
-				if istiodCluster, found := webhook.Annotations[istiodClusterAnnotation]; found {
-					for _, cluster := range strings.Split(istiodCluster, ",") {
-						if cluster == "*" || cluster == localCluster {
-							return true
-						}
+			if istiodCluster, found := namespace.Annotations[istiodClusterAnnotation]; found {
+				for _, cluster := range strings.Split(istiodCluster, ",") {
+					if cluster == "*" || cluster == localCluster {
+						return true
 					}
 				}
 			}
