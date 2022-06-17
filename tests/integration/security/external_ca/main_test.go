@@ -110,7 +110,7 @@ components:
   pilot:
     enabled: false
 `
-	cfg.ExternalControlPlaneClusterValues = generateConfigYaml(certs, false, true)
+	cfg.ExternalControlPlaneValues = generateConfigYaml(certs, false, true)
 }
 
 func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool, isExternalControlPlane bool) string {
@@ -134,16 +134,8 @@ values:
 {{.rootcert2 | indent 8}}
       certSigners:
       - {{.signer2}}
+{{- if not .isConfigCluster}}
 components:
-{{- if .isConfigCluster}}
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: false
-  egressGateways:
-  - name: istio-egressgateway
-    enabled: false
-  istiodRemote:
-{{- else }}
   pilot:
     enabled: true
     k8s:

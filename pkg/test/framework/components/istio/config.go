@@ -115,6 +115,9 @@ type Config struct {
 	// These values are applied to non-remote clusters
 	ControlPlaneValues string
 
+	// These values are applied to external control plane clusters
+	ExternalControlPlaneValues string
+
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
 	// These values are only applied to remote clusters
@@ -153,9 +156,6 @@ type Config struct {
 
 	// EnableCNI indicates the test should have CNI enabled.
 	EnableCNI bool
-
-	// Custom External Control Plane cluster values
-	ExternalControlPlaneClusterValues string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {

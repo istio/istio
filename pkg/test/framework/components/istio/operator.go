@@ -996,9 +996,9 @@ func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config) 
 		}
 	}
 
-	if cfg.ExternalControlPlaneClusterValues != "" {
+	if cfg.ExternalControlPlaneValues != "" {
 		configFiles.externalControlPlaneFile = filepath.Join(workDir, "custom_external_istiod.yaml")
-		_, err = initIOPFile(s, cfg, configFiles.externalControlPlaneFile, cfg.ExternalControlPlaneClusterValues)
+		_, err = initIOPFile(s, cfg, configFiles.externalControlPlaneFile, cfg.ExternalControlPlaneValues)
 		if err != nil {
 			return configFiles, err
 		}
