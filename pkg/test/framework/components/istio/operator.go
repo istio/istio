@@ -868,7 +868,8 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		if c.IsRemote() {
 			const istiodClusterAnnotation = "topology.istio.io/istiodClusters" // TODO proper API annotation.TopologyIstiodClusters.Name
 			nsAnnotations = map[string]string{
-				istiodClusterAnnotation: c.Config().Name()} // Use config cluster name because external control plane uses config cluster as its cluster ID
+				istiodClusterAnnotation: c.Config().Name(), // Use config cluster name because external control plane uses config cluster as its cluster ID
+			}
 		}
 		if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
