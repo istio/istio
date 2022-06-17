@@ -40,6 +40,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		RequireExternalControlPlaneTopology().
 		RequireMinVersion(17).
 		RequireMinClusters(2).
 		Setup(istio.Setup(&i, func(t resource.Context, cfg *istio.Config) {

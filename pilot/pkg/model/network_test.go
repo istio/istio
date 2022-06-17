@@ -111,10 +111,10 @@ type fakeDNSServer struct {
 }
 
 func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set) *fakeDNSServer {
-	waitLock := sync.Mutex{}
-	waitLock.Lock()
+	var wg sync.WaitGroup
+	wg.Add(1)
 	s := &fakeDNSServer{
-		Server: &dns.Server{Addr: addr, Net: "udp", NotifyStartedFunc: waitLock.Unlock},
+		Server: &dns.Server{Addr: addr, Net: "udp", NotifyStartedFunc: wg.Done},
 		ttl:    ttl,
 		hosts:  make(map[string]int, len(hosts)),
 	}
@@ -129,7 +129,7 @@ func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set) *fakeDNSServer {
 			scopes.Framework.Errorf("fake dns server error: %v", err)
 		}
 	}()
-	waitLock.Lock()
+	wg.Wait()
 	return s
 }
 
