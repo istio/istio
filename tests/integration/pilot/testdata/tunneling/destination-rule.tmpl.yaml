@@ -9,13 +9,13 @@ spec:
     trafficPolicy:
       tunnel:
         protocol: CONNECT
-        targetHost: external.{{ .externalNamespace }}.svc.cluster.local
+        targetHost: external.{{ .externalNamespace }}
         targetPort: {{ .externalSvcTcpPort }}
   - name: external-svc-tls
     trafficPolicy:
       tunnel:
         protocol: CONNECT
-        targetHost: external.{{ .externalNamespace }}.svc.cluster.local
+        targetHost: external.{{ .externalNamespace }}
         targetPort: {{ .externalSvcTlsPort }}
 ---
 {{ if .tlsEnabled }}
