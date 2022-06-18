@@ -46,7 +46,7 @@ func (c *CidrAuthenticator) Authenticate(ctx security.AuthContext) (*security.Ca
 		return nil, fmt.Errorf("")
 	}
 	ctx.AddDelegatedAuthenticator(XfccAuthenticator{})
-	return &security.Caller{Identities: []string{peerInfo.Addr.String()}}, nil
+	return &security.Caller{AuthSource: security.AuthSourceDelegate, Identities: []string{peerInfo.Addr.String()}}, nil
 }
 
 func isAuthenticated(addr string) bool {

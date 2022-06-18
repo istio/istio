@@ -59,13 +59,15 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	}
 	authFailMsgs := []string{}
 	authContext := security.NewAuthContext(ctx)
-	var verifiedIdentities []string
+
 	for _, authn := range s.Authenticators {
 		u, err := authn.Authenticate(authContext)
 		// If one authenticator passes, return
 		if u != nil && u.Identities != nil && err == nil {
 			authContext.AddAuthenticator(authn.AuthenticatorType(), u)
-			verifiedIdentities = u.Identities
+			if len(authContext.DelegatedAuthenticators) == 0 {
+				return u.Identities, nil
+			}
 		}
 		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
 	}
@@ -75,12 +77,8 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 		u, err := authn.Authenticate(authContext)
 		// If one authenticator passes, return
 		if u != nil && u.Identities != nil && err == nil {
-			verifiedIdentities = u.Identities
-			break
+			return u.Identities, nil
 		}
-	}
-	if len(verifiedIdentities) > 0 {
-		return verifiedIdentities, nil
 	}
 
 	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), strings.Join(authFailMsgs, "; "))

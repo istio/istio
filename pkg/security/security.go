@@ -339,6 +339,7 @@ type AuthSource int
 const (
 	AuthSourceClientCertificate AuthSource = iota
 	AuthSourceIDToken
+	AuthSourceDelegate
 )
 
 const (
@@ -361,8 +362,6 @@ type AuthContext struct {
 	// XfccAuthenticator once it validates the connection is from trusted cidr range. XfccAuthenticator
 	// can then extract identities from peer certificate.
 	DelegatedAuthenticators []Authenticator
-	// identities is the list of identities that have been trusted.
-	identities []string
 }
 
 type Authenticator interface {
@@ -377,15 +376,10 @@ func NewAuthContext(ctx context.Context) AuthContext {
 
 func (ac *AuthContext) AddAuthenticator(authenticator string, caller *Caller) {
 	ac.Authenticators = append(ac.Authenticators, authenticator)
-	ac.identities = caller.Identities
 }
 
 func (ac *AuthContext) AddDelegatedAuthenticator(authenticator Authenticator) {
 	ac.DelegatedAuthenticators = append(ac.DelegatedAuthenticators, authenticator)
-}
-
-func (ac *AuthContext) Identities() []string {
-	return ac.identities
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {

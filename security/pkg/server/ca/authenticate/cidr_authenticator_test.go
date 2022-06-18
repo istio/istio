@@ -39,7 +39,7 @@ func TestCidrAuthenticator(t *testing.T) {
 			cidr: "",
 			peer: "127.0.0.1",
 			caller: &security.Caller{
-				AuthSource: security.AuthSourceClientCertificate,
+				AuthSource: security.AuthSourceDelegate,
 				Identities: []string{
 					"127.0.0.1",
 				},
@@ -50,7 +50,7 @@ func TestCidrAuthenticator(t *testing.T) {
 			cidr: "172.17.0.0/16,192.17.0.0/16",
 			peer: "172.17.0.2",
 			caller: &security.Caller{
-				AuthSource: security.AuthSourceClientCertificate,
+				AuthSource: security.AuthSourceDelegate,
 				Identities: []string{
 					"172.17.0.2",
 				},
