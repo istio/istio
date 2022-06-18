@@ -355,7 +355,14 @@ type AuthContext struct {
 	// RequestContext is the context from request.
 	RequestContext context.Context
 	// Authenticators is the list of authenticators that were executed before in the auth chain.
-	Authenticators map[string]*Caller
+	Authenticators []string
+	// DelegatedAuthenticators are the list of delegated authenticators that main authenticators can
+	// choose to get identities from. For example, CidrAuthenticator can delegate the authentication to
+	// XfccAuthenticator once it validates the connection is from trusted cidr range. XfccAuthenticator
+	// can then extract identities from peer certificate.
+	DelegatedAuthenticators []Authenticator
+	// identities is the list of identities that have been trusted.
+	identities []string
 }
 
 type Authenticator interface {
@@ -365,21 +372,20 @@ type Authenticator interface {
 }
 
 func NewAuthContext(ctx context.Context) AuthContext {
-	return AuthContext{RequestContext: ctx, Authenticators: make(map[string]*Caller)}
+	return AuthContext{RequestContext: ctx}
 }
 
 func (ac *AuthContext) AddAuthenticator(authenticator string, caller *Caller) {
-	ac.Authenticators[authenticator] = caller
+	ac.Authenticators = append(ac.Authenticators, authenticator)
+	ac.identities = caller.Identities
+}
+
+func (ac *AuthContext) AddDelegatedAuthenticator(authenticator Authenticator) {
+	ac.DelegatedAuthenticators = append(ac.DelegatedAuthenticators, authenticator)
 }
 
 func (ac *AuthContext) Identities() []string {
-	identities := []string{}
-	for _, caller := range ac.Authenticators {
-		if caller != nil {
-			identities = append(identities, caller.Identities...)
-		}
-	}
-	return identities
+	return ac.identities
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {

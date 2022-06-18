@@ -59,17 +59,30 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	}
 	authFailMsgs := []string{}
 	authContext := security.NewAuthContext(ctx)
+	var verifiedIdentities []string
 	for _, authn := range s.Authenticators {
 		u, err := authn.Authenticate(authContext)
+		// If one authenticator passes, return
 		if u != nil && u.Identities != nil && err == nil {
 			authContext.AddAuthenticator(authn.AuthenticatorType(), u)
-		} else {
-			authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
+			verifiedIdentities = u.Identities
+		}
+		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
+	}
+	// At this point, check if there is any Delegated Authenticators. Delegating Authenticators verify
+	// information like xfcc from request.
+	for _, authn := range authContext.DelegatedAuthenticators {
+		u, err := authn.Authenticate(authContext)
+		// If one authenticator passes, return
+		if u != nil && u.Identities != nil && err == nil {
+			verifiedIdentities = u.Identities
+			break
 		}
 	}
-	if identities := authContext.Identities(); len(identities) > 0 {
-		return identities, nil
+	if len(verifiedIdentities) > 0 {
+		return verifiedIdentities, nil
 	}
+
 	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), strings.Join(authFailMsgs, "; "))
 	return nil, errors.New("authentication failure")
 }

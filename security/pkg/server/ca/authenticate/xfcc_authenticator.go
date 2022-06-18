@@ -15,13 +15,10 @@
 package authenticate
 
 import (
-	"context"
 	"fmt"
-	"net"
 	"net/http"
 
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 
 	"github.com/alecholmes/xfccparser"
 
@@ -37,55 +34,26 @@ type XfccAuthenticator struct{}
 
 var _ security.Authenticator = &XfccAuthenticator{}
 
-func (xff *XfccAuthenticator) AuthenticatorType() string {
+func (xff XfccAuthenticator) AuthenticatorType() string {
 	return XfccAuthenticatorType
 }
 
 // Authenticate extracts identities from Xfcc Header.
-func (xff *XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.Caller, error) {
-	// TODO: Extend this for other "trusted" IPs based on network policies.
-	if !isLocalHost(ctx.RequestContext) {
-		return nil, fmt.Errorf("call is not from trusted network, xfcc can not be used as authenticator")
-	}
+func (xff XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.Caller, error) {
 	meta, ok := metadata.FromIncomingContext(ctx.RequestContext)
 
 	if !ok || len(meta.Get(xfccparser.ForwardedClientCertHeader)) == 0 {
-		return nil, fmt.Errorf("xfcc header is not present")
+		return nil, nil
 	}
-
 	xfccHeader := meta.Get(xfccparser.ForwardedClientCertHeader)[0]
 	return buildSecurityCaller(xfccHeader)
 }
 
-func isLocalHost(ctx context.Context) bool {
-	peerInfo, _ := peer.FromContext(ctx)
-	if net.ParseIP(peerInfo.Addr.String()).IsLoopback() {
-		return true
-	}
-	ifaces, _ := net.Interfaces()
-	for _, i := range ifaces {
-		addrs, _ := i.Addrs()
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-			if ip.String() == peerInfo.Addr.String() {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // AuthenticateRequest validates Xfcc Header.
-func (xff *XfccAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
+func (xff XfccAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
 	xfccHeader := req.Header.Get(xfccparser.ForwardedClientCertHeader)
 	if len(xfccHeader) == 0 {
-		return nil, fmt.Errorf("xfcc header is not present")
+		return nil, nil
 	}
 	return buildSecurityCaller(xfccHeader)
 }
@@ -97,7 +65,6 @@ func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {
 	}
 	ids := []string{}
 	for _, cc := range clientCerts {
-		ids = append(ids, cc.DNS...)
 		if len(cc.URI) > 0 {
 			ids = append(ids, cc.URI)
 		}

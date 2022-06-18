@@ -403,10 +403,11 @@ var (
 		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
 	).Get()
 
-	EnableXfccHeaderAuth = env.RegisterBoolVar(
-		"PILOT_ENABLE_XDS_XFCC_HEADER_AUTH",
-		false,
-		"If enabled, pilot will authorize XDS clients based on Xfcc Header. This can be used when Istiod is running in a trusted/secure networks",
+	TrustedCIDRRanges = env.RegisterStringVar(
+		"PILOT_TRUSTED_CIDR_RANGES",
+		"",
+		"If set, any connections from proxy to Istiod with this CIDR range are treated as trusted for using authenication mechanisms like XFCC."+
+			" This can be used when Istiod is running in a trusted/secure networks",
 	).Get()
 
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,

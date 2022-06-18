@@ -15,14 +15,12 @@
 package authenticate
 
 import (
-	"net"
 	"reflect"
 	"testing"
 
 	"github.com/alecholmes/xfccparser"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 
 	"istio.io/istio/pkg/security"
 )
@@ -33,35 +31,22 @@ func TestXfccAuthenticator(t *testing.T) {
 		xfccHeader         string
 		caller             *security.Caller
 		authenticateErrMsg string
-		peer               string
 	}{
 		{
-			name:               "No xfcc header",
-			xfccHeader:         "",
-			caller:             nil,
-			authenticateErrMsg: "xfcc header is not present",
-			peer:               "127.0.0.1",
+			name:       "No xfcc header",
+			xfccHeader: "",
+			caller:     nil,
 		},
 		{
-			name: "Xfcc Header from trusted ip",
+			name: "Xfcc Header",
 			// nolint lll
 			xfccHeader: `Hash=hash;Subject="CN=hello,OU=hello,O=Acme\, Inc.";URI=;DNS=hello.west.example.com;DNS=hello.east.example.com,By=spiffe://mesh.example.com/ns/hellons/sa/hellosa;Hash=again;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
 			caller: &security.Caller{
 				AuthSource: security.AuthSourceClientCertificate,
 				Identities: []string{
-					"hello.west.example.com",
-					"hello.east.example.com",
 					"spiffe://mesh.example.com/ns/otherns/sa/othersa",
 				},
 			},
-			peer: "127.0.0.1",
-		},
-		{
-			name: "Xfcc Header from untrusted ip",
-			// nolint lll
-			xfccHeader:         `Hash=hash;Subject="CN=hello,OU=hello,O=Acme\, Inc.";URI=;DNS=hello.west.example.com;DNS=hello.east.example.com,By=spiffe://mesh.example.com/ns/hellons/sa/hellosa;Hash=again;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
-			authenticateErrMsg: "call is not from trusted network, xfcc can not be used as authenticator",
-			peer:               "172.0.0.1",
 		},
 	}
 
@@ -73,8 +58,7 @@ func TestXfccAuthenticator(t *testing.T) {
 			if len(tt.xfccHeader) > 0 {
 				md.Append(xfccparser.ForwardedClientCertHeader, tt.xfccHeader)
 			}
-			ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: &net.IPAddr{IP: net.ParseIP(tt.peer).To4()}})
-			ctx = metadata.NewIncomingContext(ctx, md)
+			ctx := metadata.NewIncomingContext(context.Background(), md)
 			result, err := auth.Authenticate(security.NewAuthContext(ctx))
 			if len(tt.authenticateErrMsg) > 0 {
 				if err == nil {
