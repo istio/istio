@@ -307,7 +307,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			})
 			out.services = append(out.services, s)
 			servicesAdded[s.Hostname] = serviceIndex{s, len(out.services) - 1}
-		} else if foundSvc.svc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
+		} else if foundSvc.svc.Attributes.Namespace == s.Attributes.Namespace && len(s.Ports) > 0 {
 			// merge the ports to service when each listener generates partial service
 			// we only merge if the found service is in the same namespace as the one we're trying to add
 			copied := foundSvc.svc.DeepCopy()
