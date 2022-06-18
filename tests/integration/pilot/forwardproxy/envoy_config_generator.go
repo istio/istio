@@ -81,7 +81,7 @@ func GenerateForwardProxyBootstrapConfig(listeners []ListenerSettings) (string, 
 		hcm := createHTTPConnectionManager(listenerSettings.HTTPVersion)
 		bootstrap.StaticResources.Listeners = append(bootstrap.StaticResources.Listeners, &envoy_listener.Listener{
 			Name:    fmt.Sprintf("http_forward_proxy_%d", listenerSettings.Port),
-			Address: createSocketAddress("0.0.0.0", listenerSettings.Port),
+			Address: createSocketAddress("::", listenerSettings.Port),
 			FilterChains: []*envoy_listener.FilterChain{
 				{
 					Filters: []*envoy_listener.Filter{
@@ -216,6 +216,7 @@ func createSocketAddress(addr string, port uint32) *envoy_core.Address {
 				PortSpecifier: &envoy_core.SocketAddress_PortValue{
 					PortValue: port,
 				},
+				Ipv4Compat: true,
 			},
 		},
 	}
