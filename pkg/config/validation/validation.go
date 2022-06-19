@@ -3210,7 +3210,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 			if len(serviceEntry.Addresses) == 0 {
 				if port.Protocol == "" || port.Protocol == "TCP" {
-					errs = appendValidation(errs, WrapWarning(fmt.Errorf("one or more protocol invalid in service entry with addresses empty.")))
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf("one or more protocol empty in service entry with addresses empty")))
 				}
 			}
 			errs = appendValidation(errs,
