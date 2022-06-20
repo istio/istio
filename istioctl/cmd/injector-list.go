@@ -286,8 +286,15 @@ func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revis
 	for _, pod := range pods {
 		revision := pod.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		revisionLabel := revision
+		// if expectedRevision is "default", which is the injector revision default value,
+		// we should recognize it instead of treating it unrecognized.
 		if revision == "" {
-			revisionLabel = "<non-Istio>"
+			if expectedRevision == "default" {
+				revisionLabel = expectedRevision
+				revision = expectedRevision
+			} else {
+				revisionLabel = "<non-Istio>"
+			}
 		}
 		counts := retval[revisionLabel]
 		counts.pods++
