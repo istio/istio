@@ -46,10 +46,22 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 	}
 
 	currItem, ok := curr.(runtime.Object)
-	if !ok {
-		scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", curr, curr)
+	if !ok && event == model.EventDelete {
+		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			scope.Warnf("Couldn't get object from tombstone %v, type %T", curr, curr)
+			return nil
+		}
+		currItem, ok = tombstone.Obj.(runtime.Object)
+		if !ok {
+			scope.Warnf("Tombstone's Object is not runtime Object %v, type %T", tombstone.Obj, tombstone.Obj)
+			return nil
+		}
+	} else if !ok {
+		scope.Warnf("Object can not be converted to runtime Object %v, is type %T", curr, curr)
 		return nil
 	}
+
 	currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 
 	var oldConfig config.Config

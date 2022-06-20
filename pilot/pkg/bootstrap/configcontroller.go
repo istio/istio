@@ -74,9 +74,9 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
 	} else {
-		err2 := s.initK8SConfigStore(args)
-		if err2 != nil {
-			return err2
+		err := s.initK8SConfigStore(args)
+		if err != nil {
+			return err
 		}
 	}
 
