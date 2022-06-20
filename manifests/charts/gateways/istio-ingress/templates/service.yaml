@@ -27,6 +27,11 @@ spec:
   externalTrafficPolicy: {{$gateway.externalTrafficPolicy }}
 {{- end }}
   type: {{ $gateway.type }}
+{{- if $gateway.externalIPs }}
+  externalIPs: {{- range $gateway.externalIPs }}
+    - {{.}}
+  {{- end }}
+{{- end }}
   selector:
 {{ $gateway.labels | toYaml | indent 4 }}
   ports:

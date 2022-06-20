@@ -491,6 +491,8 @@ message IngressGatewayConfig {
 
   repeated string loadBalancerSourceRanges = 17;
 
+  repeated string externalIPs = 48;
+
   string name = 44;
 
   // K8s node selector.
@@ -557,7 +559,7 @@ message IngressGatewayConfig {
 
   ServiceAccount serviceAccount = 47;
 
-  // Next available 48.
+  // Next available 49.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
