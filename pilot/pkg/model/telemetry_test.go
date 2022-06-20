@@ -35,19 +35,12 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries, *PushContext) {
-	t.Helper()
-
-	store := &telemetryStore{}
-	for _, cfg := range configs {
-		store.add(cfg)
-	}
-	m := mesh.DefaultMeshConfig()
-	jsonTextProvider := &meshconfig.MeshConfig_ExtensionProvider{
+var (
+	jsonTextProvider = &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "envoy-json",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
 			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-				Path: "/dev/null",
+				Path: "/dev/stdout",
 				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
 					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
 						Labels: &structpb.Struct{},
@@ -56,6 +49,17 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 			},
 		},
 	}
+)
+
+func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries, *PushContext) {
+	t.Helper()
+
+	store := &telemetryStore{}
+	for _, cfg := range configs {
+		store.add(cfg)
+	}
+	m := mesh.DefaultMeshConfig()
+
 	m.ExtensionProviders = append(m.ExtensionProviders, jsonTextProvider)
 
 	environment := &Environment{
@@ -550,7 +554,6 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
-
 	tests := []struct {
 		name             string
 		cfgs             []config.Config
