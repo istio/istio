@@ -49,6 +49,17 @@ meshConfig:
   accessLogFile: /dev/stdout
 ```
 
+#### Configuring CNI configuration settings
+
+When using istio-cni via [Istio-CNI Chart](https://github.com/istio/istio/tree/master/manifests/charts/istio-cni)
+
+istio-sidecar-injection can be configured to disable istio-init container, and enable istio-validation container like below:
+
+```yaml
+istio_cni:
+  enabled: true  
+```
+
 #### Revisions
 
 Control plane revisions allow deploying multiple versions of the control plane in the same cluster.

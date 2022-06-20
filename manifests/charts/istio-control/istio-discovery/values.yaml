@@ -532,3 +532,10 @@ global:
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true
+
+istio_cni:
+  # Support use of istio-cni plugin 
+  # See https://istio.io/latest/docs/setup/additional-setup/cni/
+  # CAUTION: requires the installation of istio-cni via https://github.com/istio/istio/tree/master/manifests/charts/istio-cni
+  # Adjusts injection functionality for init container if enabled=true the istio-init container is disabled, and istio-validation container enabled
+  enabled: false  
