@@ -88,6 +88,7 @@ func WarmBase(baseImages ...string) {
 	for i, b := range baseImages {
 		b, i := b, i
 		go func() {
+			defer wg.Done()
 			ref, err := name.ParseReference(b)
 			if err != nil {
 				log.WithLabels("image", b).Warnf("base failed: %v", err)
@@ -100,7 +101,6 @@ func WarmBase(baseImages ...string) {
 			}
 			log.WithLabels("image", b, "step", time.Since(t0)).Infof("base loaded")
 			resolvedBaseImages[i] = bi
-			wg.Done()
 		}()
 	}
 }
