@@ -26,6 +26,11 @@ display_usage() {
     exit 1
 }
 
+# Print usage information for help
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+        display_usage
+fi
+
 # Check if there is atleast one input argument
 if [[ -z "$1" ]] ; then
 	echo "Missing version parameter"
