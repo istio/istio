@@ -866,7 +866,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		}
 		var nsAnnotations map[string]string
 		if c.IsRemote() {
-			const istiodClusterAnnotation = "topology.istio.io/istiodClusters" // TODO proper API annotation.TopologyIstiodClusters.Name
+			const istiodClusterAnnotation = "topology.istio.io/controlPlaneClusters" // TODO proper API annotation.TopologyControlPlaneClusters.Name
 			nsAnnotations = map[string]string{
 				istiodClusterAnnotation: c.Config().Name(), // Use config cluster name because external control plane uses config cluster as its cluster ID
 			}

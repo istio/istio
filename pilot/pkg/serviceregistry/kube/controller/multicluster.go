@@ -321,7 +321,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 
 // Comma-separated list of clusters (or * for any) with an istiod that should
 // attempt leader election for a remote cluster.
-const istiodClusterAnnotation = "topology.istio.io/istiodClusters" // TODO make proper API annotation.TopologyIstiodClusters.Name
+const istiodClusterAnnotation = "topology.istio.io/controlPlaneClusters" // TODO make proper API annotation.TopologyControlPlaneClusters.Name
 
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
 func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace string) bool {
