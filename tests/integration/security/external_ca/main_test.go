@@ -96,21 +96,15 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+	var isExternalControlPlane bool
+	for _, cluster := range ctx.AllClusters() {
+		if cluster.IsExternalControlPlane() {
+			isExternalControlPlane = true
+		}
+	}
 
-	cfg.ControlPlaneValues = generateConfigYaml(certs, false, false)
+	cfg.ControlPlaneValues = generateConfigYaml(certs, false, isExternalControlPlane)
 	cfg.ConfigClusterValues = generateConfigYaml(certs, true, false)
-	cfg.RemoteClusterValues = `
-components:
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: false
-  egressGateways:
-  - name: istio-egressgateway
-    enabled: false
-  pilot:
-    enabled: false
-`
-	cfg.ExternalControlPlaneValues = generateConfigYaml(certs, false, true)
 }
 
 func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool, isExternalControlPlane bool) string {
