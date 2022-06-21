@@ -329,12 +329,14 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace st
 		namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
 		if err == nil {
 			// found same system namespace on the remote cluster so check if we are a selected istiod to lead
+			istiodCluster, found := namespace.Annotations[istiodClusterAnnotation]
+			if !found {
+				return true // true by default if unannotated
+			}
 			localCluster := string(m.opts.ClusterID)
-			if istiodCluster, found := namespace.Annotations[istiodClusterAnnotation]; found {
-				for _, cluster := range strings.Split(istiodCluster, ",") {
-					if cluster == "*" || cluster == localCluster {
-						return true
-					}
+			for _, cluster := range strings.Split(istiodCluster, ",") {
+				if cluster == "*" || cluster == localCluster {
+					return true
 				}
 			}
 		}
