@@ -1,0 +1,131 @@
+# the same as pilot/pkg/config/kube/gateway/testdata/route-precedence.yaml
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "*.domain.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            istio.io/test-name-part: allowed
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: allowed-1
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  - kind: Mesh
+    name: istio
+  hostnames: ["a.domain.example", "b.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /foo
+      headers:
+      - name: my-header
+        value: some-value
+        type: Exact
+    backendRefs:
+    - name: svc1
+      port: 80
+  - matches:
+    - path:
+        type: RegularExpression
+        value: /foo((\/).*)?
+    backendRefs:
+    - name: svc2
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: allowed-2
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  - kind: Mesh
+    name: istio
+  hostnames: ["a.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /foo/bar
+    - path:
+        type: PathPrefix
+        value: /bar
+    backendRefs:
+    - name: svc2
+      port: 80
+  - matches:
+    - path:
+        type: Exact
+        value: /baz
+      headers:
+      - name: my-header
+        value: some-value
+        type: Exact
+      queryParams:
+      - name: my-param
+        value: some-value
+        type: RegularExpression
+    backendRefs:
+    - name: svc2
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: svc3
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["a.domain.example", "b.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /abc
+      headers:
+      - name: my-header
+        value: some-value
+        type: Exact
+    backendRefs:
+    - name: svc4
+      port: 80
+---
