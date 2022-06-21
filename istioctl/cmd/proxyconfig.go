@@ -245,7 +245,6 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 	}
 
 	result, err := kubeClient.EnvoyDoWithPort(context.Background(), podName, podNamespace, "GET", path, port)
-
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
