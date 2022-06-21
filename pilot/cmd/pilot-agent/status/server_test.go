@@ -666,7 +666,7 @@ func TestAppProbe(t *testing.T) {
 			name:       "tcp-livez-wrapped-ipv6",
 			probePath:  "app-health/hello-world/livez",
 			config:     simpleTCPConfig,
-			statusCode: http.StatusOK,
+			statusCode: http.StatusInternalServerError,
 			podIP:      "[::1]",
 			ipv6:       true,
 		},

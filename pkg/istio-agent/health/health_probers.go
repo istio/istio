@@ -151,7 +151,8 @@ var _ Prober = &TCPProber{}
 
 func (t *TCPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	// if we cant connect, count as fail
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%v", t.Config.Host, t.Config.Port), timeout)
+	hostPort := net.JoinHostPort(t.Config.Host, strconv.Itoa(int(t.Config.Port)))
+	conn, err := net.DialTimeout("tcp", hostPort, timeout)
 	if err != nil {
 		return Unhealthy, err
 	}
