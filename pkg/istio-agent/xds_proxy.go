@@ -100,10 +100,10 @@ type XdsProxy struct {
 	tapResponseChannel chan *discovery.DiscoveryResponse
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
-	connected           *ProxyConnection
-	initialRequest      *discovery.DiscoveryRequest
-	initialDeltaRequest *discovery.DeltaDiscoveryRequest
-	connectedMutex      sync.RWMutex
+	connected                 *ProxyConnection
+	initialHealthRequest      *discovery.DiscoveryRequest
+	initialDeltaHealthRequest *discovery.DeltaDiscoveryRequest
+	connectedMutex            sync.RWMutex
 
 	// Wasm cache and ecds channel are used to replace wasm remote load with local file.
 	wasmCache wasm.Cache
@@ -202,47 +202,37 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 
 	go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
 		// Store the same response as Delta and SotW. Depending on how Envoy connects we will use one or the other.
-		var req *discovery.DiscoveryRequest
-		if healthEvent.Healthy {
-			req = &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
-		} else {
-			req = &discovery.DiscoveryRequest{
-				TypeUrl: v3.HealthInfoType,
-				ErrorDetail: &google_rpc.Status{
-					Code:    int32(codes.Internal),
-					Message: healthEvent.UnhealthyMessage,
-				},
+		req := &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
+		if !healthEvent.Healthy {
+			req.ErrorDetail = &google_rpc.Status{
+				Code:    int32(codes.Internal),
+				Message: healthEvent.UnhealthyMessage,
 			}
 		}
-		proxy.PersistRequest(req)
-		var deltaReq *discovery.DeltaDiscoveryRequest
-		if healthEvent.Healthy {
-			deltaReq = &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
-		} else {
-			deltaReq = &discovery.DeltaDiscoveryRequest{
-				TypeUrl: v3.HealthInfoType,
-				ErrorDetail: &google_rpc.Status{
-					Code:    int32(codes.Internal),
-					Message: healthEvent.UnhealthyMessage,
-				},
+		proxy.sendHealthCheckRequest(req)
+		deltaReq := &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
+		if !healthEvent.Healthy {
+			deltaReq.ErrorDetail = &google_rpc.Status{
+				Code:    int32(codes.Internal),
+				Message: healthEvent.UnhealthyMessage,
 			}
 		}
-		proxy.persistDeltaRequest(deltaReq)
+		proxy.sendDeltaHealthRequest(deltaReq)
 	}, proxy.stopChan)
 
 	return proxy, nil
 }
 
-// PersistRequest sends a request to the currently connected proxy. Additionally, on any reconnection
+// sendHealthCheckRequest sends a request to the currently connected proxy. Additionally, on any reconnection
 // to the upstream XDS request we will resend this request.
-func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
+func (p *XdsProxy) sendHealthCheckRequest(req *discovery.DiscoveryRequest) {
 	p.connectedMutex.Lock()
-	// Immediately send if we are currently connect
+	// Immediately send if we are currently connected.
 	if p.connected != nil && p.connected.requestsChan != nil {
 		p.connected.requestsChan.Put(req)
 	}
 	// Otherwise place it as our initial request for new connections
-	p.initialRequest = req
+	p.initialHealthRequest = req
 	p.connectedMutex.Unlock()
 }
 
@@ -308,9 +298,9 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
 		downstreamError: make(chan error, 2), // can be produced by recv and send
 		// Requests channel is unbounded. The Envoy<->XDS Proxy<->Istiod system produces a natural
-		// looping of Recv and Send. Due to backpressure introduce by gRPC natively (that is, Send() can
+		// looping of Recv and Send. Due to backpressure introduced by gRPC natively (that is, Send() can
 		// only send so much data without being Recv'd before it starts blocking), along with the
-		// backpressure provided by our channels, we have a risk of deadlock where both xdsproxy and
+		// backpressure provided by our channels, we have a risk of deadlock where both Xdsproxy and
 		// Istiod are trying to Send, but both are blocked by gRPC backpressure until Recv() is called.
 		// However, Recv can fail to be called by Send being blocked. This can be triggered by the two
 		// sources in our system (Envoy request and Istiod pushes) producing more events than we can keep
@@ -464,7 +454,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				initialRequestsSent.Store(true)
 				// Fire of a configured initial request, if there is one
 				p.connectedMutex.RLock()
-				initialRequest := p.initialRequest
+				initialRequest := p.initialHealthRequest
 				if initialRequest != nil {
 					con.sendRequest(initialRequest)
 				}
