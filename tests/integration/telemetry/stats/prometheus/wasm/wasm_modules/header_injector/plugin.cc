@@ -18,6 +18,7 @@
 #error INJECTION_VERSION must be defined
 #endif // INJECTION_VERSION
 
+#define xstr(s) str(s)
 #define str(s) #s
 
 // Boilderplate code to register the extension implementation.
@@ -27,11 +28,11 @@ static RegisterContextFactory register_HeaderInjector(CONTEXT_FACTORY(HeaderInje
 bool HeaderInjectorRootContext::onConfigure(size_t) { return true; }
 
 FilterHeadersStatus HeaderInjectorContext::onRequestHeaders(uint32_t, bool) {
-  addRequestHeader("X-Req-Injection", str(INJECTION_VERSION));
+  addRequestHeader("X-Req-Injection", xstr(INJECTION_VERSION));
   return FilterHeadersStatus::Continue;
 }
 
 FilterHeadersStatus HeaderInjectorContext::onResponseHeaders(uint32_t, bool) {
-  addResponseHeader("X-Resp-Injection", str(INJECTION_VERSION));
+  addResponseHeader("X-Resp-Injection", xstr(INJECTION_VERSION));
   return FilterHeadersStatus::Continue;
 }
