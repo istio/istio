@@ -16,6 +16,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"sort"
 	"strconv"
@@ -240,13 +241,12 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			// TODO: Implement the logic to auto-generate the cluster so that when the flag is enabled,
 			// it will always let envoy to fetch the jwks for consistent behavior.
 			u, _ := url.Parse(jwtRule.JwksUri)
-			hostAndPort := strings.Split(u.Host, ":")
-			host := hostAndPort[0]
+			host, hostPort, _ := net.SplitHostPort(u.Host)
 			// TODO: Default port based on scheme ?
 			port := 80
-			if len(hostAndPort) == 2 {
+			if hostPort != "" {
 				var err error
-				if port, err = strconv.Atoi(hostAndPort[1]); err != nil {
+				if port, err = strconv.Atoi(hostPort); err != nil {
 					port = 80 // If port is not specified or there is an error in parsing default to 80.
 				}
 			}

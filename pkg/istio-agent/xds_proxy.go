@@ -124,7 +124,7 @@ var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
 
 const (
 	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
+	localHostIPv6 = "::1"
 )
 
 func initXdsProxy(ia *Agent) (*XdsProxy, error) {
