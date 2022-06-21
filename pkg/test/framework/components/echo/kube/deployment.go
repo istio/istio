@@ -418,9 +418,16 @@ spec:
           sudo sh -c 'echo PROV_CERT=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
 
+          # su will mess with the limits set on the process we run. This may lead to quickly exhausting the file limits
+          # We will get the host limit and set it in the child as well.
+          # TODO(https://superuser.com/questions/1645513/why-does-executing-a-command-in-su-change-limits) can we do better?
+          currentLimit=$(ulimit -n)
+
+          # Run the pilot agent and Envoy
           # TODO: run with systemctl?
           export ISTIO_AGENT_FLAGS="--concurrency 2 --proxyLogLevel warning,misc:error,rbac:debug,jwt:debug"
-          sudo -E /usr/local/bin/istio-start.sh&
+          sudo -E -s /bin/bash -c "ulimit -n ${currentLimit}; exec /usr/local/bin/istio-start.sh&"
+
           /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}

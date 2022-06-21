@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -101,6 +103,8 @@ func newProxyCommand() *cobra.Command {
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
 			log.Infof("Version %s", version.Info.String())
+
+			logLimits()
 
 			proxy, err := initProxy(args)
 			if err != nil {
@@ -300,4 +304,14 @@ func initProxy(args []string) (*model.Proxy, error) {
 	log.WithLabels("ips", proxy.IPAddresses, "type", proxy.Type, "id", proxy.ID, "domain", proxy.DNSDomain).Info("Proxy role")
 
 	return proxy, nil
+}
+
+func logLimits() {
+	out, err := exec.Command("bash", "-c", "ulimit -n").Output()
+	outStr := strings.TrimSpace(string(out))
+	if err != nil {
+		log.Warnf("failed running ulimit command: %v", outStr)
+	} else {
+		log.Infof("Maximum file descriptors (ulimit -n): %v", outStr)
+	}
 }
