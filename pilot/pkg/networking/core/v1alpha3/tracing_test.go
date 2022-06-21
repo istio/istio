@@ -37,10 +37,11 @@ import (
 
 func TestConfigureTracing(t *testing.T) {
 	clusterName := "testcluster"
+	authority := "testhost"
 	providerName := "foo"
 
 	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
-		return "testhost", clusterName, nil
+		return authority, clusterName, nil
 	}
 	defer func() {
 		clusterLookupFn = extensionproviders.LookupCluster
@@ -92,7 +93,7 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "only telemetry api (with provider)",
 			inSpec:          fakeTracingSpec(fakeZipkin(), 99.999, false, true),
 			opts:            fakeOptsOnlyZipkinTelemetryAPI(),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       nil,
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -116,7 +117,7 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "both tracing enabled (with provider)",
 			inSpec:          fakeTracingSpec(fakeZipkin(), 99.999, false, true),
 			opts:            fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       nil,
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -124,7 +125,7 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "both tracing disabled (with provider)",
 			inSpec:          fakeTracingSpec(fakeZipkin(), 99.999, false, true),
 			opts:            fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       nil,
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -132,7 +133,7 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "basic config (with skywalking provider)",
 			inSpec:          fakeTracingSpec(fakeSkywalking(), 99.999, false, false),
 			opts:            fakeOptsOnlySkywalkingTelemetryAPI(),
-			want:            fakeTracingConfig(fakeSkywalkingProvider(clusterName, providerName), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeSkywalkingProvider(clusterName, authority, providerName), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       &xdsfilters.RouterFilterContext{StartChildSpan: true},
 			wantReqIDExtCtx: &requestidextension.UUIDRequestIDExtensionContext{UseRequestIDForTraceSampling: false},
 		},
@@ -442,13 +443,12 @@ var fakeEnvTag = &tracing.CustomTag{
 	},
 }
 
-func fakeZipkinProvider(expectClusterName, expectProviderName string) *tracingcfg.Tracing_Http {
-	_, _, hostname, _ := model.ParseSubsetKey(expectClusterName)
+func fakeZipkinProvider(expectClusterName, expectAuthority, expectProviderName string) *tracingcfg.Tracing_Http {
 	fakeZipkinProviderConfig := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         expectClusterName,
 		CollectorEndpoint:        "/api/v2/spans",
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
-		CollectorHostname:        string(hostname),
+		CollectorHostname:        expectAuthority,
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
@@ -459,12 +459,13 @@ func fakeZipkinProvider(expectClusterName, expectProviderName string) *tracingcf
 	}
 }
 
-func fakeSkywalkingProvider(expectClusterName, expectProviderName string) *tracingcfg.Tracing_Http {
+func fakeSkywalkingProvider(expectClusterName, expectAuthority, expectProviderName string) *tracingcfg.Tracing_Http {
 	fakeSkywalkingProviderConfig := &tracingcfg.SkyWalkingConfig{
 		GrpcService: &envoy_config_core_v3.GrpcService{
 			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
 				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
 					ClusterName: expectClusterName,
+					Authority:   expectAuthority,
 				},
 			},
 		},

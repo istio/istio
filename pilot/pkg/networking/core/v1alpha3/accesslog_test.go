@@ -394,14 +394,16 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
-	grpcBackEndClusterName := "outbound|9811||otel.foo.svc.cluster.local"
+	grpcBackendClusterName := "outbound|9811||grpc-als.foo.svc.cluster.local"
+	grpcBackendAuthority := "grpc-als.foo.svc.cluster.local"
 	otelCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: otelEnvoyAccessLogFriendlyName,
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: grpcBackEndClusterName,
+						ClusterName: grpcBackendClusterName,
+						Authority:   grpcBackendAuthority,
 					},
 				},
 			},
@@ -419,7 +421,7 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 	}
 
 	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
-		return "", grpcBackEndClusterName, nil
+		return grpcBackendAuthority, grpcBackendClusterName, nil
 	}
 
 	stdout := &fileaccesslog.FileAccessLog{
@@ -515,13 +517,14 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
-	grpcout := &grpcaccesslog.HttpGrpcAccessLogConfig{
+	grpcHTTPout := &grpcaccesslog.HttpGrpcAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: "grpc-otel-als",
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: grpcBackEndClusterName,
+						ClusterName: grpcBackendClusterName,
+						Authority:   grpcBackendAuthority,
 					},
 				},
 			},
@@ -539,7 +542,8 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: grpcBackEndClusterName,
+						ClusterName: grpcBackendClusterName,
+						Authority:   grpcBackendAuthority,
 					},
 				},
 			},
@@ -763,7 +767,7 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				},
 				{
 					Name:       wellknown.HTTPGRPCAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(grpcout)},
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(grpcHTTPout)},
 				},
 			},
 		},
@@ -866,10 +870,12 @@ spec:
 
 func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 	fakeCluster := "outbound|55680||otel-collector.monitoring.svc.cluster.local"
+	fakeAuthority := "otel-collector.monitoring.svc.cluster.local"
 	for _, tc := range []struct {
 		name        string
 		logName     string
 		clusterName string
+		hostname    string
 		body        string
 		labels      *types.Struct
 		expected    *otelaccesslog.OpenTelemetryAccessLogConfig
@@ -878,6 +884,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 			name:        "default",
 			logName:     otelEnvoyAccessLogFriendlyName,
 			clusterName: fakeCluster,
+			hostname:    fakeAuthority,
 			body:        EnvoyTextLogFormat,
 			expected: &otelaccesslog.OpenTelemetryAccessLogConfig{
 				CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
@@ -886,6 +893,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 								ClusterName: fakeCluster,
+								Authority:   fakeAuthority,
 							},
 						},
 					},
@@ -903,6 +911,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 			name:        "with attrs",
 			logName:     otelEnvoyAccessLogFriendlyName,
 			clusterName: fakeCluster,
+			hostname:    fakeAuthority,
 			body:        EnvoyTextLogFormat,
 			labels: &types.Struct{
 				Fields: map[string]*types.Value{
@@ -916,6 +925,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 								ClusterName: fakeCluster,
+								Authority:   fakeAuthority,
 							},
 						},
 					},
@@ -939,7 +949,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := buildOpenTelemetryAccessLogConfig(tc.logName, tc.clusterName, tc.body, tc.labels)
+			got := buildOpenTelemetryAccessLogConfig(tc.logName, tc.hostname, tc.clusterName, tc.body, tc.labels)
 			assert.Equal(t, tc.expected, got)
 		})
 	}
