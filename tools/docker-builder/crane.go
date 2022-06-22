@@ -29,11 +29,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-type craneBuild struct {
-	args  builder.Args
-	dests []string
-}
-
 // RunCrane builds docker images using go-containerregistry, rather than relying on Docker. This
 // works by parsing each Dockerfile and determining the resulting image config (labels, entrypoint,
 // env vars, etc) as well as all files that should be copied in. Notably, RUN is not supported. This
@@ -61,23 +56,39 @@ func RunCrane(a Args) error {
 
 	// First, construct our build plan. Doing this first allows us to figure out which base images we will need,
 	// so we can pull them in the background
-	builds := []craneBuild{}
+	builds := []builder.BuildSpec{}
 	bases := sets.New()
 	for _, v := range a.Variants {
 		for _, t := range a.Targets {
-			df := a.Plan.Find(t).Dockerfile
-			dargs := createArgs(a, t, v)
-			args, err := dockerfile.Parse(df, dockerfile.WithArgs(dargs), dockerfile.IgnoreRuns())
-			if err != nil {
-				return fmt.Errorf("parse: %v", err)
+			b := builder.BuildSpec{
+				Name:  t,
+				Dests: extractTags(a, t, v, hasDoubleDefault),
 			}
-			args.Name = t
-			dests := extractTags(a, t, v, hasDoubleDefault)
-			bases.Insert(args.Base)
-			builds = append(builds, craneBuild{
-				args:  args,
-				dests: dests,
-			})
+			for _, arch := range a.Architectures {
+				df := a.PlanFor(arch).Find(t).Dockerfile
+				dargs := createArgs(a, t, v, arch)
+				args, err := dockerfile.Parse(df, dockerfile.WithArgs(dargs), dockerfile.IgnoreRuns())
+				if err != nil {
+					return fmt.Errorf("parse: %v", err)
+				}
+				args.Arch = arch
+				args.Name = t
+				// args.Files provides a mapping from final destination -> docker context source
+				// docker context is virtual, so we need to rewrite the "docker context source" to the real path of disk
+				plan := a.PlanFor(arch).Find(args.Name)
+				// Plan is a list of real file paths, but we don't have a strong mapping from "docker context source"
+				// to "real path on disk". We do have a weak mapping though, by reproducing docker-copy.sh
+				for dest, src := range args.Files {
+					translated, err := translate(plan.Dependencies(), src)
+					if err != nil {
+						return err
+					}
+					args.Files[dest] = translated
+				}
+				bases.Insert(args.Base)
+				b.Args = append(b.Args, args)
+			}
+			builds = append(builds, b)
 		}
 	}
 
@@ -87,8 +98,10 @@ func RunCrane(a Args) error {
 
 	// Build all dependencies
 	makeStart := time.Now()
-	if err := RunMake(a, a.Plan.Targets()...); err != nil {
-		return err
+	for _, arch := range a.Architectures {
+		if err := RunMake(a, arch, a.PlanFor(arch).Targets()...); err != nil {
+			return err
+		}
 	}
 	log.WithLabels("runtime", time.Since(makeStart)).Infof("make complete")
 
@@ -96,21 +109,9 @@ func RunCrane(a Args) error {
 	dockerStart := time.Now()
 	for _, b := range builds {
 		b := b
-		// b.args.Files provides a mapping from final destination -> docker context source
-		// docker context is virtual, so we need to rewrite the "docker context source" to the real path of disk
-		plan := a.Plan.Find(b.args.Name)
-		// Plan is a list of real file paths, but we don't have a strong mapping from "docker context source"
-		// to "real path on disk". We do have a weak mapping though, by reproducing docker-copy.sh
-		for dest, src := range b.args.Files {
-			translated, err := translate(plan.Dependencies(), src)
-			if err != nil {
-				return err
-			}
-			b.args.Files[dest] = translated
-		}
 		g.Go(func() error {
-			if err := builder.Build(b.args, b.dests); err != nil {
-				return fmt.Errorf("build %v: %v", b.args.Name, err)
+			if err := builder.Build(b); err != nil {
+				return fmt.Errorf("build %v: %v", b.Name, err)
 			}
 			return nil
 		})
