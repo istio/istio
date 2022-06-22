@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 39196
+releaseNotes:
+  - |
+    **Fixed** a bug when sending access logging to injected OTel-collector pod throws `http2.invalid.header.field` error.
