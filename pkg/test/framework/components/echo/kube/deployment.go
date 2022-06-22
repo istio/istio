@@ -147,6 +147,9 @@ spec:
 {{- range $name, $value := $subset.Annotations }}
         {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
+{{- if $.ProxylessGRPC }}
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+{{- end }}
     spec:
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
