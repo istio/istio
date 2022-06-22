@@ -381,6 +381,14 @@ func ValidateHTTPHeaderValue(value string) error {
 	return nil
 }
 
+// validateWeight checks if weight is valid
+func validateWeight(weight int32) error {
+	if weight < 0 {
+		return fmt.Errorf("weight %d < 0", weight)
+	}
+	return nil
+}
+
 // ValidatePercent checks that percent is in range
 func ValidatePercent(val int32) error {
 	if val < 0 || val > 100 {
@@ -2729,7 +2737,6 @@ func validateGatewayNames(gatewayNames []string) (errs Validation) {
 }
 
 func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (errs error) {
-	var totalWeight int32
 	for _, weight := range weights {
 		if weight == nil {
 			errs = multierror.Append(errs, errors.New("weight may not be nil"))
@@ -2764,17 +2771,12 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 		}
 
 		errs = appendErrors(errs, validateDestination(weight.Destination))
-		errs = appendErrors(errs, ValidatePercent(weight.Weight))
-		totalWeight += weight.Weight
-	}
-	if len(weights) > 1 && totalWeight != 100 {
-		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
+		errs = appendErrors(errs, validateWeight(weight.Weight))
 	}
 	return
 }
 
 func validateRouteDestinations(weights []*networking.RouteDestination) (errs error) {
-	var totalWeight int32
 	for _, weight := range weights {
 		if weight == nil {
 			errs = multierror.Append(errs, errors.New("weight may not be nil"))
@@ -2784,11 +2786,7 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
 		errs = appendErrors(errs, validateDestination(weight.Destination))
-		errs = appendErrors(errs, ValidatePercent(weight.Weight))
-		totalWeight += weight.Weight
-	}
-	if len(weights) > 1 && totalWeight != 100 {
-		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
+		errs = appendErrors(errs, validateWeight(weight.Weight))
 	}
 	return
 }
