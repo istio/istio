@@ -33,6 +33,7 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
         inject.istio.io/templates: "grpc-agent"
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
     spec:
       imagePullSecrets:
       - name: myregistrykey
