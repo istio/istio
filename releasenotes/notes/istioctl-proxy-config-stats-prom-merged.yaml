@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 39454
+releaseNotes:
+- |
+  **Added** `istioctl experimental envoy-stats -o prom-merged` for retrieving istio-proxy merged metrics from prometheus.
