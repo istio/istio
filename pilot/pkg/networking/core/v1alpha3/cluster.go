@@ -165,7 +165,13 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	cp clusterPatcher, services []*model.Service, updated map[model.ConfigKey]struct{}, deleted sets.Set, delta bool,
 ) ([]*discovery.Resource, cacheStats) {
 	// make global-ish so can modify outside
-	oldCacheKeys := proxy.WatchedResources[v3.ClusterType].CacheKeys
+	var oldCacheKeys map[string]model.XdsCacheEntry
+	if proxy.WatchedResources[v3.ClusterType] == nil {
+		// placeholder; this will force generation because there are no cache keys
+		oldCacheKeys = make(map[string]model.XdsCacheEntry)
+	} else {
+		oldCacheKeys = proxy.WatchedResources[v3.ClusterType].CacheKeys
+	}
 	// nil -> delete all/reset oldCacheKeys
 	if configgen.InvalidatedResources == nil {
 		oldCacheKeys = map[string]model.XdsCacheEntry{}
