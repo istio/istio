@@ -732,14 +732,6 @@ func hostnamesToStringListWithWildcard(h []k8s.Hostname) []string {
 	return res
 }
 
-func intSum(n []int) int {
-	r := 0
-	for _, i := range n {
-		r += i
-	}
-	return r
-}
-
 func buildHTTPDestination(forwardTo []k8s.HTTPBackendRef, ns string, domain string, totalZero bool) ([]*istio.HTTPRouteDestination, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil
@@ -838,16 +830,6 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 		Reason:  InvalidDestination,
 		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", emptyIfNil((*string)(to.Group)), emptyIfNil((*string)(to.Kind))),
 	}
-}
-
-type argSlice struct {
-	sort.Interface
-	idx []int
-}
-
-func (s argSlice) Swap(i, j int) {
-	s.Interface.Swap(i, j)
-	s.idx[i], s.idx[j] = s.idx[j], s.idx[i]
 }
 
 func headerListToMap(hl []k8s.HTTPHeader) map[string]string {

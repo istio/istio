@@ -2737,6 +2737,7 @@ func validateGatewayNames(gatewayNames []string) (errs Validation) {
 }
 
 func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (errs error) {
+	var totalWeight int32
 	for _, weight := range weights {
 		if weight == nil {
 			errs = multierror.Append(errs, errors.New("weight may not be nil"))
@@ -2772,11 +2773,16 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 
 		errs = appendErrors(errs, validateDestination(weight.Destination))
 		errs = appendErrors(errs, validateWeight(weight.Weight))
+		totalWeight += weight.Weight
+	}
+	if len(weights) > 1 && totalWeight == 0 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight = 0"))
 	}
 	return
 }
 
 func validateRouteDestinations(weights []*networking.RouteDestination) (errs error) {
+	var totalWeight int32
 	for _, weight := range weights {
 		if weight == nil {
 			errs = multierror.Append(errs, errors.New("weight may not be nil"))
@@ -2787,6 +2793,10 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 		}
 		errs = appendErrors(errs, validateDestination(weight.Destination))
 		errs = appendErrors(errs, validateWeight(weight.Weight))
+		totalWeight += weight.Weight
+	}
+	if len(weights) > 1 && totalWeight == 0 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight = 0"))
 	}
 	return
 }
