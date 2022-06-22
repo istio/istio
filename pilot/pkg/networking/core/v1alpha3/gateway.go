@@ -319,6 +319,13 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 	return nameToServiceMap
 }
 
+// gatewayRouteKey is a struct that maps to gateway name, port and Virtual Service Key.
+type gatewayRouteKey struct {
+	gatewayName string
+	port        int
+	vsKey       string
+}
+
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
 	routeName string,
 ) *route.RouteConfiguration {
@@ -350,7 +357,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	// very important for discovering HTTP/3 services
 	_, isH3DiscoveryNeeded := merged.HTTP3AdvertisingRoutes[routeName]
 
-	gatewayRoutes := make(map[string]map[string][]*route.Route)
+	gatewayRoutes := make(map[gatewayRouteKey][]*route.Route)
 	gatewayVirtualServices := make(map[string][]config.Config)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
 	for _, server := range servers {
@@ -383,13 +390,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			var routes []*route.Route
 			var exists bool
 			var err error
-			if _, exists = gatewayRoutes[gatewayName]; !exists {
-				gatewayRoutes[gatewayName] = make(map[string][]*route.Route)
-			}
-
 			vskey := virtualService.Name + "/" + virtualService.Namespace
+			routeKey := gatewayRouteKey{gatewayName, port, vskey}
 
-			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
+			if routes, exists = gatewayRoutes[routeKey]; !exists {
 				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService, nameToServiceMap)
 				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap,
 					hashByDestination, port, map[string]bool{gatewayName: true}, isH3DiscoveryNeeded, push.Mesh)
@@ -397,7 +401,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
 					continue
 				}
-				gatewayRoutes[gatewayName][vskey] = routes
+				gatewayRoutes[routeKey] = routes
 			}
 
 			for _, hostname := range intersectingHosts {
