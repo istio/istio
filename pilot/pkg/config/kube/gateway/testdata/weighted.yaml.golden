@@ -69,12 +69,12 @@ spec:
         host: httpbin.default.svc.domain.suffix
         port:
           number: 80
-      weight: 40
+      weight: 2
     - destination:
         host: httpbin-other.default.svc.domain.suffix
         port:
           number: 8080
-      weight: 60
+      weight: 3
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
