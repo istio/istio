@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -338,6 +339,12 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace st
 				if cluster == "*" || cluster == localCluster {
 					return true
 				}
+			}
+		} else {
+			// TODO use a namespace informer to handle transient errors and to also allow dynamic updates
+			if !errors.IsNotFound(err) {
+				log.Errorf("failed to access system namespace %s: %v", systemNamespace, err)
+				return true // for now, fail open in case it's just a transient error
 			}
 		}
 	}
