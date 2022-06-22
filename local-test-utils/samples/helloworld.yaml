@@ -1,4 +1,9 @@
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sleep
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: helloworld
@@ -71,6 +76,7 @@ spec:
                     values:
                       - v2
               topologyKey: kubernetes.io/hostname
+      serviceAccountName: helloworld              
       containers:
       - name: helloworld
         image: docker.io/istio/examples-helloworld-v1
@@ -107,6 +113,7 @@ spec:
                     values:
                       - v1
               topologyKey: kubernetes.io/hostname
+      serviceAccountName: helloworld
       containers:
       - name: helloworld
         image: docker.io/istio/examples-helloworld-v2
