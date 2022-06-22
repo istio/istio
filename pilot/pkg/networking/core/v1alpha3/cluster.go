@@ -167,7 +167,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	// make global-ish so can modify outside
 	var oldCacheKeys map[string]model.XdsCacheEntry
 	if proxy.WatchedResources[v3.ClusterType] == nil {
-		// placeholder; this will force generation because there are no cache keys
+		// placeholder;this will force generation because there are no cache keys
 		oldCacheKeys = make(map[string]model.XdsCacheEntry)
 	} else {
 		oldCacheKeys = proxy.WatchedResources[v3.ClusterType].CacheKeys
