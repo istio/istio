@@ -232,6 +232,8 @@ spec:
         - containerPort: {{ $p.Port }}
 {{- if eq .Port 3333 }}
           name: tcp-health-port
+{{- else if and ($appContainer.ImageFullPath) (eq .Port 17171) }}
+          name: tcp-health-port
 {{- end }}
 {{- end }}
         env:
@@ -252,7 +254,7 @@ spec:
             port: {{ $.ReadinessGRPCPort }}			
 {{- else if $appContainer.ImageFullPath }}
           tcpSocket:
-            port: 3333
+            port: tcp-health-port
 {{- else }}
           httpGet:
             path: /
@@ -263,14 +265,14 @@ spec:
           failureThreshold: 10
         livenessProbe:
           tcpSocket:
-            port: 3333
+            port: tcp-health-port
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
 {{- if $.StartupProbe }}
         startupProbe:
           tcpSocket:
-            port: 3333
+            port: tcp-health-port
           periodSeconds: 1
           failureThreshold: 10
 {{- end }}
