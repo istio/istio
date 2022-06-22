@@ -340,12 +340,10 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace st
 					return true
 				}
 			}
-		} else {
+		} else if !errors.IsNotFound(err) {
 			// TODO use a namespace informer to handle transient errors and to also allow dynamic updates
-			if !errors.IsNotFound(err) {
-				log.Errorf("failed to access system namespace %s: %v", systemNamespace, err)
-				return true // for now, fail open in case it's just a transient error
-			}
+			log.Errorf("failed to access system namespace %s: %v", systemNamespace, err)
+			return true // for now, fail open in case it's just a transient error
 		}
 	}
 	return false
