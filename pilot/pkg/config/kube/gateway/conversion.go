@@ -700,6 +700,9 @@ func buildTCPDestination(forwardTo []k8s.BackendRef, ns, domain string) ([]*isti
 		action = append(action, forwardTo[i])
 		weights = append(weights, wt)
 	}
+	if len(weights) == 1 {
+		weights = []int{0}
+	}
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action {
 		dst, err := buildDestination(fwd, ns, domain)
@@ -751,6 +754,9 @@ func buildHTTPDestination(forwardTo []k8s.HTTPBackendRef, ns string, domain stri
 		}
 		action = append(action, forwardTo[i])
 		weights = append(weights, wt)
+	}
+	if len(weights) == 1 {
+		weights = []int{0}
 	}
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {

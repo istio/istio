@@ -96,10 +96,10 @@ spec:
         host: httpbin.default.svc.domain.suffix
         port:
           number: 9090
-      weight: 33
+      weight: 1
     - destination:
         host: httpbin-alt.default.svc.domain.suffix
         port:
           number: 9090
-      weight: 67
+      weight: 2
 ---
