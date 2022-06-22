@@ -848,19 +848,21 @@ func TestHttpsAppProbe(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
-		if err != nil {
-			t.Errorf("[%v] failed to create request", tc.probePath)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatal("request failed")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != tc.statusCode {
-			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
-		}
+		func() {
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+			if err != nil {
+				t.Errorf("[%v] failed to create request", tc.probePath)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed")
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != tc.statusCode {
+				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+			}
+		}()
 	}
 }
 
@@ -961,19 +963,21 @@ func TestGRPCAppProbe(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
-		if err != nil {
-			t.Errorf("[%v] failed to create request", tc.probePath)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatal("request failed")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != tc.statusCode {
-			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
-		}
+		func() {
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+			if err != nil {
+				t.Errorf("[%v] failed to create request", tc.probePath)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed")
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != tc.statusCode {
+				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+			}
+		}()
 	}
 }
 
@@ -1078,19 +1082,21 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
-		if err != nil {
-			t.Errorf("[%v] failed to create request", tc.probePath)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatal("request failed")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != tc.statusCode {
-			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
-		}
+		func() {
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+			if err != nil {
+				t.Errorf("[%v] failed to create request", tc.probePath)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed")
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != tc.statusCode {
+				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+			}
+		}()
 	}
 }
 
