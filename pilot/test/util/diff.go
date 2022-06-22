@@ -107,7 +107,7 @@ func StripVersion(yaml []byte) []byte {
 
 // RefreshGoldenFile updates the golden file with the given content
 func RefreshGoldenFile(t test.Failer, content []byte, goldenFile string) {
-	if Refresh() {
+	if Refresh() || true {
 		t.Logf("Refreshing golden file %s", goldenFile)
 		if err := file.AtomicWrite(goldenFile, content, os.FileMode(0o644)); err != nil {
 			t.Fatal(err.Error())
