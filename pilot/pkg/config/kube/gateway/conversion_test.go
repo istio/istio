@@ -457,34 +457,6 @@ func marshalYaml(t test.Failer, cl []config.Config) []byte {
 	return result
 }
 
-func TestStandardizeWeight(t *testing.T) {
-	tests := []struct {
-		name   string
-		input  []int
-		output []int
-	}{
-		{"single", []int{1}, []int{0}},
-		{"double", []int{1, 1}, []int{50, 50}},
-		{"zero", []int{1, 0}, []int{100, 0}},
-		{"overflow", []int{1, 1, 1}, []int{34, 33, 33}},
-		{"skewed", []int{9, 1}, []int{90, 10}},
-		{"multiple overflow", []int{1, 1, 1, 1, 1, 1}, []int{17, 17, 17, 17, 16, 16}},
-		{"skewed overflow", []int{1, 1, 1, 3}, []int{17, 17, 16, 50}},
-		{"skewed overflow 2", []int{1, 1, 1, 1, 2}, []int{17, 17, 17, 16, 33}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := standardizeWeights(tt.input)
-			if !reflect.DeepEqual(tt.output, got) {
-				t.Errorf("standardizeWeights() = %v, want %v", got, tt.output)
-			}
-			if len(tt.output) > 1 && intSum(tt.output) != 100 {
-				t.Errorf("invalid weights, should sum to 100: %v", got)
-			}
-		})
-	}
-}
-
 func TestHumanReadableJoin(t *testing.T) {
 	tests := []struct {
 		input []string
