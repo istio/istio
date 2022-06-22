@@ -88,6 +88,7 @@ if [[ "${2:-}" == clean ]]; then
     $IPTABLES -t mangle -F uproxy-PREROUTING
     $IPTABLES -t mangle -F uproxy-FORWARD
     $IPTABLES -t mangle -F uproxy-INPUT
+    $IPTABLES -t mangle -F uproxy-OUTPUT
     # we flush because sometimes -X doesn't work.
     $IPTABLES -t nat -D PREROUTING -j uproxy-PREROUTING
     $IPTABLES -t nat -X uproxy-PREROUTING
@@ -99,6 +100,8 @@ if [[ "${2:-}" == clean ]]; then
     $IPTABLES -t mangle -X uproxy-FORWARD
     $IPTABLES -t mangle -D INPUT -j uproxy-INPUT
     $IPTABLES -t mangle -X uproxy-INPUT
+    $IPTABLES -t mangle -D OUTPUT -j uproxy-OUTPUT
+    $IPTABLES -t mangle -X uproxy-OUTPUT
 
     ip route flush table $INBOUND_ROUTE_TABLE
     ip route flush table $OUTBOUND_ROUTE_TABLE
