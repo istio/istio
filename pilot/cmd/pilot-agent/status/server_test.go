@@ -831,24 +831,28 @@ func TestHttpsAppProbe(t *testing.T) {
 	}
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
+		name       string
 		probePath  string
 		statusCode int
 	}{
 		{
+			name:       "bad-path-should-be-disallowed",
 			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
 			statusCode: http.StatusNotFound,
 		},
 		{
+			name:       "readyz",
 			probePath:  fmt.Sprintf(":%v/app-health/hello-world/readyz", statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "livez",
 			probePath:  fmt.Sprintf(":%v/app-health/hello-world/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 	}
 	for _, tc := range testCases {
-		func() {
+		t.Run(tc.name, func(t *testing.T) {
 			client := http.Client{}
 			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
 			if err != nil {
@@ -862,7 +866,7 @@ func TestHttpsAppProbe(t *testing.T) {
 			if resp.StatusCode != tc.statusCode {
 				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
 			}
-		}()
+		})
 	}
 }
 
@@ -938,32 +942,38 @@ func TestGRPCAppProbe(t *testing.T) {
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 
 	testCases := []struct {
+		name       string
 		probePath  string
 		statusCode int
 	}{
 		{
+			name:       "bad-path-should-be-disallowed",
 			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
 			statusCode: http.StatusNotFound,
 		},
 		{
+			name:       "foo-livez",
 			probePath:  fmt.Sprintf(":%v/app-health/foo/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "foo-readyz",
 			probePath:  fmt.Sprintf(":%v/app-health/foo/readyz", statusPort),
 			statusCode: http.StatusInternalServerError,
 		},
 		{
+			name:       "bar-livez",
 			probePath:  fmt.Sprintf(":%v/app-health/bar/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "bar-readyz",
 			probePath:  fmt.Sprintf(":%v/app-health/bar/readyz", statusPort),
 			statusCode: http.StatusInternalServerError,
 		},
 	}
 	for _, tc := range testCases {
-		func() {
+		t.Run(tc.name, func(t *testing.T) {
 			client := http.Client{}
 			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
 			if err != nil {
@@ -977,7 +987,7 @@ func TestGRPCAppProbe(t *testing.T) {
 			if resp.StatusCode != tc.statusCode {
 				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
 			}
-		}()
+		})
 	}
 }
 
@@ -1057,32 +1067,38 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 
 	testCases := []struct {
+		name       string
 		probePath  string
 		statusCode int
 	}{
 		{
+			name:       "bad-path-should-be-disallowed",
 			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
 			statusCode: http.StatusNotFound,
 		},
 		{
+			name:       "foo-livez",
 			probePath:  fmt.Sprintf(":%v/app-health/foo/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "foo-readyz",
 			probePath:  fmt.Sprintf(":%v/app-health/foo/readyz", statusPort),
 			statusCode: http.StatusInternalServerError,
 		},
 		{
+			name:       "bar-livez",
 			probePath:  fmt.Sprintf(":%v/app-health/bar/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "bar-readyz",
 			probePath:  fmt.Sprintf(":%v/app-health/bar/readyz", statusPort),
 			statusCode: http.StatusInternalServerError,
 		},
 	}
 	for _, tc := range testCases {
-		func() {
+		t.Run(tc.name, func(t *testing.T) {
 			client := http.Client{}
 			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
 			if err != nil {
@@ -1096,7 +1112,7 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 			if resp.StatusCode != tc.statusCode {
 				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
 			}
-		}()
+		})
 	}
 }
 
