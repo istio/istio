@@ -656,9 +656,8 @@ func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.Tr
 
 	// TODO (mjog)
 	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
-	override := networking.ConnectionPoolSettings_HTTPSettings_DEFAULT
 	if connectionPool != nil && connectionPool.Http != nil {
-		override = connectionPool.Http.H2UpgradePolicy
+		override := connectionPool.Http.H2UpgradePolicy
 		// If user wants an upgrade at destination rule/port level that means he is sure that
 		// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
 		// enabled and user wants to upgrade/preserve http protocol from client.

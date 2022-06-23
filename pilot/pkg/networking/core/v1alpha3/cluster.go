@@ -570,11 +570,6 @@ type buildClusterOpts struct {
 	isDrWithSelector bool
 }
 
-type upgradeTuple struct {
-	meshdefault meshconfig.MeshConfig_H2UpgradePolicy
-	override    networking.ConnectionPoolSettings_HTTPSettings_H2UpgradePolicy
-}
-
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {
 	// Apply mesh wide TCP keepalive if available.
 	setKeepAliveSettings(c, mesh.TcpKeepalive)
