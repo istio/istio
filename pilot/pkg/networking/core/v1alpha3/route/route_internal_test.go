@@ -156,6 +156,26 @@ func TestIsCatchAllRoute(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "catch all prefix with headers",
+			route: &route.Route{
+				Name: "catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Prefix{
+						Prefix: "/",
+					},
+					Headers: []*route.HeaderMatcher{
+						{
+							Name: "Authentication",
+							HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+								ExactMatch: "test",
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
 			name: "uri regex with headers",
 			route: &route.Route{
 				Name: "non-catch-all",
