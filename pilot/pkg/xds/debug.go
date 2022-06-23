@@ -1118,7 +1118,7 @@ func writeJSON(w http.ResponseWriter, obj interface{}, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var b []byte
 	var err error
-	if req.URL.Query().Has("format") {
+	if req.URL.Query().Has("pretty") {
 		b, err = config.ToPrettyJSON(obj)
 	} else {
 		b, err = config.ToJSON(obj)
