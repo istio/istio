@@ -219,7 +219,7 @@ func (c *LocalFileCache) Get(
 
 	u, err := url.Parse(downloadURL)
 	if err != nil {
-		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s", downloadURL)
+		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s, error: %v", downloadURL, err)
 	}
 
 	// First check if the cache entry is already downloaded and policy does not require to pull always.
@@ -229,13 +229,9 @@ func (c *LocalFileCache) Get(
 		c.touchEntry(key)
 		return modulePath, nil
 	}
-
-	// If not, fetch images.
-
-	// Byte array of Wasm binary.
-	var b []byte
-	// Hex-Encoded sha256 checksum of binary.
-	var dChecksum string
+	// Fetch the image now as it is not available in cache.
+	var b []byte         // Byte array of Wasm binary.
+	var dChecksum string // Hex-Encoded sha256 checksum of binary.
 	var binaryFetcher func() ([]byte, error)
 	insecure := c.allowInsecure(u.Host)
 
@@ -254,18 +250,17 @@ func (c *LocalFileCache) Get(
 		sha := sha256.Sum256(b)
 		dChecksum = hex.EncodeToString(sha[:])
 	case "oci":
-		// TODO: support imagePullSecret and pass it to ImageFetcherOption.
 		imgFetcherOps := ImageFetcherOption{
 			Insecure: insecure,
 		}
 		if pullSecret != nil {
 			imgFetcherOps.PullSecret = pullSecret
 		}
-		wasmLog.Debugf("wasm oci fetch %s with options: %v", downloadURL, imgFetcherOps)
+		wasmLog.Debugf("fetching oci image from %s with options: %v", downloadURL, imgFetcherOps)
 		fetcher := NewImageFetcher(ctx, imgFetcherOps)
 		binaryFetcher, dChecksum, err = fetcher.PrepareFetch(u.Host + u.Path)
 		if err != nil {
-			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
+			wasmRemoteFetchCount.With(resultTag.Value(manifestFailure)).Increment()
 			return "", fmt.Errorf("could not fetch Wasm OCI image: %v", err)
 		}
 	default:
