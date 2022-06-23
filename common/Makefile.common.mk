@@ -80,9 +80,6 @@ format-go: tidy-go
 format-python:
 	@${FINDFILES} -name '*.py' -print0 | ${XARGS} autopep8 --max-line-length 160 --aggressive --aggressive -i
 
-format-protos:
-	@$(FINDFILES) -name '*.proto' -print0 | $(XARGS) -L 1 prototool format -w
-
 dump-licenses: mod-download-go
 	@license-lint --config common/config/license-lint.yml --report
 
