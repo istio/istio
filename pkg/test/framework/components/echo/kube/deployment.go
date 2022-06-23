@@ -235,6 +235,8 @@ spec:
         - containerPort: {{ $p.Port }}
 {{- if eq .Port 3333 }}
           name: tcp-health-port
+{{- else if and ($appContainer.ImageFullPath) (eq .Port 17171) }}
+          name: tcp-health-port
 {{- end }}
 {{- end }}
         env:
@@ -253,7 +255,7 @@ spec:
 {{- else if $.ReadinessGRPCPort }}
           grpc:
             port: {{ $.ReadinessGRPCPort }}			
-{{- else if $.ImageFullPath }}
+{{- else if $appContainer.ImageFullPath }}
           tcpSocket:
             port: tcp-health-port
 {{- else }}
