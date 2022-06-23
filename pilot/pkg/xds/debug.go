@@ -1114,7 +1114,7 @@ func (p jsonMarshalProto) MarshalJSON() ([]byte, error) {
 // writeJSON writes a json payload, handling content type, marshaling, and errors
 func writeJSON(w http.ResponseWriter, obj interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	b, err := config.ToJSON(obj)
+	b, err := config.ToPrettyJSON(obj)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(err.Error()))
