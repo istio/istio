@@ -26,6 +26,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
@@ -47,28 +48,6 @@ const (
 )
 
 var (
-	// NamespacedResources orders non cluster scope resources types which should be deleted, first to last
-	NamespacedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr},
-		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
-		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
-		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
-		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
-		{Group: "", Version: "v1", Kind: name.ServiceStr},
-		{Group: "", Version: "v1", Kind: name.CMStr},
-		{Group: "", Version: "v1", Kind: name.PVCStr},
-		{Group: "", Version: "v1", Kind: name.PodStr},
-		{Group: "", Version: "v1", Kind: name.SecretStr},
-		{Group: "", Version: "v1", Kind: name.SAStr},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.DestinationRuleStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.EnvoyFilterStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.GatewayStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.VirtualServiceStr},
-		{Group: name.SecurityAPIGroupName, Version: "v1beta1", Kind: name.PeerAuthenticationStr},
-	}
-
 	// ClusterResources are resource types the operator prunes, ordered by which types should be deleted, first to last.
 	ClusterResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.MutatingWebhookConfigurationStr},
@@ -87,30 +66,51 @@ var (
 	}
 	// AllClusterResources lists all cluster scope resources types which should be deleted in purge case, including CRD.
 	AllClusterResources = append(ClusterResources,
-		schema.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.MutatingWebhookConfigurationStr},
-		schema.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.ValidatingWebhookConfigurationStr},
 		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: name.CRDStr},
 	)
-	autoScalingV2GVK = schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: name.HPAStr}
-	pdbV1GVK         = schema.GroupVersionKind{Group: "policy", Version: "v1", Kind: name.PDBStr}
 )
 
-// getPruneResourcesBasedOnK8SVersion gets specific pruning resources based on the k8s version
-func (h *HelmReconciler) getPruneResourcesBasedOnK8SVersion() []schema.GroupVersionKind {
-	var res []schema.GroupVersionKind
+// NamespacedResources gets specific pruning resources based on the k8s version
+func NamespacedResources(version *version.Info) []schema.GroupVersionKind {
+	res := []schema.GroupVersionKind{
+		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
+		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
+		{Group: "", Version: "v1", Kind: name.ServiceStr},
+		{Group: "", Version: "v1", Kind: name.CMStr},
+		{Group: "", Version: "v1", Kind: name.PVCStr},
+		{Group: "", Version: "v1", Kind: name.PodStr},
+		{Group: "", Version: "v1", Kind: name.SecretStr},
+		{Group: "", Version: "v1", Kind: name.SAStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.DestinationRuleStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.EnvoyFilterStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.GatewayStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.VirtualServiceStr},
+		{Group: name.SecurityAPIGroupName, Version: "v1beta1", Kind: name.PeerAuthenticationStr},
+	}
+	// autoscaling v2 API is available on >=1.23
+	if kube.IsKubeAtLeastOrLessThanVersion(version, autoscalingV2MinK8SVersion, true) {
+		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: name.HPAStr})
+	} else {
+		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr})
+	}
+	// policy/v1 is available on >=1.21
+	if kube.IsKubeAtLeastOrLessThanVersion(version, pdbV1MinK8SVersion, true) {
+		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1", Kind: name.PDBStr})
+	} else {
+		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1beta1", Kind: name.PDBStr})
+	}
+	return res
+}
+
+// NamespacedResources gets specific pruning resources based on the k8s version
+func (h *HelmReconciler) NamespacedResources() []schema.GroupVersionKind {
 	clusterVersion, err := h.kubeClient.GetKubernetesVersion()
 	if err != nil {
 		scope.Warnf("Failed to get kubernetes version: %v", err)
 	}
-	// autoscaling v2 API is available on >=1.23
-	if kube.IsKubeAtLeastOrLessThanVersion(clusterVersion, autoscalingV2MinK8SVersion, true) {
-		res = append(res, autoScalingV2GVK)
-	}
-	// policy/v1 is available on >=1.21
-	if kube.IsKubeAtLeastOrLessThanVersion(clusterVersion, pdbV1MinK8SVersion, true) {
-		res = append(res, pdbV1GVK)
-	}
-	return res
+	return NamespacedResources(clusterVersion)
 }
 
 // Prune removes any resources not specified in manifests generated by HelmReconciler h.
@@ -221,10 +221,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		labels[IstioComponentLabelStr] = componentName
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	NamespacedResources = append(NamespacedResources, h.getPruneResourcesBasedOnK8SVersion()...)
-	gvkList := append(NamespacedResources, ClusterCPResources...)
+	resources := h.NamespacedResources()
+	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
-		gvkList = append(NamespacedResources, AllClusterResources...)
+		gvkList = append(resources, AllClusterResources...)
 		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
 			usList = append(usList, ioplist)
 		}
@@ -364,8 +364,8 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		return err
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	NamespacedResources = append(NamespacedResources, h.getPruneResourcesBasedOnK8SVersion()...)
-	for _, gvk := range append(NamespacedResources, ClusterResources...) {
+	resources := append(h.NamespacedResources(), ClusterResources...)
+	for _, gvk := range resources {
 		// First, we collect all objects for the provided GVK
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
