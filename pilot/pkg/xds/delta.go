@@ -463,7 +463,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	} else if req.Full {
 		// similar to sotw
 		subscribed := sets.NewSet(w.ResourceNames...)
-		subscribed.Delete(currentResources...)
+		subscribed.DeleteAll(currentResources...)
 		resp.RemovedResources = subscribed.SortedList()
 	}
 	if len(resp.RemovedResources) > 0 {
@@ -544,7 +544,7 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) []string {
 	res := sets.NewSet(existing...)
 	res.Insert(request.ResourceNamesSubscribe...)
-	res.Delete(request.ResourceNamesUnsubscribe...)
+	res.DeleteAll(request.ResourceNamesUnsubscribe...)
 	return res.SortedList()
 }
 
