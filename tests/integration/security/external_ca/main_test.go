@@ -82,7 +82,6 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireMinVersion(19).
-		SkipExternalControlPlaneTopology().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return SetupApps(ctx, apps)
@@ -97,12 +96,18 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+	var isExternalControlPlane bool
+	for _, cluster := range ctx.AllClusters() {
+		if cluster.IsExternalControlPlane() {
+			isExternalControlPlane = true
+		}
+	}
 
-	cfg.ControlPlaneValues = generateConfigYaml(certs, false)
-	cfg.ConfigClusterValues = generateConfigYaml(certs, true)
+	cfg.ControlPlaneValues = generateConfigYaml(certs, false, isExternalControlPlane)
+	cfg.ConfigClusterValues = generateConfigYaml(certs, true, false)
 }
 
-func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool) string {
+func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool, isExternalControlPlane bool) string {
 	cert1 := certs[0]
 	cert2 := certs[1]
 
@@ -123,19 +128,10 @@ values:
 {{.rootcert2 | indent 8}}
       certSigners:
       - {{.signer2}}
+{{- if not .isConfigCluster}}
 components:
-{{- if .isConfigCluster}}
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: false
-  egressGateways:
-  - name: istio-egressgateway
-    enabled: false
-  istiodRemote:
-{{- else }}
   pilot:
     enabled: true
-{{- end }}
     k8s:
       env:
       - name: CERT_SIGNER_DOMAIN
@@ -159,12 +155,37 @@ components:
                 - signers
                 verbs:
                 - approve
+{{- end }}
+{{- if .isExternalControlPlane}}
+        - kind: Deployment
+          name: istiod
+          patches:
+            - path: spec.template.spec.volumes[100]
+              value: |-
+                name: config-volume
+                configMap:
+                  name: istio
+            - path: spec.template.spec.volumes[100]
+              value: |-
+                name: inject-volume
+                configMap:
+                  name: istio-sidecar-injector
+            - path: spec.template.spec.containers[0].volumeMounts[100]
+              value: |-
+                name: config-volume
+                mountPath: /etc/istio/config
+            - path: spec.template.spec.containers[0].volumeMounts[100]
+              value: |-
+                name: inject-volume
+                mountPath: /var/lib/istio/inject
+{{- end }}
 `, map[string]interface{}{
-		"rootcert1":       cert1.Rootcert,
-		"signer1":         cert1.Signer,
-		"rootcert2":       cert2.Rootcert,
-		"signer2":         cert2.Signer,
-		"isConfigCluster": isConfigCluster,
+		"rootcert1":              cert1.Rootcert,
+		"signer1":                cert1.Signer,
+		"rootcert2":              cert2.Rootcert,
+		"signer2":                cert2.Signer,
+		"isConfigCluster":        isConfigCluster,
+		"isExternalControlPlane": isExternalControlPlane,
 	})
 	return cfgYaml
 }
