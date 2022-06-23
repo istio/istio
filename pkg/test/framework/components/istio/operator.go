@@ -326,7 +326,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	i.workDir = workDir
 
 	// generate common IstioOperator yamls for different cluster types (primary, remote, remote-config)
-	istioctlConfigFiles, err := createIstioctlConfigFile(ctx.Settings(), workDir, cfg)
+	istioctlConfigFiles, err := createIstioctlConfigFile(ctx.Settings(), workDir, cfg, i.isExternalControlPlane())
 	if err != nil {
 		return nil, err
 	}
@@ -482,6 +482,7 @@ func installControlPlaneCluster(s *resource.Settings, i *operatorComponent, cfg 
 			return err
 		}
 	}
+
 	installArgs, err := i.generateCommonInstallArgs(s, cfg, c, cfg.PrimaryClusterIOPFile, iopFile)
 	if err != nil {
 		return err
@@ -954,13 +955,14 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 	return nil
 }
 
-func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config) (istioctlConfigFiles, error) {
+func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config, isExternalCP bool) (istioctlConfigFiles, error) {
 	var err error
 	configFiles := istioctlConfigFiles{
 		iopFile:       "",
 		configIopFile: "",
 		remoteIopFile: "",
 	}
+
 	// Generate the istioctl config file for control plane(primary) cluster
 	configFiles.iopFile = filepath.Join(workDir, "iop.yaml")
 	if configFiles.operatorSpec, err = initIOPFile(s, cfg, configFiles.iopFile, cfg.ControlPlaneValues); err != nil {
@@ -968,23 +970,29 @@ func createIstioctlConfigFile(s *resource.Settings, workDir string, cfg Config) 
 	}
 
 	// Generate the istioctl config file for remote cluster
-	if cfg.RemoteClusterValues == "" {
-		cfg.RemoteClusterValues = cfg.ControlPlaneValues
+	if !isExternalCP && !cfg.IstiodlessRemotes {
+		if cfg.RemoteClusterValues == "" {
+			cfg.RemoteClusterValues = cfg.ControlPlaneValues
+		}
 	}
-
 	configFiles.remoteIopFile = filepath.Join(workDir, "remote.yaml")
 	if configFiles.remoteOperatorSpec, err = initIOPFile(s, cfg, configFiles.remoteIopFile, cfg.RemoteClusterValues); err != nil {
 		return configFiles, err
 	}
 
 	// Generate the istioctl config file for config cluster
-	configFiles.configIopFile = configFiles.iopFile
-	configFiles.configOperatorSpec = configFiles.operatorSpec
-	if cfg.ConfigClusterValues != "" {
+	if isExternalCP {
+		if cfg.ConfigClusterValues == "" {
+			cfg.ConfigClusterValues = cfg.RemoteClusterValues
+		}
 		configFiles.configIopFile = filepath.Join(workDir, "config.yaml")
 		if configFiles.configOperatorSpec, err = initIOPFile(s, cfg, configFiles.configIopFile, cfg.ConfigClusterValues); err != nil {
 			return configFiles, err
 		}
+	} else {
+		configFiles.configIopFile = configFiles.iopFile
+		configFiles.configOperatorSpec = configFiles.operatorSpec
 	}
+
 	return configFiles, nil
 }
