@@ -291,7 +291,7 @@ func NewFakeClientWithVersion(minor string, objects ...runtime.Object) ExtendedC
 	c := NewFakeClient(objects...).(*client)
 	if minor != "" && minor != "latest" {
 		c.versionOnce.Do(func() {
-			c.version = &kubeVersion.Info{Major: "1", Minor: minor}
+			c.version = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
 		})
 	}
 	return c
