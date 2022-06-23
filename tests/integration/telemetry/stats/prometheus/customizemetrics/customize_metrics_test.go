@@ -236,6 +236,7 @@ values:
              - %s
 `
 	cfg.ControlPlaneValues = fmt.Sprintf(cfValue, removedTag)
+	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 }
 
 func setupWasmExtension(ctx resource.Context) error {
