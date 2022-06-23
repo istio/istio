@@ -48,6 +48,12 @@ type CentralControlPlaneOptions struct {
 
 	// Plaintext forces plain text communication (for talking to port 15010)
 	Plaintext bool
+
+	// GCP project number or ID to use for XDS calls, if any.
+	GCPProject string
+
+	// Istiod address. For MCP may be different than Xds.
+	IstiodAddr string
 }
 
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
