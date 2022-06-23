@@ -56,7 +56,7 @@ func TestMultiRootSetup(t *testing.T) {
 								Address: to.Config().Service,
 								Scheme:  s,
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, &opts))
 
 							from.CallOrFail(t, opts)
 						})

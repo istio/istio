@@ -94,7 +94,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 								Scheme:  s,
 							}
 							if success {
-								opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+								opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, &opts))
 							} else {
 								opts.Check = scheck.NotOK()
 							}
