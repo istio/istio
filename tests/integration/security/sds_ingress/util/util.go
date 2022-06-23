@@ -511,7 +511,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 			SetupConfig(ctx, apps.ServerNs, tests...)
 			return nil
 		}).
-		To(echotest.SingleSimplePodServiceAndAllSpecial()).
+		To(echotest.SimplePodServiceAndAllSpecial(1)).
 		RunFromClusters(func(ctx framework.TestContext, fromCluster cluster.Cluster, to echo.Target) {
 			for _, cn := range credNames {
 				CreateIngressKubeSecret(ctx, cn, Mtls, IngressCredentialA, false)
@@ -558,7 +558,7 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps 
 			SetupConfig(t, apps.ServerNs, tests...)
 			return nil
 		}).
-		To(echotest.SingleSimplePodServiceAndAllSpecial()).
+		To(echotest.SimplePodServiceAndAllSpecial(1)).
 		RunFromClusters(func(t framework.TestContext, fromCluster cluster.Cluster, to echo.Target) {
 			for _, cn := range credNames {
 				CreateIngressKubeSecret(t, cn, TLS, IngressCredentialA, false)
@@ -607,7 +607,7 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 			SetupConfig(ctx, apps.ServerNs, tests...)
 			return nil
 		}).
-		To(echotest.SingleSimplePodServiceAndAllSpecial()).
+		To(echotest.SimplePodServiceAndAllSpecial(1)).
 		RunFromClusters(func(ctx framework.TestContext, fromCluster cluster.Cluster, to echo.Target) {
 			for _, cn := range credNames {
 				CreateIngressKubeSecret(ctx, cn, TLS, IngressCredentialA, false)

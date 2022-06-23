@@ -382,7 +382,7 @@ func MustReadCert(t test.Failer, f string) string {
 
 func newGatewayTest(t framework.TestContext) *echotest.T {
 	return echotest.New(t, apps.All).
-		WithDefaultFilters().
+		WithDefaultFilters(1, 1).
 		FromMatch(match.And(
 			match.NotNaked,
 			match.Or(
