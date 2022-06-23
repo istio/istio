@@ -19,7 +19,7 @@
         {{ end }}
     {{- end }}
   {{- else }}
-    {{- if .Values.global.proxy.resources }}
+      {{- if .Values.global.proxy.resources }}
       {{ toYaml .Values.global.proxy.resources | indent 6 }}
     {{- end }}
   {{- end }}

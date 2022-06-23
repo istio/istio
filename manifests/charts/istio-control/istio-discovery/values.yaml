@@ -368,6 +368,8 @@ global:
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxyv2
+    # Deprecated
+    # proxy_init.resources is same as .values.global.proxy.resources
     resources:
       limits:
         cpu: 2000m
