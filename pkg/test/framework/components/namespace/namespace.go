@@ -139,6 +139,15 @@ func Future(ns *Instance) Getter {
 	}
 }
 
+func Dump(ctx resource.Context, name string) {
+	ns := &kubeNamespace{
+		ctx:    ctx,
+		prefix: name,
+		name:   name,
+	}
+	ns.Dump(ctx)
+}
+
 // NilGetter is a Getter that always returns nil.
 var NilGetter = func() Instance {
 	return nil
