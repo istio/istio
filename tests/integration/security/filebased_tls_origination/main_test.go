@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
@@ -50,11 +51,20 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func setupConfig(_ resource.Context, cfg *istio.Config) {
+func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.ControlPlaneValues = `
+
+	var isExternalControlPlane bool
+	for _, cluster := range ctx.AllClusters() {
+		if cluster.IsExternalControlPlane() {
+			isExternalControlPlane = true
+		}
+	}
+
+	cfg.ControlPlaneValues = tmpl.MustEvaluate(`
+{{- if not .isExternalControlPlane }}
 components:
   egressGateways:
   - enabled: true
@@ -66,28 +76,8 @@ values:
          - name: client-custom-certs
            secretName: egress-gw-cacerts
            mountPath: /etc/certs/custom
-`
-	cfg.ExternalControlPlaneClusterValues = `
-components:
-  egressGateways:
-  - enabled: false
-    name: istio-egressgateway
-  ingressGateways:
-  - enabled: false
-    name: istio-ingressgateway
-`
-
-	cfg.ConfigClusterValues = `
-components:
-  istiodRemote:
-    enabled: true
-  egressGateways:
-  - enabled: false
-    name: istio-egressgateway
-  ingressGateways:
-  - enabled: false
-    name: istio-ingressgateway
-`
+{{- end }}
+`, map[string]bool{"isExternalControlPlane": isExternalControlPlane})
 
 	cfg.GatewayValues = `
 components:

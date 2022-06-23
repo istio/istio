@@ -174,7 +174,7 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 			"fake-root-cert.pem": fakeRootCert,
 		},
 	}
-	for _, cluster := range ctx.AllClusters() {
+	for _, cluster := range ctx.Clusters() {
 		_, err = cluster.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
 		if err != nil {
 			if errors.IsAlreadyExists(err) {
