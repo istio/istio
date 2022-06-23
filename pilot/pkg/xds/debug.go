@@ -81,7 +81,7 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 <body>
 <br/>
 <p style = "font-family:Arial,Helvetica,sans-serif;">
-Note: Use <b>format</b> in query string (like <b>debug/configz?format</b>) to format the output.
+Note: Use <b>pretty</b> in query string (like <b>debug/configz?pretty</b>) to format the output.
 </p>
 <table id="endpoints">
 <tr><th>Endpoint</th><th>Description</th></tr>
