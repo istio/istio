@@ -107,6 +107,9 @@ func TestGatewayConformance(t *testing.T) {
 				}
 			}
 			ctx.Cleanup(func() {
+				if !ctx.Failed() {
+					return
+				}
 				for _, ns := range conformanceNamespaces {
 					namespace.Dump(ctx, ns)
 				}
