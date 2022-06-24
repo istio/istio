@@ -13,6 +13,7 @@ require (
 	cloud.google.com/go/security v1.4.0
 	contrib.go.opencensus.io/exporter/prometheus v0.4.1
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20220511133513-5ae53b7a8154
+	github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20220527094405-7bed8f92ea82
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/census-instrumentation/opencensus-proto v0.3.0
