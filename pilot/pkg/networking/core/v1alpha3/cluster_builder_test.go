@@ -703,6 +703,11 @@ func TestMergeTrafficPolicy(t *testing.T) {
 						Simple: networking.LoadBalancerSettings_LEAST_REQUEST,
 					},
 				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
 			},
 		},
 		{
@@ -751,6 +756,16 @@ func TestMergeTrafficPolicy(t *testing.T) {
 			},
 			port: &model.Port{Port: 8080},
 			expected: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
 				OutlierDetection: &networking.OutlierDetection{
 					ConsecutiveErrors: 13,
 				},
