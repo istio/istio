@@ -398,3 +398,9 @@ networks:
 	}
 	assert.Equal(t, got, &want)
 }
+
+func FuzzValidateMeshConfig(f *testing.F) {
+	f.Fuzz(func(t *testing.T, data string) {
+		_, _ = mesh.ApplyMeshConfigDefaults(data)
+	})
+}
