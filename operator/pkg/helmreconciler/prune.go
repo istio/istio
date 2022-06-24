@@ -261,6 +261,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 				string(name.PilotComponentName),
 				string(name.IngressComponentName), string(name.EgressComponentName),
 				string(name.CNIComponentName), string(name.IstioOperatorComponentName),
+				string(name.IstiodRemoteComponentName),
 			}
 			includeRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.In, includeCN)
 			if err != nil {
