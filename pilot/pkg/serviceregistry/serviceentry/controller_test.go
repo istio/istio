@@ -628,6 +628,69 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		)
 	})
 
+	t.Run("update service entry host", func(t *testing.T) {
+		updated := func() *config.Config {
+			d := selector.DeepCopy()
+			se := d.Spec.(*networking.ServiceEntry)
+			se.Hosts = []string{"updated.com"}
+			return &d
+		}()
+
+		instances := []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(updated, "2.2.2.2", 444,
+				updated.Spec.(*networking.ServiceEntry).Ports[0],
+				map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(updated, "2.2.2.2", 445,
+				updated.Spec.(*networking.ServiceEntry).Ports[1],
+				map[string]string{"app": "wle"}, "default"),
+		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = updated.Name
+		}
+
+		createConfigs([]*config.Config{updated}, store, t)
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, []*model.ServiceInstance{})
+		expectServiceInstances(t, sd, updated, 0, instances)
+		expectEvents(t, events,
+			Event{kind: "svcupdate", host: "updated.com", namespace: selector.Namespace},
+			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
+			Event{kind: "xds"},
+		)
+	})
+
+	t.Run("restore service entry host", func(t *testing.T) {
+		instances := []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
+				selector.Spec.(*networking.ServiceEntry).Ports[0],
+				map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
+				selector.Spec.(*networking.ServiceEntry).Ports[1],
+				map[string]string{"app": "wle"}, "default"),
+		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selector.Name
+		}
+		updated := func() *config.Config {
+			d := selector.DeepCopy()
+			se := d.Spec.(*networking.ServiceEntry)
+			se.Hosts = []string{"updated.com"}
+			return &d
+		}()
+
+		createConfigs([]*config.Config{selector}, store, t)
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectServiceInstances(t, sd, updated, 0, []*model.ServiceInstance{})
+		expectEvents(t, events,
+			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
+			Event{kind: "svcupdate", host: "updated.com", namespace: selector.Namespace},
+			Event{kind: "xds"},
+		)
+	})
+
 	t.Run("add dns service entry", func(t *testing.T) {
 		// Add just the ServiceEntry with selector. We should see no instances
 		createConfigs([]*config.Config{dnsSelector}, store, t)
