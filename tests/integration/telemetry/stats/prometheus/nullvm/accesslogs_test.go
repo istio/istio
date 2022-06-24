@@ -100,7 +100,7 @@ defaultProviders:
 		})
 }
 
-func applyTelemetryResource(t framework.TestContext, expectLogs bool) {
+func applyTelemetryResource(t framework.TestContext, enableLogs bool) {
 	config := fmt.Sprintf(`apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
@@ -110,11 +110,11 @@ spec:
   - providers:
     - name: envoy
     disabled: %v
-`, !expectLogs)
+`, !enableLogs)
 	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).ApplyOrFail(t)
 }
 
-func deleteTelemetryResource(t framework.TestContext, expectLogs bool) {
+func deleteTelemetryResource(t framework.TestContext, enableLogs bool) {
 	config := fmt.Sprintf(`apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
@@ -122,7 +122,7 @@ metadata:
 spec:
   accessLogging:
   - disabled: %v
-`, !expectLogs)
+`, !enableLogs)
 	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).ApplyOrFail(t)
 }
 
