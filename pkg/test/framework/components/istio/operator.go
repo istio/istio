@@ -367,24 +367,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
-	// Need to determine if there is a setting to watch cluster secret in config cluster
-	// or in external cluster. The flag is named LOCAL_CLUSTER_SECERT_WATCHER and set as
-	// an environment variable for istiod.
-	watchLocalNamespace := false
-	if istioctlConfigFiles.operatorSpec != nil && istioctlConfigFiles.operatorSpec.Values != nil {
-		localClusterSecretWatcher := GetConfigValue("pilot.env.LOCAL_CLUSTER_SECERT_WATCHER",
-			istioctlConfigFiles.operatorSpec.Values.Fields)
-		if localClusterSecretWatcher.GetStringValue() == "true" && i.isExternalControlPlane() {
-			watchLocalNamespace = true
-		}
-	}
-
-	if ctx.Clusters().IsMulticluster() {
-		if err := i.configureDirectAPIServerAccess(ctx, cfg, watchLocalNamespace); err != nil {
-			return nil, err
-		}
-	}
-
 	// Install (non-config) remote clusters.
 	errG = multierror.Group{}
 	for _, c := range ctx.Clusters().Kube().Remotes(ctx.Clusters().Configs()...) {
@@ -398,6 +380,23 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 	if errs := errG.Wait(); errs != nil {
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
+	}
+
+	if ctx.Clusters().IsMulticluster() {
+		// Need to determine if there is a setting to watch cluster secret in config cluster
+		// or in external cluster. The flag is named LOCAL_CLUSTER_SECERT_WATCHER and set as
+		// an environment variable for istiod.
+		watchLocalNamespace := false
+		if istioctlConfigFiles.operatorSpec != nil && istioctlConfigFiles.operatorSpec.Values != nil {
+			localClusterSecretWatcher := GetConfigValue("pilot.env.LOCAL_CLUSTER_SECERT_WATCHER",
+				istioctlConfigFiles.operatorSpec.Values.Fields)
+			if localClusterSecretWatcher.GetStringValue() == "true" && i.isExternalControlPlane() {
+				watchLocalNamespace = true
+			}
+		}
+		if err := i.configureDirectAPIServerAccess(ctx, cfg, watchLocalNamespace); err != nil {
+			return nil, err
+		}
 	}
 
 	// Configure gateways for remote clusters.
@@ -866,17 +865,26 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		if env.IsMultinetwork() {
 			nsLabels = map[string]string{label.TopologyNetwork.Name: c.NetworkName()}
 		}
+		var nsAnnotations map[string]string
+		if c.IsRemote() {
+			const istiodClusterAnnotation = "topology.istio.io/controlPlaneClusters" // TODO proper API annotation.TopologyControlPlaneClusters.Name
+			nsAnnotations = map[string]string{
+				istiodClusterAnnotation: c.Config().Name(), // Use config cluster name because external control plane uses config cluster as its cluster ID
+			}
+		}
 		if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
-				Labels: nsLabels,
-				Name:   cfg.SystemNamespace,
+				Labels:      nsLabels,
+				Annotations: nsAnnotations,
+				Name:        cfg.SystemNamespace,
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
 			if errors.IsAlreadyExists(err) {
 				if _, err := c.Kube().CoreV1().Namespaces().Update(context.TODO(), &kubeApiCore.Namespace{
 					ObjectMeta: kubeApiMeta.ObjectMeta{
-						Labels: nsLabels,
-						Name:   cfg.SystemNamespace,
+						Labels:      nsLabels,
+						Annotations: nsAnnotations,
+						Name:        cfg.SystemNamespace,
 					},
 				}, kubeApiMeta.UpdateOptions{}); err != nil {
 					scopes.Framework.Errorf("failed updating namespace %s on cluster %s. This can happen when deploying "+
