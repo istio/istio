@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -121,27 +120,6 @@ func findServiceTargetPort(servicePort *model.Port, k8sService *v1.Service) serv
 	// should never happen
 	log.Debugf("did not find matching target port for %v on service %s", servicePort, k8sService.Name)
 	return serviceTargetPort{num: 0, name: "", explicitName: false}
-}
-
-func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error) {
-	allServices, err := s.Services(pod.Namespace).List(klabels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	var services []*v1.Service
-	for _, service := range allServices {
-		if service.Spec.Selector == nil {
-			// services with nil selectors match nothing, not everything.
-			continue
-		}
-		selector := klabels.Set(service.Spec.Selector).AsSelectorPreValidated()
-		if selector.Matches(klabels.Set(pod.Labels)) {
-			services = append(services, service)
-		}
-	}
-
-	return services, nil
 }
 
 func portsEqual(a, b []v1.EndpointPort) bool {

@@ -272,6 +272,8 @@ type Controller struct {
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
 	initialSync *atomic.Bool
+
+	serviceSelectorCache *ServiceSelectorCache
 }
 
 // NewController creates a new Kubernetes controller
@@ -291,6 +293,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		initialSync:                atomic.NewBool(false),
 
 		multinetwork: initMultinetwork(),
+
+		serviceSelectorCache: NewServiceSelectorCache(),
 	}
 
 	if features.EnableMCSHost {
@@ -504,7 +508,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		log.Errorf(err)
 		return nil
 	}
-
+	key, _ := cache.DeletionHandlingMetaNamespaceKeyFunc(svc)
 	log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
 
 	// Create the standard (cluster.local) service.
@@ -512,8 +516,10 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	switch event {
 	case model.EventDelete:
 		c.deleteService(svcConv)
+		c.serviceSelectorCache.Delete(key)
 	default:
 		c.addOrUpdateService(svc, svcConv, event, false)
+		_ = c.serviceSelectorCache.Update(key, svc.Spec.Selector)
 	}
 
 	return nil
@@ -527,7 +533,6 @@ func (c *Controller) deleteService(svc *model.Service) {
 	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
 	delete(c.networkGatewaysBySvc, svc.Hostname)
 	c.Unlock()
-
 	if isNetworkGateway {
 		c.NotifyGatewayHandlers()
 		// TODO trigger push via handler
@@ -1067,7 +1072,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
-			if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
+			if services, err := c.serviceSelectorCache.GetPodServiceMemberships(c.serviceLister, pod); err == nil && len(services) > 0 {
 				out := make([]*model.ServiceInstance, 0)
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
@@ -1108,7 +1113,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInst
 	}
 
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
-	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
+	if k8sServices, err := c.serviceSelectorCache.GetPodServiceMemberships(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
@@ -1163,7 +1168,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 
 	shard := model.ShardKeyFromRegistry(c)
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
-	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
+	if k8sServices, err := c.serviceSelectorCache.GetPodServiceMemberships(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
@@ -1244,7 +1249,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	}
 
 	// Find the Service associated with the pod.
-	services, err := getPodServices(c.serviceLister, dummyPod)
+	services, err := c.serviceSelectorCache.GetPodServiceMemberships(c.serviceLister, dummyPod)
 	if err != nil {
 		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
 	}
