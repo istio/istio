@@ -74,7 +74,7 @@ information on the Istio community, including the various documents that govern
 the Istio open source project.
 
 - [istio/istio](README.md). This is the main code repository. It hosts Istio's
-core components, install artifacts, and sample programs. It includes:
+core components, install artifacts and sample programs. It includes:
 
     - [istioctl](istioctl/). This directory contains code for the
 [_istioctl_](https://istio.io/latest/docs/reference/commands/istioctl/) command line utility.
