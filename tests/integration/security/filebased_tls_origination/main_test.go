@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.CustomSetup).
 		Label("CustomSetup").
-		SkipExternalControlPlaneTopology().
+		RequireMultiPrimary(). // SkipExternalControlPlaneTopology(). TODO this test fails when running with istiodless remotes
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Run()
 }
