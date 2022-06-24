@@ -531,10 +531,10 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 							Port: &networking.PortSelector{
 								Number: 8080,
 							},
+							Tls: &networking.ClientTLSSettings{
+								Mode: networking.ClientTLSSettings_DISABLE,
+							},
 						},
-					},
-					Tls: &networking.ClientTLSSettings{
-						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
