@@ -195,11 +195,15 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 	gatewayRoutes map[string]map[string]*config.Config, meshRoutes map[string]map[string]*config.Config,
 ) {
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
+	var splitRules []k8s.HTTPRouteRule
 	for _, r := range route.Rules {
 		if len(r.Matches) > 1 {
-			// if a rule has multiple matches, make a deep copy to avoid impacting the obj when splitting the rule
-			route = route.DeepCopy()
-			break
+			// split the rule to make sure each rule has up to one match
+			matches := r.Matches
+			for _, m := range matches {
+				r.Matches = []k8s.HTTPRouteMatch{m}
+				splitRules = append(splitRules, r)
+			}
 		}
 	}
 	ns := obj.Namespace
@@ -215,39 +219,25 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 
 	httproutes := []*istio.HTTPRoute{}
 	hosts := hostnameToStringList(route.Hostnames)
-	for i := 0; i < len(route.Rules); i++ {
-		r := route.Rules[i]
-		if len(r.Matches) > 1 {
-			// split the rule to make sure each rule has up to one match
-			for _, match := range r.Matches {
-				splitRule := r
-				splitRule.Matches = []k8s.HTTPRouteMatch{match}
-				route.Rules = append(route.Rules, splitRule)
-			}
-			continue
-		}
+	convertHTTPRoute := func(r k8s.HTTPRouteRule) *ConfigError {
 		// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 		vs := &istio.HTTPRoute{}
 		for _, match := range r.Matches {
 			uri, err := createURIMatch(match)
 			if err != nil {
-				reportError(err)
-				return
+				return err
 			}
 			headers, err := createHeadersMatch(match)
 			if err != nil {
-				reportError(err)
-				return
+				return err
 			}
 			qp, err := createQueryParamsMatch(match)
 			if err != nil {
-				reportError(err)
-				return
+				return err
 			}
 			method, err := createMethodMatch(match)
 			if err != nil {
-				reportError(err)
-				return
+				return err
 			}
 			vs.Match = append(vs.Match, &istio.HTTPMatchRequest{
 				Uri:         uri,
@@ -265,16 +255,14 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 			case k8s.HTTPRouteFilterRequestMirror:
 				mirror, err := createMirrorFilter(filter.RequestMirror, ns, domain)
 				if err != nil {
-					reportError(err)
-					return
+					return err
 				}
 				vs.Mirror = mirror
 			default:
-				reportError(&ConfigError{
+				return &ConfigError{
 					Reason:  InvalidFilter,
 					Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
-				})
-				return
+				}
 			}
 		}
 
@@ -299,12 +287,28 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 
 		route, err := buildHTTPDestination(r.BackendRefs, ns, domain, zero)
 		if err != nil {
-			reportError(err)
-			return
+			return err
 		}
 		vs.Route = route
 
 		httproutes = append(httproutes, vs)
+		return nil
+	}
+
+	for _, r := range route.Rules {
+		if len(r.Matches) > 1 {
+			continue
+		}
+		if err := convertHTTPRoute(r); err != nil {
+			reportError(err)
+			return
+		}
+	}
+	for _, r := range splitRules {
+		if err := convertHTTPRoute(r); err != nil {
+			reportError(err)
+			return
+		}
 	}
 	reportError(nil)
 
