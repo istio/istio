@@ -320,11 +320,20 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 	if port != nil {
 		for _, p := range subsetPolicy.PortLevelSettings {
 			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				// per the docs, port level policies do not inherit and instead to defaults if not provided
-				mergedPolicy.ConnectionPool = p.ConnectionPool
-				mergedPolicy.OutlierDetection = p.OutlierDetection
-				mergedPolicy.LoadBalancer = p.LoadBalancer
-				mergedPolicy.Tls = p.Tls
+				// per the docs, default values will be applied
+				// to fields omitted in port-level traffic policies.
+				if p.ConnectionPool != nil {
+					mergedPolicy.ConnectionPool = p.ConnectionPool
+				}
+				if p.OutlierDetection != nil {
+					mergedPolicy.OutlierDetection = p.OutlierDetection
+				}
+				if p.LoadBalancer != nil {
+					mergedPolicy.LoadBalancer = p.LoadBalancer
+				}
+				if p.Tls != nil {
+					mergedPolicy.Tls = p.Tls
+				}
 				break
 			}
 		}
