@@ -262,6 +262,11 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesUpdated = append(instancesUpdated, instance...)
+		if event == model.EventDelete {
+			s.serviceInstances.deleteServiceEntryInstances(namespacedName, key)
+		} else {
+			s.serviceInstances.updateServiceEntryInstancesPerConfig(namespacedName, key, instance)
+		}
 		addConfigs(se, services)
 	}
 
@@ -276,6 +281,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesDeleted = append(instancesDeleted, instance...)
+		s.serviceInstances.deleteServiceEntryInstances(namespacedName, key)
 		addConfigs(se, services)
 	}
 
