@@ -52,10 +52,6 @@ type ConfigGenerator interface {
 
 	// MeshConfigChanged is invoked when mesh config is changed, giving a chance to rebuild any cached config.
 	MeshConfigChanged(mesh *meshconfig.MeshConfig)
-
-	// XdsCacheInvalidated is invoked whenever the Xds Cache is cleared, so the delta xds generation dependencies
-	// are updated accordingly.
-	XdsCacheInvalidated(invalidated []string)
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator
