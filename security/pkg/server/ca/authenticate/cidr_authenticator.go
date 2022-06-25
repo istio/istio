@@ -15,9 +15,7 @@
 package authenticate
 
 import (
-	"fmt"
 	"net"
-	"net/http"
 	"strings"
 
 	"google.golang.org/grpc/peer"
@@ -26,30 +24,20 @@ import (
 	"istio.io/istio/pkg/security"
 )
 
-const (
-	CidrAuthenticatorType = "CidrAuthenticator"
-)
-
-// CidrAuthenticator extracts identities from connected ip if it is part of trusted cidr ranges.
+// CidrAuthenticator is delegated authenticator that validates whether
+// caller is in the trusted Cidr range and hence trust the information
+// passed.
 type CidrAuthenticator struct{}
 
-var _ security.Authenticator = &CidrAuthenticator{}
+var _ security.DelegatedAuthenticator = &CidrAuthenticator{}
 
-func (c *CidrAuthenticator) AuthenticatorType() string {
-	return CidrAuthenticatorType
-}
-
-// Authenticate extracts identities from trusted cidr ranges.
-func (c *CidrAuthenticator) Authenticate(ctx security.AuthContext) (*security.Caller, error) {
+// CanTrustedCaller determines if the caller is in trusted cidr range.
+func (c *CidrAuthenticator) CanTrustCaller(ctx *security.AuthContext) bool {
 	peerInfo, _ := peer.FromContext(ctx.RequestContext)
-	if !isAuthenticated(peerInfo.Addr.String()) {
-		return nil, fmt.Errorf("")
-	}
-	ctx.AddDelegatedAuthenticator(XfccAuthenticator{})
-	return &security.Caller{AuthSource: security.AuthSourceDelegate, Identities: []string{peerInfo.Addr.String()}}, nil
+	return isTrustedAddress(peerInfo.Addr.String())
 }
 
-func isAuthenticated(addr string) bool {
+func isTrustedAddress(addr string) bool {
 	if len(features.TrustedCIDRRanges) > 0 {
 		cidrs := strings.Split(features.TrustedCIDRRanges, ",")
 		for _, cidr := range cidrs {
@@ -77,11 +65,4 @@ func isInRange(addr, cidr string) bool {
 		return ipnet.Contains(net.ParseIP(addr))
 	}
 	return false
-}
-
-func (c *CidrAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
-	if isAuthenticated(req.RemoteAddr) {
-		return &security.Caller{Identities: []string{req.RemoteAddr}}, nil
-	}
-	return nil, nil
 }

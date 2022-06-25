@@ -39,7 +39,12 @@ func (xff XfccAuthenticator) AuthenticatorType() string {
 }
 
 // Authenticate extracts identities from Xfcc Header.
-func (xff XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.Caller, error) {
+func (xff XfccAuthenticator) Authenticate(ctx *security.AuthContext) (*security.Caller, error) {
+	// First check if client is trusted client so that we can "trust" the Xfcc Header.
+	delegated := &CidrAuthenticator{}
+	if !delegated.CanTrustCaller(ctx) {
+		return nil, fmt.Errorf("caller is not in the trusted network. XfccAuthenticator can not be used")
+	}
 	meta, ok := metadata.FromIncomingContext(ctx.RequestContext)
 
 	if !ok || len(meta.Get(xfccparser.ForwardedClientCertHeader)) == 0 {

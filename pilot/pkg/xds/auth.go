@@ -61,33 +61,15 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	authContext := security.NewAuthContext(ctx)
 
 	for _, authn := range s.Authenticators {
+		authContext.AddAuthenticator(authn.AuthenticatorType())
 		u, err := authn.Authenticate(authContext)
 		// If one authenticator passes, return
 		if u != nil && u.Identities != nil && err == nil {
-			authContext.AddAuthenticator(authn.AuthenticatorType(), u)
-			// If there are delegated authenticators added by the authenticator,
-			// we should authenticate with delegated authenticators and swap the
-			// identities.
-			if len(authContext.DelegatedAuthenticators) > 0 {
-				break
-			}
-			// No delegated authenticator, we should trust this authenticator and
-			// return the identities.
+			authContext.Caller = u
 			return u.Identities, nil
 		}
 		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
 	}
-	// At this point, check if there is any Delegated Authenticators. Delegating Authenticators verify
-	// information like xfcc from request. Typically there will only be one delegated authenticator
-	// but added multiple for future use.
-	for _, authn := range authContext.DelegatedAuthenticators {
-		u, err := authn.Authenticate(authContext)
-		// If one delegated authenticator passes, return
-		if u != nil && u.Identities != nil && err == nil {
-			return u.Identities, nil
-		}
-	}
-
 	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), strings.Join(authFailMsgs, "; "))
 	return nil, errors.New("authentication failure")
 }

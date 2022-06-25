@@ -87,7 +87,7 @@ func (f *FakeAuthenticator) AuthenticateRequest(req *http.Request) (*Caller, err
 	return nil, errors.New("not implemented")
 }
 
-func (f *FakeAuthenticator) Authenticate(ctx AuthContext) (*Caller, error) {
+func (f *FakeAuthenticator) Authenticate(ctx *AuthContext) (*Caller, error) {
 	f.mu.Lock()
 	at := f.AllowedToken
 	ac := f.AllowedCert

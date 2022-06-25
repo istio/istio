@@ -352,34 +352,40 @@ type Caller struct {
 	Identities []string
 }
 
+// AuthContext carries the contextual information and is passed across authenticators.
 type AuthContext struct {
 	// RequestContext is the context from request.
 	RequestContext context.Context
 	// Authenticators is the list of authenticators that were executed before in the auth chain.
 	Authenticators []string
-	// DelegatedAuthenticators are the list of delegated authenticators that main authenticators can
-	// choose to get identities from. For example, CidrAuthenticator can delegate the authentication to
-	// XfccAuthenticator once it validates the connection is from trusted cidr range. XfccAuthenticator
-	// can then extract identities from peer certificate.
-	DelegatedAuthenticators []Authenticator
+	// Caller indicates the caller that made authentication request.
+	Caller *Caller
 }
 
+// Authenticator determines the caller identity based on request context.
 type Authenticator interface {
-	Authenticate(ctx AuthContext) (*Caller, error)
+	Authenticate(ctx *AuthContext) (*Caller, error)
 	AuthenticatorType() string
 	AuthenticateRequest(req *http.Request) (*Caller, error)
 }
 
-func NewAuthContext(ctx context.Context) AuthContext {
-	return AuthContext{RequestContext: ctx}
+// DelegatedAuthenticator determines whether the main authenticator can trust the
+// client and proceed with authentication. This is used in cases where the client
+// authentication can not be directly determined from the request(no TLS certs, JWT etc)
+// but request has additional information to authenticate.
+// For example XfccAuthenticators should validate whether client is from trusted Cidr range
+// before it can trust the Xfcc Header.
+type DelegatedAuthenticator interface {
+	// CanTrustCaller indicates whether caller is a trusted caller.
+	CanTrustCaller(ctx *AuthContext) bool
 }
 
-func (ac *AuthContext) AddAuthenticator(authenticator string, caller *Caller) {
+func NewAuthContext(ctx context.Context) *AuthContext {
+	return &AuthContext{RequestContext: ctx}
+}
+
+func (ac *AuthContext) AddAuthenticator(authenticator string) {
 	ac.Authenticators = append(ac.Authenticators, authenticator)
-}
-
-func (ac *AuthContext) AddDelegatedAuthenticator(authenticator Authenticator) {
-	ac.DelegatedAuthenticators = append(ac.DelegatedAuthenticators, authenticator)
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {

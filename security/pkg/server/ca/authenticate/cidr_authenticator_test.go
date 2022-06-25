@@ -16,7 +16,6 @@ package authenticate
 
 import (
 	"net"
-	"reflect"
 	"testing"
 
 	"golang.org/x/net/context"
@@ -29,38 +28,34 @@ import (
 
 func TestCidrAuthenticator(t *testing.T) {
 	cases := []struct {
-		name   string
-		cidr   string
-		caller *security.Caller
-		peer   string
+		name    string
+		cidr    string
+		peer    string
+		trusted bool
 	}{
 		{
-			name: "localhost client",
-			cidr: "",
-			peer: "127.0.0.1",
-			caller: &security.Caller{
-				AuthSource: security.AuthSourceDelegate,
-				Identities: []string{
-					"127.0.0.1",
-				},
-			},
+			name:    "localhost client",
+			cidr:    "",
+			peer:    "127.0.0.1",
+			trusted: true,
 		},
 		{
-			name: "cidr in range",
-			cidr: "172.17.0.0/16,192.17.0.0/16",
-			peer: "172.17.0.2",
-			caller: &security.Caller{
-				AuthSource: security.AuthSourceDelegate,
-				Identities: []string{
-					"172.17.0.2",
-				},
-			},
+			name:    "external client without trusted cidr",
+			cidr:    "",
+			peer:    "172.0.0.1",
+			trusted: false,
 		},
 		{
-			name:   "cidr outside range",
-			cidr:   "172.17.0.0/16,172.17.0.0/16",
-			peer:   "110.17.0.2",
-			caller: nil,
+			name:    "cidr in range",
+			cidr:    "172.17.0.0/16,192.17.0.0/16",
+			peer:    "172.17.0.2",
+			trusted: true,
+		},
+		{
+			name:    "cidr outside range",
+			cidr:    "172.17.0.0/16,172.17.0.0/16",
+			peer:    "110.17.0.2",
+			trusted: false,
 		},
 	}
 
@@ -72,11 +67,9 @@ func TestCidrAuthenticator(t *testing.T) {
 				test.SetStringForTest(t, &features.TrustedCIDRRanges, tt.cidr)
 			}
 			ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: &net.IPAddr{IP: net.ParseIP(tt.peer).To4()}})
-			result, _ := auth.Authenticate(security.NewAuthContext(ctx))
-
-			if !reflect.DeepEqual(tt.caller, result) {
+			if result := auth.CanTrustCaller(security.NewAuthContext(ctx)); result != tt.trusted {
 				t.Errorf("Unexpected authentication result: want %v but got %v",
-					tt.caller, result)
+					tt.trusted, result)
 			}
 		})
 	}
