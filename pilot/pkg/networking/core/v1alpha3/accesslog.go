@@ -73,6 +73,8 @@ const (
 	devStdout = "/dev/stdout"
 
 	celFilter = "envoy.access_loggers.extension_filters.cel"
+
+	defaultEnvoyAccessLogProvider = "envoy"
 )
 
 var (
@@ -185,7 +187,12 @@ func buildAccessLogFromTelemetry(push *model.PushContext, spec *model.LoggingCon
 		var al *accesslog.AccessLog
 		switch prov := p.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
-			al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog, push.Mesh)
+			// For default provider, fallback to Mesh Config for formatting options.
+			if p.Name == defaultEnvoyAccessLogProvider {
+				al = fileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
+			} else {
+				al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog)
+			}
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
 			al = httpGrpcAccessLogFromTelemetry(push, prov.EnvoyHttpAls)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
@@ -311,17 +318,15 @@ func tcpGrpcAccessLogFromTelemetry(push *model.PushContext, prov *meshconfig.Mes
 	}
 }
 
-func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider,
-	mesh *meshconfig.MeshConfig,
-) *accesslog.AccessLog {
+func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider) *accesslog.AccessLog {
 	p := prov.Path
 	if p == "" {
 		p = devStdout
 	}
-
 	fl := &fileaccesslog.FileAccessLog{
 		Path: p,
 	}
+
 	needsFormatter := false
 	if prov.LogFormat != nil {
 		switch logFormat := prov.LogFormat.LogFormat.(type) {
@@ -331,9 +336,7 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(logFormat)
 		}
 	} else {
-		// Provider did not specify formatter. Fallback to Mesh Config. This is useful
-		// in using the default "envoy" provider which does not have formatter specified.
-		return fileAccessLogFromMeshConfig(p, mesh)
+		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("")
 	}
 	if needsFormatter {
 		fl.GetLogFormat().Formatters = accessLogFormatters
