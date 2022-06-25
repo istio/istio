@@ -3961,6 +3961,7 @@ spec:
                             - http2Error
                           properties:
                             grpcStatus:
+                              description: GRPC status code to use to abort the request.
                               type: string
                             http2Error:
                               type: string
@@ -4710,6 +4711,7 @@ spec:
                             - http2Error
                           properties:
                             grpcStatus:
+                              description: GRPC status code to use to abort the request.
                               type: string
                             http2Error:
                               type: string

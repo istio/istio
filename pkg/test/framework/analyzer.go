@@ -16,16 +16,19 @@ package framework
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
+	"gopkg.in/yaml.v3"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -63,7 +66,7 @@ func newSuiteAnalyzer(testID string, fn mRunFn, osExit func(int)) Suite {
 	}
 }
 
-func (s *suiteAnalyzer) EnvironmentFactory(fn resource.EnvironmentFactory) Suite {
+func (s *suiteAnalyzer) EnvironmentFactory(_ resource.EnvironmentFactory) Suite {
 	if s.envFactoryCalls > 0 {
 		scopes.Framework.Warn("EnvironmentFactory overridden multiple times for Suite")
 	}
@@ -81,7 +84,7 @@ func (s *suiteAnalyzer) Skip(reason string) Suite {
 	return s
 }
 
-func (s *suiteAnalyzer) SkipIf(reason string, fn resource.ShouldSkipFn) Suite {
+func (s *suiteAnalyzer) SkipIf(reason string, _ resource.ShouldSkipFn) Suite {
 	s.skipMessage = reason
 	return s
 }
@@ -100,6 +103,7 @@ func (s *suiteAnalyzer) RequireMaxClusters(maxClusters int) Suite {
 }
 
 func (s *suiteAnalyzer) RequireSingleCluster() Suite {
+	// nolint: staticcheck
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
@@ -111,15 +115,24 @@ func (s *suiteAnalyzer) SkipExternalControlPlaneTopology() Suite {
 	return s
 }
 
+func (s *suiteAnalyzer) RequireExternalControlPlaneTopology() Suite {
+	return s
+}
+
 func (s *suiteAnalyzer) RequireMinVersion(minorVersion uint) Suite {
 	return s
 }
 
-func (s *suiteAnalyzer) RequireMaxVersion(minorVersion uint) Suite {
+func (s *suiteAnalyzer) RequireMaxVersion(uint) Suite {
 	return s
 }
 
-func (s *suiteAnalyzer) Setup(fn resource.SetupFn) Suite {
+func (s *suiteAnalyzer) Setup(resource.SetupFn) Suite {
+	// TODO track setup fns?
+	return s
+}
+
+func (s *suiteAnalyzer) SetupParallel(_ ...resource.SetupFn) Suite {
 	// TODO track setup fns?
 	return s
 }
@@ -133,8 +146,17 @@ func (s *suiteAnalyzer) run() int {
 	defer finishAnalysis()
 	scopes.Framework.Infof("=== Begin: Analysis of %s ===", analysis.SuiteID)
 
+	err := s.validate()
+	ret := s.mRun(nil)
+	if err != nil {
+		scopes.Framework.Error(err)
+		if ret == 0 {
+			ret = 1
+		}
+	}
+
 	// tests will add their results to the suiteAnalysis during mRun
-	return s.mRun(nil)
+	return ret
 }
 
 // track generates the final analysis for this suite. track should not be called if more
@@ -148,6 +170,54 @@ func (s *suiteAnalyzer) track() *suiteAnalysis {
 		MultiClusterOnly: s.minCusters > 1,
 		Tests:            map[string]*testAnalysis{},
 	}
+}
+
+var analyzerAllowlist = loadAllowlist(env.IstioSrc + "/pkg/test/framework/analyzer-allowlist.yaml")
+
+type allowlist struct {
+	Suites map[string][]string `yaml:"suites"`
+}
+
+func loadAllowlist(path string) *allowlist {
+	out := &allowlist{Suites: map[string][]string{}}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		scopes.Framework.Warnf("failed reading suite analyzer allowlist from %s: %v", path, err)
+		return out
+	}
+	if err := yaml.Unmarshal(data, out); err != nil {
+		scopes.Framework.Warnf("failed unmarshalling suite analyzer allowlist from %s: %v", path, err)
+		return out
+	}
+	return out
+}
+
+// validate must be called after initAnalysis/track
+func (s *suiteAnalyzer) validate() error {
+	var err *multierror.Error
+	for name, validator := range sutieValidators {
+		if sets.New(analyzerAllowlist.Suites[name]...).Contains(s.testID) {
+			continue
+		}
+		if vErr := validator(s); vErr != nil {
+			err = multierror.Append(err, vErr)
+		}
+	}
+	// add any other suite-level validation here
+	return err.ErrorOrNil()
+}
+
+var sutieValidators = map[string]func(s *suiteAnalyzer) error{
+	"supportMultipleClusters": func(s *suiteAnalyzer) error {
+		if s.maxClusters >= 0 && s.maxClusters < 3 {
+			return fmt.Errorf(
+				"%s supports a maximum of %d clusters; "+
+					"suites must be compatible with an arbitrary number of clusters",
+				s.testID, s.maxClusters,
+			)
+		}
+		return nil
+	},
 }
 
 func newTestAnalyzer(t *testing.T) Test {

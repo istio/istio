@@ -44,6 +44,7 @@ import (
 // TestSimpleTlsOrigination test SIMPLE TLS mode with TLS origination happening at Gateway proxy
 // It uses CredentialName set in DestinationRule API to fetch secrets from k8s API server
 func TestSimpleTlsOrigination(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Features("security.egress.tls.sds").
@@ -114,6 +115,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 // TestMutualTlsOrigination test MUTUAL TLS mode with TLS origination happening at Gateway proxy
 // It uses CredentialName set in DestinationRule API to fetch secrets from k8s API server
 func TestMutualTlsOrigination(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Features("security.egress.mtls.sds").
@@ -380,7 +382,7 @@ func MustReadCert(t test.Failer, f string) string {
 
 func newGatewayTest(t framework.TestContext) *echotest.T {
 	return echotest.New(t, apps.All).
-		WithDefaultFilters().
+		WithDefaultFilters(1, 1).
 		FromMatch(match.And(
 			match.NotNaked,
 			match.Or(

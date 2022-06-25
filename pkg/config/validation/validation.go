@@ -381,6 +381,14 @@ func ValidateHTTPHeaderValue(value string) error {
 	return nil
 }
 
+// validateWeight checks if weight is valid
+func validateWeight(weight int32) error {
+	if weight < 0 {
+		return fmt.Errorf("weight %d < 0", weight)
+	}
+	return nil
+}
+
 // ValidatePercent checks that percent is in range
 func ValidatePercent(val int32) error {
 	if val < 0 || val > 100 {
@@ -1308,7 +1316,7 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 		return Validation{}
 	}
 	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
-		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil {
+		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil && policy.Tunnel == nil {
 		return WrapError(fmt.Errorf("traffic policy must have at least one field"))
 	}
 
@@ -1316,7 +1324,29 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer),
 		validateTLS(policy.Tls),
-		validatePortTrafficPolicies(policy.PortLevelSettings))
+		validatePortTrafficPolicies(policy.PortLevelSettings),
+		validateTunnelSettings(policy.Tunnel))
+}
+
+func validateTunnelSettings(tunnel *networking.TrafficPolicy_TunnelSettings) (errs error) {
+	if tunnel == nil {
+		return
+	}
+	if tunnel.Protocol == "" {
+		errs = appendErrors(errs, fmt.Errorf("tunnel protocol must be specified"))
+	}
+	if tunnel.Protocol != "CONNECT" && tunnel.Protocol != "POST" {
+		errs = appendErrors(errs, fmt.Errorf("tunnel protocol must be \"CONNECT\" or \"POST\""))
+	}
+	fqdnErr := ValidateFQDN(tunnel.TargetHost)
+	ipErr := ValidateIPAddress(tunnel.TargetHost)
+	if fqdnErr != nil && ipErr != nil {
+		errs = appendErrors(errs, fmt.Errorf("tunnel target host must be valid FQDN or IP address: %s; %s", fqdnErr, ipErr))
+	}
+	if err := ValidatePort(int(tunnel.TargetPort)); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("tunnel target port is invalid: %s", err))
+	}
+	return
 }
 
 func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Validation) {
@@ -2742,11 +2772,11 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 		}
 
 		errs = appendErrors(errs, validateDestination(weight.Destination))
-		errs = appendErrors(errs, ValidatePercent(weight.Weight))
+		errs = appendErrors(errs, validateWeight(weight.Weight))
 		totalWeight += weight.Weight
 	}
-	if len(weights) > 1 && totalWeight != 100 {
-		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
+	if len(weights) > 1 && totalWeight == 0 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight = 0"))
 	}
 	return
 }
@@ -2762,11 +2792,11 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
 		errs = appendErrors(errs, validateDestination(weight.Destination))
-		errs = appendErrors(errs, ValidatePercent(weight.Weight))
+		errs = appendErrors(errs, validateWeight(weight.Weight))
 		totalWeight += weight.Weight
 	}
-	if len(weights) > 1 && totalWeight != 100 {
-		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
+	if len(weights) > 1 && totalWeight == 0 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight = 0"))
 	}
 	return
 }

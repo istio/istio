@@ -195,11 +195,15 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 	gatewayRoutes map[string]map[string]*config.Config, meshRoutes map[string]map[string]*config.Config,
 ) {
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
+	var splitRules []k8s.HTTPRouteRule
 	for _, r := range route.Rules {
 		if len(r.Matches) > 1 {
-			// if a rule has multiple matches, make a deep copy to avoid impacting the obj when splitting the rule
-			route = route.DeepCopy()
-			break
+			// split the rule to make sure each rule has up to one match
+			matches := r.Matches
+			for _, m := range matches {
+				r.Matches = []k8s.HTTPRouteMatch{m}
+				splitRules = append(splitRules, r)
+			}
 		}
 	}
 	ns := obj.Namespace
@@ -215,39 +219,25 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 
 	httproutes := []*istio.HTTPRoute{}
 	hosts := hostnameToStringList(route.Hostnames)
-	for i := 0; i < len(route.Rules); i++ {
-		r := route.Rules[i]
-		if len(r.Matches) > 1 {
-			// split the rule to make sure each rule has up to one match
-			for _, match := range r.Matches {
-				splitRule := r
-				splitRule.Matches = []k8s.HTTPRouteMatch{match}
-				route.Rules = append(route.Rules, splitRule)
-			}
-			continue
-		}
+	convertHTTPRoute := func(r k8s.HTTPRouteRule) *ConfigError {
 		// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 		vs := &istio.HTTPRoute{}
 		for _, match := range r.Matches {
 			uri, err := createURIMatch(match)
 			if err != nil {
-				reportError(err)
-				return
+				return err
 			}
 			headers, err := createHeadersMatch(match)
 			if err != nil {
-				reportError(err)
-				return
+				return err
 			}
 			qp, err := createQueryParamsMatch(match)
 			if err != nil {
-				reportError(err)
-				return
+				return err
 			}
 			method, err := createMethodMatch(match)
 			if err != nil {
-				reportError(err)
-				return
+				return err
 			}
 			vs.Match = append(vs.Match, &istio.HTTPMatchRequest{
 				Uri:         uri,
@@ -265,16 +255,14 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 			case k8s.HTTPRouteFilterRequestMirror:
 				mirror, err := createMirrorFilter(filter.RequestMirror, ns, domain)
 				if err != nil {
-					reportError(err)
-					return
+					return err
 				}
 				vs.Mirror = mirror
 			default:
-				reportError(&ConfigError{
+				return &ConfigError{
 					Reason:  InvalidFilter,
 					Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
-				})
-				return
+				}
 			}
 		}
 
@@ -299,12 +287,28 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 
 		route, err := buildHTTPDestination(r.BackendRefs, ns, domain, zero)
 		if err != nil {
-			reportError(err)
-			return
+			return err
 		}
 		vs.Route = route
 
 		httproutes = append(httproutes, vs)
+		return nil
+	}
+
+	for _, r := range route.Rules {
+		if len(r.Matches) > 1 {
+			continue
+		}
+		if err := convertHTTPRoute(r); err != nil {
+			reportError(err)
+			return
+		}
+	}
+	for _, r := range splitRules {
+		if err := convertHTTPRoute(r); err != nil {
+			reportError(err)
+			return
+		}
 	}
 	reportError(nil)
 
@@ -700,7 +704,9 @@ func buildTCPDestination(forwardTo []k8s.BackendRef, ns, domain string) ([]*isti
 		action = append(action, forwardTo[i])
 		weights = append(weights, wt)
 	}
-	weights = standardizeWeights(weights)
+	if len(weights) == 1 {
+		weights = []int{0}
+	}
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action {
 		dst, err := buildDestination(fwd, ns, domain)
@@ -733,14 +739,6 @@ func hostnamesToStringListWithWildcard(h []k8s.Hostname) []string {
 	return res
 }
 
-func intSum(n []int) int {
-	r := 0
-	for _, i := range n {
-		r += i
-	}
-	return r
-}
-
 func buildHTTPDestination(forwardTo []k8s.HTTPBackendRef, ns string, domain string, totalZero bool) ([]*istio.HTTPRouteDestination, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil
@@ -761,7 +759,9 @@ func buildHTTPDestination(forwardTo []k8s.HTTPBackendRef, ns string, domain stri
 		action = append(action, forwardTo[i])
 		weights = append(weights, wt)
 	}
-	weights = standardizeWeights(weights)
+	if len(weights) == 1 {
+		weights = []int{0}
+	}
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
 		dst, err := buildDestination(fwd.BackendRef, ns, domain)
@@ -840,61 +840,6 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 		Reason:  InvalidDestination,
 		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", emptyIfNil((*string)(to.Group)), emptyIfNil((*string)(to.Kind))),
 	}
-}
-
-// standardizeWeights migrates a list of weights from relative weights, to weights out of 100
-// In the event we cannot cleanly move to 100 denominator, we will round up weights in order. See test for details.
-// TODO in the future we should probably just make VirtualService support relative weights directly
-func standardizeWeights(weights []int) []int {
-	if len(weights) == 1 {
-		// Instead of setting weight=100 for a single destination, we will not set weight at all
-		return []int{0}
-	}
-	total := intSum(weights)
-	if total == 0 {
-		// All empty, fallback to even weight
-		for i := range weights {
-			weights[i] = 1
-		}
-		total = len(weights)
-	}
-	results := make([]int, 0, len(weights))
-	remainders := make([]float64, 0, len(weights))
-	for _, w := range weights {
-		perc := float64(w) / float64(total)
-		rounded := int(perc * 100)
-		remainders = append(remainders, (perc*100)-float64(rounded))
-		results = append(results, rounded)
-	}
-	remaining := 100 - intSum(results)
-	order := argsort(remainders)
-	for _, idx := range order {
-		if remaining <= 0 {
-			break
-		}
-		remaining--
-		results[idx]++
-	}
-	return results
-}
-
-type argSlice struct {
-	sort.Interface
-	idx []int
-}
-
-func (s argSlice) Swap(i, j int) {
-	s.Interface.Swap(i, j)
-	s.idx[i], s.idx[j] = s.idx[j], s.idx[i]
-}
-
-func argsort(n []float64) []int {
-	s := &argSlice{Interface: sort.Float64Slice(n), idx: make([]int, len(n))}
-	for i := range s.idx {
-		s.idx[i] = i
-	}
-	sort.Sort(sort.Reverse(s))
-	return s.idx
 }
 
 func headerListToMap(hl []k8s.HTTPHeader) map[string]string {

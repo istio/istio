@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -46,7 +48,7 @@ import (
 
 const (
 	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
+	localHostIPv6 = "::1"
 )
 
 var (
@@ -101,6 +103,8 @@ func newProxyCommand() *cobra.Command {
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
 			log.Infof("Version %s", version.Info.String())
+
+			logLimits()
 
 			proxy, err := initProxy(args)
 			if err != nil {
@@ -220,6 +224,13 @@ func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*sts
 	localHostAddr := localHostIPv4
 	if proxy.IsIPv6() {
 		localHostAddr = localHostIPv6
+	} else {
+		// if not ipv6-only, it can be ipv4-only or dual-stack
+		// let InstanceIP decide the localhost
+		netIP := net.ParseIP(options.InstanceIPVar.Get())
+		if netIP.To4() == nil && netIP.To16() != nil && !netIP.IsLinkLocalUnicast() {
+			localHostAddr = localHostIPv6
+		}
 	}
 	stsServer, err := stsserver.NewServer(stsserver.Config{
 		LocalHostAddr: localHostAddr,
@@ -293,4 +304,14 @@ func initProxy(args []string) (*model.Proxy, error) {
 	log.WithLabels("ips", proxy.IPAddresses, "type", proxy.Type, "id", proxy.ID, "domain", proxy.DNSDomain).Info("Proxy role")
 
 	return proxy, nil
+}
+
+func logLimits() {
+	out, err := exec.Command("bash", "-c", "ulimit -n").Output()
+	outStr := strings.TrimSpace(string(out))
+	if err != nil {
+		log.Warnf("failed running ulimit command: %v", outStr)
+	} else {
+		log.Infof("Maximum file descriptors (ulimit -n): %v", outStr)
+	}
 }

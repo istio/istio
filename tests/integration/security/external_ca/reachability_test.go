@@ -44,7 +44,7 @@ func TestReachability(t *testing.T) {
 			fromAndTo := from.Append(to)
 
 			echotest.New(t, fromAndTo).
-				WithDefaultFilters().
+				WithDefaultFilters(1, 1).
 				FromMatch(match.ServiceName(from.NamespacedName())).
 				ToMatch(match.ServiceName(to.NamespacedName())).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {

@@ -79,6 +79,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
@@ -206,7 +207,7 @@ func runForAllClusterCombinations(
 ) {
 	t.Helper()
 	echotest.New(t, echos.Instances).
-		WithDefaultFilters().
+		WithDefaultFilters(1, 1).
 		FromMatch(serviceA).
 		ToMatch(serviceB).
 		Run(fn)

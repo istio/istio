@@ -306,7 +306,6 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 				return reconcile.Result{}, nil
 			} else if errors.IsConflict(err) {
 				scope.Infof("Could not add finalizer to %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
-				return reconcile.Result{}, nil
 			}
 			scope.Errorf(errdict.OperatorFailedToAddFinalizer, "Failed to add finalizer to IstioOperator CR %s: %s", iopName, err)
 			return reconcile.Result{}, err

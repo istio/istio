@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35915
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).
-		Setup(registrySetup).
+		Setup(testSetup).
 		Run()
 }
 

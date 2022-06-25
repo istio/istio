@@ -156,38 +156,47 @@ func ReadPlan(a Args) (Args, error) {
 	if err != nil {
 		return a, err
 	}
-	plan := BuildPlan{}
-	input := os.Expand(string(by), func(s string) string {
-		data := map[string]string{
-			"SIDECAR": "envoy",
-		}
-		if r, f := data[s]; f {
-			return r
+	a.Plan = map[string]BuildPlan{}
+	for _, arch := range a.Architectures {
+		plan := BuildPlan{}
+
+		// We allow variables in the plan
+		input := os.Expand(string(by), func(s string) string {
+			data := archToEnvMap(arch)
+			data["SIDECAR"] = "envoy"
+			if r, f := data[s]; f {
+				return r
+			}
+
+			// Fallback to env
+			return os.Getenv(s)
+		})
+		if err := yaml.Unmarshal([]byte(input), &plan); err != nil {
+			return a, err
 		}
 
-		// Fallback to env
-		return os.Getenv(s)
-	})
-	if err := yaml.Unmarshal([]byte(input), &plan); err != nil {
-		return a, err
-	}
-	tgt := sets.New(a.Targets...)
-	known := sets.New()
-	for _, img := range plan.Images {
-		known.Insert(img.Name)
-	}
-	if unknown := tgt.Difference(known).SortedList(); len(unknown) > 0 {
-		return a, fmt.Errorf("unknown targets: %v", unknown)
-	}
-	// Filter down to requested targets
-	desiredImages := []ImagePlan{}
-	for _, i := range plan.Images {
-		if tgt.Contains(i.Name) {
-			desiredImages = append(desiredImages, i)
+		// Check targets are valid
+		tgt := sets.New(a.Targets...)
+		known := sets.New()
+		for _, img := range plan.Images {
+			known.Insert(img.Name)
 		}
+		if unknown := tgt.Difference(known).SortedList(); len(unknown) > 0 {
+			return a, fmt.Errorf("unknown targets: %v", unknown)
+		}
+
+		// Filter down to requested targets
+		// This is not arch specific, so we can just let it run for each arch.
+		desiredImages := []ImagePlan{}
+		for _, i := range plan.Images {
+			if tgt.Contains(i.Name) {
+				desiredImages = append(desiredImages, i)
+			}
+		}
+		plan.Images = desiredImages
+
+		a.Plan[arch] = plan
 	}
-	plan.Images = desiredImages
-	a.Plan = plan
 	return a, nil
 }
 
@@ -219,7 +228,7 @@ func StandardEnv(args Args) []string {
 var SkipMake = os.Getenv("SKIP_MAKE")
 
 // RunMake runs a make command for the repo, with standard environment variables set
-func RunMake(args Args, c ...string) error {
+func RunMake(args Args, arch string, c ...string) error {
 	if len(c) == 0 {
 		log.Infof("nothing to make")
 		return nil
@@ -236,13 +245,37 @@ func RunMake(args Args, c ...string) error {
 		log.Infof("Nothing to make")
 		return nil
 	}
-	log.Infof("Running make: %v", strings.Join(shortArgs, " "))
+	log.Infof("Running make for %v: %v", arch, strings.Join(shortArgs, " "))
+	env := StandardEnv(args)
+	env = append(env, archToGoFlags(arch)...)
 	cmd := exec.Command("make", c...)
-	cmd.Env = StandardEnv(args)
+	log.Infof("env: %v", archToGoFlags(arch))
+	cmd.Env = env
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Dir = testenv.IstioSrc
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func archToGoFlags(a string) []string {
+	s := []string{}
+	for k, v := range archToEnvMap(a) {
+		s = append(s, k+"="+v)
+	}
+	return s
+}
+
+func archToEnvMap(a string) map[string]string {
+	os, arch, _ := strings.Cut(a, "/")
+	return map[string]string{
+		"TARGET_OS":        os,
+		"TARGET_ARCH":      arch,
+		"TARGET_OUT":       filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("%s_%s", os, arch)),
+		"TARGET_OUT_LINUX": filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("linux_%s", arch)),
+	}
 }
 
 // RunCommand runs a command for the repo, with standard environment variables set

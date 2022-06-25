@@ -43,6 +43,7 @@ const (
 
 // TestRevisionedUpgrade tests a revision-based upgrade from the specified versions to current master
 func TestRevisionedUpgrade(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().

@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -87,6 +86,7 @@ import (
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -154,6 +154,9 @@ type ExtendedClient interface {
 
 	// EnvoyDo makes an http request to the Envoy in the specified pod.
 	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
+
+	// EnvoyDoWithPort makes an http request to the Envoy in the specified pod and port.
+	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
 
 	// AllDiscoveryDo makes an http request to each Istio discovery instance.
 	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
@@ -288,7 +291,7 @@ func NewFakeClientWithVersion(minor string, objects ...runtime.Object) ExtendedC
 	c := NewFakeClient(objects...).(*client)
 	if minor != "" && minor != "latest" {
 		c.versionOnce.Do(func() {
-			c.version = &kubeVersion.Info{Major: "1", Minor: minor}
+			c.version = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
 		})
 	}
 	return c
@@ -744,6 +747,10 @@ func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, pat
 	return c.portForwardRequest(ctx, podName, podNamespace, method, path, 15000)
 }
 
+func (c *client) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
+	return c.portForwardRequest(ctx, podName, podNamespace, method, path, port)
+}
+
 func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
 	formatError := func(err error) error {
 		return fmt.Errorf("failure running port forward process: %v", err)
@@ -800,18 +807,6 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
 	}
 	return list.Items, nil
-}
-
-// ExtractExecResult wraps PodExec and return the execution result and error if has any.
-func (c *client) extractExecResult(podName, podNamespace, container, cmd string) (string, error) {
-	stdout, stderr, err := c.PodExec(podName, podNamespace, container, cmd)
-	if err != nil {
-		if stderr != "" {
-			return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s", podNamespace, podName, container, err, stderr)
-		}
-		return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w", podNamespace, podName, container, err)
-	}
-	return stdout, nil
 }
 
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
@@ -1009,7 +1004,10 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 	}
 	// If we are changing CRDs, invalidate the discovery client so future calls will not fail
 	if !dryRun {
-		f, _ := ioutil.ReadFile(file)
+		f, err := os.ReadFile(file)
+		if err != nil {
+			log.Warnf("Failed to read %s: %v", file, err)
+		}
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
 			c.discoveryClient.Invalidate()
 		}

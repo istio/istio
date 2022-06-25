@@ -22,7 +22,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
@@ -37,6 +36,11 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+)
+
+var (
+	Separator = []byte{'~'}
+	Slash     = []byte{'/'}
 )
 
 // Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
@@ -124,30 +128,44 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
-	params := []string{
-		b.clusterName,
-		string(b.network),
-		string(b.clusterID),
-		strconv.FormatBool(b.clusterLocal),
-		util.LocalityToString(b.locality),
-		b.tunnelType.ToString(),
-	}
-	if b.push != nil && b.push.AuthnPolicies != nil {
-		params = append(params, b.push.AuthnPolicies.GetVersion())
-	}
-	if b.destinationRule != nil {
-		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)
-	}
-	if b.service != nil {
-		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
-	}
-	if b.proxyView != nil {
-		params = append(params, b.proxyView.String())
-	}
 	hash := md5.New()
-	for _, param := range params {
-		hash.Write([]byte(param))
+	hash.Write([]byte(b.clusterName))
+	hash.Write(Separator)
+	hash.Write([]byte(b.network))
+	hash.Write(Separator)
+	hash.Write([]byte(b.clusterID))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(b.clusterLocal)))
+	hash.Write(Separator)
+	hash.Write([]byte(util.LocalityToString(b.locality)))
+	hash.Write(Separator)
+	hash.Write([]byte(b.tunnelType.ToString()))
+	hash.Write(Separator)
+
+	if b.push != nil && b.push.AuthnPolicies != nil {
+		hash.Write([]byte(b.push.AuthnPolicies.GetVersion()))
 	}
+	hash.Write(Separator)
+
+	if b.destinationRule != nil {
+		hash.Write([]byte(b.destinationRule.Name))
+		hash.Write(Slash)
+		hash.Write([]byte(b.destinationRule.Namespace))
+	}
+	hash.Write(Separator)
+
+	if b.service != nil {
+		hash.Write([]byte(b.service.Hostname))
+		hash.Write(Slash)
+		hash.Write([]byte(b.service.Attributes.Namespace))
+	}
+	hash.Write(Separator)
+
+	if b.proxyView != nil {
+		hash.Write([]byte(b.proxyView.String()))
+	}
+	hash.Write(Separator)
+
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
 }
@@ -176,62 +194,15 @@ func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
 	return edsDependentTypes
 }
 
-// TODO(lambdai): Receive port value(15009 by default), builder to cover wide cases.
-type EndpointTunnelApplier interface {
-	// Mutate LbEndpoint in place. Return non-nil on failure.
-	ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) (*endpoint.LbEndpoint, error)
-}
-
-type EndpointNoTunnelApplier struct{}
-
-// Note that this will not return error if another tunnel typs requested.
-func (t *EndpointNoTunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, _ networking.TunnelType) (*endpoint.LbEndpoint, error) {
-	return lep, nil
-}
-
-type EndpointH2TunnelApplier struct{}
-
-// TODO(lambdai): Set original port if the default cluster original port is not the same.
-func (t *EndpointH2TunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) (*endpoint.LbEndpoint, error) {
-	switch tunnelType {
-	case networking.H2Tunnel:
-		if ep := lep.GetEndpoint(); ep != nil {
-			if ep.Address.GetSocketAddress().GetPortValue() != 0 {
-				newEp := proto.Clone(lep).(*endpoint.LbEndpoint)
-				newEp.GetEndpoint().Address.GetSocketAddress().PortSpecifier = &core.SocketAddress_PortValue{
-					PortValue: 15009,
-				}
-				return newEp, nil
-			}
-		}
-		return lep, nil
-	case networking.NoTunnel:
-		return lep, nil
-	default:
-		panic("supported tunnel type")
-	}
-}
-
 type LocLbEndpointsAndOptions struct {
 	istioEndpoints []*model.IstioEndpoint
 	// The protobuf message which contains LbEndpoint slice.
 	llbEndpoints endpoint.LocalityLbEndpoints
-	// The runtime information of the LbEndpoint slice. Each LbEndpoint has individual metadata at the same index.
-	tunnelMetadata []EndpointTunnelApplier
 }
 
-// Return prefer H2 tunnel metadata.
-func MakeTunnelApplier(_ *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) EndpointTunnelApplier {
-	if tunnelOpt.SupportH2Tunnel() {
-		return &EndpointH2TunnelApplier{}
-	}
-	return &EndpointNoTunnelApplier{}
-}
-
-func (e *LocLbEndpointsAndOptions) append(ep *model.IstioEndpoint, le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) {
+func (e *LocLbEndpointsAndOptions) append(ep *model.IstioEndpoint, le *endpoint.LbEndpoint) {
 	e.istioEndpoints = append(e.istioEndpoints, ep)
 	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
-	e.tunnelMetadata = append(e.tunnelMetadata, MakeTunnelApplier(le, tunnelOpt))
 }
 
 func (e *LocLbEndpointsAndOptions) refreshWeight() {
@@ -248,7 +219,7 @@ func (e *LocLbEndpointsAndOptions) refreshWeight() {
 }
 
 func (e *LocLbEndpointsAndOptions) AssertInvarianceInTest() {
-	if len(e.llbEndpoints.LbEndpoints) != len(e.tunnelMetadata) {
+	if len(e.llbEndpoints.LbEndpoints) != len(e.istioEndpoints) {
 		panic(" len(e.llbEndpoints.LbEndpoints) != len(e.tunnelMetadata)")
 	}
 }
@@ -297,7 +268,6 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 						Locality:    util.ConvertLocality(ep.Locality.Label),
 						LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
 					},
-					tunnelMetadata: make([]EndpointTunnelApplier, 0, len(endpoints)),
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
@@ -318,7 +288,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 					}
 				}
 			}
-			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
+			locLbEps.append(ep, ep.EnvoyEndpoint)
 		}
 	}
 	shards.Unlock()
@@ -348,21 +318,6 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	}
 
 	return locEps
-}
-
-// TODO(lambdai): Handle ApplyTunnel error return value by filter out the failed endpoint.
-func (b *EndpointBuilder) ApplyTunnelSetting(llbOpts []*LocLbEndpointsAndOptions, tunnelType networking.TunnelType) []*LocLbEndpointsAndOptions {
-	for _, llb := range llbOpts {
-		for i, ep := range llb.llbEndpoints.LbEndpoints {
-			newEp, err := llb.tunnelMetadata[i].ApplyTunnel(ep, tunnelType)
-			if err != nil {
-				panic("not implemented yet on failing to apply tunnel")
-			} else {
-				llb.llbEndpoints.LbEndpoints[i] = newEp
-			}
-		}
-	}
-	return llbOpts
 }
 
 // Create the CLusterLoadAssignment. At this moment the options must have been applied to the locality lb endpoints.

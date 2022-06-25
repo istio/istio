@@ -44,10 +44,6 @@ func TestJWTHTTPS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
-			if t.Clusters().IsMulticluster() {
-				t.Skip("https://github.com/istio/istio/issues/37307")
-			}
-
 			ns := apps.Namespace1
 			istioSystemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
