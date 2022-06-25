@@ -15,12 +15,14 @@
 package authenticate
 
 import (
+	"net"
 	"reflect"
 	"testing"
 
 	"github.com/alecholmes/xfccparser"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 
 	"istio.io/istio/pkg/security"
 )
@@ -58,7 +60,8 @@ func TestXfccAuthenticator(t *testing.T) {
 			if len(tt.xfccHeader) > 0 {
 				md.Append(xfccparser.ForwardedClientCertHeader, tt.xfccHeader)
 			}
-			ctx := metadata.NewIncomingContext(context.Background(), md)
+			ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: &net.IPAddr{IP: net.ParseIP("127.0.0.1").To4()}})
+			ctx = metadata.NewIncomingContext(ctx, md)
 			result, err := auth.Authenticate(security.NewAuthContext(ctx))
 			if len(tt.authenticateErrMsg) > 0 {
 				if err == nil {
