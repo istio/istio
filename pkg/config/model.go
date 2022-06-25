@@ -171,6 +171,14 @@ func ToMap(s Spec) (map[string]interface{}, error) {
 }
 
 func ToJSON(s Spec) ([]byte, error) {
+	return toJSON(s, false)
+}
+
+func ToPrettyJSON(s Spec) ([]byte, error) {
+	return toJSON(s, true)
+}
+
+func toJSON(s Spec, pretty bool) ([]byte, error) {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
@@ -187,7 +195,9 @@ func ToJSON(s Spec) ([]byte, error) {
 		err := (&gogojsonpb.Marshaler{}).Marshal(b, pb)
 		return b.Bytes(), err
 	}
-
+	if pretty {
+		return json.MarshalIndent(s, "", "\t")
+	}
 	return json.Marshal(s)
 }
 
