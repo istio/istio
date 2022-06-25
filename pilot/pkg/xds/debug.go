@@ -80,6 +80,9 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 </style>
 <body>
 <br/>
+<p style = "font-family:Arial,Helvetica,sans-serif;">
+Note: Use <b>pretty</b> in query string (like <b>debug/configz?pretty</b>) to format the output.
+</p>
 <table id="endpoints">
 <tr><th>Endpoint</th><th>Description</th></tr>
 {{range .}}
@@ -268,7 +271,7 @@ func isRequestFromLocalhost(r *http.Request) bool {
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
-func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
+func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := make([]SyncStatus, 0)
 	for _, con := range s.Clients() {
 		node := con.proxy
@@ -290,14 +293,14 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 			})
 		}
 	}
-	writeJSON(w, syncz)
+	writeJSON(w, syncz, req)
 }
 
 // registryz providees debug support for registry - adding and listing model items.
 // Can be combined with the push debug interface to reproduce changes.
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	all := s.Env.ServiceDiscovery.Services()
-	writeJSON(w, all)
+	writeJSON(w, all, req)
 }
 
 // Dumps info about the endpoint shards, tracked using the new direct interface.
@@ -334,7 +337,7 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 			totalSize += sz
 		}
 		res["total"] = util.ByteCount(totalSize)
-		writeJSON(w, res)
+		writeJSON(w, res, req)
 		return
 	}
 	snapshot := s.Cache.Snapshot()
@@ -346,7 +349,7 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 		resourceType := resource.Resource.TypeUrl
 		resources[resourceType] = append(resources[resourceType], resource.Name+"/"+key)
 	}
-	writeJSON(w, resources)
+	writeJSON(w, resources, req)
 }
 
 type endpointzResponse struct {
@@ -382,7 +385,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 			})
 		}
 	}
-	writeJSON(w, resp)
+	writeJSON(w, resp, req)
 }
 
 func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
@@ -415,7 +418,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 			con.proxy.RUnlock()
 		}
 
-		writeJSON(w, results)
+		writeJSON(w, results, req)
 	} else {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required\n")
@@ -471,7 +474,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 		}
 		return false
 	})
-	writeJSON(w, configs)
+	writeJSON(w, configs, req)
 }
 
 // SidecarScope debugging
@@ -481,18 +484,18 @@ func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
 		s.errorHandler(w, proxyID, con)
 		return
 	}
-	writeJSON(w, con.proxy.SidecarScope)
+	writeJSON(w, con.proxy.SidecarScope, req)
 }
 
 // Resource debugging.
-func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
+func (s *DiscoveryServer) resourcez(w http.ResponseWriter, req *http.Request) {
 	schemas := make([]config.GroupVersionKind, 0)
 	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
 		schemas = append(schemas, schema.Resource().GroupVersionKind())
 		return false
 	})
 
-	writeJSON(w, schemas)
+	writeJSON(w, schemas, req)
 }
 
 // AuthorizationDebug holds debug information for authorization policy.
@@ -505,7 +508,7 @@ func (s *DiscoveryServer) authorizationz(w http.ResponseWriter, req *http.Reques
 	info := AuthorizationDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
 	}
-	writeJSON(w, info)
+	writeJSON(w, info, req)
 }
 
 // AuthorizationDebug holds debug information for authorization policy.
@@ -517,7 +520,7 @@ func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
 	info := TelemetryDebug{
 		Telemetries: s.globalPushContext().Telemetry,
 	}
-	writeJSON(w, info)
+	writeJSON(w, info, req)
 }
 
 // connectionsHandler implements interface for displaying current connections.
@@ -535,7 +538,7 @@ func (s *DiscoveryServer) connectionsHandler(w http.ResponseWriter, req *http.Re
 		}
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
-	writeJSON(w, adsClients)
+	writeJSON(w, adsClients, req)
 }
 
 // adsz implements a status and debug interface for ADS.
@@ -583,7 +586,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	sort.Slice(adsClients.Connected, func(i, j int) bool {
 		return adsClients.Connected[i].ConnectionID < adsClients.Connected[j].ConnectionID
 	})
-	writeJSON(w, adsClients)
+	writeJSON(w, adsClients, req)
 }
 
 // ecdsz implements a status and debug interface for ECDS.
@@ -625,7 +628,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		writeJSON(w, wasmCfgs)
+		writeJSON(w, wasmCfgs, req)
 	}
 }
 
@@ -669,7 +672,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		handleHTTPError(w, err)
 		return
 	}
-	writeJSON(w, dump)
+	writeJSON(w, dump, req)
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -841,13 +844,13 @@ func (s *DiscoveryServer) injectTemplateHandler(webhook func() map[string]string
 			return
 		}
 
-		writeJSON(w, webhook())
+		writeJSON(w, webhook(), req)
 	}
 }
 
 // meshHandler dumps the mesh config
-func (s *DiscoveryServer) meshHandler(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, s.Env.Mesh())
+func (s *DiscoveryServer) meshHandler(w http.ResponseWriter, req *http.Request) {
+	writeJSON(w, s.Env.Mesh(), req)
 }
 
 // pushStatusHandler dumps the last PushContext
@@ -874,13 +877,13 @@ type PushContextDebug struct {
 }
 
 // pushContextHandler dumps the current PushContext
-func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, _ *http.Request) {
+func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Request) {
 	push := PushContextDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
 		NetworkGateways:       s.globalPushContext().NetworkManager().GatewaysByNetwork(),
 	}
 
-	writeJSON(w, push)
+	writeJSON(w, push, req)
 }
 
 // Debug lists all the supported debug endpoints.
@@ -891,7 +894,6 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 		Help string
 	}
 	var deps []debugEndpoint
-
 	for k, v := range s.debugHandlers {
 		deps = append(deps, debugEndpoint{
 			Name: k,
@@ -926,7 +928,7 @@ func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
 		cmdNames = append(cmdNames, key)
 	}
 	sort.Strings(cmdNames)
-	writeJSON(w, cmdNames)
+	writeJSON(w, cmdNames, req)
 }
 
 // ndsz implements a status and debug interface for NDS.
@@ -953,7 +955,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 		if len(nds) == 0 {
 			return
 		}
-		writeJSON(w, nds[0])
+		writeJSON(w, nds[0], req)
 	}
 }
 
@@ -975,7 +977,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 	for _, clusterName := range clusters {
 		eps = append(eps, jsonMarshalProto{s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, con.proxy.LastPushContext))})
 	}
-	writeJSON(w, eps)
+	writeJSON(w, eps, req)
 }
 
 func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Request) {
@@ -1030,16 +1032,16 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 		}
 		con.proxy.RUnlock()
 	}
-	writeJSON(w, instances)
+	writeJSON(w, instances, req)
 }
 
-func (s *DiscoveryServer) networkz(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, s.Env.NetworkManager.AllGateways())
+func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
+	writeJSON(w, s.Env.NetworkManager.AllGateways(), req)
 }
 
-func (s *DiscoveryServer) mcsz(w http.ResponseWriter, _ *http.Request) {
+func (s *DiscoveryServer) mcsz(w http.ResponseWriter, req *http.Request) {
 	svcs := sortMCSServices(s.Env.MCSServices())
-	writeJSON(w, svcs)
+	writeJSON(w, svcs, req)
 }
 
 func sortMCSServices(svcs []model.MCSServiceInfo) []model.MCSServiceInfo {
@@ -1055,12 +1057,12 @@ func sortMCSServices(svcs []model.MCSServiceInfo) []model.MCSServiceInfo {
 	return svcs
 }
 
-func (s *DiscoveryServer) clusterz(w http.ResponseWriter, _ *http.Request) {
+func (s *DiscoveryServer) clusterz(w http.ResponseWriter, req *http.Request) {
 	if s.ListRemoteClusters == nil {
 		w.WriteHeader(400)
 		return
 	}
-	writeJSON(w, s.ListRemoteClusters())
+	writeJSON(w, s.ListRemoteClusters(), req)
 }
 
 // handlePushRequest handles a ?push=true query param and triggers a push.
@@ -1112,9 +1114,15 @@ func (p jsonMarshalProto) MarshalJSON() ([]byte, error) {
 }
 
 // writeJSON writes a json payload, handling content type, marshaling, and errors
-func writeJSON(w http.ResponseWriter, obj interface{}) {
+func writeJSON(w http.ResponseWriter, obj interface{}, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	b, err := config.ToJSON(obj)
+	var b []byte
+	var err error
+	if req.URL.Query().Has("pretty") {
+		b, err = config.ToPrettyJSON(obj)
+	} else {
+		b, err = config.ToJSON(obj)
+	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(err.Error()))
