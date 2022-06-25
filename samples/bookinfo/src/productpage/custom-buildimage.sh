@@ -1,0 +1,2 @@
+docker build --pull -t "mdennisalcumus/examples-bookinfo-productpage-v1:1.15.2" -t "mdennisalcumus/examples-bookinfo-productpage-v1:latest" .
+docker push mdennisalcumus/examples-bookinfo-productpage-v1:1.15.2

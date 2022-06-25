@@ -57,27 +57,33 @@ app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 Bootstrap(app)
 
 servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") is None) else "." + os.environ.get("SERVICES_DOMAIN")
+servicesPort = "9080" if (os.environ.get("SERVICES_PORT") is None) else os.environ.get("SERVICES_PORT")
+
 detailsHostname = "details" if (os.environ.get("DETAILS_HOSTNAME") is None) else os.environ.get("DETAILS_HOSTNAME")
+detailsEndpoint = "details" if (os.environ.get("DETAILS_ENDPOINT") is None) else os.environ.get("DETAILS_ENDPOINT")
 ratingsHostname = "ratings" if (os.environ.get("RATINGS_HOSTNAME") is None) else os.environ.get("RATINGS_HOSTNAME")
+ratingsEndpoint = "ratings" if (os.environ.get("RATINGS_ENDPOINT") is None) else os.environ.get("RATINGS_ENDPOINT")
 reviewsHostname = "reviews" if (os.environ.get("REVIEWS_HOSTNAME") is None) else os.environ.get("REVIEWS_HOSTNAME")
+reviewsEndpoint = "reviews" if (os.environ.get("REVIEWS_ENDPOINT") is None) else os.environ.get("REVIEWS_ENDPOINT")
+
 
 flood_factor = 0 if (os.environ.get("FLOOD_FACTOR") is None) else int(os.environ.get("FLOOD_FACTOR"))
 
 details = {
-    "name": "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
-    "endpoint": "details",
+    "name": "http://{0}{1}:{2}".format(detailsHostname, servicesDomain, servicesPort),
+    "endpoint": detailsEndpoint,
     "children": []
 }
 
 ratings = {
-    "name": "http://{0}{1}:9080".format(ratingsHostname, servicesDomain),
-    "endpoint": "ratings",
+    "name": "http://{0}{1}:{2}".format(ratingsHostname, servicesDomain, servicesPort),
+    "endpoint": ratingsEndpoint,
     "children": []
 }
 
 reviews = {
-    "name": "http://{0}{1}:9080".format(reviewsHostname, servicesDomain),
-    "endpoint": "reviews",
+    "name": "http://{0}{1}:{2}".format(reviewsHostname, servicesDomain, servicesPort),
+    "endpoint": reviewsEndpoint,
     "children": [ratings]
 }
 
@@ -373,6 +379,7 @@ def getProduct(product_id):
 def getProductDetails(product_id, headers):
     try:
         url = details['name'] + "/" + details['endpoint'] + "/" + str(product_id)
+        logging.info("url: %s " % (url))        
         res = requests.get(url, headers=headers, timeout=3.0)
     except BaseException:
         res = None
@@ -389,6 +396,7 @@ def getProductReviews(product_id, headers):
     for _ in range(2):
         try:
             url = reviews['name'] + "/" + reviews['endpoint'] + "/" + str(product_id)
+            logging.info("url: %s " % (url))
             res = requests.get(url, headers=headers, timeout=3.0)
         except BaseException:
             res = None
@@ -401,6 +409,7 @@ def getProductReviews(product_id, headers):
 def getProductRatings(product_id, headers):
     try:
         url = ratings['name'] + "/" + ratings['endpoint'] + "/" + str(product_id)
+        logging.info("url: %s " % (url))
         res = requests.get(url, headers=headers, timeout=3.0)
     except BaseException:
         res = None
