@@ -164,7 +164,12 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, proxy *model.Proxy,
 	cp clusterPatcher, services []*model.Service, updated map[model.ConfigKey]struct{}, deleted sets.Set, delta bool,
 ) ([]*discovery.Resource, cacheStats) {
-	oldCacheKeys := proxy.WatchedResources[v3.ClusterType].CacheKeys
+	var oldCacheKeys map[string]model.XdsCacheEntry
+	if proxy.WatchedResources[v3.ClusterType] == nil {
+		oldCacheKeys = make(map[string]model.XdsCacheEntry)
+	} else {
+		oldCacheKeys = proxy.WatchedResources[v3.ClusterType].CacheKeys
+	}
 	resources := make([]*discovery.Resource, 0)
 	efKeys := cp.efw.Keys()
 	hit, miss := 0, 0
@@ -180,10 +185,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			deleted.Delete(clusterKey.clusterName)
 			// we can only skip generation of the clusters associated with this service iff none of the updated
 			// resources depend on that cluster
-			canSkip := skipForDelta(clusterKey, updated) && skipForDelta(oldCacheKeys[clusterKey.clusterName], updated)
+			canSkip := skipForDelta(clusterKey, updated, configgen.Cache) && skipForDelta(oldCacheKeys[clusterKey.clusterName], updated, configgen.Cache)
 			// the same applies for all subsets
 			for _, ss := range subsetKeys {
-				skipSubset := skipForDelta(&ss, updated) && skipForDelta(oldCacheKeys[ss.clusterName], updated)
+				skipSubset := skipForDelta(&ss, updated, configgen.Cache) && skipForDelta(oldCacheKeys[ss.clusterName], updated, configgen.Cache)
 				deleted.Delete(ss.clusterName)
 				// We can only skip if we skip ALL subsets. This could probably be optimized in the future
 				canSkip = canSkip && skipSubset
@@ -247,7 +252,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 // skipForDelta returns whether resource generation can be skipped for a given cache key,
 // we determine this based on the updated configs.
-func skipForDelta(key model.XdsCacheEntry, updated map[model.ConfigKey]struct{}) bool {
+func skipForDelta(key model.XdsCacheEntry, updated map[model.ConfigKey]struct{}, cache model.XdsCache) bool {
 	if len(updated) == 0 {
 		return false
 	}
@@ -268,7 +273,8 @@ func skipForDelta(key model.XdsCacheEntry, updated map[model.ConfigKey]struct{})
 			}
 		}
 	}
-	return true
+	_, validKey := cache.Get(key)
+	return validKey
 }
 
 type clusterPatcher struct {
