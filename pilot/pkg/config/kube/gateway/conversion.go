@@ -704,7 +704,9 @@ func buildTCPDestination(forwardTo []k8s.BackendRef, ns, domain string) ([]*isti
 		action = append(action, forwardTo[i])
 		weights = append(weights, wt)
 	}
-	weights = standardizeWeights(weights)
+	if len(weights) == 1 {
+		weights = []int{0}
+	}
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action {
 		dst, err := buildDestination(fwd, ns, domain)
@@ -737,14 +739,6 @@ func hostnamesToStringListWithWildcard(h []k8s.Hostname) []string {
 	return res
 }
 
-func intSum(n []int) int {
-	r := 0
-	for _, i := range n {
-		r += i
-	}
-	return r
-}
-
 func buildHTTPDestination(forwardTo []k8s.HTTPBackendRef, ns string, domain string, totalZero bool) ([]*istio.HTTPRouteDestination, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil
@@ -765,7 +759,9 @@ func buildHTTPDestination(forwardTo []k8s.HTTPBackendRef, ns string, domain stri
 		action = append(action, forwardTo[i])
 		weights = append(weights, wt)
 	}
-	weights = standardizeWeights(weights)
+	if len(weights) == 1 {
+		weights = []int{0}
+	}
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
 		dst, err := buildDestination(fwd.BackendRef, ns, domain)
@@ -844,61 +840,6 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 		Reason:  InvalidDestination,
 		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", emptyIfNil((*string)(to.Group)), emptyIfNil((*string)(to.Kind))),
 	}
-}
-
-// standardizeWeights migrates a list of weights from relative weights, to weights out of 100
-// In the event we cannot cleanly move to 100 denominator, we will round up weights in order. See test for details.
-// TODO in the future we should probably just make VirtualService support relative weights directly
-func standardizeWeights(weights []int) []int {
-	if len(weights) == 1 {
-		// Instead of setting weight=100 for a single destination, we will not set weight at all
-		return []int{0}
-	}
-	total := intSum(weights)
-	if total == 0 {
-		// All empty, fallback to even weight
-		for i := range weights {
-			weights[i] = 1
-		}
-		total = len(weights)
-	}
-	results := make([]int, 0, len(weights))
-	remainders := make([]float64, 0, len(weights))
-	for _, w := range weights {
-		perc := float64(w) / float64(total)
-		rounded := int(perc * 100)
-		remainders = append(remainders, (perc*100)-float64(rounded))
-		results = append(results, rounded)
-	}
-	remaining := 100 - intSum(results)
-	order := argsort(remainders)
-	for _, idx := range order {
-		if remaining <= 0 {
-			break
-		}
-		remaining--
-		results[idx]++
-	}
-	return results
-}
-
-type argSlice struct {
-	sort.Interface
-	idx []int
-}
-
-func (s argSlice) Swap(i, j int) {
-	s.Interface.Swap(i, j)
-	s.idx[i], s.idx[j] = s.idx[j], s.idx[i]
-}
-
-func argsort(n []float64) []int {
-	s := &argSlice{Interface: sort.Float64Slice(n), idx: make([]int, len(n))}
-	for i := range s.idx {
-		s.idx[i] = i
-	}
-	sort.Sort(sort.Reverse(s))
-	return s.idx
 }
 
 func headerListToMap(hl []k8s.HTTPHeader) map[string]string {
