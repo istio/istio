@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -319,7 +320,7 @@ func TestProxyQueue(t *testing.T) {
 			}
 		}()
 
-		processed := make([]config.Kind, 0, 100)
+		processed := make([]string, 0, 100)
 		done := make(chan struct{})
 		pushChannel := make(chan *model.PushRequest)
 		go func() {
@@ -341,13 +342,13 @@ func TestProxyQueue(t *testing.T) {
 				if request == nil {
 					return
 				}
-				updated := make([]config.Kind, 0, len(request.ConfigsUpdated))
+				updated := make([]string, 0, len(request.ConfigsUpdated))
 				for configkey := range request.ConfigsUpdated {
-					updated = append(updated, configkey.Kind)
+					updated = append(updated, fmt.Sprintf("%d", configkey.Kind))
 				}
 				sort.Slice(updated, func(i, j int) bool {
-					l := int(updated[i])
-					r := int(updated[j])
+					l, _ := strconv.Atoi(updated[i])
+					r, _ := strconv.Atoi(updated[j])
 					return l < r
 				})
 				processed = append(processed, updated...)
