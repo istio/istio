@@ -352,12 +352,18 @@ type Caller struct {
 	Identities []string
 }
 
+// AuthResult is the result of authentication action.
+type AuthResult struct {
+	Identities []string
+	Messages   []string
+}
+
 // AuthContext carries the contextual information and is passed across authenticators.
 type AuthContext struct {
 	// RequestContext is the context from request.
 	RequestContext context.Context
 	// Authenticators is the list of authenticators that were executed before in the auth chain.
-	Authenticators []string
+	Authenticators map[string]AuthResult
 	// Caller indicates the caller that made authentication request.
 	Caller *Caller
 }
@@ -369,23 +375,16 @@ type Authenticator interface {
 	AuthenticateRequest(req *http.Request) (*Caller, error)
 }
 
-// DelegatedAuthenticator determines whether the main authenticator can trust the
-// client and proceed with authentication. This is used in cases where the client
-// authentication can not be directly determined from the request(no TLS certs, JWT etc)
-// but request has additional information to authenticate.
-// For example XfccAuthenticators should validate whether client is from trusted Cidr range
-// before it can trust the Xfcc Header.
-type DelegatedAuthenticator interface {
-	// CanTrustCaller indicates whether caller is a trusted caller.
-	CanTrustCaller(ctx *AuthContext) bool
-}
-
 func NewAuthContext(ctx context.Context) *AuthContext {
-	return &AuthContext{RequestContext: ctx}
+	return &AuthContext{RequestContext: ctx, Authenticators: make(map[string]AuthResult)}
 }
 
-func (ac *AuthContext) AddAuthenticator(authenticator string) {
-	ac.Authenticators = append(ac.Authenticators, authenticator)
+func (ac *AuthContext) FailedMessages() string {
+	authFailMsgs := []string{}
+	for key, ar := range ac.Authenticators {
+		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", key, strings.Join(ar.Messages, "; ")))
+	}
+	return strings.Join(authFailMsgs, "; ")
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {

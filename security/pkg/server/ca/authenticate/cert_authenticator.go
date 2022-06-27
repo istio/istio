@@ -43,23 +43,32 @@ func (cca *ClientCertAuthenticator) AuthenticatorType() string {
 // this method is called. In other words, this method does not do certificate
 // chain validation itself.
 func (cca *ClientCertAuthenticator) Authenticate(ctx *security.AuthContext) (*security.Caller, error) {
+	authResult := security.AuthResult{}
+	ctx.Authenticators[cca.AuthenticatorType()] = authResult
 	peer, ok := peer.FromContext(ctx.RequestContext)
 	if !ok || peer.AuthInfo == nil {
-		return nil, fmt.Errorf("no client certificate is presented")
+		message := "no client certificate is presented"
+		authResult.Messages = append(authResult.Messages, message)
+		return nil, fmt.Errorf(message)
 	}
 
 	if authType := peer.AuthInfo.AuthType(); authType != "tls" {
-		return nil, fmt.Errorf("unsupported auth type: %q", authType)
+		message := fmt.Sprintf("unsupported auth type: %q", authType)
+		authResult.Messages = append(authResult.Messages, message)
+		return nil, fmt.Errorf(message)
 	}
 
 	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
 	chains := tlsInfo.State.VerifiedChains
 	if len(chains) == 0 || len(chains[0]) == 0 {
-		return nil, fmt.Errorf("no verified chain is found")
+		message := "no verified chain is found"
+		authResult.Messages = append(authResult.Messages, message)
+		return nil, fmt.Errorf(message)
 	}
 
 	ids, err := util.ExtractIDs(chains[0][0].Extensions)
 	if err != nil {
+		authResult.Messages = append(authResult.Messages, err.Error())
 		return nil, err
 	}
 

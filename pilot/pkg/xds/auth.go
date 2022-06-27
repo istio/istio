@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -57,20 +56,20 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok && !AuthPlaintext {
 		return nil, nil
 	}
-	authFailMsgs := []string{}
+
 	authContext := security.NewAuthContext(ctx)
 
 	for _, authn := range s.Authenticators {
-		authContext.AddAuthenticator(authn.AuthenticatorType())
+		// TODO: Refactor to remove the return value of Authencicate. Just rely on AuthContext.
 		u, err := authn.Authenticate(authContext)
 		// If one authenticator passes, return
 		if u != nil && u.Identities != nil && err == nil {
 			authContext.Caller = u
 			return u.Identities, nil
 		}
-		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
 	}
-	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), strings.Join(authFailMsgs, "; "))
+
+	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), authContext.FailedMessages())
 	return nil, errors.New("authentication failure")
 }
 

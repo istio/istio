@@ -24,8 +24,56 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test"
 )
+
+func TestIsTrustedAddress(t *testing.T) {
+	cases := []struct {
+		name    string
+		cidr    string
+		peer    string
+		trusted bool
+	}{
+		{
+			name:    "localhost client",
+			cidr:    "",
+			peer:    "127.0.0.1",
+			trusted: true,
+		},
+		{
+			name:    "external client without trusted cidr",
+			cidr:    "",
+			peer:    "172.0.0.1",
+			trusted: false,
+		},
+		{
+			name:    "cidr in range",
+			cidr:    "172.17.0.0/16,192.17.0.0/16",
+			peer:    "172.17.0.2",
+			trusted: true,
+		},
+		{
+			name:    "cidr outside range",
+			cidr:    "172.17.0.0/16,172.17.0.0/16",
+			peer:    "110.17.0.2",
+			trusted: false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if len(tt.cidr) > 0 {
+				test.SetStringForTest(t, &features.TrustedGatewayCIDR, tt.cidr)
+			}
+			if result := isTrustedAddress(tt.peer); result != tt.trusted {
+				t.Errorf("Unexpected authentication result: want %v but got %v",
+					tt.trusted, result)
+			}
+		})
+	}
+}
 
 func TestXfccAuthenticator(t *testing.T) {
 	cases := []struct {
@@ -42,7 +90,7 @@ func TestXfccAuthenticator(t *testing.T) {
 		{
 			name: "Xfcc Header",
 			// nolint lll
-			xfccHeader: `Hash=hash;Subject="CN=hello,OU=hello,O=Acme\, Inc.";URI=;DNS=hello.west.example.com;DNS=hello.east.example.com,By=spiffe://mesh.example.com/ns/hellons/sa/hellosa;Hash=again;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
+			xfccHeader: `Hash=meshclient;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
 			caller: &security.Caller{
 				AuthSource: security.AuthSourceClientCertificate,
 				Identities: []string{
