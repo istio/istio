@@ -19,7 +19,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -208,7 +207,7 @@ func Build(b BuildSpec) error {
 		sz := ByteCount(int64(buf.Len()))
 
 		l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
-			return ioutil.NopCloser(bytes.NewReader(buf.Bytes())), nil
+			return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
 		}, tarball.WithCompressionLevel(compression))
 		if err != nil {
 			return err
