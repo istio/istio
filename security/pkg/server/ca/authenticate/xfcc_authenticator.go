@@ -83,11 +83,6 @@ func buildSecurityCaller(xfccHeader string, authResult *security.AuthResult) (*s
 		authResult.Messages = append(authResult.Messages, message)
 		return nil, fmt.Errorf(message)
 	}
-	if len(clientCerts) > 1 {
-		message := " Oxfcc header has more then one  client certs"
-		authResult.Messages = append(authResult.Messages, message)
-		return nil, fmt.Errorf(message)
-	}
 	ids := []string{}
 	for _, cc := range clientCerts {
 		ids = append(ids, cc.URI)
