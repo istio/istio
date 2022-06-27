@@ -259,7 +259,7 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 		}
 	}
 
-	if t.requireSingleNetwork && t.s.Environment().IsMultinetwork() {
+	if t.requireSingleNetwork && t.s.Environment().IsMultiNetwork() {
 		t.goTest.Skipf(fmt.Sprintf("Skipping %q: only single network allowed",
 			t.goTest.Name()))
 		return

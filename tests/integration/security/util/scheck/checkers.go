@@ -24,7 +24,7 @@ import (
 
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 )
@@ -39,10 +39,10 @@ func NotOK() echo.Checker {
 	}))
 }
 
-func ReachedClusters(allClusters cluster.Clusters, opts *echo.CallOptions) echo.Checker {
+func ReachedClusters(t framework.TestContext, opts *echo.CallOptions) echo.Checker {
 	// TODO(https://github.com/istio/istio/issues/37307): Investigate why we don't reach all clusters.
 	if opts.To.Clusters().IsMulticluster() && opts.Count > 1 && opts.Scheme != scheme.GRPC && !opts.To.Config().IsHeadless() {
-		return check.ReachedTargetClusters(allClusters)
+		return check.ReachedTargetClusters(t)
 	}
 	return echo.NoChecker()
 }

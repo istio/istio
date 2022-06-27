@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/common/jwt"
@@ -70,17 +69,17 @@ func TestJWTHTTPS(t *testing.T) {
 			cases := []struct {
 				name          string
 				policyFile    string
-				customizeCall func(t resource.Context, from echo.Instance, opts *echo.CallOptions)
+				customizeCall func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions)
 			}{
 				{
 					name:       "valid-token-forward-remote-jwks",
 					policyFile: "./testdata/remotehttps.yaml.tmpl",
-					customizeCall: func(t resource.Context, from echo.Instance, opts *echo.CallOptions) {
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
 						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t.AllClusters(), opts),
+							scheck.ReachedClusters(t, opts),
 							check.RequestHeaders(map[string]string{
 								headers.Authorization: "Bearer " + jwt.TokenIssuer1,
 								"X-Test-Payload":      payload1,

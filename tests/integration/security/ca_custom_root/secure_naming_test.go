@@ -132,7 +132,7 @@ func TestSecureNaming(t *testing.T) {
 									Name: "http",
 								},
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, &opts))
 							a.CallOrFail(t, opts)
 						})
 
@@ -175,7 +175,7 @@ func TestSecureNaming(t *testing.T) {
 									},
 								}
 								if tc.expectSuccess {
-									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, &opts))
 								} else {
 									opts.Check = scheck.NotOK()
 								}
