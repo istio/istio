@@ -875,6 +875,7 @@ func (s *Server) initRegistryEventHandlers() {
 					s.statusReporter.DeleteInProgressResource(curr)
 				}
 			}()
+			log.Debugf("Handle event %s for configuration %s", event, curr.Key())
 			// For update events, trigger push only if spec has changed.
 			if event == model.EventUpdate && !needsPush(prev, curr) {
 				log.Debugf("skipping push for %s as spec has not changed", prev.Key())

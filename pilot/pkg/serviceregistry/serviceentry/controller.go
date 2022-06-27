@@ -334,6 +334,7 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 
 // serviceEntryHandler defines the handler for service entries
 func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Event) {
+	log.Debugf("Handle event %s for service entry %s/%s", event, curr.Namespace, curr.Name)
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}
