@@ -31,26 +31,17 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
+	depl "istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
-const (
-	ASvc = "a"
-	BSvc = "b"
-)
-
 type EchoDeployments struct {
-	Namespace namespace.Instance
-	// workloads for TestSecureNaming
-	A, B echo.Instances
 	// workloads for TestTrustDomainAliasSecureNaming
 	// workload Client is also used by TestTrustDomainValidation
 	// ServerNakedFooAlt using also used in the multi_root_test.go test case
@@ -60,19 +51,13 @@ type EchoDeployments struct {
 }
 
 var (
-	inst istio.Instance
-	apps = &EchoDeployments{}
+	inst    istio.Instance
+	apps    deployment.SingleNamespaceView
+	echoApp = &EchoDeployments{}
 )
 
-func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
+func SetupApps(ctx resource.Context, apps deployment.SingleNamespaceView) error {
 	var err error
-	apps.Namespace, err = namespace.New(ctx, namespace.Config{
-		Prefix: "test-ns",
-		Inject: true,
-	})
-	if err != nil {
-		return err
-	}
 
 	tmpdir, err := ctx.CreateTmpDirectory("ca-custom-root")
 	if err != nil {
@@ -80,7 +65,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	}
 
 	// Create testing certs using runtime namespace.
-	err = generateCerts(tmpdir, apps.Namespace.Name())
+	err = generateCerts(tmpdir, apps.EchoNamespace.Namespace.Name())
 	if err != nil {
 		return err
 	}
@@ -110,11 +95,9 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 		return err
 	}
 
-	builder := deployment.New(ctx)
+	builder := depl.New(ctx)
 	builder.
 		WithClusters(ctx.Clusters()...).
-		WithConfig(util.EchoConfig(ASvc, apps.Namespace, false, nil)).
-		WithConfig(util.EchoConfig(BSvc, apps.Namespace, false, nil)).
 		// Deploy 3 workloads:
 		// client: echo app with istio-proxy sidecar injected, holds default trust domain cluster.local.
 		// serverNakedFoo: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-foo.
@@ -124,7 +107,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 			Service:   "client",
 		}).
 		WithConfig(echo.Config{
-			Namespace: apps.Namespace,
+			Namespace: apps.EchoNamespace.Namespace,
 			Service:   "server-naked-foo",
 			Subsets: []echo.SubsetConfig{
 				{
@@ -149,7 +132,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 			},
 		}).
 		WithConfig(echo.Config{
-			Namespace: apps.Namespace,
+			Namespace: apps.EchoNamespace.Namespace,
 			Service:   "server-naked-bar",
 			Subsets: []echo.SubsetConfig{
 				{
@@ -175,7 +158,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 		}).
 		WithConfig(echo.Config{
 			// Adding echo server for multi-root tests
-			Namespace: apps.Namespace,
+			Namespace: apps.EchoNamespace.Namespace,
 			Service:   "server-naked-foo-alt",
 			Subsets: []echo.SubsetConfig{
 				{
@@ -200,7 +183,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 			},
 		}).
 		WithConfig(echo.Config{
-			Namespace: apps.Namespace,
+			Namespace: apps.EchoNamespace.Namespace,
 			Service:   "naked",
 			Subsets: []echo.SubsetConfig{
 				{
@@ -210,7 +193,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 		}).
 		WithConfig(echo.Config{
 			Subsets:        []echo.SubsetConfig{{}},
-			Namespace:      apps.Namespace,
+			Namespace:      apps.EchoNamespace.Namespace,
 			Service:        "server",
 			ServiceAccount: true,
 			Ports: []echo.Port{
@@ -249,14 +232,12 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	apps.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Client = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.ServerNakedFoo = match.ServiceName(echo.NamespacedName{Name: "server-naked-foo", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.ServerNakedBar = match.ServiceName(echo.NamespacedName{Name: "server-naked-bar", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.ServerNakedFooAlt = match.ServiceName(echo.NamespacedName{Name: "server-naked-foo-alt", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Naked = match.ServiceName(echo.NamespacedName{Name: "naked", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: apps.Namespace}).GetMatches(echos)
+	echoApp.Client = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: apps.Namespace}).GetMatches(echos)
+	echoApp.ServerNakedFoo = match.ServiceName(echo.NamespacedName{Name: "server-naked-foo", Namespace: apps.Namespace}).GetMatches(echos)
+	echoApp.ServerNakedBar = match.ServiceName(echo.NamespacedName{Name: "server-naked-bar", Namespace: apps.Namespace}).GetMatches(echos)
+	echoApp.ServerNakedFooAlt = match.ServiceName(echo.NamespacedName{Name: "server-naked-foo-alt", Namespace: apps.Namespace}).GetMatches(echos)
+	echoApp.Naked = match.ServiceName(echo.NamespacedName{Name: "naked", Namespace: apps.Namespace}).GetMatches(echos)
+	echoApp.Server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: apps.Namespace}).GetMatches(echos)
 	return nil
 }
 
@@ -317,6 +298,7 @@ func TestMain(m *testing.M) {
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCASecret)).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(ctx resource.Context) error {
 			return SetupApps(ctx, apps)
 		}).
