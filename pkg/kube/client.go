@@ -625,6 +625,9 @@ func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) 
 // handles fake client syncing.
 // This is only required in cases where fake clients are used without RunAndWait.
 func (c *client) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+	if c.informerWatchesPending == nil {
+		return WaitForCacheSync(stop, cacheSyncs...)
+	}
 	syncFns := append(cacheSyncs, func() bool {
 		return c.informerWatchesPending.Load() == 0
 	})
