@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -131,7 +130,7 @@ func ValidateArgs(a Args) error {
 }
 
 func ReadPlanTargets() ([]string, []string, error) {
-	by, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
+	by, err := os.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -152,7 +151,7 @@ func ReadPlanTargets() ([]string, []string, error) {
 }
 
 func ReadPlan(a Args) (Args, error) {
-	by, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
+	by, err := os.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
 	if err != nil {
 		return a, err
 	}
