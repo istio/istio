@@ -394,9 +394,9 @@ func (i *istioImpl) installControlPlaneCluster(c cluster.Cluster) error {
 
 	args := commonInstallArgs(i.ctx, i.cfg, c, i.cfg.PrimaryClusterIOPFile, i.primaryIOP.file)
 	if i.ctx.Environment().IsMultiCluster() {
-		if !i.externalControlPlane && !i.cfg.IstiodlessRemotes {
-			// Disable namespace controller writing to remote clusters
-			args.AppendSet("values.pilot.env.EXTERNAL_ISTIOD", "false")
+		if i.externalControlPlane || i.cfg.IstiodlessRemotes {
+			// Enable namespace controller writing to remote clusters
+			args.AppendSet("values.pilot.env.EXTERNAL_ISTIOD", "true")
 		}
 
 		// Set the clusterName for the local cluster.
