@@ -96,6 +96,7 @@ type iopFiles struct {
 	primaryIOP iopInfo
 	configIOP  iopInfo
 	remoteIOP  iopInfo
+	gatewayIOP iopInfo
 }
 
 // ID implements resource.Instance
@@ -496,11 +497,15 @@ func (i *istioImpl) installRemoteCommon(c cluster.Cluster, defaultsIOPFile, iopF
 }
 
 func (i *istioImpl) installRemoteClusterGateways(c cluster.Cluster) error {
+	inFilenames := []string{
+		filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
+	}
+	if i.gatewayIOP.file != "" {
+		inFilenames = append(inFilenames, i.gatewayIOP.file)
+	}
 	args := installArgs{
 		ComponentName: "ingress and egress gateways",
-		Files: []string{
-			filepath.Join(testenv.IstioSrc, IntegrationTestRemoteGatewaysIOP),
-		},
+		Files:         inFilenames,
 		Set: []string{
 			"values.global.imagePullPolicy=" + i.ctx.Settings().Image.PullPolicy,
 		},
@@ -815,6 +820,14 @@ func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i
 		}
 	} else {
 		i.configIOP = i.primaryIOP
+	}
+
+	if cfg.GatewayValues != "" {
+		i.gatewayIOP.file = filepath.Join(workDir, "custom_gateways.yaml")
+		_, err = initIOPFile(ctx, cfg, i.gatewayIOP.file, cfg.GatewayValues)
+		if err != nil {
+			return iopFiles{}, err
+		}
 	}
 	return
 }
