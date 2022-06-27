@@ -153,6 +153,9 @@ type Config struct {
 
 	// EnableCNI indicates the test should have CNI enabled.
 	EnableCNI bool
+
+	// custom deployment for ingress and egress gateway on remote clusters.
+	GatewayValues string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {
