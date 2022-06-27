@@ -138,6 +138,14 @@ func (r *Cache) Key() string {
 	}
 	hash.Write(Separator)
 
+	for _, vs := range r.DelegateVirtualServices {
+		hash.Write([]byte(vs.Name))
+		hash.Write(Slash)
+		hash.Write([]byte(vs.Namespace))
+		hash.Write(Separator)
+	}
+	hash.Write(Separator)
+
 	for _, dr := range r.DestinationRules {
 		hash.Write([]byte(dr.Name))
 		hash.Write(Slash)
