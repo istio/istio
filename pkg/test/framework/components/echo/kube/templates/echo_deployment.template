@@ -1,0 +1,213 @@
+{{- $revVerMap := .Revisions }}
+{{- $subsets := .Subsets }}
+{{- $cluster := .Cluster }}
+{{- range $i, $subset := $subsets }}
+{{- range $revision, $version := $revVerMap }}
+apiVersion: apps/v1
+{{- if $.StatefulSet }}
+kind: StatefulSet
+{{- else }}
+kind: Deployment
+{{- end }}
+metadata:
+{{- if $.Compatibility }}
+  name: {{ $.Service }}-{{ $subset.Version }}-{{ $revision }}
+{{- else }}
+  name: {{ $.Service }}-{{ $subset.Version }}
+{{- end }}
+spec:
+  {{- if $.StatefulSet }}
+  serviceName: {{ $.Service }}
+  {{- end }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $.Service }}
+      version: {{ $subset.Version }}
+{{- if ne $.Locality "" }}
+      istio-locality: {{ $.Locality }}
+{{- end }}
+  template:
+    metadata:
+      labels:
+        app: {{ $.Service }}
+        version: {{ $subset.Version }}
+        test.istio.io/class: {{ $.WorkloadClass }}
+{{- if $.Compatibility }}
+        istio.io/rev: {{ $revision }}
+{{- end }}
+{{- if ne $.Locality "" }}
+        istio-locality: {{ $.Locality }}
+{{- end }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
+{{- range $name, $value := $subset.Annotations }}
+        {{ $name.Name }}: {{ printf "%q" $value.Value }}
+{{- end }}
+{{- if $.ProxylessGRPC }}
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+{{- end }}
+    spec:
+{{- if $.ServiceAccount }}
+      serviceAccountName: {{ $.Service }}
+{{- end }}
+{{- if ne $.ImagePullSecretName "" }}
+      imagePullSecrets:
+      - name: {{ $.ImagePullSecretName }}
+{{- end }}
+      containers:
+{{- if and
+  (ne ($subset.Annotations.GetByName "sidecar.istio.io/inject") "false")
+  (ne ($subset.Annotations.GetByName "inject.istio.io/templates") "grpc")
+  ($.OverlayIstioProxy)
+}}
+      - name: istio-proxy
+        image: auto
+        imagePullPolicy: {{ $.ImagePullPolicy }}
+        securityContext: # to allow core dumps
+          readOnlyRootFilesystem: false
+{{- end }}
+{{- if $.IncludeExtAuthz }}
+      - name: ext-authz
+        image: {{ $.ImageHub }}/ext-authz:{{ $.ImageTag }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
+        ports:
+        - containerPort: 8000
+        - containerPort: 9000
+{{- end }}
+{{- range $i, $appContainer := $.AppContainers }}
+      - name: {{ $appContainer.Name }}
+{{- if $appContainer.ImageFullPath }}
+        image: {{ $appContainer.ImageFullPath }}
+{{- else }}
+        image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
+{{- end }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
+        args:
+{{- if $appContainer.FallbackPort }}
+          - --forwarding_address=0.0.0.0:{{ $appContainer.FallbackPort }}
+{{- end }}
+          - --metrics=15014
+          - --cluster={{ $cluster }}
+{{- range $i, $p := $appContainer.ContainerPorts }}
+{{- if and $p.XDSServer (eq .Protocol "GRPC") }}
+          - --xds-grpc-server={{ $p.Port }}
+{{- else if eq .Protocol "GRPC" }}
+          - --grpc={{ $p.Port }}
+{{- else if eq .Protocol "TCP" }}
+          - --tcp={{ $p.Port }}
+{{- else }}
+          - --port={{ $p.Port }}
+{{- end }}
+{{- if $p.TLS }}
+          - --tls={{ $p.Port }}
+{{- end }}
+{{- if $p.ServerFirst }}
+          - --server-first={{ $p.Port }}
+{{- end }}
+{{- if $p.InstanceIP }}
+          - --bind-ip={{ $p.Port }}
+{{- end }}
+{{- if $p.LocalhostIP }}
+          - --bind-localhost={{ $p.Port }}
+{{- end }}
+{{- end }}
+          - --version={{ $subset.Version }}
+          - --istio-version={{ $version }}
+{{- if $.TLSSettings }}
+          - --crt=/etc/certs/custom/cert-chain.pem
+          - --key=/etc/certs/custom/key.pem
+{{- if $.TLSSettings.AcceptAnyALPN}}
+          - --disable-alpn
+{{- end }}
+{{- else }}
+          - --crt=/cert.crt
+          - --key=/cert.key
+{{- end }}
+        ports:
+{{- range $i, $p := $appContainer.ContainerPorts }}
+        - containerPort: {{ $p.Port }}
+{{- if eq .Port 3333 }}
+          name: tcp-health-port
+{{- else if and ($appContainer.ImageFullPath) (eq .Port 17171) }}
+          name: tcp-health-port
+{{- end }}
+{{- end }}
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+{{- if $.ProxylessGRPC }}
+        - name: EXPOSE_GRPC_ADMIN
+          value: "true"
+{{- end }}
+        readinessProbe:
+{{- if $.ReadinessTCPPort }}
+          tcpSocket:
+            port: {{ $.ReadinessTCPPort }}
+{{- else if $.ReadinessGRPCPort }}
+          grpc:
+            port: {{ $.ReadinessGRPCPort }}
+{{- else if $appContainer.ImageFullPath }}
+          tcpSocket:
+            port: tcp-health-port
+{{- else }}
+          httpGet:
+            path: /
+            port: 8080
+{{- end }}
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+{{- if $.StartupProbe }}
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
+          periodSeconds: 1
+          failureThreshold: 10
+{{- end }}
+{{- if $.TLSSettings }}
+        volumeMounts:
+        - mountPath: /etc/certs/custom
+          name: custom-certs
+{{- end }}
+{{- end }}
+{{- if $.TLSSettings }}
+      volumes:
+{{- if $.TLSSettings.ProxyProvision }}
+      - emptyDir:
+          medium: Memory
+{{- else }}
+      - configMap:
+          name: {{ $.Service }}-certs
+{{- end }}
+        name: custom-certs
+{{- end }}
+---
+{{- end }}
+{{- end }}
+{{- if .TLSSettings}}{{if not .TLSSettings.ProxyProvision }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $.Service }}-certs
+data:
+  root-cert.pem: |
+{{ .TLSSettings.RootCert | indent 4 }}
+  cert-chain.pem: |
+{{ .TLSSettings.ClientCert | indent 4 }}
+  key.pem: |
+{{.TLSSettings.Key | indent 4}}
+---
+{{- end}}{{- end}}

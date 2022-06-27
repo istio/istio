@@ -1,0 +1,37 @@
+{{- if .ServiceAccount }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Service }}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Service }}
+  labels:
+    app: {{ .Service }}
+{{- if .ServiceAnnotations }}
+  annotations:
+{{- range $name, $value := .ServiceAnnotations }}
+    {{ $name.Name }}: {{ printf "%q" $value.Value }}
+{{- end }}
+{{- end }}
+spec:
+{{- if .IPFamilies }}
+  ipFamilies: [ {{ .IPFamilies }} ]
+{{- end }}
+{{- if .IPFamilyPolicy }}
+  ipFamilyPolicy: {{ .IPFamilyPolicy }}
+{{- end }}
+{{- if .Headless }}
+  clusterIP: None
+{{- end }}
+  ports:
+{{- range $i, $p := .ServicePorts }}
+  - name: {{ $p.Name }}
+    port: {{ $p.ServicePort }}
+    targetPort: {{ $p.WorkloadPort }}
+{{- end }}
+  selector:
+    app: {{ .Service }}
