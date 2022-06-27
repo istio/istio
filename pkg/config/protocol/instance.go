@@ -54,6 +54,8 @@ const (
 	Redis Instance = "Redis"
 	// MySQL declares that the port carries MySQL traffic.
 	MySQL Instance = "MySQL"
+	// HBONE declares that the port carries HBONE traffic.
+	HBONE Instance = "HBONE"
 	// Unsupported - value to signify that the protocol is unsupported.
 	Unsupported Instance = "UnsupportedProtocol"
 )

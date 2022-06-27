@@ -211,13 +211,7 @@ type codeAndSlices struct {
 
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id := uuid.New()
-	remoteAddr, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		epLog.Warnf("failed to get host from remote address: %s", err)
-	}
-	epLog.WithLabels(
-		"remoteAddr", remoteAddr, "method", r.Method, "url", r.URL, "host", r.Host, "headers", r.Header, "id", id,
-	).Infof("HTTP Request")
+	epLog.WithLabels("method", r.Method, "url", r.URL, "host", r.Host, "headers", r.Header, "id", id).Infof("HTTP Request")
 	if h.Port == nil {
 		defer common.Metrics.HTTPRequests.With(common.PortLabel.Value("uds")).Increment()
 	} else {

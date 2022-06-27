@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/proto"
 )
@@ -117,7 +118,7 @@ func (c *tlsProtocol) Close() error {
 func newTLSConnection(cfg *Config) (*tls.Conn, error) {
 	address := cfg.Request.Url[len(cfg.scheme+"://"):]
 
-	con, err := tls.DialWithDialer(newDialer(cfg.forceDNSLookup), "tcp", address, cfg.tlsConfig)
+	con, err := hbone.TLSDialWithDialer(newDialer(cfg), "tcp", address, cfg.tlsConfig)
 	if err != nil {
 		return nil, err
 	}
