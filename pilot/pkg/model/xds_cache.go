@@ -75,48 +75,6 @@ func size(cs int) {
 	}
 }
 
-func indexConfig(configIndex map[ConfigKey]sets.Set, k string, dependentConfigs []ConfigKey) {
-	for _, cfg := range dependentConfigs {
-		if configIndex[cfg] == nil {
-			configIndex[cfg] = sets.New()
-		}
-		configIndex[cfg].Insert(k)
-	}
-}
-
-func clearIndexConfig(configIndex map[ConfigKey]sets.Set, k string, dependentConfigs []ConfigKey) {
-	for _, cfg := range dependentConfigs {
-		index := configIndex[cfg]
-		if index != nil {
-			index.Delete(k)
-			if index.IsEmpty() {
-				delete(configIndex, cfg)
-			}
-		}
-	}
-}
-
-func indexType(typeIndex map[config.Kind]sets.Set, k string, dependentTypes []config.Kind) {
-	for _, t := range dependentTypes {
-		if typeIndex[t] == nil {
-			typeIndex[t] = sets.New()
-		}
-		typeIndex[t].Insert(k)
-	}
-}
-
-func clearIndexType(typeIndex map[config.Kind]sets.Set, k string, dependentTypes []config.Kind) {
-	for _, t := range dependentTypes {
-		index := typeIndex[t]
-		if index != nil {
-			index.Delete(k)
-			if index.IsEmpty() {
-				delete(typeIndex, t)
-			}
-		}
-	}
-}
-
 // XdsCacheEntry interface defines functions that should be implemented by
 // resources that can be cached.
 type XdsCacheEntry interface {
