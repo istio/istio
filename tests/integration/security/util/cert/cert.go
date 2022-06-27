@@ -162,7 +162,6 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 		return err
 	}
 
-	kubeAccessor := ctx.Clusters().Default()
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -175,16 +174,16 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 			"fake-root-cert.pem": fakeRootCert,
 		},
 	}
-
-	_, err = kubeAccessor.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			_, err = kubeAccessor.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{})
+	for _, cluster := range ctx.Clusters() {
+		_, err = cluster.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
+		if err != nil {
+			if errors.IsAlreadyExists(err) {
+				_, err = cluster.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{})
+				return err
+			}
 			return err
 		}
-		return err
 	}
-
 	return nil
 }
 
