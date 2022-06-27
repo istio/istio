@@ -1249,7 +1249,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
 	}
 	if len(services) == 0 {
-		return nil, fmt.Errorf("no instances found for %s: %v", proxy.ID, err)
+		return nil, fmt.Errorf("no instances found for %s", proxy.ID)
 	}
 
 	out := make([]*model.ServiceInstance, 0)
