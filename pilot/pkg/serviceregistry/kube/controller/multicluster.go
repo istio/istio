@@ -331,19 +331,20 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace st
 		if err == nil {
 			// found same system namespace on the remote cluster so check if we are a selected istiod to lead
 			istiodCluster, found := namespace.Annotations[istiodClusterAnnotation]
-			if !found {
-				return true // true by default if unannotated
-			}
-			localCluster := string(m.opts.ClusterID)
-			for _, cluster := range strings.Split(istiodCluster, ",") {
-				if cluster == "*" || cluster == localCluster {
-					return true
+			if found {
+				localCluster := string(m.opts.ClusterID)
+				for _, cluster := range strings.Split(istiodCluster, ",") {
+					if cluster == "*" || cluster == localCluster {
+						return true
+					}
 				}
 			}
 		} else if !errors.IsNotFound(err) {
 			// TODO use a namespace informer to handle transient errors and to also allow dynamic updates
 			log.Errorf("failed to access system namespace %s: %v", systemNamespace, err)
-			return true // for now, fail open in case it's just a transient error
+			// For now, fail open in case it's just a transient error. This may result in some unexpected error messages in istiod
+			// logs and/or some unnecessary attempts at leader election, but a local istiod will always win in those cases.
+			return true
 		}
 	}
 	return false
