@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -74,7 +74,7 @@ func TestIncrementalPush(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			Full: false,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "destall.default.svc.cluster.local", Namespace: "testns", Kind: gvk.ServiceEntry}: {},
+				{Name: "destall.default.svc.cluster.local", Namespace: "testns", Kind: kind.ServiceEntry}: {},
 			},
 		})
 		if err := ads.WaitSingle(time.Second*5, v3.EndpointType, v3.ClusterType); err != nil {
@@ -87,7 +87,7 @@ func TestIncrementalPush(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "weighted.static.svc.cluster.local", Namespace: "default", Kind: gvk.ServiceEntry}: {},
+				{Name: "weighted.static.svc.cluster.local", Namespace: "default", Kind: kind.ServiceEntry}: {},
 			},
 		})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
@@ -102,8 +102,8 @@ func TestIncrementalPush(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "foo.bar", Namespace: "default", Kind: gvk.ServiceEntry}:   {},
-				{Name: "destall", Namespace: "testns", Kind: gvk.DestinationRule}: {},
+				{Name: "foo.bar", Namespace: "default", Kind: kind.ServiceEntry}:   {},
+				{Name: "destall", Namespace: "testns", Kind: kind.DestinationRule}: {},
 			},
 		})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
@@ -118,7 +118,7 @@ func TestIncrementalPush(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "destall", Namespace: "testns", Kind: gvk.DestinationRule}: {},
+				{Name: "destall", Namespace: "testns", Kind: kind.DestinationRule}: {},
 			},
 		})
 		if _, err := ads.Wait(time.Second*5, v3.ClusterType, v3.EndpointType); err != nil {
@@ -745,7 +745,7 @@ func testOverlappingPorts(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testin
 	s.Discovery.Push(&model.PushRequest{
 		Full: true,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind: gvk.ServiceEntry,
+			Kind: kind.ServiceEntry,
 			Name: "overlapping.cluster.local",
 		}: {}},
 	})
@@ -1001,7 +1001,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 			s.Discovery.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
-					Kind: gvk.ServiceEntry,
+					Kind: kind.ServiceEntry,
 					Name: edsIncSvc,
 				}: {}},
 				Push: s.Discovery.Env.PushContext,

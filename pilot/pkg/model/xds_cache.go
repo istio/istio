@@ -75,6 +75,48 @@ func size(cs int) {
 	}
 }
 
+func indexConfig(configIndex map[ConfigKey]sets.Set, k string, dependentConfigs []ConfigKey) {
+	for _, cfg := range dependentConfigs {
+		if configIndex[cfg] == nil {
+			configIndex[cfg] = sets.New()
+		}
+		configIndex[cfg].Insert(k)
+	}
+}
+
+func clearIndexConfig(configIndex map[ConfigKey]sets.Set, k string, dependentConfigs []ConfigKey) {
+	for _, cfg := range dependentConfigs {
+		index := configIndex[cfg]
+		if index != nil {
+			index.Delete(k)
+			if index.IsEmpty() {
+				delete(configIndex, cfg)
+			}
+		}
+	}
+}
+
+func indexType(typeIndex map[config.Kind]sets.Set, k string, dependentTypes []config.Kind) {
+	for _, t := range dependentTypes {
+		if typeIndex[t] == nil {
+			typeIndex[t] = sets.New()
+		}
+		typeIndex[t].Insert(k)
+	}
+}
+
+func clearIndexType(typeIndex map[config.Kind]sets.Set, k string, dependentTypes []config.Kind) {
+	for _, t := range dependentTypes {
+		index := typeIndex[t]
+		if index != nil {
+			index.Delete(k)
+			if index.IsEmpty() {
+				delete(typeIndex, t)
+			}
+		}
+	}
+}
+
 // XdsCacheEntry interface defines functions that should be implemented by
 // resources that can be cached.
 type XdsCacheEntry interface {
@@ -83,7 +125,7 @@ type XdsCacheEntry interface {
 	// DependentTypes are config types that this cache key is dependant on.
 	// Whenever any configs of this type changes, we should invalidate this cache entry.
 	// Note: DependentConfigs should be preferred wherever possible.
-	DependentTypes() []config.GroupVersionKind
+	DependentTypes() []config.Kind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
 	DependentConfigs() []ConfigKey
@@ -120,7 +162,7 @@ func NewXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
 		configIndex:      map[ConfigKey]sets.Set{},
-		typesIndex:       map[config.GroupVersionKind]sets.Set{},
+		typesIndex:       map[config.Kind]sets.Set{},
 	}
 	cache.store = newLru(cache.evict)
 
@@ -132,7 +174,7 @@ func NewLenientXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
 		configIndex:      map[ConfigKey]sets.Set{},
-		typesIndex:       map[config.GroupVersionKind]sets.Set{},
+		typesIndex:       map[config.Kind]sets.Set{},
 	}
 	cache.store = newLru(cache.evict)
 
@@ -147,7 +189,7 @@ type lruCache struct {
 	token       CacheToken
 	mu          sync.RWMutex
 	configIndex map[ConfigKey]sets.Set
-	typesIndex  map[config.GroupVersionKind]sets.Set
+	typesIndex  map[config.Kind]sets.Set
 }
 
 var _ XdsCache = &lruCache{}
@@ -198,7 +240,7 @@ func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigKey) {
 	}
 }
 
-func (l *lruCache) updateTypesIndex(k string, dependentTypes []config.GroupVersionKind) {
+func (l *lruCache) updateTypesIndex(k string, dependentTypes []config.Kind) {
 	for _, t := range dependentTypes {
 		if l.typesIndex[t] == nil {
 			l.typesIndex[t] = sets.New()
@@ -207,7 +249,7 @@ func (l *lruCache) updateTypesIndex(k string, dependentTypes []config.GroupVersi
 	}
 }
 
-func (l *lruCache) clearTypesIndex(k string, dependentTypes []config.GroupVersionKind) {
+func (l *lruCache) clearTypesIndex(k string, dependentTypes []config.Kind) {
 	for _, t := range dependentTypes {
 		index := l.typesIndex[t]
 		if index != nil {
@@ -291,7 +333,7 @@ type cacheValue struct {
 	value            *discovery.Resource
 	token            CacheToken
 	dependentConfigs []ConfigKey
-	dependentTypes   []config.GroupVersionKind
+	dependentTypes   []config.Kind
 }
 
 func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
@@ -343,7 +385,7 @@ func (l *lruCache) ClearAll() {
 	// create a new store.
 	l.store = newLru(l.evict)
 	l.configIndex = map[ConfigKey]sets.Set{}
-	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
+	l.typesIndex = map[config.Kind]sets.Set{}
 	size(l.store.Len())
 }
 

@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -2061,9 +2061,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 
 	allContains := func(ns string, contains bool) map[ConfigKey]bool {
 		return map[ConfigKey]bool{
-			{gvk.ServiceEntry, svcName, ns}:   contains,
-			{gvk.VirtualService, vsName, ns}:  contains,
-			{gvk.DestinationRule, drName, ns}: contains,
+			{kind.ServiceEntry, svcName, ns}:   contains,
+			{kind.VirtualService, vsName, ns}:  contains,
+			{kind.DestinationRule, drName, ns}: contains,
 		}
 	}
 
@@ -2080,7 +2080,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 		{"No Sidecar", nil, allContains("ns", true)},
 		{"No Sidecar Other Namespace", nil, allContains("other-ns", false)},
 		{"clusterScope resource", []string{"*/*"}, map[ConfigKey]bool{
-			{gvk.AuthorizationPolicy, "authz", "default"}: true,
+			{kind.AuthorizationPolicy, "authz", "default"}: true,
 		}},
 	}
 	for _, tt := range cases {
@@ -2161,10 +2161,10 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 		contains map[ConfigKey]bool
 	}{
 		{"authorizationPolicy in same ns with workload", []string{"*/*"}, map[ConfigKey]bool{
-			{gvk.AuthorizationPolicy, "authz", "default"}: true,
+			{kind.AuthorizationPolicy, "authz", "default"}: true,
 		}},
 		{"authorizationPolicy in different ns with workload", []string{"*/*"}, map[ConfigKey]bool{
-			{gvk.AuthorizationPolicy, "authz", "ns1"}: false,
+			{kind.AuthorizationPolicy, "authz", "ns1"}: false,
 		}},
 	}
 

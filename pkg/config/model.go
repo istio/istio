@@ -331,6 +331,8 @@ func (c Config) DeepCopy() Config {
 
 var _ fmt.Stringer = GroupVersionKind{}
 
+type Kind uint8
+
 type GroupVersionKind struct {
 	Group   string `json:"group"`
 	Version string `json:"version"`

@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
@@ -548,7 +549,7 @@ func BenchmarkPushRequest(b *testing.B) {
 				Reason:         []model.TriggerReason{trigger},
 			}
 			for c := 0; c < configs; c++ {
-				nreq.ConfigsUpdated[model.ConfigKey{Kind: gvk.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
+				nreq.ConfigsUpdated[model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
 			}
 			req = req.Merge(nreq)
 		}
@@ -610,4 +611,70 @@ func BenchmarkCache(b *testing.B) {
 			c.Get(key)
 		}
 	})
+}
+
+func BenchmarkConfigKey(b *testing.B) {
+	b.ReportAllocs()
+	names := []string{}
+	for i := 0; i < 100; i++ {
+		names = append(names, "my-config-", fmt.Sprint(i))
+	}
+	b.Run("old", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			ck := []ConfigKey{}
+			for i := 0; i < 100; i++ {
+				ck = append(ck, ConfigKey{
+					Kind:      gvk.DestinationRule,
+					Name:      names[i],
+					Namespace: names[i],
+				})
+			}
+		}
+	})
+	b.Run("2", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			ck := []ConfigKey2{}
+			for i := 0; i < 100; i++ {
+				ck = append(ck, ConfigKey2{
+					Kind:      Bar,
+					Name:      names[i],
+					Namespace: names[i],
+				})
+			}
+		}
+	})
+	b.Run("3", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			ck := []ConfigKey3{}
+			for i := 0; i < 100; i++ {
+				ck = append(ck, ConfigKey3{
+					Kind:          Bar,
+					NameNamespace: names[i] + "/" + names[i],
+				})
+			}
+		}
+	})
+}
+
+type GVK uint8
+
+const (
+	Bar GVK = iota
+)
+
+// ConfigKey describe a specific config item.
+// In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
+type ConfigKey struct {
+	Kind      config.GroupVersionKind
+	Name      string
+	Namespace string
+}
+type ConfigKey2 struct {
+	Kind      GVK
+	Name      string
+	Namespace string
+}
+type ConfigKey3 struct {
+	Kind          GVK
+	NameNamespace string
 }
