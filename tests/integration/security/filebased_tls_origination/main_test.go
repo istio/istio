@@ -44,7 +44,6 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-
 	cfg.ControlPlaneValues = tmpl.MustEvaluate(`
 {{- if not .isExternalControlPlane }}
 components:
