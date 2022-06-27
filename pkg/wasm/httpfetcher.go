@@ -22,7 +22,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -156,7 +155,7 @@ func getFileFromGZ(b []byte) []byte {
 		return nil
 	}
 
-	ret, err := ioutil.ReadAll(zr)
+	ret, err := io.ReadAll(zr)
 	if err != nil {
 		return nil
 	}
