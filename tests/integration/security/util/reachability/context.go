@@ -171,7 +171,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 									tpe = "positive"
 									opts.Check = check.And(
 										check.OK(),
-										scheck.ReachedClusters(t.AllClusters(), &opts))
+										scheck.ReachedClusters(t, &opts))
 									if expectMTLS {
 										opts.Check = check.And(opts.Check,
 											check.MTLSForHTTP())

@@ -128,6 +128,18 @@ func (c Clusters) MeshClusters(excluded ...Cluster) Clusters {
 	}, exclude(excluded...))
 }
 
+// IsExternalControlPlane indicates whether the clusters are set up in an enternal
+// control plane configuration. An external control plane is a primary cluster that
+// gets its Istio configuration from a different cluster.
+func (c Clusters) IsExternalControlPlane() bool {
+	for _, cc := range c {
+		if cc.IsExternalControlPlane() {
+			return true
+		}
+	}
+	return false
+}
+
 // Kube returns OfKind(cluster.Kubernetes)
 func (c Clusters) Kube() Clusters {
 	return c.OfKind(Kubernetes)

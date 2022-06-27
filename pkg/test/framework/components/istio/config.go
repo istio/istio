@@ -179,6 +179,21 @@ spec:
 `, s.Image.Hub, s.Image.Tag, data)
 }
 
+func (c *Config) fillDefaults(ctx resource.Context) {
+	if ctx.AllClusters().IsExternalControlPlane() {
+		c.PrimaryClusterIOPFile = IntegrationTestExternalIstiodPrimaryDefaultsIOP
+		c.ConfigClusterIOPFile = IntegrationTestExternalIstiodConfigDefaultsIOP
+		if c.ConfigClusterValues == "" {
+			c.ConfigClusterValues = c.RemoteClusterValues
+		}
+	} else if !c.IstiodlessRemotes {
+		c.RemoteClusterIOPFile = IntegrationTestDefaultsIOP
+		if c.RemoteClusterValues == "" {
+			c.RemoteClusterValues = c.ControlPlaneValues
+		}
+	}
+}
+
 // Indent indents a block of text with an indent string
 func Indent(text, indent string) string {
 	if text[len(text)-1:] == "\n" {

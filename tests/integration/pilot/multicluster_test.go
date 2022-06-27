@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -64,7 +63,7 @@ func TestClusterLocal(t *testing.T) {
 				{
 					"MeshConfig.serviceSettings",
 					func(t framework.TestContext) {
-						istio.PatchMeshConfigOrFail(t, i.Settings().SystemNamespace, to.Clusters(), fmt.Sprintf(`
+						i.PatchMeshConfigOrFail(t, t, fmt.Sprintf(`
 serviceSettings: 
 - settings:
     clusterLocal: true
@@ -151,7 +150,7 @@ spec:
 							},
 							Check: check.And(
 								check.OK(),
-								check.ReachedTargetClusters(t.AllClusters()),
+								check.ReachedTargetClusters(t),
 							),
 							Retry: echo.Retry{
 								Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
@@ -202,7 +201,7 @@ func TestBadRemoteSecret(t *testing.T) {
 				var secret string
 				retry.UntilSuccessOrFail(t, func() error {
 					var err error
-					secret, err = istio.CreateRemoteSecret(t, remote, i.Settings(), opts...)
+					secret, err = i.CreateRemoteSecret(t, remote, opts...)
 					return err
 				}, retry.Timeout(15*time.Second))
 

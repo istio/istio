@@ -226,7 +226,7 @@ func installProviders(ctx resource.Context, providerYAML string) error {
 		return err
 	}
 
-	return istio.UpdateMeshConfig(ctx, ist.Settings().SystemNamespace, ctx.Clusters(),
+	return ist.UpdateMeshConfig(ctx,
 		func(mc *meshconfig.MeshConfig) error {
 			// Merge the extension providers.
 			mc.ExtensionProviders = append(mc.ExtensionProviders, newMC.ExtensionProviders...)
