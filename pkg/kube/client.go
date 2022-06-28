@@ -142,6 +142,9 @@ type Client interface {
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
 
+	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
+	WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
+
 	// GetKubernetesVersion returns the Kubernetes server version
 	GetKubernetesVersion() (*kubeVersion.Info, error)
 }
@@ -616,6 +619,19 @@ func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) 
 		case <-time.After(delay):
 		}
 	}
+}
+
+// WaitForCacheSync is a specialized version of the general WaitForCacheSync function which also
+// handles fake client syncing.
+// This is only required in cases where fake clients are used without RunAndWait.
+func (c *client) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+	if c.informerWatchesPending == nil {
+		return WaitForCacheSync(stop, cacheSyncs...)
+	}
+	syncFns := append(cacheSyncs, func() bool {
+		return c.informerWatchesPending.Load() == 0
+	})
+	return WaitForCacheSync(stop, syncFns...)
 }
 
 func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
