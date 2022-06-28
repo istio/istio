@@ -43,6 +43,20 @@ func newTCPServer(t testing.TB, data string) string {
 	return n.Addr().String()
 }
 
+func TestDialerError(t *testing.T) {
+	d := NewDialer(Config{
+		ProxyAddress: "127.0.0.10:1", // Random address that should fail to dial
+		Headers: map[string][]string{
+			"some-addition-metadata": {"test-value"},
+		},
+		TLS: nil, // No TLS for simplification
+	})
+	_, err := d.Dial("tcp", "fake")
+	if err == nil {
+		t.Fatal("expected error, got none.")
+	}
+}
+
 func TestDialer(t *testing.T) {
 	testAddr := newTCPServer(t, "hello")
 	proxy := newHBONEServer(t)
@@ -53,26 +67,31 @@ func TestDialer(t *testing.T) {
 		},
 		TLS: nil, // No TLS for simplification
 	})
-	client, err := d.Dial("tcp", testAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer client.Close()
+	send := func() {
+		client, err := d.Dial("tcp", testAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer client.Close()
 
-	go func() {
-		n, err := client.Write([]byte("hello world"))
-		t.Logf("wrote %v/%v", n, err)
-	}()
+		go func() {
+			n, err := client.Write([]byte("hello world"))
+			t.Logf("wrote %v/%v", n, err)
+		}()
 
-	buf := make([]byte, 8)
-	n, err := client.Read(buf)
-	if err != nil {
-		t.Fatalf("err with %v: %v", n, err)
+		buf := make([]byte, 8)
+		n, err := client.Read(buf)
+		if err != nil {
+			t.Fatalf("err with %v: %v", n, err)
+		}
+		if string(buf[:n]) != "hello" {
+			t.Fatalf("got unexpected buffer: %v", string(buf[:n]))
+		}
+		t.Logf("Read %v", string(buf[:n]))
 	}
-	if string(buf[:n]) != "hello" {
-		t.Fatalf("got unexpected buffer: %v", string(buf[:n]))
-	}
-	t.Logf("Read %v", string(buf[:n]))
+	// Make sure we can create multiple connections
+	send()
+	send()
 }
 
 func newHBONEServer(t *testing.T) string {

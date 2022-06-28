@@ -107,7 +107,7 @@ func (c *Config) fillDefaults() error {
 		return err
 	}
 
-	c.hboneTLSConfig, err = newMtpTLSConfig(c)
+	c.hboneTLSConfig, err = newHBONETLSConfig(c)
 	if err != nil {
 		return err
 	}
@@ -314,7 +314,7 @@ func newTLSConfig(c *Config) (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
-func newMtpTLSConfig(c *Config) (*tls.Config, error) {
+func newHBONETLSConfig(c *Config) (*tls.Config, error) {
 	r := c.Request.Hbone
 	if r == nil {
 		return nil, nil

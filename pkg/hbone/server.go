@@ -33,38 +33,12 @@ func NewServer() *http.Server {
 	h2, _ := http2.ConfigureTransports(h1)
 	h2.ReadIdleTimeout = 10 * time.Minute // TODO: much larger to support long-lived connections
 	h2.AllowHTTP = true
-	h2.StrictMaxConcurrentStreams = false
 	h2Server := &http2.Server{}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t0 := time.Now()
 		if r.Method == http.MethodConnect {
-			log.WithLabels("host", r.Host).Info("Received CONNECT")
-			// Send headers back immediately so we can start getting the body
-			w.(http.Flusher).Flush()
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-
-			dst, err := (&net.Dialer{}).DialContext(ctx, "tcp", r.Host)
-			if err != nil {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				log.Errorf("failed to dial upstream: %v", err)
+			if handleConnect(w, r) {
 				return
 			}
-			log.Infof("Connected to %v", r.Host)
-			w.WriteHeader(http.StatusOK)
-
-			wg := sync.WaitGroup{}
-			wg.Add(1)
-			go func() {
-				// downstream (hbone client) <-- upstream (app)
-				copyBuffered(w, dst, log.WithLabels("name", "dst to w"))
-				r.Body.Close()
-				wg.Done()
-			}()
-			// downstream (hbone client) --> upstream (app)
-			copyBuffered(dst, r.Body, log.WithLabels("name", "body to dst"))
-			wg.Wait()
-			log.Infof("connection closed in %v", time.Since(t0))
 		} else {
 			log.Errorf("non-CONNECT: %v", r.Method)
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -74,4 +48,36 @@ func NewServer() *http.Server {
 		Handler: h2c.NewHandler(handler, h2Server),
 	}
 	return hs
+}
+
+func handleConnect(w http.ResponseWriter, r *http.Request) bool {
+	t0 := time.Now()
+	log.WithLabels("host", r.Host, "source", r.RemoteAddr).Info("Received CONNECT")
+	// Send headers back immediately so we can start getting the body
+	w.(http.Flusher).Flush()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dst, err := (&net.Dialer{}).DialContext(ctx, "tcp", r.Host)
+	if err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		log.Errorf("failed to dial upstream: %v", err)
+		return true
+	}
+	log.Infof("Connected to %v", r.Host)
+	w.WriteHeader(http.StatusOK)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		// downstream (hbone client) <-- upstream (app)
+		copyBuffered(w, dst, log.WithLabels("name", "dst to w"))
+		r.Body.Close()
+		wg.Done()
+	}()
+	// downstream (hbone client) --> upstream (app)
+	copyBuffered(dst, r.Body, log.WithLabels("name", "body to dst"))
+	wg.Wait()
+	log.Infof("connection closed in %v", time.Since(t0))
+	return false
 }
