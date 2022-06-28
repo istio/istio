@@ -8,9 +8,7 @@ While many jobs are still using the old [go-fuzz](https://github.com/dvyukov/go-
 These should be written alongside standard test packages.
 Currently, these cannot be in `<pkg>_test` packages; instead move them to a file under `<pkg>`.
 
-Fuzz jobs will be run in unit test mode automatically (i.e. run once).
-To hook them up to the automated fuzzing, currently this must be added manually to oss_fuzz_build.sh.
-For example, `compile_native_go_fuzzer istio.io/istio/pkg/config/mesh FuzzValidateMeshConfig FuzzValidateMeshConfig`.
+Fuzz jobs will be run in unit test mode automatically (i.e. run once) and as part of OSS-fuzz.
 
 ## Local testing
 

@@ -26,7 +26,13 @@ sed -i 's/out.initJwksResolver()/\/\/out.initJwksResolver()/g' "${SRC}"/istio/pi
 printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/utils\"\n" > register.go
 go mod tidy
 
-compile_native_go_fuzzer istio.io/istio/pkg/config/mesh FuzzValidateMeshConfig FuzzValidateMeshConfig
+# Find all native fuzzers and compile them
+grep --line-buffered --include '*.go' -Pr 'func Fuzz.*\(.* \*testing\.F' | sed -E 's/(func Fuzz(.*)\(.*)/\2/' | xargs -I{} sh -c '
+  fname="$(dirname $(echo "{}" | cut -d: -f1))"
+  func="Fuzz$(echo "{}" | cut -d: -f2)"
+  set -x
+  compile_native_go_fuzzer istio.io/istio/$fname $func $func
+'
 
 mv ./tests/fuzz/kube_gateway_controller_fuzzer.go ./pilot/pkg/config/kube/gateway/
 compile_go_fuzzer istio.io/istio/pilot/pkg/config/kube/gateway ConvertResourcesFuzz fuzz_convert_resources
