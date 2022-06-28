@@ -42,11 +42,11 @@ func TestReachability(t *testing.T) {
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
 			mtlsOnExpect := func(from echo.Instance, opts echo.CallOptions) bool {
-				if apps.IsNaked(from) || apps.IsNaked(opts.To) {
+				if from.Config().IsNaked() || opts.To.Config().IsNaked() {
 					// If one of the two endpoints is naked, we don't send mTLS
 					return false
 				}
-				if apps.IsHeadless(opts.To) && opts.To.Instances().Contains(from) {
+				if opts.To.Config().IsHeadless() && opts.To.Instances().Contains(from) {
 					// pod calling its own pod IP will not be intercepted
 					return false
 				}
@@ -67,12 +67,12 @@ func TestReachability(t *testing.T) {
 					Namespace:  systemNM,
 					Include:    Always,
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
-						if apps.IsNaked(from) && apps.IsNaked(opts.To) {
+						if from.Config().IsNaked() && opts.To.Config().IsNaked() {
 							// naked->naked should always succeed.
 							return true
 						}
 						// If one of the two endpoints is naked, expect failure.
-						return !apps.IsNaked(from) && !apps.IsNaked(opts.To)
+						return !from.Config().IsNaked() && !opts.To.Config().IsNaked()
 					},
 					ExpectMTLS: mtlsOnExpect,
 				},
@@ -81,7 +81,7 @@ func TestReachability(t *testing.T) {
 					Namespace:  systemNM,
 					Include: func(_ echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to naked since we are applying ISTIO_MUTUAL
-						return !apps.IsNaked(opts.To)
+						return !opts.To.Config().IsNaked()
 					},
 					ExpectSuccess: Always,
 					ExpectMTLS:    mtlsOnExpect,
@@ -101,7 +101,7 @@ func TestReachability(t *testing.T) {
 					Include: func(from echo.Instance, opts echo.CallOptions) bool {
 						// including the workloads where testing is possible ; eg. mtls is disabled on workload B for port 8090(http),
 						// hence not including it otherwise failure will occur in multi-cluster scenarios
-						return (apps.B.Contains(from) || apps.IsNaked(from)) &&
+						return (apps.B.Contains(from) || from.Config().IsNaked()) &&
 							(apps.A.ContainsTarget(opts.To) || apps.B.ContainsTarget(opts.To)) && !(apps.B.ContainsTarget(opts.To) && opts.Port.Name == "http")
 					},
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
@@ -157,8 +157,8 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
 						// have proxy neither.
-						if apps.IsNaked(from) {
-							return apps.IsNaked(opts.To)
+						if from.Config().IsNaked() {
+							return opts.To.Config().IsNaked()
 						}
 						return true
 					},
@@ -169,7 +169,7 @@ func TestReachability(t *testing.T) {
 					Namespace:  systemNM,
 					Include: func(_ echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to naked since we are applying ISTIO_MUTUAL
-						return !apps.IsNaked(opts.To)
+						return !opts.To.Config().IsNaked()
 					},
 					ExpectSuccess: Always, // No PeerAuthN should default to a PERMISSIVE.
 					ExpectMTLS:    mtlsOnExpect,
@@ -191,7 +191,7 @@ func TestReachability(t *testing.T) {
 						// VM passthrough doesn't work. We will send traffic to the ClusterIP of
 						// the VM service, which will have 0 Endpoints. If we generated
 						// EndpointSlice's for VMs this might work.
-						return !apps.IsVM(opts.To)
+						return !opts.To.Config().IsVM()
 					},
 					ExpectSuccess: Always,
 					ExpectMTLS: func(from echo.Instance, opts echo.CallOptions) bool {
