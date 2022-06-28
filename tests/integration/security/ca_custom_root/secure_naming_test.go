@@ -99,7 +99,9 @@ spec:
 // - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
 // - The plugin CA certs are correctly used in workload mTLS.
 // - The CA certificate in the configmap of each namespace is as expected, which
-//   is used for data plane to control plane TLS authentication.
+//
+//	is used for data plane to control plane TLS authentication.
+//
 // - Secure naming information is respected in the mTLS handshake.
 func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
@@ -132,7 +134,7 @@ func TestSecureNaming(t *testing.T) {
 									Name: "http",
 								},
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, &opts))
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, opts))
 							a.CallOrFail(t, opts)
 						})
 
@@ -175,7 +177,7 @@ func TestSecureNaming(t *testing.T) {
 									},
 								}
 								if tc.expectSuccess {
-									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, &opts))
+									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, opts))
 								} else {
 									opts.Check = scheck.NotOK()
 								}
