@@ -1117,6 +1117,8 @@ func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv st
 	if err != nil {
 		return fmt.Errorf("failed opening %s: %v", clusterEnv, err)
 	}
+	defer f.Close()
+
 	if cfg.VMEnvironment != nil {
 		for k, v := range cfg.VMEnvironment {
 			addition := fmt.Sprintf("%s=%s\n", k, v)
