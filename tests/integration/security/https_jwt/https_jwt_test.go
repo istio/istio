@@ -79,7 +79,7 @@ func TestJWTHTTPS(t *testing.T) {
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts),
+							scheck.ReachedClusters(t, *opts),
 							check.RequestHeaders(map[string]string{
 								headers.Authorization: "Bearer " + jwt.TokenIssuer1,
 								"X-Test-Payload":      payload1,

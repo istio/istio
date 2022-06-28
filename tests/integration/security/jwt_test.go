@@ -121,7 +121,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts),
+							scheck.ReachedClusters(t, *opts),
 							check.RequestHeaders(map[string]string{
 								headers.Authorization: "",
 								"X-Test-Payload":      payload1,
@@ -135,7 +135,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer2).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts),
+							scheck.ReachedClusters(t, *opts),
 							check.RequestHeaders(map[string]string{
 								headers.Authorization: "",
 								"X-Test-Payload":      payload2,
@@ -162,7 +162,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 				{
@@ -184,7 +184,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Path = "/no-token-noauthz"
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 			}))
@@ -197,7 +197,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts),
+							scheck.ReachedClusters(t, *opts),
 							check.RequestHeader(headers.Authorization, ""))
 					},
 				},
@@ -225,7 +225,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Path = "/no-authn-authz"
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 			}))
@@ -238,7 +238,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts),
+							scheck.ReachedClusters(t, *opts),
 							check.RequestHeaders(map[string]string{
 								headers.Authorization: "Bearer " + jwt.TokenIssuer1,
 								"X-Test-Payload":      payload1,
@@ -255,7 +255,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts),
+							scheck.ReachedClusters(t, *opts),
 							check.RequestHeaders(map[string]string{
 								headers.Authorization: "Bearer " + jwt.TokenIssuer1,
 								"X-Test-Payload":      payload1,
@@ -280,7 +280,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1WithAud).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 				{
@@ -290,7 +290,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer2).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 			}))
@@ -318,7 +318,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Path = "/invalid-jwks-no-token-noauthz"
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 			}))
@@ -330,7 +330,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Path = "/valid-token?token=" + jwt.TokenIssuer1
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 				{
@@ -339,7 +339,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Path = "/valid-token?secondary_token=" + jwt.TokenIssuer1
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 				{
@@ -355,7 +355,7 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.HTTP.Path = "/valid-token?token=" + jwt.TokenIssuer1 + "&secondary_token=" + jwt.TokenIssuer1
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 				{
@@ -374,7 +374,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 				{
@@ -386,7 +386,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 				{
@@ -476,7 +476,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(t, opts))
+							scheck.ReachedClusters(t, *opts))
 					},
 				},
 			}))
