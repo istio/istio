@@ -261,7 +261,14 @@ func convertVirtualService(r ConfigContext) []config.Config {
 	return result
 }
 
-func buildHTTPVirtualServices(refs AllowedReferences, obj config.Config, gateways map[parentKey]map[k8s.SectionName]*parentInfo, domain string, gatewayRoutes map[string]map[string]*config.Config, meshRoutes map[string]map[string]*config.Config) {
+func buildHTTPVirtualServices(
+	refs AllowedReferences,
+	obj config.Config,
+	gateways map[parentKey]map[k8s.SectionName]*parentInfo,
+	domain string,
+	gatewayRoutes map[string]map[string]*config.Config,
+	meshRoutes map[string]map[string]*config.Config,
+) {
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
 	var splitRules []k8s.HTTPRouteRule
 	for _, r := range route.Rules {
@@ -526,7 +533,13 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 	}, nil
 }
 
-func referenceAllowed(p *parentInfo, routeKind config.GroupVersionKind, parentKind config.GroupVersionKind, hostnames []k8s.Hostname, namespace string) *ParentError {
+func referenceAllowed(
+	p *parentInfo,
+	routeKind config.GroupVersionKind,
+	parentKind config.GroupVersionKind,
+	hostnames []k8s.Hostname,
+	namespace string,
+) *ParentError {
 	// First check the hostnames are a match. This is a bi-directional wildcard match. Only one route
 	// hostname must match for it to be allowed (but the others will be filtered at runtime)
 	// If either is empty its treated as a wildcard which always matches
@@ -591,7 +604,7 @@ func referenceAllowed(p *parentInfo, routeKind config.GroupVersionKind, parentKi
 			if h == "*" {
 				return &ParentError{
 					Reason:  ParentErrorNoHostname,
-					Message: fmt.Sprintf("mesh requires hostname to be set"),
+					Message: "mesh requires hostname to be set",
 				}
 			}
 		}
@@ -811,7 +824,13 @@ func hostnamesToStringListWithWildcard(h []k8s.Hostname) []string {
 	return res
 }
 
-func buildHTTPDestination(refs AllowedReferences, forwardTo []k8s.HTTPBackendRef, ns string, domain string, totalZero bool) ([]*istio.HTTPRouteDestination, *ConfigError) {
+func buildHTTPDestination(
+	refs AllowedReferences,
+	forwardTo []k8s.HTTPBackendRef,
+	ns string,
+	domain string,
+	totalZero bool,
+) ([]*istio.HTTPRouteDestination, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil
 	}
@@ -1583,8 +1602,11 @@ func buildTLS(refs AllowedReferences, tls *k8s.GatewayTLSConfig, namespace strin
 		sameNamespace := credNs == namespace
 		if !sameNamespace && !refs.SecretAllowed(credentials.ToResourceName(cred), namespace) {
 			return nil, &ConfigError{
-				Reason:  InvalidConfiguration,
-				Message: fmt.Sprintf("certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)", tls.CertificateRefs[0].Name, credNs, namespace),
+				Reason: InvalidConfiguration,
+				Message: fmt.Sprintf(
+					"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+					tls.CertificateRefs[0].Name, credNs, namespace,
+				),
 			}
 		}
 		out.CredentialName = cred

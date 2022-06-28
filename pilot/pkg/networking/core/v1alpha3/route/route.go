@@ -788,8 +788,6 @@ func translateHeadersOperations(headers *networking.Headers) headersOperations {
 	}
 }
 
-const singleDNSLabelWildcardRegex = "^[-a-zA-Z]*"
-
 // translateRouteMatch translates match condition
 func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
