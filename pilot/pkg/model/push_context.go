@@ -1432,16 +1432,10 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if !f {
 				continue
 			}
-			sa := sets.New()
-			for _, epShards := range s.Shards {
-				for _, ep := range epShards {
-					if ep.ServiceAccount != "" {
-						sa.Insert(ep.ServiceAccount)
-					}
-				}
-			}
-
-			ps.ServiceAccounts[svc.Hostname][port.Port] = sa.SortedList()
+			s.RLock()
+			sa := s.ServiceAccounts.SortedList()
+			s.RUnlock()
+			ps.ServiceAccounts[svc.Hostname][port.Port] = sa
 		}
 	}
 }
