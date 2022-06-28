@@ -195,6 +195,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	// Detect whether previous installation exists prior to performing the installation.
 	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
 	pilotEnabled := iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
+	autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
 	rev := iop.Spec.Revision
 	if rev == "" && pilotEnabled {
 		_ = revtag.DeleteTagWebhooks(context.Background(), kubeClient.Kube(), revtag.DefaultRevisionName)
@@ -204,26 +205,26 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
+	o := &revtag.GenerateOptions{
+		Tag:                  revtag.DefaultRevisionName,
+		Revision:             rev,
+		Overwrite:            true,
+		AutoInjectNamespaces: autoInjectNamespaces,
+	}
+
 	if !exists || rev == "" && pilotEnabled {
 		p.Println("Making this installation the default for injection and validation.")
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
-		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+	}
 
-		o := &revtag.GenerateOptions{
-			Tag:                  revtag.DefaultRevisionName,
-			Revision:             rev,
-			Overwrite:            true,
-			AutoInjectNamespaces: autoInjectNamespaces,
-		}
-		// If tag cannot be created could be remote cluster install, don't fail out.
-		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
-		if err == nil {
-			err = revtag.Create(kubeClient, tagManifests)
-			if err != nil {
-				return err
-			}
+	// If tag cannot be created could be remote cluster install, don't fail out.
+	tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
+	if err == nil {
+		err = revtag.Create(kubeClient, tagManifests)
+		if err != nil {
+			return err
 		}
 	}
 
