@@ -20,6 +20,8 @@ package uproxy
 import (
 	"fmt"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,7 +31,13 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/tests/integration/security/util/reachability"
+	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 func IsL7() echo.Checker {
@@ -320,6 +328,205 @@ spec:
 			src.CallOrFail(t, opt)
 		})
 	})
+}
+
+func TestMTLS(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.reachability").
+		Run(func(t framework.TestContext) {
+			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
+			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
+			mtlsOnExpect := func(from echo.Instance, opts echo.CallOptions) bool {
+				if from.Config().IsNaked() || opts.To.Config().IsNaked() {
+					// If one of the two endpoints is naked, we don't send mTLS
+					return false
+				}
+				if opts.To.Config().IsHeadless() && opts.To.Instances().Contains(from) {
+					// pod calling its own pod IP will not be intercepted
+					return false
+				}
+				return true
+			}
+			Always := func(echo.Instance, echo.CallOptions) bool {
+				return true
+			}
+			Never := func(echo.Instance, echo.CallOptions) bool {
+				return false
+			}
+			SameNetwork := func(from echo.Instance, to echo.Target) echo.Instances {
+				return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+			}
+			_ = Never
+			_ = SameNetwork
+			testCases := []reachability.TestCase{
+				{
+					ConfigFile: "beta-mtls-on.yaml",
+					Namespace:  systemNM,
+					Include:    Always,
+					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
+						if from.Config().IsUncaptured() || opts.To.Config().IsUncaptured() {
+							// naked->naked should always succeed.
+							return true
+						}
+						// If one of the two endpoints is naked, expect failure.
+						return !from.Config().IsUncaptured() && !opts.To.Config().IsUncaptured()
+					},
+					ExpectMTLS: mtlsOnExpect,
+				},
+				{
+					ConfigFile: "beta-mtls-permissive.yaml",
+					Namespace:  systemNM,
+					Include: func(_ echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to naked since we are applying ISTIO_MUTUAL
+						return !opts.To.Config().IsNaked()
+					},
+					ExpectSuccess: Always,
+					ExpectMTLS:    mtlsOnExpect,
+				},
+				{
+					ConfigFile:    "beta-mtls-off.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+					// Without TLS we can't perform SNI routing required for multi-network
+					ExpectDestinations: SameNetwork,
+				},
+				{
+					ConfigFile:    "plaintext-to-permissive.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+					// Since we are only sending plaintext and Without TLS
+					// we can't perform SNI routing required for multi-network
+					ExpectDestinations: SameNetwork,
+				},
+				{
+					ConfigFile: "beta-mtls-automtls.yaml",
+					Namespace:  apps.Namespace,
+					Include:    Always,
+					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
+						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
+						// have proxy neither.
+						if from.Config().IsNaked() {
+							return opts.To.Config().IsNaked()
+						}
+						return true
+					},
+					ExpectMTLS: mtlsOnExpect,
+				},
+				{
+					ConfigFile: "no-peer-authn.yaml",
+					Namespace:  systemNM,
+					Include: func(_ echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to naked since we are applying ISTIO_MUTUAL
+						return !opts.To.Config().IsNaked()
+					},
+					ExpectSuccess: Always, // No PeerAuthN should default to a PERMISSIVE.
+					ExpectMTLS:    mtlsOnExpect,
+				},
+				{
+					ConfigFile: "global-plaintext.yaml",
+					Namespace:  systemNM,
+					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
+						// Without TLS we can't perform SNI routing required for multi-network
+						return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+					},
+					ExpectSuccess: Always,
+					ExpectMTLS:    Never,
+				},
+				{
+					ConfigFile: "automtls-passthrough.yaml",
+					Namespace:  systemNM,
+					Include: func(_ echo.Instance, opts echo.CallOptions) bool {
+						// VM passthrough doesn't work. We will send traffic to the ClusterIP of
+						// the VM service, which will have 0 Endpoints. If we generated
+						// EndpointSlice's for VMs this might work.
+						return !opts.To.Config().IsVM()
+					},
+					ExpectSuccess: Always,
+					ExpectMTLS: func(from echo.Instance, opts echo.CallOptions) bool {
+						return mtlsOnExpect(from, opts)
+					},
+
+					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
+						// Since we are doing passthrough, only single cluster is relevant here, as we
+						// are bypassing any Istio cluster load balancing
+						return match.Cluster(from.Config().Cluster).GetMatches(to.Instances())
+					},
+				},
+			}
+			RunReachability(testCases, t)
+		})
+}
+
+// Run runs the given reachability test cases with the context.
+func RunReachability(testCases []reachability.TestCase, t framework.TestContext) {
+	runTest := func(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+		svcs := apps.All
+		for _, src := range svcs {
+			t.NewSubTestf("from %v", src.Config().Service).RunParallel(func(t framework.TestContext) {
+				for _, dst := range svcs {
+					t.NewSubTestf("to %v", dst.Config().Service).RunParallel(func(t framework.TestContext) {
+						for _, opt := range callOptions {
+							src, dst, opt := src, dst, opt
+							t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
+								opt = opt.DeepCopy()
+								opt.To = dst
+								opt.Check = check.OK()
+								f(t, src, dst, opt)
+							})
+						}
+					})
+				}
+			})
+		}
+	}
+	for _, c := range testCases {
+		// Create a copy to avoid races, as tests are run in parallel
+		c := c
+		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
+		t.NewSubTest(testName).Run(func(t framework.TestContext) {
+			// Apply the policy.
+			cfg := t.ConfigIstio().File(c.Namespace.Name(), filepath.Join("../security/testdata", c.ConfigFile))
+			retry.UntilSuccessOrFail(t, func() error {
+				t.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
+				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
+				return cfg.Apply(apply.Wait)
+			})
+			runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+				expectSuccess := c.ExpectSuccess(src, opt)
+				expectMTLS := c.ExpectMTLS(src, opt)
+
+				var tpe string
+				if expectSuccess {
+					tpe = "positive"
+					opt.Check = check.And(
+						check.OK(),
+						scheck.ReachedClusters(t.AllClusters(), &opt))
+					if expectMTLS {
+						// TODO(https://github.com/solo-io/istio-sidecarless/issues/150)
+						// opts.Check = check.And(opts.Check,
+						//	check.MTLSForHTTP())
+					}
+				} else {
+					tpe = "negative"
+					opt.Check = scheck.NotOK()
+				}
+				_ = tpe
+
+				include := c.Include
+				if include == nil {
+					include = func(_ echo.Instance, _ echo.CallOptions) bool { return true }
+				}
+				if !include(src, opt) {
+					t.Skip("excluded")
+				}
+				src.CallOrFail(t, opt)
+			})
+		})
+	}
 }
 
 var CheckDeny = check.Or(

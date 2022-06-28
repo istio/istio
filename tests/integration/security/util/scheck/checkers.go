@@ -36,7 +36,7 @@ func NotOK() echo.Checker {
 	strCode := strconv.Itoa(http.StatusOK)
 	return check.Or(check.Error(), check.Each(func(r echoClient.Response) error {
 		if r.Code == strCode {
-			return errors.New("response status code was 100 (OK), but expected failure")
+			return errors.New("response status code was 200 (OK), but expected failure")
 		}
 		return nil
 	}))
