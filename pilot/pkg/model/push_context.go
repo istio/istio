@@ -1430,8 +1430,6 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			}
 			s, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
 			if !f {
-				// Why not found yet?
-				log.Errorf("howardjohn: not found for %v", svc.Hostname)
 				continue
 			}
 			sa := sets.New()
@@ -1444,7 +1442,6 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			}
 
 			ps.ServiceAccounts[svc.Hostname][port.Port] = sa.SortedList()
-			log.Errorf("howardjohn: SA for %v/%v: %v", svc.Hostname, port.Port, ps.ServiceAccounts[svc.Hostname][port.Port])
 		}
 	}
 }
