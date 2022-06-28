@@ -362,8 +362,8 @@ type AuthResult struct {
 type AuthContext struct {
 	// RequestContext is the context from request.
 	RequestContext context.Context
-	// Authenticators is the list of authenticators that were executed before in the auth chain.
-	Authenticators map[string]AuthResult
+	// Messages contains list of messages that authenticator wants to record.
+	Messages map[string][]string
 	// Caller indicates the caller that made authentication request.
 	Caller *Caller
 }
@@ -376,13 +376,13 @@ type Authenticator interface {
 }
 
 func NewAuthContext(ctx context.Context) *AuthContext {
-	return &AuthContext{RequestContext: ctx, Authenticators: make(map[string]AuthResult)}
+	return &AuthContext{RequestContext: ctx, Messages: make(map[string][]string)}
 }
 
 func (ac *AuthContext) FailedMessages() string {
 	authFailMsgs := []string{}
-	for key, ar := range ac.Authenticators {
-		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", key, strings.Join(ar.Messages, "; ")))
+	for key, ar := range ac.Messages {
+		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", key, strings.Join(ar, "; ")))
 	}
 	return strings.Join(authFailMsgs, "; ")
 }

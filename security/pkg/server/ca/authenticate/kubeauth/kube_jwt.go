@@ -95,11 +95,9 @@ func (a *KubeJWTAuthenticator) AuthenticateRequest(req *http.Request) (*security
 // Authenticate authenticates the call using the K8s JWT from the context.
 // The returned Caller.Identities is in SPIFFE format.
 func (a *KubeJWTAuthenticator) Authenticate(ctx *security.AuthContext) (*security.Caller, error) {
-	authResult := security.AuthResult{}
-	ctx.Authenticators[a.AuthenticatorType()] = authResult
 	targetJWT, err := security.ExtractBearerToken(ctx.RequestContext)
 	if err != nil {
-		authResult.Messages = append(authResult.Messages, fmt.Sprintf("target JWT extraction error: %v", err))
+		ctx.Messages[a.AuthenticatorType()] = append(ctx.Messages[a.AuthenticatorType()], fmt.Sprintf("target JWT extraction error: %v", err))
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
 	clusterID := extractClusterID(ctx.RequestContext)

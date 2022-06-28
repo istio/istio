@@ -44,17 +44,16 @@ func (cca *ClientCertAuthenticator) AuthenticatorType() string {
 // chain validation itself.
 func (cca *ClientCertAuthenticator) Authenticate(ctx *security.AuthContext) (*security.Caller, error) {
 	authResult := security.AuthResult{}
-	ctx.Authenticators[cca.AuthenticatorType()] = authResult
 	peer, ok := peer.FromContext(ctx.RequestContext)
 	if !ok || peer.AuthInfo == nil {
 		message := "no client certificate is presented"
-		authResult.Messages = append(authResult.Messages, message)
+		ctx.Messages[cca.AuthenticatorType()] = append(ctx.Messages[cca.AuthenticatorType()], message)
 		return nil, fmt.Errorf(message)
 	}
 
 	if authType := peer.AuthInfo.AuthType(); authType != "tls" {
 		message := fmt.Sprintf("unsupported auth type: %q", authType)
-		authResult.Messages = append(authResult.Messages, message)
+		ctx.Messages[cca.AuthenticatorType()] = append(ctx.Messages[cca.AuthenticatorType()], message)
 		return nil, fmt.Errorf(message)
 	}
 

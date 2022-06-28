@@ -45,12 +45,11 @@ func (xff XfccAuthenticator) AuthenticatorType() string {
 // Authenticate extracts identities from Xfcc Header.
 func (xff XfccAuthenticator) Authenticate(ctx *security.AuthContext) (*security.Caller, error) {
 	authResult := security.AuthResult{}
-	ctx.Authenticators[xff.AuthenticatorType()] = authResult
 	peerInfo, _ := peer.FromContext(ctx.RequestContext)
 	// First check if client is trusted client so that we can "trust" the Xfcc Header.
 	if !isTrustedAddress(peerInfo.Addr.String()) {
 		message := fmt.Sprintf("caller from %s is not in the trusted network. XfccAuthenticator can not be used", peerInfo.Addr.String())
-		authResult.Messages = append(authResult.Messages, message)
+		ctx.Messages[xff.AuthenticatorType()] = append(ctx.Messages[xff.AuthenticatorType()], message)
 		return nil, fmt.Errorf(message)
 	}
 	meta, ok := metadata.FromIncomingContext(ctx.RequestContext)
