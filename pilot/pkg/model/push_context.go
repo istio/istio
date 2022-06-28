@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
@@ -1433,7 +1434,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 				continue
 			}
 			s.RLock()
-			sa := s.ServiceAccounts.SortedList()
+			sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
 			s.RUnlock()
 			ps.ServiceAccounts[svc.Hostname][port.Port] = sa
 		}
