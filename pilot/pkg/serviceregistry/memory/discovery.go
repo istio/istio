@@ -330,11 +330,6 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.In
 	return nil
 }
 
-// GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	return model.GetServiceAccounts(svc, ports, sd)
-}
-
 func (sd *ServiceDiscovery) AddGateways(gws ...model.NetworkGateway) {
 	sd.networkGateways = append(sd.networkGateways, gws...)
 	sd.NotifyGatewayHandlers()
