@@ -86,7 +86,7 @@ type XdsCacheEntry interface {
 	DependentTypes() []config.GroupVersionKind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
-	DependentConfigs() []ConfigKey
+	DependentConfigs() []ConfigHash
 	// Cacheable indicates whether this entry is valid for cache. For example
 	// for EDS to be cacheable, the Endpoint should have corresponding service.
 	Cacheable() bool
@@ -119,7 +119,7 @@ type XdsCache interface {
 func NewXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
-		configIndex:      map[ConfigKey]sets.Set{},
+		configIndex:      map[ConfigHash]sets.Set{},
 		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 	}
 	cache.store = newLru(cache.evict)
@@ -131,7 +131,7 @@ func NewXdsCache() XdsCache {
 func NewLenientXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
-		configIndex:      map[ConfigKey]sets.Set{},
+		configIndex:      map[ConfigHash]sets.Set{},
 		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 	}
 	cache.store = newLru(cache.evict)
@@ -146,7 +146,7 @@ type lruCache struct {
 	// It is refreshed when Clear or ClearAll are called
 	token       CacheToken
 	mu          sync.RWMutex
-	configIndex map[ConfigKey]sets.Set
+	configIndex map[ConfigHash]sets.Set
 	typesIndex  map[config.GroupVersionKind]sets.Set
 }
 
@@ -177,7 +177,7 @@ func (l *lruCache) evict(k interface{}, v interface{}) {
 	l.clearTypesIndex(key, value.dependentTypes)
 }
 
-func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
+func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
 		if l.configIndex[cfg] == nil {
 			l.configIndex[cfg] = sets.New()
@@ -186,7 +186,7 @@ func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
 	}
 }
 
-func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigKey) {
+func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
 		index := l.configIndex[cfg]
 		if index != nil {
@@ -290,7 +290,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 type cacheValue struct {
 	value            *discovery.Resource
 	token            CacheToken
-	dependentConfigs []ConfigKey
+	dependentConfigs []ConfigHash
 	dependentTypes   []config.GroupVersionKind
 }
 
@@ -320,8 +320,8 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
 	for ckey := range configs {
-		referenced := l.configIndex[ckey]
-		delete(l.configIndex, ckey)
+		referenced := l.configIndex[ConfigHash(ckey.HashCode())]
+		delete(l.configIndex, ConfigHash(ckey.HashCode()))
 		for key := range referenced {
 			l.store.Remove(key)
 		}
@@ -342,7 +342,7 @@ func (l *lruCache) ClearAll() {
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
 	l.store = newLru(l.evict)
-	l.configIndex = map[ConfigKey]sets.Set{}
+	l.configIndex = map[ConfigHash]sets.Set{}
 	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
 	size(l.store.Len())
 }

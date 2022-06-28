@@ -34,6 +34,8 @@ import (
 // Statically link protobuf descriptors from UDPA
 var _ = udpa.TypedStruct{}
 
+type ConfigHash uint64
+
 // NamespacedName defines a name and namespace of a resource, with the type elided. This can be used in
 // places where the type is implied.
 // This is preferred to a ConfigKey with empty Kind, especially in performance sensitive code - hashing this struct
@@ -55,7 +57,7 @@ type ConfigKey struct {
 	Namespace string
 }
 
-func (key ConfigKey) HashCode() uint64 {
+func (key ConfigKey) HashCode() ConfigHash {
 	hash := md5.New()
 	for _, v := range []string{
 		key.Name,
@@ -68,7 +70,7 @@ func (key ConfigKey) HashCode() uint64 {
 	}
 	var tmp [md5.Size]byte
 	sum := hash.Sum(tmp[:0])
-	return binary.BigEndian.Uint64(sum)
+	return ConfigHash(binary.BigEndian.Uint64(sum))
 }
 
 func (key ConfigKey) String() string {

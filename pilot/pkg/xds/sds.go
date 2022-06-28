@@ -52,8 +52,12 @@ func (sr SecretResource) DependentTypes() []config.GroupVersionKind {
 	return nil
 }
 
-func (sr SecretResource) DependentConfigs() []model.ConfigKey {
-	return relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})
+func (sr SecretResource) DependentConfigs() []model.ConfigHash {
+	configs := []model.ConfigHash{}
+	for _, config := range relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
+		configs = append(configs, model.ConfigHash(config.HashCode()))
+	}
+	return configs
 }
 
 func (sr SecretResource) Cacheable() bool {

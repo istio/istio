@@ -58,7 +58,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName, gvk.Sidecar: scName,
 	}
 	for kind, name := range sidecarScopeKindNames {
-		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName})
+		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName}.HashCode())
 	}
 	for kind, types := range configKindAffectedProxyTypes {
 		for _, nodeType := range types {
@@ -67,7 +67,7 @@ func TestProxyNeedsPush(t *testing.T) {
 					Kind:      kind,
 					Name:      generalName,
 					Namespace: nsName,
-				})
+				}.HashCode())
 			}
 		}
 	}
