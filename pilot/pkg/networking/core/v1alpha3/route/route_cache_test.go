@@ -49,7 +49,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 	// rds cache entry
 	entry := Cache{
 		VirtualServices:         []config.Config{root},
-		DelegateVirtualServices: []model.ConfigKey{delegate},
+		DelegateVirtualServices: []*model.ConfigKey{&delegate},
 		ListenerPort:            8080,
 	}
 	resource := &discovery.Resource{Name: "bar"}
