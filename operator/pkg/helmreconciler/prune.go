@@ -159,7 +159,6 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 			return errStatus,
 				fmt.Errorf("failed to check proxy infos: %v", err)
 		}
-		// TODO(richardwxn): add warning message together with the status
 		if len(pids) != 0 {
 			msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
 				strings.Join(pids, " "))
@@ -261,6 +260,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 				string(name.PilotComponentName),
 				string(name.IngressComponentName), string(name.EgressComponentName),
 				string(name.CNIComponentName), string(name.IstioOperatorComponentName),
+				string(name.IstiodRemoteComponentName),
 			}
 			includeRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.In, includeCN)
 			if err != nil {

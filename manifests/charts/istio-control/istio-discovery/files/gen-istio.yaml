@@ -1862,15 +1862,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "disable_host_header_fallback": true,
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
-                            "source_cluster": "downstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "disable_host_header_fallback": true
                     }
                 vm_config:
                   vm_id: stats_inbound
@@ -1950,15 +1942,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
-                            "source_cluster": "downstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_inbound
@@ -2104,15 +2088,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "disable_host_header_fallback": true,
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
-                            "source_cluster": "downstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "disable_host_header_fallback": true
                     }
                 vm_config:
                   vm_id: stats_inbound
@@ -2192,15 +2168,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
-                            "source_cluster": "downstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_inbound
@@ -2346,15 +2314,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "disable_host_header_fallback": true,
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
-                            "source_cluster": "downstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "disable_host_header_fallback": true
                     }
                 vm_config:
                   vm_id: stats_inbound
@@ -2434,15 +2394,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
-                            "source_cluster": "downstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_inbound
@@ -2588,15 +2540,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "disable_host_header_fallback": true,
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
-                            "source_cluster": "downstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "disable_host_header_fallback": true
                     }
                 vm_config:
                   vm_id: stats_inbound
@@ -2676,15 +2620,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
-                            "source_cluster": "downstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_inbound
@@ -2830,15 +2766,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "disable_host_header_fallback": true,
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
-                            "source_cluster": "downstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "disable_host_header_fallback": true
                     }
                 vm_config:
                   vm_id: stats_inbound
@@ -2918,15 +2846,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
-                            "source_cluster": "downstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_inbound

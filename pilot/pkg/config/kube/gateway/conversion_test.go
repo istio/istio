@@ -394,7 +394,7 @@ func splitInput(configs []config.Config) *KubernetesResources {
 	return out
 }
 
-func readConfig(t *testing.T, filename string, validator *crdvalidation.Validator) []config.Config {
+func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator) []config.Config {
 	t.Helper()
 
 	data, err := os.ReadFile(filename)
@@ -404,7 +404,7 @@ func readConfig(t *testing.T, filename string, validator *crdvalidation.Validato
 	return readConfigString(t, string(data), validator)
 }
 
-func readConfigString(t *testing.T, data string, validator *crdvalidation.Validator) []config.Config {
+func readConfigString(t testing.TB, data string, validator *crdvalidation.Validator) []config.Config {
 	if err := validator.ValidateCustomResourceYAML(data); err != nil {
 		t.Error(err)
 	}
@@ -457,34 +457,6 @@ func marshalYaml(t test.Failer, cl []config.Config) []byte {
 	return result
 }
 
-func TestStandardizeWeight(t *testing.T) {
-	tests := []struct {
-		name   string
-		input  []int
-		output []int
-	}{
-		{"single", []int{1}, []int{0}},
-		{"double", []int{1, 1}, []int{50, 50}},
-		{"zero", []int{1, 0}, []int{100, 0}},
-		{"overflow", []int{1, 1, 1}, []int{34, 33, 33}},
-		{"skewed", []int{9, 1}, []int{90, 10}},
-		{"multiple overflow", []int{1, 1, 1, 1, 1, 1}, []int{17, 17, 17, 17, 16, 16}},
-		{"skewed overflow", []int{1, 1, 1, 3}, []int{17, 17, 16, 50}},
-		{"skewed overflow 2", []int{1, 1, 1, 1, 2}, []int{17, 17, 17, 16, 33}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := standardizeWeights(tt.input)
-			if !reflect.DeepEqual(tt.output, got) {
-				t.Errorf("standardizeWeights() = %v, want %v", got, tt.output)
-			}
-			if len(tt.output) > 1 && intSum(tt.output) != 100 {
-				t.Errorf("invalid weights, should sum to 100: %v", got)
-			}
-		})
-	}
-}
-
 func TestHumanReadableJoin(t *testing.T) {
 	tests := []struct {
 		input []string
@@ -523,5 +495,66 @@ func TestStrictestHost(t *testing.T) {
 		t.Run(fmt.Sprintf("%v/%v", tt.route, tt.gateway), func(t *testing.T) {
 			assert.Equal(t, strictestHost(tt.route, tt.gateway), tt.want)
 		})
+	}
+}
+
+func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
+	ports := []*model.Port{
+		{
+			Name:     "http",
+			Port:     80,
+			Protocol: "HTTP",
+		},
+		{
+			Name:     "tcp",
+			Port:     34000,
+			Protocol: "TCP",
+		},
+	}
+	ingressSvc := &model.Service{
+		Attributes: model.ServiceAttributes{
+			Name:      "istio-ingressgateway",
+			Namespace: "istio-system",
+			ClusterExternalAddresses: model.AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"Kubernetes": {"1.2.3.4"},
+				},
+			},
+		},
+		Ports:    ports,
+		Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
+	}
+	altIngressSvc := &model.Service{
+		Attributes: model.ServiceAttributes{
+			Namespace: "istio-system",
+		},
+		Ports:    ports,
+		Hostname: "example.com",
+	}
+	cg := v1alpha3.NewConfigGenTest(b, v1alpha3.TestOptions{
+		Services: []*model.Service{ingressSvc, altIngressSvc},
+		Instances: []*model.ServiceInstance{
+			{Service: ingressSvc, ServicePort: ingressSvc.Ports[0], Endpoint: &model.IstioEndpoint{EndpointPort: 8080}},
+			{Service: ingressSvc, ServicePort: ingressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
+			{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[0], Endpoint: &model.IstioEndpoint{}},
+			{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
+		},
+	})
+
+	validator := crdvalidation.NewIstioValidator(b)
+	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator)
+	kr := splitInput(input)
+	kr.Context = model.NewGatewayContext(cg.PushContext())
+	_, gwMap, _ := convertGateways(kr)
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		// for gateway routes, build one VS per gateway+host
+		gatewayRoutes := make(map[string]map[string]*config.Config)
+		// for mesh routes, build one VS per namespace+host
+		meshRoutes := make(map[string]map[string]*config.Config)
+		for _, obj := range kr.HTTPRoute {
+			buildHTTPVirtualServices(obj, gwMap, kr.Domain, gatewayRoutes, meshRoutes)
+		}
 	}
 }

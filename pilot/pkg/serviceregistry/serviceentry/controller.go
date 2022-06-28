@@ -264,6 +264,11 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesUpdated = append(instancesUpdated, instance...)
+		if event == model.EventDelete {
+			s.serviceInstances.deleteServiceEntryInstances(namespacedName, key)
+		} else {
+			s.serviceInstances.updateServiceEntryInstancesPerConfig(namespacedName, key, instance)
+		}
 		addConfigs(se, services)
 	}
 
@@ -278,6 +283,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesDeleted = append(instancesDeleted, instance...)
+		s.serviceInstances.deleteServiceEntryInstances(namespacedName, key)
 		addConfigs(se, services)
 	}
 
@@ -328,6 +334,7 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 
 // serviceEntryHandler defines the handler for service entries
 func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Event) {
+	log.Debugf("Handle event %s for service entry %s/%s", event, curr.Namespace, curr.Name)
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}

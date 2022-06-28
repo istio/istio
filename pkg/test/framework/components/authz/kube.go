@@ -16,7 +16,7 @@ package authz
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -129,7 +129,7 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 func readDeploymentYAML(ctx resource.Context) (string, error) {
 	// Read the samples file.
 	filePath := fmt.Sprintf("%s/samples/extauthz/ext-authz.yaml", env.IstioSrc)
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err
 	}
@@ -226,7 +226,7 @@ func installProviders(ctx resource.Context, providerYAML string) error {
 		return err
 	}
 
-	return istio.UpdateMeshConfig(ctx, ist.Settings().SystemNamespace, ctx.Clusters(),
+	return ist.UpdateMeshConfig(ctx,
 		func(mc *meshconfig.MeshConfig) error {
 			// Merge the extension providers.
 			mc.ExtensionProviders = append(mc.ExtensionProviders, newMC.ExtensionProviders...)
