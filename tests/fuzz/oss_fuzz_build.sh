@@ -24,13 +24,12 @@ sed -i 's/out.initJwksResolver()/\/\/out.initJwksResolver()/g' "${SRC}"/istio/pi
 # This is a small hack to install this dependency, since it is not used anywhere,
 # and Go would therefore remove it from go.mod once we run "go mod tidy && go mod vendor".
 printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/utils\"\n" > register.go
-
 go mod tidy
+
 compile_native_go_fuzzer istio.io/istio/pkg/config/mesh FuzzValidateMeshConfig FuzzValidateMeshConfig
 
 mv ./tests/fuzz/kube_gateway_controller_fuzzer.go ./pilot/pkg/config/kube/gateway/
 compile_go_fuzzer istio.io/istio/pilot/pkg/config/kube/gateway ConvertResourcesFuzz fuzz_convert_resources
-exit 0
 
 mv ./tests/fuzz/ca_server_fuzzer.go ./security/pkg/server/ca
 mv ./security/pkg/server/ca/server_test.go ./security/pkg/server/ca/server_fuzz.go
@@ -110,8 +109,6 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGalleyDiag fuzz_galley_diag
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzNewBootstrapServer fuzz_new_bootstrap_server
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGenCSR fuzz_gen_csr
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCreateCertE2EUsingClientCertAuthenticator fuzz_create_cert_e2e_using_client_cert_authenticator
-
-compile_native_go_fuzzer istio.io/istio/pkg/config/mesh FuzzValidateMeshConfig FuzzValidateMeshConfig
 
 # Create seed corpora:
 zip "${OUT}"/fuzz_config_validation2_seed_corpus.zip "${SRC}"/istio/tests/fuzz/testdata/FuzzConfigValidation2/seed1
