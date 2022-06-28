@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"strings"
 
-	"istio.io/istio/pkg/mtp"
+	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -134,7 +134,7 @@ func newTCPConnection(cfg *Config) (net.Conn, error) {
 	address := cfg.Request.Url[len(cfg.scheme+"://"):]
 
 	if cfg.secure {
-		return mtp.TLSDialWithDialer(newDialer(cfg), "tcp", address, cfg.tlsConfig)
+		return hbone.TLSDialWithDialer(newDialer(cfg), "tcp", address, cfg.tlsConfig)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)

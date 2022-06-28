@@ -1,6 +1,6 @@
-# Mesh Transport Protocol
+# HTTP Based Overlay Network (HBONE)
 
-Mesh Transport Protocol (MTP) is the protocol used by Istio.
+HTTP Based Overlay Network (HBONE) is the protocol used by Istio for communication between workloads in the mesh.
 At a high level, the protocol consists of tunneling TCP connections over HTTP/2 CONNECT, over mTLS.
 
 ## Specification
@@ -19,20 +19,20 @@ Usage examples:
 
 ```shell
 go install ./pkg/test/echo/cmd/client
-# Send request to 127.0.0.1:8080 (Note only IPs are supported) via an MTP proxy on port 15008
-client --mtp-client-cert tests/testdata/certs/cert.crt --mtp-client-key tests/testdata/certs/cert.key \
+# Send request to 127.0.0.1:8080 (Note only IPs are supported) via an HBONE proxy on port 15008
+client --hbone-client-cert tests/testdata/certs/cert.crt --hbone-client-key tests/testdata/certs/cert.key \
   http://127.0.0.1:8080 \
-  --mtp 127.0.0.1:15008
+  --hbone 127.0.0.1:15008
 ```
 
 #### Golang
 
-An (unstable) library to make MTP connections is available at `pkg/mtp`.
+An (unstable) library to make HBONE connections is available at `pkg/hbone`.
 
 Usage example:
 
 ```go
-d := NewDialer(Config{
+d := hbone.NewDialer(hbone.Config{
     ProxyAddress: "1.2.3.4:15008",
     Headers: map[string][]string{
         "some-addition-metadata": {"test-value"},
@@ -59,12 +59,12 @@ server --tls 15008 --crt tests/testdata/certs/cert.crt --key tests/testdata/cert
 
 #### Server Golang Library
 
-An (unstable) library to run an MTP server is available at `pkg/mtp`.
+An (unstable) library to run an HBONE server is available at `pkg/hbone`.
 
 Usage example:
 
 ```go
-s := NewServer()
+s := hbone.NewServer()
 // TLS is strongly recommended in real world
 l, _ := net.Listen("tcp", "0.0.0.0:15008")
 s.Serve(l)

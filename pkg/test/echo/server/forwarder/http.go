@@ -31,7 +31,7 @@ import (
 	"github.com/lucas-clemente/quic-go/http3"
 	"golang.org/x/net/http2"
 
-	"istio.io/istio/pkg/mtp"
+	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -108,7 +108,7 @@ func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 			return &http2.Transport{
 				TLSClientConfig: cfg.tlsConfig,
 				DialTLS: func(network, addr string, tlsConfig *tls.Config) (net.Conn, error) {
-					return mtp.TLSDialWithDialer(newDialer(cfg), network, addr, tlsConfig)
+					return hbone.TLSDialWithDialer(newDialer(cfg), network, addr, tlsConfig)
 				},
 			}
 		}

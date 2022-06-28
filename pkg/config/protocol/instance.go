@@ -54,8 +54,8 @@ const (
 	Redis Instance = "Redis"
 	// MySQL declares that the port carries MySQL traffic.
 	MySQL Instance = "MySQL"
-	// MTP declares that the port carries Mesh Transport Protocol traffic.
-	MTP Instance = "MTP"
+	// HBONE declares that the port carries Mesh Transport Protocol traffic.
+	HBONE Instance = "HBONE"
 	// Unsupported - value to signify that the protocol is unsupported.
 	Unsupported Instance = "UnsupportedProtocol"
 )

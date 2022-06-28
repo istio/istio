@@ -59,9 +59,9 @@ type Config struct {
 	// completed whether the Config is complete or still in progress
 	completed bool
 
-	mtpTLSConfig    *tls.Config
-	mtpClientConfig func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
-	mtpHeaders      http.Header
+	hboneTLSConfig    *tls.Config
+	hboneClientConfig func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	hboneHeaders      http.Header
 }
 
 func (c *Config) fillDefaults() error {
@@ -72,7 +72,7 @@ func (c *Config) fillDefaults() error {
 	c.timeout = common.GetTimeout(c.Request)
 	c.count = common.GetCount(c.Request)
 	c.headers = common.GetHeaders(c.Request)
-	c.mtpHeaders = common.ProtoToHTTPHeaders(c.Request.Mtp.GetHeaders())
+	c.hboneHeaders = common.ProtoToHTTPHeaders(c.Request.Hbone.GetHeaders())
 
 	// Extract the host from the headers and then remove it.
 	c.hostHeader = c.headers.Get(hostHeader)
@@ -102,12 +102,12 @@ func (c *Config) fillDefaults() error {
 	if err != nil {
 		return err
 	}
-	c.mtpClientConfig, err = getMtpClientConfig(c.Request.Mtp)
+	c.hboneClientConfig, err = getHBONEClientConfig(c.Request.Hbone)
 	if err != nil {
 		return err
 	}
 
-	c.mtpTLSConfig, err = newMtpTLSConfig(c)
+	c.hboneTLSConfig, err = newMtpTLSConfig(c)
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func getClientCertificateFunc(r *proto.ForwardEchoRequest) (func(info *tls.Certi
 	return nil, nil
 }
 
-func getMtpClientConfig(r *proto.MTP) (func(info *tls.CertificateRequestInfo) (*tls.Certificate, error), error) {
+func getHBONEClientConfig(r *proto.HBONE) (func(info *tls.CertificateRequestInfo) (*tls.Certificate, error), error) {
 	if r == nil {
 		return nil, nil
 	}
@@ -315,12 +315,12 @@ func newTLSConfig(c *Config) (*tls.Config, error) {
 }
 
 func newMtpTLSConfig(c *Config) (*tls.Config, error) {
-	r := c.Request.Mtp
+	r := c.Request.Hbone
 	if r == nil {
 		return nil, nil
 	}
 	tlsConfig := &tls.Config{
-		GetClientCertificate: c.mtpClientConfig,
+		GetClientCertificate: c.hboneClientConfig,
 	}
 	if r.CaCertFile != "" {
 		certData, err := os.ReadFile(r.CaCertFile)

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mtp
+package hbone
 
 import (
 	"context"
@@ -32,7 +32,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("mtp", "", 0)
+var log = istiolog.RegisterScope("hbone", "", 0)
 
 type Config struct {
 	ProxyAddress string

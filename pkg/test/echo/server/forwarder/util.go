@@ -25,7 +25,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/mtp"
+	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -46,12 +46,12 @@ func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header)
 	}
 }
 
-func newDialer(cfg *Config) mtp.Dialer {
-	if cfg.Request.Mtp.GetAddress() != "" {
-		out := mtp.NewDialer(mtp.Config{
-			ProxyAddress: cfg.Request.Mtp.GetAddress(),
-			Headers:      cfg.mtpHeaders,
-			TLS:          cfg.mtpTLSConfig,
+func newDialer(cfg *Config) hbone.Dialer {
+	if cfg.Request.Hbone.GetAddress() != "" {
+		out := hbone.NewDialer(hbone.Config{
+			ProxyAddress: cfg.Request.Hbone.GetAddress(),
+			Headers:      cfg.hboneHeaders,
+			TLS:          cfg.hboneTLSConfig,
 		})
 		return out
 	}

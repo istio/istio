@@ -37,7 +37,7 @@ var (
 	grpcPorts        []int
 	tcpPorts         []int
 	tlsPorts         []int
-	mtpPorts         []int
+	hbonePorts       []int
 	instanceIPPorts  []int
 	localhostIPPorts []int
 	serverFirstPorts []int
@@ -60,7 +60,7 @@ var (
 		Long:              `Echo application for testing Istio E2E`,
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
-			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(mtpPorts))
+			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(hbonePorts))
 			tlsByPort := map[int]bool{}
 			for _, p := range tlsPorts {
 				tlsByPort[p] = true
@@ -105,10 +105,10 @@ var (
 				}
 				portIndex++
 			}
-			for i, p := range mtpPorts {
+			for i, p := range hbonePorts {
 				ports[portIndex] = &common.Port{
-					Name:     "mtp-" + strconv.Itoa(i),
-					Protocol: protocol.MTP,
+					Name:     "hbone-" + strconv.Itoa(i),
+					Protocol: protocol.HBONE,
 					Port:     p,
 					TLS:      tlsByPort[p],
 				}
@@ -164,7 +164,7 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&httpPorts, "port", []int{8080}, "HTTP/1.1 ports")
 	rootCmd.PersistentFlags().IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
 	rootCmd.PersistentFlags().IntSliceVar(&tcpPorts, "tcp", []int{9090}, "TCP ports")
-	rootCmd.PersistentFlags().IntSliceVar(&mtpPorts, "mtp", []int{15008}, "MTP ports")
+	rootCmd.PersistentFlags().IntSliceVar(&hbonePorts, "hbone", []int{15008}, "HBONE ports")
 	rootCmd.PersistentFlags().IntSliceVar(&tlsPorts, "tls", []int{}, "Ports that are using TLS. These must be defined as http/grpc/tcp.")
 	rootCmd.PersistentFlags().IntSliceVar(&instanceIPPorts, "bind-ip", []int{}, "Ports that are bound to INSTANCE_IP rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&localhostIPPorts, "bind-localhost", []int{}, "Ports that are bound to localhost rather than wildcard IP.")

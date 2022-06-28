@@ -20,7 +20,7 @@ import (
 	"net"
 	"net/http"
 
-	"istio.io/istio/pkg/mtp"
+	"istio.io/istio/pkg/hbone"
 )
 
 var _ Instance = &connectInstance{}
@@ -30,7 +30,7 @@ type connectInstance struct {
 	server *http.Server
 }
 
-func newMTP(config Config) Instance {
+func newHBONE(config Config) Instance {
 	return &connectInstance{
 		Config: config,
 	}
@@ -45,7 +45,7 @@ func (c connectInstance) Close() error {
 
 func (c connectInstance) Start(onReady OnReadyFunc) error {
 	defer onReady()
-	c.server = mtp.NewServer()
+	c.server = hbone.NewServer()
 
 	var listener net.Listener
 	var port int
@@ -82,10 +82,10 @@ func (c connectInstance) Start(onReady OnReadyFunc) error {
 
 	if c.Port.TLS {
 		c.server.Addr = fmt.Sprintf(":%d", port)
-		fmt.Printf("Listening MTP on %v\n", port)
+		fmt.Printf("Listening HBONE on %v\n", port)
 	} else {
 		c.server.Addr = fmt.Sprintf(":%d", port)
-		fmt.Printf("Listening MTP (plaintext) on %v\n", port)
+		fmt.Printf("Listening HBONE (plaintext) on %v\n", port)
 	}
 	go func() {
 		err := c.server.Serve(listener)

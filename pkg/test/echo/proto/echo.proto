@@ -81,11 +81,11 @@ message ForwardEchoRequest {
   // If set, each request will force a DNS lookup. Only applies if newConnectionPerRequest is set.
   bool forceDNSLookup = 23;
 
-  // MTP communication settings. If provided, requests will be tunnelled.
-  MTP mtp = 24;
+  // HBONE communication settings. If provided, requests will be tunnelled.
+  HBONE hbone = 24;
 }
 
-message MTP {
+message HBONE {
   string address = 9;
   repeated Header headers = 1;
   // If non-empty, make the request with the corresponding cert and key.

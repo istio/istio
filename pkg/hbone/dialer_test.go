@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mtp
+package hbone
 
 import (
 	"net"
@@ -45,7 +45,7 @@ func newTCPServer(t testing.TB, data string) string {
 
 func TestDialer(t *testing.T) {
 	testAddr := newTCPServer(t, "hello")
-	proxy := newMTPServer(t)
+	proxy := newHBONEServer(t)
 	d := NewDialer(Config{
 		ProxyAddress: proxy,
 		Headers: map[string][]string{
@@ -75,7 +75,7 @@ func TestDialer(t *testing.T) {
 	t.Logf("Read %v", string(buf[:n]))
 }
 
-func newMTPServer(t *testing.T) string {
+func newHBONEServer(t *testing.T) string {
 	s := NewServer()
 	l, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
