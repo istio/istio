@@ -26,8 +26,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/util/cert"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
-	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 const (

@@ -1,6 +1,3 @@
-//go:build integ
-// +build integ
-
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -193,4 +190,12 @@ func ReadCustomCertFromFile(f string) ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func LoadCert(filename string) (string, error) {
+	data, err := ReadSampleCertFromFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
