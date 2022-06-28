@@ -55,7 +55,7 @@ func (sr SecretResource) DependentTypes() []config.GroupVersionKind {
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {
 	configs := []model.ConfigHash{}
 	for _, config := range relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
-		configs = append(configs, model.ConfigHash(config.HashCode()))
+		configs = append(configs, config.HashCode())
 	}
 	return configs
 }

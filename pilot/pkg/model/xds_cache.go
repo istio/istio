@@ -320,8 +320,8 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
 	for ckey := range configs {
-		referenced := l.configIndex[ConfigHash(ckey.HashCode())]
-		delete(l.configIndex, ConfigHash(ckey.HashCode()))
+		referenced := l.configIndex[ckey.HashCode()]
+		delete(l.configIndex, ckey.HashCode())
 		for key := range referenced {
 			l.store.Remove(key)
 		}

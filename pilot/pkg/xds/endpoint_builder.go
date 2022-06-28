@@ -180,10 +180,16 @@ func (b EndpointBuilder) Cacheable() bool {
 func (b EndpointBuilder) DependentConfigs() []model.ConfigHash {
 	configs := []model.ConfigHash{}
 	if b.destinationRule != nil {
-		configs = append(configs, model.ConfigHash(model.ConfigKey{Kind: gvk.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace}.HashCode()))
+		configs = append(configs, model.ConfigKey{
+			Kind: gvk.DestinationRule,
+			Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace,
+		}.HashCode())
 	}
 	if b.service != nil {
-		configs = append(configs, model.ConfigHash(model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace}.HashCode()))
+		configs = append(configs, model.ConfigKey{
+			Kind: gvk.ServiceEntry,
+			Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace,
+		}.HashCode())
 	}
 	return configs
 }

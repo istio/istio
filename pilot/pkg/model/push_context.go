@@ -894,7 +894,7 @@ func (ps *PushContext) DelegateVirtualServices(vses []config.Config) []ConfigHas
 	var out []ConfigHash
 	for _, vs := range vses {
 		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: gvk.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
-			out = append(out, ConfigHash(delegate.HashCode()))
+			out = append(out, delegate.HashCode())
 		}
 	}
 	return out
