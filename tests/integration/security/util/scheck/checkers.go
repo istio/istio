@@ -39,7 +39,7 @@ func NotOK() echo.Checker {
 	}))
 }
 
-func ReachedClusters(t framework.TestContext, opts *echo.CallOptions) echo.Checker {
+func ReachedClusters(t framework.TestContext, opts echo.CallOptions) echo.Checker {
 	// TODO(https://github.com/istio/istio/issues/37307): Investigate why we don't reach all clusters.
 	if opts.To.Clusters().IsMulticluster() && opts.Count > 1 && opts.Scheme != scheme.GRPC && !opts.To.Config().IsHeadless() {
 		return check.ReachedTargetClusters(t)

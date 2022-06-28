@@ -55,7 +55,7 @@ func TestReachability(t *testing.T) {
 							Name: "http",
 						},
 					}
-					opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, &opts))
+					opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, opts))
 
 					from.CallOrFail(t, opts)
 				})
