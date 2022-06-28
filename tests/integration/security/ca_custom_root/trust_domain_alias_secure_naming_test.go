@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 const (
@@ -96,9 +95,9 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 								Scheme:  s,
 							}
 							if success {
-								opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, opts))
+								opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 							} else {
-								opts.Check = scheck.NotOK()
+								opts.Check = check.NotOK()
 							}
 
 							from.CallOrFail(t, opts)
