@@ -143,7 +143,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 ) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery()
-	s.MemRegistry.EDSUpdater = s
+	s.MemRegistry.XdsUpdater = s
 	s.MemRegistry.ClusterID = "v2-debug"
 
 	sctl.AddRegistry(serviceregistry.Simple{

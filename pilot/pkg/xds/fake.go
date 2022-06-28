@@ -240,7 +240,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	s.MemRegistry = cg.MemRegistry
-	s.MemRegistry.EDSUpdater = s
 	s.updateMutex.Unlock()
 
 	// Setup config handlers
@@ -315,6 +314,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Start the discovery server
 	s.Start(stop)
 	cg.ServiceEntryRegistry.XdsUpdater = s
+	s.MemRegistry.XdsUpdater = s
 	// Now that handlers are added, get everything started
 	cg.Run()
 	kubelib.WaitForCacheSync(stop,
