@@ -211,7 +211,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		if dr := ps.destinationRule(configNamespace, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
 		}
-		out.AddConfigDependencies(ConfigKey{
+		out.AddConfigDependencies(&ConfigKey{
 			Kind:      gvk.ServiceEntry,
 			Name:      string(s.Hostname),
 			Namespace: s.Attributes.Namespace,
@@ -221,7 +221,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	for _, drList := range out.destinationRules {
 		for _, dr := range drList {
 			for _, namespacedName := range dr.from {
-				out.AddConfigDependencies(ConfigKey{
+				out.AddConfigDependencies(&ConfigKey{
 					Kind:      gvk.DestinationRule,
 					Name:      namespacedName.Name,
 					Namespace: namespacedName.Namespace,
@@ -237,7 +237,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			out.AddConfigDependencies(delegate)
 		}
 		for _, vs := range el.virtualServices {
-			out.AddConfigDependencies(ConfigKey{
+			out.AddConfigDependencies(&ConfigKey{
 				Kind:      gvk.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
@@ -270,7 +270,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Version:            ps.PushVersion,
 	}
 
-	out.AddConfigDependencies(ConfigKey{
+	out.AddConfigDependencies(&ConfigKey{
 		Kind:      gvk.Sidecar,
 		Name:      sidecarConfig.Name,
 		Namespace: sidecarConfig.Namespace,
@@ -300,7 +300,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			return
 		}
 		if foundSvc, found := servicesAdded[s.Hostname]; !found {
-			out.AddConfigDependencies(ConfigKey{
+			out.AddConfigDependencies(&ConfigKey{
 				Kind:      gvk.ServiceEntry,
 				Name:      string(s.Hostname),
 				Namespace: s.Attributes.Namespace,
@@ -349,7 +349,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range listener.virtualServices {
 			v := vs.Spec.(*networking.VirtualService)
-			out.AddConfigDependencies(ConfigKey{
+			out.AddConfigDependencies(&ConfigKey{
 				Kind:      gvk.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
@@ -417,7 +417,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			out.destinationRules[s.Hostname] = drList
 			for _, dr := range drList {
 				for _, key := range dr.from {
-					out.AddConfigDependencies(ConfigKey{
+					out.AddConfigDependencies(&ConfigKey{
 						Kind:      gvk.DestinationRule,
 						Name:      key.Name,
 						Namespace: key.Namespace,
@@ -552,7 +552,7 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 
 // AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
 // SidecarScope being used to avoid concurrent read/write.
-func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
+func (sc *SidecarScope) AddConfigDependencies(dependencies ...*ConfigKey) {
 	if sc == nil {
 		return
 	}
