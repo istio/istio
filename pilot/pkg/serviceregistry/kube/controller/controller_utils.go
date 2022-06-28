@@ -66,7 +66,7 @@ func (sc *ServiceSelectorCache) Delete(key string) {
 // GetPodServiceMemberships returns a set of Service keys for Services that have
 // a selector matching the given pod.
 func (sc *ServiceSelectorCache) GetPodServiceMemberships(serviceLister v1listers.ServiceLister, pod *v1.Pod) ([]*v1.Service, error) {
-	var services []*v1.Service
+	var svs []*v1.Service
 	services, err := serviceLister.Services(pod.Namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -89,8 +89,8 @@ func (sc *ServiceSelectorCache) GetPodServiceMemberships(serviceLister v1listers
 		}
 
 		if selector.Matches(labels.Set(pod.Labels)) {
-			services = append(services, service)
+			svs = append(svs, service)
 		}
 	}
-	return services, nil
+	return svs, nil
 }

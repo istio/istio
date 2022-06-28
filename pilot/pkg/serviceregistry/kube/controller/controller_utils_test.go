@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
 )
 
 func TestServiceSelectorCache_GetPodServiceMemberships(t *testing.T) {
@@ -61,7 +62,7 @@ func TestServiceSelectorCache_GetPodServiceMemberships(t *testing.T) {
 		pods = append(pods, pod)
 	}
 
-	cache := NewServiceSelectorCache()
+	scache := NewServiceSelectorCache()
 	tests := []struct {
 		name   string
 		pod    *v1.Pod
@@ -95,11 +96,18 @@ func TestServiceSelectorCache_GetPodServiceMemberships(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			services, err := cache.GetPodServiceMemberships(fakeInformerFactory.Core().V1().Services().Lister(), test.pod)
+			services, err := scache.GetPodServiceMemberships(fakeInformerFactory.Core().V1().Services().Lister(), test.pod)
 			if err != nil {
 				t.Errorf("Error from cache.GetPodServiceMemberships: %v", err)
-			} else if !services.Equal(test.expect) {
-				t.Errorf("Expect service %v, but got %v", test.expect, services)
+			} else {
+				set := sets.String{}
+				for _, s := range services {
+					key, _ := cache.DeletionHandlingMetaNamespaceKeyFunc(s)
+					set.Insert(key)
+				}
+				if !set.Equal(test.expect) {
+					t.Errorf("Expect service %v, but got %v", test.expect, set)
+				}
 			}
 		})
 	}
