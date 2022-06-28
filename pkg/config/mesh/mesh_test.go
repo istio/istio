@@ -22,7 +22,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	_ "github.com/AdamKorcz/go-118-fuzz-build/utils"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
@@ -398,10 +397,4 @@ networks:
 		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
 	}
 	assert.Equal(t, got, &want)
-}
-
-func FuzzValidateMeshConfig(f *testing.F) {
-	f.Fuzz(func(t *testing.T, data string) {
-		_, _ = mesh.ApplyMeshConfigDefaults(data)
-	})
 }
