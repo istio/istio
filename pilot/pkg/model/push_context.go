@@ -95,7 +95,7 @@ type virtualServiceIndex struct {
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
 	publicByGateway map[string][]config.Config
 	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
-	delegates map[ConfigKey][]ConfigKey
+	delegates map[ConfigKey][]*ConfigKey
 }
 
 func newVirtualServiceIndex() virtualServiceIndex {
@@ -103,7 +103,7 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		publicByGateway:              map[string][]config.Config{},
 		privateByNamespaceAndGateway: map[string]map[string][]config.Config{},
 		exportedToNamespaceByGateway: map[string]map[string][]config.Config{},
-		delegates:                    map[ConfigKey][]ConfigKey{},
+		delegates:                    map[ConfigKey][]*ConfigKey{},
 	}
 }
 
@@ -890,8 +890,8 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 }
 
 // DelegateVirtualServicesConfigKey lists all the delegate virtual services configkeys associated with the provided virtual services
-func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []ConfigKey {
-	var out []ConfigKey
+func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []*ConfigKey {
+	var out []*ConfigKey
 	for _, vs := range vses {
 		out = append(out, ps.virtualServiceIndex.delegates[ConfigKey{Kind: gvk.VirtualService, Namespace: vs.Namespace, Name: vs.Name}]...)
 	}

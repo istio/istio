@@ -52,7 +52,7 @@ func (sr SecretResource) DependentTypes() []config.GroupVersionKind {
 	return nil
 }
 
-func (sr SecretResource) DependentConfigs() []model.ConfigKey {
+func (sr SecretResource) DependentConfigs() []*model.ConfigKey {
 	return relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})
 }
 
@@ -362,9 +362,9 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 	}
 }
 
-func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
+func containsAny(mp map[model.ConfigKey]struct{}, keys []*model.ConfigKey) bool {
 	for _, k := range keys {
-		if _, f := mp[k]; f {
+		if _, f := mp[*k]; f {
 			return true
 		}
 	}
@@ -376,16 +376,17 @@ func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
 // the -cacert suffix. By including this dependency we ensure we do not miss any updates.
 // This is important for cases where we have a compound secret. In this case, the `foo` secret may update,
 // but we need to push both the `foo` and `foo-cacert` resource name, or they will fall out of sync.
-func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
-	related := []model.ConfigKey{k}
+func relatedConfigs(k model.ConfigKey) []*model.ConfigKey {
+	related := []*model.ConfigKey{&k}
+	tmp := k
 	// For secret without -cacert suffix, add the suffix
 	if !strings.HasSuffix(k.Name, securitymodel.SdsCaSuffix) {
-		k.Name += securitymodel.SdsCaSuffix
-		related = append(related, k)
+		tmp.Name += securitymodel.SdsCaSuffix
+		related = append(related, &tmp)
 	} else {
 		// For secret with -cacert suffix, remove the suffix
-		k.Name = strings.TrimSuffix(k.Name, securitymodel.SdsCaSuffix)
-		related = append(related, k)
+		tmp.Name = strings.TrimSuffix(k.Name, securitymodel.SdsCaSuffix)
+		related = append(related, &tmp)
 	}
 	return related
 }

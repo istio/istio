@@ -152,7 +152,7 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 func mergeVirtualServicesIfNeeded(
 	vServices []config.Config,
 	defaultExportTo map[visibility.Instance]bool,
-) ([]config.Config, map[ConfigKey][]ConfigKey) {
+) ([]config.Config, map[ConfigKey][]*ConfigKey) {
 	out := make([]config.Config, 0, len(vServices))
 	delegatesMap := map[string]config.Config{}
 	delegatesExportToMap := map[string]map[visibility.Instance]bool{}
@@ -192,7 +192,7 @@ func mergeVirtualServicesIfNeeded(
 		out = append(out, vs)
 	}
 
-	delegatesByRoot := make(map[ConfigKey][]ConfigKey, len(rootVses))
+	delegatesByRoot := make(map[ConfigKey][]*ConfigKey, len(rootVses))
 
 	// 2. merge delegates and root
 	for _, root := range rootVses {
@@ -207,7 +207,7 @@ func mergeVirtualServicesIfNeeded(
 					delegateNamespace = root.Namespace
 				}
 				delegateConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
-				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
+				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], &delegateConfigKey)
 				delegateVS, ok := delegatesMap[key(delegate.Name, delegateNamespace)]
 				if !ok {
 					log.Debugf("delegate virtual service %s/%s of %s/%s not found",

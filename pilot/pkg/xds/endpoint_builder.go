@@ -177,13 +177,13 @@ func (b EndpointBuilder) Cacheable() bool {
 	return b.service != nil
 }
 
-func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
-	configs := []model.ConfigKey{}
+func (b EndpointBuilder) DependentConfigs() []*model.ConfigKey {
+	configs := []*model.ConfigKey{}
 	if b.destinationRule != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace})
+		configs = append(configs, &model.ConfigKey{Kind: gvk.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace})
 	}
 	if b.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
+		configs = append(configs, &model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
 	}
 	return configs
 }

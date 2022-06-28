@@ -80,13 +80,13 @@ func size(cs int) {
 type XdsCacheEntry interface {
 	// Key is the key to be used in cache.
 	Key() string
-	// DependentTypes are config types that this cache key is dependant on.
+	// DependentTypes are config types that this cache key is dependent on.
 	// Whenever any configs of this type changes, we should invalidate this cache entry.
 	// Note: DependentConfigs should be preferred wherever possible.
 	DependentTypes() []config.GroupVersionKind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
-	DependentConfigs() []ConfigKey
+	DependentConfigs() []*ConfigKey
 	// Cacheable indicates whether this entry is valid for cache. For example
 	// for EDS to be cacheable, the Endpoint should have corresponding service.
 	Cacheable() bool
@@ -177,22 +177,22 @@ func (l *lruCache) evict(k interface{}, v interface{}) {
 	l.clearTypesIndex(key, value.dependentTypes)
 }
 
-func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
+func (l *lruCache) updateConfigIndex(k string, dependentConfigs []*ConfigKey) {
 	for _, cfg := range dependentConfigs {
-		if l.configIndex[cfg] == nil {
-			l.configIndex[cfg] = sets.New()
+		if l.configIndex[*cfg] == nil {
+			l.configIndex[*cfg] = sets.New()
 		}
-		l.configIndex[cfg].Insert(k)
+		l.configIndex[*cfg].Insert(k)
 	}
 }
 
-func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigKey) {
+func (l *lruCache) clearConfigIndex(k string, dependentConfigs []*ConfigKey) {
 	for _, cfg := range dependentConfigs {
-		index := l.configIndex[cfg]
+		index := l.configIndex[*cfg]
 		if index != nil {
 			index.Delete(k)
 			if index.IsEmpty() {
-				delete(l.configIndex, cfg)
+				delete(l.configIndex, *cfg)
 			}
 		}
 	}
@@ -290,7 +290,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 type cacheValue struct {
 	value            *discovery.Resource
 	token            CacheToken
-	dependentConfigs []ConfigKey
+	dependentConfigs []*ConfigKey
 	dependentTypes   []config.GroupVersionKind
 }
 
