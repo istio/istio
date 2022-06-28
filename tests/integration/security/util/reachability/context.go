@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 // TestCase represents reachability test cases.
@@ -171,14 +170,14 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 									tpe = "positive"
 									opts.Check = check.And(
 										check.OK(),
-										scheck.ReachedClusters(t, opts))
+										check.ReachedTargetClusters(t))
 									if expectMTLS {
 										opts.Check = check.And(opts.Check,
 											check.MTLSForHTTP())
 									}
 								} else {
 									tpe = "negative"
-									opts.Check = scheck.NotOK()
+									opts.Check = check.NotOK()
 								}
 								include := c.Include
 								if include == nil {

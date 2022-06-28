@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util/cert"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 const (
@@ -134,7 +133,7 @@ func TestSecureNaming(t *testing.T) {
 									Name: "http",
 								},
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, opts))
+							opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 							a.CallOrFail(t, opts)
 						})
 
@@ -177,9 +176,9 @@ func TestSecureNaming(t *testing.T) {
 									},
 								}
 								if tc.expectSuccess {
-									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, opts))
+									opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 								} else {
-									opts.Check = scheck.NotOK()
+									opts.Check = check.NotOK()
 								}
 
 								a.CallOrFail(t, opts)
