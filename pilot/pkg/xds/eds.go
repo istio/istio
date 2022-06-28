@@ -152,8 +152,6 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		return IncrementalPush
 	}
 
-	log.Errorf("howardjohn: %v have %v eps: ", hostname, len(istioEndpoints))
-
 	pushType := IncrementalPush
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
 	ep, created := s.Env.EndpointIndex.GetOrCreateEndpointShard(hostname, namespace)
