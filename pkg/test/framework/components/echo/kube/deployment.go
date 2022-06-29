@@ -15,7 +15,6 @@
 package kube
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"net"
@@ -26,12 +25,13 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Masterminds/sprig/v3"
 	"github.com/hashicorp/go-multierror"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/pkg/test/util/file"
 
 	"istio.io/istio/pkg/test/env"
 
@@ -70,47 +70,23 @@ var (
 )
 
 func init() {
-	serviceYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", echo.ServiceTemplateFile())
-	if filepath.IsAbs(echo.ServiceTemplateFile()) {
-		serviceYAMLPath = echo.ServiceTemplateFile()
+	serviceYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", serviceTemplateFile)
+	if filepath.IsAbs(serviceTemplateFile) {
+		serviceYAMLPath = serviceTemplateFile
 	}
+	serviceTemplate = tmpl.MustParse(file.MustAsString(serviceYAMLPath))
 
-	if serviceYAML, err := os.ReadFile(serviceYAMLPath); err != nil {
-		panic(fmt.Sprintf("unable to read template file %s : %v", serviceYAMLPath, err))
-	} else {
-		serviceTemplate = template.New("echo_service")
-		if _, err1 := serviceTemplate.Funcs(sprig.TxtFuncMap()).Parse(string(serviceYAML)); err1 != nil {
-			panic(fmt.Sprintf("unable to parse echo service template: %v", err1))
-		}
+	deploymentYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", deploymentTemplateFile)
+	if filepath.IsAbs(deploymentTemplateFile) {
+		deploymentYAMLPath = deploymentTemplateFile
 	}
+	deploymentTemplate = tmpl.MustParse(file.MustAsString(deploymentYAMLPath))
 
-	deploymentYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", echo.DeploymentTemplateFile())
-	if filepath.IsAbs(echo.DeploymentTemplateFile()) {
-		deploymentYAMLPath = echo.DeploymentTemplateFile()
+	vmDeploymentYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", vmDeploymentTemplateFile)
+	if filepath.IsAbs(vmDeploymentTemplateFile) {
+		vmDeploymentYAMLPath = vmDeploymentTemplateFile
 	}
-
-	if deploymentYAML, err := os.ReadFile(deploymentYAMLPath); err != nil {
-		panic(fmt.Sprintf("unable to read template file %s : %v", deploymentYAMLPath, err))
-	} else {
-		deploymentTemplate = template.New("echo_deployment")
-		if _, err1 := deploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(string(deploymentYAML)); err1 != nil {
-			panic(fmt.Sprintf("unable to parse echo deployment template: %v", err1))
-		}
-	}
-
-	vmDeploymentYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", echo.VMDeploymentTemplateFile())
-	if filepath.IsAbs(echo.VMDeploymentTemplateFile()) {
-		vmDeploymentYAMLPath = echo.VMDeploymentTemplateFile()
-	}
-
-	if vmDeploymentYAML, err := os.ReadFile(vmDeploymentYAMLPath); err != nil {
-		panic(fmt.Sprintf("unable to read template file %s : %v", deploymentYAMLPath, err))
-	} else {
-		vmDeploymentTemplate = template.New("echo_vm_deployment")
-		if _, err1 := vmDeploymentTemplate.Funcs(sprig.TxtFuncMap()).Funcs(template.FuncMap{"Lines": lines}).Parse(string(vmDeploymentYAML)); err1 != nil {
-			panic(fmt.Sprintf("unable to parse echo vm deployment template: %v", err1))
-		}
-	}
+	vmDeploymentTemplate = tmpl.MustParse(file.MustAsString(vmDeploymentYAMLPath))
 }
 
 var _ workloadHandler = &deployment{}
@@ -415,15 +391,6 @@ func serviceParams(cfg echo.Config) map[string]interface{} {
 		"IPFamilies":         cfg.IPFamilies,
 		"IPFamilyPolicy":     cfg.IPFamilyPolicy,
 	}
-}
-
-func lines(input string) []string {
-	out := make([]string, 0)
-	scanner := bufio.NewScanner(strings.NewReader(input))
-	for scanner.Scan() {
-		out = append(out, scanner.Text())
-	}
-	return out
 }
 
 // createVMConfig sets up a Service account,
