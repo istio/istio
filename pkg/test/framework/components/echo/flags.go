@@ -22,11 +22,14 @@ import (
 )
 
 var (
-	callTimeout      = 20 * time.Second
-	callDelay        = 10 * time.Millisecond
-	callConverge     = 3
-	readinessTimeout = 10 * time.Minute
-	callsPerWorkload = 5
+	callTimeout              = 20 * time.Second
+	callDelay                = 10 * time.Millisecond
+	callConverge             = 3
+	readinessTimeout         = 10 * time.Minute
+	callsPerWorkload         = 5
+	serviceTemplateFile      = "service.yaml"
+	deploymentTemplateFile   = "deployment.yaml"
+	vmDeploymentTemplateFile = "vm_deployment.yaml"
 )
 
 // init registers the command-line flags that we can exposed for "go test".
@@ -42,6 +45,12 @@ func init() {
 	flag.IntVar(&callsPerWorkload, "istio.test.echo.callsPerWorkload", callsPerWorkload,
 		"Specifies the number of calls that will be made for each target workload. "+
 			"Only applies if the call count is zero (default) and a target was specified for the call")
+	flag.StringVar(&serviceTemplateFile, "istio.test.echo.kube.template.service", serviceTemplateFile,
+		"absolute path or path relative to templates directory of template file to be used for echo services")
+	flag.StringVar(&deploymentTemplateFile, "istio.test.echo.kube.template.deployment", deploymentTemplateFile,
+		"absolute path or path relative to templates directory of template file to be used for non-vm echo deployments")
+	flag.StringVar(&vmDeploymentTemplateFile, "istio.test.echo.kube.template.deployment.vm", vmDeploymentTemplateFile,
+		"absolute path or path relative to templates directory of template file to be used for VMs")
 }
 
 // DefaultCallRetryOptions returns the default call retry options as specified in command-line flags.
@@ -57,4 +66,16 @@ func DefaultReadinessTimeout() time.Duration {
 // DefaultCallsPerWorkload returns the number of calls that should be made per target workload by default.
 func DefaultCallsPerWorkload() int {
 	return callsPerWorkload
+}
+
+func ServiceTemplateFile() string {
+	return serviceTemplateFile
+}
+
+func DeploymentTemplateFile() string {
+	return deploymentTemplateFile
+}
+
+func VMDeploymentTemplateFile() string {
+	return vmDeploymentTemplateFile
 }

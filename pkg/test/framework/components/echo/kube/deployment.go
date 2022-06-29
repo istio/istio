@@ -18,22 +18,22 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/fs"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/hashicorp/go-multierror"
-	"istio.io/istio/pkg/test/env"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/pkg/test/env"
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -64,34 +64,53 @@ const (
 )
 
 var (
-	deploymentTemplatesMap map[string]*template.Template
+	serviceTemplate      *template.Template
+	deploymentTemplate   *template.Template
+	vmDeploymentTemplate *template.Template
 )
 
-func prepareTemplate(file fs.FileInfo, templateDir string) *template.Template {
-	if yaml, err := os.ReadFile(path.Join(templateDir, file.Name())); err != nil {
-		panic(fmt.Sprintf("unable to read template file %s : %v", file.Name(), err))
-	} else {
-		yamlTemplate := template.New(file.Name())
-		if _, err1 := yamlTemplate.Funcs(sprig.TxtFuncMap()).Parse(string(yaml)); err1 != nil {
-			panic(fmt.Sprintf("unable to parse template %s : %v", file.Name(), err1))
-		}
-		return yamlTemplate
-	}
-}
-
 func init() {
-	templateDir := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates")
+	serviceYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", echo.ServiceTemplateFile())
+	if filepath.IsAbs(echo.ServiceTemplateFile()) {
+		serviceYAMLPath = echo.ServiceTemplateFile()
+	}
 
-	deploymentTemplatesMap = make(map[string]*template.Template)
-
-	if files, err := ioutil.ReadDir(templateDir); err != nil {
-		panic(fmt.Sprintf("unable to read template directory : %v", err))
+	if serviceYAML, err := os.ReadFile(serviceYAMLPath); err != nil {
+		panic(fmt.Sprintf("unable to read template file %s : %v", serviceYAMLPath, err))
 	} else {
-		for _, file := range files {
-			deploymentTemplatesMap[file.Name()] = prepareTemplate(file, templateDir)
+		serviceTemplate = template.New("echo_service")
+		if _, err1 := serviceTemplate.Funcs(sprig.TxtFuncMap()).Parse(string(serviceYAML)); err1 != nil {
+			panic(fmt.Sprintf("unable to parse echo service template: %v", err1))
 		}
 	}
 
+	deploymentYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", echo.DeploymentTemplateFile())
+	if filepath.IsAbs(echo.DeploymentTemplateFile()) {
+		deploymentYAMLPath = echo.DeploymentTemplateFile()
+	}
+
+	if deploymentYAML, err := os.ReadFile(deploymentYAMLPath); err != nil {
+		panic(fmt.Sprintf("unable to read template file %s : %v", deploymentYAMLPath, err))
+	} else {
+		deploymentTemplate = template.New("echo_deployment")
+		if _, err1 := deploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(string(deploymentYAML)); err1 != nil {
+			panic(fmt.Sprintf("unable to parse echo deployment template: %v", err1))
+		}
+	}
+
+	vmDeploymentYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", echo.VMDeploymentTemplateFile())
+	if filepath.IsAbs(echo.VMDeploymentTemplateFile()) {
+		vmDeploymentYAMLPath = echo.VMDeploymentTemplateFile()
+	}
+
+	if vmDeploymentYAML, err := os.ReadFile(vmDeploymentYAMLPath); err != nil {
+		panic(fmt.Sprintf("unable to read template file %s : %v", deploymentYAMLPath, err))
+	} else {
+		vmDeploymentTemplate = template.New("echo_vm_deployment")
+		if _, err1 := vmDeploymentTemplate.Funcs(sprig.TxtFuncMap()).Funcs(template.FuncMap{"Lines": lines}).Parse(string(vmDeploymentYAML)); err1 != nil {
+			panic(fmt.Sprintf("unable to parse echo vm deployment template: %v", err1))
+		}
+	}
 }
 
 var _ workloadHandler = &deployment{}
@@ -240,23 +259,17 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 		return "", err
 	}
 
-	templateName := "echo_deployment.template"
+	deploy := deploymentTemplate
 	if cfg.DeployAsVM {
-		templateName = "vm_deployment.template"
-	} else if os.Getenv("DEPLOYMENT_TEMPLATE") != "" {
-		templateName = os.Getenv("DEPLOYMENT_TEMPLATE")
+		deploy = vmDeploymentTemplate
 	}
 
-	if deployTemplate, ok := deploymentTemplatesMap[templateName]; ok {
-		return tmpl.Execute(deployTemplate, params)
-	} else {
-		return "", fmt.Errorf("Invalid template name : %s", templateName)
-	}
+	return tmpl.Execute(deploy, params)
 }
 
 func GenerateService(cfg echo.Config) (string, error) {
 	params := serviceParams(cfg)
-	return tmpl.Execute(deploymentTemplatesMap["service.template"], params)
+	return tmpl.Execute(serviceTemplate, params)
 }
 
 var VMImages = map[echo.VMDistro]string{
