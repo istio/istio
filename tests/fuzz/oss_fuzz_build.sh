@@ -27,6 +27,7 @@ printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/utils\"\
 go mod tidy
 
 # Find all native fuzzers and compile them
+# shellcheck disable=SC2016
 grep --line-buffered --include '*.go' -Pr 'func Fuzz.*\(.* \*testing\.F' | sed -E 's/(func Fuzz(.*)\(.*)/\2/' | xargs -I{} sh -c '
   fname="$(dirname $(echo "{}" | cut -d: -f1))"
   func="Fuzz$(echo "{}" | cut -d: -f2)"
