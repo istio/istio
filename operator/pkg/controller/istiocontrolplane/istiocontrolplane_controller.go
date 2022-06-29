@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	kubeversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -78,13 +79,16 @@ type Options struct {
 	Force bool
 }
 
-var (
-	// watchedResources contains all resources we will watch and reconcile when changed
-	// Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
-	// a type that does not yet exist.
-	watchedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr},
-		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
+const (
+	autoscalingV2MinK8SVersion = 23
+	pdbV1MinK8SVersion         = 21
+)
+
+// watchedResources contains all resources we will watch and reconcile when changed
+// Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
+// a type that does not yet exist.
+func watchedResources(version *kubeversion.Info) []schema.GroupVersionKind {
+	res := []schema.GroupVersionKind{
 		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
 		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
 		{Group: "", Version: "v1", Kind: name.ServiceStr},
@@ -103,7 +107,22 @@ var (
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
 		{Group: "apiextensions.k8s.io", Version: "v1", Kind: name.CRDStr},
 	}
+	// autoscaling v2 API is available on >=1.23
+	if kube.IsKubeAtLeastOrLessThanVersion(version, autoscalingV2MinK8SVersion, true) {
+		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: name.HPAStr})
+	} else {
+		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr})
+	}
+	// policy/v1 is available on >=1.21
+	if kube.IsKubeAtLeastOrLessThanVersion(version, pdbV1MinK8SVersion, true) {
+		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1", Kind: name.PDBStr})
+	} else {
+		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1beta1", Kind: name.PDBStr})
+	}
+	return res
+}
 
+var (
 	ownedResourcePredicates = predicate.Funcs{
 		CreateFunc: func(_ event.CreateEvent) bool {
 			// no action
@@ -433,7 +452,7 @@ func Add(mgr manager.Manager, options *Options) error {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, r *ReconcileIstioOperator) error {
 	scope.Info("Adding controller for IstioOperator.")
 	// Create a new controller
 	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r})
@@ -446,8 +465,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
+	ver, err := r.kubeClient.GetKubernetesVersion()
+	if err != nil {
+		return err
+	}
 	// watch for changes to Istio resources
-	err = watchIstioResources(c)
+	err = watchIstioResources(c, ver)
 	if err != nil {
 		return err
 	}
@@ -456,8 +479,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 }
 
 // Watch changes for Istio resources managed by the operator
-func watchIstioResources(c controller.Controller) error {
-	for _, t := range watchedResources {
+func watchIstioResources(c controller.Controller, ver *kubeversion.Info) error {
+	for _, t := range watchedResources(ver) {
 		u := &unstructured.Unstructured{}
 		u.SetGroupVersionKind(schema.GroupVersionKind{
 			Kind:    t.Kind,
