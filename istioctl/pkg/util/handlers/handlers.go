@@ -29,6 +29,7 @@ import (
 	"k8s.io/kubectl/pkg/polymorphichelpers"
 	"k8s.io/kubectl/pkg/util/podutils"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	kubelib "istio.io/istio/pkg/kube"
@@ -123,6 +124,12 @@ func SelectorsForObject(object runtime.Object) (namespace string, selector label
 	switch t := object.(type) {
 	case *gatewayapi.Gateway:
 		if !gateway.IsManaged(&t.Spec) {
+			return "", nil, fmt.Errorf("gateway is not a managed gateway")
+		}
+		namespace = t.Namespace
+		selector, err = labels.Parse(gateway.GatewayNameLabel + "=" + t.Name)
+	case *gatewayapibeta.Gateway:
+		if !gateway.IsManagedBeta(&t.Spec) {
 			return "", nil, fmt.Errorf("gateway is not a managed gateway")
 		}
 		namespace = t.Namespace

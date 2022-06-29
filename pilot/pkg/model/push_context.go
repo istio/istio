@@ -1228,7 +1228,7 @@ func (ps *PushContext) updateContext(
 		case gvk.RequestAuthentication,
 			gvk.PeerAuthentication:
 			authnChanged = true
-		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.KubernetesGateway, gvk.TLSRoute, gvk.ReferencePolicy:
+		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.KubernetesGateway, gvk.TLSRoute, gvk.ReferencePolicy, gvk.ReferenceGrant:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true

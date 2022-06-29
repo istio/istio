@@ -17,7 +17,7 @@ spec:
   gatewayClassName: istio
   listeners:
   - name: cross
-    hostname: "cert.domain.example"
+    hostname: "cert1.domain.example"
     port: 443
     protocol: HTTPS
     allowedRoutes:
@@ -31,15 +31,44 @@ spec:
       certificateRefs:
       - name: cert
         namespace: cert
+  - name: cross2
+    hostname: "cert2.domain.example"
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            kubernetes.io/metadata.name: "cert"
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: cert2
+        namespace: cert2
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: ReferencePolicy
 metadata:
-  name: alllow-cert
+  name: allow-cert
   namespace: cert
 spec:
   from:
-  - group: networking.gateway.k8s.io
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: istio-system
+  to:
+    - group: ""
+      kind: Secret
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferenceGrant
+metadata:
+  name: allow-cert
+  namespace: cert2
+spec:
+  from:
+  - group: gateway.networking.k8s.io
     kind: Gateway
     namespace: istio-system
   to:
@@ -55,7 +84,7 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-  hostnames: ["cert.domain.example"]
+  hostnames: ["cert1.domain.example", "cert2.domain.example"]
   rules:
   - backendRefs:
     - name: httpbin

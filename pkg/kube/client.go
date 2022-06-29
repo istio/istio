@@ -68,6 +68,7 @@ import (
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
@@ -1172,6 +1173,7 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
+	utilruntime.Must(gatewayapibeta.AddToScheme(scheme))
 	utilruntime.Must(apis.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme

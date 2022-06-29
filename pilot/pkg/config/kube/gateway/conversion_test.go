@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -61,6 +60,7 @@ func TestConvertResources(t *testing.T) {
 		{"delegated"},
 		{"route-binding"},
 		{"reference-policy-tls"},
+		{"reference-policy-service"},
 		{"serviceentry"},
 		{"eastwest"},
 		{"alias"},
@@ -116,8 +116,8 @@ func TestConvertResources(t *testing.T) {
 			kr := splitInput(input)
 			kr.Context = model.NewGatewayContext(cg.PushContext())
 			output := convertResources(kr)
-			output.AllowedReferences = nil       // Not tested here
-			output.ReferencedNamespaceKeys = nil // Not tested here
+			output.AllowedReferences = AllowedReferences{} // Not tested here
+			output.ReferencedNamespaceKeys = nil           // Not tested here
 
 			// sort virtual services to make the order deterministic
 			sort.Slice(output.VirtualService, func(i, j int) bool {
@@ -359,8 +359,8 @@ func splitOutput(configs []config.Config) OutputResources {
 	return out
 }
 
-func splitInput(configs []config.Config) *KubernetesResources {
-	out := &KubernetesResources{}
+func splitInput(configs []config.Config) KubernetesResources {
+	out := KubernetesResources{}
 	namespaces := sets.New()
 	for _, c := range configs {
 		namespaces.Insert(c.Namespace)
@@ -377,6 +377,8 @@ func splitInput(configs []config.Config) *KubernetesResources {
 			out.TLSRoute = append(out.TLSRoute, c)
 		case gvk.ReferencePolicy:
 			out.ReferencePolicy = append(out.ReferencePolicy, c)
+		case gvk.ReferenceGrant:
+			out.ReferenceGrant = append(out.ReferenceGrant, c)
 		}
 	}
 	out.Namespaces = map[string]*corev1.Namespace{}
@@ -475,29 +477,6 @@ func TestHumanReadableJoin(t *testing.T) {
 	}
 }
 
-func TestStrictestHost(t *testing.T) {
-	tests := []struct {
-		route   host.Name
-		gateway host.Name
-		want    string
-	}{
-		{"foo.com", "bar.com", ""},
-		{"foo.com", "foo.com", "foo.com"},
-		{"*.com", "foo.com", "foo.com"},
-		{"foo.com", "*.com", "foo.com"},
-		{"*.com", "*.com", "*.com"},
-		{"*.foo.com", "*.bar.com", ""},
-		{"*.foo.com", "*.com", ""},
-		{"*", "foo.com", "foo.com"},
-		{"bar.com", "", "bar.com"},
-	}
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%v/%v", tt.route, tt.gateway), func(t *testing.T) {
-			assert.Equal(t, strictestHost(tt.route, tt.gateway), tt.want)
-		})
-	}
-}
-
 func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 	ports := []*model.Port{
 		{
@@ -545,7 +524,11 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator)
 	kr := splitInput(input)
 	kr.Context = model.NewGatewayContext(cg.PushContext())
-	_, gwMap, _ := convertGateways(kr)
+	ctx := ConfigContext{
+		KubernetesResources: kr,
+		AllowedReferences:   convertReferencePolicies(kr),
+	}
+	_, gwMap, _ := convertGateways(ctx)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
@@ -554,7 +537,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 		// for mesh routes, build one VS per namespace+host
 		meshRoutes := make(map[string]map[string]*config.Config)
 		for _, obj := range kr.HTTPRoute {
-			buildHTTPVirtualServices(obj, gwMap, kr.Domain, gatewayRoutes, meshRoutes)
+			buildHTTPVirtualServices(ctx.AllowedReferences, obj, gwMap, kr.Domain, gatewayRoutes, meshRoutes)
 		}
 	}
 }
