@@ -83,11 +83,21 @@ func NewFakeAuthenticator(name string) *FakeAuthenticator {
 	}
 }
 
-func (f *FakeAuthenticator) AuthenticateRequest(req *http.Request) (*Caller, error) {
+func (f *FakeAuthenticator) Authenticate(authReq AuthenticateContext) (*Caller, error) {
+	if authReq.GrpcContext != nil {
+		return f.authenticateGrpc(authReq.GrpcContext)
+	}
+	if authReq.Request != nil {
+		return f.authenticateHTTP(authReq.Request)
+	}
+	return nil, nil
+}
+
+func (f *FakeAuthenticator) authenticateHTTP(req *http.Request) (*Caller, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (f *FakeAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
+func (f *FakeAuthenticator) authenticateGrpc(ctx context.Context) (*Caller, error) {
 	f.mu.Lock()
 	at := f.AllowedToken
 	ac := f.AllowedCert
