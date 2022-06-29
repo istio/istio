@@ -643,7 +643,7 @@ func TestWasmPlugins(t *testing.T) {
 
 func TestServiceIndex(t *testing.T) {
 	g := NewWithT(t)
-	env := &Environment{}
+	env := NewEnvironment()
 	store := istioConfigStore{ConfigStore: NewFakeStore()}
 
 	env.ConfigStore = &store
@@ -866,7 +866,7 @@ func serviceNames(svcs []*Service) []string {
 }
 
 func TestInitPushContext(t *testing.T) {
-	env := &Environment{}
+	env := NewEnvironment()
 	configStore := NewFakeStore()
 	_, _ = configStore.Create(config.Config{
 		Meta: config.Meta{
@@ -2423,10 +2423,6 @@ func (l *localServiceDiscovery) GetProxyServiceInstances(*Proxy) []*ServiceInsta
 
 func (l *localServiceDiscovery) GetProxyWorkloadLabels(*Proxy) labels.Instance {
 	panic("implement me")
-}
-
-func (l *localServiceDiscovery) GetIstioServiceAccounts(*Service, []int) []string {
-	return nil
 }
 
 func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {

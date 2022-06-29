@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -488,7 +489,7 @@ func TestExpandWithTrustDomains(t *testing.T) {
 		name         string
 		spiffeURI    []string
 		trustDomains []string
-		want         map[string]struct{}
+		want         sets.Set
 	}{
 		{
 			name:      "Basic",
@@ -559,7 +560,7 @@ func TestExpandWithTrustDomains(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ExpandWithTrustDomains(tc.spiffeURI, tc.trustDomains)
+			got := ExpandWithTrustDomains(sets.New(tc.spiffeURI...), tc.trustDomains)
 			if diff := cmp.Diff(got, tc.want); diff != "" {
 				t.Errorf("unexpected expanded results: %v", diff)
 			}

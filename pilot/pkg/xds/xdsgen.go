@@ -113,12 +113,14 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 			ResourceNames: req.Delta.Subscribed.UnsortedList(),
 		}
 	}
-
 	res, logdata, err := gen.Generate(con.proxy, w, req)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
 			s.StatusReporter.RegisterEvent(con.conID, w.TypeUrl, req.Push.LedgerVersion)
+		}
+		if log.DebugEnabled() {
+			log.Debugf("%s: SKIP%s for node:%s", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID)
 		}
 		return err
 	}

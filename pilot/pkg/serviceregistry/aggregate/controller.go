@@ -15,7 +15,6 @@
 package aggregate
 
 import (
-	"sort"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -25,7 +24,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
@@ -383,43 +381,4 @@ func (c *Controller) UnRegisterHandlersForCluster(id cluster.ID) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 	delete(c.handlersByCluster, id)
-}
-
-// GetIstioServiceAccounts implements model.ServiceAccounts operation.
-// The returned list contains all SPIFFE based identities that backs the service.
-// This method also expand the results from different registries based on the mesh config trust domain aliases.
-// To retain such trust domain expansion behavior, the xDS server implementation should wrap any (even if single)
-// service registry by this aggreated one.
-// For example,
-// - { "spiffe://cluster.local/bar@iam.gserviceaccount.com"}; when annotation is used on corresponding workloads.
-// - { "spiffe://cluster.local/ns/default/sa/foo" }; normal kubernetes cases
-// - { "spiffe://cluster.local/ns/default/sa/foo", "spiffe://trust-domain-alias/ns/default/sa/foo" };
-//   if the trust domain alias is configured.
-func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	out := map[string]struct{}{}
-	for _, r := range c.GetRegistries() {
-		svcAccounts := r.GetIstioServiceAccounts(svc, ports)
-		for _, sa := range svcAccounts {
-			out[sa] = struct{}{}
-		}
-	}
-	result := make([]string, 0, len(out))
-	for k := range out {
-		result = append(result, k)
-	}
-	tds := make([]string, 0)
-	if c.meshHolder != nil {
-		m := c.meshHolder.Mesh()
-		if m != nil {
-			tds = m.TrustDomainAliases
-		}
-	}
-	expanded := spiffe.ExpandWithTrustDomains(result, tds)
-	result = make([]string, 0, len(expanded))
-	for k := range expanded {
-		result = append(result, k)
-	}
-	// Sort to make the return result deterministic.
-	sort.Strings(result)
-	return result
 }
