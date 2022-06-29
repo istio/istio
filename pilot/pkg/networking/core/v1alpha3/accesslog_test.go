@@ -103,13 +103,16 @@ func TestListenerAccessLog(t *testing.T) {
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			accessLogBuilder.reset()
 			// Update MeshConfig
 			m := mesh.DefaultMeshConfig()
 			m.AccessLogFile = "foo"
 			m.AccessLogEncoding = tc.encoding
 			m.AccessLogFormat = tc.format
 			listeners := buildListeners(t, TestOptions{MeshConfig: m}, nil)
-			accessLogBuilder.reset()
+			if len(listeners) != 2 {
+				t.Errorf("expected to have 2 listeners, but got %v", len(listeners))
+			}
 			// Validate that access log filter uses the new format.
 			for _, l := range listeners {
 				if l.AccessLog[0].Filter == nil {
