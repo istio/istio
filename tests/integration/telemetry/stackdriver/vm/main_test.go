@@ -19,6 +19,7 @@ package vm
 
 import (
 	"fmt"
+	"istio.io/istio/tests/integration/telemetry/util"
 	"os"
 	"strings"
 	"testing"
@@ -41,7 +42,6 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/telemetry"
 	sdtest "istio.io/istio/tests/integration/telemetry/stackdriver"
 )
 
@@ -195,7 +195,7 @@ func testSetup(ctx resource.Context) error {
 		vmEnv["GCE_METADATA_HOST"] = sdtest.GCEInst.Address()
 	}
 
-	trustDomain := telemetry.GetTrustDomain(ctx.Clusters()[0], istioInst.Settings().SystemNamespace)
+	trustDomain := util.GetTrustDomain(ctx.Clusters()[0], istioInst.Settings().SystemNamespace)
 	// read expected values from testdata
 	wantClientReqs, wantServerReqs, err = goldenRequestCounts(trustDomain)
 	if err != nil {

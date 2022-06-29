@@ -25,8 +25,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
-	util "istio.io/istio/tests/integration/telemetry"
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	"istio.io/istio/tests/integration/telemetry/common"
+	"istio.io/istio/tests/integration/telemetry/util"
 )
 
 // TestBadWasmRemoteLoad tests that bad Wasm remote load configuration won't affect service.
@@ -52,7 +52,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				q := prometheus.Query{Metric: "istio_agent_wasm_remote_fetch_count", Labels: map[string]string{"result": "download_failure"}}
 				c := to.Config().Cluster
-				if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
+				if _, err := util.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
 					util.PromDiff(t, common.GetPromInstance(), c, q)
 					return err
 				}
@@ -65,7 +65,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 				retry.UntilSuccessOrFail(t, func() error {
 					q := prometheus.Query{Metric: "pilot_total_xds_rejects", Labels: map[string]string{"type": "ecds"}}
 					c := to.Config().Cluster
-					if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
+					if _, err := util.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
 						util.PromDiff(t, common.GetPromInstance(), c, q)
 						return err
 					}
@@ -73,7 +73,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 				}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 			}
 
-			t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
+			t.Log("got istio_agent_wasm_remote_fetch_count metric in common, bad wasm filter is applied, send request to echo server again.")
 
 			// Verify that echo server could still return 200
 			common.SendTrafficOrFail(t, to)

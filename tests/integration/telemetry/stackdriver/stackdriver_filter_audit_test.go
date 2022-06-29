@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/telemetry"
+	"istio.io/istio/tests/integration/telemetry/util"
 )
 
 const (
@@ -70,7 +70,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 						t.Logf("Traffic sent to namespace %v", ns)
 
 						clName := cltInstance.Config().Cluster.Name()
-						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
+						trustDomain := util.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
 						t.Logf("Collect Audit Log for cluster %v", clName)
 
 						var errs []string

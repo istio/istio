@@ -15,18 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package wasm
+package telemetryapi
 
 import (
 	"testing"
 
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	"istio.io/istio/tests/integration/telemetry/common"
 )
 
-func TestWASMTcpMetric(t *testing.T) { // nolint:interfacer
+func TestTelemetryAPITCPStats(t *testing.T) { // nolint:interfacer
 	common.TestStatsTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
-}
-
-func TestWASMGatewayTCP(t *testing.T) {
-	common.TestStatsGatewayServerTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
 }

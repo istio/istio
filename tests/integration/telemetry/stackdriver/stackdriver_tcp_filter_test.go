@@ -19,6 +19,7 @@ package stackdriver
 
 import (
 	"context"
+	"istio.io/istio/tests/integration/telemetry/util"
 	"path/filepath"
 	"testing"
 
@@ -29,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/telemetry"
 )
 
 const (
@@ -62,7 +62,7 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 						}
 						t.Logf("Validating Telemetry for Cluster %v", cltInstance.Config().Cluster.Name())
 						clName := cltInstance.Config().Cluster.Name()
-						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
+						trustDomain := util.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
 						if err := ValidateMetrics(t, filepath.Join(env.IstioSrc, tcpServerConnectionCount),
 							filepath.Join(env.IstioSrc, tcpClientConnectionCount), clName, trustDomain); err != nil {
 							return err

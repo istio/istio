@@ -41,7 +41,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	"istio.io/istio/tests/integration/telemetry/common"
 	"istio.io/pkg/log"
 )
 
@@ -351,7 +351,7 @@ func setupDashboardTest(done <-chan struct{}) {
 	}
 }
 
-// extractQueries pulls all prometheus queries out of a grafana dashboard
+// extractQueries pulls all common queries out of a grafana dashboard
 // Rather than importing the entire grafana API just for this test, do some shoddy json parsing
 // Equivalent to jq command: '.panels[].targets[]?.expr'
 func extractQueries(dash string) ([]string, error) {

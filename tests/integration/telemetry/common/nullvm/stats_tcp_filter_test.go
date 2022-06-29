@@ -15,14 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package telemetryapi
+package nullvm
 
 import (
 	"testing"
 
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	"istio.io/istio/tests/integration/telemetry/common"
 )
 
-func TestTelemetryAPITCPStats(t *testing.T) { // nolint:interfacer
-	common.TestStatsTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
+func TestTcpMetric(t *testing.T) {
+	common.TestStatsTCPFilter(t, "observability.telemetry.stats.common.tcp")
+}
+
+func TestGatewayTCP(t *testing.T) {
+	common.TestStatsGatewayServerTCPFilter(t, "observability.telemetry.stats.common.tcp")
 }

@@ -34,8 +34,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	tmpl "istio.io/istio/pkg/test/util/tmpl"
-	promtest "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/telemetry/util"
 )
 
 const (
@@ -150,7 +150,7 @@ type TestCase struct {
 }
 
 // Expected contains the metric and query to run against
-// prometheus to validate that expected telemetry information was gathered;
+// common to validate that expected telemetry information was gathered;
 // as well as the http response code
 type Expected struct {
 	Query           prometheus.Query
@@ -286,7 +286,7 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 					})
 
 					if tc.Expected.Query.Metric != "" {
-						promtest.ValidateMetric(t, t.Clusters().Default(), prometheus, tc.Expected.Query, 1)
+						util.ValidateMetric(t, t.Clusters().Default(), prometheus, tc.Expected.Query, 1)
 					}
 				})
 			}

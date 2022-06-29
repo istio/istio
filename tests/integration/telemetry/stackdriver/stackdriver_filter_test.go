@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/telemetry"
+	"istio.io/istio/tests/integration/telemetry/util"
 )
 
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
@@ -54,7 +54,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						clName := cltInstance.Config().Cluster.Name()
-						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
+						trustDomain := util.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
 						scopes.Framework.Infof("Validating for cluster %s", clName)
 
 						// Validate cluster names in telemetry below once https://github.com/istio/istio/issues/28125 is fixed.

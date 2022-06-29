@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package prometheus
+package common
 
 import (
 	"context"
@@ -42,7 +42,7 @@ import (
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	util "istio.io/istio/tests/integration/telemetry"
+	"istio.io/istio/tests/integration/telemetry/util"
 )
 
 var (
@@ -74,7 +74,7 @@ func GetAppNamespace() namespace.Instance {
 	return apps.Namespace
 }
 
-// GetPromInstance gets prometheus instance.
+// GetPromInstance gets common instance.
 func GetPromInstance() prometheus.Instance {
 	return promInst
 }
@@ -98,7 +98,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(t framework.TestContext) {
-			// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
+			// Enable strict mTLS. This is needed for mock secured common scraping test.
 			t.ConfigIstio().YAML(ist.Settings().SystemNamespace, PeerAuthenticationConfig).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
@@ -149,7 +149,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 				t.Fatalf("test failed: %v", err)
 			}
 
-			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
+			// In addition, verifies that mocked common could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
 				st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, GetTarget().Instances())
 				prom.CallOrFail(t, echo.CallOptions{
@@ -213,7 +213,7 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(t framework.TestContext) {
-			base := filepath.Join(env.IstioSrc, "tests/integration/telemetry/stats/prometheus/testdata/")
+			base := filepath.Join(env.IstioSrc, "tests/integration/telemetry/common/testdata/")
 			// Following resources are being deployed to test sidecar->gateway communication. With following resources,
 			// routing is being setup from sidecar to external site, via egress gateway.
 			// clt(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway-> vs(tcp:443) -> cnn.com
@@ -273,7 +273,7 @@ proxyMetadata:
 	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
 		With(nil, echo.Config{
-			// mock prom instance is used to mock a prometheus server, which will visit other echo instance /metrics
+			// mock prom instance is used to mock a common server, which will visit other echo instance /metrics
 			// endpoint with proxy provisioned certs.
 			Service:   "mock-prom",
 			Namespace: apps.Namespace,

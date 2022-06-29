@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/telemetry"
+	"istio.io/istio/tests/integration/telemetry/util"
 )
 
 const (
@@ -204,7 +204,7 @@ func verifyAccessLog(t framework.TestContext, cltInstance echo.Instance, wantLog
 	t.Helper()
 	t.Logf("Validating for cluster %v", cltInstance.Config().Cluster.Name())
 	clName := cltInstance.Config().Cluster.Name()
-	trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
+	trustDomain := util.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
 	if err := ValidateLogs(t, wantLog, clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
 		return err
 	}

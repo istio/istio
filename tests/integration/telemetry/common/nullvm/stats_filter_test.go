@@ -15,25 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package wasm
+package nullvm
 
 import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	"istio.io/istio/tests/integration/telemetry/common"
 )
 
-// TestWasmStatsFilter verifies the stats filter could emit expected client and server side
-// metrics when running with Wasm runtime.
+// TestStatsFilter verifies the stats filter could emit expected client and server side metrics.
 // This test focuses on stats filter and metadata exchange filter could work coherently with
-// proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
-// of metrics, which should be covered by integration test in proxy repo.
-func TestWasmStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t, "observability.telemetry.stats.prometheus.http.wasm")
+// proxy bootstrap config. To avoid flake, it does not verify correctness of metrics, which
+// should be covered by integration test in proxy repo.
+func TestStatsFilter(t *testing.T) {
+	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.common.http.nullvm"))
 }
 
 func TestMain(m *testing.M) {
@@ -42,7 +42,6 @@ func TestMain(m *testing.M) {
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35915
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).
-		Setup(testSetup).
 		Run()
 }
 
@@ -50,7 +49,7 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	// enable telemetry v2 with Wasm
-	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "true"
-	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "true"
+	// enable telemetry v2 with nullvm
+	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
+	cfg.Values["telemetry.v2.common.wasmEnabled"] = "false"
 }
