@@ -38,9 +38,10 @@ var (
 	apps = deployment.SingleNamespaceView{}
 )
 
-func supportsCRDv1(t resource.Context) bool {
+// supportsGatewayAPI checks if the gateway API is supported.
+func supportsGatewayAPI(t resource.Context) bool {
 	for _, cluster := range t.Clusters() {
-		if !cluster.MinKubeVersion(16) {
+		if !cluster.MinKubeVersion(19) {
 			return false
 		}
 	}
