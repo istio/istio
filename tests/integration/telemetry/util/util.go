@@ -103,7 +103,7 @@ func PromDump(cluster cluster.Cluster, prometheus prometheus.Instance, query pro
 	return ""
 }
 
-// QueryPrometheus queries common and returns the result once the query stabilizes
+// QueryPrometheus queries prometheus and returns the result once the query stabilizes
 func QueryPrometheus(t framework.TestContext, cluster cluster.Cluster, query prometheus.Query, promInst prometheus.Instance) (string, error) {
 	t.Helper()
 	t.Logf("query common with: %v", query)

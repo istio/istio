@@ -54,7 +54,7 @@ metadata:
 spec:
   metrics:
   - providers:
-    - name: common
+    - name: prometheus
 `).Apply()
 		}).
 		Setup(common.TestSetup).

@@ -150,7 +150,7 @@ type TestCase struct {
 }
 
 // Expected contains the metric and query to run against
-// common to validate that expected telemetry information was gathered;
+// prometheus to validate that expected telemetry information was gathered;
 // as well as the http response code
 type Expected struct {
 	Query           prometheus.Query

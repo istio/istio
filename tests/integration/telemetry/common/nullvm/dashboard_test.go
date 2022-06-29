@@ -351,7 +351,7 @@ func setupDashboardTest(done <-chan struct{}) {
 	}
 }
 
-// extractQueries pulls all common queries out of a grafana dashboard
+// extractQueries pulls all prometheus queries out of a grafana dashboard
 // Rather than importing the entire grafana API just for this test, do some shoddy json parsing
 // Equivalent to jq command: '.panels[].targets[]?.expr'
 func extractQueries(dash string) ([]string, error) {

@@ -73,7 +73,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 				}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 			}
 
-			t.Log("got istio_agent_wasm_remote_fetch_count metric in common, bad wasm filter is applied, send request to echo server again.")
+			t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
 
 			// Verify that echo server could still return 200
 			common.SendTrafficOrFail(t, to)

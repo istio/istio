@@ -74,7 +74,7 @@ func GetAppNamespace() namespace.Instance {
 	return apps.Namespace
 }
 
-// GetPromInstance gets common instance.
+// GetPromInstance gets prometheus instance.
 func GetPromInstance() prometheus.Instance {
 	return promInst
 }
@@ -98,7 +98,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(t framework.TestContext) {
-			// Enable strict mTLS. This is needed for mock secured common scraping test.
+			// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
 			t.ConfigIstio().YAML(ist.Settings().SystemNamespace, PeerAuthenticationConfig).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
@@ -273,7 +273,7 @@ proxyMetadata:
 	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
 		With(nil, echo.Config{
-			// mock prom instance is used to mock a common server, which will visit other echo instance /metrics
+			// mock prom instance is used to mock a prometheus server, which will visit other echo instance /metrics
 			// endpoint with proxy provisioned certs.
 			Service:   "mock-prom",
 			Namespace: apps.Namespace,
