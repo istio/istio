@@ -16,6 +16,7 @@ package model
 
 import (
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -134,10 +135,12 @@ func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig
 		// telemetry code does with shallowMerge?
 		proto.Merge(merged, pcs[i])
 		if pcs[i].GetConcurrency() != nil {
-			merged.Concurrency = pcs[i].GetConcurrency()
+			pcConcurrency := pcs[i].GetConcurrency()
+			merged.Concurrency = wrapperspb.Int32(pcConcurrency.Value)
 		}
 		if pcs[i].GetImage() != nil {
-			merged.Image = pcs[i].GetImage()
+			pcImage := pcs[i].GetImage()
+			merged.Image = &v1beta1.ProxyImage{ImageType: pcImage.ImageType}
 		}
 	}
 	return merged

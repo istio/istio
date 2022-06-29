@@ -389,6 +389,23 @@ func TestEffectiveProxyConfig(t *testing.T) {
 			name:  "no configured CR or default config",
 			proxy: newMeta("ns", nil, nil),
 		},
+		{
+			name: "defaultConfig should not be modified after get effectiveProxyConfig",
+			configs: []config.Config{
+				newProxyConfig("ns", istioRootNamespace,
+					&v1beta1.ProxyConfig{
+						Concurrency: v(3),
+						Image: &v1beta1.ProxyImage{
+							ImageType: "debug",
+						},
+					}),
+			},
+			defaultConfig: &meshconfig.ProxyConfig{Concurrency: v(2), Image: &v1beta1.ProxyImage{
+				ImageType: "distroless",
+			}},
+			proxy:    newMeta("bar", nil, nil),
+			expected: &meshconfig.ProxyConfig{Concurrency: v(3), Image: &v1beta1.ProxyImage{ImageType: "debug"}},
+		},
 	}
 
 	for _, tc := range cases {
@@ -402,6 +419,18 @@ func TestEffectiveProxyConfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to list proxyconfigs: %v", err)
 			}
+			prevDefaultConcurrency := int32(-1)
+			afterDefaultConcurrency := int32(-1)
+			prevDefaultImage := ""
+			afterDefaultImage := ""
+			if tc.defaultConfig != nil {
+				if tc.defaultConfig.Concurrency != nil {
+					prevDefaultConcurrency = tc.defaultConfig.Concurrency.Value
+				}
+				if tc.defaultConfig.Image != nil {
+					prevDefaultImage = tc.defaultConfig.Image.ImageType
+				}
+			}
 			merged := pcs.EffectiveProxyConfig(
 				tc.proxy,
 				&meshconfig.MeshConfig{
@@ -412,6 +441,17 @@ func TestEffectiveProxyConfig(t *testing.T) {
 			proto.Merge(pc, tc.expected)
 
 			assert.Equal(t, merged, pc)
+			if tc.defaultConfig != nil {
+				if tc.defaultConfig.Concurrency != nil {
+					afterDefaultConcurrency = tc.defaultConfig.Concurrency.Value
+				}
+				if tc.defaultConfig.Image != nil {
+					afterDefaultImage = tc.defaultConfig.Image.ImageType
+				}
+			}
+			// DefaultConfig should not change after get effectiveProxyConfig
+			assert.Equal(t, afterDefaultConcurrency, prevDefaultConcurrency)
+			assert.Equal(t, afterDefaultImage, prevDefaultImage)
 		})
 	}
 }
