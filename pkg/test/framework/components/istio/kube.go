@@ -296,12 +296,12 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	if ctx.Clusters().IsMulticluster() {
 		// Need to determine if there is a setting to watch cluster secret in config cluster
-		// or in external cluster. The flag is named LOCAL_CLUSTER_SECERT_WATCHER and set as
+		// or in external cluster. The flag is named LOCAL_CLUSTER_SECRET_WATCHER and set as
 		// an environment variable for istiod.
 		watchLocalNamespace := false
 		if i.primaryIOP.spec != nil && i.primaryIOP.spec.Values != nil {
 			values := OperatorValues(i.primaryIOP.spec.Values.Fields)
-			localClusterSecretWatcher := values.GetConfigValue("pilot.env.LOCAL_CLUSTER_SECERT_WATCHER")
+			localClusterSecretWatcher := values.GetConfigValue("pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
 			if localClusterSecretWatcher.GetStringValue() == "true" && i.externalControlPlane {
 				watchLocalNamespace = true
 			}
