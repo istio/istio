@@ -215,7 +215,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	if !exists || rev == "" && pilotEnabled {
 		p.Println("Making this installation the default for injection and validation.")
 		if rev == "" {
-			rev = revtag.DefaultRevisionName
+			o.Revision = revtag.DefaultRevisionName
 		}
 	}
 
