@@ -102,6 +102,7 @@ type FakeOptions struct {
 	EnableFakeXDSUpdater       bool
 	DisableSecretAuthorization bool
 	Services                   []*model.Service
+	Instances                  []*model.ServiceInstance
 	Gateways                   []model.NetworkGateway
 }
 
@@ -228,6 +229,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		SkipRun:   true,
 		ClusterID: defaultKubeController.Cluster(),
 		Services:  opts.Services,
+		Instances: opts.Instances,
 		Gateways:  opts.Gateways,
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)

@@ -323,8 +323,29 @@ func TestEDSOverlapping(t *testing.T) {
 }
 
 func TestEDSUnhealthyEndpoints(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	addUnhealthyCluster(s)
+	svc := &model.Service{
+	Hostname: "unhealthy.svc.cluster.local",
+		Ports: model.PortList{
+			{
+				Name:     "tcp-dns",
+				Port:     53,
+				Protocol: protocol.TCP,
+			},
+		},
+	}
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		Services: []*model.Service{svc},
+		Instances: []*model.ServiceInstance{{
+			Endpoint: &model.IstioEndpoint{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.UnHealthy,
+			},
+			ServicePort: svc.Ports[0],
+			Service: svc,
+		}},
+	})
 	adscon := s.Connect(nil, nil, watchEds)
 	_, err := adscon.Wait(5 * time.Second)
 	if err != nil {
@@ -1239,33 +1260,6 @@ func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 			Address:         "10.0.0.53",
 			EndpointPort:    53,
 			ServicePortName: "tcp-dns",
-		},
-		ServicePort: &model.Port{
-			Name:     "tcp-dns",
-			Port:     53,
-			Protocol: protocol.TCP,
-		},
-	})
-	fullPush(s)
-}
-
-func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
-	s.Discovery.MemRegistry.AddService(&model.Service{
-		Hostname: "unhealthy.svc.cluster.local",
-		Ports: model.PortList{
-			{
-				Name:     "tcp-dns",
-				Port:     53,
-				Protocol: protocol.TCP,
-			},
-		},
-	})
-	s.Discovery.MemRegistry.AddInstance("unhealthy.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: &model.IstioEndpoint{
-			Address:         "10.0.0.53",
-			EndpointPort:    53,
-			ServicePortName: "tcp-dns",
-			HealthStatus:    model.UnHealthy,
 		},
 		ServicePort: &model.Port{
 			Name:     "tcp-dns",
