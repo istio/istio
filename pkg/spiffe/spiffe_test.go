@@ -489,7 +489,7 @@ func TestExpandWithTrustDomains(t *testing.T) {
 		name         string
 		spiffeURI    []string
 		trustDomains []string
-		want         map[string]struct{}
+		want         sets.Set
 	}{
 		{
 			name:      "Basic",
