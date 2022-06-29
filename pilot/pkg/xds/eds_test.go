@@ -324,7 +324,7 @@ func TestEDSOverlapping(t *testing.T) {
 
 func TestEDSUnhealthyEndpoints(t *testing.T) {
 	svc := &model.Service{
-	Hostname: "unhealthy.svc.cluster.local",
+		Hostname: "unhealthy.svc.cluster.local",
 		Ports: model.PortList{
 			{
 				Name:     "tcp-dns",
@@ -343,8 +343,18 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 				HealthStatus:    model.UnHealthy,
 			},
 			ServicePort: svc.Ports[0],
-			Service: svc,
+			Service:     svc,
 		}},
+	})
+	s.MemRegistry.AddInstance(svc.Hostname, &model.ServiceInstance{
+		Endpoint: &model.IstioEndpoint{
+			Address:         "10.0.0.53",
+			EndpointPort:    53,
+			ServicePortName: "tcp-dns",
+			HealthStatus:    model.UnHealthy,
+		},
+		ServicePort: svc.Ports[0],
+		Service:     svc,
 	})
 	adscon := s.Connect(nil, nil, watchEds)
 	_, err := adscon.Wait(5 * time.Second)
@@ -514,14 +524,18 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 func TestEDSServiceResolutionUpdate(t *testing.T) {
 	for _, resolution := range []model.Resolution{model.DNSLB, model.DNSRoundRobinLB} {
 		t.Run(fmt.Sprintf("resolution_%s", resolution), func(t *testing.T) {
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-			addEdsCluster(s, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
-			addEdsCluster(s, "other.local", "http", "1.1.1.1", 8080)
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				DiscoveryServerModifier: func(s *xds.DiscoveryServer) {
+					addEdsCluster(s, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
+					addEdsCluster(s, "other.local", "http", "1.1.1.1", 8080)
+				},
+			})
 
 			adscConn := s.Connect(nil, nil, watchAll)
 
 			// Validate that endpoints are pushed correctly.
 			testEndpoints("10.0.0.53", "outbound|8080||edsdns.svc.cluster.local", adscConn, t)
+			adscConn.WaitClear()
 
 			// Now update the service resolution to DNSLB/DNSRRLB with a DNS endpoint.
 			updateServiceResolution(s, resolution)
@@ -542,7 +556,7 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 // Validate that when endpoints of a service flipflop between 1 and 0 does not trigger a full push.
 func TestEndpointFlipFlops(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	addEdsCluster(s, "flipflop.com", "http", "10.0.0.53", 8080)
+	addEdsCluster(s.Discovery, "flipflop.com", "http", "10.0.0.53", 8080)
 
 	adscConn := s.Connect(nil, nil, watchAll)
 
@@ -598,7 +612,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 // Validate that deleting a service clears entries from EndpointIndex.
 func TestDeleteService(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	addEdsCluster(s, "removeservice.com", "http", "10.0.0.53", 8080)
+	addEdsCluster(s.Discovery, "removeservice.com", "http", "10.0.0.53", 8080)
 
 	adscConn := s.Connect(nil, nil, watchEds)
 
@@ -719,8 +733,8 @@ func TestZeroEndpointShardSA(t *testing.T) {
 	}
 }
 
-func fullPush(s *xds.FakeDiscoveryServer) {
-	s.Discovery.Push(&model.PushRequest{Full: true})
+func fullPush(s *xds.DiscoveryServer) {
+	s.Push(&model.PushRequest{Full: true})
 }
 
 func addTestClientEndpoints(server *xds.DiscoveryServer) {
@@ -1183,8 +1197,8 @@ func addLocalityEndpoints(server *xds.DiscoveryServer, hostname host.Name) {
 }
 
 // nolint: unparam
-func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string, address string, port int) {
-	s.Discovery.MemRegistry.AddService(&model.Service{
+func addEdsCluster(s *xds.DiscoveryServer, hostName string, portName string, address string, port int) {
+	s.MemRegistry.AddService(&model.Service{
 		Hostname: host.Name(hostName),
 		Ports: model.PortList{
 			{
@@ -1195,7 +1209,7 @@ func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string,
 		},
 	})
 
-	s.Discovery.MemRegistry.AddInstance(host.Name(hostName), &model.ServiceInstance{
+	s.MemRegistry.AddInstance(host.Name(hostName), &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         address,
 			EndpointPort:    uint32(port),
@@ -1236,7 +1250,7 @@ func updateServiceResolution(s *xds.FakeDiscoveryServer, resolution model.Resolu
 		},
 	})
 
-	fullPush(s)
+	fullPush(s.Discovery)
 }
 
 func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
@@ -1267,7 +1281,7 @@ func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 			Protocol: protocol.TCP,
 		},
 	})
-	fullPush(s)
+	fullPush(s.Discovery)
 }
 
 // Verify the endpoint debug interface is installed and returns some string.
