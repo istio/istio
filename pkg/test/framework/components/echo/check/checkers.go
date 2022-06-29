@@ -370,10 +370,19 @@ func URL(expected string) echo.Checker {
 	})
 }
 
+func isDNSCaptureEnabled(t framework.TestContext) bool {
+	t.Helper()
+	mc := istio.GetOrFail(t, t).MeshConfigOrFail(t)
+	if mc.DefaultConfig != nil && mc.DefaultConfig.ProxyMetadata != nil {
+		return mc.DefaultConfig.ProxyMetadata["ISTIO_META_DNS_CAPTURE"] == "true"
+	}
+	return false
+}
+
 // ReachedTargetClusters is similar to ReachedClusters, except that the set of expected clusters is
 // retrieved from the Target of the request.
 func ReachedTargetClusters(t framework.TestContext) echo.Checker {
-	dnsCaptureEnabled := istio.GetOrFail(t, t).MeshConfigOrFail(t).DefaultConfig.ProxyMetadata["ISTIO_META_DNS_CAPTURE"] == "true"
+	dnsCaptureEnabled := isDNSCaptureEnabled(t)
 	return func(result echo.CallResult, err error) error {
 		from := result.From
 		to := result.Opts.To
