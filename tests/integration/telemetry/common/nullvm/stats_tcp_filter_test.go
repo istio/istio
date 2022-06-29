@@ -24,9 +24,9 @@ import (
 )
 
 func TestTcpMetric(t *testing.T) {
-	common.TestStatsTCPFilter(t, "observability.telemetry.stats.common.tcp")
+	common.TestStatsTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
 }
 
 func TestGatewayTCP(t *testing.T) {
-	common.TestStatsGatewayServerTCPFilter(t, "observability.telemetry.stats.common.tcp")
+	common.TestStatsGatewayServerTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
 }

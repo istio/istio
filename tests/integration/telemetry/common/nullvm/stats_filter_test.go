@@ -33,7 +33,7 @@ import (
 // proxy bootstrap config. To avoid flake, it does not verify correctness of metrics, which
 // should be covered by integration test in proxy repo.
 func TestStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.common.http.nullvm"))
+	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.http.nullvm"))
 }
 
 func TestMain(m *testing.M) {
@@ -51,5 +51,5 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	}
 	// enable telemetry v2 with nullvm
 	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
-	cfg.Values["telemetry.v2.common.wasmEnabled"] = "false"
+	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
 }

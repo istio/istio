@@ -149,7 +149,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 				t.Fatalf("test failed: %v", err)
 			}
 
-			// In addition, verifies that mocked common could call metrics endpoint with proxy provisioned certs
+			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
 				st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, GetTarget().Instances())
 				prom.CallOrFail(t, echo.CallOptions{
