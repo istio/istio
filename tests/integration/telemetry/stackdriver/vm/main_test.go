@@ -19,7 +19,6 @@ package vm
 
 import (
 	"fmt"
-	"istio.io/istio/tests/integration/telemetry/util"
 	"os"
 	"strings"
 	"testing"
@@ -43,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 	sdtest "istio.io/istio/tests/integration/telemetry/stackdriver"
+	"istio.io/istio/tests/integration/telemetry/util"
 )
 
 const (

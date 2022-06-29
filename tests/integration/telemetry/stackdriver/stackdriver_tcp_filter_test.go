@@ -19,7 +19,6 @@ package stackdriver
 
 import (
 	"context"
-	"istio.io/istio/tests/integration/telemetry/util"
 	"path/filepath"
 	"testing"
 
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/integration/telemetry/util"
 )
 
 const (
