@@ -48,7 +48,7 @@ func TestMain(m *testing.M) {
 values:
   pilot:
     env:
-      LOCAL_CLUSTER_SECERT_WATCHER: "true"`
+      LOCAL_CLUSTER_SECRET_WATCHER: "true"`
 		})).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Run()
