@@ -769,15 +769,6 @@ func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 	return nil
 }
 
-// GetIstioServiceAccounts implements model.ServiceAccounts operation
-// For service entries using workload entries or mix of workload entries and pods,
-// this function returns the appropriate service accounts used by these.
-func (s *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	// service entries with built in endpoints have SANs as a dedicated field.
-	// Those with selector labels will have service accounts embedded inside workloadEntries and pods as well.
-	return model.GetServiceAccounts(svc, ports, s)
-}
-
 func (s *Controller) NetworkGateways() []model.NetworkGateway {
 	// TODO implement mesh networks loading logic from kube controller if needed
 	return nil
