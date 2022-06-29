@@ -233,6 +233,30 @@ func TestAccessLogging(t *testing.T) {
 			},
 		},
 	}
+	serverAndClientDifferent := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_SERVER,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_CLIENT,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "stackdriver",
+					},
+				},
+			},
+		},
+	}
 	stackdriver := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -403,6 +427,22 @@ func TestAccessLogging(t *testing.T) {
 			sidecar,
 			nil,
 			[]string{"envoy"},
+		},
+		{
+			"server and client different - inbound",
+			[]config.Config{newTelemetry("istio-system", serverAndClientDifferent)},
+			networking.ListenerClassSidecarInbound,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"server and client different - outbound",
+			[]config.Config{newTelemetry("istio-system", serverAndClientDifferent)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{"stackdriver"},
 		},
 		{
 			"override default",

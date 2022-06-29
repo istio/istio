@@ -463,7 +463,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig, mode tpb.
 	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, m := range logs {
 		names := getProviderNames(m.Providers)
-		if len(names) > 0 {
+		if len(names) > 0 && matchWorkloadMode(m.Match, mode) {
 			providerNames = names
 		}
 
