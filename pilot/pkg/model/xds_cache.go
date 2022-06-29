@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"google.golang.org/protobuf/testing/protocmp"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -80,7 +81,7 @@ func size(cs int) {
 type XdsCacheEntry interface {
 	// Key is the key to be used in cache.
 	Key() string
-	// DependentTypes are config types that this cache key is dependant on.
+	// DependentTypes are config types that this cache key is dependent on.
 	// Whenever any configs of this type changes, we should invalidate this cache entry.
 	// Note: DependentConfigs should be preferred wherever possible.
 	DependentTypes() []kind.Kind
@@ -121,8 +122,13 @@ func NewXdsCache() XdsCache {
 		enableAssertions: features.EnableUnsafeAssertions,
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
+		recordEvicted:    true,
+		evictedKeys:      sets.New(),
 	}
 	cache.store = newLru(cache.evict)
+
+	// TODO: make the interval configurable
+	go wait.Until(cache.clearEvicted, 5*time.Second, make(chan struct{}))
 
 	return cache
 }
@@ -133,6 +139,8 @@ func NewLenientXdsCache() XdsCache {
 		enableAssertions: false,
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
+		recordEvicted:    true,
+		evictedKeys:      sets.New(),
 	}
 	cache.store = newLru(cache.evict)
 
@@ -144,10 +152,12 @@ type lruCache struct {
 	store            simplelru.LRUCache
 	// token stores the latest token of the store, used to prevent stale data overwrite.
 	// It is refreshed when Clear or ClearAll are called
-	token       CacheToken
-	mu          sync.RWMutex
-	configIndex map[ConfigKey]sets.Set
-	typesIndex  map[kind.Kind]sets.Set
+	token         CacheToken
+	mu            sync.RWMutex
+	configIndex   map[ConfigKey]sets.Set
+	typesIndex    map[kind.Kind]sets.Set
+	recordEvicted bool
+	evictedKeys   sets.Set
 }
 
 var _ XdsCache = &lruCache{}
@@ -164,17 +174,46 @@ func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
 	return l
 }
 
-func (l *lruCache) evict(k interface{}, v interface{}) {
+// This is the callback passed to LRU, it will be called whenever a key is removed.
+func (l *lruCache) evict(k interface{}, _ interface{}) {
 	if features.EnableXDSCacheMetrics {
 		xdsCacheEvictions.Increment()
 	}
 
-	key := k.(string)
-	value := v.(cacheValue)
+	if l.recordEvicted {
+		l.evictedKeys.Insert(k.(string))
+	}
+}
 
-	// we don't need to acquire locks, since this function is called when we write to the store
-	l.clearConfigIndex(key, value.dependentConfigs)
-	l.clearTypesIndex(key, value.dependentTypes)
+// clearEvicted is run periodically to clear configIndex and typesIndex
+func (l *lruCache) clearEvicted() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	// In order to save cpu, if the evicted keys is very small, we can just ignore
+	// TODO: make it configurable
+	if len(l.evictedKeys) < 100 {
+		return
+	}
+
+	for configKey, index := range l.configIndex {
+		evicted := index.Intersection(l.evictedKeys)
+		for k := range evicted {
+			index.Delete(k)
+			if index.IsEmpty() {
+				delete(l.configIndex, configKey)
+			}
+		}
+	}
+
+	for gvk, index := range l.typesIndex {
+		evicted := index.Intersection(l.evictedKeys)
+		for k := range evicted {
+			index.Delete(k)
+			if index.IsEmpty() {
+				delete(l.typesIndex, gvk)
+			}
+		}
+	}
 }
 
 func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
@@ -271,17 +310,11 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 		return
 	}
 
-	// we have to make sure we evict old entries with the same key
-	// to prevent leaking in the index maps
-	if old, ok := l.store.Get(k); ok {
-		l.evict(k, old)
-	}
-
-	dependentConfigs := entry.DependentConfigs()
-	dependentTypes := entry.DependentTypes()
-	toWrite := cacheValue{value: value, token: token, dependentConfigs: dependentConfigs, dependentTypes: dependentTypes}
+	toWrite := cacheValue{value: value, token: token}
 	l.store.Add(k, toWrite)
 	l.token = token
+	dependentConfigs := entry.DependentConfigs()
+	dependentTypes := entry.DependentTypes()
 	l.updateConfigIndex(k, dependentConfigs)
 	l.updateTypesIndex(k, dependentTypes)
 	size(l.store.Len())
@@ -319,6 +352,11 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
+	// not to record keys that are automatically removed
+	l.recordEvicted = false
+	defer func() {
+		l.recordEvicted = true
+	}()
 	for ckey := range configs {
 		referenced := l.configIndex[ckey]
 		delete(l.configIndex, ckey)
@@ -344,6 +382,7 @@ func (l *lruCache) ClearAll() {
 	l.store = newLru(l.evict)
 	l.configIndex = map[ConfigKey]sets.Set{}
 	l.typesIndex = map[kind.Kind]sets.Set{}
+	l.evictedKeys = sets.New()
 	size(l.store.Len())
 }
 
