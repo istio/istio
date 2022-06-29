@@ -59,7 +59,7 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Create(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
+			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
 		}, metav1.CreateOptions{})
   {{- end }}
 {{- end }}
@@ -75,7 +75,7 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Update(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
+			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
 		}, metav1.UpdateOptions{})
   {{- end }}
 {{- end }}
@@ -113,11 +113,11 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
     case collections.{{ .VariableName }}.Resource().GroupVersionKind():
         oldRes := &{{ .ClientImport }}.{{ .Kind }}{
             ObjectMeta: origMeta,
-            Spec:       *(orig.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
+            Spec:       *(orig.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
         }
         modRes := &{{ .ClientImport }}.{{ .Kind }}{
             ObjectMeta: modMeta,
-            Spec:       *(mod.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
+            Spec:       *(mod.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
         }
         patchBytes, err := genPatchBytes(oldRes, modRes, typ)
         if err != nil {

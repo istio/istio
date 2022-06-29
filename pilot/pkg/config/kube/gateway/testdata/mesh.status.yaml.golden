@@ -75,9 +75,14 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: RouteAdmitted
+      reason: Accepted
       status: "True"
       type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
@@ -85,9 +90,14 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: RouteAdmitted
+      reason: Accepted
       status: "True"
       type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -105,9 +115,14 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: RouteAdmitted
+      reason: Accepted
       status: "True"
       type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
@@ -125,9 +140,14 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: mesh requires hostname to be set
-      reason: InvalidParentReference
+      reason: NoMatchingListenerHostname
       status: "False"
       type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
@@ -145,9 +165,14 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: mesh requires hostname to be set
-      reason: InvalidParentReference
+      reason: NoMatchingListenerHostname
       status: "False"
       type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
