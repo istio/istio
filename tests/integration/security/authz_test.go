@@ -56,8 +56,8 @@ func TestAuthz_Principal(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/mtls.yaml.tmpl")).
-				Source(config.File("testdata/v1beta1/allow-principal.yaml.tmpl").WithParams(
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/allow-principal.yaml.tmpl").WithParams(
 					param.Params{
 						"Allowed": allowed,
 					})).
@@ -130,11 +130,11 @@ func TestAuthz_DenyPrincipal(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/mtls.yaml.tmpl")).
-				Source(config.File("testdata/v1beta1/deny-global.yaml.tmpl").WithParams(param.Params{
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/deny-global.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): istio.ClaimSystemNamespaceOrFail(t, t),
 				})).
-				Source(config.File("testdata/v1beta1/deny-principal.yaml.tmpl").WithParams(
+				Source(config.File("testdata/authz/deny-principal.yaml.tmpl").WithParams(
 					param.Params{
 						"Denied": denied,
 					})).
@@ -237,8 +237,8 @@ func TestAuthz_Namespace(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/mtls.yaml.tmpl")).
-				Source(config.File("testdata/v1beta1/allow-namespace.yaml.tmpl").WithParams(
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/allow-namespace.yaml.tmpl").WithParams(
 					param.Params{
 						"Allowed": allowed,
 					})).
@@ -311,11 +311,11 @@ func TestAuthz_DenyNamespace(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/mtls.yaml.tmpl")).
-				Source(config.File("testdata/v1beta1/deny-global.yaml.tmpl").WithParams(param.Params{
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/deny-global.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): istio.ClaimSystemNamespaceOrFail(t, t),
 				})).
-				Source(config.File("testdata/v1beta1/deny-namespace.yaml.tmpl").WithParams(
+				Source(config.File("testdata/authz/deny-namespace.yaml.tmpl").WithParams(
 					param.Params{
 						"Denied": denied,
 					})).
@@ -418,8 +418,8 @@ func TestAuthz_NotNamespace(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/mtls.yaml.tmpl")).
-				Source(config.File("testdata/v1beta1/not-namespace.yaml.tmpl").WithParams(
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/not-namespace.yaml.tmpl").WithParams(
 					param.Params{
 						"Allowed": allowed,
 					})).
@@ -452,7 +452,7 @@ func TestAuthz_NotHost(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/not-host.yaml.tmpl")).
+				Source(config.File("testdata/authz/not-host.yaml.tmpl")).
 				BuildAll(nil, to).
 				Apply()
 
@@ -512,7 +512,7 @@ func TestAuthz_NotMethod(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/not-method.yaml.tmpl")).
+				Source(config.File("testdata/authz/not-method.yaml.tmpl")).
 				BuildAll(nil, to).
 				Apply()
 
@@ -560,7 +560,7 @@ func TestAuthz_NotPort(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/not-port.yaml.tmpl")).
+				Source(config.File("testdata/authz/not-port.yaml.tmpl")).
 				BuildAll(nil, to).
 				Apply()
 
@@ -604,7 +604,7 @@ func TestAuthz_DenyPlaintext(t *testing.T) {
 			denied := apps.Ns2.A
 
 			newTrafficTest(t, apps.Ns1.All.Instances().Append(denied)).
-				Config(config.File("testdata/v1beta1/plaintext.yaml.tmpl").WithParams(param.Params{
+				Config(config.File("testdata/authz/plaintext.yaml.tmpl").WithParams(param.Params{
 					"Denied": denied,
 					// The namespaces for each resource are specified in the file. Use "" as the ns to apply to.
 					param.Namespace.String(): "",
@@ -635,7 +635,7 @@ func TestAuthz_JWT(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/jwt.yaml.tmpl").WithNamespace(apps.Ns1.Namespace)).
+				Source(config.File("testdata/authz/jwt.yaml.tmpl").WithNamespace(apps.Ns1.Namespace)).
 				BuildAll(nil, to).
 				Apply()
 
@@ -809,19 +809,19 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 					fromAndTo := to.Instances().Append(from)
 
 					config.New(t).
-						Source(config.File("testdata/v1beta1/workload.yaml.tmpl")).
+						Source(config.File("testdata/authz/workload.yaml.tmpl")).
 						// Also define a bad workload selector for path /policy-<ns>-<svc>-bad.
-						Source(config.File("testdata/v1beta1/workload-bad.yaml.tmpl")).
+						Source(config.File("testdata/authz/workload-bad.yaml.tmpl")).
 						// Allow /policy-<ns>-all for all workloads.
-						Source(config.File("testdata/v1beta1/workload-ns.yaml.tmpl").WithParams(param.Params{
+						Source(config.File("testdata/authz/workload-ns.yaml.tmpl").WithParams(param.Params{
 							param.Namespace.String(): apps.Ns1.Namespace,
 						})).
-						Source(config.File("testdata/v1beta1/workload-ns.yaml.tmpl").WithParams(param.Params{
+						Source(config.File("testdata/authz/workload-ns.yaml.tmpl").WithParams(param.Params{
 							param.Namespace.String(): apps.Ns2.Namespace,
 						})).
 						// Allow /policy-istio-system-<svc> for all services in all namespaces. Just using ns1 to avoid
 						// creating duplicate resources.
-						Source(config.File("testdata/v1beta1/workload-system-ns.yaml.tmpl").WithParams(param.Params{
+						Source(config.File("testdata/authz/workload-system-ns.yaml.tmpl").WithParams(param.Params{
 							param.Namespace.String(): istio.ClaimSystemNamespaceOrFail(t, t),
 						})).
 						BuildAll(nil, to).
@@ -904,7 +904,7 @@ func TestAuthz_PathPrecedence(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/path-precedence.yaml.tmpl")).
+				Source(config.File("testdata/authz/path-precedence.yaml.tmpl")).
 				BuildAll(nil, to).
 				Apply()
 
@@ -952,7 +952,7 @@ func TestAuthz_IngressGateway(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			to := apps.Ns1.All
 			config.New(t).
-				Source(config.File("testdata/v1beta1/ingress-gateway.yaml.tmpl").WithParams(param.Params{
+				Source(config.File("testdata/authz/ingress-gateway.yaml.tmpl").WithParams(param.Params{
 					// The namespaces for each resource are specified in the file. Use "" as the ns to apply to.
 					param.Namespace.String(): "",
 				})).
@@ -1131,7 +1131,7 @@ func TestAuthz_EgressGateway(t *testing.T) {
 			newTrafficTest(t, fromAndTo).
 				FromMatch(fromMatch).
 				ToMatch(toMatch).
-				Config(config.File("testdata/v1beta1/egress-gateway.yaml.tmpl").WithParams(param.Params{
+				Config(config.File("testdata/authz/egress-gateway.yaml.tmpl").WithParams(param.Params{
 					// The namespaces for each resource are specified in the file. Use "" as the ns to apply to.
 					param.Namespace.String(): "",
 					"Allowed":                allowed,
@@ -1234,8 +1234,8 @@ func TestAuthz_Conditions(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/mtls.yaml.tmpl")).
-				Source(config.File("testdata/v1beta1/conditions.yaml.tmpl").WithParams(param.Params{
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/conditions.yaml.tmpl").WithParams(param.Params{
 					"Allowed": allowed,
 					"Denied":  denied,
 				})).
@@ -1408,7 +1408,7 @@ func TestAuthz_PathNormalization(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/v1beta1/path-normalization.yaml.tmpl")).
+				Source(config.File("testdata/authz/path-normalization.yaml.tmpl")).
 				BuildAll(nil, to).
 				Apply()
 
@@ -1524,7 +1524,7 @@ func TestAuthz_CustomServer(t *testing.T) {
 					fromAndTo := to.Instances().Append(from)
 
 					config.New(t).
-						Source(config.File("testdata/v1beta1/custom-provider.yaml.tmpl").WithParams(param.Params{
+						Source(config.File("testdata/authz/custom-provider.yaml.tmpl").WithParams(param.Params{
 							"Provider": provider,
 						})).
 						BuildAll(nil, to).
@@ -1629,10 +1629,7 @@ func newTrafficTest(t framework.TestContext, echos ...echo.Instances) *echotest.
 		ToMatch(match.And(
 			match.NotNaked,
 			match.NotProxylessGRPC)).
-		ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
-			// Disallow self-calls since it will bypass the sidecar.
-			return match.Not(match.ServiceName(from.NamespacedName())).GetMatches(to)
-		})
+		ConditionallyTo(echotest.NoSelfCalls)
 }
 
 type allowValue bool
