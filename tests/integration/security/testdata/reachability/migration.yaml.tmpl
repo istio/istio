@@ -1,0 +1,48 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: "{{ .To.ServiceName }}"
+spec:
+  hosts:
+  - "{{ .To.ClusterLocalFQDN }}"
+  http:
+  - name: "vistio-route"
+    match:
+    - uri:
+        prefix: "/vistio"
+    route:
+    - destination:
+        host: "{{ .To.ClusterLocalFQDN }}"
+        subset: "vistio"
+  - name: "legacy-by-default"
+    route:
+    - destination:
+        host: "{{ .To.ClusterLocalFQDN }}"
+        subset: "vlegacy"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: "{{ .To.ServiceName }}"
+spec:
+  host: "{{ .To.ClusterLocalFQDN }}"
+  subsets:
+  - name: "vistio"
+    labels:
+      version: "vistio"
+{{- if ne .TLSMode "" }}
+    trafficPolicy:
+      tls:
+        mode: {{ .TLSMode }}
+{{- end }}
+  - name: "vlegacy"
+    labels:
+      version: "vlegacy"
+{{- if ne .TLSMode "" }}
+    trafficPolicy:
+      tls:
+        mode: {{ .TLSMode }}
+  trafficPolicy:
+    tls:
+      mode: {{ .TLSMode }}
+{{- end }}

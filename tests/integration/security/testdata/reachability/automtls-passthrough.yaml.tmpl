@@ -1,9 +1,7 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: passthrough
-  annotations:
-    test-suite: automtls-passthrough
 spec:
   host: "*"
   trafficPolicy:
