@@ -239,7 +239,7 @@ func (s *DiscoveryServer) IsServerReady() bool {
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	if s.Cache != nil {
-		s.Cache.Run(stopCh)
+		go s.Cache.Run(stopCh)
 	}
 	go s.WorkloadEntryController.Run(stopCh)
 	go s.handleUpdates(stopCh)

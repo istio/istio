@@ -269,12 +269,12 @@ func TestXdsCacheEvict(t *testing.T) {
 	c := model.NewXdsCache()
 	go c.Run(stop)
 
-	zeroTime := time.Time{}
+	startTime := time.Now()
 	res := &discovery.Resource{Name: "test"}
 
-	for n := 0; n <= 600; n++ {
+	for n := 0; n < 600; n++ {
 		key := makeCacheKey(n)
-		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
+		req := &model.PushRequest{Start: startTime.Add(time.Duration(n))}
 		c.Add(key, req, res)
 	}
 
@@ -283,7 +283,7 @@ func TestXdsCacheEvict(t *testing.T) {
 	// if evict handler has not processed previously evict notification, the stop signal would not be consumed.
 	stop <- struct{}{}
 	// check oldest keys and its dependencies has been cleaned
-	for n := 1; n < 100; n++ {
+	for n := 0; n < 100; n++ {
 		key := makeCacheKey(n)
 		_, exist := c.Get(key)
 		if exist {
