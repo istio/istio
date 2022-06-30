@@ -125,7 +125,7 @@ func NewXdsCache(stopCh <-chan struct{}) XdsCache {
 		evictedKeys:      sets.New(),
 		evictCh:          make(chan struct{}),
 	}
-	cache.store = newLru(cache.evict)
+	cache.store = newLru(cache.onEvict)
 	go cache.handleEvicted(stopCh)
 	return cache
 }
@@ -139,7 +139,7 @@ func NewLenientXdsCache(stopCh <-chan struct{}) XdsCache {
 		recordEvicted:    true,
 		evictedKeys:      sets.New(),
 	}
-	cache.store = newLru(cache.evict)
+	cache.store = newLru(cache.onEvict)
 	go cache.handleEvicted(stopCh)
 	return cache
 }
@@ -174,7 +174,7 @@ func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
 }
 
 // This is the callback passed to LRU, it will be called whenever a key is removed.
-func (l *lruCache) evict(k interface{}, _ interface{}) {
+func (l *lruCache) onEvict(k interface{}, _ interface{}) {
 	if features.EnableXDSCacheMetrics {
 		xdsCacheEvictions.Increment()
 	}
@@ -389,10 +389,10 @@ func (l *lruCache) ClearAll() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
-	// Purge with an evict function would turn up to be pretty slow since
+	// Purge with an onEvict function would turn up to be pretty slow since
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
-	l.store = newLru(l.evict)
+	l.store = newLru(l.onEvict)
 	l.configIndex = map[ConfigKey]sets.Set{}
 	l.typesIndex = map[kind.Kind]sets.Set{}
 	l.evictedKeys = sets.New()
