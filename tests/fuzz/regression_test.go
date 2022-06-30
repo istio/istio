@@ -89,6 +89,9 @@ func walkMatch(root string, pattern *regexp.Regexp) ([]string, error) {
 		if info.IsDir() {
 			return nil
 		}
+		if filepath.Ext(path) != ".go" {
+			return nil
+		}
 		bytes, err := os.ReadFile(path)
 		if err != nil {
 			return err
