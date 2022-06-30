@@ -31,7 +31,7 @@ subjects:
     namespace: {{ .Release.Namespace }}
 ---
 {{- end }}
-{{- if or (eq .Values.uproxyType "kind") (eq .Values.uproxyType "aws") }}
+{{- $iptablesRedirect := or (eq .Values.uproxyType "kind") (eq .Values.uproxyType "aws") }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -48,116 +48,18 @@ spec:
   template:
     metadata:
       labels:
+        sidecar.istio.io/inject: "false"
         app: uproxy
+{{- if $iptablesRedirect }}
         ambient-type: uproxy
+{{- else }}
+        asm-type: proxy
+{{- end }}
         {{- range $key, $val := .Values.uproxy.podLabels }}
         {{ $key }}: "{{ $val }}"
         {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
-        {{- if .Values.uproxy.podAnnotations }}
-{{ toYaml .Values.uproxy.podAnnotations | indent 8 }}
-        {{- end }}
-    spec:
-      serviceAccountName: uproxy
-      hostNetwork: false
-      dnsPolicy: ClusterFirstWithHostNet
-      containers:
-      - name: istio-proxy
-{{- if contains "/" .Values.uproxy.image }}
-        image: "{{ .Values.uproxy.image }}"
-{{- else }}
-        image: "{{ .Values.uproxy.hub | default .Values.global.hub }}/{{ .Values.uproxy.image | default "proxyv2" }}:{{ .Values.uproxy.tag | default .Values.global.tag }}"
-{{- end }}
-        imagePullPolicy: Always
-        securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
-        readinessProbe:
-          httpGet:
-            port: 15020 # TODO: use 15021, but it spams logs
-            path: /healthz/ready
-        args:
-        - proxy
-        - sidecar
-        env:
-        - name: ISTIO_META_GENERATOR
-          value: "uproxy-envoy"
-        - name: ISTIO_META_SIDECARLESS_TYPE
-          value: "uproxy"
-        - name: CREDENTIAL_FETCHER_TYPE
-          value: "TokenRequest"
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: ISTIO_META_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        - name: SERVICE_ACCOUNT
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.serviceAccountName
-        {{- if .Values.uproxy.env }}
-        {{- range $key, $val := .Values.uproxy.env }}
-        - name: {{ $key }}
-          value: "{{ $val }}"
-        {{- end }}
-        {{- end }}
-        volumeMounts:
-        - mountPath: /var/run/secrets/istio
-          name: istiod-ca-cert
-        - mountPath: /var/run/secrets/tokens
-          name: istio-token
-        - mountPath: /var/lib/kubelet/pki # Must match due to symlinks...
-          name: kubelet-creds
-      volumes:
-      - name: kubelet-creds
-        hostPath:
-          path: /var/lib/kubelet/pki
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: istio-token
-              expirationSeconds: 43200
-              audience: istio-ca
-      - name: istiod-ca-cert
-        configMap:
-          name: istio-ca-root-cert
-{{- else }}
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: uproxy
-  namespace: {{ .Release.Namespace }}
-  labels:
-{{- range $key, $val := .Values.uproxy.deploymentLabels }}
-    {{ $key }}: "{{ $val }}"
-{{- end }}
-spec:
-  selector:
-    matchLabels:
-      app: uproxy
-  template:
-    metadata:
-      labels:
-        app: uproxy
-        asm-type: proxy
-        {{- range $key, $val := .Values.uproxy.podLabels }}
-        {{ $key }}: "{{ $val }}"
-        {{- end }}
-      annotations:
         {{- if .Values.uproxy.podAnnotations }}
 {{ toYaml .Values.uproxy.podAnnotations | indent 8 }}
         {{- end }}
@@ -178,6 +80,14 @@ spec:
         command:
           - sh
           - -c
+{{- if $iptablesRedirect }}
+          - |
+            # With normal linux routing we need to disable the rp_filter
+            # as we get packets from a tunnel that doesn't have default routes.
+            echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
+            echo 0 > /proc/sys/net/ipv4/conf/default/rp_filter
+            echo 0 > /proc/sys/net/ipv4/conf/eth0/rp_filter
+{{- else }}
           - |
             # HBONE traffic goes to HBONE port...
             iptables -t nat -A PREROUTING -p tcp --dport 15008 ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn 15008] "
@@ -195,6 +105,7 @@ spec:
 
             iptables -t nat -I OUTPUT 1 -p tcp --dport 15088 -j LOG --log-prefix="[howardjohn local] "
             iptables -t nat -I OUTPUT 1 -p tcp --dport 15088 -j REDIRECT --to-port 15008
+{{- end }}
         env:
         - name: INSTANCE_IP
           valueFrom:
@@ -213,6 +124,13 @@ spec:
 {{- else }}
         image: "{{ .Values.uproxy.hub | default .Values.global.hub }}/{{ .Values.uproxy.image | default "proxyv2" }}:{{ .Values.uproxy.tag | default .Values.global.tag }}"
 {{- end }}
+{{- if .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
         readinessProbe:
           httpGet:
             port: 15020 # TODO: use 15021, but it spams logs
@@ -235,6 +153,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: ISTIO_META_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         - name: INSTANCE_IP
           valueFrom:
             fieldRef:
@@ -243,10 +165,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        - name: ISTIO_META_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
         {{- if .Values.uproxy.env }}
         {{- range $key, $val := .Values.uproxy.env }}
         - name: {{ $key }}
@@ -260,11 +178,13 @@ spec:
           name: istio-token
         - mountPath: /var/lib/kubelet/pki # Must match due to symlinks...
           name: kubelet-creds
+{{- if not $iptablesRedirect }}
         securityContext:
           privileged: true
           capabilities:
             add:
             - NET_ADMIN
+{{- end }}
       volumes:
       - name: kubelet-creds
         hostPath:
@@ -279,5 +199,5 @@ spec:
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
-{{- end }}
+
 {{- end }}

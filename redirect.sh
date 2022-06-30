@@ -16,7 +16,10 @@
 
 set -x
 
-. $(dirname -- $0)/config.sh
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+
+. $WD/config.sh
 
 WORKER_NODES="$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o custom-columns=:.metadata.name --no-headers)"
 
@@ -147,7 +150,7 @@ done
 
 # add our tables if not exist yet, flush them if they do exist.
 for node in ${WORKER_NODES}; do
-  cat "$(dirname -- $0)/config.sh" <(echo IPTABLES=$IPTABLES) <(echo INTERFACE_PREFIX=$INTERFACE_PREFIX) redirect-worker.sh | exec_on_node "$node"
+  cat "$(dirname -- $0)/config.sh" <(echo IPTABLES=$IPTABLES) <(echo INTERFACE_PREFIX=$INTERFACE_PREFIX) $WD/redirect-worker.sh | exec_on_node "$node"
 done
 
 
@@ -172,20 +175,20 @@ $IPTABLES -t filter -I OUTPUT -o ${INTERFACE_PREFIX}+ -j LOG --log-prefix "filt 
 $IPTABLES -t filter -I INPUT -i ${INTERFACE_PREFIX}+ -j LOG --log-prefix "filt inp [$node] "
 
 
-$IPTABLES -t mangle -I PREROUTING -i geneve+ -j LOG --log-prefix "mangle pre [$node|tun] "
-$IPTABLES -t mangle -I POSTROUTING -o geneve+ -j LOG --log-prefix "mangle post [$node|tun] "
-$IPTABLES -t mangle -I INPUT -i geneve+ -j LOG --log-prefix "mangle inp [$node|tun] "
-$IPTABLES -t mangle -I OUTPUT -o geneve+ -j LOG --log-prefix "mangle out [$node|tun] "
-$IPTABLES -t mangle -I FORWARD -i geneve+ -j LOG --log-prefix "mangle fw [$node|tun] "
-$IPTABLES -t nat -I POSTROUTING -o geneve+ -j LOG --log-prefix "nat post [$node|tun] "
-$IPTABLES -t nat -I INPUT -i geneve+ -j LOG --log-prefix "nat inp [$node|tun] "
-$IPTABLES -t nat -I OUTPUT -o geneve+ -j LOG --log-prefix "nat out [$node|tun] "
-$IPTABLES -t nat -I PREROUTING -i geneve+ -j LOG --log-prefix "nat pre [$node|tun] "
-$IPTABLES -t raw -I PREROUTING -i geneve+ -j LOG --log-prefix "raw pre [$node|tun] "
-$IPTABLES -t raw -I OUTPUT -o geneve+ -j LOG --log-prefix "raw out [$node|tun] "
-$IPTABLES -t filter -I FORWARD -i geneve+ -j LOG --log-prefix "filt fw [$node|tun] "
-$IPTABLES -t filter -I OUTPUT -o geneve+ -j LOG --log-prefix "filt out [$node|tun] "
-$IPTABLES -t filter -I INPUT -i geneve+ -j LOG --log-prefix "filt inp [$node|tun] "
+$IPTABLES -t mangle -I PREROUTING -i istio+ -j LOG --log-prefix "mangle pre [$node|tun] "
+$IPTABLES -t mangle -I POSTROUTING -o istio+ -j LOG --log-prefix "mangle post [$node|tun] "
+$IPTABLES -t mangle -I INPUT -i istio+ -j LOG --log-prefix "mangle inp [$node|tun] "
+$IPTABLES -t mangle -I OUTPUT -o istio+ -j LOG --log-prefix "mangle out [$node|tun] "
+$IPTABLES -t mangle -I FORWARD -i istio+ -j LOG --log-prefix "mangle fw [$node|tun] "
+$IPTABLES -t nat -I POSTROUTING -o istio+ -j LOG --log-prefix "nat post [$node|tun] "
+$IPTABLES -t nat -I INPUT -i istio+ -j LOG --log-prefix "nat inp [$node|tun] "
+$IPTABLES -t nat -I OUTPUT -o istio+ -j LOG --log-prefix "nat out [$node|tun] "
+$IPTABLES -t nat -I PREROUTING -i istio+ -j LOG --log-prefix "nat pre [$node|tun] "
+$IPTABLES -t raw -I PREROUTING -i istio+ -j LOG --log-prefix "raw pre [$node|tun] "
+$IPTABLES -t raw -I OUTPUT -o istio+ -j LOG --log-prefix "raw out [$node|tun] "
+$IPTABLES -t filter -I FORWARD -i istio+ -j LOG --log-prefix "filt fw [$node|tun] "
+$IPTABLES -t filter -I OUTPUT -o istio+ -j LOG --log-prefix "filt out [$node|tun] "
+$IPTABLES -t filter -I INPUT -i istio+ -j LOG --log-prefix "filt inp [$node|tun] "
 
 # log martian packets
 echo 1 > /proc/sys/net/ipv4/conf/all/log_martians

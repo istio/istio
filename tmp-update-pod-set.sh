@@ -16,7 +16,10 @@
 
 set -x
 
-. $(dirname -- $0)/config.sh
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+
+. $WD/config.sh
 
 # if k8s type var not set, default to kind
 if [ -z "${K8S_TYPE}" ]; then
