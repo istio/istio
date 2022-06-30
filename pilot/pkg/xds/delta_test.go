@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
@@ -108,6 +109,11 @@ func TestDeltaEDS(t *testing.T) {
 
 	// update svc, only send the eds for this service
 	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, "10.10.1.3", 8080)
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{{
+		Kind:      gvk.ServiceEntry,
+		Name:      edsIncSvc,
+		Namespace: "",
+	}: {}}})
 
 	resp = ads.ExpectResponse()
 	if len(resp.Resources) != 1 || resp.Resources[0].Name != "outbound|8080||"+edsIncSvc {
