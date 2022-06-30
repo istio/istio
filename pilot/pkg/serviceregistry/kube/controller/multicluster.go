@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -320,17 +321,13 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 	return nil
 }
 
-// Comma-separated list of clusters (or * for any) with an istiod that should
-// attempt leader election for a remote cluster.
-const istiodClusterAnnotation = "topology.istio.io/controlPlaneClusters" // TODO make proper API annotation.TopologyControlPlaneClusters.Name
-
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
 func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace string) bool {
 	if features.ExternalIstiod {
 		namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
 		if err == nil {
 			// found same system namespace on the remote cluster so check if we are a selected istiod to lead
-			istiodCluster, found := namespace.Annotations[istiodClusterAnnotation]
+			istiodCluster, found := namespace.Annotations[annotation.TopologyControlPlaneClusters.Name]
 			if found {
 				localCluster := string(m.opts.ClusterID)
 				for _, cluster := range strings.Split(istiodCluster, ",") {

@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/cmd"
@@ -704,9 +705,9 @@ func (i *istioImpl) deployCACerts() error {
 		}
 		var nsAnnotations map[string]string
 		if c.IsRemote() {
-			const istiodClusterAnnotation = "topology.istio.io/controlPlaneClusters" // TODO proper API annotation.TopologyControlPlaneClusters.Name
 			nsAnnotations = map[string]string{
-				istiodClusterAnnotation: c.Config().Name(), // Use config cluster name because external control plane uses config cluster as its cluster ID
+				annotation.TopologyControlPlaneClusters.Name: c.Config().Name(),
+				// ^^^ Use config cluster name because external control plane uses config cluster as its cluster ID
 			}
 		}
 		if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
