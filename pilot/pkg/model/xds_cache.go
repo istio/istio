@@ -23,7 +23,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"google.golang.org/protobuf/testing/protocmp"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -117,24 +116,22 @@ type XdsCache interface {
 }
 
 // NewXdsCache returns an instance of a cache.
-func NewXdsCache() XdsCache {
+func NewXdsCache(stopCh <-chan struct{}) XdsCache {
 	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
 		recordEvicted:    true,
 		evictedKeys:      sets.New(),
+		evictCh:          make(chan struct{}),
 	}
 	cache.store = newLru(cache.evict)
-
-	// TODO: make the interval configurable
-	go wait.Until(cache.clearEvicted, 5*time.Second, make(chan struct{}))
-
+	go cache.handleEvicted(stopCh)
 	return cache
 }
 
 // NewLenientXdsCache returns an instance of a cache that does not validate token based get/set and enable assertions.
-func NewLenientXdsCache() XdsCache {
+func NewLenientXdsCache(stopCh <-chan struct{}) XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
 		configIndex:      map[ConfigKey]sets.Set{},
@@ -143,7 +140,7 @@ func NewLenientXdsCache() XdsCache {
 		evictedKeys:      sets.New(),
 	}
 	cache.store = newLru(cache.evict)
-
+	go cache.handleEvicted(stopCh)
 	return cache
 }
 
@@ -158,6 +155,8 @@ type lruCache struct {
 	typesIndex    map[kind.Kind]sets.Set
 	recordEvicted bool
 	evictedKeys   sets.Set
+	// used to notify a key is evicted, calling Remove actively does not trigger it.
+	evictCh chan struct{}
 }
 
 var _ XdsCache = &lruCache{}
@@ -182,6 +181,19 @@ func (l *lruCache) evict(k interface{}, _ interface{}) {
 
 	if l.recordEvicted {
 		l.evictedKeys.Insert(k.(string))
+		l.evictCh <- struct{}{}
+	}
+}
+
+func (l *lruCache) handleEvicted(stopCh <-chan struct{}) {
+	for {
+		select {
+		case <-stopCh:
+			log.Infof("lruCache has been stopped")
+			return
+		case <-l.evictCh:
+			l.clearEvicted()
+		}
 	}
 }
 
@@ -214,6 +226,7 @@ func (l *lruCache) clearEvicted() {
 			}
 		}
 	}
+	l.evictedKeys = sets.New()
 }
 
 func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
@@ -352,7 +365,7 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
-	// not to record keys that are automatically removed
+	// not to record keys that are actively removed
 	l.recordEvicted = false
 	defer func() {
 		l.recordEvicted = true
