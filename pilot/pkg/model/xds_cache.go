@@ -187,18 +187,17 @@ func (l *LruCache) onEvict(k interface{}, _ interface{}) {
 		case l.evictCh <- struct{}{}:
 		default: // the signal has not been consumed
 		}
-
 	}
 }
 
 func (l *LruCache) handleEvicted(stopCh <-chan struct{}) {
 	for {
 		select {
+		case <-l.evictCh:
+			l.clearEvicted()
 		case <-stopCh:
 			log.Infof("LruCache has been stopped")
 			return
-		case <-l.evictCh:
-			l.clearEvicted()
 		}
 	}
 }
