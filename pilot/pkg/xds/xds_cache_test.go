@@ -266,6 +266,7 @@ func TestXdsCacheEvict(t *testing.T) {
 	// Ensure cache doesn't grow too large
 	test.SetIntForTest(t, &features.XDSCacheMaxSize, 500)
 	stop := make(chan struct{})
+	defer close(stop)
 	c := model.NewXdsCache()
 	go c.Run(stop)
 
@@ -277,23 +278,22 @@ func TestXdsCacheEvict(t *testing.T) {
 		req := &model.PushRequest{Start: startTime.Add(time.Duration(n))}
 		c.Add(key, req, res)
 	}
-
 	lruCache := c.(*model.LruCache)
-	// the effect is same as close channel, used as a wait signal too.
-	// if evict handler has not processed previously evict notification, the stop signal would not be consumed.
-	stop <- struct{}{}
-	// check oldest keys and its dependencies has been cleaned
-	for n := 0; n < 100; n++ {
-		key := makeCacheKey(n)
-		_, exist := c.Get(key)
-		if exist {
-			t.Fatalf("key %s should be evicted", key.Key())
-		}
-		dependents := key.DependentConfigs()
-		for _, config := range dependents {
-			if lruCache.GetKeysByConfigKey(config) != nil {
-				t.Fatalf("config %s should be evicted", config)
+	retry.UntilSuccessOrFail(t, func() error {
+		// check oldest keys and its dependencies has been cleaned
+		for n := 0; n < 100; n++ {
+			key := makeCacheKey(n)
+			_, exist := c.Get(key)
+			if exist {
+				return fmt.Errorf("key %s should be evicted", key.Key())
+			}
+			dependents := key.DependentConfigs()
+			for _, config := range dependents {
+				if lruCache.GetKeysByConfigKey(config) != nil {
+					return fmt.Errorf("config %s should be evicted", config)
+				}
 			}
 		}
-	}
+		return nil
+	}, retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
 }
