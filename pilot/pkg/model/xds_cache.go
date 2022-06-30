@@ -349,10 +349,8 @@ func (l *LruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 }
 
 type cacheValue struct {
-	value            *discovery.Resource
-	token            CacheToken
-	dependentConfigs []ConfigKey
-	dependentTypes   []kind.Kind
+	value *discovery.Resource
+	token CacheToken
 }
 
 func (l *LruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
