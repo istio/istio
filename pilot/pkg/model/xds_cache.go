@@ -125,7 +125,7 @@ func NewXdsCache() XdsCache {
 		typesIndex:       map[kind.Kind]sets.Set{},
 		recordEvicted:    true,
 		evictedKeys:      sets.New(),
-		evictCh:          make(chan struct{}),
+		evictCh:          make(chan struct{}, 1),
 	}
 	cache.store = newLru(cache.onEvict)
 	return cache
@@ -139,6 +139,7 @@ func NewLenientXdsCache() XdsCache {
 		typesIndex:       map[kind.Kind]sets.Set{},
 		recordEvicted:    true,
 		evictedKeys:      sets.New(),
+		evictCh:          make(chan struct{}, 1),
 	}
 	cache.store = newLru(cache.onEvict)
 	return cache
@@ -182,7 +183,11 @@ func (l *LruCache) onEvict(k interface{}, _ interface{}) {
 
 	if l.recordEvicted {
 		l.evictedKeys.Insert(k.(string))
-		l.evictCh <- struct{}{}
+		select {
+		case l.evictCh <- struct{}{}:
+		default: // the signal has not been consumed
+		}
+
 	}
 }
 
@@ -202,6 +207,7 @@ func (l *LruCache) handleEvicted(stopCh <-chan struct{}) {
 func (l *LruCache) clearEvicted() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	// In order to save cpu, if the evicted keys is very small, we can just ignore
 	// TODO: make it configurable
 	if len(l.evictedKeys) < 100 {
