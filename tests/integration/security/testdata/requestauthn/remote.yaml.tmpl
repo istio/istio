@@ -1,15 +1,13 @@
----
 apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
-  name: request-authn
+  name: {{ .To.ServiceName }}
 spec:
   selector:
     matchLabels:
-      app: {{ .dst }}
+      app: {{ .To.ServiceName }}
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
-    jwksUri: "http://jwt-server.{{ .Namespace }}.svc.cluster.local:8000/jwks"
+    jwksUri: "{{ .JWTServer.JwksURI }}"
     outputPayloadToHeader: "x-test-payload"
     forwardOriginalToken: true
----
