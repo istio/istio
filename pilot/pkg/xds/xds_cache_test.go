@@ -261,27 +261,29 @@ func TestXdsCache(t *testing.T) {
 	})
 }
 
-// TestXdsCacheToken is a regression test to ensure that we do not write
+// TestXdsCacheEvict is to test evict cleanup.
 func TestXdsCacheEvict(t *testing.T) {
 	// Ensure cache doesn't grow too large
-	test.SetIntForTest(t, &features.XDSCacheMaxSize, 1_000)
+	test.SetIntForTest(t, &features.XDSCacheMaxSize, 500)
 	stop := make(chan struct{})
-	defer close(stop)
 	c := model.NewXdsCache()
 	go c.Run(stop)
 
 	zeroTime := time.Time{}
 	res := &discovery.Resource{Name: "test"}
 
-	for n := 0; n < 1100; n++ {
+	for n := 0; n <= 600; n++ {
 		key := makeCacheKey(n)
 		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
 		c.Add(key, req, res)
 	}
 
 	lruCache := c.(*model.LruCache)
+	// the effect is same as close channel, used as a wait signal too.
+	// if evict handler has not processed previously evict notification, the stop signal would not be consumed.
+	stop <- struct{}{}
 	// check oldest keys and its dependencies has been cleaned
-	for n := 0; n < 100; n++ {
+	for n := 1; n < 100; n++ {
 		key := makeCacheKey(n)
 		_, exist := c.Get(key)
 		if exist {
