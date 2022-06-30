@@ -43,7 +43,7 @@ func ParseOrFail(t test.Failer, tpl string) *template.Template {
 func MustParse(tpl string) *template.Template {
 	tpl2, err := Parse(tpl)
 	if err != nil {
-		panic(fmt.Sprintf("tmpl.ParseOrFail: %v", err))
+		panic(fmt.Sprintf("tmpl.MustParse: %v", err))
 	}
 	return tpl2
 }

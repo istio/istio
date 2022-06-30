@@ -67,22 +67,24 @@ var (
 	serviceTemplate      *template.Template
 	deploymentTemplate   *template.Template
 	vmDeploymentTemplate *template.Template
+
+	echoKubeTemplatesDir = path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates")
 )
 
 func init() {
-	serviceYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", serviceTemplateFile)
+	serviceYAMLPath := path.Join(echoKubeTemplatesDir, serviceTemplateFile)
 	if filepath.IsAbs(serviceTemplateFile) {
 		serviceYAMLPath = serviceTemplateFile
 	}
 	serviceTemplate = tmpl.MustParse(file.MustAsString(serviceYAMLPath))
 
-	deploymentYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", deploymentTemplateFile)
+	deploymentYAMLPath := path.Join(echoKubeTemplatesDir, deploymentTemplateFile)
 	if filepath.IsAbs(deploymentTemplateFile) {
 		deploymentYAMLPath = deploymentTemplateFile
 	}
 	deploymentTemplate = tmpl.MustParse(file.MustAsString(deploymentYAMLPath))
 
-	vmDeploymentYAMLPath := path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates", vmDeploymentTemplateFile)
+	vmDeploymentYAMLPath := path.Join(echoKubeTemplatesDir, vmDeploymentTemplateFile)
 	if filepath.IsAbs(vmDeploymentTemplateFile) {
 		vmDeploymentYAMLPath = vmDeploymentTemplateFile
 	}
