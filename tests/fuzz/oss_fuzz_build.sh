@@ -20,6 +20,20 @@ set -o errexit
 set -x
 
 sed -i 's/out.initJwksResolver()/\/\/out.initJwksResolver()/g' "${SRC}"/istio/pilot/pkg/xds/discovery.go
+# Create empty file that imports "github.com/AdamKorcz/go-118-fuzz-build/utils"
+# This is a small hack to install this dependency, since it is not used anywhere,
+# and Go would therefore remove it from go.mod once we run "go mod tidy && go mod vendor".
+printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/utils\"\n" > register.go
+go mod tidy
+
+# Find all native fuzzers and compile them
+# shellcheck disable=SC2016
+grep --line-buffered --include '*.go' -Pr 'func Fuzz.*\(.* \*testing\.F' | sed -E 's/(func Fuzz(.*)\(.*)/\2/' | xargs -I{} sh -c '
+  fname="$(dirname $(echo "{}" | cut -d: -f1))"
+  func="Fuzz$(echo "{}" | cut -d: -f2)"
+  set -x
+  compile_native_go_fuzzer istio.io/istio/$fname $func $func
+'
 
 mv ./tests/fuzz/kube_gateway_controller_fuzzer.go ./pilot/pkg/config/kube/gateway/
 compile_go_fuzzer istio.io/istio/pilot/pkg/config/kube/gateway ConvertResourcesFuzz fuzz_convert_resources
