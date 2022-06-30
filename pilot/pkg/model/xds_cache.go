@@ -173,8 +173,7 @@ func (l *lruCache) evict(k interface{}, v interface{}) {
 	value := v.(cacheValue)
 
 	// we don't need to acquire locks, since this function is called when we write to the store
-	l.clearConfigIndex(key, value.dependentConfigs)
-	l.clearTypesIndex(key, value.dependentTypes)
+	l.clearIndexes(key, value)
 }
 
 func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
@@ -217,6 +216,11 @@ func (l *lruCache) clearTypesIndex(k string, dependentTypes []config.GroupVersio
 			}
 		}
 	}
+}
+
+func (l *lruCache) clearIndexes(key string, value cacheValue) {
+	l.clearConfigIndex(key, value.dependentConfigs)
+	l.clearTypesIndex(key, value.dependentTypes)
 }
 
 // assertUnchanged checks that a cache entry is not changed. This helps catch bad cache invalidation
@@ -273,8 +277,9 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 
 	// we have to make sure we evict old entries with the same key
 	// to prevent leaking in the index maps
-	if old, ok := l.store.Get(k); ok {
-		l.evict(k, old)
+	if f {
+		value := cur.(cacheValue)
+		l.clearIndexes(k, value)
 	}
 
 	dependentConfigs := entry.DependentConfigs()
@@ -299,8 +304,8 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 		return nil, false
 	}
 	k := entry.Key()
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	val, ok := l.store.Get(k)
 	if !ok {
 		miss()
