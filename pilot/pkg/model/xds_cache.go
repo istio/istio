@@ -202,7 +202,7 @@ func (l *LruCache) handleEvicted(stopCh <-chan struct{}) {
 	}
 }
 
-// clearEvicted is to clear configIndex and typesIndex based on evictedKeys.
+// clearEvicted is to clear configIndex and typesIndex based on evictedKeys.gi
 func (l *LruCache) clearEvicted() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
