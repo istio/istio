@@ -25,9 +25,11 @@ import (
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -38,7 +40,10 @@ var (
 
 // TestXdsCacheToken is a regression test to ensure that we do not write
 func TestXdsCacheToken(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
 	c := model.NewXdsCache()
+	go c.Run(stop)
 	n := atomic.NewInt32(0)
 	mkv := func(n int32) *discovery.Resource {
 		return &discovery.Resource{Resource: &any.Any{TypeUrl: fmt.Sprint(n)}}
@@ -133,7 +138,6 @@ func TestXdsCache(t *testing.T) {
 
 	t.Run("multiple destinationRules", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
-
 		ep1 := ep1
 		ep1.destinationRule = &config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}
 		ep2 := ep2
@@ -208,7 +212,9 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("write with evicted token", func(t *testing.T) {
+		stop := make(chan struct{})
 		c := model.NewLenientXdsCache()
+		defer close(stop)
 		t1 := time.Now()
 		t2 := t1.Add(1 * time.Nanosecond)
 		c.Add(ep1, &model.PushRequest{Start: t2}, any1)
@@ -253,4 +259,39 @@ func TestXdsCache(t *testing.T) {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
 	})
+}
+
+// TestXdsCacheToken is a regression test to ensure that we do not write
+func TestXdsCacheEvict(t *testing.T) {
+	// Ensure cache doesn't grow too large
+	test.SetIntForTest(t, &features.XDSCacheMaxSize, 1_000)
+	stop := make(chan struct{})
+	defer close(stop)
+	c := model.NewXdsCache()
+	go c.Run(stop)
+
+	zeroTime := time.Time{}
+	res := &discovery.Resource{Name: "test"}
+
+	for n := 0; n < 1100; n++ {
+		key := makeCacheKey(n)
+		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
+		c.Add(key, req, res)
+	}
+
+	lruCache := c.(*model.LruCache)
+	// check oldest keys and its dependencies has been cleaned
+	for n := 0; n < 100; n++ {
+		key := makeCacheKey(n)
+		_, exist := c.Get(key)
+		if exist {
+			t.Fatalf("key %s should be evicted", key.Key())
+		}
+		dependents := key.DependentConfigs()
+		for _, config := range dependents {
+			if lruCache.GetKeysByConfigKey(config) != nil {
+				t.Fatalf("config %s should be evicted", config)
+			}
+		}
+	}
 }
