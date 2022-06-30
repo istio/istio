@@ -55,16 +55,24 @@ func TestListenerAccessLog(t *testing.T) {
 	defaultFormatJSON, _ := protomarshal.ToJSON(EnvoyJSONLogFormatIstio)
 
 	for _, tc := range []struct {
-		name       string
-		encoding   meshconfig.MeshConfig_AccessLogEncoding
-		format     string
-		wantFormat string
+		name            string
+		encoding        meshconfig.MeshConfig_AccessLogEncoding
+		format          string
+		omitEmptyValues bool
+		wantFormat      string
 	}{
 		{
 			name:       "valid json object",
 			encoding:   meshconfig.MeshConfig_JSON,
 			format:     `{"foo": "bar"}`,
 			wantFormat: `{"foo":"bar"}`,
+		},
+		{
+			name:            "omit empty values",
+			encoding:        meshconfig.MeshConfig_JSON,
+			omitEmptyValues: true,
+			format:          `{"foo": "bar"}`,
+			wantFormat:      `{"foo":"bar"}`,
 		},
 		{
 			name:       "valid nested json object",
@@ -109,6 +117,8 @@ func TestListenerAccessLog(t *testing.T) {
 			m.AccessLogFile = "foo"
 			m.AccessLogEncoding = tc.encoding
 			m.AccessLogFormat = tc.format
+			m.AccessLogOmitEmptyValues = tc.omitEmptyValues
+
 			listeners := buildListeners(t, TestOptions{MeshConfig: m}, nil)
 			if len(listeners) != 2 {
 				t.Errorf("expected to have 2 listeners, but got %v", len(listeners))
@@ -119,7 +129,7 @@ func TestListenerAccessLog(t *testing.T) {
 					t.Fatal("expected filter config in listener access log configuration")
 				}
 				// Verify listener access log.
-				verify(t, tc.encoding, l.AccessLog[0], tc.wantFormat)
+				verify(t, tc.encoding, l.AccessLog[0], tc.wantFormat, tc.omitEmptyValues)
 
 				for _, fc := range l.FilterChains {
 					for _, filter := range fc.Filters {
@@ -144,7 +154,7 @@ func TestListenerAccessLog(t *testing.T) {
 							}
 
 							// Verify tcp proxy access log.
-							verify(t, tc.encoding, tcpConfig.AccessLog[0], tc.wantFormat)
+							verify(t, tc.encoding, tcpConfig.AccessLog[0], tc.wantFormat, tc.omitEmptyValues)
 						case wellknown.HTTPConnectionManager:
 							httpConfig := &httppb.HttpConnectionManager{}
 							if err := filter.GetTypedConfig().UnmarshalTo(httpConfig); err != nil {
@@ -154,7 +164,7 @@ func TestListenerAccessLog(t *testing.T) {
 								t.Fatalf("http_connection_manager want at least 1 access log, got 0")
 							}
 							// Verify HTTP connection manager access log.
-							verify(t, tc.encoding, httpConfig.AccessLog[0], tc.wantFormat)
+							verify(t, tc.encoding, httpConfig.AccessLog[0], tc.wantFormat, tc.omitEmptyValues)
 						}
 					}
 				}
@@ -163,7 +173,7 @@ func TestListenerAccessLog(t *testing.T) {
 	}
 }
 
-func verify(t *testing.T, encoding meshconfig.MeshConfig_AccessLogEncoding, got *accesslog.AccessLog, wantFormat string) {
+func verify(t *testing.T, encoding meshconfig.MeshConfig_AccessLogEncoding, got *accesslog.AccessLog, wantFormat string, omitEmptyValues bool) {
 	cfg, _ := conversion.MessageToStruct(got.GetTypedConfig())
 	if encoding == meshconfig.MeshConfig_JSON {
 		jsonFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["json_format"]
@@ -178,6 +188,9 @@ func verify(t *testing.T, encoding meshconfig.MeshConfig_AccessLogEncoding, got 
 			t.Errorf("\nwant: %s\n got: %s", wantFormat, textFormatString)
 		}
 	}
+	if omitEmptyValues != cfg.GetFields()["log_format"].GetStructValue().GetFields()["omit_empty_values"].GetBoolValue() {
+		t.Errorf("\nomitEmptyValues is not: %t", omitEmptyValues)
+	}
 }
 
 func TestBuildAccessLogFromTelemetry(t *testing.T) {
@@ -188,6 +201,20 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
 					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
 						Path: devStdout,
+					},
+				},
+			},
+		},
+	}
+
+	singleCfgWithOmit := &model.LoggingConfig{
+		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path:            devStdout,
+						OmitEmptyValues: true,
 					},
 				},
 			},
@@ -439,6 +466,22 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
+	omitEmpty := &fileaccesslog.FileAccessLog{
+		Path: devStdout,
+		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_TextFormatSource{
+					TextFormatSource: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{
+							InlineString: EnvoyTextLogFormat,
+						},
+					},
+				},
+				OmitEmptyValues: true,
+			},
+		},
+	}
+
 	customTextOut := &fileaccesslog.FileAccessLog{
 		Path: devStdout,
 		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
@@ -598,6 +641,20 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				{
 					Name:       wellknown.FileAccessLog,
 					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
+				},
+			},
+		},
+		{
+			name: "with-omit",
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			spec:        singleCfgWithOmit,
+			forListener: false,
+			expected: []*accesslog.AccessLog{
+				{
+					Name:       wellknown.FileAccessLog,
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(omitEmpty)},
 				},
 			},
 		},

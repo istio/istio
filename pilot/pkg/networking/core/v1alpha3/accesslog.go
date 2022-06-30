@@ -324,13 +324,17 @@ func buildEnvoyFileAccessLogHelper(prov *meshconfig.MeshConfig_ExtensionProvider
 	if prov.LogFormat != nil {
 		switch logFormat := prov.LogFormat.LogFormat.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text:
-			fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(logFormat.Text)
+			fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(
+				logFormat.Text, prov.OmitEmptyValues)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels:
-			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(logFormat)
+			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(
+				logFormat, prov.OmitEmptyValues)
 		}
 	} else {
-		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("")
+		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(
+			"", prov.OmitEmptyValues)
 	}
+
 	if needsFormatter {
 		fl.GetLogFormat().Formatters = accessLogFormatters
 	}
@@ -343,7 +347,7 @@ func buildEnvoyFileAccessLogHelper(prov *meshconfig.MeshConfig_ExtensionProvider
 	return al
 }
 
-func buildFileAccessTextLogFormat(text string) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
+func buildFileAccessTextLogFormat(text string, omitEmptyValues bool) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
 	formatString := EnvoyTextLogFormat
 	if text != "" {
 		formatString = text
@@ -358,12 +362,14 @@ func buildFileAccessTextLogFormat(text string) (*fileaccesslog.FileAccessLog_Log
 					},
 				},
 			},
+			OmitEmptyValues: omitEmptyValues,
 		},
 	}, needsFormatter
 }
 
 func buildFileAccessJSONLogFormat(
 	logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels,
+	omitEmptyValues bool,
 ) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
 	jsonLogStruct := EnvoyJSONLogFormatIstio
 	if logFormat.Labels != nil {
@@ -387,6 +393,7 @@ func buildFileAccessJSONLogFormat(
 			Format: &core.SubstitutionFormatString_JsonFormat{
 				JsonFormat: jsonLogStruct,
 			},
+			OmitEmptyValues: omitEmptyValues,
 		},
 	}, needsFormatter
 }
@@ -455,6 +462,7 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 						},
 					},
 				},
+				OmitEmptyValues: mesh.AccessLogOmitEmptyValues,
 			},
 		}
 	case meshconfig.MeshConfig_JSON:
@@ -478,6 +486,7 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: jsonLogStruct,
 				},
+				OmitEmptyValues: mesh.AccessLogOmitEmptyValues,
 			},
 		}
 	default:
