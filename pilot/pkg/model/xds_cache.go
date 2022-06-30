@@ -113,7 +113,7 @@ type XdsCache interface {
 	Keys() []string
 	// Snapshot returns a snapshot of all keys and values. This is for testing/debug only
 	Snapshot() map[string]*discovery.Resource
-	// Run starts the cache cleanup for evicted keys.
+	// Run runs the cache, mainly for cleanup and is triggered asynchronously by key eviction.
 	Run(stop <-chan struct{})
 }
 
@@ -123,7 +123,7 @@ func NewXdsCache() XdsCache {
 		enableAssertions: features.EnableUnsafeAssertions,
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
-		recordEvicted:    true,
+		trackEvicted:     true,
 		evictedKeys:      sets.New(),
 		evictCh:          make(chan struct{}, 1),
 	}
@@ -137,7 +137,7 @@ func NewLenientXdsCache() XdsCache {
 		enableAssertions: false,
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
-		recordEvicted:    true,
+		trackEvicted:     true,
 		evictedKeys:      sets.New(),
 		evictCh:          make(chan struct{}, 1),
 	}
@@ -151,12 +151,12 @@ type LruCache struct {
 	store            simplelru.LRUCache
 	// token stores the latest token of the store, used to prevent stale data overwrite.
 	// It is refreshed when Clear or ClearAll are called
-	token         CacheToken
-	mu            sync.RWMutex
-	configIndex   map[ConfigKey]sets.Set
-	typesIndex    map[kind.Kind]sets.Set
-	recordEvicted bool
-	evictedKeys   sets.Set
+	token        CacheToken
+	mu           sync.RWMutex
+	configIndex  map[ConfigKey]sets.Set
+	typesIndex   map[kind.Kind]sets.Set
+	trackEvicted bool
+	evictedKeys  sets.Set
 	// used to notify a key is evicted, calling Remove actively does not trigger it.
 	evictCh chan struct{}
 }
@@ -181,7 +181,7 @@ func (l *LruCache) onEvict(k interface{}, _ interface{}) {
 		xdsCacheEvictions.Increment()
 	}
 
-	if l.recordEvicted {
+	if l.trackEvicted {
 		l.evictedKeys.Insert(k.(string))
 		select {
 		case l.evictCh <- struct{}{}:
@@ -202,7 +202,7 @@ func (l *LruCache) handleEvicted(stopCh <-chan struct{}) {
 	}
 }
 
-// clearEvicted is run periodically to clear configIndex and typesIndex
+// clearEvicted is to clear configIndex and typesIndex based on evictedKeys.
 func (l *LruCache) clearEvicted() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -378,9 +378,9 @@ func (l *LruCache) Clear(configs map[ConfigKey]struct{}) {
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
 	// not to record keys that are actively removed
-	l.recordEvicted = false
+	l.trackEvicted = false
 	defer func() {
-		l.recordEvicted = true
+		l.trackEvicted = true
 	}()
 	for ckey := range configs {
 		referenced := l.configIndex[ckey]
