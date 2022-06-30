@@ -47,7 +47,7 @@ import (
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.New(kind.String(kind.ServiceEntry))
+var deltaConfigTypes = sets.New(kind.ServiceEntry.String())
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -198,7 +198,7 @@ func shouldUseDelta(updates *model.PushRequest) bool {
 // deltaAwareConfigTypes returns true if all updated configs are delta enabled.
 func deltaAwareConfigTypes(cfgs map[model.ConfigKey]struct{}) bool {
 	for k := range cfgs {
-		if !deltaConfigTypes.Contains(kind.String(k.Kind)) {
+		if !deltaConfigTypes.Contains(k.Kind.String()) {
 			return false
 		}
 	}

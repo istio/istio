@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
@@ -54,7 +53,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	}
 	gateway := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{Namespace: nsName}}
 
-	sidecarScopeKindNames := map[config.Kind]string{
+	sidecarScopeKindNames := map[kind.Kind]string{
 		kind.ServiceEntry: svcName, kind.VirtualService: vsName, kind.DestinationRule: drName, kind.Sidecar: scName,
 	}
 	for kind, name := range sidecarScopeKindNames {
@@ -116,7 +115,7 @@ func TestProxyNeedsPush(t *testing.T) {
 			"invalid config for sidecar", sidecar,
 			map[model.ConfigKey]struct{}{
 				{
-					Kind: config.Kind(255), Name: generalName, Namespace: nsName,
+					Kind: kind.Kind(255), Name: generalName, Namespace: nsName,
 				}: {},
 			},
 			true,
@@ -134,31 +133,31 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	for k, name := range sidecarScopeKindNames {
 		cases = append(cases, Case{ // valid name
-			name:    fmt.Sprintf("%s config for sidecar", kind.String(k)),
+			name:    fmt.Sprintf("%s config for sidecar", k.String()),
 			proxy:   sidecar,
 			configs: map[model.ConfigKey]struct{}{{Kind: k, Name: name, Namespace: nsName}: {}},
 			want:    true,
 		}, Case{ // invalid name
-			name:    fmt.Sprintf("%s unmatched config for sidecar", kind.String(k)),
+			name:    fmt.Sprintf("%s unmatched config for sidecar", k.String()),
 			proxy:   sidecar,
 			configs: map[model.ConfigKey]struct{}{{Kind: k, Name: name + invalidNameSuffix, Namespace: nsName}: {}},
 			want:    false,
 		})
 	}
 
-	sidecarNamespaceScopeTypes := []config.Kind{
+	sidecarNamespaceScopeTypes := []kind.Kind{
 		kind.EnvoyFilter, kind.AuthorizationPolicy, kind.RequestAuthentication,
 	}
 	for _, k := range sidecarNamespaceScopeTypes {
 		cases = append(cases,
 			Case{
-				name:    fmt.Sprintf("%s config for sidecar in same namespace", kind.String(k)),
+				name:    fmt.Sprintf("%s config for sidecar in same namespace", k.String()),
 				proxy:   sidecar,
 				configs: map[model.ConfigKey]struct{}{{Kind: k, Name: generalName, Namespace: nsName}: {}},
 				want:    true,
 			},
 			Case{
-				name:    fmt.Sprintf("%s config for sidecar in different namespace", kind.String(k)),
+				name:    fmt.Sprintf("%s config for sidecar in different namespace", k.String()),
 				proxy:   sidecar,
 				configs: map[model.ConfigKey]struct{}{{Kind: k, Name: generalName, Namespace: "invalid-namespace"}: {}},
 				want:    false,
@@ -183,7 +182,7 @@ func TestProxyNeedsPush(t *testing.T) {
 					proxy = sidecar
 				}
 				cases = append(cases, Case{
-					name:  fmt.Sprintf("kind %s not affect %s", kind.String(k), nodeType),
+					name:  fmt.Sprintf("kind %s not affect %s", k.String(), nodeType),
 					proxy: proxy,
 					configs: map[model.ConfigKey]struct{}{
 						{Kind: k, Name: generalName + invalidNameSuffix, Namespace: nsName}: {},

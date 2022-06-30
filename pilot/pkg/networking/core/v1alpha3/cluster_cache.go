@@ -136,7 +136,7 @@ func (t clusterCache) DependentConfigs() []model.ConfigKey {
 	return configs
 }
 
-func (t *clusterCache) DependentTypes() []config.Kind {
+func (t *clusterCache) DependentTypes() []kind.Kind {
 	return nil
 }
 

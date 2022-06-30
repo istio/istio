@@ -16,13 +16,12 @@ package xds
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
 // configKindAffectedProxyTypes contains known config types which may affect certain node types.
-var configKindAffectedProxyTypes = map[config.Kind][]model.NodeType{
+var configKindAffectedProxyTypes = map[kind.Kind][]model.NodeType{
 	kind.Gateway: {model.Router},
 	kind.Sidecar: {model.SidecarProxy},
 }

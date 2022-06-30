@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
@@ -30,7 +29,7 @@ type LdsGenerator struct {
 var _ model.XdsResourceGenerator = &LdsGenerator{}
 
 // Map of all configs that do not impact LDS
-var skippedLdsConfigs = map[model.NodeType]map[config.Kind]struct{}{
+var skippedLdsConfigs = map[model.NodeType]map[kind.Kind]struct{}{
 	model.Router: {
 		// for autopassthrough gateways, we build filterchains per-dr subset
 		kind.WorkloadGroup: {},

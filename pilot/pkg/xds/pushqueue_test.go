@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/tests/util/leak"
 )
@@ -313,7 +312,7 @@ func TestProxyQueue(t *testing.T) {
 			for eds := 0; eds < 100; eds++ {
 				p.Enqueue(con, &model.PushRequest{
 					ConfigsUpdated: map[model.ConfigKey]struct{}{{
-						Kind: config.Kind(eds),
+						Kind: kind.Kind(eds),
 						Name: fmt.Sprintf("%d", eds),
 					}: {}},
 				})

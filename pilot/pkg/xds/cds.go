@@ -17,7 +17,6 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
@@ -28,7 +27,7 @@ type CdsGenerator struct {
 var _ model.XdsDeltaResourceGenerator = &CdsGenerator{}
 
 // Map of all configs that do not impact CDS
-var skippedCdsConfigs = map[config.Kind]struct{}{
+var skippedCdsConfigs = map[kind.Kind]struct{}{
 	kind.Gateway:               {},
 	kind.WorkloadEntry:         {},
 	kind.WorkloadGroup:         {},
@@ -41,7 +40,7 @@ var skippedCdsConfigs = map[config.Kind]struct{}{
 }
 
 // Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
-var pushCdsGatewayConfig = map[config.Kind]struct{}{
+var pushCdsGatewayConfig = map[kind.Kind]struct{}{
 	kind.VirtualService: {},
 	kind.Gateway:        {},
 }

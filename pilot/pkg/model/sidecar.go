@@ -37,7 +37,7 @@ const (
 )
 
 var (
-	sidecarScopeKnownConfigTypes = map[config.Kind]struct{}{
+	sidecarScopeKnownConfigTypes = map[kind.Kind]struct{}{
 		kind.ServiceEntry:    {},
 		kind.VirtualService:  {},
 		kind.DestinationRule: {},
@@ -46,7 +46,7 @@ var (
 
 	// clusterScopedConfigTypes includes configs when they are in root namespace,
 	// they will be applied to all namespaces within the cluster.
-	clusterScopedConfigTypes = map[config.Kind]struct{}{
+	clusterScopedConfigTypes = map[kind.Kind]struct{}{
 		kind.EnvoyFilter:           {},
 		kind.AuthorizationPolicy:   {},
 		kind.RequestAuthentication: {},

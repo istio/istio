@@ -102,7 +102,7 @@ func (r *Cache) DependentConfigs() []model.ConfigKey {
 	return configs
 }
 
-func (r *Cache) DependentTypes() []config.Kind {
+func (r *Cache) DependentTypes() []kind.Kind {
 	return nil
 }
 

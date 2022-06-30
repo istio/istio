@@ -188,9 +188,9 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
 	return configs
 }
 
-var edsDependentTypes = []config.Kind{kind.PeerAuthentication}
+var edsDependentTypes = []kind.Kind{kind.PeerAuthentication}
 
-func (b EndpointBuilder) DependentTypes() []config.Kind {
+func (b EndpointBuilder) DependentTypes() []kind.Kind {
 	return edsDependentTypes
 }
 

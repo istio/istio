@@ -85,7 +85,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push0,
 				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.Kind(1), Namespace: "ns1"}: {},
+					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
 				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
@@ -94,7 +94,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push1,
 				Start: t1,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.Kind(2), Namespace: "ns2"}: {},
+					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
 				Reason: []TriggerReason{EndpointUpdate},
 			},
@@ -103,8 +103,8 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push1,
 				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.Kind(1), Namespace: "ns1"}: {},
-					{Kind: config.Kind(2), Namespace: "ns2"}: {},
+					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
+					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
@@ -113,7 +113,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigsUpdated: nil},
 			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
-				Kind: config.Kind(2),
+				Kind: kind.Kind(2),
 			}: {}}},
 			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil},
 		},

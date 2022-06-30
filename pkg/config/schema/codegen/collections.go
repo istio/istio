@@ -53,15 +53,15 @@ import (
 const (
 {{- range $index, $element := .Entries }}
 	{{- if (eq $index 0) }}
-	{{.Type}} config.Kind = iota
+	{{.Type}} Kind = iota
 	{{- else }}
 	{{.Type}}
 	{{- end }}
 {{- end }}
 )
 
-func String(kind config.Kind) string {
-	switch kind {
+func (k Kind) String() string {
+	switch k {
 {{- range .Entries }}
 	case {{.Type}}:
 		return "{{.Resource.Kind}}"
@@ -71,7 +71,7 @@ func String(kind config.Kind) string {
 	}
 }
 
-func FromGvk(gvk config.GroupVersionKind) config.Kind {
+func FromGvk(gvk config.GroupVersionKind) Kind {
 {{- range .Entries }}
 	if gvk.Kind == "{{.Resource.Kind}}" && gvk.Group == "{{.Resource.Group}}" && gvk.Version == "{{.Resource.Version}}" {
 		return {{.Type}}

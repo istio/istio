@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
@@ -35,7 +34,7 @@ type NdsGenerator struct {
 var _ model.XdsResourceGenerator = &NdsGenerator{}
 
 // Map of all configs that do not impact NDS
-var skippedNdsConfigs = map[config.Kind]struct{}{
+var skippedNdsConfigs = map[kind.Kind]struct{}{
 	kind.Gateway:               {},
 	kind.VirtualService:        {},
 	kind.DestinationRule:       {},
