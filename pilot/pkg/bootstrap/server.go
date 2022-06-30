@@ -60,6 +60,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -511,7 +512,7 @@ func (s *Server) initSDSServer() {
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
 					{
-						Kind:      gvk.Secret,
+						Kind:      kind.Secret,
 						Name:      name,
 						Namespace: namespace,
 					}: {},
@@ -854,7 +855,7 @@ func (s *Server) initRegistryEventHandlers() {
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
@@ -882,7 +883,7 @@ func (s *Server) initRegistryEventHandlers() {
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
-					Kind:      curr.GroupVersionKind,
+					Kind:      kind.FromGvk(curr.GroupVersionKind),
 					Name:      curr.Name,
 					Namespace: curr.Namespace,
 				}: {}},

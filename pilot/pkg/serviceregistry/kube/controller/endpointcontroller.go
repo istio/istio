@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -73,7 +73,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 						Full: true,
 						// TODO: extend and set service instance type, so no need to re-init push context
 						ConfigsUpdated: map[model.ConfigKey]struct{}{{
-							Kind:      gvk.ServiceEntry,
+							Kind:      kind.ServiceEntry,
 							Name:      modelSvc.Hostname.String(),
 							Namespace: svc.Namespace,
 						}: {}},

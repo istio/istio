@@ -21,7 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -113,7 +113,7 @@ func (e *EndpointIndex) clearCacheForService(svc, ns string) {
 		return
 	}
 	e.cache.Clear(map[ConfigKey]struct{}{{
-		Kind:      gvk.ServiceEntry,
+		Kind:      kind.ServiceEntry,
 		Name:      svc,
 		Namespace: ns,
 	}: {}})

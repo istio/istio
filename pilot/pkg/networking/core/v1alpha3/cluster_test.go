@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test"
 )
 
@@ -2505,7 +2506,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "service is added",
 			services:             []*model.Service{testService1, testService2},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|8080||test.com"},
 			usedDelta:            true,
 			removedClusters:      nil,
@@ -2514,7 +2515,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "service is removed",
 			services:             []*model.Service{},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|8080||test.com"},
 			usedDelta:            true,
 			removedClusters:      []string{"outbound|8080||test.com"},
@@ -2523,7 +2524,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "service port is removed",
 			services:             []*model.Service{testService1},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|7070||test.com"},
 			usedDelta:            true,
 			removedClusters:      []string{"outbound|7070||test.com"},
@@ -2532,7 +2533,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "config update that is not delta aware",
 			services:             []*model.Service{testService1, testService2},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|7070||test.com"},
 			usedDelta:            false,
 			removedClusters:      nil,

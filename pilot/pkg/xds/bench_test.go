@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
@@ -548,7 +549,7 @@ func BenchmarkPushRequest(b *testing.B) {
 				Reason:         []model.TriggerReason{trigger},
 			}
 			for c := 0; c < configs; c++ {
-				nreq.ConfigsUpdated[model.ConfigKey{Kind: gvk.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
+				nreq.ConfigsUpdated[model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
 			}
 			req = req.Merge(nreq)
 		}
