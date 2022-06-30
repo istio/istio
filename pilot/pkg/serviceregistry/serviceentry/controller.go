@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -324,7 +325,7 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 	configsUpdated := map[model.ConfigKey]struct{}{}
 	for _, svc := range services {
 		configsUpdated[model.ConfigKey{
-			Kind:      gvk.ServiceEntry,
+			Kind:      kind.ServiceEntry,
 			Name:      string(svc.Hostname),
 			Namespace: svc.Attributes.Namespace,
 		}] = struct{}{}
@@ -880,7 +881,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 
 func makeConfigKey(svc *model.Service) model.ConfigKey {
 	return model.ConfigKey{
-		Kind:      gvk.ServiceEntry,
+		Kind:      kind.ServiceEntry,
 		Name:      string(svc.Hostname),
 		Namespace: svc.Attributes.Namespace,
 	}

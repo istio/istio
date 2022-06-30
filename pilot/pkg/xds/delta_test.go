@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 func TestDeltaAds(t *testing.T) {
@@ -120,7 +120,7 @@ func TestDeltaEDS(t *testing.T) {
 	// delete svc, only send eds fot this service
 	s.Discovery.MemRegistry.RemoveService(edsIncSvc)
 	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{{
-		Kind:      gvk.ServiceEntry,
+		Kind:      kind.ServiceEntry,
 		Name:      edsIncSvc,
 		Namespace: "",
 	}: {}}})

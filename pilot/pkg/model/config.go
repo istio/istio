@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -50,33 +51,26 @@ func (key NamespacedName) String() string {
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
 type ConfigKey struct {
-	Kind      config.GroupVersionKind
+	Kind      kind.Kind
 	Name      string
 	Namespace string
 }
 
 func (key ConfigKey) HashCode() uint64 {
 	hash := md5.New()
-	for _, v := range []string{
-		key.Name,
-		key.Namespace,
-		key.Kind.Kind,
-		key.Kind.Group,
-		key.Kind.Version,
-	} {
-		hash.Write([]byte(v))
-	}
-	var tmp [md5.Size]byte
-	sum := hash.Sum(tmp[:0])
+	hash.Write([]byte{byte(key.Kind)})
+	hash.Write([]byte(key.Name))
+	hash.Write([]byte(key.Namespace))
+	sum := hash.Sum(nil)
 	return binary.BigEndian.Uint64(sum)
 }
 
 func (key ConfigKey) String() string {
-	return key.Kind.Kind + "/" + key.Namespace + "/" + key.Name
+	return key.Kind.String() + "/" + key.Namespace + "/" + key.Name
 }
 
 // ConfigsOfKind extracts configs of the specified kind.
-func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[ConfigKey]struct{} {
+func ConfigsOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[ConfigKey]struct{} {
 	ret := make(map[ConfigKey]struct{})
 
 	for conf := range configs {
@@ -89,7 +83,7 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind)
 }
 
 // ConfigsHaveKind checks if configurations have the specified kind.
-func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) bool {
+func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind kind.Kind) bool {
 	for conf := range configs {
 		if conf.Kind == kind {
 			return true
@@ -99,7 +93,7 @@ func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKin
 }
 
 // ConfigNamesOfKind extracts config names of the specified kind.
-func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[string]struct{} {
+func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[string]struct{} {
 	ret := sets.New()
 
 	for conf := range configs {
