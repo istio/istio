@@ -58,7 +58,7 @@ type ConfigKey struct {
 
 func (key ConfigKey) HashCode() uint64 {
 	hash := md5.New()
-	hash.Write([]byte(kind.String(key.Kind)))
+	hash.Write([]byte{byte(key.Kind)})
 	hash.Write([]byte(key.Name))
 	hash.Write([]byte(key.Namespace))
 	sum := hash.Sum(nil)
