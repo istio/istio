@@ -193,7 +193,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	}
 
 	// Detect whether previous installation exists prior to performing the installation.
-	//exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
+	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
 	pilotEnabled := iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
 	rev := iop.Spec.Revision
@@ -205,7 +205,18 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	if rev == "" && pilotEnabled {
 		p.Println("Making this installation the default for injection and validation.")
 		rev = revtag.DefaultRevisionName
-		_ = revtag.DeleteTagWebhooks(context.Background(), kubeClient.Kube(), revtag.DefaultRevisionName)
+	}
+
+	if exists {
+		whs, err := revtag.GetWebhooksWithTag(context.Background(), kubeClient.Kube(), revtag.DefaultRevisionName)
+		if err != nil {
+			return fmt.Errorf("failed to get webhook with default tag: %v", err)
+		}
+
+		rev, err = revtag.GetWebhookRevision(whs[0])
+		if err != nil {
+			return fmt.Errorf("failed to get default webhook revision: %v", err)
+		}
 	}
 
 	o := &revtag.GenerateOptions{
