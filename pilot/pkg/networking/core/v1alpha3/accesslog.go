@@ -187,7 +187,7 @@ func buildAccessLogFromTelemetry(push *model.PushContext, spec *model.LoggingCon
 		var al *accesslog.AccessLog
 		switch prov := p.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
-			// For default provider, fallback to Mesh Config for formatting options.
+			// For built-in provider, fallback to Mesh Config for formatting options.
 			if p.Name == defaultEnvoyAccessLogProvider {
 				al = fileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
 			} else {
