@@ -36,8 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 // SecretResource wraps the authnmodel type with cache functions implemented
@@ -48,12 +47,12 @@ type SecretResource struct {
 var _ model.XdsCacheEntry = SecretResource{}
 
 // DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
-func (sr SecretResource) DependentTypes() []config.GroupVersionKind {
+func (sr SecretResource) DependentTypes() []kind.Kind {
 	return nil
 }
 
 func (sr SecretResource) DependentConfigs() []model.ConfigKey {
-	return relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})
+	return relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace})
 }
 
 func (sr SecretResource) Cacheable() bool {
@@ -64,9 +63,9 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 	if len(updates) == 0 {
 		return true
 	}
-	if model.ConfigsHaveKind(updates, gvk.Secret) ||
-		model.ConfigsHaveKind(updates, gvk.ReferencePolicy) ||
-		model.ConfigsHaveKind(updates, gvk.ReferenceGrant) {
+	if model.ConfigsHaveKind(updates, kind.Secret) ||
+		model.ConfigsHaveKind(updates, kind.ReferencePolicy) ||
+		model.ConfigsHaveKind(updates, kind.ReferenceGrant) {
 		return true
 	}
 	return false
@@ -98,7 +97,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	}
 	var updatedSecrets map[model.ConfigKey]struct{}
 	if !req.Full {
-		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret)
+		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
 	}
 
 	// TODO: For the new gateway-api, we should always search the config namespace and stop reading across all clusters
@@ -124,7 +123,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	cached, regenerated := 0, 0
 	for _, sr := range resources {
 		if updatedSecrets != nil {
-			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
+			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
 				// This is an incremental update, filter out secrets that are not updated.
 				continue
 			}

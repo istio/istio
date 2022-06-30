@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -181,7 +182,7 @@ func TestAdsPushScoping(t *testing.T) {
 			hostname := host.Name(name)
 			s.Discovery.MemRegistry.RemoveService(hostname)
 			configsUpdated[model.ConfigKey{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
 			}] = struct{}{}
@@ -204,7 +205,7 @@ func TestAdsPushScoping(t *testing.T) {
 		for _, name := range names {
 			hostname := host.Name(name)
 			configsUpdated[model.ConfigKey{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
 			}] = struct{}{}
@@ -241,7 +242,7 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 
 		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: gvk.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace}: {},
+			{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace}: {},
 		}})
 	}
 

@@ -23,7 +23,7 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
 )
@@ -58,7 +58,7 @@ func (s *Server) OnSecretUpdate(resourceName string) {
 	s.workloadSds.XdsServer.Push(&model.PushRequest{
 		Full: false,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: gvk.Secret, Name: resourceName}: {},
+			{Kind: kind.Secret, Name: resourceName}: {},
 		},
 		Reason: []model.TriggerReason{model.SecretTrigger},
 	})

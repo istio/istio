@@ -25,7 +25,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
@@ -83,7 +83,7 @@ type XdsCacheEntry interface {
 	// DependentTypes are config types that this cache key is dependant on.
 	// Whenever any configs of this type changes, we should invalidate this cache entry.
 	// Note: DependentConfigs should be preferred wherever possible.
-	DependentTypes() []config.GroupVersionKind
+	DependentTypes() []kind.Kind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
 	DependentConfigs() []ConfigKey
@@ -120,7 +120,7 @@ func NewXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
 		configIndex:      map[ConfigKey]sets.Set{},
-		typesIndex:       map[config.GroupVersionKind]sets.Set{},
+		typesIndex:       map[kind.Kind]sets.Set{},
 	}
 	cache.store = newLru(cache.evict)
 
@@ -132,7 +132,7 @@ func NewLenientXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
 		configIndex:      map[ConfigKey]sets.Set{},
-		typesIndex:       map[config.GroupVersionKind]sets.Set{},
+		typesIndex:       map[kind.Kind]sets.Set{},
 	}
 	cache.store = newLru(cache.evict)
 
@@ -147,7 +147,7 @@ type lruCache struct {
 	token       CacheToken
 	mu          sync.RWMutex
 	configIndex map[ConfigKey]sets.Set
-	typesIndex  map[config.GroupVersionKind]sets.Set
+	typesIndex  map[kind.Kind]sets.Set
 }
 
 var _ XdsCache = &lruCache{}
@@ -198,7 +198,7 @@ func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigKey) {
 	}
 }
 
-func (l *lruCache) updateTypesIndex(k string, dependentTypes []config.GroupVersionKind) {
+func (l *lruCache) updateTypesIndex(k string, dependentTypes []kind.Kind) {
 	for _, t := range dependentTypes {
 		if l.typesIndex[t] == nil {
 			l.typesIndex[t] = sets.New()
@@ -207,7 +207,7 @@ func (l *lruCache) updateTypesIndex(k string, dependentTypes []config.GroupVersi
 	}
 }
 
-func (l *lruCache) clearTypesIndex(k string, dependentTypes []config.GroupVersionKind) {
+func (l *lruCache) clearTypesIndex(k string, dependentTypes []kind.Kind) {
 	for _, t := range dependentTypes {
 		index := l.typesIndex[t]
 		if index != nil {
@@ -291,7 +291,7 @@ type cacheValue struct {
 	value            *discovery.Resource
 	token            CacheToken
 	dependentConfigs []ConfigKey
-	dependentTypes   []config.GroupVersionKind
+	dependentTypes   []kind.Kind
 }
 
 func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
@@ -343,7 +343,7 @@ func (l *lruCache) ClearAll() {
 	// create a new store.
 	l.store = newLru(l.evict)
 	l.configIndex = map[ConfigKey]sets.Set{}
-	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
+	l.typesIndex = map[kind.Kind]sets.Set{}
 	size(l.store.Len())
 }
 
