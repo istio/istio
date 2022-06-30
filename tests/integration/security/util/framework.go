@@ -310,18 +310,6 @@ func SetupApps(ctx resource.Context, _ istio.Instance, apps *EchoDeployments, bu
 	return nil
 }
 
-func (apps *EchoDeployments) IsNaked(t echo.Target) bool {
-	return apps.HeadlessNaked.ContainsTarget(t) || apps.Naked.ContainsTarget(t)
-}
-
-func (apps *EchoDeployments) IsHeadless(t echo.Target) bool {
-	return apps.HeadlessNaked.ContainsTarget(t) || apps.Headless.ContainsTarget(t)
-}
-
-func (apps *EchoDeployments) IsVM(t echo.Target) bool {
-	return apps.VM.ContainsTarget(t)
-}
-
 // IsMultiversion matches instances that have Multi-version specific setup.
 var IsMultiversion match.Matcher = func(i echo.Instance) bool {
 	if len(i.Config().Subsets) != 2 {

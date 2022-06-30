@@ -45,8 +45,9 @@ type ConfigData struct {
 	StatusKind      string
 
 	// Support gateway-api, which require a custom client and the Spec suffix
-	Client     string
-	TypeSuffix string
+	Client string
+
+	ClientType string
 
 	Readonly bool
 	NoSpec   bool
@@ -71,12 +72,16 @@ func MakeConfigData(schema collection.Schema) ConfigData {
 		StatusAPIImport: apiImport[schema.Resource().StatusPackage()],
 		StatusKind:      schema.Resource().StatusKind(),
 	}
+	out.ClientType = out.Kind
 	if _, f := GatewayAPITypes.Find(schema.Name().String()); f {
 		out.Client = "sc"
-		out.TypeSuffix = "Spec"
+		out.ClientType += "Spec"
 	} else if _, f := NonIstioTypes.Find(schema.Name().String()); f {
-		out.TypeSuffix = "Spec"
+		out.ClientType += "Spec"
 		out.Readonly = true
+	}
+	if o, f := clientGoTypeOverrides[out.Kind]; f {
+		out.ClientType = o
 	}
 	if _, f := noSpec[schema.Resource().Plural()]; f {
 		out.NoSpec = true
@@ -149,6 +154,7 @@ var (
 		"tcproutes":                     "TCPRoutes",
 		"tlsroutes":                     "TLSRoutes",
 		"referencepolicies":             "ReferencePolicies",
+		"referencegrants":               "ReferenceGrants",
 		"telemetries":                   "Telemetries",
 		"wasmplugins":                   "WasmPlugins",
 		"mutatingwebhookconfigurations": "MutatingWebhookConfigurations",
@@ -162,6 +168,9 @@ var (
 		"nodes":                         "Nodes",
 		"secrets":                       "Secrets",
 		"ingresses":                     "Ingresses",
+	}
+	clientGoTypeOverrides = map[string]string{
+		"ReferencePolicy": "ReferenceGrantSpec",
 	}
 
 	noSpec = map[string]struct{}{

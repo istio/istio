@@ -623,7 +623,7 @@ var (
 		"If enabled, metadata representing canonical services for ServiceEntry resources with a location of mesh_external will be populated"+
 			"in the cluster metadata for those endpoints.").Get()
 
-	LocalClusterSecretWatcher = env.RegisterBoolVar("LOCAL_CLUSTER_SECERT_WATCHER", false,
+	LocalClusterSecretWatcher = env.RegisterBoolVar("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
 )
 

@@ -90,7 +90,7 @@ func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, names
 	// prevent memory leaks.
 	if event == model.EventDelete {
 		inboundServiceDeletes.Increment()
-		s.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, false)
+		s.Env.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, false)
 	} else {
 		inboundServiceUpdates.Increment()
 	}
@@ -147,14 +147,14 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		// but we should not delete the keys from EndpointIndex map - that will trigger
 		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
 		// flip flopping between 1 and 0.
-		s.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, true)
+		s.Env.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, true)
 		log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
 		return IncrementalPush
 	}
 
 	pushType := IncrementalPush
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
-	ep, created := s.EndpointIndex.GetOrCreateEndpointShard(hostname, namespace)
+	ep, created := s.Env.EndpointIndex.GetOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
 		log.Infof("Full push, new service %s/%s", namespace, hostname)
@@ -243,7 +243,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 }
 
 func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
-	s.EndpointIndex.DeleteShard(shardKey)
+	s.Env.EndpointIndex.DeleteShard(shardKey)
 }
 
 // UpdateServiceAccount updates the service endpoints' sa when service/endpoint event happens.
@@ -298,7 +298,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 		return nil, nil
 	}
 
-	epShards, f := s.EndpointIndex.ShardsForService(string(b.hostname), b.service.Attributes.Namespace)
+	epShards, f := s.Env.EndpointIndex.ShardsForService(string(b.hostname), b.service.Attributes.Namespace)
 	if !f {
 		// Shouldn't happen here
 		log.Debugf("can not find the endpointShards for cluster %s", b.clusterName)

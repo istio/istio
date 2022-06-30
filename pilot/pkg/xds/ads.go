@@ -652,7 +652,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			switch conf.Kind {
 			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar, kind.HTTPRoute, kind.TCPRoute:
 				sidecar = true
-			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferencePolicy:
+			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferencePolicy, kind.ReferenceGrant:
 				gateway = true
 			case kind.Ingress:
 				sidecar = true

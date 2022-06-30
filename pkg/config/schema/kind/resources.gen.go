@@ -29,6 +29,7 @@ const (
 	PeerAuthentication
 	Pod
 	ProxyConfig
+	ReferenceGrant
 	ReferencePolicy
 	RequestAuthentication
 	Secret
@@ -86,6 +87,8 @@ func String(kind config.Kind) string {
 		return "Pod"
 	case ProxyConfig:
 		return "ProxyConfig"
+	case ReferenceGrant:
+		return "ReferenceGrant"
 	case ReferencePolicy:
 		return "ReferencePolicy"
 	case RequestAuthentication:
@@ -177,6 +180,9 @@ func FromGvk(gvk config.GroupVersionKind) config.Kind {
 	}
 	if gvk.Kind == "ProxyConfig" && gvk.Group == "networking.istio.io" && gvk.Version == "v1beta1" {
 		return ProxyConfig
+	}
+	if gvk.Kind == "ReferenceGrant" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
+		return ReferenceGrant
 	}
 	if gvk.Kind == "ReferencePolicy" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
 		return ReferencePolicy

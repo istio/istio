@@ -17,6 +17,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -305,4 +306,82 @@ func createFakeLister(kubeClient *fake.Clientset) informersv1.ConfigMapInformer 
 	go configmapInformer.Run(ctx.Done())
 	kube.WaitForCacheSync(ctx.Done(), configmapInformer.HasSynced)
 	return informerFactory.Core().V1().ConfigMaps()
+}
+
+func Test_insertData(t *testing.T) {
+	type args struct {
+		cm   *v1.ConfigMap
+		data map[string]string
+	}
+	tests := []struct {
+		name       string
+		args       args
+		want       bool
+		expectedCM *v1.ConfigMap
+	}{
+		{
+			name: "unchanged",
+			args: args{
+				cm:   createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
+				data: nil,
+			},
+			want:       false,
+			expectedCM: createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
+		},
+		{
+			name: "unchanged",
+			args: args{
+				cm:   createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
+				data: map[string]string{"foo": "bar"},
+			},
+			want:       false,
+			expectedCM: createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
+		},
+		{
+			name: "changed",
+			args: args{
+				cm:   createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
+				data: map[string]string{"bar": "foo"},
+			},
+			want:       true,
+			expectedCM: createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar", "bar": "foo"}),
+		},
+		{
+			name: "changed",
+			args: args{
+				cm:   createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
+				data: map[string]string{"foo": "foo"},
+			},
+			want:       true,
+			expectedCM: createConfigMap(namespaceName, configMapName, map[string]string{"foo": "foo"}),
+		},
+		{
+			name: "changed",
+			args: args{
+				cm:   createConfigMap(namespaceName, configMapName, nil),
+				data: map[string]string{"bar": "foo"},
+			},
+			want:       true,
+			expectedCM: createConfigMap(namespaceName, configMapName, map[string]string{"bar": "foo"}),
+		},
+		{
+			name: "changed",
+			args: args{
+				cm:   createConfigMap(namespaceName, configMapName, nil),
+				data: nil,
+			},
+			want:       true,
+			expectedCM: createConfigMap(namespaceName, configMapName, nil),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := insertData(tt.args.cm, tt.args.data); got != tt.want {
+				t.Errorf("insertData() = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(tt.args.cm.Data, tt.expectedCM.Data) {
+				t.Errorf("configmap data: %v, want %v", tt.args.cm.Data, tt.expectedCM)
+			}
+		})
+	}
 }

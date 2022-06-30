@@ -102,6 +102,7 @@ type FakeOptions struct {
 	EnableFakeXDSUpdater       bool
 	DisableSecretAuthorization bool
 	Services                   []*model.Service
+	Instances                  []*model.ServiceInstance
 	Gateways                   []model.NetworkGateway
 }
 
@@ -125,7 +126,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, "pilot-123", map[string]string{})
+	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", map[string]string{})
 	s.InitGenerators(s.Env, "istio-system")
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
@@ -228,6 +229,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		SkipRun:   true,
 		ClusterID: defaultKubeController.Cluster(),
 		Services:  opts.Services,
+		Instances: opts.Instances,
 		Gateways:  opts.Gateways,
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
@@ -240,7 +242,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	s.MemRegistry = cg.MemRegistry
-	s.MemRegistry.EDSUpdater = s
 	s.updateMutex.Unlock()
 
 	// Setup config handlers
@@ -315,6 +316,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Start the discovery server
 	s.Start(stop)
 	cg.ServiceEntryRegistry.XdsUpdater = s
+	s.MemRegistry.XdsUpdater = s
 	// Now that handlers are added, get everything started
 	cg.Run()
 	kubelib.WaitForCacheSync(stop,

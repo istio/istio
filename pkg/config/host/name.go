@@ -26,13 +26,14 @@ type Name string
 // - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules
 // to determine if h is covered by o or o is covered by h.
 // e.g.:
-//  Name("foo.com").Matches("foo.com")   = true
-//  Name("foo.com").Matches("bar.com")   = false
-//  Name("*.com").Matches("foo.com")     = true
-//  Name("bar.com").Matches("*.com")     = true
-//  Name("*.foo.com").Matches("foo.com") = false
-//  Name("*").Matches("foo.com")         = true
-//  Name("*").Matches("*.com")           = true
+//
+//	Name("foo.com").Matches("foo.com")   = true
+//	Name("foo.com").Matches("bar.com")   = false
+//	Name("*.com").Matches("foo.com")     = true
+//	Name("bar.com").Matches("*.com")     = true
+//	Name("*.foo.com").Matches("foo.com") = false
+//	Name("*").Matches("foo.com")         = true
+//	Name("*").Matches("*.com")           = true
 func (n Name) Matches(o Name) bool {
 	hWildcard := n.IsWildCarded()
 	oWildcard := o.IsWildCarded()
@@ -52,39 +53,6 @@ func (n Name) Matches(o Name) bool {
 	if oWildcard {
 		// only o is wildcard
 		return strings.HasSuffix(string(n), string(o[1:]))
-	}
-
-	// both are non-wildcards, so do normal string comparison
-	return n == o
-}
-
-// MatchesSingleLabel is a variant of Matches that only will match a single label for wildcard.
-// This means "*.com", will match "a.b.com" for Matches, but not MatchesSingleLabel
-func (n Name) MatchesSingleLabel(o Name) bool {
-	hWildcard := n.IsWildCarded()
-	oWildcard := o.IsWildCarded()
-
-	if hWildcard {
-		if oWildcard {
-			return n == o
-		}
-		t := strings.TrimSuffix(o.String(), n.String()[1:])
-		if len(t) == len(o) {
-			// Suffix not found
-			return false
-		}
-		// Suffix found, make sure only a single label matches
-		return !strings.Contains(t, ".")
-	}
-
-	if oWildcard {
-		t := strings.TrimSuffix(n.String(), o.String()[1:])
-		if len(t) == len(n) {
-			// Suffix not found
-			return false
-		}
-		// Suffix found, make sure only a single label matches
-		return !strings.Contains(t, ".")
 	}
 
 	// both are non-wildcards, so do normal string comparison

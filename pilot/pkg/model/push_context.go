@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
@@ -1229,7 +1230,7 @@ func (ps *PushContext) updateContext(
 		case kind.RequestAuthentication,
 			kind.PeerAuthentication:
 			authnChanged = true
-		case kind.HTTPRoute, kind.TCPRoute, kind.GatewayClass, kind.KubernetesGateway, kind.TLSRoute, kind.ReferencePolicy:
+		case kind.HTTPRoute, kind.TCPRoute, kind.GatewayClass, kind.KubernetesGateway, kind.TLSRoute, kind.ReferencePolicy, kind.ReferenceGrant:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
@@ -1429,7 +1430,14 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
+			s, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
+			if !f {
+				continue
+			}
+			s.RLock()
+			sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
+			s.RUnlock()
+			ps.ServiceAccounts[svc.Hostname][port.Port] = sa
 		}
 	}
 }

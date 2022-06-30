@@ -269,10 +269,15 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
       message: 'referencing unsupported backendRef: group "" kind "GcsBucket"'
       reason: InvalidDestination
       status: "False"
-      type: Accepted
+      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -289,10 +294,15 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
       message: unsupported filter type "ExtensionRef"
       reason: InvalidFilter
       status: "False"
-      type: Accepted
+      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -309,10 +319,15 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
       message: 'referencing unsupported backendRef: group "" kind "no-support"'
       reason: InvalidDestination
       status: "False"
-      type: Accepted
+      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
