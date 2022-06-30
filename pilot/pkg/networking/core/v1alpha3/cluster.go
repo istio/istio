@@ -272,14 +272,14 @@ type clusterPatcher struct {
 }
 
 func (p clusterPatcher) patch(hosts []host.Name, c *cluster.Cluster) *discovery.Resource {
-	cluster := p.tryPatching(hosts, c)
+	cluster := p.doPatch(hosts, c)
 	if cluster == nil {
 		return nil
 	}
 	return &discovery.Resource{Name: cluster.Name, Resource: util.MessageToAny(cluster)}
 }
 
-func (p clusterPatcher) tryPatching(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
+func (p clusterPatcher) doPatch(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
 	if !envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
 		return nil
 	}
@@ -291,7 +291,7 @@ func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.N
 		return append(l, clusters...)
 	}
 	for _, c := range clusters {
-		if patched := p.tryPatching(hosts, c); patched != nil {
+		if patched := p.doPatch(hosts, c); patched != nil {
 			l = append(l, patched)
 		}
 	}
