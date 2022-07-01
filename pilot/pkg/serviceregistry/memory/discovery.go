@@ -129,32 +129,31 @@ func (sd *ServiceDiscovery) AddService(svc *model.Service) {
 	svc.Attributes.ServiceRegistry = provider.Mock
 	sd.services[svc.Hostname] = svc
 	sd.mutex.Unlock()
-	if sd.XdsUpdater != nil {
-		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
-		pushReq := &model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.ServiceEntry,
-				Name:      string(svc.Hostname),
-				Namespace: svc.Attributes.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ServiceUpdate},
-		}
-		sd.XdsUpdater.ConfigUpdate(pushReq)
+}
+
+// AddServiceNotify adds an in-memory service and notifies
+func (sd *ServiceDiscovery) AddServiceNotify(svc *model.Service) {
+	sd.AddService(svc)
+	sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
+	pushReq := &model.PushRequest{
+		Full: true,
+		ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			Kind:      kind.ServiceEntry,
+			Name:      string(svc.Hostname),
+			Namespace: svc.Attributes.Namespace,
+		}: {}},
+		Reason: []model.TriggerReason{model.ServiceUpdate},
 	}
+	sd.XdsUpdater.ConfigUpdate(pushReq)
 }
 
 // RemoveService removes an in-memory service.
 func (sd *ServiceDiscovery) RemoveService(name host.Name) {
 	sd.mutex.Lock()
-	old := sd.services[name]
 	delete(sd.services, name)
 	sd.mutex.Unlock()
-	if old == nil {
-		return
-	}
 	if sd.XdsUpdater != nil {
-		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(name), old.Attributes.Namespace, model.EventDelete)
+		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(name), "", model.EventDelete)
 	}
 }
 
@@ -177,7 +176,26 @@ func (sd *ServiceDiscovery) AddInstance(service host.Name, instance *model.Servi
 	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
 	instanceList = sd.instancesByPortName[key]
 	sd.instancesByPortName[key] = append(instanceList, instance)
+}
 
+// AddInstanceNotify adds an in-memory instance and notifies the XDS updater
+func (sd *ServiceDiscovery) AddInstanceNotify(service host.Name, instance *model.ServiceInstance) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	svc := sd.services[service]
+	if svc == nil {
+		return
+	}
+	instance.Service = svc
+	sd.ip2instance[instance.Endpoint.Address] = append(sd.ip2instance[instance.Endpoint.Address], instance)
+
+	key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
+	instanceList := sd.instancesByPortNum[key]
+	sd.instancesByPortNum[key] = append(instanceList, instance)
+
+	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
+	instanceList = sd.instancesByPortName[key]
+	sd.instancesByPortName[key] = append(instanceList, instance)
 	var eps []*model.IstioEndpoint
 	for _, i := range sd.instancesByPortName[key] {
 		eps = append(eps, i.Endpoint)
