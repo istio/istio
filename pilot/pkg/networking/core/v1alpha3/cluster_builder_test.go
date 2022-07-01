@@ -151,8 +151,12 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 		},
 		{
-			name:        "destination rule static with pass",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC}, LoadAssignment: &endpoint.ClusterLoadAssignment{}},
+			name: "destination rule static with pass",
+			cluster: &cluster.Cluster{
+				Name:                 "foo",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
+			},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
