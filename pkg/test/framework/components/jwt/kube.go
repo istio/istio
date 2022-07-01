@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 const (
@@ -95,6 +96,13 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 		return err
 	}
 
+	image := ctx.Settings().Image
+	if image.PullSecret != "" {
+		yamlText, err = addPullSecret(yamlText, image.PullSecret)
+		if err != nil {
+			return err
+		}
+	}
 	if err := ctx.ConfigKube(ctx.Clusters()...).
 		YAML(s.ns.Name(), yamlText).
 		Apply(apply.CleanupConditionally); err != nil {
@@ -118,6 +126,16 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 	}
 
 	return g.Wait().ErrorOrNil()
+}
+
+func addPullSecret(resource string, pullSecret string) (string, error) {
+	res := yml.SplitString(resource)
+	updatedYaml, err := yml.ApplyPullSecret(res[2], pullSecret)
+	if err != nil {
+		return "", err
+	}
+	mergedYaml := yml.JoinString(res[0], res[1], updatedYaml)
+	return mergedYaml, nil
 }
 
 type serverImpl struct {
