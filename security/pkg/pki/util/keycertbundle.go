@@ -26,10 +26,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"istio.io/pkg/log"
 	"os"
 	"sync"
 	"time"
+
+	"istio.io/pkg/log"
 )
 
 // KeyCertBundle stores the cert, private key, cert chain and root cert for an entity. It is thread safe.
@@ -69,7 +70,8 @@ func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, ro
 // NewVerifiedKeyCertBundleFromFile returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
 func NewVerifiedKeyCertBundleFromFile(certFile string, privKeyFile string, certChainFiles []string, rootCertFile string) (
-	*KeyCertBundle, error) {
+	*KeyCertBundle, error,
+) {
 	certBytes, err := os.ReadFile(certFile)
 	if err != nil {
 		return nil, err

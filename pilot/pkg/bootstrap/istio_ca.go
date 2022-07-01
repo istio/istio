@@ -303,7 +303,7 @@ func handleEvent(s *Server) {
 		err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
 			path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile),
 			path.Join(LocalCertDir.Get(), TLSSecretFormatCAKeyFile),
-			[]string{path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile),path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)},
+			[]string{path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile), path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)},
 			path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile))
 	} else {
 		err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
@@ -455,7 +455,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 
 		if useK8sTLSSecretCertFormat.Get() {
 			signingCertFile = path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile)
-			certChainFiles = []string{path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile),path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)}
+			certChainFiles = []string{path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile), path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)}
 		}
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFiles, signingCertFile, signingKeyFile,
