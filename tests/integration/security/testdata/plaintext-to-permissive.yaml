@@ -1,0 +1,21 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  annotations:
+    test-suite: plaintext-to-permissive
+spec:
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: default
+  annotations:
+    test-suite: plaintext-to-permissive
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE

@@ -20,6 +20,7 @@ package security
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"testing"
@@ -36,7 +37,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/file"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 	sdstlsutil "istio.io/istio/tests/integration/security/sds_tls_origination/util"
 )
@@ -46,6 +46,7 @@ import (
 func TestSimpleTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
+		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Features("security.egress.tls.sds").
 		Run(func(t framework.TestContext) {
 			var (
@@ -55,7 +56,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			)
 
 			credentialA := ingressutil.IngressCredential{
-				CaCert: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+				CaCert: MustReadCert(t, "root-cert.pem"),
 			}
 			CredentialB := ingressutil.IngressCredential{
 				CaCert: sdstlsutil.FakeRoot,
@@ -67,48 +68,43 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, fakeCredName, ingressutil.TLS, CredentialB, false)
 
 			// Set up Host Namespace
-			host := apps.External.All.Config().ClusterLocalFQDN()
+			host := apps.External.Config().ClusterLocalFQDN()
 
-			testCases := []struct {
-				name            string
-				statusCode      int
-				credentialToUse string
-				useGateway      bool
-			}{
+			testCases := []TLSTestCase{
 				// Use CA certificate stored as k8s secret with the same issuing CA as server's CA.
 				// This root certificate can validate the server cert presented by the echoboot server instance.
 				{
-					name:            "simple",
-					statusCode:      http.StatusOK,
-					credentialToUse: strings.TrimSuffix(credName, "-cacert"),
-					useGateway:      true,
+					Name:            "simple",
+					StatusCode:      http.StatusOK,
+					CredentialToUse: strings.TrimSuffix(credName, "-cacert"),
+					Gateway:         true,
 				},
 				// Use CA certificate stored as k8s secret with different issuing CA as server's CA.
 				// This root certificate cannot validate the server cert presented by the echoboot server instance.
 				{
-					name:            "fake root",
-					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
-					useGateway:      false,
+					Name:            "fake root",
+					StatusCode:      http.StatusServiceUnavailable,
+					CredentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
+					Gateway:         false,
 				},
 
 				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
-					name:            "missing secret",
-					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
-					useGateway:      false,
+					Name:            "missing secret",
+					StatusCode:      http.StatusServiceUnavailable,
+					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
+					Gateway:         false,
 				},
 			}
 
-			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All)
+			CreateGateway(t, t, apps.Namespace1, apps.External)
 			for _, tc := range testCases {
-				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					newTLSGatewayDestinationRule(t, apps.External.All, "SIMPLE", tc.credentialToUse)
-					newTLSGatewayTest(t).
+				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
+					CreateDestinationRule(t, apps.External, "SIMPLE", tc.CredentialToUse)
+					newGatewayTest(t).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callOpt := newTLSGatewayCallOpts(to, host, tc.statusCode, tc.useGateway)
+							callOpt := CallOpts(to, host, tc)
 							from.CallOrFail(t, callOpt)
 						})
 				})
@@ -121,6 +117,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 func TestMutualTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
+		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Features("security.egress.mtls.sds").
 		Run(func(t framework.TestContext) {
 			var (
@@ -135,95 +132,90 @@ func TestMutualTlsOrigination(t *testing.T) {
 			// Add kubernetes secret to provision key/cert for gateway.
 
 			ingressutil.CreateIngressKubeSecret(t, credNameGeneric, ingressutil.Mtls, ingressutil.IngressCredential{
-				Certificate: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
-				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
-				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+				Certificate: MustReadCert(t, "cert-chain.pem"),
+				PrivateKey:  MustReadCert(t, "key.pem"),
+				CaCert:      MustReadCert(t, "root-cert.pem"),
 			}, false)
 
 			ingressutil.CreateIngressKubeSecret(t, credNameNotGeneric, ingressutil.Mtls, ingressutil.IngressCredential{
-				Certificate: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
-				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
-				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+				Certificate: MustReadCert(t, "cert-chain.pem"),
+				PrivateKey:  MustReadCert(t, "key.pem"),
+				CaCert:      MustReadCert(t, "root-cert.pem"),
 			}, true)
 
 			// Configured with an invalid ClientCert
 			ingressutil.CreateIngressKubeSecret(t, fakeCredNameA, ingressutil.Mtls, ingressutil.IngressCredential{
 				Certificate: sdstlsutil.FakeCert,
-				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
-				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+				PrivateKey:  MustReadCert(t, "key.pem"),
+				CaCert:      MustReadCert(t, "root-cert.pem"),
 			}, false)
 
 			// Configured with an invalid ClientCert and PrivateKey
 			ingressutil.CreateIngressKubeSecret(t, fakeCredNameB, ingressutil.Mtls, ingressutil.IngressCredential{
 				Certificate: sdstlsutil.FakeCert,
 				PrivateKey:  sdstlsutil.FakeKey,
-				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+				CaCert:      MustReadCert(t, "root-cert.pem"),
 			}, false)
 
 			ingressutil.CreateIngressKubeSecret(t, simpleCredName, ingressutil.TLS, ingressutil.IngressCredential{
-				CaCert: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+				CaCert: MustReadCert(t, "root-cert.pem"),
 			}, false)
 
 			// Set up Host Namespace
-			host := apps.External.All.Config().ClusterLocalFQDN()
+			host := apps.External.Config().ClusterLocalFQDN()
 
-			testCases := []struct {
-				name            string
-				statusCode      int
-				credentialToUse string
-				useGateway      bool
-			}{
+			testCases := []TLSTestCase{
 				// Use CA certificate and client certs stored as k8s secret with the same issuing CA as server's CA.
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA can
 				// validate the client cert. Secret is of type generic.
 				{
-					name:            "generic",
-					statusCode:      http.StatusOK,
-					credentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
-					useGateway:      true,
+					Name:            "generic",
+					StatusCode:      http.StatusOK,
+					CredentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
+					Gateway:         true,
 				},
 				// Use CA certificate and client certs stored as k8s secret with the same issuing CA as server's CA.
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA can
 				// validate the client cert. Secret is not of type generic.
 				{
-					name:            "non-generic",
-					statusCode:      http.StatusOK,
-					credentialToUse: strings.TrimSuffix(credNameNotGeneric, "-cacert"),
-					useGateway:      true,
+					Name:            "non-generic",
+					StatusCode:      http.StatusOK,
+					CredentialToUse: strings.TrimSuffix(credNameNotGeneric, "-cacert"),
+					Gateway:         true,
 				},
 				// Use CA certificate and client certs stored as k8s secret with the same issuing CA as server's CA.
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA
 				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
 				{
-					name:            "invalid client cert",
-					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: strings.TrimSuffix(fakeCredNameA, "-cacert"),
-					useGateway:      false,
+					Name:            "invalid client cert",
+					StatusCode:      http.StatusServiceUnavailable,
+					CredentialToUse: strings.TrimSuffix(fakeCredNameA, "-cacert"),
+					Gateway:         false,
 				},
 
 				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
-					name:            "missing",
-					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
-					useGateway:      false,
+					Name:            "missing",
+					StatusCode:      http.StatusServiceUnavailable,
+					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
+					Gateway:         false,
 				},
 				{
-					name:            "no client certs",
-					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
-					useGateway:      false,
+					Name:            "no client certs",
+					StatusCode:      http.StatusServiceUnavailable,
+					CredentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
+					Gateway:         false,
 				},
 			}
 
-			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All)
+			CreateGateway(t, t, apps.Namespace1, apps.External)
 			for _, tc := range testCases {
-				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					newTLSGatewayDestinationRule(t, apps.External.All, "MUTUAL", tc.credentialToUse)
-					newTLSGatewayTest(t).
+				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
+					CreateDestinationRule(t, apps.External, "MUTUAL", tc.CredentialToUse)
+					newGatewayTest(t).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callOpt := newTLSGatewayCallOpts(to, host, tc.statusCode, tc.useGateway)
+							callOpt := CallOpts(to, host, tc)
 							from.CallOrFail(t, callOpt)
 						})
 				})
@@ -231,13 +223,8 @@ func TestMutualTlsOrigination(t *testing.T) {
 		})
 }
 
-// We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
-// routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
-// TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
-func newTLSGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, to echo.Instances) {
-	args := map[string]interface{}{"to": to}
-
-	gateway := `
+const (
+	Gateway = `
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
@@ -271,7 +258,7 @@ spec:
           mode: ISTIO_MUTUAL
           sni: {{ .to.Config.ClusterLocalFQDN }}
 `
-	vs := `
+	VirtualService = `
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
@@ -309,21 +296,20 @@ spec:
           add:
             handled-by-egress-gateway: "true"
 `
-	ctx.ConfigIstio().Eval(clientNamespace.Name(), args, gateway, vs).ApplyOrFail(t)
+)
+
+// We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
+// routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
+// TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
+func CreateGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, to echo.Instances) {
+	args := map[string]interface{}{"to": to}
+
+	ctx.ConfigIstio().Eval(clientNamespace.Name(), args, Gateway, VirtualService).ApplyOrFail(t)
 }
 
-func newTLSGatewayDestinationRule(t framework.TestContext, to echo.Instances, destinationRuleMode string, credentialName string) {
-	args := map[string]interface{}{
-		"to":             to,
-		"Mode":           destinationRuleMode,
-		"CredentialName": credentialName,
-	}
-
-	// Get namespace for gateway pod.
-	istioCfg := istio.DefaultConfigOrFail(t, t)
-	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
-
-	dr := `
+const (
+	// Destination Rule configs
+	DestinationRuleConfig = `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -339,12 +325,34 @@ spec:
           credentialName: {{.CredentialName}}
           sni: {{ .to.Config.ClusterLocalFQDN }}
 `
+)
 
-	t.ConfigKube(t.Clusters().Default()).Eval(systemNS.Name(), args, dr).
+// Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
+func CreateDestinationRule(t framework.TestContext, to echo.Instances,
+	destinationRuleMode string, credentialName string,
+) {
+	args := map[string]interface{}{
+		"to":             to,
+		"Mode":           destinationRuleMode,
+		"CredentialName": credentialName,
+	}
+
+	// Get namespace for gateway pod.
+	istioCfg := istio.DefaultConfigOrFail(t, t)
+	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+
+	t.ConfigKube(t.Clusters().Default()).Eval(systemNS.Name(), args, DestinationRuleConfig).
 		ApplyOrFail(t)
 }
 
-func newTLSGatewayCallOpts(to echo.Target, host string, statusCode int, useGateway bool) echo.CallOptions {
+type TLSTestCase struct {
+	Name            string
+	StatusCode      int
+	CredentialToUse string
+	Gateway         bool // true if the request is expected to be routed through gateway
+}
+
+func CallOpts(to echo.Target, host string, tc TLSTestCase) echo.CallOptions {
 	return echo.CallOptions{
 		To: to,
 		Port: echo.Port{
@@ -354,9 +362,9 @@ func newTLSGatewayCallOpts(to echo.Target, host string, statusCode int, useGatew
 			Headers: headers.New().WithHost(host).Build(),
 		},
 		Check: check.And(
-			check.NoErrorAndStatus(statusCode),
+			check.NoErrorAndStatus(tc.StatusCode),
 			check.Each(func(r echoClient.Response) error {
-				if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; useGateway && !f {
+				if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
 					return fmt.Errorf("expected to be handled by gateway. response: %s", r)
 				}
 				return nil
@@ -364,12 +372,21 @@ func newTLSGatewayCallOpts(to echo.Target, host string, statusCode int, useGatew
 	}
 }
 
-func newTLSGatewayTest(t framework.TestContext) *echotest.T {
-	return echotest.New(t, apps.Ns1.All.Instances()).
+func MustReadCert(t test.Failer, f string) string {
+	b, err := os.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
+	if err != nil {
+		t.Fatalf("failed to read %v: %v", f, err)
+	}
+	return string(b)
+}
+
+func newGatewayTest(t framework.TestContext) *echotest.T {
+	return echotest.New(t, apps.All).
 		WithDefaultFilters(1, 1).
 		FromMatch(match.And(
-			match.Namespace(apps.Ns1.Namespace),
 			match.NotNaked,
-			match.NotProxylessGRPC)).
-		ToMatch(match.ServiceName(apps.External.All.NamespacedName()))
+			match.Or(
+				match.ServiceName(apps.A.NamespacedName()),
+				match.Not(match.RegularPod)))).
+		ToMatch(match.ServiceName(apps.External.NamespacedName()))
 }
