@@ -121,8 +121,14 @@ func (t *clusterCache) Key() string {
 	return hex.EncodeToString(sum)
 }
 
-func (t clusterCache) DependentConfigs() []model.ConfigKey {
-	configs := []model.ConfigKey{}
+func (t clusterCache) DependentConfigs(allocator *model.Allocator) []model.ConfigKey {
+	var configs []model.ConfigKey
+	n := len(t.envoyFilterKeys) + 2
+	if allocator != nil {
+		configs = allocator.Allocate(n)
+	} else {
+		configs = make([]model.ConfigKey, 0, n)
+	}
 	if t.destinationRule != nil {
 		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace})
 	}

@@ -287,7 +287,7 @@ func TestXdsCacheEvict(t *testing.T) {
 			if exist {
 				return fmt.Errorf("key %s should be evicted", key.Key())
 			}
-			dependents := key.DependentConfigs()
+			dependents := key.DependentConfigs(nil)
 			for _, config := range dependents {
 				if lruCache.GetKeysByConfigKey(config) != nil {
 					return fmt.Errorf("config %s should be evicted", config)

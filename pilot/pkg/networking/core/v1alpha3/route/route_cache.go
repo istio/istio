@@ -31,6 +31,8 @@ var (
 	Slash     = []byte{'/'}
 )
 
+var _ model.XdsCacheEntry = &Cache{}
+
 // Cache includes the variables that can influence a Route Configuration.
 // Implements XdsCacheEntry interface.
 type Cache struct {
@@ -79,9 +81,15 @@ func (r *Cache) Cacheable() bool {
 	return true
 }
 
-func (r *Cache) DependentConfigs() []model.ConfigKey {
-	configs := make([]model.ConfigKey, 0, len(r.Services)+len(r.VirtualServices)+
-		len(r.DelegateVirtualServices)+len(r.DestinationRules)+len(r.EnvoyFilterKeys))
+func (r *Cache) DependentConfigs(allocator *model.Allocator) []model.ConfigKey {
+	var configs []model.ConfigKey
+	n := len(r.Services) + len(r.VirtualServices) +
+		len(r.DelegateVirtualServices) + len(r.DestinationRules) + len(r.EnvoyFilterKeys)
+	if allocator != nil {
+		configs = allocator.Allocate(n)
+	} else {
+		configs = make([]model.ConfigKey, 0, n)
+	}
 	for _, svc := range r.Services {
 		configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace})
 	}
