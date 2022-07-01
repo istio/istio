@@ -23,7 +23,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -34,7 +33,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -101,32 +99,15 @@ func TestAdsReconnectAfterRestart(t *testing.T) {
 
 // TestAdsDoubleNonce tests the PushOnRepeatNonce flag. If enabled, we should see a response to our repeated request.
 func TestAdsDoubleNonce(t *testing.T) {
-	t.Run("enabled", func(t *testing.T) {
-		test.SetBoolForTest(t, &features.PushOnRepeatNonce, true)
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
-		ads := s.ConnectADS().WithType(v3.EndpointType)
-		res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
-		// Reconnect with the same resources
-		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
-			ResourceNames: []string{"fake-cluster"},
-			ResponseNonce: res.Nonce,
-			VersionInfo:   res.VersionInfo,
-		})
-	})
-	t.Run("disabled", func(t *testing.T) {
-		test.SetBoolForTest(t, &features.PushOnRepeatNonce, false)
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-
-		ads := s.ConnectADS().WithType(v3.EndpointType)
-		res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
-		// Reconnect with the same resources
-		ads.Request(t, &discovery.DiscoveryRequest{
-			ResourceNames: []string{"fake-cluster"},
-			ResponseNonce: res.Nonce,
-			VersionInfo:   res.VersionInfo,
-		})
-		ads.ExpectNoResponse(t)
+	ads := s.ConnectADS().WithType(v3.EndpointType)
+	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
+	// Reconnect with the same resources
+	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		ResourceNames: []string{"fake-cluster"},
+		ResponseNonce: res.Nonce,
+		VersionInfo:   res.VersionInfo,
 	})
 }
 

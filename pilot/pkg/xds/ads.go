@@ -433,7 +433,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		// from an ACK (in particular, when requesting EDS after a CDS push):
 		// https://github.com/envoyproxy/envoy/issues/13009. As a result, if we see the same ACK multiple
 		// times, we treat subsequent requests as something we should respond to.
-		log.Errorf("howardjohn: %v vs %v", request.ResponseNonce, previousNonceAcked)
 		if features.PushOnRepeatNonce && request.ResponseNonce == previousNonceAcked {
 			log.Debugf("ADS:%s: REQ %s Repeated nonce received %s", stype, con.conID, request.ResponseNonce)
 			return true, emptyResourceDelta
