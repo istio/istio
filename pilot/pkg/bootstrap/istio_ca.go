@@ -58,7 +58,7 @@ type caOptions struct {
 
 // locations of the files used for the signing CA
 type signingCAFileBundle struct {
-	RootCertFile  string
+	RootCertFile    string
 	CertChainFile   []string
 	SigningCertFile string
 	SigningKeyFile  string
@@ -242,7 +242,6 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 // kubernetes tls secrets mount files as tls.crt,tls.key,ca.crt
 // istiod secret is ca-cert.pem ca-key.pem cert-chain.pem root-cert.pem
 func detectSigningCABundle() (signingCAFileBundle, error) {
-
 	tlsSigningFile := path.Join(LocalCertDir.Get(), TLSSecretCACertFile)
 
 	// looking for tls file format (tls.crt)
@@ -256,7 +255,7 @@ func detectSigningCABundle() (signingCAFileBundle, error) {
 			SigningCertFile: tlsSigningFile,
 			SigningKeyFile:  path.Join(LocalCertDir.Get(), TLSSecretCAPrivateKeyFile),
 		}, nil
-	} else {
+	} else if err != nil {
 		return signingCAFileBundle{}, err
 	}
 

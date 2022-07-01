@@ -66,6 +66,7 @@ func TestRemoteCerts(t *testing.T) {
 	err = s.loadCACerts(caOpts, dir)
 	g.Expect(err).Should(BeNil())
 }
+
 func TestRemoteTLSCerts(t *testing.T) {
 	g := NewWithT(t)
 

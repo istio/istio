@@ -150,7 +150,6 @@ func (s *Server) initDNSCerts() error {
 		if err != nil {
 			return fmt.Errorf("unable to determine signing file format %v", err)
 		}
-		// signingKeyFile := fileBundle.SigningKeyFile
 
 		// check if signing key file exists the cert dir
 		if _, err := os.Stat(fileBundle.SigningKeyFile); err != nil {
