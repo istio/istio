@@ -63,6 +63,8 @@ func GetTunnelBuilderType(_ string, proxy *model.Proxy, _ *model.PushContext) ne
 	return networking.NoTunnel
 }
 
+var _ model.XdsCacheEntry = EndpointBuilder{}
+
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
@@ -177,8 +179,13 @@ func (b EndpointBuilder) Cacheable() bool {
 	return b.service != nil
 }
 
-func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
-	configs := []model.ConfigKey{}
+func (b EndpointBuilder) DependentConfigs(allocator *model.Allocator) []model.ConfigKey {
+	var configs []model.ConfigKey
+	if allocator != nil {
+		configs = allocator.Allocate(2)
+	} else {
+		configs = make([]model.ConfigKey, 0, 2)
+	}
 	if b.destinationRule != nil {
 		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace})
 	}

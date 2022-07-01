@@ -92,7 +92,7 @@ type XdsCacheEntry interface {
 	DependentTypes() []kind.Kind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
-	DependentConfigs() []ConfigKey
+	DependentConfigs(allocator *Allocator) []ConfigKey
 	// Cacheable indicates whether this entry is valid for cache. For example
 	// for EDS to be cacheable, the Endpoint should have corresponding service.
 	Cacheable() bool
@@ -132,6 +132,11 @@ func NewXdsCache() XdsCache {
 		trackEvicted:     true,
 		evictedKeys:      sets.New(),
 		evictCh:          make(chan struct{}, 1),
+		dependantsPool: &sync.Pool{
+			New: func() interface{} {
+				return &Allocator{}
+			},
+		},
 	}
 	cache.store = newLru(cache.onEvict)
 	return cache
@@ -165,6 +170,14 @@ type LruCache struct {
 	evictedKeys  sets.Set
 	// used to notify a key is evicted, calling Remove actively does not trigger it.
 	evictCh chan struct{}
+
+	// dependantsPool simply stores dependentConfigs of XdsCacheEntry to avoid additional memory allocations
+	// by caching allocated but unused items for later reuse, relieving pressure on the garbage collector.
+	//
+	// Usage:
+	//  memoryAllocator := runtime.AllocatorPool.Get().(*runtime.Allocator)
+	//  defer runtime.AllocatorPool.Put(memoryAllocator)
+	dependantsPool *sync.Pool
 }
 
 var _ XdsCache = &LruCache{}
@@ -360,7 +373,12 @@ func (l *LruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	toWrite := cacheValue{value: value, token: token}
 	l.store.Add(k, toWrite)
 	l.token = token
-	dependentConfigs := entry.DependentConfigs()
+	var memoryAllocator *Allocator
+	if l.dependantsPool != nil {
+		memoryAllocator = l.dependantsPool.Get().(*Allocator)
+		defer l.dependantsPool.Put(memoryAllocator)
+	}
+	dependentConfigs := entry.DependentConfigs(memoryAllocator)
 	dependentTypes := entry.DependentTypes()
 	l.updateConfigIndex(k, dependentConfigs)
 	l.updateTypesIndex(k, dependentTypes)

@@ -51,7 +51,7 @@ func (sr SecretResource) DependentTypes() []kind.Kind {
 	return nil
 }
 
-func (sr SecretResource) DependentConfigs() []model.ConfigKey {
+func (sr SecretResource) DependentConfigs(_ *model.Allocator) []model.ConfigKey {
 	return relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace})
 }
 
