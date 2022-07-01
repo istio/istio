@@ -61,7 +61,7 @@ func TestMultiRootSetup(t *testing.T) {
 						})
 					}
 
-					client := match.Cluster(cluster).FirstOrFail(t, echoApp.Client)
+					client := match.Cluster(cluster).FirstOrFail(t, client)
 					cases := []struct {
 						from   echo.Instance
 						to     echo.Instances
@@ -69,7 +69,7 @@ func TestMultiRootSetup(t *testing.T) {
 					}{
 						{
 							from:   client,
-							to:     echoApp.ServerNakedFooAlt,
+							to:     serverNakedFooAlt,
 							expect: true,
 						},
 					}

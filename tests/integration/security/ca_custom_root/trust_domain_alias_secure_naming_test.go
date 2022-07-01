@@ -104,7 +104,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 						})
 					}
 
-					client := match.Cluster(cluster).FirstOrFail(t, echoApp.Client)
+					client := match.Cluster(cluster).FirstOrFail(t, client)
 					cases := []struct {
 						src    echo.Instance
 						dest   echo.Instances
@@ -112,12 +112,12 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 					}{
 						{
 							src:    client,
-							dest:   echoApp.ServerNakedFoo,
+							dest:   serverNakedFoo,
 							expect: true,
 						},
 						{
 							src:    client,
-							dest:   echoApp.ServerNakedBar,
+							dest:   serverNakedBar,
 							expect: false,
 						},
 					}

@@ -65,6 +65,8 @@ type EchoNamespace struct {
 	VM echo.Instances
 	// DeltaXDS echo app uses the delta XDS protocol. This should be functionally equivalent to A.
 	DeltaXDS echo.Instances
+	// Custom echo apps used in different tests based on the requirement
+	CustomApps []echo.Instances
 
 	// All echo apps in this namespace
 	All echo.Services

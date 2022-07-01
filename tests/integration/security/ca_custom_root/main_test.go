@@ -20,12 +20,13 @@
 package cacustomroot
 
 import (
-	"fmt"
 	"path"
 	"testing"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/customsetup"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/util/cert"
@@ -35,9 +36,13 @@ import (
 )
 
 var (
-	inst    istio.Instance
-	apps    deployment.SingleNamespaceView
-	echoApp customsetup.EchoDeployments
+	inst              istio.Instance
+	apps              deployment.SingleNamespaceView
+	client            echo.Instances
+	server            echo.Instances
+	serverNakedFoo    echo.Instances
+	serverNakedBar    echo.Instances
+	serverNakedFooAlt echo.Instances
 )
 
 func TestMain(m *testing.M) {
@@ -48,7 +53,16 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCASecret)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(ctx resource.Context) error {
-			return customsetup.SetupApps(&echoApp, ctx, apps)
+			err := customsetup.SetupApps(&apps, ctx)
+			if err != nil {
+				return err
+			}
+			client = apps.CustomApps[0]
+			server = apps.CustomApps[1]
+			serverNakedFoo = apps.CustomApps[2]
+			serverNakedBar = apps.CustomApps[3]
+			serverNakedFooAlt = apps.CustomApps[4]
+			return nil
 		}).
 		Run()
 }
@@ -57,7 +71,6 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	fmt.Println(httpMTLS)
 	// Add alternate root certificate to list of trusted anchors
 	script := path.Join(env.IstioSrc, "samples/certs", "root-cert-alt.pem")
 	rootPEM, err := cert.LoadCert(script)
