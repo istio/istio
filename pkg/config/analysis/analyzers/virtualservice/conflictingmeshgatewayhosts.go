@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -49,11 +50,20 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 	hs := initMeshGatewayHosts(ctx)
+	reported := make(map[resource.FullName]bool)
 	for scopedFqdn, vsList := range hs {
+		scope, _ := scopedFqdn.GetScopeAndFqdn()
+		if scope != util.ExportToAllNamespaces {
+			noScopedVSList := getExportToAllNamespacesVSListForScopedHost(scopedFqdn, hs)
+			vsList = append(vsList, noScopedVSList...)
+		}
 		if len(vsList) > 1 {
 			vsNames := combineResourceEntryNames(vsList)
 			for i := range vsList {
-
+				if reported[vsList[i].Metadata.FullName] {
+					continue
+				}
+				reported[vsList[i].Metadata.FullName] = true
 				m := msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, string(scopedFqdn))
 
 				if line, ok := util.ErrorLine(vsList[i], fmt.Sprintf(util.MetadataName)); ok {
@@ -63,7 +73,23 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 			}
 		}
+
 	}
+}
+
+func getExportToAllNamespacesVSListForScopedHost(sh util.ScopedFqdn, meshGatewayHosts map[util.ScopedFqdn][]*resource.Instance) []*resource.Instance {
+	_, h := sh.GetScopeAndFqdn()
+	vss := make([]*resource.Instance, 0)
+	for sf, resources := range meshGatewayHosts {
+		mghScope, mgh := sf.GetScopeAndFqdn()
+		hName := host.Name(h)
+		mghName := host.Name(mgh)
+		if mghScope != util.ExportToAllNamespaces || !hName.Matches(mghName) {
+			continue
+		}
+		vss = append(vss, resources...)
+	}
+	return vss
 }
 
 func combineResourceEntryNames(rList []*resource.Instance) string {
