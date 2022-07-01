@@ -56,18 +56,12 @@ type Config struct {
 	method                  string
 	secure                  bool
 
-	// completed whether the Config is complete or still in progress
-	completed bool
-
 	hboneTLSConfig    *tls.Config
 	hboneClientConfig func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
 	hboneHeaders      http.Header
 }
 
 func (c *Config) fillDefaults() error {
-	if c.completed {
-		return nil
-	}
 	c.checkRedirect = checkRedirectFunc(c.Request)
 	c.timeout = common.GetTimeout(c.Request)
 	c.count = common.GetCount(c.Request)
@@ -134,8 +128,6 @@ func (c *Config) fillDefaults() error {
 		c.newConnectionPerRequest = c.Request.NewConnectionPerRequest
 		c.forceDNSLookup = c.newConnectionPerRequest && c.Request.ForceDNSLookup
 	}
-
-	c.completed = true
 
 	return nil
 }

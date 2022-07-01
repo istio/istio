@@ -82,10 +82,10 @@ func (c connectInstance) Start(onReady OnReadyFunc) error {
 
 	if c.Port.TLS {
 		c.server.Addr = fmt.Sprintf(":%d", port)
-		fmt.Printf("Listening HBONE on %v\n", port)
+		epLog.Infof("Listening HBONE on %v\n", port)
 	} else {
 		c.server.Addr = fmt.Sprintf(":%d", port)
-		fmt.Printf("Listening HBONE (plaintext) on %v\n", port)
+		epLog.Infof("Listening HBONE (plaintext) on %v\n", port)
 	}
 	go func() {
 		err := c.server.Serve(listener)
