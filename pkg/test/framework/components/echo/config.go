@@ -144,6 +144,9 @@ type Config struct {
 
 	// If enabled, echo will be deployed as a "VM". This means it will run Envoy in the same pod as echo,
 	// disable sidecar injection, etc.
+	// This aims to simulate a VM, but instead of managing the complex test setup of spinning up a VM,
+	// connecting, etc we run it inside a pod. The pod has pretty much all Kubernetes features disabled (DNS and SA token mount)
+	// such that we can adequately simulate a VM and DIY the bootstrapping.
 	DeployAsVM bool
 
 	// If enabled, ISTIO_META_AUTO_REGISTER_GROUP will be set on the VM and the WorkloadEntry will be created automatically.
