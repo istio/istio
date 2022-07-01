@@ -191,7 +191,10 @@ func reachableHeadlessDestinations(from echo.Instance) match.Matcher {
 func reachableNakedDestinations(from echo.Instance) match.Matcher {
 	srcNw := from.Config().Cluster.NetworkName()
 	excluded := match.And(
-		match.Naked,
+		// Only exclude naked if all subsets are naked. If an echo instance contains a mix of
+		// subsets with and without sidecars, we'll leave it up to the test to determine what
+		// is reachable.
+		match.AllNaked,
 		// TODO we probably don't actually reach all external, but for now maintaining what the tests did
 		match.NotExternal,
 		match.Not(match.Network(srcNw)))
