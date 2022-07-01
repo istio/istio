@@ -13,3 +13,9 @@ spec:
     route:
     - destination:
         host: helloworld
+      weight: 50
+    - destination:
+        host: google.com
+        port:
+          number: 80
+      weight: 50

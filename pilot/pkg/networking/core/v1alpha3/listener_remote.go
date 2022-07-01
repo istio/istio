@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -77,6 +78,10 @@ func FindAssociatedResources(node *model.Proxy, push *model.PushContext) ([]Work
 		wls[i] = wl
 	}
 	return wls, svcs
+}
+
+func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
+	return lb.push.ServiceForHostname(lb.node, name)
 }
 
 func (lb *ListenerBuilder) buildRemoteInbound() []*listener.Listener {
@@ -412,6 +417,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTPService(svc *model.S
 }
 
 func buildRemoteInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
+	log.Infof("buildRemoteInboundHTTPRouteConfig")
 	vss := getConfigsForHost(svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 	if len(vss) == 0 {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
@@ -424,7 +430,7 @@ func buildRemoteInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, 
 	// Typically we setup routes with the Host header match. However, for remote inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	routes, err := lb.remoteInboundRoute(vs, nil, int(cc.port.Port))
+	routes, err := lb.remoteInboundRoute(vs, int(cc.port.Port))
 	if err != nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
@@ -442,7 +448,7 @@ func buildRemoteInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, 
 	}
 }
 
-func (lb *ListenerBuilder) remoteInboundRoute(virtualService config.Config, serviceRegistry map[host.Name]*model.Service, listenPort int) ([]*route.Route, error) {
+func (lb *ListenerBuilder) remoteInboundRoute(virtualService config.Config, listenPort int) ([]*route.Route, error) {
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
@@ -453,13 +459,13 @@ func (lb *ListenerBuilder) remoteInboundRoute(virtualService config.Config, serv
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := lb.translateRoute(virtualService, http, nil, listenPort, serviceRegistry); r != nil {
+			if r := lb.translateRoute(virtualService, http, nil, listenPort); r != nil {
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
-				if r := lb.translateRoute(virtualService, http, match, listenPort, serviceRegistry); r != nil {
+				if r := lb.translateRoute(virtualService, http, match, listenPort); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
@@ -486,7 +492,6 @@ func (lb *ListenerBuilder) translateRoute(
 	in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest,
 	listenPort int,
-	serviceRegistry map[host.Name]*model.Service,
 ) *route.Route {
 	// When building routes, it's okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
@@ -519,7 +524,7 @@ func (lb *ListenerBuilder) translateRoute(
 	if in.Redirect != nil {
 		istio_route.ApplyRedirect(out, in.Redirect, listenPort)
 	} else {
-		lb.routeDestination(out, in, authority, serviceRegistry, listenPort)
+		lb.routeDestination(out, in, authority, listenPort)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -533,13 +538,7 @@ func (lb *ListenerBuilder) translateRoute(
 	return out
 }
 
-func (lb *ListenerBuilder) routeDestination(
-	out *route.Route,
-	in *networking.HTTPRoute,
-	authority string,
-	serviceRegistry map[host.Name]*model.Service,
-	listenerPort int,
-) {
+func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTTPRoute, authority string, listenerPort int) {
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
@@ -576,7 +575,7 @@ func (lb *ListenerBuilder) routeDestination(
 	if in.Mirror != nil {
 		if mp := istio_route.MirrorPercent(in); mp != nil {
 			action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-				Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort),
+				Cluster:         lb.GetDestinationCluster(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort),
 				RuntimeFraction: mp,
 				TraceSampled:    &wrappers.BoolValue{Value: false},
 			}}
@@ -597,7 +596,7 @@ func (lb *ListenerBuilder) routeDestination(
 			}
 		}
 		hostname := host.Name(dst.GetDestination().GetHost())
-		n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
+		n := lb.GetDestinationCluster(dst.Destination, lb.serviceForHostname(hostname), listenerPort)
 		clusterWeight := &route.WeightedCluster_ClusterWeight{
 			Name:   n,
 			Weight: weight,
@@ -646,8 +645,8 @@ func (lb *ListenerBuilder) routeDestination(
 
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
-	port := listenerPort
+func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	dir, subset, port := model.TrafficDirectionInboundVIP, "http", listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
 	} else if service != nil && len(service.Ports) == 1 {
@@ -660,10 +659,14 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
-	// TODO selectively inbound vs outbound
+	// this PEP isn't responsible for this service so we use outbound; TODO quicker svc account check
+	if service != nil && (service.MeshExternal || !sets.New(service.ServiceAccounts...).Contains(lb.node.Metadata.ServiceAccount)) {
+		dir, subset = model.TrafficDirectionOutbound, destination.Subset
+	}
+
 	return model.BuildSubsetKey(
-		model.TrafficDirectionInboundVIP,
-		"http", /* destination.Subset */
+		dir,
+		subset,
 		host.Name(destination.Host),
 		port,
 	)

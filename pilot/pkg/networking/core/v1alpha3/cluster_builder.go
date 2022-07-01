@@ -738,7 +738,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 		}
-		if cb.proxy.Metadata.SidecarlessType == ambient.TypePEP {
+		if !opts.meshExternal && cb.proxy.Metadata.SidecarlessType == ambient.TypePEP {
 			// TODO use envoy filter? or move this somewhere else for "PEP only"
 			opts.mutable.cluster.TransportSocketMatches = InternalUpstreamSocketMatch
 			opts.mutable.cluster.TransportSocket = nil

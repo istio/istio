@@ -72,6 +72,10 @@ spec:
           value: "ambient-pep"
         - name: ISTIO_META_SIDECARLESS_TYPE
           value: "pep"
+        - name: ISTIO_META_SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
         - name: ISTIO_META_NODE_NAME
           valueFrom:
             fieldRef:

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -65,6 +66,11 @@ func Redirection(ctx resource.Context) error {
 	r := &redirection{}
 	r.id = ctx.TrackResource(r)
 
+	dir, err := ctx.CreateDirectory("ambient-redirection-logs")
+	if err != nil {
+		scopes.Framework.Error(err)
+	}
+
 	errG := multierror.Group{}
 	// TODO this is written for multi-cluster, but these scripts won't support multi-cluster
 	for _, c := range ctx.Clusters() {
@@ -72,12 +78,15 @@ func Redirection(ctx resource.Context) error {
 		if len(ctx.Clusters()) == 1 {
 			// this is the kind name; we'll want a way to match it with the tf cluster-name as long as we need that name
 			cName = "istio-testing"
+			if override := os.Getenv("KIND_NAME"); override != "" {
+				cName = override
+			}
 		}
 		errG.Go(func() error {
-			if err := enableRedirection(ctx, cName); err != nil {
+			if err := enableRedirection(ctx, dir, cName); err != nil {
 				return err
 			}
-			if err := updateIPSet(ctx, cName); err != nil {
+			if err := updateIPSet(ctx, dir, cName); err != nil {
 				return err
 			}
 			return nil
@@ -86,20 +95,29 @@ func Redirection(ctx resource.Context) error {
 	return errG.Wait().ErrorOrNil()
 }
 
-func enableRedirection(ctx resource.Context, clusterName string) error {
-	var result string
-	err := retry.UntilSuccess(func() error {
+func enableRedirection(ctx resource.Context, dir string, clusterName string) error {
+	f, err := os.Create(path.Join(dir, "redirect.sh.log"))
+	if err != nil {
+		scopes.Framework.Error(err)
+	}
+
+	err = retry.UntilSuccess(func() error {
 		redirCmd := exec.Command(redirectSh, clusterName)
+		if f != nil {
+			log.Infof("redirect.sh output to %s", f.Name())
+			_, _ = f.WriteString("---\n")
+			redirCmd.Stdout = f
+		}
 		scopes.Framework.Infof("Running %q", redirCmd.String())
-		out, err := redirCmd.CombinedOutput()
-		result = string(out)
-		return err
+		return redirCmd.Run()
 	}, retryOpts...)
-	scopes.Framework.Infof("Output:\n%s", result)
 	if err != nil {
 		return err
 	}
 	ctx.CleanupConditionally(func() {
+		if f != nil {
+			_ = f.Close()
+		}
 		if err := retry.UntilSuccess(func() error {
 			cleanCmd := exec.Command(redirectSh, clusterName, "clean")
 			scopes.Framework.Infof("Running %q", cleanCmd.String())
@@ -111,10 +129,21 @@ func enableRedirection(ctx resource.Context, clusterName string) error {
 	return nil
 }
 
-func updateIPSet(ctx resource.Context, clusterName string) error {
+func updateIPSet(ctx resource.Context, dir string, clusterName string) error {
 	var ipsetCmd *exec.Cmd
+	f, err := os.Create(path.Join(dir, "ipset.log"))
+	if err != nil {
+		scopes.Framework.Error(err)
+	}
+
 	if err := retry.UntilSuccess(func() error {
 		ipsetCmd = exec.Command(ipsetSh, clusterName)
+		if f != nil {
+			log.Infof("ipset command output to %s", f.Name())
+
+			_, _ = f.WriteString("---\n")
+			ipsetCmd.Stdout = f
+		}
 		scopes.Framework.Infof("Starting %q", ipsetCmd.String())
 		return ipsetCmd.Start()
 	}, retryOpts...); err != nil {
@@ -126,6 +155,9 @@ func updateIPSet(ctx resource.Context, clusterName string) error {
 		}
 		scopes.Framework.Infof("Killing pid %d for %s", ipsetCmd.Process.Pid, clusterName)
 		_ = ipsetCmd.Process.Kill()
+		if f != nil {
+			_ = f.Close()
+		}
 	})
 	return nil
 }
