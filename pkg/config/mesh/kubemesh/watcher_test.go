@@ -139,20 +139,42 @@ func TestExtraConfigmap(t *testing.T) {
 			t.Fatal(err)
 		}
 		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "init" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+		errCh := make(chan error, 2)
 		for i := 0; i < 100; i++ {
 			t.Log("iter", i)
 			write := fmt.Sprint(i)
+			wg := sync.WaitGroup{}
+			wg.Add(2)
 			go func() {
+				defer wg.Done()
 				if _, err := cms.Update(context.Background(), mkMap(extraCmName, write), metav1.UpdateOptions{}); err != nil {
-					t.Fatal(err)
+					errCh <- err
 				}
 			}()
 			go func() {
+				defer wg.Done()
 				if _, err := cms.Update(context.Background(), mkMap(name, write), metav1.UpdateOptions{}); err != nil {
-					t.Fatal(err)
+					errCh <- err
 				}
 			}()
-			retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == write }, retry.Delay(time.Millisecond), retry.Timeout(time.Second), retry.Message("write failed "+write))
+			wg.Wait()
+			retry.UntilOrFail(
+				t,
+				func() bool { return w.Mesh().GetIngressClass() == write },
+				retry.Delay(time.Millisecond),
+				retry.Timeout(time.Second),
+				retry.Message("write failed "+write),
+			)
+			select {
+			case err := <-errCh:
+				t.Fatal(err)
+			default:
+			}
+		}
+		select {
+		case err := <-errCh:
+			t.Fatal(err)
+		default:
 		}
 	})
 }
