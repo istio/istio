@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
-	"path"
 	"strings"
 	"time"
 
@@ -28,7 +27,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/k8s/chiron"
-	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/pkg/log"
 )
 
@@ -148,13 +146,15 @@ func (s *Server) initDNSCerts() error {
 		}
 		log.Infof("Generating istiod-signed cert for %v:\n %s", s.dnsNames, certChain)
 
-		signingKeyFile := path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile)
-		if useK8sTLSSecretCertFormat.Get() {
-			signingKeyFile = path.Join(LocalCertDir.Get(), TLSSecretFormatCAKeyFile)
+		fileBundle, err := detectSigningCABundle()
+		if err != nil {
+			return fmt.Errorf("unable to determine signing file format %v", err)
 		}
+		// signingKeyFile := fileBundle.SigningKeyFile
+
 		// check if signing key file exists the cert dir
-		if _, err := os.Stat(signingKeyFile); err != nil {
-			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
+		if _, err := os.Stat(fileBundle.SigningKeyFile); err != nil {
+			log.Infof("No plugged-in cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
 			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			s.addStartFunc(func(stop <-chan struct{}) error {
 				go func() {
@@ -164,16 +164,11 @@ func (s *Server) initDNSCerts() error {
 				return nil
 			})
 		} else {
-			log.Infof("Use plugged-in cert at %v", signingKeyFile)
+			log.Infof("Use plugged-in cert at %v", fileBundle.SigningKeyFile)
 
-			rootCertFile := path.Join(LocalCertDir.Get(), ca.RootCertFile)
-			if useK8sTLSSecretCertFormat.Get() {
-				rootCertFile = path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)
-			}
-
-			caBundle, err = os.ReadFile(rootCertFile)
+			caBundle, err = os.ReadFile(fileBundle.RootCertFile)
 			if err != nil {
-				return fmt.Errorf("failed reading %s: %v", rootCertFile, err)
+				return fmt.Errorf("failed reading %s: %v", fileBundle.RootCertFile, err)
 			}
 		}
 	} else {

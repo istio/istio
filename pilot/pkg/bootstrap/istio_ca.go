@@ -56,13 +56,22 @@ type caOptions struct {
 	CertSignerDomain string
 }
 
+// locations of the files used for the signing CA
+type signingCAFileBundle struct {
+	RootCertFile  string
+	CertChainFile   []string
+	SigningCertFile string
+	SigningKeyFile  string
+}
+
 const (
-	// TLSSecretFormatCACertFile is the CA certificate file name as it exists in tls type k8s secret.
-	TLSSecretFormatCACertFile = "tls.crt"
-	// TLSSecretFormatCAKeyFile is the CA certificate key file name as it exists in tls type k8s secret.
-	TLSSecretFormatCAKeyFile = "tls.key"
-	// TLSSecretFormatRootCertFile is the root cert file name as it exists in tls type k8s secret.
-	TLSSecretFormatRootCertFile = "ca.crt"
+
+	// TLSSecretCACertFile is the CA certificate file name as it exists in tls type k8s secret.
+	TLSSecretCACertFile = "tls.crt"
+	// TLSSecretCAPrivateKeyFile is the CA certificate key file name as it exists in tls type k8s secret.
+	TLSSecretCAPrivateKeyFile = "tls.key"
+	// TLSSecretRootCertFile is the root cert file name as it exists in tls type k8s secret.
+	TLSSecretRootCertFile = "ca.crt"
 )
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -94,9 +103,6 @@ var (
 
 	useRemoteCerts = env.RegisterBoolVar("USE_REMOTE_CERTS", false,
 		"Whether to try to load CA certs from config Kubernetes cluster. Used for external Istiod.")
-
-	useK8sTLSSecretCertFormat = env.RegisterBoolVar("USE_K8S_TLS_SECRET_CERT_FORMAT", false,
-		"Whether to try to load CA certs according to the kubernetes tls secret type format")
 
 	workloadCertTTL = env.RegisterDurationVar("DEFAULT_WORKLOAD_CERT_TTL",
 		cmd.DefaultWorkloadCertTTL,
@@ -232,6 +238,37 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 	return structuredPayload, nil
 }
 
+// detectSigningCABundle determines in which format the signing ca files are created.
+// kubernetes tls secrets mount files as tls.crt,tls.key,ca.crt
+// istiod secret is ca-cert.pem ca-key.pem cert-chain.pem root-cert.pem
+func detectSigningCABundle() (signingCAFileBundle, error) {
+
+	tlsSigningFile := path.Join(LocalCertDir.Get(), TLSSecretCACertFile)
+
+	// looking for tls file format (tls.crt)
+	if _, err := os.Stat(tlsSigningFile); !os.IsNotExist(err) {
+		return signingCAFileBundle{
+			RootCertFile: path.Join(LocalCertDir.Get(), TLSSecretRootCertFile),
+			CertChainFile: []string{
+				path.Join(tlsSigningFile,
+					LocalCertDir.Get(), TLSSecretRootCertFile),
+			},
+			SigningCertFile: tlsSigningFile,
+			SigningKeyFile:  path.Join(LocalCertDir.Get(), TLSSecretCAPrivateKeyFile),
+		}, nil
+	} else {
+		return signingCAFileBundle{}, err
+	}
+
+	// default ca file format
+	return signingCAFileBundle{
+		RootCertFile:    path.Join(LocalCertDir.Get(), ca.RootCertFile),
+		CertChainFile:   []string{path.Join(LocalCertDir.Get(), ca.CertChainFile)},
+		SigningCertFile: path.Join(LocalCertDir.Get(), ca.CACertFile),
+		SigningKeyFile:  path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile),
+	}, nil
+}
+
 // loadCACerts loads an existing `cacerts` Secret if the files aren't mounted locally.
 // By default, a cacerts Secret would be mounted during pod startup due to the
 // Istiod Deployment configuration. But with external Istiod, we want to be
@@ -283,12 +320,14 @@ func handleEvent(s *Server) {
 	var err error
 
 	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
-	// in the event we are using k8s tls type secrets we need to convert the files before they are reread.
-	if useK8sTLSSecretCertFormat.Get() {
-		newCABundle, err = os.ReadFile(path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile))
-	} else {
-		newCABundle, err = os.ReadFile(path.Join(LocalCertDir.Get(), ca.RootCertFile))
+
+	fileBundle, err := detectSigningCABundle()
+	if err != nil {
+		log.Errorf("unable to determine signing file format %v", err)
+		return
 	}
+	newCABundle, err = os.ReadFile(fileBundle.RootCertFile)
+
 	if err != nil {
 		log.Error("failed reading root-cert.pem: ", err)
 		return
@@ -299,19 +338,13 @@ func handleEvent(s *Server) {
 		log.Info("Updating new ROOT-CA not supported")
 		return
 	}
-	if useK8sTLSSecretCertFormat.Get() {
-		err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
-			path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile),
-			path.Join(LocalCertDir.Get(), TLSSecretFormatCAKeyFile),
-			[]string{path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile), path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)},
-			path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile))
-	} else {
-		err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
-			path.Join(LocalCertDir.Get(), ca.CACertFile),
-			path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile),
-			[]string{path.Join(LocalCertDir.Get(), ca.CertChainFile)},
-			path.Join(LocalCertDir.Get(), ca.RootCertFile))
-	}
+
+	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
+		fileBundle.SigningCertFile,
+		fileBundle.SigningKeyFile,
+		fileBundle.CertChainFile,
+		fileBundle.RootCertFile)
+
 	if err != nil {
 		log.Error("Failed to update new Plug-in CA certs: ", err)
 		return
@@ -400,24 +433,16 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
-	// In pods, this is the optional 'cacerts' Secret.
-	signingKeyFile := path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile)
-
-	// If not found, will default to ca-cert.pem. May contain multiple roots.
-	rootCertFile := path.Join(LocalCertDir.Get(), ca.RootCertFile)
-
-	if useK8sTLSSecretCertFormat.Get() {
-		log.Info("Using k8s tls type secret format for cacerts")
-		rootCertFile = path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)
-		signingKeyFile = path.Join(LocalCertDir.Get(), TLSSecretFormatCAKeyFile)
+	fileBundle, err := detectSigningCABundle()
+	if err != nil {
+		return nil, fmt.Errorf("unable to determine signing file format %v", err)
 	}
-
-	if _, err := os.Stat(rootCertFile); err != nil {
+	if _, err := os.Stat(fileBundle.RootCertFile); err != nil {
 		// In Citadel, normal self-signed doesn't use a root-cert.pem file for additional roots.
 		// In Istiod, it is possible to provide one via "cacerts" secret in both cases, for consistency.
-		rootCertFile = ""
+		fileBundle.RootCertFile = ""
 	}
-	if _, err := os.Stat(signingKeyFile); err != nil {
+	if _, err := os.Stat(fileBundle.SigningKeyFile); err != nil {
 		// The user-provided certs are missing - create a self-signed cert.
 		if s.kubeClient != nil {
 			log.Info("Use self-signed certificate as the CA certificate")
@@ -432,14 +457,14 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 				selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 				selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
 				maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
-				opts.Namespace, -1, s.kubeClient.Kube().CoreV1(), rootCertFile,
+				opts.Namespace, -1, s.kubeClient.Kube().CoreV1(), fileBundle.RootCertFile,
 				enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
 		} else {
 			log.Warnf(
 				"Use local self-signed CA certificate for testing. Will use in-memory root CA, no K8S access and no ca key file %s",
-				signingKeyFile)
+				fileBundle.SigningKeyFile)
 
-			caOpts, err = ca.NewSelfSignedDebugIstioCAOptions(rootCertFile, SelfSignedCACertTTL.Get(),
+			caOpts, err = ca.NewSelfSignedDebugIstioCAOptions(fileBundle.RootCertFile, SelfSignedCACertTTL.Get(),
 				workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), opts.TrustDomain, caRSAKeySize.Get())
 		}
 		if err != nil {
@@ -448,18 +473,8 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	} else {
 		log.Info("Use local CA certificate")
 
-		// The cert corresponding to the key, self-signed or chain.
-		// rootCertFile will be added at the end, if present, to form 'rootCerts'.
-		signingCertFile := path.Join(LocalCertDir.Get(), ca.CACertFile)
-		certChainFiles := []string{path.Join(LocalCertDir.Get(), ca.CertChainFile)}
-
-		if useK8sTLSSecretCertFormat.Get() {
-			signingCertFile = path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile)
-			certChainFiles = []string{path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile), path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)}
-		}
-
-		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFiles, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), caRSAKeySize.Get())
+		caOpts, err = ca.NewPluggedCertIstioCAOptions(fileBundle.CertChainFile, fileBundle.SigningCertFile, fileBundle.SigningKeyFile,
+			fileBundle.RootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), caRSAKeySize.Get())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
