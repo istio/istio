@@ -78,8 +78,8 @@ func NewVerifiedKeyCertBundleFromFile(certFile string, privKeyFile string, certC
 	if err != nil {
 		return nil, err
 	}
-	certChainBytes := []byte{}
-	if len(certChainFiles) < 0 {
+	var certChainBytes []byte
+	if len(certChainFiles) > 0 {
 		for _, f := range certChainFiles {
 			var b []byte
 			if b, err = os.ReadFile(f); err != nil {
