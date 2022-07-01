@@ -130,7 +130,7 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 		"No SAN RSA": {
 			caCertFile:    rootCertFile,
 			caKeyFile:     rootKeyFile,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  rootCertFile,
 			certOptions: &CertOptions{
 				Host:       "test_ca.com",
@@ -144,7 +144,7 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 		"RSA Success": {
 			caCertFile:    certChainFile1,
 			caKeyFile:     keyFile1,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  rootCertFile1,
 			certOptions: &CertOptions{
 				Host:       "watt",
@@ -158,7 +158,7 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 		"No SAN EC": {
 			caCertFile:    ecRootCertFile,
 			caKeyFile:     ecRootKeyFile,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  ecRootCertFile,
 			certOptions: &CertOptions{
 				Host:     "watt",
@@ -172,7 +172,7 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 		"EC Success": {
 			caCertFile:    ecClientCertFile,
 			caKeyFile:     ecClientKeyFile,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  ecRootCertFile,
 			certOptions: &CertOptions{
 				Host:     "watt",
@@ -234,7 +234,7 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 		"Success - 1 level CA": {
 			caCertFile:    rootCertFile,
 			caKeyFile:     rootKeyFile,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  rootCertFile,
 			expectedErr:   "",
 		},
@@ -255,7 +255,7 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 		"Success - 2 level CA without cert chain file": {
 			caCertFile:    intCertFile,
 			caKeyFile:     intKeyFile,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  rootCertFile,
 			expectedErr:   "",
 		},
@@ -269,7 +269,7 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 		"Failure - no root cert file": {
 			caCertFile:    intCertFile,
 			caKeyFile:     intKeyFile,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  "bad.pem",
 			expectedErr:   "open bad.pem: no such file or directory",
 		},
@@ -283,7 +283,7 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 		"Failure - 3 level CA without cert chain file": {
 			caCertFile:    int2CertFile,
 			caKeyFile:     int2KeyFile,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  rootCertFile,
 			expectedErr: "cannot verify the cert with the provided root chain and " +
 				"cert pool with error: x509: certificate signed by unknown authority",
@@ -300,28 +300,28 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 		"Failure - invalid cert": {
 			caCertFile:    badCertFile,
 			caKeyFile:     intKeyFile,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  rootCertFile,
 			expectedErr:   "failed to parse cert PEM: invalid PEM encoded certificate",
 		},
 		"Failure - not existing private key": {
 			caCertFile:    intCertFile,
 			caKeyFile:     "bad.pem",
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  rootCertFile,
 			expectedErr:   "open bad.pem: no such file or directory",
 		},
 		"Failure - invalid private key": {
 			caCertFile:    intCertFile,
 			caKeyFile:     badKeyFile,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  rootCertFile,
 			expectedErr:   "failed to parse private key PEM: invalid PEM-encoded key",
 		},
 		"Failure - file does not exist": {
 			caCertFile:    "random/path/does/not/exist",
 			caKeyFile:     intKeyFile,
-			certChainFile: []string{""},
+			certChainFile: nil,
 			rootCertFile:  rootCertFile,
 			expectedErr:   "open random/path/does/not/exist: no such file or directory",
 		},
