@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 38709
+releaseNotes:
+- |
+  **Fixed** an issue causing Envoy clusters to be stuck initializing, blocking configuration updates or proxy startup.
