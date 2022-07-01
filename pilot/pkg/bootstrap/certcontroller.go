@@ -149,6 +149,9 @@ func (s *Server) initDNSCerts() error {
 		log.Infof("Generating istiod-signed cert for %v:\n %s", s.dnsNames, certChain)
 
 		signingKeyFile := path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile)
+		if useK8sTLSSecretCertFormat.Get() {
+			signingKeyFile = path.Join(LocalCertDir.Get(), TLSSecretFormatCAKeyFile)
+		}
 		// check if signing key file exists the cert dir
 		if _, err := os.Stat(signingKeyFile); err != nil {
 			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
@@ -162,9 +165,15 @@ func (s *Server) initDNSCerts() error {
 			})
 		} else {
 			log.Infof("Use plugged-in cert at %v", signingKeyFile)
-			caBundle, err = os.ReadFile(path.Join(LocalCertDir.Get(), ca.RootCertFile))
+
+			rootCertFile := path.Join(LocalCertDir.Get(), ca.RootCertFile)
+			if useK8sTLSSecretCertFormat.Get() {
+				rootCertFile = path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)
+			}
+
+			caBundle, err = os.ReadFile(rootCertFile)
 			if err != nil {
-				return fmt.Errorf("failed reading %s: %v", path.Join(LocalCertDir.Get(), ca.RootCertFile), err)
+				return fmt.Errorf("failed reading %s: %v", rootCertFile, err)
 			}
 		}
 	} else {

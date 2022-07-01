@@ -56,6 +56,15 @@ type caOptions struct {
 	CertSignerDomain string
 }
 
+const (
+	// TLSSecretFormatCACertFile is the CA certificate file name as it exists in tls type k8s secret.
+	TLSSecretFormatCACertFile = "tls.crt"
+	// TLSSecretFormatCAKeyFile is the CA certificate key file name as it exists in tls type k8s secret.
+	TLSSecretFormatCAKeyFile = "tls.key"
+	// TLSSecretFormatRootCertFile is the root cert file name as it exists in tls type k8s secret.
+	TLSSecretFormatRootCertFile = "ca.crt"
+)
+
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
 //
 // For backward compat, will preserve support for the "cacerts" Secret used for self-signed certificates.
@@ -85,6 +94,9 @@ var (
 
 	useRemoteCerts = env.RegisterBoolVar("USE_REMOTE_CERTS", false,
 		"Whether to try to load CA certs from config Kubernetes cluster. Used for external Istiod.")
+
+	useK8sTLSSecretCertFormat = env.RegisterBoolVar("USE_K8S_TLS_SECRET_CERT_FORMAT", false,
+		"Whether to try to load CA certs according to the kubernetes tls secret type format")
 
 	workloadCertTTL = env.RegisterDurationVar("DEFAULT_WORKLOAD_CERT_TTL",
 		cmd.DefaultWorkloadCertTTL,
@@ -267,8 +279,16 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 func handleEvent(s *Server) {
 	log.Info("Update Istiod cacerts")
 
+	var newCABundle []byte
+	var err error
+
 	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
-	newCABundle, err := os.ReadFile(path.Join(LocalCertDir.Get(), ca.RootCertFile))
+	// in the event we are using k8s tls type secrets we need to convert the files before they are reread.
+	if useK8sTLSSecretCertFormat.Get() {
+		newCABundle, err = os.ReadFile(path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile))
+	} else {
+		newCABundle, err = os.ReadFile(path.Join(LocalCertDir.Get(), ca.RootCertFile))
+	}
 	if err != nil {
 		log.Error("failed reading root-cert.pem: ", err)
 		return
@@ -279,12 +299,19 @@ func handleEvent(s *Server) {
 		log.Info("Updating new ROOT-CA not supported")
 		return
 	}
-
-	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
-		path.Join(LocalCertDir.Get(), ca.CACertFile),
-		path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile),
-		path.Join(LocalCertDir.Get(), ca.CertChainFile),
-		path.Join(LocalCertDir.Get(), ca.RootCertFile))
+	if useK8sTLSSecretCertFormat.Get() {
+		err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
+			path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile),
+			path.Join(LocalCertDir.Get(), TLSSecretFormatCAKeyFile),
+			[]string{path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile),path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)},
+			path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile))
+	} else {
+		err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
+			path.Join(LocalCertDir.Get(), ca.CACertFile),
+			path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile),
+			[]string{path.Join(LocalCertDir.Get(), ca.CertChainFile)},
+			path.Join(LocalCertDir.Get(), ca.RootCertFile))
+	}
 	if err != nil {
 		log.Error("Failed to update new Plug-in CA certs: ", err)
 		return
@@ -378,6 +405,13 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 
 	// If not found, will default to ca-cert.pem. May contain multiple roots.
 	rootCertFile := path.Join(LocalCertDir.Get(), ca.RootCertFile)
+
+	if useK8sTLSSecretCertFormat.Get() {
+		log.Info("Using k8s tls type secret format for cacerts")
+		rootCertFile = path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)
+		signingKeyFile = path.Join(LocalCertDir.Get(), TLSSecretFormatCAKeyFile)
+	}
+
 	if _, err := os.Stat(rootCertFile); err != nil {
 		// In Citadel, normal self-signed doesn't use a root-cert.pem file for additional roots.
 		// In Istiod, it is possible to provide one via "cacerts" secret in both cases, for consistency.
@@ -417,8 +451,14 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		// The cert corresponding to the key, self-signed or chain.
 		// rootCertFile will be added at the end, if present, to form 'rootCerts'.
 		signingCertFile := path.Join(LocalCertDir.Get(), ca.CACertFile)
-		certChainFile := path.Join(LocalCertDir.Get(), ca.CertChainFile)
-		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
+		certChainFiles := []string{path.Join(LocalCertDir.Get(), ca.CertChainFile)}
+
+		if useK8sTLSSecretCertFormat.Get() {
+			signingCertFile = path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile)
+			certChainFiles = []string{path.Join(LocalCertDir.Get(), TLSSecretFormatCACertFile),path.Join(LocalCertDir.Get(), TLSSecretFormatRootCertFile)}
+		}
+
+		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFiles, signingCertFile, signingKeyFile,
 			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), caRSAKeySize.Get())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
