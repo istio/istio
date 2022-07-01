@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"go.uber.org/atomic"
 	"google.golang.org/protobuf/testing/protocmp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,6 +121,39 @@ func TestExtraConfigmap(t *testing.T) {
 			t.Fatal(err)
 		}
 		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+	})
+	t.Run("many updates", func(t *testing.T) {
+		cms, w := setup(t)
+		rev := atomic.NewInt32(1)
+		mkMap := func(m, d string) *v1.ConfigMap {
+			mm := makeConfigMapWithName(m, "1", map[string]string{
+				key: fmt.Sprintf(`ingressClass: "%s"`, d),
+			})
+			mm.ResourceVersion = fmt.Sprint(rev.Inc())
+			return mm
+		}
+		if _, err := cms.Create(context.Background(), mkMap(extraCmName, "init"), metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cms.Create(context.Background(), mkMap(name, "init"), metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "init" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+		for i := 0; i < 100; i++ {
+			t.Log("iter", i)
+			write := fmt.Sprint(i)
+			go func() {
+				if _, err := cms.Update(context.Background(), mkMap(extraCmName, write), metav1.UpdateOptions{}); err != nil {
+					t.Fatal(err)
+				}
+			}()
+			go func() {
+				if _, err := cms.Update(context.Background(), mkMap(name, write), metav1.UpdateOptions{}); err != nil {
+					t.Fatal(err)
+				}
+			}()
+			retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == write }, retry.Delay(time.Millisecond), retry.Timeout(time.Second), retry.Message("write failed "+write))
+		}
 	})
 }
 
