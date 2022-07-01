@@ -101,15 +101,21 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 	for index := 0; index < cfg.count; index++ {
 		index := index
 		if throttle != nil {
-			<-throttle.C
+			select {
+			case <-ctx.Done():
+				break
+			case <-throttle.C:
+			}
 		}
 
 		g.Go(ctx, func() error {
 			st := time.Now()
 			resp, err := doReq(ctx, cfg, index)
 			if err != nil {
+				fwLog.Debugf("request failed: %v", err)
 				return err
 			}
+			fwLog.Debugf("got resp: %v", resp)
 
 			responsesMu.Lock()
 			responses[index] = resp
