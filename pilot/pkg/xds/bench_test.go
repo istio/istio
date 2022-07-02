@@ -572,7 +572,7 @@ func makeCacheKey(n int) model.XdsCacheEntry {
 			Hostname:   host.Name(ns + "some" + index + ".example.com"),
 			Attributes: model.ServiceAttributes{Namespace: "test" + index},
 		})
-		drs = append(drs, &config.Config{Meta: config.Meta{Name: index, Namespace: index}})
+		drs = append(drs, &config.Config{Meta: config.Meta{Name: ns + "some" + index, Namespace: "test" + index}})
 	}
 
 	key := &route.Cache{
@@ -601,7 +601,10 @@ func BenchmarkCache(b *testing.B) {
 		}
 	})
 	b.Run("insert", func(b *testing.B) {
+		stop := make(chan struct{})
+		defer close(stop)
 		c := model.NewXdsCache()
+		go c.Run(stop)
 
 		for n := 0; n < b.N; n++ {
 			key := makeCacheKey(n)
@@ -610,7 +613,10 @@ func BenchmarkCache(b *testing.B) {
 		}
 	})
 	b.Run("get", func(b *testing.B) {
+		stop := make(chan struct{})
+		defer close(stop)
 		c := model.NewXdsCache()
+		go c.Run(stop)
 
 		key := makeCacheKey(1)
 		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
