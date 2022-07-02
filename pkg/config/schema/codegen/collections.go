@@ -40,6 +40,48 @@ var (
 )
 `
 
+const staticKindTemplate = `
+// GENERATED FILE -- DO NOT EDIT
+//
+
+package {{.PackageName}}
+
+import (
+	"istio.io/istio/pkg/config"
+)
+
+const (
+{{- range $index, $element := .Entries }}
+	{{- if (eq $index 0) }}
+	{{.Type}} Kind = iota
+	{{- else }}
+	{{.Type}}
+	{{- end }}
+{{- end }}
+)
+
+func (k Kind) String() string {
+	switch k {
+{{- range .Entries }}
+	case {{.Type}}:
+		return "{{.Resource.Kind}}"
+{{- end }}
+	default:
+		return "Unknown"
+	}
+}
+
+func FromGvk(gvk config.GroupVersionKind) Kind {
+{{- range .Entries }}
+	if gvk.Kind == "{{.Resource.Kind}}" && gvk.Group == "{{.Resource.Group}}" && gvk.Version == "{{.Resource.Version}}" {
+		return {{.Type}}
+	}
+{{- end }}
+
+	panic("unknown kind: " + gvk.String())
+}
+`
+
 const staticCollectionsTemplate = `
 {{- .FilePrefix}}
 // GENERATED FILE -- DO NOT EDIT
@@ -193,6 +235,43 @@ func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
 
 	// Calculate the Go packages that needs to be imported for the proto types to be registered.
 	return applyTemplate(staticResourceTemplate, context)
+}
+
+func WriteKind(packageName string, m *ast.Metadata) (string, error) {
+	entries := make([]colEntry, 0, len(m.Collections))
+	customNames := map[string]string{
+		"k8s/gateway_api/v1alpha2/gateways": "KubernetesGateway",
+	}
+	for _, c := range m.Collections {
+		r := m.FindResourceForGroupKind(c.Group, c.Kind)
+		if r == nil {
+			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
+		}
+
+		name := r.Kind
+		if cn, f := customNames[c.Name]; f {
+			name = cn
+		}
+		entries = append(entries, colEntry{
+			Type:     name,
+			Resource: r,
+		})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return strings.Compare(entries[i].Type, entries[j].Type) < 0
+	})
+
+	context := struct {
+		Entries     []colEntry
+		PackageName string
+	}{
+		Entries:     entries,
+		PackageName: packageName,
+	}
+
+	// Calculate the Go packages that needs to be imported for the proto types to be registered.
+	return applyTemplate(staticKindTemplate, context)
 }
 
 type packageImport struct {

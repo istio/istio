@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -324,7 +325,7 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 	configsUpdated := map[model.ConfigKey]struct{}{}
 	for _, svc := range services {
 		configsUpdated[model.ConfigKey{
-			Kind:      gvk.ServiceEntry,
+			Kind:      kind.ServiceEntry,
 			Name:      string(svc.Hostname),
 			Namespace: svc.Attributes.Namespace,
 		}] = struct{}{}
@@ -769,15 +770,6 @@ func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 	return nil
 }
 
-// GetIstioServiceAccounts implements model.ServiceAccounts operation
-// For service entries using workload entries or mix of workload entries and pods,
-// this function returns the appropriate service accounts used by these.
-func (s *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	// service entries with built in endpoints have SANs as a dedicated field.
-	// Those with selector labels will have service accounts embedded inside workloadEntries and pods as well.
-	return model.GetServiceAccounts(svc, ports, s)
-}
-
 func (s *Controller) NetworkGateways() []model.NetworkGateway {
 	// TODO implement mesh networks loading logic from kube controller if needed
 	return nil
@@ -889,7 +881,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 
 func makeConfigKey(svc *model.Service) model.ConfigKey {
 	return model.ConfigKey{
-		Kind:      gvk.ServiceEntry,
+		Kind:      kind.ServiceEntry,
 		Name:      string(svc.Hostname),
 		Namespace: svc.Attributes.Namespace,
 	}

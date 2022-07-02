@@ -38,7 +38,9 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
@@ -893,7 +895,7 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 func (ps *PushContext) DelegateVirtualServices(vses []config.Config) []ConfigHash {
 	var out []ConfigHash
 	for _, vs := range vses {
-		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: gvk.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
+		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
 			out = append(out, delegate.HashCode())
 		}
 	}
@@ -1210,33 +1212,33 @@ func (ps *PushContext) updateContext(
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
-		case gvk.ServiceEntry:
+		case kind.ServiceEntry:
 			servicesChanged = true
-		case gvk.DestinationRule:
+		case kind.DestinationRule:
 			destinationRulesChanged = true
-		case gvk.VirtualService:
+		case kind.VirtualService:
 			virtualServicesChanged = true
-		case gvk.Gateway:
+		case kind.Gateway:
 			gatewayChanged = true
-		case gvk.Sidecar:
+		case kind.Sidecar:
 			sidecarsChanged = true
-		case gvk.WasmPlugin:
+		case kind.WasmPlugin:
 			wasmPluginsChanged = true
-		case gvk.EnvoyFilter:
+		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
-		case gvk.AuthorizationPolicy:
+		case kind.AuthorizationPolicy:
 			authzChanged = true
-		case gvk.RequestAuthentication,
-			gvk.PeerAuthentication:
+		case kind.RequestAuthentication,
+			kind.PeerAuthentication:
 			authnChanged = true
-		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.KubernetesGateway, gvk.TLSRoute, gvk.ReferencePolicy:
+		case kind.HTTPRoute, kind.TCPRoute, kind.GatewayClass, kind.KubernetesGateway, kind.TLSRoute, kind.ReferencePolicy, kind.ReferenceGrant:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
 			gatewayChanged = true
-		case gvk.Telemetry:
+		case kind.Telemetry:
 			telemetryChanged = true
-		case gvk.ProxyConfig:
+		case kind.ProxyConfig:
 			proxyConfigsChanged = true
 		}
 	}
@@ -1429,7 +1431,14 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
+			s, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
+			if !f {
+				continue
+			}
+			s.RLock()
+			sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
+			s.RUnlock()
+			ps.ServiceAccounts[svc.Hostname][port.Port] = sa
 		}
 	}
 }

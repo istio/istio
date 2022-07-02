@@ -24,18 +24,20 @@ package crdclient
 import (
 	"context"
 	"fmt"
-	metav1alpha1 "istio.io/api/meta/v1alpha1"
 
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
-
 	extensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
+	metav1alpha1 "istio.io/api/meta/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	securityv1beta1 "istio.io/api/security/v1beta1"
@@ -45,13 +47,9 @@ import (
 	clientnetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 	clienttelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
-
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
@@ -141,10 +139,15 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1alpha2.HTTPRouteSpec)),
 		}, metav1.CreateOptions{})
+	case collections.K8SGatewayApiV1Alpha2Referencegrants.Resource().GroupVersionKind():
+		return sc.GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.ReferenceGrant{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
+		}, metav1.CreateOptions{})
 	case collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().ReferencePolicies(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.ReferencePolicy{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferencePolicySpec)),
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
 		}, metav1.CreateOptions{})
 	case collections.K8SGatewayApiV1Alpha2Tcproutes.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.TCPRoute{
@@ -248,10 +251,15 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1alpha2.HTTPRouteSpec)),
 		}, metav1.UpdateOptions{})
+	case collections.K8SGatewayApiV1Alpha2Referencegrants.Resource().GroupVersionKind():
+		return sc.GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.ReferenceGrant{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
+		}, metav1.UpdateOptions{})
 	case collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().ReferencePolicies(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.ReferencePolicy{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferencePolicySpec)),
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SGatewayApiV1Alpha2Tcproutes.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.TCPRoute{
@@ -650,14 +658,29 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return sc.GatewayV1alpha2().HTTPRoutes(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.K8SGatewayApiV1Alpha2Referencegrants.Resource().GroupVersionKind():
+		oldRes := &gatewayv1alpha2.ReferenceGrant{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
+		}
+		modRes := &gatewayv1alpha2.ReferenceGrant{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return sc.GatewayV1alpha2().ReferenceGrants(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind():
 		oldRes := &gatewayv1alpha2.ReferencePolicy{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*gatewayv1alpha2.ReferencePolicySpec)),
+			Spec:       *(orig.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
 		}
 		modRes := &gatewayv1alpha2.ReferencePolicy{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*gatewayv1alpha2.ReferencePolicySpec)),
+			Spec:       *(mod.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -740,6 +763,8 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 		return sc.GatewayV1alpha2().Gateways(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.K8SGatewayApiV1Alpha2Httproutes.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().HTTPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
+	case collections.K8SGatewayApiV1Alpha2Referencegrants.Resource().GroupVersionKind():
+		return sc.GatewayV1alpha2().ReferenceGrants(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().ReferencePolicies(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.K8SGatewayApiV1Alpha2Tcproutes.Resource().GroupVersionKind():
@@ -1073,6 +1098,24 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
+		}
+	},
+	collections.K8SGatewayApiV1Alpha2Referencegrants.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*gatewayv1alpha2.ReferenceGrant)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SGatewayApiV1Alpha2Referencegrants.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
 		}
 	},
 	collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {

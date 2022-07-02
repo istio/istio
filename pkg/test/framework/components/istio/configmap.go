@@ -166,7 +166,11 @@ func (cm *configMap) UpdateMeshConfig(t resource.Context, update func(*meshconfi
 					return err
 				}
 				setMeshConfigData(cfgMap, mcYAML)
-				return cm.updateConfigMap(c, cfgMap)
+				if err := cm.updateConfigMap(c, cfgMap); err != nil {
+					return err
+				}
+				scopes.Framework.Infof("cleanup patched %s meshconfig:\n%s", c.Name(), cfgMap.Data["mesh"])
+				return nil
 			})
 		}
 		if err := errG.Wait().ErrorOrNil(); err != nil {

@@ -24,7 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 var (
@@ -85,28 +85,28 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 		len(r.DelegateVirtualServices)+len(r.DestinationRules)+len(r.EnvoyFilterKeys))
 	for _, svc := range r.Services {
 		configs = append(configs, model.ConfigKey{
-			Kind: gvk.ServiceEntry,
+			Kind: kind.ServiceEntry,
 			Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace,
 		}.HashCode())
 	}
 	for _, vs := range r.VirtualServices {
-		configs = append(configs, model.ConfigKey{Kind: gvk.VirtualService, Name: vs.Name, Namespace: vs.Namespace}.HashCode())
+		configs = append(configs, model.ConfigKey{Kind: kind.VirtualService, Name: vs.Name, Namespace: vs.Namespace}.HashCode())
 	}
 	// add delegate virtual services to dependent configs
 	// so that we can clear the rds cache when delegate virtual services are updated
 	configs = append(configs, r.DelegateVirtualServices...)
 	for _, dr := range r.DestinationRules {
-		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: dr.Name, Namespace: dr.Namespace}.HashCode())
+		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: dr.Name, Namespace: dr.Namespace}.HashCode())
 	}
 
 	for _, efKey := range r.EnvoyFilterKeys {
 		items := strings.Split(efKey, "/")
-		configs = append(configs, model.ConfigKey{Kind: gvk.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
+		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
 	}
 	return configs
 }
 
-func (r *Cache) DependentTypes() []config.GroupVersionKind {
+func (r *Cache) DependentTypes() []kind.Kind {
 	return nil
 }
 

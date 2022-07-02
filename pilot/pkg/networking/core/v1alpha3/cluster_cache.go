@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 var (
@@ -124,19 +124,19 @@ func (t *clusterCache) Key() string {
 func (t clusterCache) DependentConfigs() []model.ConfigHash {
 	configs := []model.ConfigHash{}
 	if t.destinationRule != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace}.HashCode())
+		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace}.HashCode())
 	}
 	if t.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace}.HashCode())
+		configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace}.HashCode())
 	}
 	for _, efKey := range t.envoyFilterKeys {
 		items := strings.Split(efKey, "/")
-		configs = append(configs, model.ConfigKey{Kind: gvk.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
+		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
 	}
 	return configs
 }
 
-func (t *clusterCache) DependentTypes() []config.GroupVersionKind {
+func (t *clusterCache) DependentTypes() []kind.Kind {
 	return nil
 }
 

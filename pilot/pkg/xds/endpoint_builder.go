@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
 )
 
@@ -181,22 +181,22 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigHash {
 	configs := []model.ConfigHash{}
 	if b.destinationRule != nil {
 		configs = append(configs, model.ConfigKey{
-			Kind: gvk.DestinationRule,
+			Kind: kind.DestinationRule,
 			Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace,
 		}.HashCode())
 	}
 	if b.service != nil {
 		configs = append(configs, model.ConfigKey{
-			Kind: gvk.ServiceEntry,
+			Kind: kind.ServiceEntry,
 			Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace,
 		}.HashCode())
 	}
 	return configs
 }
 
-var edsDependentTypes = []config.GroupVersionKind{gvk.PeerAuthentication}
+var edsDependentTypes = []kind.Kind{kind.PeerAuthentication}
 
-func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
+func (b EndpointBuilder) DependentTypes() []kind.Kind {
 	return edsDependentTypes
 }
 

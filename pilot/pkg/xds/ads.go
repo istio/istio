@@ -35,7 +35,7 @@ import (
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
@@ -413,6 +413,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
+	previousNonceAcked := previousInfo.NonceAcked
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
@@ -427,6 +428,16 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if len(removed) == 0 && len(added) == 0 {
+		// We got a request which looks like an ACK, but we already got the same ACK. Envoy won't ACK the
+		// same resource twice. However, in some cases a request for new resources is indistinguishable
+		// from an ACK (in particular, when requesting EDS after a CDS push):
+		// https://github.com/envoyproxy/envoy/issues/13009. As a result, if we see the same ACK multiple
+		// times, we treat subsequent requests as something we should respond to.
+		if features.PushOnRepeatNonce && request.ResponseNonce == previousNonceAcked {
+			log.Debugf("ADS:%s: REQ %s Repeated nonce received %s", stype, con.conID, request.ResponseNonce)
+			return true, emptyResourceDelta
+		}
+
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
 	}
@@ -650,11 +661,11 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
-			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar, gvk.HTTPRoute, gvk.TCPRoute:
+			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar, kind.HTTPRoute, kind.TCPRoute:
 				sidecar = true
-			case gvk.Gateway, gvk.KubernetesGateway, gvk.GatewayClass, gvk.ReferencePolicy:
+			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferencePolicy, kind.ReferenceGrant:
 				gateway = true
-			case gvk.Ingress:
+			case kind.Ingress:
 				sidecar = true
 				gateway = true
 			}

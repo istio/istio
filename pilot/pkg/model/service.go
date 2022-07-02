@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/util/sets"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -226,10 +225,11 @@ const (
 //
 // For example, the set of service instances associated with catalog.mystore.com
 // are modeled like this
-//      --> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-//      --> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-//      --> IstioEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-//      --> IstioEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+//
+//	--> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
+//	--> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
+//	--> IstioEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+//	--> IstioEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
 	Service     *Service       `json:"service,omitempty"`
 	ServicePort *Port          `json:"servicePort,omitempty"`
@@ -411,8 +411,9 @@ const (
 //
 // then internally, we have two endpoint structs for the
 // service catalog.mystore.com
-//  --> 172.16.0.1:55446 (with ServicePort pointing to 80) and
-//  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
+//
+//	--> 172.16.0.1:55446 (with ServicePort pointing to 80) and
+//	--> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 //
 // TODO: Investigate removing ServiceInstance entirely.
 type IstioEndpoint struct {
@@ -623,11 +624,6 @@ type ServiceDiscovery interface {
 	GetProxyServiceInstances(*Proxy) []*ServiceInstance
 	GetProxyWorkloadLabels(*Proxy) labels.Instance
 
-	// GetIstioServiceAccounts returns a list of service accounts looked up from
-	// the specified service hostname and ports.
-	// Deprecated - service account tracking moved to XdsServer, incremental.
-	GetIstioServiceAccounts(svc *Service, ports []int) []string
-
 	// MCSServices returns information about the services that have been exported/imported via the
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
@@ -800,28 +796,6 @@ func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 		}
 	}
 	return DisabledTLSModeLabel
-}
-
-// GetServiceAccounts returns aggregated list of service accounts of Service plus its instances.
-func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) []string {
-	sa := sets.Set{}
-
-	instances := make([]*ServiceInstance, 0)
-	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
-	// the service is deployed on, and the service accounts of the pods.
-	for _, port := range ports {
-		svcInstances := discovery.InstancesByPort(svc, port, nil)
-		instances = append(instances, svcInstances...)
-	}
-
-	for _, si := range instances {
-		if si.Endpoint.ServiceAccount != "" {
-			sa.Insert(si.Endpoint.ServiceAccount)
-		}
-	}
-	sa.InsertAll(svc.ServiceAccounts...)
-
-	return sa.UnsortedList()
 }
 
 // DeepCopy creates a clone of Service.
