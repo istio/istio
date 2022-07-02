@@ -53,6 +53,13 @@ const (
 )
 
 var (
+	// Make a default key chain with the support for GCR, ECR, and ACR.
+	// After looking up DOCKER_CONFIG by `authn.DefaultKeychain`,
+	// GCR, ECR, and ACR are tried sequentially.
+	// ECR and ACR helpers does not provide simple way to cache the credential before expiration at this moment.
+	// So, `cachedHelper` keeps the credential for the specified duration.
+	// In case of google.Keychain, by ReuseTokenSource, the credential is cached.
+	// Refer to https://github.com/google/go-containerregistry/blob/4d7b65b04609719eb0f23afa8669ba4b47178571/pkg/v1/google/auth.go#L60.
 	defaultKeychain = authn.NewMultiKeychain(
 		authn.DefaultKeychain,
 		google.Keychain,
