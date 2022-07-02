@@ -145,9 +145,7 @@ type AccessLogBuilder struct {
 	mutex                 sync.RWMutex
 	fileAccesslog         *accesslog.AccessLog
 	listenerFileAccessLog *accesslog.AccessLog
-
-	storeMutex sync.RWMutex
-	store      simplelru.LRUCache
+	store                 simplelru.LRUCache
 }
 
 func newAccessLogBuilder() *AccessLogBuilder {
@@ -163,8 +161,8 @@ func newAccessLogBuilder() *AccessLogBuilder {
 }
 
 func (b *AccessLogBuilder) cachedAccessLog(key interface{}) ([]*accesslog.AccessLog, bool) {
-	b.storeMutex.Lock()
-	defer b.storeMutex.Unlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
 	if !b.store.Contains(key) {
 		return nil, false
@@ -179,17 +177,10 @@ func (b *AccessLogBuilder) cachedAccessLog(key interface{}) ([]*accesslog.Access
 }
 
 func (b *AccessLogBuilder) addAccessLog(key interface{}, accessLoggings []*accesslog.AccessLog) {
-	b.storeMutex.Lock()
-	defer b.storeMutex.Unlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
 	b.store.Add(key, accessLoggings)
-}
-
-func (b *AccessLogBuilder) purge() {
-	b.storeMutex.Lock()
-	defer b.storeMutex.Unlock()
-
-	b.store, _ = simplelru.NewLRU(cacheSize, nil)
 }
 
 func cacheKey(proxy *model.Proxy, forListener bool, class networking.ListenerClass) string {
@@ -784,9 +775,8 @@ func httpGrpcAccessLog() *accesslog.AccessLog {
 
 func (b *AccessLogBuilder) reset() {
 	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.fileAccesslog = nil
 	b.listenerFileAccessLog = nil
-	b.mutex.Unlock()
-
-	b.purge()
+	b.store, _ = simplelru.NewLRU(cacheSize, nil)
 }
