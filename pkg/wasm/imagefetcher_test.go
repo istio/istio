@@ -639,7 +639,6 @@ func (ts testStep) test(t *testing.T, helper *cachedHelper) {
 }
 
 func TestCachedHelper(t *testing.T) {
-
 	initialHelper := &dummyHelper{
 		username: "username-1",
 		password: "password-1",

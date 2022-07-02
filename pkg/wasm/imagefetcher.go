@@ -44,28 +44,26 @@ import (
 
 const (
 	// According to https://docs.aws.amazon.com/cli/latest/reference/ecr/get-authorization-token.html#output,
-	// the expiration interval of the auth token in Amazon is 12 hour. For safty, let's uses 6 hours.
+	// the expiration interval of the auth token in Amazon is 12 hour. For safety, let's uses 6 hours.
 	ecrCredExpiration = time.Hour * 6
 	// According to https://docs.microsoft.com/en-us/azure/active-directory/develop/refresh-tokens#refresh-token-lifetime,
-	// the expiration interval of the auth token in Azure is 24 hour. For the safty, let's uses 12 hours.
+	// the expiration interval of the auth token in Azure is 24 hour. For the safety, let's uses 12 hours.
 	// Note that Azure uses the Azure AD refresh token as a password when authenticating a docker client.
-	acrCredExpiration = time.Hour * 6
+	acrCredExpiration = time.Hour * 12
 )
 
-var (
-	// Make a default key chain with the support for GCR, ECR, and ACR.
-	// After looking up DOCKER_CONFIG by `authn.DefaultKeychain`,
-	// GCR, ECR, and ACR are tried sequentially.
-	// ECR and ACR helpers does not provide simple way to cache the credential before expiration at this moment.
-	// So, `cachedHelper` keeps the credential for the specified duration.
-	// In case of google.Keychain, by ReuseTokenSource, the credential is cached.
-	// Refer to https://github.com/google/go-containerregistry/blob/4d7b65b04609719eb0f23afa8669ba4b47178571/pkg/v1/google/auth.go#L60.
-	defaultKeychain = authn.NewMultiKeychain(
-		authn.DefaultKeychain,
-		google.Keychain,
-		authn.NewKeychainFromHelper(wrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration)),
-		authn.NewKeychainFromHelper(wrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration)),
-	)
+// Make a default key chain with the support for GCR, ECR, and ACR.
+// After looking up DOCKER_CONFIG by `authn.DefaultKeychain`,
+// GCR, ECR, and ACR are tried sequentially.
+// ECR and ACR helpers does not provide simple way to cache the credential before expiration at this moment.
+// So, `cachedHelper` keeps the credential for the specified duration.
+// In case of google.Keychain, by ReuseTokenSource, the credential is cached.
+// Refer to https://github.com/google/go-containerregistry/blob/4d7b65b04609719eb0f23afa8669ba4b47178571/pkg/v1/google/auth.go#L60.
+var defaultKeychain = authn.NewMultiKeychain(
+	authn.DefaultKeychain,
+	google.Keychain,
+	authn.NewKeychainFromHelper(wrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration)),
+	authn.NewKeychainFromHelper(wrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration)),
 )
 
 type cachedHelperEntry struct {
@@ -104,7 +102,7 @@ func wrapHelperWithCache(helper authn.Helper, expirationInterval time.Duration) 
 		internalHelper: helper,
 		expiration:     expirationInterval,
 		cache:          make(map[string]cachedHelperEntry),
-		getNow:         func() time.Time { return time.Now() },
+		getNow:         time.Now,
 	}
 }
 
