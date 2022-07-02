@@ -34,6 +34,7 @@ func init() {
 	monitoring.MustRegister(xdsCacheReads)
 	monitoring.MustRegister(xdsCacheEvictions)
 	monitoring.MustRegister(xdsCacheSize)
+	monitoring.MustRegister(dependentConfigSize)
 }
 
 var (
@@ -51,6 +52,11 @@ var (
 	xdsCacheSize = monitoring.NewGauge(
 		"xds_cache_size",
 		"Current size of xds cache",
+	)
+
+	dependentConfigSize = monitoring.NewGauge(
+		"xds_cache_dependent_config_size",
+		"Current size of dependent configs",
 	)
 
 	xdsCacheHits   = xdsCacheReads.With(typeTag.Value("hit"))
@@ -175,6 +181,17 @@ func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
 	return l
 }
 
+func (l *LruCache) recordDependentConfigSize() {
+	if !features.EnableXDSCacheMetrics {
+		return
+	}
+	dsize := 0
+	for _, dependents := range l.configIndex {
+		dsize += len(dependents)
+	}
+	dependentConfigSize.Record(float64(dsize))
+}
+
 // This is the callback passed to LRU, it will be called whenever a key is removed.
 func (l *LruCache) onEvict(k interface{}, _ interface{}) {
 	if features.EnableXDSCacheMetrics {
@@ -202,7 +219,7 @@ func (l *LruCache) handleEvicted(stopCh <-chan struct{}) {
 	}
 }
 
-// clearEvicted is to clear configIndex and typesIndex based on evictedKeys.gi
+// clearEvicted is to clear configIndex and typesIndex based on evictedKeys.
 func (l *LruCache) clearEvicted() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -233,6 +250,7 @@ func (l *LruCache) clearEvicted() {
 		}
 	}
 	l.evictedKeys = sets.New()
+	l.recordDependentConfigSize()
 }
 
 func (l *LruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
@@ -242,6 +260,7 @@ func (l *LruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
 		}
 		l.configIndex[cfg].Insert(k)
 	}
+	l.recordDependentConfigSize()
 }
 
 func (l *LruCache) clearConfigIndex(k string, dependentConfigs []ConfigKey) {
@@ -254,6 +273,7 @@ func (l *LruCache) clearConfigIndex(k string, dependentConfigs []ConfigKey) {
 			}
 		}
 	}
+	l.recordDependentConfigSize()
 }
 
 func (l *LruCache) updateTypesIndex(k string, dependentTypes []kind.Kind) {
