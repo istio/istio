@@ -229,6 +229,9 @@ spec:
                                 connectTimeout:
                                   description: TCP connection timeout.
                                   type: string
+                                maxConnectionDuration:
+                                  description: The maximum duration of a connection.
+                                  type: string
                                 maxConnections:
                                   description: Maximum number of HTTP1 /TCP connections
                                     to a destination host.
@@ -478,6 +481,9 @@ spec:
                                     properties:
                                       connectTimeout:
                                         description: TCP connection timeout.
+                                        type: string
+                                      maxConnectionDuration:
+                                        description: The maximum duration of a connection.
                                         type: string
                                       maxConnections:
                                         description: Maximum number of HTTP1 /TCP
@@ -819,6 +825,9 @@ spec:
                           connectTimeout:
                             description: TCP connection timeout.
                             type: string
+                          maxConnectionDuration:
+                            description: The maximum duration of a connection.
+                            type: string
                           maxConnections:
                             description: Maximum number of HTTP1 /TCP connections
                               to a destination host.
@@ -1062,6 +1071,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                maxConnectionDuration:
+                                  description: The maximum duration of a connection.
                                   type: string
                                 maxConnections:
                                   description: Maximum number of HTTP1 /TCP connections
@@ -1454,6 +1466,9 @@ spec:
                                 connectTimeout:
                                   description: TCP connection timeout.
                                   type: string
+                                maxConnectionDuration:
+                                  description: The maximum duration of a connection.
+                                  type: string
                                 maxConnections:
                                   description: Maximum number of HTTP1 /TCP connections
                                     to a destination host.
@@ -1703,6 +1718,9 @@ spec:
                                     properties:
                                       connectTimeout:
                                         description: TCP connection timeout.
+                                        type: string
+                                      maxConnectionDuration:
+                                        description: The maximum duration of a connection.
                                         type: string
                                       maxConnections:
                                         description: Maximum number of HTTP1 /TCP
@@ -2044,6 +2062,9 @@ spec:
                           connectTimeout:
                             description: TCP connection timeout.
                             type: string
+                          maxConnectionDuration:
+                            description: The maximum duration of a connection.
+                            type: string
                           maxConnections:
                             description: Maximum number of HTTP1 /TCP connections
                               to a destination host.
@@ -2287,6 +2308,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                maxConnectionDuration:
+                                  description: The maximum duration of a connection.
                                   type: string
                                 maxConnections:
                                   description: Maximum number of HTTP1 /TCP connections
