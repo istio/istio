@@ -138,11 +138,18 @@ func readDeploymentYAML(ctx resource.Context) (string, error) {
 	// Replace the image.
 	s := ctx.Settings().Image
 	if s.PullSecret != "" {
-		yamlText, err = addPullSecret(yamlText, s.PullSecret)
+		var imageSpec resource.ImageSettings
+		imageSpec.PullSecret = s.PullSecret
+		secretName, err := imageSpec.PullSecretName()
+		if err != nil {
+			return "", err
+		}
+		yamlText, err = addPullSecret(yamlText, secretName)
 		if err != nil {
 			return "", err
 		}
 	}
+
 	oldImage := "gcr.io/istio-testing/ext-authz:latest"
 	newImage := fmt.Sprintf("%s/ext-authz:%s", s.Hub, strings.TrimSuffix(s.Tag, "-distroless"))
 	yamlText = strings.ReplaceAll(yamlText, oldImage, newImage)
