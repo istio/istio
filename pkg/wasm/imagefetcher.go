@@ -70,14 +70,16 @@ type cachedHelper struct {
 	internalHelper authn.Helper
 	expiration     time.Duration
 	cache          map[string]cachedHelperEntry
+	getNow         func() time.Time
 }
 
 func (helper *cachedHelper) Get(serverURL string) (string, string, error) {
 	entry, ok := helper.cache[serverURL]
-	now := time.Now()
-	if !ok || entry.expireAt.Before(now) {
+	now := helper.getNow()
+	if !ok || now.After(entry.expireAt) {
 		username, password, err := helper.internalHelper.Get(serverURL)
 		if err != nil {
+			delete(helper.cache, serverURL)
 			return "", "", err
 		}
 		entry = cachedHelperEntry{
@@ -95,6 +97,7 @@ func wrapHelperWithCache(helper authn.Helper, expirationInterval time.Duration) 
 		internalHelper: helper,
 		expiration:     expirationInterval,
 		cache:          make(map[string]cachedHelperEntry),
+		getNow:         func() time.Time { return time.Now() },
 	}
 }
 
