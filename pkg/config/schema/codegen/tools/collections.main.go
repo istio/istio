@@ -71,6 +71,18 @@ func main() {
 		}
 		return
 	}
+	if pkg == "kind" {
+		contents, err = codegen.WriteKind(pkg, m)
+		if err != nil {
+			fmt.Printf("Error applying static init template: %v", err)
+			os.Exit(-3)
+		}
+		if err = os.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
+			fmt.Printf("Error writing output file: %v", err)
+			os.Exit(-4)
+		}
+		return
+	}
 	if splitOn == "" {
 		contents, err = codegen.StaticCollections(pkg, m, func(name string) bool {
 			return true

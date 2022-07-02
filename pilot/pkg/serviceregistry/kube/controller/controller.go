@@ -1249,7 +1249,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
 	}
 	if len(services) == 0 {
-		return nil, fmt.Errorf("no instances found for %s: %v", proxy.ID, err)
+		return nil, fmt.Errorf("no instances found for %s", proxy.ID)
 	}
 
 	out := make([]*model.ServiceInstance, 0)
@@ -1375,14 +1375,6 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 		return pod.Labels
 	}
 	return nil
-}
-
-// GetIstioServiceAccounts returns the Istio service accounts running a service
-// hostname. Each service account is encoded according to the SPIFFE VSID spec.
-// For example, a service account named "bar" in namespace "foo" is encoded as
-// "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	return model.GetServiceAccounts(svc, ports, c)
 }
 
 // AppendServiceHandler implements a service catalog operation

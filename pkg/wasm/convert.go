@@ -160,7 +160,9 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	if remote.Sha256 == "nil" {
 		remote.Sha256 = ""
 	}
-	timeout := time.Duration(0)
+	// Default timeout. Without this if user does not specify a timeout in the config, it fails with deadline exceeded
+	// while building transport in go container.
+	timeout := time.Second * 5
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}

@@ -50,6 +50,13 @@ import (
 
 var _ mesh.Holder = &Environment{}
 
+func NewEnvironment() *Environment {
+	return &Environment{
+		PushContext:   NewPushContext(),
+		EndpointIndex: NewEndpointIndex(),
+	}
+}
+
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
 	// Discovery interface for listing services and instances.
@@ -89,6 +96,10 @@ type Environment struct {
 	clusterLocalServices ClusterLocalProvider
 
 	GatewayAPIController GatewayController
+
+	// EndpointShards for a service. This is a global (per-server) list, built from
+	// incremental updates. This is keyed by service and namespace
+	EndpointIndex *EndpointIndex
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {

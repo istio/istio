@@ -107,6 +107,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 		NewTest(t).
 		Features("traffic.tunneling").
 		Run(func(ctx framework.TestContext) {
+			ctx.Skip("https://github.com/istio/istio/issues/39586")
 			meshNs := apps.A.NamespaceName()
 			externalNs := apps.External.Namespace.Name()
 
@@ -167,7 +168,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 
 func testConnectivity(from, to echo.Instance, p protocol.Instance, portName, testName string) error {
 	res, err := from.Call(echo.CallOptions{
-		Address: apps.External.All[0].ClusterLocalFQDN(),
+		Address: to.ClusterLocalFQDN(),
 		Port: echo.Port{
 			Protocol:    p,
 			ServicePort: to.PortForName(portName).ServicePort,

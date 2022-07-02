@@ -32,10 +32,11 @@ type Environment interface {
 
 	EnvironmentName() string
 
-	// Mesh clusters in this Environment. There will always be at least one.
+	// Clusters in this Environment. There will always be at least one.
 	Clusters() cluster.Clusters
 
-	// All clusters in this Environment, including external control planes.
+	// AllClusters in this Environment, including external control planes.
 	AllClusters() cluster.Clusters
-	IsMultinetwork() bool
+	IsMultiCluster() bool
+	IsMultiNetwork() bool
 }

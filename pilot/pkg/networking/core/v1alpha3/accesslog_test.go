@@ -103,13 +103,16 @@ func TestListenerAccessLog(t *testing.T) {
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			accessLogBuilder.reset()
 			// Update MeshConfig
 			m := mesh.DefaultMeshConfig()
 			m.AccessLogFile = "foo"
 			m.AccessLogEncoding = tc.encoding
 			m.AccessLogFormat = tc.format
 			listeners := buildListeners(t, TestOptions{MeshConfig: m}, nil)
-			accessLogBuilder.reset()
+			if len(listeners) != 2 {
+				t.Errorf("expected to have 2 listeners, but got %v", len(listeners))
+			}
 			// Validate that access log filter uses the new format.
 			for _, l := range listeners {
 				if l.AccessLog[0].Filter == nil {
@@ -391,6 +394,19 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
+	defaultEnvoyProvider := &model.LoggingConfig{
+		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "envoy",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: "/dev/stdout",
+					},
+				},
+			},
+		},
+	}
+
 	grpcBackendClusterName := "outbound|9811||grpc-als.foo.svc.cluster.local"
 	grpcBackendAuthority := "grpc-als.foo.svc.cluster.local"
 	otelCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
@@ -548,6 +564,8 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			FilterStateObjectsToLog: fakeFilterStateObjects,
 		},
 	}
+
+	defaultFormatJSON, _ := protomarshal.ToJSON(EnvoyJSONLogFormatIstio)
 
 	ctx := model.NewPushContext()
 	ctx.ServiceIndex.HostnameAndNamespace["otel-collector.foo.svc.cluster.local"] = map[string]*model.Service{
@@ -807,9 +825,40 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "default-envoy-provider",
+			ctx:  ctx,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_JSON,
+				AccessLogFormat:   defaultFormatJSON,
+				ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+					{
+						Name: "envoy",
+						Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+							EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+								Path: "/dev/stdout",
+							},
+						},
+					},
+				},
+			},
+			spec:        defaultEnvoyProvider,
+			forListener: false,
+			expected: []*accesslog.AccessLog{
+				{
+					Name:       wellknown.FileAccessLog,
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(defaultJSONLabelsOut)},
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := buildAccessLogFromTelemetry(tc.ctx, tc.spec, tc.forListener)
+			ctx := tc.ctx
+			if ctx == nil {
+				ctx = model.NewPushContext()
+			}
+			ctx.Mesh = tc.meshConfig
+			got := buildAccessLogFromTelemetry(ctx, tc.spec, tc.forListener)
 
 			assert.Equal(t, tc.expected, got)
 		})

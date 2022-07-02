@@ -469,11 +469,11 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	} else if req.Full {
 		// similar to sotw
 		subscribed := sets.New(w.ResourceNames...)
-		subscribed.Delete(currentResources...)
+		subscribed.DeleteAll(currentResources...)
 		resp.RemovedResources = subscribed.SortedList()
 	}
 	if len(resp.RemovedResources) > 0 {
-		deltaLog.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
+		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
 	}
 	// normally wildcard xds `subscribe` is always empty, just in case there are some extended type not handled correctly.
 	if len(req.Delta.Subscribed) == 0 && isWildcardTypeURL(w.TypeUrl) {
@@ -552,7 +552,7 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) []string {
 	res := sets.New(existing...)
 	res.InsertAll(request.ResourceNamesSubscribe...)
-	res.Delete(request.ResourceNamesUnsubscribe...)
+	res.DeleteAll(request.ResourceNamesUnsubscribe...)
 	return res.SortedList()
 }
 

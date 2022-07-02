@@ -42,6 +42,7 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -57,6 +58,13 @@ type GatewayConformanceInputs struct {
 
 var gatewayConformanceInputs GatewayConformanceInputs
 
+// defined in sigs.k8s.io/gateway-api/conformance/base/manifests.yaml
+var conformanceNamespaces = []string{
+	"gateway-conformance-infra",
+	"gateway-conformance-app-backend",
+	"gateway-conformance-web-backend",
+}
+
 func TestGatewayConformance(t *testing.T) {
 	// nolint: staticcheck
 	framework.
@@ -64,7 +72,7 @@ func TestGatewayConformance(t *testing.T) {
 		RequiresSingleCluster().
 		Features("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
-			if !supportsCRDv1(ctx) {
+			if !supportsGatewayAPI(ctx) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
 			if err := ctx.ConfigIstio().
@@ -92,12 +100,21 @@ func TestGatewayConformance(t *testing.T) {
 				GatewayClassName:     "istio",
 				Debug:                scopes.Framework.DebugEnabled(),
 				CleanupBaseResources: gatewayConformanceInputs.Cleanup,
+				SupportedFeatures:    []suite.SupportedFeature{suite.SupportReferenceGrant},
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
 					"istio.io/rev": rev,
 				}
 			}
+			ctx.Cleanup(func() {
+				if !ctx.Failed() {
+					return
+				}
+				for _, ns := range conformanceNamespaces {
+					namespace.Dump(ctx, ns)
+				}
+			})
 			csuite := suite.New(opts)
 			csuite.Setup(t)
 

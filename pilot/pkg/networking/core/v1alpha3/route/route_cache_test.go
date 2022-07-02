@@ -24,11 +24,14 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
 	xdsCache := model.NewXdsCache()
+	go xdsCache.Run(stop)
 	// root virtual service
 	root := config.Config{
 		Meta: config.Meta{Name: "root", Namespace: "default"},
@@ -45,7 +48,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 		},
 	}
 	// delegate virtual service
-	delegate := model.ConfigKey{Kind: gvk.VirtualService, Name: "delegate", Namespace: "default"}
+	delegate := model.ConfigKey{Kind: kind.VirtualService, Name: "delegate", Namespace: "default"}
 	// rds cache entry
 	entry := Cache{
 		VirtualServices:         []config.Config{root},
@@ -71,7 +74,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 
 	// add resource to cache
 	xdsCache.Add(&entry, &model.PushRequest{Start: time.Now()}, resource)
-	irrelevantDelegate := model.ConfigKey{Kind: gvk.VirtualService, Name: "foo", Namespace: "default"}
+	irrelevantDelegate := model.ConfigKey{Kind: kind.VirtualService, Name: "foo", Namespace: "default"}
 
 	// don't clear cache when irrelevant delegate virtual service is updated
 	xdsCache.Clear(map[model.ConfigKey]struct{}{

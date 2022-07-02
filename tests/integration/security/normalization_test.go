@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
-	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
 func supportedPercentEncode(i int) bool {
@@ -224,7 +223,7 @@ func TestNormalization(t *testing.T) {
 			}
 			for _, tt := range cases {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
-					istio.PatchMeshConfigOrFail(t, ist.Settings().SystemNamespace, t.Clusters(), fmt.Sprintf(`
+					ist.PatchMeshConfigOrFail(t, t, fmt.Sprintf(`
 pathNormalization:
   normalization: %v`, tt.ntype.String()))
 					for _, c := range apps.A {

@@ -27,11 +27,11 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-type ProtocolAdressesAnalyzer struct{}
+type ProtocolAddressesAnalyzer struct{}
 
-var _ analysis.Analyzer = &ProtocolAdressesAnalyzer{}
+var _ analysis.Analyzer = &ProtocolAddressesAnalyzer{}
 
-func (serviceEntry *ProtocolAdressesAnalyzer) Metadata() analysis.Metadata {
+func (serviceEntry *ProtocolAddressesAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "serviceentry.Analyzer",
 		Description: "Checks the validity of ServiceEntry",
@@ -42,7 +42,7 @@ func (serviceEntry *ProtocolAdressesAnalyzer) Metadata() analysis.Metadata {
 	}
 }
 
-func (serviceEntry *ProtocolAdressesAnalyzer) Analyze(context analysis.Context) {
+func (serviceEntry *ProtocolAddressesAnalyzer) Analyze(context analysis.Context) {
 	autoAllocated := false
 	context.ForEach(collections.IstioMeshV1Alpha1MeshConfig.Name(), func(r *resource.Instance) bool {
 		mc := r.Message.(*meshconfig.MeshConfig)
@@ -61,7 +61,7 @@ func (serviceEntry *ProtocolAdressesAnalyzer) Analyze(context analysis.Context) 
 	})
 }
 
-func (serviceEntry *ProtocolAdressesAnalyzer) analyzeProtocolAddresses(r *resource.Instance, ctx analysis.Context, metaDNSAutoAllocated bool) {
+func (serviceEntry *ProtocolAddressesAnalyzer) analyzeProtocolAddresses(r *resource.Instance, ctx analysis.Context, metaDNSAutoAllocated bool) {
 	se := r.Message.(*v1alpha3.ServiceEntry)
 	if se.Addresses == nil && !metaDNSAutoAllocated {
 		for index, port := range se.Ports {

@@ -153,6 +153,9 @@ type Config struct {
 
 	// EnableCNI indicates the test should have CNI enabled.
 	EnableCNI bool
+
+	// custom deployment for ingress and egress gateway on remote clusters.
+	GatewayValues string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {
@@ -177,6 +180,21 @@ spec:
   tag: %s
 %s
 `, s.Image.Hub, s.Image.Tag, data)
+}
+
+func (c *Config) fillDefaults(ctx resource.Context) {
+	if ctx.AllClusters().IsExternalControlPlane() {
+		c.PrimaryClusterIOPFile = IntegrationTestExternalIstiodPrimaryDefaultsIOP
+		c.ConfigClusterIOPFile = IntegrationTestExternalIstiodConfigDefaultsIOP
+		if c.ConfigClusterValues == "" {
+			c.ConfigClusterValues = c.RemoteClusterValues
+		}
+	} else if !c.IstiodlessRemotes {
+		c.RemoteClusterIOPFile = IntegrationTestDefaultsIOP
+		if c.RemoteClusterValues == "" {
+			c.RemoteClusterValues = c.ControlPlaneValues
+		}
+	}
 }
 
 // Indent indents a block of text with an indent string

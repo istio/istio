@@ -71,7 +71,7 @@ const (
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
 
 	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
+	localHostIPv6 = "::1"
 )
 
 var (
@@ -192,7 +192,7 @@ func NewServer(config Options) (*Server, error) {
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
-		appProbersDestination: wrapIPv6(config.PodIP),
+		appProbersDestination: config.PodIP,
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
@@ -483,6 +483,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	metrics.ScrapeTotals.Increment()
 	var envoy, application, agent []byte
 	var err error
+
 	// Gather all the metrics we will merge
 	if !s.config.NoEnvoy {
 		if envoy, _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
@@ -667,10 +668,12 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 		proberPath = "/" + proberPath
 	}
 	var url string
+
+	hostPort := net.JoinHostPort(s.appProbersDestination, strconv.Itoa(prober.HTTPGet.Port.IntValue()))
 	if prober.HTTPGet.Scheme == apimirror.URISchemeHTTPS {
-		url = fmt.Sprintf("https://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
+		url = fmt.Sprintf("https://%s%s", hostPort, proberPath)
 	} else {
-		url = fmt.Sprintf("http://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
+		url = fmt.Sprintf("http://%s%s", hostPort, proberPath)
 	}
 	appReq, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -729,7 +732,6 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 }
 
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
-	port := prober.TCPSocket.Port.IntValue()
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
 	d := &net.Dialer{
@@ -737,7 +739,7 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		Timeout:   timeout,
 	}
 
-	conn, err := d.Dial("tcp", fmt.Sprintf("%s:%d", s.appProbersDestination, port))
+	conn, err := d.Dial("tcp", net.JoinHostPort(s.appProbersDestination, strconv.Itoa(prober.TCPSocket.Port.IntValue())))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
@@ -771,7 +773,7 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	addr := fmt.Sprintf("%s:%d", s.appProbersDestination, prober.GRPC.Port)
+	addr := net.JoinHostPort(s.appProbersDestination, strconv.Itoa(int(prober.GRPC.Port)))
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
 		log.Errorf("Failed to create grpc connection to probe app: %v", err)
@@ -853,16 +855,4 @@ func notifyExit() {
 	if err := p.Signal(syscall.SIGTERM); err != nil {
 		log.Errorf("failed to send SIGTERM to self: %v", err)
 	}
-}
-
-// wrapIPv6 wraps the ip into "[]" in case of ipv6
-func wrapIPv6(ipAddr string) string {
-	addr := net.ParseIP(ipAddr)
-	if addr == nil {
-		return ipAddr
-	}
-	if addr.To4() != nil {
-		return ipAddr
-	}
-	return fmt.Sprintf("[%s]", ipAddr)
 }

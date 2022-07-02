@@ -31,6 +31,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -178,7 +179,7 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: gvk.AuthorizationPolicy}: {},
+					{Kind: kind.AuthorizationPolicy}: {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
@@ -191,8 +192,8 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: gvk.AuthorizationPolicy}: {},
-					{Kind: gvk.WasmPlugin}:          {},
+					{Kind: kind.AuthorizationPolicy}: {},
+					{Kind: kind.WasmPlugin}:          {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
@@ -205,8 +206,8 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: gvk.AuthorizationPolicy}: {},
-					{Kind: gvk.Secret}:              {},
+					{Kind: kind.AuthorizationPolicy}: {},
+					{Kind: kind.Secret}:              {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
@@ -219,7 +220,7 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: gvk.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
+					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
@@ -232,7 +233,7 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: gvk.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
+					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},

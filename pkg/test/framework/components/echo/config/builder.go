@@ -109,7 +109,7 @@ func (b *Builder) Source(sources ...Source) *Builder {
 			}
 
 			// Delete all the wellknown parameters.
-			need.Delete(param.AllWellKnown().ToStringArray()...)
+			need.DeleteAll(param.AllWellKnown().ToStringArray()...)
 			if len(need) > 0 {
 				panic(fmt.Sprintf("config source missing parameters: %v", need))
 			}

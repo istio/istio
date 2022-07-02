@@ -42,6 +42,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
@@ -228,14 +229,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
 				clusterKey.proxyView, clusterKey.destinationRule, clusterKey.serviceAccounts)
 
-			if patched := cp.applyResource(nil, defaultCluster.build()); patched != nil {
+			if patched := cp.patch(nil, defaultCluster.build()); patched != nil {
 				resources = append(resources, patched)
 				if features.EnableCDSCaching {
 					cb.cache.Add(clusterKey, cb.req, patched)
 				}
 			}
 			for _, ss := range subsetClusters {
-				if patched := cp.applyResource(nil, ss); patched != nil {
+				if patched := cp.patch(nil, ss); patched != nil {
 					resources = append(resources, patched)
 					if features.EnableCDSCaching {
 						nk := *clusterKey
@@ -282,15 +283,15 @@ type clusterPatcher struct {
 	pctx networking.EnvoyFilter_PatchContext
 }
 
-func (p clusterPatcher) applyResource(hosts []host.Name, c *cluster.Cluster) *discovery.Resource {
-	cluster := p.apply(hosts, c)
+func (p clusterPatcher) patch(hosts []host.Name, c *cluster.Cluster) *discovery.Resource {
+	cluster := p.doPatch(hosts, c)
 	if cluster == nil {
 		return nil
 	}
 	return &discovery.Resource{Name: cluster.Name, Resource: util.MessageToAny(cluster)}
 }
 
-func (p clusterPatcher) apply(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
+func (p clusterPatcher) doPatch(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
 	if !envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
 		return nil
 	}
@@ -302,7 +303,7 @@ func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.N
 		return append(l, clusters...)
 	}
 	for _, c := range clusters {
-		if patched := p.apply(hosts, c); patched != nil {
+		if patched := p.doPatch(hosts, c); patched != nil {
 			l = append(l, patched)
 		}
 	}
@@ -579,11 +580,6 @@ type buildClusterOpts struct {
 	serviceRegistry provider.ID
 	// Indicates if the destionationRule has a workloadSelector
 	isDrWithSelector bool
-}
-
-type upgradeTuple struct {
-	meshdefault meshconfig.MeshConfig_H2UpgradePolicy
-	override    networking.ConnectionPoolSettings_HTTPSettings_H2UpgradePolicy
 }
 
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {

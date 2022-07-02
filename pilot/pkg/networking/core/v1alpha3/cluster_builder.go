@@ -55,16 +55,6 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
-// h2UpgradeMap specifies the truth table when upgrade takes place.
-var h2UpgradeMap = map[upgradeTuple]bool{
-	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:        true,
-	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}: false,
-	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:        false,
-	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:               true,
-	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}:        false,
-	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:               true,
-}
-
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
 // revive:disable-next-line
@@ -666,16 +656,19 @@ func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.Tr
 
 	// TODO (mjog)
 	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
-	override := networking.ConnectionPoolSettings_HTTPSettings_DEFAULT
 	if connectionPool != nil && connectionPool.Http != nil {
-		override = connectionPool.Http.H2UpgradePolicy
-	}
-	// If user wants an upgrade at destination rule/port level that means he is sure that
-	// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
-	// enabled and user wants to upgrade/preserve http protocol from client.
-	if override == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE {
-		log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
-		return true
+		override := connectionPool.Http.H2UpgradePolicy
+		// If user wants an upgrade at destination rule/port level that means he is sure that
+		// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
+		// enabled and user wants to upgrade/preserve http protocol from client.
+		if override == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE {
+			log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
+			return true
+		}
+		if override == networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE {
+			log.Debugf("Not upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
+			return false
+		}
 	}
 
 	// Do not upgrade non-http ports. This also ensures that we are only upgrading
@@ -687,13 +680,7 @@ func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.Tr
 		return false
 	}
 
-	if !h2UpgradeMap[upgradeTuple{mesh.H2UpgradePolicy, override}] {
-		log.Debugf("Not upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
-		return false
-	}
-
-	log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
-	return true
+	return mesh.H2UpgradePolicy == meshconfig.MeshConfig_UPGRADE
 }
 
 // setH2Options make the cluster an h2 cluster by setting http2ProtocolOptions.

@@ -68,6 +68,7 @@ import (
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
@@ -142,6 +143,9 @@ type Client interface {
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
 
+	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
+	WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
+
 	// GetKubernetesVersion returns the Kubernetes server version
 	GetKubernetesVersion() (*kubeVersion.Info, error)
 }
@@ -154,6 +158,9 @@ type ExtendedClient interface {
 
 	// EnvoyDo makes an http request to the Envoy in the specified pod.
 	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
+
+	// EnvoyDoWithPort makes an http request to the Envoy in the specified pod and port.
+	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
 
 	// AllDiscoveryDo makes an http request to each Istio discovery instance.
 	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
@@ -288,7 +295,7 @@ func NewFakeClientWithVersion(minor string, objects ...runtime.Object) ExtendedC
 	c := NewFakeClient(objects...).(*client)
 	if minor != "" && minor != "latest" {
 		c.versionOnce.Do(func() {
-			c.version = &kubeVersion.Info{Major: "1", Minor: minor}
+			c.version = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
 		})
 	}
 	return c
@@ -615,6 +622,19 @@ func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) 
 	}
 }
 
+// WaitForCacheSync is a specialized version of the general WaitForCacheSync function which also
+// handles fake client syncing.
+// This is only required in cases where fake clients are used without RunAndWait.
+func (c *client) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+	if c.informerWatchesPending == nil {
+		return WaitForCacheSync(stop, cacheSyncs...)
+	}
+	syncFns := append(cacheSyncs, func() bool {
+		return c.informerWatchesPending.Load() == 0
+	})
+	return WaitForCacheSync(stop, syncFns...)
+}
+
 func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
@@ -742,6 +762,10 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 
 func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
 	return c.portForwardRequest(ctx, podName, podNamespace, method, path, 15000)
+}
+
+func (c *client) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
+	return c.portForwardRequest(ctx, podName, podNamespace, method, path, port)
 }
 
 func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
@@ -1149,6 +1173,7 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
+	utilruntime.Must(gatewayapibeta.AddToScheme(scheme))
 	utilruntime.Must(apis.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme

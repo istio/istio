@@ -63,7 +63,7 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 	go func() {
 		// Send initial request
 		p.connectedMutex.RLock()
-		initialRequest := p.initialDeltaRequest
+		initialRequest := p.initialDeltaHealthRequest
 		p.connectedMutex.RUnlock()
 
 		for {
@@ -315,13 +315,13 @@ func sendDownstreamDelta(deltaDownstream discovery.AggregatedDiscoveryService_De
 	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
 }
 
-func (p *XdsProxy) persistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {
+func (p *XdsProxy) sendDeltaHealthRequest(req *discovery.DeltaDiscoveryRequest) {
 	p.connectedMutex.Lock()
-	// Immediately send if we are currently connect
+	// Immediately send if we are currently connected.
 	if p.connected != nil && p.connected.deltaRequestsChan != nil {
 		p.connected.deltaRequestsChan.Put(req)
 	}
 	// Otherwise place it as our initial request for new connections
-	p.initialDeltaRequest = req
+	p.initialDeltaHealthRequest = req
 	p.connectedMutex.Unlock()
 }
