@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/docker/cli/cli/config/configfile"
 	dtypes "github.com/docker/cli/cli/config/types"
@@ -41,14 +42,61 @@ import (
 	acr "github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 )
 
+const (
+	// According to https://docs.aws.amazon.com/cli/latest/reference/ecr/get-authorization-token.html#output,
+	// the expiration interval of the auth token in Amazon is 12 hour. For safty, let's uses 6 hours.
+	ecrCredExpiration = time.Hour * 6
+	// According to https://docs.microsoft.com/en-us/azure/active-directory/develop/refresh-tokens#refresh-token-lifetime,
+	// the expiration interval of the auth token in Azure is 24 hour. For the safty, let's uses 12 hours.
+	// Note that Azure uses the Azure AD refresh token as a password when authenticating a docker client.
+	acrCredExpiration = time.Hour * 6
+)
+
 var (
 	defaultKeychain = authn.NewMultiKeychain(
 		authn.DefaultKeychain,
 		google.Keychain,
-		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard))),
-		authn.NewKeychainFromHelper(acr.NewACRCredentialsHelper()),
+		authn.NewKeychainFromHelper(wrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration)),
+		authn.NewKeychainFromHelper(wrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration)),
 	)
 )
+
+type cachedHelperEntry struct {
+	username string
+	password string
+	expireAt time.Time
+}
+type cachedHelper struct {
+	internalHelper authn.Helper
+	expiration     time.Duration
+	cache          map[string]cachedHelperEntry
+}
+
+func (helper *cachedHelper) Get(serverURL string) (string, string, error) {
+	entry, ok := helper.cache[serverURL]
+	now := time.Now()
+	if !ok || entry.expireAt.Before(now) {
+		username, password, err := helper.internalHelper.Get(serverURL)
+		if err != nil {
+			return "", "", err
+		}
+		entry = cachedHelperEntry{
+			username: username,
+			password: password,
+			expireAt: now.Add(helper.expiration),
+		}
+		helper.cache[serverURL] = entry
+	}
+	return entry.username, entry.password, nil
+}
+
+func wrapHelperWithCache(helper authn.Helper, expirationInterval time.Duration) authn.Helper {
+	return &cachedHelper{
+		internalHelper: helper,
+		expiration:     expirationInterval,
+		cache:          make(map[string]cachedHelperEntry),
+	}
+}
 
 // This file implements the fetcher of "Wasm Image Specification" compatible container images.
 // The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
