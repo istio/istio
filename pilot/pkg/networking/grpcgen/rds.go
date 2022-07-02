@@ -18,6 +18,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -29,12 +30,17 @@ import (
 func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) model.Resources {
 	resp := model.Resources{}
 	for _, routeName := range routeNames {
+		log.Infof("dual stack BuildHTTPRoutes with route name: %s", routeName)
 		if rc := buildHTTPRoute(node, push, routeName); rc != nil {
 			resp = append(resp, &discovery.Resource{
 				Name:     routeName,
 				Resource: util.MessageToAny(rc),
 			})
 		}
+	}
+	log.Infof("dual stack BuildHTTPRoutes resp: %v", resp)
+	if len(resp) == 0 {
+		return nil
 	}
 	return resp
 }
@@ -48,6 +54,9 @@ func buildHTTPRoute(node *model.Proxy, push *model.PushContext, routeName string
 	}
 
 	virtualHosts, _, _ := v1alpha3.BuildSidecarOutboundVirtualHosts(node, push, routeName, port, nil, &model.DisabledCache{})
+	if features.EnableDualStack && virtualHosts == nil {
+		return nil
+	}
 
 	// Only generate the required route for grpc. Will need to generate more
 	// as GRPC adds more features.
