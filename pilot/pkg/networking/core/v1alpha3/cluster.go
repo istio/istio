@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
@@ -505,15 +506,14 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 	case model.DNSRoundRobinLB:
 		return cluster.Cluster_LOGICAL_DNS
 	case model.Passthrough:
-		// Gateways cannot use passthrough clusters. So fallback to EDS
-		if proxyType == model.SidecarProxy {
-			if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
-				return cluster.Cluster_EDS
-			}
-
-			return cluster.Cluster_ORIGINAL_DST
+		if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
+			return cluster.Cluster_EDS
 		}
-		return cluster.Cluster_EDS
+		// Gateways cannot use passthrough clusters. So fallback to EDS
+		if proxyType == model.Router {
+			return cluster.Cluster_EDS
+		}
+		return cluster.Cluster_ORIGINAL_DST
 	default:
 		return cluster.Cluster_EDS
 	}
@@ -712,8 +712,14 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
 		applyRoundRobinLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_PASSTHROUGH:
-		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
-		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
+		if c.GetType() != cluster.Cluster_ORIGINAL_DST {
+			log.Warnf("cluster %s is of type %v. Load balancer can not be configured as PASSTHROUGH in destination rule.",
+				c.Name, c.GetType().String())
+			applySimpleDefaultLoadBalancer(c, lb)
+		} else {
+			c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+			c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
+		}
 	default:
 		applySimpleDefaultLoadBalancer(c, lb)
 	}

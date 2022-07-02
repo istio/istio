@@ -1748,6 +1748,14 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLbPolicy:               defaultLBAlgorithm(),
 			expectedLocalityWeightedConfig: true,
 		},
+		{
+			name:          "DNS resolution with PASSTHROUGH in DR",
+			discoveryType: cluster.Cluster_STRICT_DNS,
+			lbSettings: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+			},
+			expectedLbPolicy: cluster.Cluster_LEAST_REQUEST,
+		},
 		// TODO: add more to cover all cases
 	}
 
