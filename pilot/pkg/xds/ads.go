@@ -413,6 +413,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
+	previousNonceAcked := previousInfo.NonceAcked
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
@@ -427,6 +428,16 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if len(removed) == 0 && len(added) == 0 {
+		// We got a request which looks like an ACK, but we already got the same ACK. Envoy won't ACK the
+		// same resource twice. However, in some cases a request for new resources is indistinguishable
+		// from an ACK (in particular, when requesting EDS after a CDS push):
+		// https://github.com/envoyproxy/envoy/issues/13009. As a result, if we see the same ACK multiple
+		// times, we treat subsequent requests as something we should respond to.
+		if features.PushOnRepeatNonce && request.ResponseNonce == previousNonceAcked {
+			log.Debugf("ADS:%s: REQ %s Repeated nonce received %s", stype, con.conID, request.ResponseNonce)
+			return true, emptyResourceDelta
+		}
+
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
 	}
