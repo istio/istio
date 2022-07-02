@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +40,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/security/v1beta1"
+	tpb "istio.io/api/telemetry/v1alpha1"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
@@ -910,6 +912,10 @@ func (s *Server) initRegistryEventHandlers() {
 				continue
 			}
 
+			if schema.Resource().GroupVersionKind() == collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind() {
+				s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), s.telemetryHandler)
+			}
+
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 		if s.environment.GatewayAPIController != nil {
@@ -921,6 +927,43 @@ func (s *Server) initRegistryEventHandlers() {
 			})
 		}
 	}
+}
+
+// telemetryHandler trigger to clean AccessLogging cache when telemetry logging configurations changed
+func (s *Server) telemetryHandler(prev config.Config, curr config.Config, event model.Event) {
+	if accessLoggingChanged(prev, curr, event) {
+		// built-in envoy provider relies on MeshConfig, so we reused MeshConfigChanged callback
+		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
+	}
+}
+
+func accessLoggingChanged(prev config.Config, curr config.Config, event model.Event) bool {
+	loggingCfgChanged := true
+	switch event {
+	case model.EventUpdate:
+		prevTelemetry, prevOk := prev.Spec.(*tpb.Telemetry)
+		currTelemetry, currOk := curr.Spec.(*tpb.Telemetry)
+		if prevOk && currOk && reflect.DeepEqual(prevTelemetry.AccessLogging, currTelemetry.AccessLogging) {
+			loggingCfgChanged = false
+		}
+	case model.EventAdd:
+		if telemetry, ok := curr.Spec.(*tpb.Telemetry); ok {
+			if len(telemetry.AccessLogging) == 0 {
+				loggingCfgChanged = false
+			}
+		}
+	case model.EventDelete:
+		if telemetry, ok := prev.Spec.(*tpb.Telemetry); ok {
+			if len(telemetry.AccessLogging) == 0 {
+				loggingCfgChanged = false
+			}
+		}
+	default:
+		// should not happen, just in case
+		loggingCfgChanged = true
+	}
+	log.Debugf("Event %s AccessLoggingConfigChanged: %s", event.String(), loggingCfgChanged)
+	return loggingCfgChanged
 }
 
 func (s *Server) initIstiodCertLoader() error {

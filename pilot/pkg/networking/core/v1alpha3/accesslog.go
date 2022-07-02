@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
@@ -29,6 +30,7 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/hashicorp/golang-lru/simplelru"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -126,6 +128,9 @@ var (
 			TypedConfig: util.MessageToAny(&formatters.ReqWithoutQuery{}),
 		},
 	}
+
+	// TODO: make this configurable
+	cacheSize = 100
 )
 
 type AccessLogBuilder struct {
@@ -140,18 +145,65 @@ type AccessLogBuilder struct {
 	mutex                 sync.RWMutex
 	fileAccesslog         *accesslog.AccessLog
 	listenerFileAccessLog *accesslog.AccessLog
+
+	storeMutex sync.RWMutex
+	store      simplelru.LRUCache
 }
 
 func newAccessLogBuilder() *AccessLogBuilder {
-	return &AccessLogBuilder{
+	b := &AccessLogBuilder{
 		tcpGrpcAccessLog:         tcpGrpcAccessLog(false),
 		httpGrpcAccessLog:        httpGrpcAccessLog(),
 		tcpGrpcListenerAccessLog: tcpGrpcAccessLog(true),
 	}
+
+	b.store, _ = simplelru.NewLRU(cacheSize, nil)
+
+	return b
+}
+
+func (b *AccessLogBuilder) cachedAccessLog(key interface{}) ([]*accesslog.AccessLog, bool) {
+	b.storeMutex.Lock()
+	defer b.storeMutex.Unlock()
+
+	if !b.store.Contains(key) {
+		return nil, false
+	}
+	val, ok := b.store.Get(key)
+	if !ok {
+		return nil, false
+	}
+
+	logs, ok := val.([]*accesslog.AccessLog)
+	return logs, ok
+}
+
+func (b *AccessLogBuilder) addAccessLog(key interface{}, accessLoggings []*accesslog.AccessLog) {
+	b.storeMutex.Lock()
+	defer b.storeMutex.Unlock()
+
+	b.store.Add(key, accessLoggings)
+}
+
+func (b *AccessLogBuilder) purge() {
+	b.storeMutex.Lock()
+	defer b.storeMutex.Unlock()
+
+	b.store, _ = simplelru.NewLRU(cacheSize, nil)
+}
+
+func cacheKey(proxy *model.Proxy, class networking.ListenerClass) string {
+	return fmt.Sprintf("%s-%d", proxy.ID, class)
 }
 
 func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass) {
 	mesh := push.Mesh
+	k := cacheKey(proxy, class)
+	if l, ok := b.cachedAccessLog(k); ok {
+		tcp.AccessLog = l
+		return
+	}
+
 	cfg := push.Telemetry.AccessLogging(proxy, class)
 
 	if cfg == nil {
@@ -164,12 +216,15 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 			// Setting it to TCP as the low level one.
 			tcp.AccessLog = append(tcp.AccessLog, b.tcpGrpcAccessLog)
 		}
+		b.addAccessLog(k, tcp.AccessLog)
 		return
 	}
 
 	if al := buildAccessLogFromTelemetry(push, cfg, false); len(al) != 0 {
 		tcp.AccessLog = append(tcp.AccessLog, al...)
 	}
+
+	b.addAccessLog(k, tcp.AccessLog)
 }
 
 func buildAccessLogFromTelemetry(push *model.PushContext, spec *model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
@@ -233,6 +288,12 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass,
 ) {
 	mesh := push.Mesh
+	k := cacheKey(proxy, class)
+	if l, ok := b.cachedAccessLog(k); ok {
+		connectionManager.AccessLog = l
+		return
+	}
+
 	cfg := push.Telemetry.AccessLogging(proxy, class)
 
 	if cfg == nil {
@@ -244,12 +305,15 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 		if mesh.EnableEnvoyAccessLogService {
 			connectionManager.AccessLog = append(connectionManager.AccessLog, b.httpGrpcAccessLog)
 		}
+
+		b.addAccessLog(k, connectionManager.AccessLog)
 		return
 	}
 
 	if al := buildAccessLogFromTelemetry(push, cfg, false); len(al) != 0 {
 		connectionManager.AccessLog = append(connectionManager.AccessLog, al...)
 	}
+	b.addAccessLog(k, connectionManager.AccessLog)
 }
 
 func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *model.Proxy,
@@ -259,6 +323,13 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	if mesh.DisableEnvoyListenerLog {
 		return
 	}
+
+	k := cacheKey(proxy, class)
+	if l, ok := b.cachedAccessLog(k); ok {
+		listener.AccessLog = l
+		return
+	}
+
 	cfg := push.Telemetry.AccessLogging(proxy, class)
 
 	if cfg == nil {
@@ -271,12 +342,15 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 			// Setting it to TCP as the low level one.
 			listener.AccessLog = append(listener.AccessLog, b.tcpGrpcListenerAccessLog)
 		}
+
+		b.addAccessLog(k, listener.AccessLog)
 		return
 	}
 
 	if al := buildAccessLogFromTelemetry(push, cfg, true); len(al) != 0 {
 		listener.AccessLog = append(listener.AccessLog, al...)
 	}
+	b.addAccessLog(k, listener.AccessLog)
 }
 
 func tcpGrpcAccessLogFromTelemetry(push *model.PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider) *accesslog.AccessLog {
@@ -711,4 +785,6 @@ func (b *AccessLogBuilder) reset() {
 	b.fileAccesslog = nil
 	b.listenerFileAccessLog = nil
 	b.mutex.Unlock()
+
+	b.purge()
 }
