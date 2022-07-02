@@ -14,9 +14,11 @@ require (
 	contrib.go.opencensus.io/exporter/prometheus v0.4.1
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20220511133513-5ae53b7a8154
 	github.com/Masterminds/sprig/v3 v3.2.2
+	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220701215136-490c7a694674
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/census-instrumentation/opencensus-proto v0.3.0
 	github.com/cheggaaa/pb/v3 v3.0.8
+	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08
 	github.com/cncf/xds/go v0.0.0-20220520190051-1e77728a1eaa
 	github.com/containernetworking/cni v1.1.1
 	github.com/containernetworking/plugins v1.1.1
@@ -135,13 +137,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.2.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.3.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.6.0 // indirect
-	github.com/aws/smithy-go v1.6.0 // indirect
-	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220517224237-e6f29200ae04 // indirect
+	github.com/aws/smithy-go v1.12.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
-	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08 // indirect
 	github.com/cncf/udpa/go v0.0.0-20210930031921-04548b0d99d4 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.11.4 // indirect
 	github.com/containerd/typeurl v1.0.2 // indirect
@@ -239,7 +239,7 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
-	github.com/stretchr/testify v1.7.1 // indirect
+	github.com/stretchr/testify v1.8.0 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
