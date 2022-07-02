@@ -962,7 +962,7 @@ func accessLoggingChanged(prev config.Config, curr config.Config, event model.Ev
 		// should not happen, just in case
 		loggingCfgChanged = true
 	}
-	log.Debugf("Event %s AccessLoggingConfigChanged: %s", event.String(), loggingCfgChanged)
+	log.Debugf("Event %s AccessLoggingConfigChanged: %v", event.String(), loggingCfgChanged)
 	return loggingCfgChanged
 }
 

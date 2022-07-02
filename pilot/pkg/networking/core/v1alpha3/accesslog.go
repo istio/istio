@@ -192,13 +192,14 @@ func (b *AccessLogBuilder) purge() {
 	b.store, _ = simplelru.NewLRU(cacheSize, nil)
 }
 
-func cacheKey(proxy *model.Proxy, class networking.ListenerClass) string {
-	return fmt.Sprintf("%s-%d", proxy.ID, class)
+func cacheKey(proxy *model.Proxy, forListener bool, class networking.ListenerClass) string {
+	return fmt.Sprintf("%s-%v-%d", proxy.ID, forListener, class)
 }
 
 func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass) {
 	mesh := push.Mesh
-	k := cacheKey(proxy, class)
+	forListener := false
+	k := cacheKey(proxy, forListener, class)
 	if l, ok := b.cachedAccessLog(k); ok {
 		tcp.AccessLog = l
 		return
@@ -220,7 +221,7 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(push, cfg, false); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(push, cfg, forListener); len(al) != 0 {
 		tcp.AccessLog = append(tcp.AccessLog, al...)
 	}
 
@@ -288,7 +289,8 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass,
 ) {
 	mesh := push.Mesh
-	k := cacheKey(proxy, class)
+	forListener := false
+	k := cacheKey(proxy, forListener, class)
 	if l, ok := b.cachedAccessLog(k); ok {
 		connectionManager.AccessLog = l
 		return
@@ -310,7 +312,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(push, cfg, false); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(push, cfg, forListener); len(al) != 0 {
 		connectionManager.AccessLog = append(connectionManager.AccessLog, al...)
 	}
 	b.addAccessLog(k, connectionManager.AccessLog)
@@ -323,8 +325,8 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	if mesh.DisableEnvoyListenerLog {
 		return
 	}
-
-	k := cacheKey(proxy, class)
+	forListener := true
+	k := cacheKey(proxy, forListener, class)
 	if l, ok := b.cachedAccessLog(k); ok {
 		listener.AccessLog = l
 		return
@@ -347,7 +349,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(push, cfg, true); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(push, cfg, forListener); len(al) != 0 {
 		listener.AccessLog = append(listener.AccessLog, al...)
 	}
 	b.addAccessLog(k, listener.AccessLog)
