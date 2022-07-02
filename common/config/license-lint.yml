@@ -123,3 +123,6 @@ allowlisted_modules:
 # MIT: https://github.com/invopop/yaml/blob/v0.1.0/LICENSE
 - github.com/invopop/yaml
 
+# Apache 2.0: https://github.com/aws/smithy-go/blob/main/LICENSE
+- github.com/aws/smithy-go
+
