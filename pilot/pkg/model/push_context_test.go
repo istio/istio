@@ -948,7 +948,7 @@ func TestInitPushContext(t *testing.T) {
 			destinationRuleIndex{}, gatewayIndex{}, consolidatedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
 			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{}),
 		// These are not feasible/worth comparing
-		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
+		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}, AccessLogCache{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
 		protocmp.Transform(),
 	)
