@@ -238,6 +238,8 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 			SigningCertFile: tlsSigningFile,
 			SigningKeyFile:  path.Join(LocalCertDir.Get(), ca.TLSSecretCAPrivateKeyFile),
 		}, nil
+	} else if os.IsNotExist(err) {
+		// noop, file does not exist, move on
 	} else if err != nil {
 		return ca.SigningCAFileBundle{}, err
 	}
