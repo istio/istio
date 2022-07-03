@@ -47,7 +47,7 @@ const (
 	// the expiration interval of the auth token in Amazon is 12 hour. For safety, let's uses 6 hours.
 	ecrCredExpiration = time.Hour * 6
 	// According to https://docs.microsoft.com/en-us/azure/active-directory/develop/refresh-tokens#refresh-token-lifetime,
-	// the expiration interval of the auth token in Azure is 24 hour. For the safety, let's uses 12 hours.
+	// the expiration interval of the auth token in Azure is 24 hour. For safety, let's uses 12 hours.
 	// Note that Azure uses the Azure AD refresh token as a password when authenticating a docker client.
 	acrCredExpiration = time.Hour * 12
 )
