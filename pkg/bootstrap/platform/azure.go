@@ -174,6 +174,10 @@ func (e *azureEnv) IsKubernetes() bool {
 	return true
 }
 
+func (e *azureEnv) Type() PlatformType {
+	return PlatformTypeAzure
+}
+
 func (e *azureEnv) azureMetadata() string {
 	return azureMetadataFn(e.APIVersion)
 }

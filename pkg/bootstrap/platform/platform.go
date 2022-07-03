@@ -22,6 +22,15 @@ const (
 	KubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
 )
 
+type PlatformType string
+
+const (
+	PlatformTypeAWS   PlatformType = "aws"
+	PlatformTypeAzure PlatformType = "azure"
+	PlatformTypeGCP   PlatformType = "gcp"
+	PlatformTypeNone  PlatformType = "none"
+)
+
 // Environment provides information for the platform on which the bootstrapping
 // is taking place.
 type Environment interface {
@@ -41,6 +50,9 @@ type Environment interface {
 
 	// IsKubernetes determines if running on Kubernetes
 	IsKubernetes() bool
+
+	// Type returns the type name of the environment
+	Type() PlatformType
 }
 
 // Unknown provides a default platform environment for cases in which the platform
@@ -65,4 +77,8 @@ func (*Unknown) Labels() map[string]string {
 // IsKubernetes is true to avoid label collisions
 func (*Unknown) IsKubernetes() bool {
 	return true
+}
+
+func (*Unknown) Type() PlatformType {
+	return PlatformTypeNone
 }

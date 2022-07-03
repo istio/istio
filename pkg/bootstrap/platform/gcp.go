@@ -314,3 +314,7 @@ func (e *gcpEnv) IsKubernetes() bool {
 	_, onKubernetes := os.LookupEnv(KubernetesServiceHost)
 	return md[GCPCluster] != "" || onKubernetes
 }
+
+func (e *gcpEnv) Type() PlatformType {
+	return PlatformTypeGCP
+}

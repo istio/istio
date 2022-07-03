@@ -141,6 +141,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}
 
+	wasm.SetupPlatformSpecificDefaultKeyChain(ia.cfg.Platform.Type())
+
 	cache := wasm.NewLocalFileCache(constants.IstioDataDir, ia.cfg.WASMOptions)
 	proxy := &XdsProxy{
 		istiodAddress:         ia.proxyConfig.DiscoveryAddress,

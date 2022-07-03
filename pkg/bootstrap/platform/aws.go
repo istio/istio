@@ -90,6 +90,10 @@ func (a *awsEnv) IsKubernetes() bool {
 	return true
 }
 
+func (a *awsEnv) Type() PlatformType {
+	return PlatformTypeAWS
+}
+
 func getAWSInfo(path string, ipv6 bool) (string, error) {
 	url := awsMetadataIPv4URL + "/" + path
 	if ipv6 {
