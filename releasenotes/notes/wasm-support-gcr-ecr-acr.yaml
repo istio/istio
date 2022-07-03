@@ -4,4 +4,4 @@ area: extensibility
 issue: []
 releaseNotes:
   - |
-    **Added** Support for ImagePullPolicy of WasmPlugin API. 
+    **Added** Natively support GCR/ECR/ACR to get the Wasm module images. 
