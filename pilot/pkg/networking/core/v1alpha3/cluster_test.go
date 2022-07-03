@@ -1749,12 +1749,36 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLocalityWeightedConfig: true,
 		},
 		{
-			name:          "DNS resolution with PASSTHROUGH in DR",
+			name:          "STRICT DNS cluster with PASSTHROUGH in DR",
 			discoveryType: cluster.Cluster_STRICT_DNS,
 			lbSettings: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
 			},
 			expectedLbPolicy: cluster.Cluster_LEAST_REQUEST,
+		},
+		{
+			name:          "Logical DNS cluster with PASSTHROUGH in DR",
+			discoveryType: cluster.Cluster_LOGICAL_DNS,
+			lbSettings: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+			},
+			expectedLbPolicy: cluster.Cluster_LEAST_REQUEST,
+		},
+		{
+			name:          "Static cluster with PASSTHROUGH in DR",
+			discoveryType: cluster.Cluster_STATIC,
+			lbSettings: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+			},
+			expectedLbPolicy: cluster.Cluster_LEAST_REQUEST,
+		},
+		{
+			name:          "EDS cluster with PASSTHROUGH in DR",
+			discoveryType: cluster.Cluster_EDS,
+			lbSettings: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+			},
+			expectedLbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
 		},
 		// TODO: add more to cover all cases
 	}

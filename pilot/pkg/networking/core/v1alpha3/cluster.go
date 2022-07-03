@@ -712,7 +712,16 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
 		applyRoundRobinLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_PASSTHROUGH:
-		if c.GetType() != cluster.Cluster_ORIGINAL_DST {
+		// This can happen two cases.
+		// 1. A ServiceEntry is created with Resolution as DNS/STATIC and the DestinationRule
+		//    is configured with PASSTHROUGH load balancer.
+		// 2. A regular Kubernetes Service (of type EDS), configures DestinationRule with PASSTHROUGH load balancer.
+		// For Case #1, it seems to be a misconfiguration as user has an option of specifying Resolution as 'None'
+		// if he explicitly wants Original DST routing. It seems dangerous to route to any IP in this case.
+		// For Case #2, user is explicitly asking us to use Original DST possibly becase he may want direct pod
+		// access for that service instead of using regular load balancer.
+		// So for Case #1, we apply default simple loadbalancer with a warning.
+		if c.GetType() == cluster.Cluster_STATIC || c.GetType() == cluster.Cluster_STRICT_DNS || c.GetType() == cluster.Cluster_LOGICAL_DNS {
 			log.Warnf("cluster %s is of type %v. Load balancer can not be configured as PASSTHROUGH in destination rule.",
 				c.Name, c.GetType().String())
 			applySimpleDefaultLoadBalancer(c, lb)
