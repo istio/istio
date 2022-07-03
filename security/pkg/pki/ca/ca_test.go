@@ -668,10 +668,6 @@ func TestGenKeyCert(t *testing.T) {
 	}
 }
 
-func createFileBundle() SigningCAFileBundle {
-
-}
-
 func createCA(maxTTL time.Duration, ecSigAlg util.SupportedECSignatureAlgorithms) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
