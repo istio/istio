@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -1712,22 +1713,26 @@ func TestApplyLoadBalancer(t *testing.T) {
 		lbSettings                     *networking.LoadBalancerSettings
 		discoveryType                  cluster.Cluster_DiscoveryType
 		port                           *model.Port
+		serviceRegistry                provider.ID
 		expectedLbPolicy               cluster.Cluster_LbPolicy
 		expectedLocalityWeightedConfig bool
 	}{
 		{
 			name:             "ORIGINAL_DST discovery type is a no op",
 			discoveryType:    cluster.Cluster_ORIGINAL_DST,
+			serviceRegistry:  provider.Kubernetes,
 			expectedLbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
 		},
 		{
 			name:             "redis protocol",
 			discoveryType:    cluster.Cluster_EDS,
+			serviceRegistry:  provider.Kubernetes,
 			port:             &model.Port{Protocol: protocol.Redis},
 			expectedLbPolicy: cluster.Cluster_MAGLEV,
 		},
 		{
-			name: "Loadbalancer has distribute",
+			name:            "Loadbalancer has distribute",
+			serviceRegistry: provider.Kubernetes,
 			lbSettings: &networking.LoadBalancerSettings{
 				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
 					Enabled: &wrappers.BoolValue{Value: true},
@@ -1749,32 +1754,36 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLocalityWeightedConfig: true,
 		},
 		{
-			name:          "STRICT DNS cluster with PASSTHROUGH in DR",
-			discoveryType: cluster.Cluster_STRICT_DNS,
+			name:            "STRICT DNS cluster with PASSTHROUGH in DR",
+			discoveryType:   cluster.Cluster_STRICT_DNS,
+			serviceRegistry: provider.External,
 			lbSettings: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
 			},
 			expectedLbPolicy: cluster.Cluster_LEAST_REQUEST,
 		},
 		{
-			name:          "Logical DNS cluster with PASSTHROUGH in DR",
-			discoveryType: cluster.Cluster_LOGICAL_DNS,
+			name:            "Logical DNS cluster with PASSTHROUGH in DR",
+			discoveryType:   cluster.Cluster_LOGICAL_DNS,
+			serviceRegistry: provider.External,
 			lbSettings: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
 			},
 			expectedLbPolicy: cluster.Cluster_LEAST_REQUEST,
 		},
 		{
-			name:          "Static cluster with PASSTHROUGH in DR",
-			discoveryType: cluster.Cluster_STATIC,
+			name:            "Static cluster with PASSTHROUGH in DR",
+			discoveryType:   cluster.Cluster_EDS,
+			serviceRegistry: provider.External,
 			lbSettings: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
 			},
 			expectedLbPolicy: cluster.Cluster_LEAST_REQUEST,
 		},
 		{
-			name:          "EDS cluster with PASSTHROUGH in DR",
-			discoveryType: cluster.Cluster_EDS,
+			name:            "Kubernetes EDS cluster with PASSTHROUGH in DR",
+			discoveryType:   cluster.Cluster_EDS,
+			serviceRegistry: provider.Kubernetes,
 			lbSettings: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
 			},
@@ -1803,7 +1812,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 				test.SetBoolForTest(t, &features.EnableRedisFilter, true)
 			}
 
-			applyLoadBalancer(c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
+			applyLoadBalancer(c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{}, tt.serviceRegistry)
 
 			if c.LbPolicy != tt.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)

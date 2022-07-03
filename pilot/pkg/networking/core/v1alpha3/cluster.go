@@ -678,6 +678,7 @@ func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
 
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
 	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig,
+	serviceRegistry provider.ID,
 ) {
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if localityLbSetting != nil {
@@ -721,7 +722,8 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 		// For Case #2, user is explicitly asking us to use Original DST possibly becase he may want direct pod
 		// access for that service instead of using regular load balancer.
 		// So for Case #1, we apply default simple loadbalancer with a warning.
-		if c.GetType() == cluster.Cluster_STATIC || c.GetType() == cluster.Cluster_STRICT_DNS || c.GetType() == cluster.Cluster_LOGICAL_DNS {
+		if (serviceRegistry == provider.External && c.GetType() == cluster.Cluster_EDS) ||
+			c.GetType() == cluster.Cluster_STRICT_DNS || c.GetType() == cluster.Cluster_LOGICAL_DNS {
 			log.Warnf("cluster %s is of type %v. Load balancer can not be configured as PASSTHROUGH in destination rule.",
 				c.Name, c.GetType().String())
 			applySimpleDefaultLoadBalancer(c, lb)
