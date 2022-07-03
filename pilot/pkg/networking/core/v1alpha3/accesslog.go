@@ -30,7 +30,6 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/hashicorp/golang-lru/simplelru"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -128,9 +127,6 @@ var (
 			TypedConfig: util.MessageToAny(&formatters.ReqWithoutQuery{}),
 		},
 	}
-
-	// TODO: make this configurable
-	cacheSize = 100
 )
 
 type AccessLogBuilder struct {
@@ -145,7 +141,6 @@ type AccessLogBuilder struct {
 	mutex                 sync.RWMutex
 	fileAccesslog         *accesslog.AccessLog
 	listenerFileAccessLog *accesslog.AccessLog
-	store                 simplelru.LRUCache
 }
 
 func newAccessLogBuilder() *AccessLogBuilder {
@@ -155,32 +150,7 @@ func newAccessLogBuilder() *AccessLogBuilder {
 		tcpGrpcListenerAccessLog: tcpGrpcAccessLog(true),
 	}
 
-	b.store, _ = simplelru.NewLRU(cacheSize, nil)
-
 	return b
-}
-
-func (b *AccessLogBuilder) cachedAccessLog(key interface{}) ([]*accesslog.AccessLog, bool) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	if !b.store.Contains(key) {
-		return nil, false
-	}
-	val, ok := b.store.Get(key)
-	if !ok {
-		return nil, false
-	}
-
-	logs, ok := val.([]*accesslog.AccessLog)
-	return logs, ok
-}
-
-func (b *AccessLogBuilder) addAccessLog(key interface{}, accessLoggings []*accesslog.AccessLog) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	b.store.Add(key, accessLoggings)
 }
 
 func cacheKey(proxy *model.Proxy, forListener bool, class networking.ListenerClass) string {
@@ -191,7 +161,7 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 	mesh := push.Mesh
 	forListener := false
 	k := cacheKey(proxy, forListener, class)
-	if l, ok := b.cachedAccessLog(k); ok {
+	if l, ok := push.AccessLogCache.Get(k); ok {
 		tcp.AccessLog = l
 		return
 	}
@@ -208,7 +178,7 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 			// Setting it to TCP as the low level one.
 			tcp.AccessLog = append(tcp.AccessLog, b.tcpGrpcAccessLog)
 		}
-		b.addAccessLog(k, tcp.AccessLog)
+		push.AccessLogCache.Add(k, tcp.AccessLog)
 		return
 	}
 
@@ -216,7 +186,7 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 		tcp.AccessLog = append(tcp.AccessLog, al...)
 	}
 
-	b.addAccessLog(k, tcp.AccessLog)
+	push.AccessLogCache.Add(k, tcp.AccessLog)
 }
 
 func buildAccessLogFromTelemetry(push *model.PushContext, spec *model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
@@ -282,7 +252,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 	mesh := push.Mesh
 	forListener := false
 	k := cacheKey(proxy, forListener, class)
-	if l, ok := b.cachedAccessLog(k); ok {
+	if l, ok := push.AccessLogCache.Get(k); ok {
 		connectionManager.AccessLog = l
 		return
 	}
@@ -299,14 +269,14 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 			connectionManager.AccessLog = append(connectionManager.AccessLog, b.httpGrpcAccessLog)
 		}
 
-		b.addAccessLog(k, connectionManager.AccessLog)
+		push.AccessLogCache.Add(k, connectionManager.AccessLog)
 		return
 	}
 
 	if al := buildAccessLogFromTelemetry(push, cfg, forListener); len(al) != 0 {
 		connectionManager.AccessLog = append(connectionManager.AccessLog, al...)
 	}
-	b.addAccessLog(k, connectionManager.AccessLog)
+	push.AccessLogCache.Add(k, connectionManager.AccessLog)
 }
 
 func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *model.Proxy,
@@ -318,7 +288,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	}
 	forListener := true
 	k := cacheKey(proxy, forListener, class)
-	if l, ok := b.cachedAccessLog(k); ok {
+	if l, ok := push.AccessLogCache.Get(k); ok {
 		listener.AccessLog = l
 		return
 	}
@@ -336,14 +306,14 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 			listener.AccessLog = append(listener.AccessLog, b.tcpGrpcListenerAccessLog)
 		}
 
-		b.addAccessLog(k, listener.AccessLog)
+		push.AccessLogCache.Add(k, listener.AccessLog)
 		return
 	}
 
 	if al := buildAccessLogFromTelemetry(push, cfg, forListener); len(al) != 0 {
 		listener.AccessLog = append(listener.AccessLog, al...)
 	}
-	b.addAccessLog(k, listener.AccessLog)
+	push.AccessLogCache.Add(k, listener.AccessLog)
 }
 
 func tcpGrpcAccessLogFromTelemetry(push *model.PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider) *accesslog.AccessLog {
@@ -778,5 +748,4 @@ func (b *AccessLogBuilder) reset() {
 	defer b.mutex.Unlock()
 	b.fileAccesslog = nil
 	b.listenerFileAccessLog = nil
-	b.store, _ = simplelru.NewLRU(cacheSize, nil)
 }

@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	"github.com/hashicorp/golang-lru/simplelru"
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -44,6 +46,9 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
+
+// TODO: make this configurable
+const cacheSize = 200
 
 // Metrics is an interface for capturing metrics on a per-node basis.
 type Metrics interface {
@@ -221,6 +226,8 @@ type PushContext struct {
 	// Telemetry stores the existing Telemetry resources for the cluster.
 	Telemetry *Telemetries `json:"-"`
 
+	AccessLogCache *AccessLogCache
+
 	// ProxyConfig stores the existing ProxyConfig resources for the cluster.
 	ProxyConfigs *ProxyConfigs `json:"-"`
 
@@ -250,6 +257,45 @@ type PushContext struct {
 
 	InitDone        atomic.Bool
 	initializeMutex sync.Mutex
+}
+
+type AccessLogCache struct {
+	lock  sync.Mutex
+	store simplelru.LRUCache
+}
+
+func NewAccessLogCache(size int) *AccessLogCache {
+	s, _ := simplelru.NewLRU(size, nil)
+	return &AccessLogCache{
+		store: s,
+	}
+}
+
+func (cache *AccessLogCache) Get(key interface{}) ([]*accesslog.AccessLog, bool) {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	if !cache.store.Contains(key) {
+		return nil, false
+	}
+	val, ok := cache.store.Get(key)
+	if !ok {
+		return nil, false
+	}
+
+	logs, ok := val.([]*accesslog.AccessLog)
+	return logs, ok
+}
+
+func (cache *AccessLogCache) Add(key interface{}, accessLogs []*accesslog.AccessLog) {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	cache.store.Add(key, accessLogs)
+}
+
+func (cache *AccessLogCache) Reset() {
+	cache.store, _ = simplelru.NewLRU(cacheSize, nil)
 }
 
 type consolidatedDestRules struct {
@@ -638,6 +684,7 @@ func NewPushContext() *PushContext {
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
+		AccessLogCache:          NewAccessLogCache(cacheSize),
 	}
 }
 
@@ -1295,6 +1342,7 @@ func (ps *PushContext) updateContext(
 	}
 
 	if telemetryChanged {
+		ps.AccessLogCache.Reset()
 		if err := ps.initTelemetry(env); err != nil {
 			return err
 		}
