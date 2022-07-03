@@ -78,7 +78,11 @@ ip rule add priority 20007 table $INBOUND_ROUTE_TABLE
 
 
 # create the set of pod members
-ipset create uproxy-pods-ips hash:ip
+IPSET=ipset
+if [ "${K8S_TYPE}" == gke ]; then
+  IPSET="toolbox ipset"
+fi
+$IPSET create uproxy-pods-ips hash:ip
 
 # skip things that come from the tunnels, but don't apply the conn skip mark, so only this flow is skipped
 $IPTABLES -t mangle -A uproxy-PREROUTING -i $INBOUND_TUN -j MARK --set-mark $SKIP_MARK

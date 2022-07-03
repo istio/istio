@@ -62,6 +62,13 @@ function exec_on_node() {
       # shellcheck disable=SC2086
       ssh -t -i "$SSH_KEY" ec2-user@"$NODE_IP" "sudo $cmd"
     fi
+  elif [ "${K8S_TYPE}" == gke ]; then
+    if [ -z "${cmd}" ]; then
+      gcloud compute ssh "$node_name" --command="sudo su"
+    else
+      # shellcheck disable=SC2086
+      gcloud compute ssh "$node_name" --command="sudo bash $cmd"
+    fi
   else
     echo "not a supported k8s deployment type"
     exit 1
@@ -80,6 +87,13 @@ if [ -z "${IPTABLES}" ]; then
       break
     fi
   done
+fi
+
+if [ -z "${IPSET}" ]; then
+  IPSET=ipset
+  if [ "${K8S_TYPE}" == gke ]; then
+    IPSET="toolbox ipset"
+  fi
 fi
 
 if [[ "${2:-}" == clean ]]; then
@@ -122,7 +136,7 @@ if [[ "${2:-}" == clean ]]; then
     ip link del name $INBOUND_TUN
     ip link del name $OUTBOUND_TUN
 
-    ipset destroy uproxy-pods-ips
+    $IPSET destroy uproxy-pods-ips
 
     echo If you need to clean the tunnel interface in the uproxy pod consider restarting it.
 EOF
@@ -134,7 +148,7 @@ fi
 
 for node in ${WORKER_NODES}; do
 exec_on_node "$node" <<EOF
-  if ! ipset --help; then
+  if ! $IPSET --help; then
     if apt --help; then
       apt update
       apt install ipset -y
@@ -150,7 +164,7 @@ done
 
 # add our tables if not exist yet, flush them if they do exist.
 for node in ${WORKER_NODES}; do
-  cat "$(dirname -- $0)/config.sh" <(echo IPTABLES=$IPTABLES) <(echo INTERFACE_PREFIX=$INTERFACE_PREFIX) $WD/redirect-worker.sh | exec_on_node "$node"
+  cat "$(dirname -- $0)/config.sh" <(echo IPTABLES=$IPTABLES) <(echo INTERFACE_PREFIX=$INTERFACE_PREFIX) <(echo K8S_TYPE=$K8S_TYPE) $WD/redirect-worker.sh | exec_on_node "$node"
 done
 
 

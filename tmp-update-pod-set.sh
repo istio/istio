@@ -34,6 +34,13 @@ if [ "${K8S_TYPE}" == aws ]; then
   fi
 fi
 
+if [ -z "${IPSET}" ]; then
+  IPSET=ipset
+  if [ "${K8S_TYPE}" == gke ]; then
+    IPSET="toolbox ipset"
+  fi
+fi
+
 function exec_on_node() {
   local node_name="$1"
   local cmd="$2"
@@ -56,6 +63,13 @@ function exec_on_node() {
       # shellcheck disable=SC2086
       ssh -t -i "$SSH_KEY" ec2-user@"$NODE_IP" "sudo $cmd"
     fi
+  elif [ "${K8S_TYPE}" == gke ]; then
+    if [ -z "${cmd}" ]; then
+      gcloud compute ssh "$node_name" --command="sudo su"
+    else
+      # shellcheck disable=SC2086
+      gcloud compute ssh "$node_name" --command="sudo bash $cmd"
+    fi
   else
     echo "not a supported k8s deployment type"
     exit 1
@@ -66,8 +80,8 @@ function add_ip_set() {
     local node_name="$1"
     PODS="$(kubectl get pods --all-namespaces --field-selector spec.nodeName="$node_name" -lambient-type=workload -o custom-columns=:.status.podIP --no-headers)"
     exec_on_node "$node_name" <<EOF
-    ipset create tmp-uproxy-pods-ips hash:ip
-    ipset flush tmp-uproxy-pods-ips
+    $IPSET create tmp-uproxy-pods-ips hash:ip
+    $IPSET flush tmp-uproxy-pods-ips
 EOF
         exec_on_node "$node_name" <<EOF
 
@@ -84,7 +98,7 @@ PODS="$PODS"
 ip route flush table $INBOUND_ROUTE_TABLE2
 # fill in secondary table
 for pip in \$PODS; do
-        ipset add tmp-uproxy-pods-ips \$pip
+        $IPSET add tmp-uproxy-pods-ips \$pip
         ip route add table $INBOUND_ROUTE_TABLE2 \$pip/32 via $UPROXY_INBOUND_TUN_IP dev $INBOUND_TUN src \$HOST_IP
 done
 
@@ -102,8 +116,8 @@ ip rule del priority 20003 goto 20005
 EOF
 
     exec_on_node "$node_name" <<EOF
-    ipset swap tmp-uproxy-pods-ips uproxy-pods-ips
-    ipset destroy tmp-uproxy-pods-ips
+    $IPSET swap tmp-uproxy-pods-ips uproxy-pods-ips
+    $IPSET destroy tmp-uproxy-pods-ips
 EOF
 }
 
@@ -111,5 +125,8 @@ while true; do
     for nodeName in $(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o custom-columns=:.metadata.name --no-headers); do
         add_ip_set "$nodeName"
     done
+    if [ -n "${UPDATE_IPSET_ONCE}" ]; then
+      break
+    fi
     sleep 1
 done
