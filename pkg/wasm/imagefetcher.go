@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/bootstrap/platform"
+
 	"github.com/docker/cli/cli/config/configfile"
 	dtypes "github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -37,7 +39,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/hashicorp/go-multierror"
-	"istio.io/istio/pkg/bootstrap/platform"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	acr "github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
@@ -53,21 +54,25 @@ const (
 	acrCredExpiration = time.Hour * 12
 )
 
-// Make a default key chain with the support for GCR, ECR, and ACR.
-// After looking up DOCKER_CONFIG by `authn.DefaultKeychain`,
-// GCR, ECR, and ACR are tried sequentially.
+var defaultKeychain = authn.DefaultKeychain
+
+// Sets up a default key chain with the support for GCR, ECR, or ACR by the given platform type.
 // ECR and ACR helpers does not provide simple way to cache the credential before expiration at this moment.
 // So, `cachedHelper` keeps the credential for the specified duration.
 // In case of google.Keychain, by ReuseTokenSource, the credential is cached.
 // Refer to https://github.com/google/go-containerregistry/blob/4d7b65b04609719eb0f23afa8669ba4b47178571/pkg/v1/google/auth.go#L60.
-var defaultKeychain = authn.DefaultKeychain
-
 func SetupPlatformSpecificDefaultKeyChain(env platform.PlatformType) {
 	switch env {
 	case platform.PlatformTypeAWS:
-		defaultKeychain = authn.NewMultiKeychain(authn.DefaultKeychain, authn.NewKeychainFromHelper(wrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration)))
+		defaultKeychain = authn.NewMultiKeychain(
+			authn.DefaultKeychain,
+			authn.NewKeychainFromHelper(
+				wrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration)))
 	case platform.PlatformTypeAzure:
-		defaultKeychain = authn.NewMultiKeychain(authn.DefaultKeychain, authn.NewKeychainFromHelper(wrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration)))
+		defaultKeychain = authn.NewMultiKeychain(
+			authn.DefaultKeychain,
+			authn.NewKeychainFromHelper(
+				wrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration)))
 	case platform.PlatformTypeGCP:
 		defaultKeychain = authn.NewMultiKeychain(authn.DefaultKeychain, google.Keychain)
 	default:

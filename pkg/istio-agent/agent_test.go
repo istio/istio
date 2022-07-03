@@ -973,3 +973,7 @@ func (f *fakePlatform) Labels() map[string]string {
 func (f *fakePlatform) IsKubernetes() bool {
 	return true
 }
+
+func (f *fakePlatform) Type() platform.PlatformType {
+	return platform.PlatformTypeNone
+}
