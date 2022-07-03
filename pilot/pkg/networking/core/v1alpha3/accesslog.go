@@ -144,13 +144,11 @@ type AccessLogBuilder struct {
 }
 
 func newAccessLogBuilder() *AccessLogBuilder {
-	b := &AccessLogBuilder{
+	return &AccessLogBuilder{
 		tcpGrpcAccessLog:         tcpGrpcAccessLog(false),
 		httpGrpcAccessLog:        httpGrpcAccessLog(),
 		tcpGrpcListenerAccessLog: tcpGrpcAccessLog(true),
 	}
-
-	return b
 }
 
 func cacheKey(proxy *model.Proxy, forListener bool, class networking.ListenerClass) string {
@@ -745,7 +743,7 @@ func httpGrpcAccessLog() *accesslog.AccessLog {
 
 func (b *AccessLogBuilder) reset() {
 	b.mutex.Lock()
-	defer b.mutex.Unlock()
 	b.fileAccesslog = nil
 	b.listenerFileAccessLog = nil
+	b.mutex.Unlock()
 }
