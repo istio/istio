@@ -26,6 +26,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"istio.io/pkg/log"
 	"os"
 	"sync"
 	"time"
@@ -82,6 +83,7 @@ func NewVerifiedKeyCertBundleFromFile(certFile string, privKeyFile string, certC
 	if len(certChainFiles) > 0 {
 		for _, f := range certChainFiles {
 			var b []byte
+			log.Infof("Reading cert chain file %s", f)
 			if b, err = os.ReadFile(f); err != nil {
 				return nil, err
 			}

@@ -246,11 +246,12 @@ func detectSigningCABundle() (signingCAFileBundle, error) {
 
 	// looking for tls file format (tls.crt)
 	if _, err := os.Stat(tlsSigningFile); !os.IsNotExist(err) {
+		log.Info("Using kubernetes.io/tls secret type for signing ca files")
 		return signingCAFileBundle{
 			RootCertFile: path.Join(LocalCertDir.Get(), TLSSecretRootCertFile),
 			CertChainFile: []string{
-				path.Join(tlsSigningFile,
-					LocalCertDir.Get(), TLSSecretRootCertFile),
+				tlsSigningFile,
+				path.Join(LocalCertDir.Get(), TLSSecretRootCertFile),
 			},
 			SigningCertFile: tlsSigningFile,
 			SigningKeyFile:  path.Join(LocalCertDir.Get(), TLSSecretCAPrivateKeyFile),
@@ -258,7 +259,7 @@ func detectSigningCABundle() (signingCAFileBundle, error) {
 	} else if err != nil {
 		return signingCAFileBundle{}, err
 	}
-
+	log.Info("Using istiod file format for signing ca files")
 	// default ca file format
 	return signingCAFileBundle{
 		RootCertFile:    path.Join(LocalCertDir.Get(), ca.RootCertFile),
