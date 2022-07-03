@@ -61,8 +61,12 @@ var defaultKeychain = authn.DefaultKeychain
 // So, `cachedHelper` keeps the credential for the specified duration.
 // In case of google.Keychain, by ReuseTokenSource, the credential is cached.
 // Refer to https://github.com/google/go-containerregistry/blob/4d7b65b04609719eb0f23afa8669ba4b47178571/pkg/v1/google/auth.go#L60.
-func SetupPlatformSpecificDefaultKeyChain(env platform.PlatformType) {
-	switch env {
+func SetupPlatformSpecificDefaultKeyChain(env platform.Environment) {
+	if env == nil {
+		return
+	}
+
+	switch env.Type() {
 	case platform.PlatformTypeAWS:
 		defaultKeychain = authn.NewMultiKeychain(
 			authn.DefaultKeychain,
