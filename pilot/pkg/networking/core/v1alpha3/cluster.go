@@ -506,11 +506,11 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 	case model.DNSRoundRobinLB:
 		return cluster.Cluster_LOGICAL_DNS
 	case model.Passthrough:
-		if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
-			return cluster.Cluster_EDS
-		}
 		// Gateways cannot use passthrough clusters. So fallback to EDS
 		if proxyType == model.Router {
+			return cluster.Cluster_EDS
+		}
+		if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
 			return cluster.Cluster_EDS
 		}
 		return cluster.Cluster_ORIGINAL_DST
