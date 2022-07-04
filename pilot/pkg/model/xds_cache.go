@@ -173,10 +173,6 @@ type LruCache struct {
 
 	// dependantsPool simply stores dependentConfigs of XdsCacheEntry to avoid additional memory allocations
 	// by caching allocated but unused items for later reuse, relieving pressure on the garbage collector.
-	//
-	// Usage:
-	//  memoryAllocator := runtime.AllocatorPool.Get().(*runtime.Allocator)
-	//  defer runtime.AllocatorPool.Put(memoryAllocator)
 	dependantsPool *sync.Pool
 }
 
@@ -226,7 +222,7 @@ func (l *LruCache) handleEvicted(stopCh <-chan struct{}) {
 		case <-l.evictCh:
 			l.clearEvicted()
 		case <-stopCh:
-			log.Infof("LruCache has been stopped")
+			log.Debug("LruCache has been stopped")
 			return
 		}
 	}

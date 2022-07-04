@@ -21,6 +21,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"text/template"
 	"time"
@@ -625,4 +626,31 @@ func BenchmarkCache(b *testing.B) {
 			c.Get(key)
 		}
 	})
+}
+
+func BenchmarkDependentConfigs(b *testing.B) {
+	b.Run("rds cache using mem pool", func(b *testing.B) {
+		dependentPool := &sync.Pool{
+			New: func() interface{} {
+				return &model.Allocator{}
+			},
+		}
+
+		key := makeCacheKey(0)
+
+		for n := 0; n < b.N; n++ {
+			memoryAllocator := dependentPool.Get().(*model.Allocator)
+			// fmt.Printf("%p\n", memoryAllocator)
+			key.DependentConfigs(memoryAllocator)
+			dependentPool.Put(memoryAllocator)
+		}
+	})
+
+	b.Run("rds cache not use mem pool", func(b *testing.B) {
+		key := makeCacheKey(0)
+		for n := 0; n < b.N; n++ {
+			key.DependentConfigs(nil)
+		}
+	})
+	// TODO: add others that maybe unbounded
 }
