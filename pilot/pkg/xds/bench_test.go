@@ -640,7 +640,6 @@ func BenchmarkDependentConfigs(b *testing.B) {
 
 		for n := 0; n < b.N; n++ {
 			memoryAllocator := dependentPool.Get().(*model.Allocator)
-			// fmt.Printf("%p\n", memoryAllocator)
 			key.DependentConfigs(memoryAllocator)
 			dependentPool.Put(memoryAllocator)
 		}
