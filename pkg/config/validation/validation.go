@@ -3021,6 +3021,14 @@ func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
 	return nil
 }
 
+func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) error {
+	if directResponse == nil {
+		return nil
+	}
+
+	return validateHTTPStatus(int32(directResponse.Status))
+}
+
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
 		return errors.New("rewrite must specify URI, authority, or both")
