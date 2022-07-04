@@ -4,10 +4,10 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    helm.sh/chart: grafana-6.29.5
+    helm.sh/chart: grafana-6.31.1
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "8.5.3"
+    app.kubernetes.io/version: "9.0.1"
     app.kubernetes.io/managed-by: Helm
   name: grafana
   namespace: istio-system
@@ -19,12 +19,13 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.29.5
+    helm.sh/chart: grafana-6.31.1
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "8.5.3"
+    app.kubernetes.io/version: "9.0.1"
     app.kubernetes.io/managed-by: Helm
 data:
+  allow-snippet-annotations: "false"
   grafana.ini: |
     [analytics]
     check_for_updates = true
@@ -75,10 +76,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.29.5
+    helm.sh/chart: grafana-6.31.1
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "8.5.3"
+    app.kubernetes.io/version: "9.0.1"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -99,10 +100,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.29.5
+    helm.sh/chart: grafana-6.31.1
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "8.5.3"
+    app.kubernetes.io/version: "9.0.1"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -121,7 +122,7 @@ spec:
         app: grafana
         sidecar.istio.io/inject: "false"
       annotations:
-        checksum/config: d66f1175b612adae34473ad74ab6c5304db8e82e79c5d6ff7fa4ea6e1b6532a2
+        checksum/config: 00cbea6713b515cc981941cb5cc4004e842e678e23fbb177bff4d890ac2d71da
         checksum/dashboards-json-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         checksum/sc-dashboard-provider-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
     spec:
@@ -135,7 +136,7 @@ spec:
       enableServiceLinks: true
       containers:
         - name: grafana
-          image: "grafana/grafana:8.5.3"
+          image: "grafana/grafana:9.0.1"
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: config
