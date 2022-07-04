@@ -207,7 +207,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		rev = revtag.DefaultRevisionName
 	}
 
-	if exists {
+	if exists && pilotEnabled {
 		whs, err := revtag.GetWebhooksWithTag(context.Background(), kubeClient.Kube(), revtag.DefaultRevisionName)
 		if err != nil {
 			return fmt.Errorf("failed to get webhook with default tag: %v", err)
