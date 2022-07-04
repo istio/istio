@@ -189,7 +189,7 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	stype := v3.GetShortType(req.TypeUrl)
-	log.Debugf("ADS:%s: REQUEST %s verson received, %s nonce received %s", stype,
+	log.Debugf("ADS:%s: REQ %s verson received %s, nonce received %s", stype,
 		con.conID, req.VersionInfo, req.ResponseNonce)
 	if req.TypeUrl == v3.HealthInfoType {
 		s.handleWorkloadHealthcheck(con.proxy, req)
@@ -419,16 +419,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
 	con.proxy.Unlock()
 
-	// We got a request which looks like an ACK, but we already got the same ACK. Envoy won't ACK the
-	// same resource twice. However, in some cases a request for new resources is indistinguishable
-	// from an ACK (in particular, when requesting EDS after a CDS push):
-	// https://github.com/envoyproxy/envoy/issues/13009. As a result, if we see the same ACK multiple
-	// times, we treat subsequent requests as something we should respond to.
-	if features.PushOnRepeatNonce && request.ResponseNonce == previousNonceAcked {
-		log.Debugf("ADS:%s: REQ %s Repeated nonce received %s", stype, con.conID, request.ResponseNonce)
-		return true, emptyResourceDelta
-	}
-
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	prev := sets.New(previousResources...)
@@ -437,6 +427,15 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	added := cur.Difference(prev)
 
 	if len(removed) == 0 && len(added) == 0 {
+		// We got a request which looks like an ACK, but we already got the same ACK. Envoy won't ACK the
+		// same resource twice. However, in some cases a request for new resources is indistinguishable
+		// from an ACK (in particular, when requesting EDS after a CDS push):
+		// https://github.com/envoyproxy/envoy/issues/13009. As a result, if we see the same ACK multiple
+		// times, we treat subsequent requests as something we should respond to.
+		if features.PushOnRepeatNonce && request.ResponseNonce == previousNonceAcked {
+			log.Debugf("ADS:%s: REQ %s Repeated nonce received %s", stype, con.conID, request.ResponseNonce)
+			return true, emptyResourceDelta
+		}
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
 	}
