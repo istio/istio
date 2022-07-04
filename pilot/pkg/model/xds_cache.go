@@ -230,7 +230,7 @@ func (l *LruCache) clearEvicted() {
 		return
 	}
 	// Do not evict keys that are added again after evicted
-	for _, key := range l.evictedKeys {
+	for key := range l.evictedKeys {
 		_, ok := l.store.Get(key)
 		if ok {
 			delete(l.evictedKeys, key)

@@ -277,11 +277,30 @@ func TestXdsCacheEvict(t *testing.T) {
 		key := makeCacheKey(n)
 		req := &model.PushRequest{Start: startTime.Add(time.Duration(n))}
 		c.Add(key, req, res)
+		// Re add a key after evicted, but the `clearEvicted` handler has not been run, the configIndex should not be cleaned.
+		if n == 500 {
+			key := makeCacheKey(0)
+			req := &model.PushRequest{Start: startTime.Add(time.Duration(n))}
+			c.Add(key, req, res)
+		}
 	}
 	lruCache := c.(*model.LruCache)
 	retry.UntilSuccessOrFail(t, func() error {
+		n := 0
+		key := makeCacheKey(n)
+		_, exist := c.Get(key)
+		if !exist {
+			return fmt.Errorf("key %s should not be evicted", key.Key())
+		}
+		dependents := key.DependentConfigs()
+		for _, config := range dependents {
+			if lruCache.GetKeysByConfigKey(config) == nil {
+				return fmt.Errorf("config %s should not be evicted", config)
+			}
+		}
+
 		// check oldest keys and its dependencies has been cleaned
-		for n := 0; n < 100; n++ {
+		for n := 1; n < 100; n++ {
 			key := makeCacheKey(n)
 			_, exist := c.Get(key)
 			if exist {
