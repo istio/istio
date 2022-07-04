@@ -241,6 +241,10 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(analyzeCmd, FlagIstioNamespace)
 	rootCmd.AddCommand(analyzeCmd)
 
+	checkInjectCmd := checkInjectCommand()
+	hideInheritedFlags(checkInjectCmd, FlagIstioNamespace)
+	rootCmd.AddCommand(checkInjectCmd)
+
 	dashboardCmd := dashboard()
 	hideInheritedFlags(dashboardCmd, FlagNamespace, FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
