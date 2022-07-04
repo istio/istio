@@ -3394,7 +3394,6 @@ func TestApplyTCPKeepalive(t *testing.T) {
 }
 
 func TestApplyConnectionPool(t *testing.T) {
-	// only test connectionPool.Http.IdleTimeout and connectionPool.Http.IdleTimeout.MaxRequestsPerConnection
 	cases := []struct {
 		name                string
 		cluster             *cluster.Cluster
@@ -3455,7 +3454,7 @@ func TestApplyConnectionPool(t *testing.T) {
 			},
 		},
 		{
-			name:    "update MaxRequestsPerConnection and IdleTimeout",
+			name:    "update multiple fields",
 			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			httpProtocolOptions: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
@@ -3472,6 +3471,11 @@ func TestApplyConnectionPool(t *testing.T) {
 					},
 					MaxRequestsPerConnection: 22,
 				},
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					MaxConnectionDuration: &durationpb.Duration{
+						Seconds: 500,
+					},
+				},
 			},
 			expectedHTTPPOpt: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
@@ -3479,6 +3483,9 @@ func TestApplyConnectionPool(t *testing.T) {
 						Seconds: 22,
 					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 22},
+					MaxConnectionDuration: &durationpb.Duration{
+						Seconds: 500,
+					},
 				},
 			},
 		},
@@ -3504,6 +3511,8 @@ func TestApplyConnectionPool(t *testing.T) {
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.IdleTimeout)
 			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection,
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.MaxRequestsPerConnection)
+			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.MaxConnectionDuration,
+				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.MaxConnectionDuration)
 		})
 	}
 }
