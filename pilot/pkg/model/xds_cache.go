@@ -92,7 +92,7 @@ type XdsCacheEntry interface {
 	DependentTypes() []kind.Kind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
-	DependentConfigs() []ConfigKey
+	DependentConfigs() []ConfigHash
 	// Cacheable indicates whether this entry is valid for cache. For example
 	// for EDS to be cacheable, the Endpoint should have corresponding service.
 	Cacheable() bool
@@ -127,7 +127,7 @@ type XdsCache interface {
 func NewXdsCache() XdsCache {
 	cache := &LruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
-		configIndex:      map[ConfigKey]sets.Set{},
+		configIndex:      map[ConfigHash]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
 		trackEvicted:     true,
 		evictedKeys:      sets.New(),
@@ -141,7 +141,7 @@ func NewXdsCache() XdsCache {
 func NewLenientXdsCache() XdsCache {
 	cache := &LruCache{
 		enableAssertions: false,
-		configIndex:      map[ConfigKey]sets.Set{},
+		configIndex:      map[ConfigHash]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
 		trackEvicted:     true,
 		evictedKeys:      sets.New(),
@@ -159,7 +159,7 @@ type LruCache struct {
 	// It is refreshed when Clear or ClearAll are called
 	token        CacheToken
 	mu           sync.RWMutex
-	configIndex  map[ConfigKey]sets.Set
+	configIndex  map[ConfigHash]sets.Set
 	typesIndex   map[kind.Kind]sets.Set
 	trackEvicted bool
 	evictedKeys  sets.Set
@@ -260,7 +260,7 @@ func (l *LruCache) clearEvicted() {
 	l.recordDependentConfigSize()
 }
 
-func (l *LruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
+func (l *LruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
 		if l.configIndex[cfg] == nil {
 			l.configIndex[cfg] = sets.New()
@@ -270,7 +270,7 @@ func (l *LruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
 	l.recordDependentConfigSize()
 }
 
-func (l *LruCache) clearConfigIndex(k string, dependentConfigs []ConfigKey) {
+func (l *LruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
 		index := l.configIndex[cfg]
 		if index != nil {
@@ -305,7 +305,7 @@ func (l *LruCache) clearTypesIndex(k string, dependentTypes []kind.Kind) {
 }
 
 // Note: only used for test
-func (l *LruCache) GetKeysByConfigKey(ck ConfigKey) sets.Set {
+func (l *LruCache) GetKeysByConfigKey(ck ConfigHash) sets.Set {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
@@ -410,8 +410,8 @@ func (l *LruCache) Clear(configs map[ConfigKey]struct{}) {
 		l.trackEvicted = true
 	}()
 	for ckey := range configs {
-		referenced := l.configIndex[ckey]
-		delete(l.configIndex, ckey)
+		referenced := l.configIndex[ckey.HashCode()]
+		delete(l.configIndex, ckey.HashCode())
 		for key := range referenced {
 			l.store.Remove(key)
 		}
@@ -432,7 +432,7 @@ func (l *LruCache) ClearAll() {
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
 	l.store = newLru(l.onEvict)
-	l.configIndex = map[ConfigKey]sets.Set{}
+	l.configIndex = map[ConfigHash]sets.Set{}
 	l.typesIndex = map[kind.Kind]sets.Set{}
 	l.evictedKeys = sets.New()
 	size(l.store.Len())

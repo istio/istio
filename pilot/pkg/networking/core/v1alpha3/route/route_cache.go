@@ -17,6 +17,7 @@ package route
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -51,7 +52,7 @@ type Cache struct {
 	ListenerPort            int
 	Services                []*model.Service
 	VirtualServices         []config.Config
-	DelegateVirtualServices []model.ConfigKey
+	DelegateVirtualServices []model.ConfigHash
 	DestinationRules        []*config.Config
 	EnvoyFilterKeys         []string
 }
@@ -79,25 +80,28 @@ func (r *Cache) Cacheable() bool {
 	return true
 }
 
-func (r *Cache) DependentConfigs() []model.ConfigKey {
-	configs := make([]model.ConfigKey, 0, len(r.Services)+len(r.VirtualServices)+
+func (r *Cache) DependentConfigs() []model.ConfigHash {
+	configs := make([]model.ConfigHash, 0, len(r.Services)+len(r.VirtualServices)+
 		len(r.DelegateVirtualServices)+len(r.DestinationRules)+len(r.EnvoyFilterKeys))
 	for _, svc := range r.Services {
-		configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{
+			Kind: kind.ServiceEntry,
+			Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace,
+		}.HashCode())
 	}
 	for _, vs := range r.VirtualServices {
-		configs = append(configs, model.ConfigKey{Kind: kind.VirtualService, Name: vs.Name, Namespace: vs.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: kind.VirtualService, Name: vs.Name, Namespace: vs.Namespace}.HashCode())
 	}
 	// add delegate virtual services to dependent configs
 	// so that we can clear the rds cache when delegate virtual services are updated
 	configs = append(configs, r.DelegateVirtualServices...)
 	for _, dr := range r.DestinationRules {
-		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: dr.Name, Namespace: dr.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: dr.Name, Namespace: dr.Namespace}.HashCode())
 	}
 
 	for _, efKey := range r.EnvoyFilterKeys {
 		items := strings.Split(efKey, "/")
-		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]})
+		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
 	}
 	return configs
 }
@@ -139,9 +143,7 @@ func (r *Cache) Key() string {
 	hash.Write(Separator)
 
 	for _, vs := range r.DelegateVirtualServices {
-		hash.Write([]byte(vs.Name))
-		hash.Write(Slash)
-		hash.Write([]byte(vs.Namespace))
+		hash.Write(hashToBytes(vs))
 		hash.Write(Separator)
 	}
 	hash.Write(Separator)
@@ -162,4 +164,10 @@ func (r *Cache) Key() string {
 
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
+}
+
+func hashToBytes(number model.ConfigHash) []byte {
+	big := new(big.Int)
+	big.SetUint64(uint64(number))
+	return big.Bytes()
 }
