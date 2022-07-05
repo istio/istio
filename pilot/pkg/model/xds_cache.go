@@ -86,7 +86,7 @@ func size(cs int) {
 type XdsCacheEntry interface {
 	// Key is the key to be used in cache.
 	Key() string
-	// DependentTypes are config types that this cache key is dependent on.
+	// DependentTypes are config types that this cache key is dependant on.
 	// Whenever any configs of this type changes, we should invalidate this cache entry.
 	// Note: DependentConfigs should be preferred wherever possible.
 	DependentTypes() []kind.Kind
@@ -119,55 +119,47 @@ type XdsCache interface {
 	Keys() []string
 	// Snapshot returns a snapshot of all keys and values. This is for testing/debug only
 	Snapshot() map[string]*discovery.Resource
-	// Run runs the cache, mainly for cleanup and is triggered asynchronously by key eviction.
-	Run(stop <-chan struct{})
 }
 
 // NewXdsCache returns an instance of a cache.
 func NewXdsCache() XdsCache {
-	cache := &LruCache{
+	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
 		configIndex:      map[ConfigHash]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
-		trackEvicted:     true,
-		evictedKeys:      sets.New(),
-		evictCh:          make(chan struct{}, 1),
 	}
-	cache.store = newLru(cache.onEvict)
+	cache.store = newLru(cache.evict)
+
 	return cache
 }
 
 // NewLenientXdsCache returns an instance of a cache that does not validate token based get/set and enable assertions.
 func NewLenientXdsCache() XdsCache {
-	cache := &LruCache{
+	cache := &lruCache{
 		enableAssertions: false,
 		configIndex:      map[ConfigHash]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
-		trackEvicted:     true,
-		evictedKeys:      sets.New(),
-		evictCh:          make(chan struct{}, 1),
 	}
-	cache.store = newLru(cache.onEvict)
+	cache.store = newLru(cache.evict)
+
 	return cache
 }
 
-// export LruCache for test
-type LruCache struct {
+type lruCache struct {
 	enableAssertions bool
 	store            simplelru.LRUCache
 	// token stores the latest token of the store, used to prevent stale data overwrite.
 	// It is refreshed when Clear or ClearAll are called
-	token        CacheToken
-	mu           sync.RWMutex
-	configIndex  map[ConfigHash]sets.Set
-	typesIndex   map[kind.Kind]sets.Set
-	trackEvicted bool
-	evictedKeys  sets.Set
-	// used to notify a key is evicted, calling Remove actively does not trigger it.
-	evictCh chan struct{}
+	token       CacheToken
+	mu          sync.RWMutex
+	configIndex map[ConfigHash]sets.Set
+	typesIndex  map[kind.Kind]sets.Set
+
+	// mark whether a key is evicted passively
+	evicted bool
 }
 
-var _ XdsCache = &LruCache{}
+var _ XdsCache = &lruCache{}
 
 func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
 	sz := features.XDSCacheMaxSize
@@ -181,7 +173,7 @@ func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
 	return l
 }
 
-func (l *LruCache) recordDependentConfigSize() {
+func (l *lruCache) recordDependentConfigSize() {
 	if !features.EnableXDSCacheMetrics {
 		return
 	}
@@ -193,74 +185,24 @@ func (l *LruCache) recordDependentConfigSize() {
 }
 
 // This is the callback passed to LRU, it will be called whenever a key is removed.
-func (l *LruCache) onEvict(k interface{}, _ interface{}) {
+func (l *lruCache) evict(k interface{}, v interface{}) {
 	if features.EnableXDSCacheMetrics {
 		xdsCacheEvictions.Increment()
 	}
 
-	if l.trackEvicted {
-		l.evictedKeys.Insert(k.(string))
-		select {
-		case l.evictCh <- struct{}{}:
-		default: // the signal has not been consumed
-		}
-	}
-}
-
-func (l *LruCache) handleEvicted(stopCh <-chan struct{}) {
-	for {
-		select {
-		case <-l.evictCh:
-			l.clearEvicted()
-		case <-stopCh:
-			log.Infof("LruCache has been stopped")
-			return
-		}
-	}
-}
-
-// clearEvicted is to clear configIndex and typesIndex based on evictedKeys.
-func (l *LruCache) clearEvicted() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	// In order to save cpu, if the evicted keys is very small, we can just ignore
-	// TODO: make it configurable
-	if len(l.evictedKeys) < 100 {
+	if !l.evicted {
 		return
 	}
-	// Do not evict keys that are added again after evicted
-	for key := range l.evictedKeys {
-		_, ok := l.store.Get(key)
-		if ok {
-			delete(l.evictedKeys, key)
-		}
-	}
 
-	for configKey, index := range l.configIndex {
-		evicted := index.Intersection(l.evictedKeys)
-		for k := range evicted {
-			index.Delete(k)
-			if index.IsEmpty() {
-				delete(l.configIndex, configKey)
-			}
-		}
-	}
+	key := k.(string)
+	value := v.(cacheValue)
 
-	for gvk, index := range l.typesIndex {
-		evicted := index.Intersection(l.evictedKeys)
-		for k := range evicted {
-			index.Delete(k)
-			if index.IsEmpty() {
-				delete(l.typesIndex, gvk)
-			}
-		}
-	}
-	l.evictedKeys = sets.New()
-	l.recordDependentConfigSize()
+	// we don't need to acquire locks, since this function is called when we write to the store
+	l.clearConfigIndex(key, value.dependentConfigs)
+	l.clearTypesIndex(key, value.dependentTypes)
 }
 
-func (l *LruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
+func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
 		if l.configIndex[cfg] == nil {
 			l.configIndex[cfg] = sets.New()
@@ -270,7 +212,7 @@ func (l *LruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
 	l.recordDependentConfigSize()
 }
 
-func (l *LruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
+func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
 		index := l.configIndex[cfg]
 		if index != nil {
@@ -283,7 +225,7 @@ func (l *LruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
 	l.recordDependentConfigSize()
 }
 
-func (l *LruCache) updateTypesIndex(k string, dependentTypes []kind.Kind) {
+func (l *lruCache) updateTypesIndex(k string, dependentTypes []kind.Kind) {
 	for _, t := range dependentTypes {
 		if l.typesIndex[t] == nil {
 			l.typesIndex[t] = sets.New()
@@ -292,7 +234,7 @@ func (l *LruCache) updateTypesIndex(k string, dependentTypes []kind.Kind) {
 	}
 }
 
-func (l *LruCache) clearTypesIndex(k string, dependentTypes []kind.Kind) {
+func (l *lruCache) clearTypesIndex(k string, dependentTypes []kind.Kind) {
 	for _, t := range dependentTypes {
 		index := l.typesIndex[t]
 		if index != nil {
@@ -304,21 +246,13 @@ func (l *LruCache) clearTypesIndex(k string, dependentTypes []kind.Kind) {
 	}
 }
 
-// Note: only used for test
-func (l *LruCache) GetKeysByConfigKey(ck ConfigHash) sets.Set {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
-	return l.configIndex[ck]
-}
-
 // assertUnchanged checks that a cache entry is not changed. This helps catch bad cache invalidation
 // We should never have a case where we overwrite an existing item with a new change. Instead, when
 // config sources change, Clear/ClearAll should be called. At this point, we may get multiple writes
 // because multiple writers may get cache misses concurrently, but they ought to generate identical
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
-func (l *LruCache) assertUnchanged(key string, existing *discovery.Resource, replacement *discovery.Resource) {
+func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, replacement *discovery.Resource) {
 	if l.enableAssertions {
 		if existing == nil {
 			// This is a new addition, not an update
@@ -338,7 +272,7 @@ func (l *LruCache) assertUnchanged(key string, existing *discovery.Resource, rep
 	}
 }
 
-func (l *LruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {
+func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {
 	if !entry.Cacheable() || pushReq == nil || pushReq.Start.Equal(time.Time{}) {
 		return
 	}
@@ -364,22 +298,24 @@ func (l *LruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 		return
 	}
 
-	toWrite := cacheValue{value: value, token: token}
-	l.store.Add(k, toWrite)
-	l.token = token
 	dependentConfigs := entry.DependentConfigs()
 	dependentTypes := entry.DependentTypes()
+	toWrite := cacheValue{value: value, token: token, dependentConfigs: dependentConfigs, dependentTypes: dependentTypes}
+	l.store.Add(k, toWrite)
+	l.token = token
 	l.updateConfigIndex(k, dependentConfigs)
 	l.updateTypesIndex(k, dependentTypes)
 	size(l.store.Len())
 }
 
 type cacheValue struct {
-	value *discovery.Resource
-	token CacheToken
+	value            *discovery.Resource
+	token            CacheToken
+	dependentConfigs []ConfigHash
+	dependentTypes   []kind.Kind
 }
 
-func (l *LruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
+func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	if !entry.Cacheable() {
 		return nil, false
 	}
@@ -400,14 +336,14 @@ func (l *LruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	return cv.value, true
 }
 
-func (l *LruCache) Clear(configs map[ConfigKey]struct{}) {
+func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
-	// not to record keys that are actively removed
-	l.trackEvicted = false
+	// not to call evict on keys that are removed actively
+	l.evicted = false
 	defer func() {
-		l.trackEvicted = true
+		l.evicted = true
 	}()
 	for ckey := range configs {
 		referenced := l.configIndex[ckey.HashCode()]
@@ -424,21 +360,20 @@ func (l *LruCache) Clear(configs map[ConfigKey]struct{}) {
 	size(l.store.Len())
 }
 
-func (l *LruCache) ClearAll() {
+func (l *lruCache) ClearAll() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
-	// Purge with an onEvict function would turn up to be pretty slow since
+	// Purge with an evict function would turn up to be pretty slow since
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
-	l.store = newLru(l.onEvict)
+	l.store = newLru(l.evict)
 	l.configIndex = map[ConfigHash]sets.Set{}
 	l.typesIndex = map[kind.Kind]sets.Set{}
-	l.evictedKeys = sets.New()
 	size(l.store.Len())
 }
 
-func (l *LruCache) Keys() []string {
+func (l *lruCache) Keys() []string {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	iKeys := l.store.Keys()
@@ -449,7 +384,7 @@ func (l *LruCache) Keys() []string {
 	return keys
 }
 
-func (l *LruCache) Snapshot() map[string]*discovery.Resource {
+func (l *lruCache) Snapshot() map[string]*discovery.Resource {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	iKeys := l.store.Keys()
@@ -463,10 +398,6 @@ func (l *LruCache) Snapshot() map[string]*discovery.Resource {
 		res[ik.(string)] = v.(cacheValue).value
 	}
 	return res
-}
-
-func (l *LruCache) Run(stop <-chan struct{}) {
-	l.handleEvicted(stop)
 }
 
 // DisabledCache is a cache that is always empty
@@ -487,5 +418,3 @@ func (d DisabledCache) ClearAll() {}
 func (d DisabledCache) Keys() []string { return nil }
 
 func (d DisabledCache) Snapshot() map[string]*discovery.Resource { return nil }
-
-func (d DisabledCache) Run(<-chan struct{}) {}
