@@ -714,6 +714,8 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
+		// Wipe out any LoadAssignment, if set. This can occur when we have a STATIC Service but PASSTHROUGH traffic policy
+		c.LoadAssignment = nil
 	default:
 		applySimpleDefaultLoadBalancer(c, lb)
 	}
