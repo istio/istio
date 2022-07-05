@@ -197,7 +197,12 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	pilotEnabled := iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
 	rev := iop.Spec.Revision
-	if exists && pilotEnabled {
+	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
+	if err != nil {
+		return fmt.Errorf("failed to install manifests: %v", err)
+	}
+
+	if exists && rev != "" && pilotEnabled {
 		whs, err := revtag.GetWebhooksWithTag(context.Background(), kubeClient.Kube(), revtag.DefaultRevisionName)
 		if err != nil {
 			return fmt.Errorf("failed to get webhook with default tag: %v", err)
@@ -208,15 +213,16 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 			return fmt.Errorf("failed to get default webhook revision: %v", err)
 		}
 	}
+
 	if rev == "" && pilotEnabled {
-		p.Println("Making this installation the default for injection and validation.")
-		rev = revtag.DefaultRevisionName
 		_ = revtag.DeleteTagWebhooks(context.Background(), kubeClient.Kube(), revtag.DefaultRevisionName)
 	}
 
-	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
-	if err != nil {
-		return fmt.Errorf("failed to install manifests: %v", err)
+	if !exists || rev == "" && pilotEnabled {
+		p.Println("Making this installation the default for injection and validation.")
+		if rev == "" {
+			rev = revtag.DefaultRevisionName
+		}
 	}
 
 	o := &revtag.GenerateOptions{
