@@ -19,7 +19,7 @@ spec:
         prometheus.io/scrape: "true"
         proxy.istio.io/overrides: '{"containers":[{"name":"traffic","image":"fake.docker.io/google-samples/traffic-go-gke:1.0","resources":{},"readinessProbe":{"httpGet":{"port":80}}}]}'
         sidecar.istio.io/rewriteAppHTTPProbers: "false"
-        sidecar.istio.io/status: '{"initContainers":null,"containers":["istio-proxy","traffic"],"volumes":["workload-socket","credential-socket","workload-certs","istio-xds","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":null,"containers":["istio-proxy","traffic"],"volumes":["workload-socket","workload-certs","istio-xds","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
         app: grpc
@@ -138,8 +138,6 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket
-        - mountPath: /var/run/secrets/credential-uds
-          name: credential-socket
         - mountPath: /var/run/secrets/workload-spiffe-credentials
           name: workload-certs
         - mountPath: /var/run/secrets/istio
@@ -156,7 +154,6 @@ spec:
         fsGroup: 1337
       volumes:
       - name: workload-socket
-      - name: credential-socket
       - name: workload-certs
       - emptyDir:
           medium: Memory
