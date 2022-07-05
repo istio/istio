@@ -5,7 +5,7 @@ metadata:
     kubectl.kubernetes.io/default-container: hello
     kubectl.kubernetes.io/default-logs-container: hello
     prometheus.io.scrape: "false"
-    sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+    sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
   creationTimestamp: null
   labels:
     security.istio.io/tlsMode: istio
@@ -113,6 +113,8 @@ spec:
     volumeMounts:
     - mountPath: /var/run/secrets/workload-spiffe-uds
       name: workload-socket
+    - mountPath: /var/run/secrets/credential-uds
+      name: credential-socket
     - mountPath: /var/run/secrets/workload-spiffe-credentials
       name: workload-certs
     - mountPath: /var/run/secrets/istio
@@ -171,6 +173,7 @@ spec:
     fsGroup: 1337
   volumes:
   - name: workload-socket
+  - name: credential-socket
   - name: workload-certs
   - emptyDir:
       medium: Memory

@@ -586,6 +586,8 @@ data:
             volumeMounts:
             - name: workload-socket
               mountPath: /var/run/secrets/workload-spiffe-uds
+            - name: credential-socket
+              mountPath: /var/run/secrets/credential-uds
             {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
             - name: gke-workload-certificate
               mountPath: /var/run/secrets/workload-spiffe-credentials
@@ -633,6 +635,8 @@ data:
           volumes:
           - emptyDir:
             name: workload-socket
+          - emptyDir:
+            name: credential-socket
           {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
           - name: gke-workload-certificate
             csi:
@@ -844,6 +848,8 @@ data:
             volumeMounts:
             - name: workload-socket
               mountPath: /var/run/secrets/workload-spiffe-uds
+            - name: credential-socket
+              mountPath: /var/run/secrets/credential-uds
             {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
             - name: gke-workload-certificate
               mountPath: /var/run/secrets/workload-spiffe-credentials
@@ -876,6 +882,8 @@ data:
           volumes:
           - emptyDir: {}
             name: workload-socket
+          - emptyDir: {}
+            name: credential-socket
           {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
           - name: gke-workload-certificate
             csi:

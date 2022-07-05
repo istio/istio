@@ -103,8 +103,9 @@ type ClusterBuilder struct {
 	proxyIPAddresses  []string                 // IP addresses on which proxy is listening on.
 	configNamespace   string                   // Proxy config namespace.
 	// PushRequest to look for updates.
-	req   *model.PushRequest
-	cache model.XdsCache
+	req                   *model.PushRequest
+	cache                 model.XdsCache
+	credentialSocketExist bool
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
@@ -135,6 +136,9 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 			}
 		}
 		cb.clusterID = string(proxy.Metadata.ClusterID)
+		if proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
+			cb.credentialSocketExist = true
+		}
 	}
 	return cb
 }
@@ -995,7 +999,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		if tls.CredentialName != "" {
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
-			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls)
+			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, cb.credentialSocketExist)
 		} else {
 			// If CredentialName is not set fallback to files specified in DR.
 			res := security.SdsCertificateConfig{
@@ -1034,7 +1038,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		if tls.CredentialName != "" {
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
-			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls)
+			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, cb.credentialSocketExist)
 		} else {
 			// If CredentialName is not set fallback to file based approach
 			if tls.ClientCertificate == "" || tls.PrivateKey == "" {
@@ -1272,4 +1276,35 @@ func defaultTransportSocketMatch() *cluster.Cluster_TransportSocketMatch {
 		Match:           &structpb.Struct{},
 		TransportSocket: xdsfilters.RawBufferTransportSocket,
 	}
+}
+
+// buildExternalSDSCluster generates a cluster that acts as external SDS server
+func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster {
+	ep := &endpoint.LbEndpoint{
+		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+			Endpoint: &endpoint.Endpoint{
+				Address: &core.Address{
+					Address: &core.Address_Pipe{
+						Pipe: &core.Pipe{
+							Path: addr,
+						},
+					},
+				},
+			},
+		},
+	}
+	c := &cluster.Cluster{
+		Name:                 security.SDSExternalClusterName,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
+		LoadAssignment: &endpoint.ClusterLoadAssignment{
+			ClusterName: security.SDSExternalClusterName,
+			Endpoints: []*endpoint.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*endpoint.LbEndpoint{ep},
+				},
+			},
+		},
+	}
+	return c
 }
