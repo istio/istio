@@ -34,8 +34,6 @@ const (
 func init() {
 	// ACR helpers does not provide simple way to cache the credential before expiration at this moment.
 	// So, `cachedHelper` keeps the credential for the specified duration.
-	keychain.RegisterKeychain(platform.PlatformTypeAzure, authn.NewMultiKeychain(
-		authn.DefaultKeychain,
-		authn.NewKeychainFromHelper(
-			keychain.WrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration))))
+	keychain.RegisterKeychain(platform.PlatformTypeAzure, authn.NewKeychainFromHelper(
+		keychain.WrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration)))
 }

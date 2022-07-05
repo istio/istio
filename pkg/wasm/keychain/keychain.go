@@ -27,8 +27,9 @@ var registeredKeychains = map[platform.PlatformType]authn.Keychain{
 }
 
 // Registers the given key chain with the platform type.
+// To take account for the default keychain always, prepend the default keychain.
 func RegisterKeychain(t platform.PlatformType, k authn.Keychain) {
-	registeredKeychains[t] = k
+	registeredKeychains[t] = authn.NewMultiKeychain(authn.DefaultKeychain, k)
 }
 
 // Returns a key chain with the support for vendor specific keychain by the given platform type.

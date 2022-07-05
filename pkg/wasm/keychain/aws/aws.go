@@ -34,8 +34,6 @@ const (
 func init() {
 	// ECR helpers does not provide simple way to cache the credential before expiration at this moment.
 	// So, `cachedHelper` keeps the credential for the specified duration.
-	keychain.RegisterKeychain(platform.PlatformTypeAWS, authn.NewMultiKeychain(
-		authn.DefaultKeychain,
-		authn.NewKeychainFromHelper(
-			keychain.WrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration))))
+	keychain.RegisterKeychain(platform.PlatformTypeAWS, authn.NewKeychainFromHelper(
+		keychain.WrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration)))
 }
