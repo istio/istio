@@ -109,7 +109,7 @@ type SidecarScope struct {
 	// Set of known configs this sidecar depends on.
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
-	configDependencies map[uint64]struct{}
+	configDependencies map[ConfigHash]struct{}
 
 	// The namespace to treat as the administrative root namespace for
 	// Istio configuration.
@@ -188,7 +188,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		services:           defaultEgressListener.services,
 		destinationRules:   make(map[host.Name][]*consolidatedDestRule),
 		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
-		configDependencies: make(map[uint64]struct{}),
+		configDependencies: make(map[ConfigHash]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
 	}
@@ -215,7 +215,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			Kind:      kind.ServiceEntry,
 			Name:      string(s.Hostname),
 			Namespace: s.Attributes.Namespace,
-		})
+		}.HashCode())
 	}
 
 	for _, drList := range out.destinationRules {
@@ -225,14 +225,14 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 					Kind:      kind.DestinationRule,
 					Name:      namespacedName.Name,
 					Namespace: namespacedName.Namespace,
-				})
+				}.HashCode())
 			}
 		}
 	}
 
 	for _, el := range out.EgressListeners {
 		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServicesConfigKey(el.virtualServices)
+		delegates := ps.DelegateVirtualServices(el.virtualServices)
 		for _, delegate := range delegates {
 			out.AddConfigDependencies(delegate)
 		}
@@ -241,7 +241,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 				Kind:      kind.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
-			})
+			}.HashCode())
 		}
 	}
 
@@ -265,7 +265,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Name:               sidecarConfig.Name,
 		Namespace:          configNamespace,
 		Sidecar:            sidecar,
-		configDependencies: make(map[uint64]struct{}),
+		configDependencies: make(map[ConfigHash]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
 	}
@@ -274,7 +274,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Kind:      kind.Sidecar,
 		Name:      sidecarConfig.Name,
 		Namespace: sidecarConfig.Namespace,
-	})
+	}.HashCode())
 
 	egressConfigs := sidecar.Egress
 	// If egress not set, setup a default listener
@@ -304,7 +304,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 				Kind:      kind.ServiceEntry,
 				Name:      string(s.Hostname),
 				Namespace: s.Attributes.Namespace,
-			})
+			}.HashCode())
 			out.services = append(out.services, s)
 			servicesAdded[s.Hostname] = serviceIndex{s, len(out.services) - 1}
 		} else if foundSvc.svc.Attributes.Namespace == s.Attributes.Namespace && len(s.Ports) > 0 {
@@ -337,7 +337,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			addService(s)
 		}
 		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServicesConfigKey(listener.virtualServices)
+		delegates := ps.DelegateVirtualServices(listener.virtualServices)
 		for _, delegate := range delegates {
 			out.AddConfigDependencies(delegate)
 		}
@@ -353,7 +353,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 				Kind:      kind.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
-			})
+			}.HashCode())
 
 			for h, ports := range virtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
@@ -421,7 +421,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						Kind:      kind.DestinationRule,
 						Name:      key.Name,
 						Namespace: key.Namespace,
-					})
+					}.HashCode())
 				}
 			}
 		}
@@ -552,16 +552,16 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 
 // AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
 // SidecarScope being used to avoid concurrent read/write.
-func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
+func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigHash) {
 	if sc == nil {
 		return
 	}
 	if sc.configDependencies == nil {
-		sc.configDependencies = make(map[uint64]struct{})
+		sc.configDependencies = make(map[ConfigHash]struct{})
 	}
 
 	for _, config := range dependencies {
-		sc.configDependencies[config.HashCode()] = struct{}{}
+		sc.configDependencies[config] = struct{}{}
 	}
 }
 

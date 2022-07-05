@@ -891,13 +891,14 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	return res
 }
 
-// DelegateVirtualServicesConfigKey lists all the delegate virtual services configkeys associated with the provided virtual services
-func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []ConfigKey {
-	var out []ConfigKey
+// DelegateVirtualServices lists all the delegate virtual services configkeys associated with the provided virtual services
+func (ps *PushContext) DelegateVirtualServices(vses []config.Config) []ConfigHash {
+	var out []ConfigHash
 	for _, vs := range vses {
-		out = append(out, ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}]...)
+		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
+			out = append(out, delegate.HashCode())
+		}
 	}
-
 	return out
 }
 
