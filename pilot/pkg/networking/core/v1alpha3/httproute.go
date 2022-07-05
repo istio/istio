@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -68,7 +69,12 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 			} else {
 				miss++
 			}
+			log.Infof("dual stack BuildHTTPRoutes with route name: %s, rc: %v", routeName, rc)
 			if rc == nil {
+				// there would be invalid route configuration if dual stack is enabled
+				if features.EnableDualStack {
+					continue
+				}
 				emptyRoute := &route.RouteConfiguration{
 					Name:             routeName,
 					VirtualHosts:     []*route.VirtualHost{},
@@ -180,6 +186,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	}
 	if !cacheHit {
 		virtualHosts, resource, routeCache = BuildSidecarOutboundVirtualHosts(node, req.Push, routeName, listenerPort, efKeys, configgen.Cache)
+		log.Infof("dual stack buildSidecarOutboundHTTPRouteConfig with route name: %s", routeName)
+		log.Infof("dual stack buildSidecarOutboundHTTPRouteConfig virtualHosts: %v", virtualHosts)
+		log.Infof("dual stack buildSidecarOutboundHTTPRouteConfig resource: %v", resource)
+		if features.EnableDualStack && virtualHosts == nil && resource == nil {
+			return nil, false
+		}
 		if resource != nil {
 			return resource, true
 		}
@@ -323,6 +335,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	// To maintain correctness, we should only use the virtualservices for
 	// this listener and not all virtual services accessible to this proxy.
 	virtualServices = egressListener.VirtualServices()
+	log.Infof("dual stack BuildSidecarOutboundVirtualHosts with route name: %s, vs: %v, len(vs): %d", routeName, virtualServices, len(virtualServices))
 
 	// When generating RDS for ports created via the SidecarScope, we treat ports as HTTP proxy style ports
 	// if ports protocol is HTTP_PROXY.
@@ -387,6 +400,11 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push, servicesByName, virtualServices, listenerPort, routeName)
+	log.Infof("dual stack BuildSidecarOutboundVirtualHosts with route name: %s", routeName)
+	log.Infof("dual stack BuildSidecarOutboundVirtualHosts virtualHostWrappers: %v, len(virtualHostWrappers): %d", virtualHostWrappers, len(virtualHostWrappers))
+	if virtualHostWrappers == nil || len(virtualHostWrappers) == 0 {
+		return nil, nil, routeCache
+	}
 
 	resource, exist := xdsCache.Get(routeCache)
 	if exist && !features.EnableUnsafeAssertions {

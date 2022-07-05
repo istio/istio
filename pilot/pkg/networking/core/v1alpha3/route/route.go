@@ -95,6 +95,8 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	virtualServices []config.Config, listenPort int, routeName string) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
+	log.Infof("dual stack BuildSidecarVirtualHostWrapper virtualServices: %v, len(virtualServices): %d", virtualServices, len(virtualServices))
+
 	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
 	dependentDestinationRules := []*config.Config{}
 	// consistent hash policies for the http route destinations
@@ -121,8 +123,18 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
 		wrappers := buildSidecarVirtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh, routeName)
+		log.Infof("dual stack BuildSidecarVirtualHostWrapper with route name: %s", routeName)
+		log.Infof("dual stack BuildSidecarVirtualHostWrapper wrappers: %v", wrappers)
+		if wrappers == nil || len(wrappers) == 0 {
+			continue
+		}
 		out = append(out, wrappers...)
 	}
+	// if there is no route can be generated, return nil
+	log.Info("dual stack BuildSidecarVirtualHostWrapper out: %v", out)
+	/*if len(out) == 0 {
+		return nil
+	}*/
 
 	// compute Services missing virtual service configs
 	for _, wrapper := range out {
@@ -228,6 +240,8 @@ func buildSidecarVirtualHostsForVirtualService(
 	}
 	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService, serviceRegistry, hashByDestination,
 		listenPort, meshGateway, false /* isH3DiscoveryNeeded */, mesh, vskey)
+	log.Infof("dual stack buildSidecarVirtualHostsForVirtualService with route name: %s", routeName)
+	log.Infof("dual stack buildSidecarVirtualHostsForVirtualService routes: %v, len(routes): %d", routes, len(routes))
 	if err != nil || len(routes) == 0 {
 		return nil
 	}
@@ -390,12 +404,16 @@ func BuildHTTPRoutesForVirtualService(
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
+			log.Info("dual stack BuildHTTPRoutesForVirtualService get into non http match")
 			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry,
 				hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh, vskey); r != nil {
 				out = append(out, r)
 			}
-			catchall = true
+			if len(out) > 0 {
+				catchall = true
+			}
 		} else {
+			log.Info("dual stack BuildHTTPRoutesForVirtualService get into http match")
 			for _, match := range http.Match {
 				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry,
 					hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh, vskey); r != nil {
@@ -610,10 +628,12 @@ func applyHTTPRouteDestination(
 		hostname := host.Name(dst.GetDestination().GetHost())
 		n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
 		for _, clusterName := range n {
+			log.Infof("dual stack applyHTTPRouteDestination cluster name: %s, vskey: %s", clusterName, vskey)
 			if serviceRegistry != nil && serviceRegistry[hostname] != nil {
 				if len(serviceRegistry[hostname].DefaultAddresses) > 1 {
 					if (strings.HasSuffix(vskey, constants.IPv6Suffix) && !strings.HasPrefix(clusterName, string(model.TrafficDirectionOutbound6))) ||
 						(!strings.HasSuffix(vskey, constants.IPv6Suffix) && strings.HasPrefix(clusterName, string(model.TrafficDirectionOutbound6))) {
+						log.Infof("dual stack applyHTTPRouteDestination skip cluster name: %s, vskey: %s", clusterName, vskey)
 						continue
 					}
 				} else if (strings.HasSuffix(vskey, constants.IPv6Suffix) && net.ParseIP(serviceRegistry[hostname].DefaultAddress).To4() != nil) ||
@@ -648,6 +668,7 @@ func applyHTTPRouteDestination(
 	}
 
 	// rewrite to a single cluster if there is only weighted cluster
+	log.Infof("dual stack applyHTTPRouteDestination weighted: %v, len(weighted): %d", weighted, len(weighted))
 	if len(weighted) == 1 {
 		action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
 		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
@@ -666,7 +687,6 @@ func applyHTTPRouteDestination(
 		}
 	} else if len(weighted) == 0 {
 		out.Action = nil
-		return
 	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
