@@ -714,7 +714,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	if opts.direction != model.TrafficDirectionInbound {
 		cb.applyH2Upgrade(opts, connectionPool)
 		applyOutlierDetection(opts.mutable.cluster, outlierDetection)
-		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh, opts.serviceRegistry)
+		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 			tls, mtlsCtxType := cb.buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,

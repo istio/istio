@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
@@ -678,7 +677,6 @@ func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
 
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
 	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig,
-	serviceRegistry provider.ID,
 ) {
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if localityLbSetting != nil {
@@ -713,24 +711,10 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
 		applyRoundRobinLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_PASSTHROUGH:
-		// This can happen two cases.
-		// 1. A ServiceEntry is created with Resolution as DNS/STATIC and the DestinationRule
-		//    is configured with PASSTHROUGH load balancer.
-		// 2. A regular Kubernetes Service (of type EDS), configures DestinationRule with PASSTHROUGH load balancer.
-		// For Case #1, it seems to be a misconfiguration as user has an option of specifying Resolution as 'None'
-		// if he explicitly wants Original DST routing. It seems dangerous to route to any IP in this case.
-		// For Case #2, user is explicitly asking us to use Original DST possibly becase he may want direct pod
-		// access for that service instead of using regular load balancer.
-		// So for Case #1, we apply default simple loadbalancer with a warning.
-		if (serviceRegistry == provider.External && c.GetType() == cluster.Cluster_EDS) ||
-			c.GetType() == cluster.Cluster_STRICT_DNS || c.GetType() == cluster.Cluster_LOGICAL_DNS {
-			log.Warnf("cluster %s is of type %v. Load balancer can not be configured as PASSTHROUGH in destination rule.",
-				c.Name, c.GetType().String())
-			applySimpleDefaultLoadBalancer(c, lb)
-		} else {
-			c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
-			c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
-		}
+		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
+		// Wipe out any LoadAssignment, if set. This can occur when we have a STATIC Service but PASSTHROUGH traffic policy
+		c.LoadAssignment = nil
 	default:
 		applySimpleDefaultLoadBalancer(c, lb)
 	}

@@ -25,6 +25,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
@@ -41,7 +42,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -1709,30 +1709,27 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 
 func TestApplyLoadBalancer(t *testing.T) {
 	testcases := []struct {
-		name                           string
-		lbSettings                     *networking.LoadBalancerSettings
-		discoveryType                  cluster.Cluster_DiscoveryType
-		port                           *model.Port
-		serviceRegistry                provider.ID
-		expectedLbPolicy               cluster.Cluster_LbPolicy
-		expectedLocalityWeightedConfig bool
+		name                               string
+		lbSettings                         *networking.LoadBalancerSettings
+		discoveryType                      cluster.Cluster_DiscoveryType
+		port                               *model.Port
+		expectedLbPolicy                   cluster.Cluster_LbPolicy
+		expectedLocalityWeightedConfig     bool
+		expectClusterLoadAssignmenttoBeNil bool
 	}{
 		{
 			name:             "ORIGINAL_DST discovery type is a no op",
 			discoveryType:    cluster.Cluster_ORIGINAL_DST,
-			serviceRegistry:  provider.Kubernetes,
 			expectedLbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
 		},
 		{
 			name:             "redis protocol",
 			discoveryType:    cluster.Cluster_EDS,
-			serviceRegistry:  provider.Kubernetes,
 			port:             &model.Port{Protocol: protocol.Redis},
 			expectedLbPolicy: cluster.Cluster_MAGLEV,
 		},
 		{
-			name:            "Loadbalancer has distribute",
-			serviceRegistry: provider.Kubernetes,
+			name: "Loadbalancer has distribute",
 			lbSettings: &networking.LoadBalancerSettings{
 				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
 					Enabled: &wrappers.BoolValue{Value: true},
@@ -1754,40 +1751,13 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLocalityWeightedConfig: true,
 		},
 		{
-			name:            "STRICT DNS cluster with PASSTHROUGH in DR",
-			discoveryType:   cluster.Cluster_STRICT_DNS,
-			serviceRegistry: provider.External,
+			name:          "DNS cluster with PASSTHROUGH in DR",
+			discoveryType: cluster.Cluster_STRICT_DNS,
 			lbSettings: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
 			},
-			expectedLbPolicy: cluster.Cluster_LEAST_REQUEST,
-		},
-		{
-			name:            "Logical DNS cluster with PASSTHROUGH in DR",
-			discoveryType:   cluster.Cluster_LOGICAL_DNS,
-			serviceRegistry: provider.External,
-			lbSettings: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
-			},
-			expectedLbPolicy: cluster.Cluster_LEAST_REQUEST,
-		},
-		{
-			name:            "Static cluster with PASSTHROUGH in DR",
-			discoveryType:   cluster.Cluster_EDS,
-			serviceRegistry: provider.External,
-			lbSettings: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
-			},
-			expectedLbPolicy: cluster.Cluster_LEAST_REQUEST,
-		},
-		{
-			name:            "Kubernetes EDS cluster with PASSTHROUGH in DR",
-			discoveryType:   cluster.Cluster_EDS,
-			serviceRegistry: provider.Kubernetes,
-			lbSettings: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
-			},
-			expectedLbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
+			expectedLbPolicy:                   cluster.Cluster_CLUSTER_PROVIDED,
+			expectClusterLoadAssignmenttoBeNil: true,
 		},
 		// TODO: add more to cover all cases
 	}
@@ -1802,6 +1772,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
+				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
 			}
 
 			if tt.discoveryType == cluster.Cluster_ORIGINAL_DST {
@@ -1812,7 +1783,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 				test.SetBoolForTest(t, &features.EnableRedisFilter, true)
 			}
 
-			applyLoadBalancer(c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{}, tt.serviceRegistry)
+			applyLoadBalancer(c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
 
 			if c.LbPolicy != tt.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
@@ -1820,6 +1791,9 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
 				t.Errorf("cluster expected to have weighed config, but is nil")
+			}
+			if tt.expectClusterLoadAssignmenttoBeNil && c.LoadAssignment != nil {
+				t.Errorf("cluster expected not to have load assignmentset, but is present")
 			}
 		})
 	}
