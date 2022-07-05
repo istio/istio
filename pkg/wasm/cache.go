@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
@@ -113,6 +114,7 @@ type cacheEntry struct {
 type cacheOptions struct {
 	Options
 	allowAllInsecureRegistries bool
+	platformType               platform.PlatformType
 }
 
 func (o cacheOptions) sanitize() cacheOptions {
@@ -145,10 +147,14 @@ func (o cacheOptions) allowInsecure(host string) bool {
 }
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
-func NewLocalFileCache(dir string, options Options) *LocalFileCache {
+func NewLocalFileCache(dir string, env platform.Environment, options Options) *LocalFileCache {
 	wasmLog.Debugf("LocalFileCache is created with the option\n%#v", options)
 
-	cacheOptions := cacheOptions{Options: options}
+	cacheOptions := cacheOptions{Options: options, platformType: platform.PlatformTypeNone}
+	if env != nil {
+		cacheOptions.platformType = env.Type()
+	}
+
 	cache := &LocalFileCache{
 		httpFetcher:  NewHTTPFetcher(options.HTTPRequestTimeout, options.HTTPRequestMaxRetries),
 		modules:      make(map[moduleKey]*cacheEntry),
@@ -251,11 +257,13 @@ func (c *LocalFileCache) Get(
 		dChecksum = hex.EncodeToString(sha[:])
 	case "oci":
 		imgFetcherOps := ImageFetcherOption{
-			Insecure: insecure,
+			Insecure:     insecure,
+			PlatformType: c.platformType,
 		}
 		if pullSecret != nil {
 			imgFetcherOps.PullSecret = pullSecret
 		}
+
 		wasmLog.Debugf("fetching oci image from %s with options: %v", downloadURL, imgFetcherOps)
 		fetcher := NewImageFetcher(ctx, imgFetcherOps)
 		binaryFetcher, dChecksum, err = fetcher.PrepareFetch(u.Host + u.Path)

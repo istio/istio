@@ -29,7 +29,7 @@ const (
 )
 
 var CloudPlatform = env.RegisterStringVar("CLOUD_PLATFORM", "", "Cloud Platform on which proxy is running, if not specified, "+
-	"Istio will try to discover the platform. Valid platform values are aws, azure, gcp, none").Get()
+	"Istio will try to discover the platform. Valid platform values are aws, azure, gcp, none.").Get()
 
 // Discover attempts to discover the host platform, defaulting to
 // `Unknown` if a platform cannot be discovered.

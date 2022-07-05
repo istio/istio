@@ -22,115 +22,34 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
-	"time"
 
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/wasm/keychain"
+
+	// For initialization of vendor specific keychain
+	_ "istio.io/istio/pkg/wasm/keychain/bootstrap"
 
 	"github.com/docker/cli/cli/config/configfile"
 	dtypes "github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/hashicorp/go-multierror"
-
-	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
-	acr "github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 )
-
-const (
-	// According to https://docs.aws.amazon.com/cli/latest/reference/ecr/get-authorization-token.html#output,
-	// the expiration interval of the auth token in Amazon is 12 hour. For safety, let's uses 6 hours.
-	ecrCredExpiration = time.Hour * 6
-	// According to https://docs.microsoft.com/en-us/azure/active-directory/develop/refresh-tokens#refresh-token-lifetime,
-	// the expiration interval of the auth token in Azure is 24 hour. For safety, let's uses 12 hours.
-	// Note that Azure uses the Azure AD refresh token as a password when authenticating a docker client.
-	acrCredExpiration = time.Hour * 12
-)
-
-var defaultKeychain = authn.DefaultKeychain
-
-// Sets up a default key chain with the support for GCR, ECR, or ACR by the given platform type.
-// ECR and ACR helpers does not provide simple way to cache the credential before expiration at this moment.
-// So, `cachedHelper` keeps the credential for the specified duration.
-// In case of google.Keychain, by ReuseTokenSource, the credential is cached.
-// Refer to https://github.com/google/go-containerregistry/blob/4d7b65b04609719eb0f23afa8669ba4b47178571/pkg/v1/google/auth.go#L60.
-func SetupPlatformSpecificDefaultKeyChain(env platform.Environment) {
-	if env == nil {
-		return
-	}
-
-	switch env.Type() {
-	case platform.PlatformTypeAWS:
-		defaultKeychain = authn.NewMultiKeychain(
-			authn.DefaultKeychain,
-			authn.NewKeychainFromHelper(
-				wrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration)))
-	case platform.PlatformTypeAzure:
-		defaultKeychain = authn.NewMultiKeychain(
-			authn.DefaultKeychain,
-			authn.NewKeychainFromHelper(
-				wrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration)))
-	case platform.PlatformTypeGCP:
-		defaultKeychain = authn.NewMultiKeychain(authn.DefaultKeychain, google.Keychain)
-	default:
-		defaultKeychain = authn.DefaultKeychain
-	}
-}
-
-type cachedHelperEntry struct {
-	username string
-	password string
-	expireAt time.Time
-}
-type cachedHelper struct {
-	internalHelper authn.Helper
-	expiration     time.Duration
-	cache          map[string]cachedHelperEntry
-	getNow         func() time.Time
-}
-
-func (helper *cachedHelper) Get(serverURL string) (string, string, error) {
-	entry, ok := helper.cache[serverURL]
-	now := helper.getNow()
-	if !ok || now.After(entry.expireAt) {
-		username, password, err := helper.internalHelper.Get(serverURL)
-		if err != nil {
-			delete(helper.cache, serverURL)
-			return "", "", err
-		}
-		entry = cachedHelperEntry{
-			username: username,
-			password: password,
-			expireAt: now.Add(helper.expiration),
-		}
-		helper.cache[serverURL] = entry
-	}
-	return entry.username, entry.password, nil
-}
-
-func wrapHelperWithCache(helper authn.Helper, expirationInterval time.Duration) authn.Helper {
-	return &cachedHelper{
-		internalHelper: helper,
-		expiration:     expirationInterval,
-		cache:          make(map[string]cachedHelperEntry),
-		getNow:         time.Now,
-	}
-}
 
 // This file implements the fetcher of "Wasm Image Specification" compatible container images.
 // The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
 // Basically, this supports fetching and unpackaging three types of container images containing a Wasm binary.
 type ImageFetcherOption struct {
 	// TODO(mathetake) Add signature verification stuff.
-	PullSecret []byte
-	Insecure   bool
+	PullSecret   []byte
+	Insecure     bool
+	PlatformType platform.PlatformType
 }
 
 func (o *ImageFetcherOption) useDefaultKeyChain() bool {
@@ -152,9 +71,10 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 	fetchOpts := make([]remote.Option, 0, 2)
 	// TODO(mathetake): have "Anonymous" option?
 	if opt.useDefaultKeyChain() {
-		// Note that default key chain reads the docker config from DOCKER_CONFIG
-		// so must set the envvar when reaching this branch is expected.
-		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(defaultKeychain))
+		// Note that all the vendor specific keychain contains the default key chain,
+		// which reads the docker config from DOCKER_CONFIG.
+		// So the user can set the envvar to configure the docker credential.
+		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(keychain.GetPlatformSpecificKeyChain(opt.PlatformType)))
 	} else {
 		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(&wasmKeyChain{data: opt.PullSecret}))
 	}
