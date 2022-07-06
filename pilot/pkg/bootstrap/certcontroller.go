@@ -237,7 +237,7 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 				select {
 				case <-keyCertTimerC:
 					keyCertTimerC = nil
-					if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile,  tlsOptions.CaCertFile); err != nil {
+					if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
 						log.Errorf("Setting keyCertBundle failed: %v", err)
 					}
 				case <-s.fileWatcher.Events(tlsOptions.CertFile):
