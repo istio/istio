@@ -22,13 +22,13 @@ import (
 
 type Labels []string
 
-type LabelsBuilder struct {
+type prometheusQueryParams struct {
 	LabelSelector labels.Selector
 	ByLabels      Labels
-	Dur           string
+	Duration      string
 }
 
-func (b *LabelsBuilder) ByLabelsString() string {
+func (b *prometheusQueryParams) ByLabelsString() string {
 	bStr := b.ByLabels.String()
 	if bStr == "" {
 		return ""
@@ -36,7 +36,7 @@ func (b *LabelsBuilder) ByLabelsString() string {
 	return fmt.Sprintf(" by (%s)", bStr)
 }
 
-func (b *LabelsBuilder) LabelSelectorString() string {
+func (b *prometheusQueryParams) LabelSelectorString() string {
 	if len(b.LabelSelector) == 0 {
 		return ""
 	}
@@ -52,7 +52,7 @@ func (b *LabelsBuilder) LabelSelectorString() string {
 	return str
 }
 
-func (b *LabelsBuilder) AddLabelMatcher(ls *labels.Matcher) *LabelsBuilder {
+func (b *prometheusQueryParams) AddLabelMatcher(ls *labels.Matcher) *prometheusQueryParams {
 	if ls == nil {
 		return b
 	}
@@ -63,7 +63,7 @@ func (b *LabelsBuilder) AddLabelMatcher(ls *labels.Matcher) *LabelsBuilder {
 	return b
 }
 
-func (b *LabelsBuilder) AddLabelSelector(ls labels.Selector) *LabelsBuilder {
+func (b *prometheusQueryParams) AddLabelSelector(ls labels.Selector) *prometheusQueryParams {
 	if b.LabelSelector == nil {
 		b.LabelSelector = labels.Selector{}
 	}
@@ -71,14 +71,14 @@ func (b *LabelsBuilder) AddLabelSelector(ls labels.Selector) *LabelsBuilder {
 	return b
 }
 
-func (b *LabelsBuilder) AddByLabels(ls ...string) *LabelsBuilder {
+func (b *prometheusQueryParams) AddByLabels(ls ...string) *prometheusQueryParams {
 	for _, l := range ls {
 		b.AddByLabel(l)
 	}
 	return b
 }
 
-func (b *LabelsBuilder) AddByLabel(l string) *LabelsBuilder {
+func (b *prometheusQueryParams) AddByLabel(l string) *prometheusQueryParams {
 	if b.ByLabels == nil {
 		b.ByLabels = Labels{}
 	}
@@ -110,20 +110,12 @@ func (ls Labels) String() string {
 	return str
 }
 
-type p8sQuantile float64
-
-const (
-	quantile50 p8sQuantile = 0.5
-	quantile90 p8sQuantile = 0.9
-	quantile99 p8sQuantile = 0.99
-)
-
 // common example:
 //	histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))
 //	quantile, reqDur, destWorkloadLabel, workloadName, destWorkloadNamespaceLabel, workloadNamespace, duration
-func getLatencyQuery(quantile p8sQuantile, builder LabelsBuilder) string {
+func getLatencyQuery(quantile float64, queryParams prometheusQueryParams) string {
 	latencyQueryTemplate := `histogram_quantile(%f, sum(rate(%s_bucket{%s}[%s]))%s)`
-	return fmt.Sprintf(latencyQueryTemplate, quantile, reqDur, builder.LabelSelectorString(), builder.Dur, builder.ByLabelsString())
+	return fmt.Sprintf(latencyQueryTemplate, quantile, reqDur, queryParams.LabelSelectorString(), queryParams.Duration, queryParams.ByLabelsString())
 }
 
 // common RPS:
@@ -132,7 +124,7 @@ func getLatencyQuery(quantile p8sQuantile, builder LabelsBuilder) string {
 // error RPS:
 // 	sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code=~"[45][0-9]{2}"}[%s]))
 //  reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration
-func getRpsQuery(builder LabelsBuilder) string {
+func getRpsQuery(queryParams prometheusQueryParams) string {
 	rpsQueryTemplate := `sum(rate(%s{%s}[%s]))%s`
-	return fmt.Sprintf(rpsQueryTemplate, reqTot, builder.LabelSelectorString(), builder.Dur, builder.ByLabelsString())
+	return fmt.Sprintf(rpsQueryTemplate, reqTot, queryParams.LabelSelectorString(), queryParams.Duration, queryParams.ByLabelsString())
 }

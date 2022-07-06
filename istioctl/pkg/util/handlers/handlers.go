@@ -38,12 +38,12 @@ import (
 // InferPodInfo Uses name to infer namespace if the passed name contains namespace information.
 // Otherwise uses the namespace value passed into the function
 func InferPodInfo(name, defaultNS string) (string, string) {
-	return inferNsInfo(name, defaultNS)
+	return InferNsInfo(name, defaultNS)
 }
 
-// inferNsInfo Uses name to infer namespace if the passed name contains namespace information.
+// InferNsInfo Uses name to infer namespace if the passed name contains namespace information.
 // Otherwise uses the namespace value passed into the function
-func inferNsInfo(name, namespace string) (string, string) {
+func InferNsInfo(name, namespace string) (string, string) {
 	if idx := strings.LastIndex(name, "/"); idx > 0 {
 		// If there is a / in it, we need to handle differently. This is resourcetype/name.namespace.
 		// However, resourcetype can have . in it as well, so we should only look for namespace after the /.
@@ -62,22 +62,6 @@ func inferNsInfo(name, namespace string) (string, string) {
 	return name[0:separator], name[separator+1:]
 }
 
-func InferResourceTuple(name, specifyNS string) (resType string, resName string, resNamespace string, err error) {
-	resName, resNamespace = inferNsInfo(name, specifyNS)
-	if !strings.Contains(resName, "/") {
-		return
-	}
-
-	seg := strings.Split(resName, "/")
-	if len(seg) != 2 {
-		err = fmt.Errorf("arguments in resource/name form may not have more than one slash")
-		return
-	}
-
-	resType, resName = seg[0], seg[1]
-	return
-}
-
 // HandleNamespace returns the defaultNamespace if the namespace is empty
 func HandleNamespace(ns, defaultNamespace string) string {
 	if ns == v1.NamespaceAll {
@@ -88,7 +72,7 @@ func HandleNamespace(ns, defaultNamespace string) string {
 
 // InferPodInfoFromTypedResource gets a pod name, from an expression like Deployment/httpbin, or Deployment/productpage-v1.bookinfo
 func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Factory) (string, string, error) {
-	resname, ns := inferNsInfo(name, defaultNS)
+	resname, ns := InferNsInfo(name, defaultNS)
 	if !strings.Contains(resname, "/") {
 		return resname, ns, nil
 	}

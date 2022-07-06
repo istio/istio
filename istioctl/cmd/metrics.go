@@ -19,10 +19,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 	"time"
-
-	"istio.io/istio/istioctl/pkg/util/handlers"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/api"
@@ -33,6 +32,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/pkg/log"
 )
 
@@ -195,12 +195,29 @@ const (
 	serviceResourceType   = "service"
 )
 
+// inferResourceInfo Uses name to infer type, name, namespace
+func inferResourceInfo(name, specifyNS string) (resType string, resName string, resNamespace string, err error) {
+	resName, resNamespace = handlers.InferNsInfo(name, specifyNS)
+	if !strings.Contains(resName, "/") {
+		return
+	}
+
+	seg := strings.Split(resName, "/")
+	if len(seg) != 2 {
+		err = fmt.Errorf("arguments in resource/name form may not have more than one slash")
+		return
+	}
+
+	resType, resName = seg[0], seg[1]
+	return
+}
+
 func inferResourceLabel(resource, specifyNS string) (labels.Selector, error) {
 	resNs := ""
 	resService := ""
 	resWorkloud := ""
 
-	resType, resName, resNs, err := handlers.InferResourceTuple(resource, specifyNS)
+	resType, resName, resNs, err := inferResourceInfo(resource, specifyNS)
 	if err != nil {
 		return nil, err
 	}
@@ -260,9 +277,9 @@ func metrics(promAPI promv1.API, resource string, duration time.Duration) (resou
 	}
 	selector = append(selector, reporterMatcher)
 
-	commonLabelsBuilder := LabelsBuilder{
+	commonLabelsBuilder := prometheusQueryParams{
 		LabelSelector: selector,
-		Dur:           duration.String(),
+		Duration:      duration.String(),
 	}
 	rpsQuery := getRpsQuery(commonLabelsBuilder)
 
@@ -286,17 +303,19 @@ func metrics(promAPI promv1.API, resource string, duration time.Duration) (resou
 		me = multierror.Append(me, err)
 	}
 
-	p50Latency, err := getLatency(promAPI, quantile50, commonLabelsBuilder)
+	p50Latency, err := getLatency(promAPI, 0.5, commonLabelsBuilder)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p50Latency = p50Latency
-	p90Latency, err := getLatency(promAPI, quantile90, commonLabelsBuilder)
+
+	p90Latency, err := getLatency(promAPI, 0.9, commonLabelsBuilder)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p90Latency = p90Latency
-	p99Latency, err := getLatency(promAPI, quantile99, commonLabelsBuilder)
+
+	p99Latency, err := getLatency(promAPI, 0.99, commonLabelsBuilder)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
@@ -309,7 +328,7 @@ func metrics(promAPI promv1.API, resource string, duration time.Duration) (resou
 	return sm, nil
 }
 
-func getLatency(promAPI promv1.API, quantile p8sQuantile, builder LabelsBuilder) (time.Duration, error) {
+func getLatency(promAPI promv1.API, quantile float64, builder prometheusQueryParams) (time.Duration, error) {
 	builder.AddByLabel("le")
 	latencyQuery := getLatencyQuery(quantile, builder)
 	latency, err := vectorValue(promAPI, latencyQuery)
