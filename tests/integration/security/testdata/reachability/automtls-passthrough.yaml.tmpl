@@ -1,14 +1,12 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: "default"
-  annotations:
-    test-suite: "no-peer-authn"
+  name: passthrough
 spec:
-  host: "*.local"
+  host: "*"
   trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
+    loadBalancer:
+      simple: PASSTHROUGH
 ---
 # Apply a local policy to the system namespace to turn this off
 # Otherwise, the eastwest gateway will be impacted
