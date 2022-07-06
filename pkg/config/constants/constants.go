@@ -21,6 +21,14 @@ const (
 	// AuthCertsPath is the path location for mTLS certificates
 	AuthCertsPath = "/etc/certs/"
 
+	// PilotWellKnownDNSCertPath is the path location for Pilot dns serving cert, often used with custom CA integrations
+	PilotWellKnownDNSCertPath   = "/etc/pilot/tls/"
+	PilotWellKnownDNSCaCertPath = "/etc/pilot/ca/"
+
+	DefaultPilotTLSCert   = PilotWellKnownDNSCertPath + "tls.crt"
+	DefaultPilotTLSKey    = PilotWellKnownDNSCertPath + "tls.key"
+	DefaultPilotTLSCaCert = PilotWellKnownDNSCaCertPath + "root-cert.pem"
+
 	// CertChainFilename is mTLS chain file
 	CertChainFilename = "cert-chain.pem"
 

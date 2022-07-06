@@ -40,28 +40,50 @@ import (
 	"istio.io/pkg/filewatcher"
 )
 
+func loadCertFilesAtPaths(tlscertFilePath, tlskeyFilePath,tlsCaCertFilePath string) (error) {
+				// create cert directories if not existing
+		    if err := os.MkdirAll(filepath.Dir(tlscertFilePath), os.ModePerm); err != nil {
+		      return fmt.Errorf("Mkdirall(%v) failed: %v", tlscertFilePath, err)
+		    }
+
+		    if err := os.MkdirAll(filepath.Dir(tlskeyFilePath), os.ModePerm); err != nil {
+		      return fmt.Errorf("Mkdirall(%v) failed: %v", tlskeyFilePath, err)
+		    }
+
+		    if err := os.MkdirAll(filepath.Dir(tlsCaCertFilePath), os.ModePerm); err != nil {
+		        return fmt.Errorf("Mkdirall(%v) failed: %v", tlsCaCertFilePath, err)
+		    }
+
+				// load key and cert files.
+				if err := os.WriteFile(tlscertFilePath, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+					return fmt.Errorf("WriteFile(%v) failed: %v", tlscertFilePath, err)
+				}
+				if err := os.WriteFile(tlskeyFilePath, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+					return fmt.Errorf("WriteFile(%v) failed: %v", tlskeyFilePath, err)
+				}
+				if err := os.WriteFile(tlsCaCertFilePath, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
+					return fmt.Errorf("WriteFile(%v) failed: %v", tlsCaCertFilePath, err)
+				}
+
+				return nil
+		}
+
+func nilCertWriter () error {
+	return nil
+}
+
 func TestNewServerCertInit(t *testing.T) {
 	configDir := t.TempDir()
 
-	certsDir := t.TempDir()
+	tlsArgCertsDir := t.TempDir()
 
-	certFile := filepath.Join(certsDir, "cert-file.pem")
-	keyFile := filepath.Join(certsDir, "key-file.pem")
-	caCertFile := filepath.Join(certsDir, "ca-cert.pem")
-
-	// load key and cert files.
-	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
-	}
-	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
-	}
-	if err := os.WriteFile(caCertFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
-	}
+	tlsArgcertFile := filepath.Join(tlsArgCertsDir, "cert-file.pem")
+	tlsArgkeyFile := filepath.Join(tlsArgCertsDir, "key-file.pem")
+	tlsArgcaCertFile := filepath.Join(tlsArgCertsDir, "ca-cert.pem")
 
 	cases := []struct {
 		name         string
+		loadFSCertsAtPaths func() (error)
 		tlsOptions   *TLSOptions
 		enableCA     bool
 		certProvider string
@@ -69,12 +91,16 @@ func TestNewServerCertInit(t *testing.T) {
 		expCert      []byte
 		expKey       []byte
 	}{
+
 		{
 			name: "Load from existing DNS cert",
+			loadFSCertsAtPaths: (func() (error) {
+				return loadCertFilesAtPaths(tlsArgcertFile, tlsArgkeyFile, tlsArgcaCertFile)
+			}),
 			tlsOptions: &TLSOptions{
-				CertFile:   certFile,
-				KeyFile:    keyFile,
-				CaCertFile: caCertFile,
+				CertFile:   tlsArgcertFile,
+				KeyFile:    tlsArgkeyFile,
+				CaCertFile: tlsArgcaCertFile,
 			},
 			enableCA:     false,
 			certProvider: constants.CertProviderKubernetes,
@@ -84,6 +110,7 @@ func TestNewServerCertInit(t *testing.T) {
 		},
 		{
 			name: "Create new DNS cert using Istiod",
+			loadFSCertsAtPaths: nilCertWriter,
 			tlsOptions: &TLSOptions{
 				CertFile:   "",
 				KeyFile:    "",
@@ -97,6 +124,19 @@ func TestNewServerCertInit(t *testing.T) {
 		},
 		{
 			name:         "No DNS cert created because CA is disabled",
+			loadFSCertsAtPaths: nilCertWriter,
+			tlsOptions:   &TLSOptions{},
+			enableCA:     false,
+			certProvider: constants.CertProviderIstiod,
+			expNewCert:   false,
+			expCert:      []byte{},
+			expKey:       []byte{},
+		},
+		{
+			name:         "DNS cert loaded because it is in known even if CA is Disabled",
+			loadFSCertsAtPaths: (func() (error) {
+				return loadCertFilesAtPaths(constants.DefaultPilotTLSCert , constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCert)
+			}),
 			tlsOptions:   &TLSOptions{},
 			enableCA:     false,
 			certProvider: constants.CertProviderIstiod,
@@ -106,6 +146,7 @@ func TestNewServerCertInit(t *testing.T) {
 		},
 		{
 			name:         "No cert provider",
+			loadFSCertsAtPaths: nilCertWriter,
 			tlsOptions:   &TLSOptions{},
 			enableCA:     true,
 			certProvider: constants.CertProviderNone,
@@ -119,6 +160,11 @@ func TestNewServerCertInit(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			test.SetForTest(t, &features.PilotCertProvider, c.certProvider)
 			test.SetForTest(t, &features.EnableCAServer, c.enableCA)
+
+			err := c.loadFSCertsAtPaths()
+			if err != nil {
+				t.Fatal(err.Error())
+			}
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{
