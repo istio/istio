@@ -1,6 +1,4 @@
-//go:build !agent
 // +build !agent
-
 // GENERATED FILE -- DO NOT EDIT
 //
 
