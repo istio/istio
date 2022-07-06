@@ -69,8 +69,30 @@ func TestMetrics(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
 			args:           strings.Split("experimental metrics details", " "),
-			expectedRegexp: regexp.MustCompile("could not build metrics for workload"),
+			expectedRegexp: regexp.MustCompile("could not build metrics for resource 'details'"),
 			wantException:  true,
+		},
+		{ // case 1
+			args:           strings.Split("experimental metrics workload/details", " "),
+			expectedRegexp: regexp.MustCompile("could not build metrics for resource 'workload/details'"),
+			wantException:  true,
+		},
+		{ // case 2
+			args:           strings.Split("experimental metrics workload/details.ns1", " "),
+			expectedRegexp: regexp.MustCompile("could not build metrics for resource 'workload/details.ns1'"),
+			wantException:  true,
+		},
+		{ // case 3
+			args: strings.Split("experimental metrics workload,service/details", " "),
+			expectedRegexp: regexp.MustCompile("could not build metrics for resource 'workload,service/details': " +
+				"invalid resource type: \\'workload,service\\', type must be \\[workload \\| service\\]"),
+			wantException: true,
+		},
+		{ // case 4
+			args: strings.Split("experimental metrics pod/details", " "),
+			expectedRegexp: regexp.MustCompile("could not build metrics for resource 'pod/details': " +
+				"invalid resource type: \\'pod\\', type must be \\[workload \\| service\\]"),
+			wantException: true,
 		},
 	}
 
@@ -106,40 +128,131 @@ func TestAPI(t *testing.T) {
 var _ promv1.API = mockPromAPI{}
 
 func TestPrintMetrics(t *testing.T) {
-	mockProm := mockPromAPI{
-		cannedResponse: map[string]prometheus_model.Value{
-			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
-				&prometheus_model.Sample{Value: 0.04},
+	testCases := []struct {
+		name     string
+		resource string
+		mockProm mockPromAPI
+		want     string
+		wantErr  bool
+	}{
+		{
+			name:     "experimental metrics details",
+			resource: "details",
+			mockProm: mockPromAPI{
+				cannedResponse: map[string]prometheus_model.Value{
+					"sum(rate(istio_requests_total{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 0.04},
+					},
+					"sum(rate(istio_requests_total{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m0s]))": prometheus_model.Vector{}, // nolint: lll
+					"histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 2.5},
+					},
+					"histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 4.5},
+					},
+					"histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 4.95},
+					},
+				},
 			},
-			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m0s]))": prometheus_model.Vector{}, // nolint: lll
-			"histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
-				&prometheus_model.Sample{Value: 2.5},
+			want: `                                      NAME    TOTAL RPS    ERROR RPS  P50 LATENCY  P90 LATENCY  P99 LATENCY
+                                   details        0.040        0.000          2ms          4ms          4ms
+`,
+			wantErr: false,
+		},
+		{
+			name:     "experimental metrics workload/details",
+			resource: "workload/details",
+			mockProm: mockPromAPI{
+				cannedResponse: map[string]prometheus_model.Value{
+					"sum(rate(istio_requests_total{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 0.04},
+					},
+					"sum(rate(istio_requests_total{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m0s]))": prometheus_model.Vector{}, // nolint: lll
+					"histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 2.5},
+					},
+					"histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 4.5},
+					},
+					"histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 4.95},
+					},
+				},
 			},
-			"histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
-				&prometheus_model.Sample{Value: 4.5},
+			want: `                                      NAME    TOTAL RPS    ERROR RPS  P50 LATENCY  P90 LATENCY  P99 LATENCY
+                          workload/details        0.040        0.000          2ms          4ms          4ms
+`,
+			wantErr: false,
+		},
+		{
+			name:     "experimental metrics workload/details.ns1",
+			resource: "workload/details.ns1",
+			mockProm: mockPromAPI{
+				cannedResponse: map[string]prometheus_model.Value{
+					"sum(rate(istio_requests_total{destination_workload=~\"details.*\",destination_workload_namespace=~\"ns1.*\",reporter=\"destination\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 0.04},
+					},
+					"sum(rate(istio_requests_total{destination_workload=~\"details.*\",destination_workload_namespace=~\"ns1.*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m0s]))": prometheus_model.Vector{}, // nolint: lll
+					"histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\"ns1.*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 2.5},
+					},
+					"histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\"ns1.*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 4.5},
+					},
+					"histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\"ns1.*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 4.95},
+					},
+				},
 			},
-			"histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
-				&prometheus_model.Sample{Value: 4.95},
+			want: `                                      NAME    TOTAL RPS    ERROR RPS  P50 LATENCY  P90 LATENCY  P99 LATENCY
+                      workload/details.ns1        0.040        0.000          2ms          4ms          4ms
+`,
+			wantErr: false,
+		},
+		{
+			name:     "experimental metrics service/details.ns1",
+			resource: "service/details.ns1",
+			mockProm: mockPromAPI{
+				cannedResponse: map[string]prometheus_model.Value{
+					"sum(rate(istio_requests_total{destination_service_name=~\"details.*\",destination_service_namespace=~\"ns1.*\",reporter=\"destination\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 0.04},
+					},
+					"sum(rate(istio_requests_total{destination_service_name=~\"details.*\",destination_service_namespace=~\"ns1.*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m0s]))": prometheus_model.Vector{}, // nolint: lll
+					"histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_service_name=~\"details.*\",destination_service_namespace=~\"ns1.*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 2.5},
+					},
+					"histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_service_name=~\"details.*\",destination_service_namespace=~\"ns1.*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 4.5},
+					},
+					"histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_service_name=~\"details.*\",destination_service_namespace=~\"ns1.*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+						&prometheus_model.Sample{Value: 4.95},
+					},
+				},
 			},
+			want: `                                      NAME    TOTAL RPS    ERROR RPS  P50 LATENCY  P90 LATENCY  P99 LATENCY
+                       service/details.ns1        0.040        0.000          2ms          4ms          4ms
+`,
+			wantErr: false,
 		},
 	}
-	workload := "details"
 
-	sm, err := metrics(mockProm, workload, time.Minute)
-	if err != nil {
-		t.Fatalf("Unwanted exception %v", err)
-	}
+	for _, c := range testCases {
+		t.Run(c.name, func(t *testing.T) {
+			sm, err := metrics(c.mockProm, c.resource, time.Minute)
+			if err != nil {
+				t.Fatalf("Unwanted exception %v", err)
+			}
 
-	var out bytes.Buffer
-	printHeader(&out)
-	printMetrics(&out, sm)
-	output := out.String()
+			var out bytes.Buffer
+			printHeader(&out)
+			printMetrics(&out, sm)
+			output := out.String()
 
-	expectedOutput := `                                  WORKLOAD    TOTAL RPS    ERROR RPS  P50 LATENCY  P90 LATENCY  P99 LATENCY
-                                   details        0.040        0.000          2ms          4ms          4ms
-`
-	if output != expectedOutput {
-		t.Fatalf("Unexpected output; got:\n %q\nwant:\n %q", output, expectedOutput)
+			if output != c.want {
+				t.Fatalf("Unexpected output; got:\n %q\nwant:\n %q", output, c.want)
+			}
+		})
 	}
 }
 

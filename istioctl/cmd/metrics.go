@@ -19,15 +19,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"text/tabwriter"
 	"time"
+
+	"istio.io/istio/istioctl/pkg/util/handlers"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/api"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/spf13/cobra"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/pkg/log"
@@ -39,10 +42,25 @@ var (
 )
 
 const (
+	destServiceNameLabel      = "destination_service_name"
+	destServiceNamespaceLabel = "destination_service_namespace"
+
 	destWorkloadLabel          = "destination_workload"
 	destWorkloadNamespaceLabel = "destination_workload_namespace"
-	reqTot                     = "istio_requests_total"
-	reqDur                     = "istio_request_duration_milliseconds"
+
+	reporterLabel = "reporter"
+
+	responseCodeLabel = "response_code"
+)
+
+const (
+	SourceReporterLabelValue = "source"
+	DestReporterLabelValue   = "destination"
+)
+
+const (
+	reqTot = "istio_requests_total"
+	reqDur = "istio_request_duration_milliseconds"
 )
 
 func metricsCmd() *cobra.Command {
@@ -70,7 +88,20 @@ calculated over a time interval of 1 minute.
   istioctl experimental metrics productpage-v1 -d 2m
 
   # Retrieve workload metrics for various services in the different namespaces
-  istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz`,
+  istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz
+
+  # Retrieve workload metrics for productpage-v1 workload with resource type [workload] 
+  istioctl experimental metrics workload/productpage-v1
+
+  # Retrieve service metrics for productpage with resource type [service] 
+  istioctl experimental metrics service/productpage
+
+  # Retrieve service metrics for various services in the different namespaces
+  istioctl experimental metrics service/productpage.foo
+
+  # Retrieve workload metrics for various services with resource type [service] in the different namespaces
+  istioctl experimental metrics service/productpage.foo service/reviews.bar
+`,
 		// nolint: goimports
 		Aliases: []string{"m"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -89,8 +120,8 @@ calculated over a time interval of 1 minute.
 	return cmd
 }
 
-type workloadMetrics struct {
-	workload                           string
+type resourceMetrics struct {
+	resourceName                       string
 	totalRPS, errorRPS                 float64
 	p50Latency, p90Latency, p99Latency time.Duration
 }
@@ -136,16 +167,18 @@ func run(c *cobra.Command, args []string) error {
 
 	printHeader(c.OutOrStdout())
 
-	workloads := args
-	for _, workload := range workloads {
-		sm, err := metrics(promAPI, workload, metricsDuration)
+	resources := args
+	allErrs := []error{}
+	for _, r := range resources {
+		sm, err := metrics(promAPI, r, metricsDuration)
 		if err != nil {
-			return fmt.Errorf("could not build metrics for workload '%s': %v", workload, err)
+			allErrs = append(allErrs, fmt.Errorf("could not build metrics for resource '%s': %v", r, err))
+			continue
 		}
 
 		printMetrics(c.OutOrStdout(), sm)
 	}
-	return nil
+	return utilerrors.NewAggregate(allErrs)
 }
 
 func prometheusAPI(address string) (promv1.API, error) {
@@ -156,22 +189,93 @@ func prometheusAPI(address string) (promv1.API, error) {
 	return promv1.NewAPI(promClient), nil
 }
 
-func metrics(promAPI promv1.API, workload string, duration time.Duration) (workloadMetrics, error) {
-	parts := strings.Split(workload, ".")
-	wname := parts[0]
-	wns := ""
-	if len(parts) > 1 {
-		wns = parts[1]
+const (
+	unSpecifyResourceType = ""
+	workloadResourceType  = "workload"
+	serviceResourceType   = "service"
+)
+
+func inferResourceLabel(resource, specifyNS string) (labels.Selector, error) {
+	resNs := ""
+	resService := ""
+	resWorkloud := ""
+
+	resType, resName, resNs, err := handlers.InferResourceTuple(resource, specifyNS)
+	if err != nil {
+		return nil, err
+	}
+	switch resType {
+	case unSpecifyResourceType, workloadResourceType:
+		resWorkloud = resName
+	case serviceResourceType:
+		resService = resName
+	default:
+		return nil, fmt.Errorf("invalid resource type: '%s', type must be [workload | service]", resType)
 	}
 
-	rpsQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s]))`,
-		reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
-	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code=~"[45][0-9]{2}"}[%s]))`,
-		reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
+	out := labels.Selector{}
+	if resWorkloud != "" {
+		out = labels.Selector{
+			{
+				Name:  destWorkloadLabel,
+				Type:  labels.MatchRegexp,
+				Value: fmt.Sprintf("%s.*", resWorkloud),
+			},
+			{
+				Name:  destWorkloadNamespaceLabel,
+				Type:  labels.MatchRegexp,
+				Value: fmt.Sprintf("%s.*", resNs),
+			},
+		}
+	}
+
+	if resService != "" {
+		out = labels.Selector{
+			{
+				Name:  destServiceNameLabel,
+				Type:  labels.MatchRegexp,
+				Value: fmt.Sprintf("%s.*", resService),
+			},
+			{
+				Name:  destServiceNamespaceLabel,
+				Type:  labels.MatchRegexp,
+				Value: fmt.Sprintf("%s.*", resNs),
+			},
+		}
+	}
+
+	return out, nil
+}
+
+func metrics(promAPI promv1.API, resource string, duration time.Duration) (resourceMetrics, error) {
+	// TODO can support specify reporter
+	reporterMatcher := &labels.Matcher{
+		Name:  reporterLabel,
+		Type:  labels.MatchEqual,
+		Value: DestReporterLabelValue,
+	}
+	selector, err := inferResourceLabel(resource, "")
+	if err != nil {
+		return resourceMetrics{}, err
+	}
+	selector = append(selector, reporterMatcher)
+
+	commonLabelsBuilder := LabelsBuilder{
+		LabelSelector: selector,
+		Dur:           duration.String(),
+	}
+	rpsQuery := getRpsQuery(commonLabelsBuilder)
+
+	errorBuilder := commonLabelsBuilder
+	errorBuilder.AddLabelMatcher(&labels.Matcher{
+		Name:  responseCodeLabel,
+		Type:  labels.MatchRegexp,
+		Value: "[45][0-9]{2}",
+	})
+	errRPSQuery := getRpsQuery(errorBuilder)
 
 	var me *multierror.Error
-	var err error
-	sm := workloadMetrics{workload: workload}
+	sm := resourceMetrics{resourceName: resource}
 	sm.totalRPS, err = vectorValue(promAPI, rpsQuery)
 	if err != nil {
 		me = multierror.Append(me, err)
@@ -182,19 +286,17 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 		me = multierror.Append(me, err)
 	}
 
-	p50Latency, err := getLatency(promAPI, wname, wns, duration, 0.5)
+	p50Latency, err := getLatency(promAPI, quantile50, commonLabelsBuilder)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p50Latency = p50Latency
-
-	p90Latency, err := getLatency(promAPI, wname, wns, duration, 0.9)
+	p90Latency, err := getLatency(promAPI, quantile90, commonLabelsBuilder)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p90Latency = p90Latency
-
-	p99Latency, err := getLatency(promAPI, wname, wns, duration, 0.99)
+	p99Latency, err := getLatency(promAPI, quantile99, commonLabelsBuilder)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
@@ -207,16 +309,15 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 	return sm, nil
 }
 
-func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, duration time.Duration, quantile float64) (time.Duration, error) {
-	latencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))`,
-		quantile, reqDur, destWorkloadLabel, workloadName, destWorkloadNamespaceLabel, workloadNamespace, duration)
-
-	letency, err := vectorValue(promAPI, latencyQuery)
+func getLatency(promAPI promv1.API, quantile p8sQuantile, builder LabelsBuilder) (time.Duration, error) {
+	builder.AddByLabel("le")
+	latencyQuery := getLatencyQuery(quantile, builder)
+	latency, err := vectorValue(promAPI, latencyQuery)
 	if err != nil {
 		return time.Duration(0), err
 	}
 
-	return convertLatencyToDuration(letency), nil
+	return convertLatencyToDuration(latency), nil
 }
 
 func vectorValue(promAPI promv1.API, query string) (float64, error) {
@@ -246,13 +347,13 @@ func convertLatencyToDuration(val float64) time.Duration {
 
 func printHeader(writer io.Writer) {
 	w := tabwriter.NewWriter(writer, 13, 1, 2, ' ', tabwriter.AlignRight)
-	_, _ = fmt.Fprintf(w, "%40s\tTOTAL RPS\tERROR RPS\tP50 LATENCY\tP90 LATENCY\tP99 LATENCY\t\n", "WORKLOAD")
+	_, _ = fmt.Fprintf(w, "%40s\tTOTAL RPS\tERROR RPS\tP50 LATENCY\tP90 LATENCY\tP99 LATENCY\t\n", "NAME")
 	_ = w.Flush()
 }
 
-func printMetrics(writer io.Writer, wm workloadMetrics) {
+func printMetrics(writer io.Writer, wm resourceMetrics) {
 	w := tabwriter.NewWriter(writer, 13, 1, 2, ' ', tabwriter.AlignRight)
-	_, _ = fmt.Fprintf(w, "%40s\t", wm.workload)
+	_, _ = fmt.Fprintf(w, "%40s\t", wm.resourceName)
 	_, _ = fmt.Fprintf(w, "%.3f\t", wm.totalRPS)
 	_, _ = fmt.Fprintf(w, "%.3f\t", wm.errorRPS)
 	_, _ = fmt.Fprintf(w, "%s\t", wm.p50Latency)

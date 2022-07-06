@@ -56,7 +56,7 @@ func validateDefaultOutput(t framework.TestContext, workload string) error { // 
 	}
 
 	// output will be something like
-	//      WORKLOAD    TOTAL RPS    ERROR RPS  P50 LATENCY  P90 LATENCY  P99 LATENCY
+	//          NAME    TOTAL RPS    ERROR RPS  P50 LATENCY  P90 LATENCY  P99 LATENCY
 	//        server        0.182        0.000         40ms         74ms         97ms
 	//
 	lines := strings.Split(output, "\n")

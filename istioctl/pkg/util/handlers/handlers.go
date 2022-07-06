@@ -62,6 +62,22 @@ func inferNsInfo(name, namespace string) (string, string) {
 	return name[0:separator], name[separator+1:]
 }
 
+func InferResourceTuple(name, specifyNS string) (resType string, resName string, resNamespace string, err error) {
+	resName, resNamespace = inferNsInfo(name, specifyNS)
+	if !strings.Contains(resName, "/") {
+		return
+	}
+
+	seg := strings.Split(resName, "/")
+	if len(seg) != 2 {
+		err = fmt.Errorf("arguments in resource/name form may not have more than one slash")
+		return
+	}
+
+	resType, resName = seg[0], seg[1]
+	return
+}
+
 // HandleNamespace returns the defaultNamespace if the namespace is empty
 func HandleNamespace(ns, defaultNamespace string) string {
 	if ns == v1.NamespaceAll {
