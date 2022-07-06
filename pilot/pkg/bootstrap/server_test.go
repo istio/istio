@@ -138,7 +138,7 @@ func TestNewServerCertInit(t *testing.T) {
 			}),
 			tlsOptions:   &TLSOptions{},
 			enableCA:     false,
-			certProvider: constants.CertProviderIstiod,
+			certProvider: constants.CertProviderNone,
 			expNewCert:   false,
 			expCert:      testcerts.ServerCert,
 			expKey:       testcerts.ServerKey,
