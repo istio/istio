@@ -179,11 +179,16 @@ func TestNewServerCertInit(t *testing.T) {
 			test.SetForTest(t, &features.PilotCertProvider, c.certProvider)
 			test.SetForTest(t, &features.EnableCAServer, c.enableCA)
 
-			err := loadCertFilesAtPaths(c.FSCertsPaths)
-			if err != nil {
-				t.Fatal(err.Error())
+			// check if we have some tls assets to write for test
+			if c.FSCertsPaths != (TLSFSLoadPaths{}) {
+				err := loadCertFilesAtPaths(c.FSCertsPaths)
+				if err != nil {
+					t.Fatal(err.Error())
+				}
+
+				defer cleanupCertFSFles(c.FSCertsPaths)
 			}
-			defer cleanupCertFSFles(c.FSCertsPaths)
+
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{
