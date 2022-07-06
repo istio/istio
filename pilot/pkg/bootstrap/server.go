@@ -1077,14 +1077,15 @@ func hasCustomTLSCerts(tlsOptions TLSOptions) (ok bool, tlsCertPath, tlsKeyPath,
 	// load from tls args as priority
 	if hasCustomTLSCertArgs(tlsOptions) {
 		return true, tlsOptions.CertFile, tlsOptions.KeyFile, tlsOptions.CaCertFile
-	} else {
-		if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCert); ok {
-			tlsCertPath = constants.DefaultPilotTLSCert
-			tlsKeyPath = constants.DefaultPilotTLSKey
-			caCertPath = constants.DefaultPilotTLSCaCert
-			return
-		}
 	}
+
+	if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCert); ok {
+		tlsCertPath = constants.DefaultPilotTLSCert
+		tlsKeyPath = constants.DefaultPilotTLSKey
+		caCertPath = constants.DefaultPilotTLSCaCert
+		return
+	}
+
 	return
 }
 
