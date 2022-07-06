@@ -1064,11 +1064,11 @@ func checkPathsExist(paths ...string) bool {
 	for _, path := range paths {
 		fInfo, err := os.Stat(path)
 
-		if err != nil && !fInfo.IsDir() {
-			return true
+		if err != nil || !fInfo.IsDir() {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // hasCustomTLSCerts returns the tls cert paths, used both if custom TLS certificates are configured via args or by mounting in well known.
