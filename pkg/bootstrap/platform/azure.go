@@ -27,7 +27,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-containerregistry/pkg/authn"
 
-	"istio.io/istio/pkg/bootstrap/platform/keychain"
 	"istio.io/pkg/log"
 )
 
@@ -51,7 +50,7 @@ var (
 		return metadataRequest(fmt.Sprintf("api-version=%s", version))
 	}
 	azureRegistryKeychain = authn.NewMultiKeychain(authn.DefaultKeychain, authn.NewKeychainFromHelper(
-		keychain.WrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration)))
+		wrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration)))
 )
 
 type azureEnv struct {

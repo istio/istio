@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package keychain
+package platform
 
 import (
 	"time"
@@ -51,7 +51,7 @@ func (helper *cachedHelper) Get(serverURL string) (string, string, error) {
 	return entry.username, entry.password, nil
 }
 
-func WrapHelperWithCache(helper authn.Helper, expirationInterval time.Duration) authn.Helper {
+func wrapHelperWithCache(helper authn.Helper, expirationInterval time.Duration) authn.Helper {
 	return &cachedHelper{
 		internalHelper: helper,
 		expiration:     expirationInterval,

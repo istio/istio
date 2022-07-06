@@ -23,7 +23,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-containerregistry/pkg/authn"
 
-	"istio.io/istio/pkg/bootstrap/platform/keychain"
 	"istio.io/istio/pkg/http"
 	"istio.io/pkg/log"
 )
@@ -42,7 +41,7 @@ var (
 	awsMetadataIPv6URL = "http://[fd00:ec2::254]/latest/meta-data"
 
 	awsRegistryKeychain = authn.NewMultiKeychain(authn.DefaultKeychain, authn.NewKeychainFromHelper(
-		keychain.WrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration)))
+		wrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration)))
 )
 
 // Approach derived from the following:

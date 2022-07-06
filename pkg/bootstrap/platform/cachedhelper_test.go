@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package keychain
+package platform
 
 import (
 	"fmt"
@@ -160,7 +160,7 @@ func TestCachedHelper(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cc := WrapHelperWithCache(nil, time.Nanosecond).(*cachedHelper)
+			cc := wrapHelperWithCache(nil, time.Nanosecond).(*cachedHelper)
 			now := time.Now()
 			cc.getNow = func() time.Time { return now }
 			tc.initialStep.test(t, cc)
