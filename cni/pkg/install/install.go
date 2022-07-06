@@ -194,7 +194,7 @@ func (in *Installer) sleepCheckInstall(ctx context.Context) error {
 	}()
 
 	// Watch for service account token changes in background
-	go in.watchSAToken(fileModified, errChan)
+	in.watchSAToken(ctx, fileModified, errChan)
 
 	for {
 		if checkErr := checkInstall(in.cfg, in.cniConfigFilepath); checkErr != nil {
@@ -282,15 +282,22 @@ func checkInstall(cfg *config.InstallConfig, cniConfigFilepath string) error {
 // watchSAToken periodically reads SA token file and compares its content with the token stored in the Installer.
 // Sends true into fileModified in case of mismatch.
 // Allows to detect changes in the Bound Service Account Token Volume.
-func (in *Installer) watchSAToken(fileModified chan bool, errChan chan error) {
-	for {
-		token, err := readServiceAccountToken(in.saTokenFilepath)
-		if err != nil {
-			errChan <- err
+func (in *Installer) watchSAToken(ctx context.Context, fileModified chan bool, errChan chan error) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				token, err := readServiceAccountToken(in.saTokenFilepath)
+				if err != nil {
+					errChan <- err
+				}
+				if in.saToken != token {
+					fileModified <- true
+				}
+				time.Sleep(1 * time.Minute)
+			}
 		}
-		if in.saToken != token {
-			fileModified <- true
-		}
-		time.Sleep(1 * time.Minute)
-	}
+	}()
 }
