@@ -1062,7 +1062,7 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 
 func checkPathsExist(paths ...string) bool {
 	for _, path := range paths {
-		fInfo, err = os.Stat(path)
+		fInfo, err := os.Stat(path)
 
 		if err != nil && !fInfo.IsDir() {
 			return true
