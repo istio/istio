@@ -150,8 +150,8 @@ func TestNewServerCertInit(t *testing.T) {
 			enableCA:           true,
 			certProvider:       constants.CertProviderNone,
 			expNewCert:         false,
-			expCert:            []byte{},
-			expKey:             []byte{},
+			expCert:            testcerts.ServerCert,
+			expKey:             testcerts.ServerKey,
 		},
 	}
 
