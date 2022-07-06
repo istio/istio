@@ -32,15 +32,13 @@ issue:
 releaseNotes:
 - |
   **Changed** Pilot will now load its DNS serving certificate from well known locations:
-```
-/var/run/secrets/istiod/tls/tls.crt
-/var/run/secrets/istiod/tls/tls.key
-/var/run/secrets/istiod/ca/root-cert.pem
-```
-The CA path will alternatively be loaded from: `/var/run/secrets/tls/ca.crt`
-
-It also automatically loads any secret called istiod-tls and the istio-root-ca-configmap into those paths.
-
-This method is preferred to use those well known paths than to set the tls args.
-This will allow for an easier installation process for istio-csr as well as any other external issuer that needs to modify
-the Pilot DNS serving certificate.
+  ```
+  /var/run/secrets/istiod/tls/tls.crt
+  /var/run/secrets/istiod/tls/tls.key
+  /var/run/secrets/istiod/ca/root-cert.pem
+  ```
+  The CA path will alternatively be loaded from: `/var/run/secrets/tls/ca.crt`
+  It also automatically loads any secret called istiod-tls and the istio-root-ca-configmap into those paths.
+  This method is preferred to use those well known paths than to set the tls args.
+  This will allow for an easier installation process for istio-csr as well as any other external issuer that needs to modify
+  the Pilot DNS serving certificate.
