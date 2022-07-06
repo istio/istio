@@ -1064,7 +1064,7 @@ func checkPathsExist(paths ...string) bool {
 	for _, path := range paths {
 		fInfo, err := os.Stat(path)
 
-		if err != nil || !fInfo.IsDir() {
+		if err != nil || fInfo.IsDir() {
 			return false
 		}
 	}
