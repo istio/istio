@@ -1,24 +1,12 @@
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: "default"
-  annotations:
-    test-suite: "beta-mtls-on"
-spec:
-  mtls:
-    mode: STRICT
----
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: "default"
-  annotations:
-    test-suite: "beta-mtls-on"
 spec:
-  host: "*.local"
+  host: "*"
   trafficPolicy:
     tls:
-      mode: ISTIO_MUTUAL
+      mode: {{ .TLSMode }}
 ---
 # Apply a local policy to the system namespace to turn this off
 # Otherwise, the eastwest gateway will be impacted
@@ -26,8 +14,6 @@ apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: "eastwest-opt-out"
-  annotations:
-    test-suite: "beta-mtls-on"
 spec:
   exportTo: [.]
   host: "*"

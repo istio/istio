@@ -28,6 +28,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
 func supportedPercentEncode(i int) bool {
@@ -223,30 +225,34 @@ func TestNormalization(t *testing.T) {
 			}
 			for _, tt := range cases {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
-					ist.PatchMeshConfigOrFail(t, t, fmt.Sprintf(`
+					istio.GetOrFail(t, t).PatchMeshConfigOrFail(t, t, fmt.Sprintf(`
 pathNormalization:
   normalization: %v`, tt.ntype.String()))
-					for _, c := range apps.A {
-						for _, tt := range tt.expectations {
-							t.NewSubTest(tt.in).Run(func(t framework.TestContext) {
-								checker := check.URL(tt.out)
-								if tt.out == "400" {
-									checker = check.Status(http.StatusBadRequest)
-								}
-								c.CallOrFail(t, echo.CallOptions{
-									To:    apps.B,
-									Count: 1,
-									HTTP: echo.HTTP{
-										Path: tt.in,
-									},
-									Port: echo.Port{
-										Name: "http",
-									},
-									Check: checker,
+
+					newTrafficTest(t, apps.Ns1.All.Instances()).
+						FromMatch(match.ServiceName(apps.Ns1.A.NamespacedName())).
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							for _, expected := range tt.expectations {
+								expected := expected
+								t.NewSubTest(expected.in).RunParallel(func(t framework.TestContext) {
+									checker := check.URL(expected.out)
+									if expected.out == "400" {
+										checker = check.Status(http.StatusBadRequest)
+									}
+									from.CallOrFail(t, echo.CallOptions{
+										To:    to,
+										Count: 1,
+										HTTP: echo.HTTP{
+											Path: expected.in,
+										},
+										Port: echo.Port{
+											Name: "http",
+										},
+										Check: checker,
+									})
 								})
-							})
-						}
-					}
+							}
+						})
 				})
 			}
 		})
