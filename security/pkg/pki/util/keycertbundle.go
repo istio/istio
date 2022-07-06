@@ -66,8 +66,9 @@ func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, ro
 
 // NewVerifiedKeyCertBundleFromFile returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
-func NewVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, rootCertFile string) (
-	*KeyCertBundle, error) {
+func NewVerifiedKeyCertBundleFromFile(certFile string, privKeyFile string, certChainFiles []string, rootCertFile string) (
+	*KeyCertBundle, error,
+) {
 	certBytes, err := os.ReadFile(certFile)
 	if err != nil {
 		return nil, err
@@ -76,10 +77,16 @@ func NewVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, root
 	if err != nil {
 		return nil, err
 	}
-	certChainBytes := []byte{}
-	if len(certChainFile) != 0 {
-		if certChainBytes, err = os.ReadFile(certChainFile); err != nil {
-			return nil, err
+	var certChainBytes []byte
+	if len(certChainFiles) > 0 {
+		for _, f := range certChainFiles {
+			var b []byte
+
+			if b, err = os.ReadFile(f); err != nil {
+				return nil, err
+			}
+
+			certChainBytes = append(certChainBytes, b...)
 		}
 	}
 	rootCertBytes, err := os.ReadFile(rootCertFile)
@@ -211,7 +218,7 @@ func (b *KeyCertBundle) CertOptions() (*CertOptions, error) {
 }
 
 // UpdateVerifiedKeyCertBundleFromFile Verifies and updates KeyCertBundle with new certs
-func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, rootCertFile string) error {
+func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(certFile string, privKeyFile string, certChainFiles []string, rootCertFile string) error {
 	certBytes, err := os.ReadFile(certFile)
 	if err != nil {
 		return err
@@ -221,9 +228,14 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(certFile, privKeyFil
 		return err
 	}
 	certChainBytes := []byte{}
-	if len(certChainFile) != 0 {
-		if certChainBytes, err = os.ReadFile(certChainFile); err != nil {
-			return err
+	if len(certChainFiles) != 0 {
+		for _, f := range certChainFiles {
+			var b []byte
+			if b, err = os.ReadFile(f); err != nil {
+				return err
+			}
+
+			certChainBytes = append(certChainBytes, b...)
 		}
 	}
 	rootCertBytes, err := os.ReadFile(rootCertFile)
