@@ -949,7 +949,10 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	s.dnsNames = getDNSNames(args, host)
 	if hasCustomCertArgsOrWellKnown, tlsCertPath, tlsKeyPath, caCertPath := hasCustomTLSCerts(args.ServerOptions.TLSOptions); hasCustomCertArgsOrWellKnown {
 		// Use the DNS certificate provided via args or in well known location.
-		err = s.initCertificateWatches(tlsCertPath, tlsKeyPath, caCertPath)
+		err = s.initCertificateWatches(TLSOptions{
+			CaCertFile: caCertPath,
+			KeyFile: tlsKeyPath,
+			CertFile: tlsCertPath})
 
 		if err != nil {
 			// Not crashing istiod - This typically happens if certs are missing and in tests.
