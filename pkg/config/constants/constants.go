@@ -25,9 +25,10 @@ const (
 	PilotWellKnownDNSCertPath   = "/etc/pilot/tls/"
 	PilotWellKnownDNSCaCertPath = "/etc/pilot/ca/"
 
-	DefaultPilotTLSCert   = PilotWellKnownDNSCertPath + "tls.crt"
-	DefaultPilotTLSKey    = PilotWellKnownDNSCertPath + "tls.key"
-	DefaultPilotTLSCaCert = PilotWellKnownDNSCaCertPath + "root-cert.pem"
+	DefaultPilotTLSCert                = PilotWellKnownDNSCertPath + "tls.crt"
+	DefaultPilotTLSKey                 = PilotWellKnownDNSCertPath + "tls.key"
+	DefaultPilotTLSCaCert              = PilotWellKnownDNSCaCertPath + "root-cert.pem"
+	DefaultPilotTLSCaCertAlternatePath = PilotWellKnownDNSCertPath + "ca.crt"
 
 	// CertChainFilename is mTLS chain file
 	CertChainFilename = "cert-chain.pem"

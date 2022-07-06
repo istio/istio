@@ -163,6 +163,20 @@ func TestNewServerCertInit(t *testing.T) {
 			expKey:       testcerts.ServerKey,
 		},
 		{
+			name: "DNS cert loaded from known location, even if CA is Disabled, with a fallback CA path",
+			FSCertsPaths: TLSFSLoadPaths{
+				constants.DefaultPilotTLSCert,
+				constants.DefaultPilotTLSKey,
+				constants.DefaultPilotTLSCaCertAlternatePath,
+			},
+			tlsOptions:   &TLSOptions{},
+			enableCA:     false,
+			certProvider: constants.CertProviderNone,
+			expNewCert:   false,
+			expCert:      testcerts.ServerCert,
+			expKey:       testcerts.ServerKey,
+		},
+		{
 			name:         "No cert provider",
 			FSCertsPaths: TLSFSLoadPaths{},
 			tlsOptions:   &TLSOptions{},
