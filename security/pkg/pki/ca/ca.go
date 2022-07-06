@@ -238,7 +238,7 @@ func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCer
 }
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
-func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
+func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         pluggedCertCA,

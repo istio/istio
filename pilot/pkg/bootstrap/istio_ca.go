@@ -262,6 +262,44 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 	}, nil
 }
 
+// loadCACerts loads an existing `cacerts` Secret if the files aren't mounted locally.
+// By default, a cacerts Secret would be mounted during pod startup due to the
+// Istiod Deployment configuration. But with external Istiod, we want to be
+// able to load cacerts from a remote cluster instead.
+func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
+	if s.kubeClient == nil {
+		return nil
+	}
+
+	signingKeyFile := path.Join(dir, ca.CAPrivateKeyFile)
+	if _, err := os.Stat(signingKeyFile); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("signing key file %s already exists", signingKeyFile)
+	}
+
+	secret, err := s.kubeClient.Kube().CoreV1().Secrets(caOpts.Namespace).Get(
+		context.TODO(), "cacerts", metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	log.Infof("cacerts Secret found in config cluster, saving contents to %s", dir)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	for key, data := range secret.Data {
+		filename := path.Join(dir, key)
+		if err := os.WriteFile(filename, data, 0o600); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // loadRemoteCACerts mounts an existing cacerts Secret if the files aren't mounted locally.
 // By default, a cacerts Secret would be mounted during pod startup due to the
 // Istiod Deployment configuration. But with external Istiod, we want to be
@@ -447,7 +485,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 				selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 				selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
 				maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
-				opts.Namespace, -1, client, rootCertFile,
+				opts.Namespace, -1, client, fileBundle.RootCertFile,
 				enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
 		} else {
 			log.Warnf(
