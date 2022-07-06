@@ -26,6 +26,7 @@ import (
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes/duration"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -826,6 +827,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	threshold := getDefaultCircuitBreakerThresholds()
 	var idleTimeout *durationpb.Duration
 	var maxRequestsPerConnection uint32
+	var maxConnectionDuration *duration.Duration
 
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
@@ -848,12 +850,15 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 
 	cb.applyDefaultConnectionPool(mc.cluster)
 	if settings.Tcp != nil {
-		if settings.Tcp != nil && settings.Tcp.ConnectTimeout != nil {
+		if settings.Tcp.ConnectTimeout != nil {
 			mc.cluster.ConnectTimeout = settings.Tcp.ConnectTimeout
 		}
 
-		if settings.Tcp != nil && settings.Tcp.MaxConnections > 0 {
+		if settings.Tcp.MaxConnections > 0 {
 			threshold.MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
+		}
+		if settings.Tcp.MaxConnectionDuration != nil {
+			maxConnectionDuration = settings.Tcp.MaxConnectionDuration
 		}
 	}
 	applyTCPKeepalive(mesh, mc.cluster, settings.Tcp)
@@ -862,7 +867,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		Thresholds: []*cluster.CircuitBreakers_Thresholds{threshold},
 	}
 
-	if idleTimeout != nil || maxRequestsPerConnection > 0 {
+	if maxConnectionDuration != nil || idleTimeout != nil || maxRequestsPerConnection > 0 {
 		if mc.httpProtocolOptions == nil {
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
@@ -876,6 +881,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		}
 		if maxRequestsPerConnection > 0 {
 			commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: maxRequestsPerConnection}
+		}
+		if maxConnectionDuration != nil {
+			commonOptions.CommonHttpProtocolOptions.MaxConnectionDuration = maxConnectionDuration
 		}
 	}
 
