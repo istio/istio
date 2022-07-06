@@ -212,10 +212,11 @@ func inferResourceInfo(name, specifyNS string) (resType string, resName string, 
 	return
 }
 
-func inferResourceLabel(resource, specifyNS string) (labels.Selector, error) {
+// inferResourceLabelsSelector Uses resource name like service/reviews.ns1 or workload/reviews-v1.ns2 to infer prometheus labels selector.
+func inferResourceLabelsSelector(resource, specifyNS string) (labels.Selector, error) {
 	resNs := ""
 	resService := ""
-	resWorkloud := ""
+	resWorkload := ""
 
 	resType, resName, resNs, err := inferResourceInfo(resource, specifyNS)
 	if err != nil {
@@ -223,7 +224,7 @@ func inferResourceLabel(resource, specifyNS string) (labels.Selector, error) {
 	}
 	switch resType {
 	case unSpecifyResourceType, workloadResourceType:
-		resWorkloud = resName
+		resWorkload = resName
 	case serviceResourceType:
 		resService = resName
 	default:
@@ -231,12 +232,12 @@ func inferResourceLabel(resource, specifyNS string) (labels.Selector, error) {
 	}
 
 	out := labels.Selector{}
-	if resWorkloud != "" {
+	if resWorkload != "" {
 		out = labels.Selector{
 			{
 				Name:  destWorkloadLabel,
 				Type:  labels.MatchRegexp,
-				Value: fmt.Sprintf("%s.*", resWorkloud),
+				Value: fmt.Sprintf("%s.*", resWorkload),
 			},
 			{
 				Name:  destWorkloadNamespaceLabel,
@@ -271,25 +272,25 @@ func metrics(promAPI promv1.API, resource string, duration time.Duration) (resou
 		Type:  labels.MatchEqual,
 		Value: DestReporterLabelValue,
 	}
-	selector, err := inferResourceLabel(resource, "")
+	selector, err := inferResourceLabelsSelector(resource, "")
 	if err != nil {
 		return resourceMetrics{}, err
 	}
 	selector = append(selector, reporterMatcher)
 
-	commonLabelsBuilder := prometheusQueryParams{
+	commonQueryParams := prometheusQueryParams{
 		LabelSelector: selector,
 		Duration:      duration.String(),
 	}
-	rpsQuery := getRpsQuery(commonLabelsBuilder)
+	rpsQuery := getRpsQuery(commonQueryParams)
 
-	errorBuilder := commonLabelsBuilder
-	errorBuilder.AddLabelMatcher(&labels.Matcher{
+	errorQueryParams := commonQueryParams
+	errorQueryParams.AddLabelMatcher(&labels.Matcher{
 		Name:  responseCodeLabel,
 		Type:  labels.MatchRegexp,
 		Value: "[45][0-9]{2}",
 	})
-	errRPSQuery := getRpsQuery(errorBuilder)
+	errRPSQuery := getRpsQuery(errorQueryParams)
 
 	var me *multierror.Error
 	sm := resourceMetrics{resourceName: resource}
@@ -303,19 +304,19 @@ func metrics(promAPI promv1.API, resource string, duration time.Duration) (resou
 		me = multierror.Append(me, err)
 	}
 
-	p50Latency, err := getLatency(promAPI, 0.5, commonLabelsBuilder)
+	p50Latency, err := getLatency(promAPI, 0.5, commonQueryParams)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p50Latency = p50Latency
 
-	p90Latency, err := getLatency(promAPI, 0.9, commonLabelsBuilder)
+	p90Latency, err := getLatency(promAPI, 0.9, commonQueryParams)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p90Latency = p90Latency
 
-	p99Latency, err := getLatency(promAPI, 0.99, commonLabelsBuilder)
+	p99Latency, err := getLatency(promAPI, 0.99, commonQueryParams)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
