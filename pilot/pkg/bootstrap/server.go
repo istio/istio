@@ -1086,6 +1086,13 @@ func hasCustomTLSCerts(tlsOptions TLSOptions) (ok bool, tlsCertPath, tlsKeyPath,
 		return
 	}
 
+	if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCertAlternatePath); ok {
+		tlsCertPath = constants.DefaultPilotTLSCert
+		tlsKeyPath = constants.DefaultPilotTLSKey
+		caCertPath = constants.DefaultPilotTLSCaCertAlternatePath
+		return
+	}
+
 	return
 }
 

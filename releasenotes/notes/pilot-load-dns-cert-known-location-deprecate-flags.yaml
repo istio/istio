@@ -33,11 +33,11 @@ releaseNotes:
 - |
   **Changed** Pilot will now load its DNS serving certificate from well known locations:
 ```
-/etc/pilot/tls/tls.crt
-/etc/pilot/tls/tls.key
-/etc/pilot/ca/root-cert.pem
+/var/run/secrets/istiod/tls/tls.crt
+/var/run/secrets/istiod/tls/tls.key
+/var/run/secrets/istiod/ca/root-cert.pem
 ```
-The CA path will alternatively be loaded from: `/etc/pilot/tls/ca.crt`
+The CA path will alternatively be loaded from: `/var/run/secrets/tls/ca.crt`
 
 It also automatically loads any secret called istiod-tls and the istio-root-ca-configmap into those paths.
 

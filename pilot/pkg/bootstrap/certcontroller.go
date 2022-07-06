@@ -219,12 +219,12 @@ func (s *Server) updatePluggedinRootCertAndGenKeyCert() error {
 }
 
 // initCertificateWatches sets up watches for the plugin dns certs.
-func (s *Server) initCertificateWatches(certFilePath, keyFilePath, caCertFilePath string) error {
-	if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(keyFilePath, certFilePath, caCertFilePath); err != nil {
+func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
+	if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
 		return fmt.Errorf("set keyCertBundle failed: %v", err)
 	}
 	// TODO: Setup watcher for root and restart server if it changes.
-	for _, file := range []string{certFilePath, keyFilePath} {
+	for _, file := range []string{tlsOptions.CertFile, tlsOptions.KeyFile} {
 		log.Infof("adding watcher for certificate %s", file)
 		if err := s.fileWatcher.Add(file); err != nil {
 			return fmt.Errorf("could not watch %v: %v", file, err)
@@ -237,21 +237,21 @@ func (s *Server) initCertificateWatches(certFilePath, keyFilePath, caCertFilePat
 				select {
 				case <-keyCertTimerC:
 					keyCertTimerC = nil
-					if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(keyFilePath, certFilePath, caCertFilePath); err != nil {
+					if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile,  tlsOptions.CaCertFile); err != nil {
 						log.Errorf("Setting keyCertBundle failed: %v", err)
 					}
-				case <-s.fileWatcher.Events(certFilePath):
+				case <-s.fileWatcher.Events(tlsOptions.CertFile):
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
-				case <-s.fileWatcher.Events(keyFilePath):
+				case <-s.fileWatcher.Events(tlsOptions.KeyFile):
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
-				case err := <-s.fileWatcher.Errors(certFilePath):
-					log.Errorf("error watching %v: %v", certFilePath, err)
-				case err := <-s.fileWatcher.Errors(keyFilePath):
-					log.Errorf("error watching %v: %v", keyFilePath, err)
+				case err := <-s.fileWatcher.Errors(tlsOptions.CertFile):
+					log.Errorf("error watching %v: %v", tlsOptions.CertFile, err)
+				case err := <-s.fileWatcher.Errors(tlsOptions.KeyFile):
+					log.Errorf("error watching %v: %v", tlsOptions.KeyFile, err)
 				case <-stop:
 					return
 				}

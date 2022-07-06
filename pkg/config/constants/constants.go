@@ -22,8 +22,8 @@ const (
 	AuthCertsPath = "/etc/certs/"
 
 	// PilotWellKnownDNSCertPath is the path location for Pilot dns serving cert, often used with custom CA integrations
-	PilotWellKnownDNSCertPath   = "/etc/pilot/tls/"
-	PilotWellKnownDNSCaCertPath = "/etc/pilot/ca/"
+	PilotWellKnownDNSCertPath   = "/var/run/secrets/istiod/tls/"
+	PilotWellKnownDNSCaCertPath = "/var/run/secrets/istiod/ca/"
 
 	DefaultPilotTLSCert                = PilotWellKnownDNSCertPath + "tls.crt"
 	DefaultPilotTLSKey                 = PilotWellKnownDNSCertPath + "tls.key"
