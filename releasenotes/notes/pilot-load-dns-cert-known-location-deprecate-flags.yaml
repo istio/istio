@@ -31,7 +31,7 @@ issue:
 # release notes.
 releaseNotes:
 - |
-  **Changed** Pilot will now load its DNS serving certificate from well known locations:
+  **Improved** Pilot will now load its DNS serving certificate from well known locations:
   ```
   /var/run/secrets/istiod/tls/tls.crt
   /var/run/secrets/istiod/tls/tls.key
