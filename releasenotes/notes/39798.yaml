@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - https://github.com/istio/istio/issues/36428
+  - 39798
+releaseNotes:
+  - |
+    **Added** Retrieve workload metrics by their type and name, support type [workload], for example: `istioctl experimental metrics workload/productpage-v1`
+  - |
+    **Added** Retrieve service metrics by their type and name, support type [service], for example: `istioctl experimental metrics service/productpage`
