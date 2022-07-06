@@ -26,12 +26,6 @@ import (
 	"reflect"
 	"strings"
 
-	"istio.io/istio/pkg/bootstrap/platform"
-	"istio.io/istio/pkg/wasm/keychain"
-
-	// For initialization of vendor specific keychain
-	_ "istio.io/istio/pkg/wasm/keychain/bootstrap"
-
 	"github.com/docker/cli/cli/config/configfile"
 	dtypes "github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -47,9 +41,9 @@ import (
 // Basically, this supports fetching and unpackaging three types of container images containing a Wasm binary.
 type ImageFetcherOption struct {
 	// TODO(mathetake) Add signature verification stuff.
-	PullSecret   []byte
-	Insecure     bool
-	PlatformType platform.PlatformType
+	PullSecret      []byte
+	Insecure        bool
+	defaultKeychain authn.Keychain
 }
 
 func (o *ImageFetcherOption) useDefaultKeyChain() bool {
@@ -74,7 +68,7 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 		// Note that all the vendor specific keychain contains the default key chain,
 		// which reads the docker config from DOCKER_CONFIG.
 		// So the user can set the envvar to configure the docker credential.
-		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(keychain.GetPlatformSpecificKeyChain(opt.PlatformType)))
+		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(opt.defaultKeychain))
 	} else {
 		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(&wasmKeyChain{data: opt.PullSecret}))
 	}

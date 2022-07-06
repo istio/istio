@@ -25,6 +25,8 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/google/go-containerregistry/pkg/authn"
+	gcr "github.com/google/go-containerregistry/pkg/v1/google"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
@@ -104,6 +106,8 @@ var (
 		return fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
 			projectID, clusterLocation, clusterName), nil
 	}
+
+	gcrRegistryKeychain = authn.NewMultiKeychain(authn.DefaultKeychain, gcr.Keychain)
 )
 
 type (
@@ -315,6 +319,6 @@ func (e *gcpEnv) IsKubernetes() bool {
 	return md[GCPCluster] != "" || onKubernetes
 }
 
-func (e *gcpEnv) Type() PlatformType {
-	return PlatformTypeGCP
+func (e *gcpEnv) GetKeychainForRegistry() authn.Keychain {
+	return gcrRegistryKeychain
 }

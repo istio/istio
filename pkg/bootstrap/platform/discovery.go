@@ -36,14 +36,14 @@ var CloudPlatform = env.RegisterStringVar("CLOUD_PLATFORM", "", "Cloud Platform 
 func Discover(ipv6 bool) Environment {
 	// First check if user has specified platform - use it if provided.
 	if len(CloudPlatform) > 0 {
-		switch PlatformType(strings.ToLower(CloudPlatform)) {
-		case PlatformTypeAWS:
+		switch strings.ToLower(CloudPlatform) {
+		case "aws":
 			return NewAWS(ipv6)
-		case PlatformTypeAzure:
+		case "azure":
 			return NewAzure()
-		case PlatformTypeGCP:
+		case "gcp":
 			return NewGCP()
-		case PlatformTypeNone:
+		case "none":
 			return &Unknown{}
 		}
 	}

@@ -16,19 +16,11 @@ package platform
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/google/go-containerregistry/pkg/authn"
 )
 
 const (
 	KubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
-)
-
-type PlatformType string
-
-const (
-	PlatformTypeAWS   PlatformType = "aws"
-	PlatformTypeAzure PlatformType = "azure"
-	PlatformTypeGCP   PlatformType = "gcp"
-	PlatformTypeNone  PlatformType = "none"
 )
 
 // Environment provides information for the platform on which the bootstrapping
@@ -51,8 +43,9 @@ type Environment interface {
 	// IsKubernetes determines if running on Kubernetes
 	IsKubernetes() bool
 
-	// Type returns the type name of the environment
-	Type() PlatformType
+	// GetKeychainForRegistry returns a platform-specific keychain
+	// for accessing the image registry
+	GetKeychainForRegistry() authn.Keychain
 }
 
 // Unknown provides a default platform environment for cases in which the platform
@@ -79,6 +72,6 @@ func (*Unknown) IsKubernetes() bool {
 	return true
 }
 
-func (*Unknown) Type() PlatformType {
-	return PlatformTypeNone
+func (*Unknown) GetKeychainForRegistry() authn.Keychain {
+	return authn.DefaultKeychain
 }

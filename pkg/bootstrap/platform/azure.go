@@ -21,9 +21,13 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	acr "github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/google/go-containerregistry/pkg/authn"
 
+	"istio.io/istio/pkg/bootstrap/platform/keychain"
 	"istio.io/pkg/log"
 )
 
@@ -33,6 +37,10 @@ const (
 	AzureDefaultAPIVersion = "2019-08-15"
 	SysVendorPath          = "/sys/class/dmi/id/sys_vendor"
 	MicrosoftIdentifier    = "Microsoft Corporation"
+	// According to https://docs.microsoft.com/en-us/azure/active-directory/develop/refresh-tokens#refresh-token-lifetime,
+	// the expiration interval of the auth token in Azure is 24 hour. For safety, let's uses 12 hours.
+	// Note that Azure uses the Azure AD refresh token as a password when authenticating a docker client.
+	acrCredExpiration = time.Hour * 12
 )
 
 var (
@@ -42,6 +50,8 @@ var (
 	azureMetadataFn = func(version string) string {
 		return metadataRequest(fmt.Sprintf("api-version=%s", version))
 	}
+	azureRegistryKeychain = authn.NewMultiKeychain(authn.DefaultKeychain, authn.NewKeychainFromHelper(
+		keychain.WrapHelperWithCache(acr.NewACRCredentialsHelper(), acrCredExpiration)))
 )
 
 type azureEnv struct {
@@ -174,8 +184,8 @@ func (e *azureEnv) IsKubernetes() bool {
 	return true
 }
 
-func (e *azureEnv) Type() PlatformType {
-	return PlatformTypeAzure
+func (e *azureEnv) GetKeychainForRegistry() authn.Keychain {
+	return azureRegistryKeychain
 }
 
 func (e *azureEnv) azureMetadata() string {

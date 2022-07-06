@@ -15,11 +15,15 @@
 package platform
 
 import (
+	"io/ioutil"
 	"strings"
 	"time"
 
+	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/google/go-containerregistry/pkg/authn"
 
+	"istio.io/istio/pkg/bootstrap/platform/keychain"
 	"istio.io/istio/pkg/http"
 	"istio.io/pkg/log"
 )
@@ -28,11 +32,17 @@ const (
 	AWSRegion           = "aws_region"
 	AWSAvailabilityZone = "aws_availability_zone"
 	AWSInstanceID       = "aws_instance_id"
+	// According to https://docs.aws.amazon.com/cli/latest/reference/ecr/get-authorization-token.html#output,
+	// the expiration interval of the auth token in Amazon is 12 hour. For safety, let's uses 6 hours.
+	ecrCredExpiration = time.Hour * 6
 )
 
 var (
 	awsMetadataIPv4URL = "http://169.254.169.254/latest/meta-data"
 	awsMetadataIPv6URL = "http://[fd00:ec2::254]/latest/meta-data"
+
+	awsRegistryKeychain = authn.NewMultiKeychain(authn.DefaultKeychain, authn.NewKeychainFromHelper(
+		keychain.WrapHelperWithCache(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)), ecrCredExpiration)))
 )
 
 // Approach derived from the following:
@@ -90,8 +100,8 @@ func (a *awsEnv) IsKubernetes() bool {
 	return true
 }
 
-func (a *awsEnv) Type() PlatformType {
-	return PlatformTypeAWS
+func (a *awsEnv) GetKeychainForRegistry() authn.Keychain {
+	return awsRegistryKeychain
 }
 
 func getAWSInfo(path string, ipv6 bool) (string, error) {

@@ -17,34 +17,8 @@ package keychain
 import (
 	"time"
 
-	"istio.io/istio/pkg/bootstrap/platform"
-
 	"github.com/google/go-containerregistry/pkg/authn"
 )
-
-var registeredKeychains = map[platform.PlatformType]authn.Keychain{
-	platform.PlatformTypeNone: authn.DefaultKeychain,
-}
-
-// Registers the given key chain with the platform type.
-// To take account for the default keychain always, prepend the default keychain.
-func RegisterKeychain(t platform.PlatformType, k authn.Keychain) {
-	registeredKeychains[t] = authn.NewMultiKeychain(authn.DefaultKeychain, k)
-}
-
-// Returns a key chain with the support for vendor specific keychain by the given platform type.
-func GetPlatformSpecificKeyChain(platformType platform.PlatformType) authn.Keychain {
-	if keychain, ok := registeredKeychains[platformType]; ok {
-		return keychain
-	}
-	return authn.DefaultKeychain
-}
-
-// GetRegisteredKeychainsCount returns the number of registered keychains.
-// This is just used for testing at this moment.
-func GetRegisteredKeychainsCount() int {
-	return len(registeredKeychains)
-}
 
 type cachedHelperEntry struct {
 	username string

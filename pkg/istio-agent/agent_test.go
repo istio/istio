@@ -32,6 +32,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
@@ -974,6 +975,6 @@ func (f *fakePlatform) IsKubernetes() bool {
 	return true
 }
 
-func (f *fakePlatform) Type() platform.PlatformType {
-	return platform.PlatformTypeNone
+func (f *fakePlatform) GetKeychainForRegistry() authn.Keychain {
+	return authn.DefaultKeychain
 }

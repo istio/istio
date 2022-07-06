@@ -114,7 +114,7 @@ type cacheEntry struct {
 type cacheOptions struct {
 	Options
 	allowAllInsecureRegistries bool
-	platformType               platform.PlatformType
+	platform                   platform.Environment
 }
 
 func (o cacheOptions) sanitize() cacheOptions {
@@ -139,6 +139,11 @@ func (o cacheOptions) sanitize() cacheOptions {
 		ret.HTTPRequestMaxRetries = o.HTTPRequestMaxRetries
 	}
 
+	ret.platform = o.platform
+	if o.platform != nil {
+		ret.platform = &platform.Unknown{}
+	}
+
 	return ret
 }
 
@@ -150,10 +155,7 @@ func (o cacheOptions) allowInsecure(host string) bool {
 func NewLocalFileCache(dir string, env platform.Environment, options Options) *LocalFileCache {
 	wasmLog.Debugf("LocalFileCache is created with the option\n%#v", options)
 
-	cacheOptions := cacheOptions{Options: options, platformType: platform.PlatformTypeNone}
-	if env != nil {
-		cacheOptions.platformType = env.Type()
-	}
+	cacheOptions := cacheOptions{Options: options, platform: env}
 
 	cache := &LocalFileCache{
 		httpFetcher:  NewHTTPFetcher(options.HTTPRequestTimeout, options.HTTPRequestMaxRetries),
@@ -257,8 +259,8 @@ func (c *LocalFileCache) Get(
 		dChecksum = hex.EncodeToString(sha[:])
 	case "oci":
 		imgFetcherOps := ImageFetcherOption{
-			Insecure:     insecure,
-			PlatformType: c.platformType,
+			Insecure:        insecure,
+			defaultKeychain: c.platform.GetKeychainForRegistry(),
 		}
 		if pullSecret != nil {
 			imgFetcherOps.PullSecret = pullSecret
