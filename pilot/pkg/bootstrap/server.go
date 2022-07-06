@@ -1071,10 +1071,11 @@ func checkPathsExist(paths ...string) bool {
 	return false
 }
 
-// hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
+// hasCustomTLSCerts returns the tls cert paths, used both if custom TLS certificates are configured via args or by mounting in well known.
+// while tls args should still take precedence the aim is to encourage loading the DNS tls cert in the well known path locations.
 func hasCustomTLSCerts(tlsOptions TLSOptions) (ok bool, tlsCertPath, tlsKeyPath, caCertPath string) {
 	// load from tls args as priority
-	if tlsOptions.CaCertFile != "" && tlsOptions.CertFile != "" && tlsOptions.KeyFile != "" {
+	if hasCustomTLSCertArgs(tlsOptions) {
 		return true, tlsOptions.CertFile, tlsOptions.KeyFile, tlsOptions.CaCertFile
 	} else {
 		if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCert); ok {
