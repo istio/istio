@@ -140,8 +140,8 @@ func TestNewServerCertInit(t *testing.T) {
 			enableCA:     false,
 			certProvider: constants.CertProviderIstiod,
 			expNewCert:   false,
-			expCert:      []byte{},
-			expKey:       []byte{},
+			expCert:            testcerts.ServerCert,
+			expKey:             testcerts.ServerKey,
 		},
 		{
 			name:               "No cert provider",
@@ -150,8 +150,8 @@ func TestNewServerCertInit(t *testing.T) {
 			enableCA:           true,
 			certProvider:       constants.CertProviderNone,
 			expNewCert:         false,
-			expCert:            testcerts.ServerCert,
-			expKey:             testcerts.ServerKey,
+			expCert:      []byte{},
+			expKey:       []byte{},
 		},
 	}
 
@@ -248,7 +248,7 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// setup cert watches.
-	if err := s.initCertificateWatches(tlsOptions); err != nil {
+	if err := s.initCertificateWatches(tlsOptions.CertFile,tlsOptions.KeyFile,tlsOptions.CaCertFile); err != nil {
 		t.Fatalf("initCertificateWatches failed: %v", err)
 	}
 

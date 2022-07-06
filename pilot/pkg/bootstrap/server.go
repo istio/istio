@@ -947,9 +947,10 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	var err error
 
 	s.dnsNames = getDNSNames(args, host)
-	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
-		// Use the DNS certificate provided via args.
-		err = s.initCertificateWatches(args.ServerOptions.TLSOptions)
+	if hasCustomCertArgsOrWellKnown, tlsCertPath, tlsKeyPath, caCertPath := hasCustomTLSCerts(args.ServerOptions.TLSOptions) ; hasCustomCertArgsOrWellKnown {
+		// Use the DNS certificate provided via args or in well known location.
+		err = s.initCertificateWatches(tlsCertPath, tlsKeyPath, caCertPath)
+
 		if err != nil {
 			// Not crashing istiod - This typically happens if certs are missing and in tests.
 			log.Errorf("error initializing certificate watches: %v", err)
@@ -1059,8 +1060,35 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 	return peerCertVerifier, nil
 }
 
+func checkPathsExist(paths ...string) (bool) {
+		for _ , path := range paths {
+			fInfo, err = os.Stat(path)
+
+			if err != nil && !fInfo.IsDir() {
+				return true	
+			}		
+		}
+		return false
+}
+
 // hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
-func hasCustomTLSCerts(tlsOptions TLSOptions) bool {
+func hasCustomTLSCerts(tlsOptions TLSOptions) (ok bool, tlsCertPath, tlsKeyPath, caCertPath string) {
+	// load from tls args as priority
+	if tlsOptions.CaCertFile != "" && tlsOptions.CertFile != "" && tlsOptions.KeyFile != "" {
+		return true,  tlsOptions.CertFile, tlsOptions.KeyFile, tlsOptions.CaCertFile
+	} else {
+		if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCert); ok {
+			tlsCertPath = constants.DefaultPilotTLSCert
+			tlsKeyPath =  constants.DefaultPilotTLSKey
+			caCertPath =  constants.DefaultPilotTLSCaCert
+			return
+		}
+	}
+	return
+}
+
+// hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
+func hasCustomTLSCertArgs(tlsOptions TLSOptions) bool {
 	return tlsOptions.CaCertFile != "" && tlsOptions.CertFile != "" && tlsOptions.KeyFile != ""
 }
 
