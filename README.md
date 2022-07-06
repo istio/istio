@@ -14,11 +14,6 @@ export GOPRIVATE=github.com/solo-io/istio-api-sidecarless
 
 # Build Istiod and proxy (uproxy and remote proxy are the same image)
 tools/docker --targets=pilot,proxyv2,app --hub=$HUB --tag=$TAG --push # consider --builder=crane
-# Install Istio without gateway or webhook
-# profile can be "ambient" or "ambient-gke" or "ambient-aws"
-# Mesh config options are optional to improve debugging
-CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
-  --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0
 ```
 
 ## Cluster setup (kind)
@@ -31,31 +26,35 @@ CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set h
 
 # Move images from your remote registry to the local one (if needed) - not needed if building and pushing images to localhost.
 ./local-test-utils/refresh-istio-images.sh
+```
 
-# Turn mesh on
-./redirect.sh ambient
+## Setup Ambient
 
-# Update pod membership (will move to CNI). can stop it after it does 1 iteration if pods don't change
-./tmp-update-pod-set.sh
+```shell
+# Install Istio without gateway or webhook
+# profile can be "ambient" or "ambient-gke" or "ambient-aws"
+# Mesh config options are optional to improve debugging
+CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
+  --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0
 
-# Turn mesh off
+# Optionally, clean up redirection if needed
 ./redirect.sh ambient clean
+
+# Enable redirection
+./redirect.sh ambient
 ```
 
 ## Test it out
 
 ```shell
-# Optionally, make sure the redirection is turned off
-./redirect.sh ambient clean
-
 # Deploy helloworld and sleep client
 k apply -f local-test-utils/samples/
 
+# Update pod membership (will move to CNI). can stop it after it does 1 iteration if pods don't change
+./tmp-update-pod-set.sh
+
 # In a separate shell, start an interactive session on the client pod
 k exec -it $(k get po -lapp=sleep -ojsonpath='{.items[0].metadata.name}') -- sh
-
-# Enable redirection
-./redirect.sh ambient
 
 # (From the client pod) Send traffic
 curl helloworld:5000/hello
