@@ -219,7 +219,7 @@ func (s *Server) updatePluggedinRootCertAndGenKeyCert() error {
 }
 
 // initCertificateWatches sets up watches for the plugin dns certs.
-func (s *Server) initCertificateWatches(keyFilePath, certFilePath, caCertFilePath string) error {
+func (s *Server) initCertificateWatches(certFilePath, keyFilePath, caCertFilePath string) error {
 	if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(keyFilePath, certFilePath, caCertFilePath); err != nil {
 		return fmt.Errorf("set keyCertBundle failed: %v", err)
 	}
