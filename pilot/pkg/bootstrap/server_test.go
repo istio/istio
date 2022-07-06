@@ -42,39 +42,39 @@ import (
 
 func loadCertFilesAtPaths(t TLSFSLoadPaths) error {
 	// create cert directories if not existing
-	if err := os.MkdirAll(filepath.Dir(t.testTlsCertFilePath), os.ModePerm); err != nil {
-		return fmt.Errorf("Mkdirall(%v) failed: %v", t.tlscertFilePath, err)
+	if err := os.MkdirAll(filepath.Dir(t.testTLSCertFilePath), os.ModePerm); err != nil {
+		return fmt.Errorf("Mkdirall(%v) failed: %v", t.testTLSCertFilePath, err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(t.testTlsKeyFilePath), os.ModePerm); err != nil {
-		return fmt.Errorf("Mkdirall(%v) failed: %v", t.tlskeyFilePath, err)
+	if err := os.MkdirAll(filepath.Dir(t.testTLSKeyFilePath), os.ModePerm); err != nil {
+		return fmt.Errorf("Mkdirall(%v) failed: %v", t.testTLSKeyFilePath, err)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(t.testCaCertFilePath), os.ModePerm); err != nil {
-		return fmt.Errorf("Mkdirall(%v) failed: %v", t.tlsCaCertFilePath, err)
+		return fmt.Errorf("Mkdirall(%v) failed: %v", t.testCaCertFilePath, err)
 	}
 
 	// load key and cert files.
-	if err := os.WriteFile(t.testTlsCertFilePath, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
-		return fmt.Errorf("WriteFile(%v) failed: %v", t.tlscertFilePath, err)
+	if err := os.WriteFile(t.testTLSCertFilePath, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+		return fmt.Errorf("WriteFile(%v) failed: %v", t.testTLSCertFilePath, err)
 	}
-	if err := os.WriteFile(t.testTlsKeyFilePath, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
-		return fmt.Errorf("WriteFile(%v) failed: %v", t.tlskeyFilePath, err)
+	if err := os.WriteFile(t.testTLSKeyFilePath, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+		return fmt.Errorf("WriteFile(%v) failed: %v", t.testTLSKeyFilePath, err)
 	}
 	if err := os.WriteFile(t.testCaCertFilePath, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
-		return fmt.Errorf("WriteFile(%v) failed: %v", t.tlsCaCertFilePath, err)
+		return fmt.Errorf("WriteFile(%v) failed: %v", t.testCaCertFilePath, err)
 	}
 
 	return nil
 }
 
 func cleanupCertFSFles(t TLSFSLoadPaths) error {
-	if err := os.Remove(t.testTlsCertFilePath); err != nil {
-		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testTlsCertFilePath)
+	if err := os.Remove(t.testTLSCertFilePath); err != nil {
+		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testTLSCertFilePath)
 	}
 
-	if err := os.Remove(t.testTlsKeyFilePath); err != nil {
-		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testTlsKeyFilePath)
+	if err := os.Remove(t.testTLSKeyFilePath); err != nil {
+		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testTLSKeyFilePath)
 	}
 
 	if err := os.Remove(t.testCaCertFilePath); err != nil {
@@ -86,8 +86,8 @@ func cleanupCertFSFles(t TLSFSLoadPaths) error {
 // This struct will indicate for each test case
 // where tls assets will be loaded on disk
 type TLSFSLoadPaths struct {
-	testTlsCertFilePath string
-	testTlsKeyFilePath  string
+	testTLSCertFilePath string
+	testTLSKeyFilePath  string
 	testCaCertFilePath  string
 }
 
@@ -179,7 +179,7 @@ func TestNewServerCertInit(t *testing.T) {
 			test.SetForTest(t, &features.PilotCertProvider, c.certProvider)
 			test.SetForTest(t, &features.EnableCAServer, c.enableCA)
 
-			err := loadFSCertsAtPaths(c.FSCertsPaths)
+			err := loadCertFilesAtPaths(c.FSCertsPaths)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
