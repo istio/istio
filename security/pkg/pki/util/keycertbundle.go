@@ -29,8 +29,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"istio.io/pkg/log"
 )
 
 // KeyCertBundle stores the cert, private key, cert chain and root cert for an entity. It is thread safe.
@@ -84,7 +82,7 @@ func NewVerifiedKeyCertBundleFromFile(certFile string, privKeyFile string, certC
 	if len(certChainFiles) > 0 {
 		for _, f := range certChainFiles {
 			var b []byte
-			log.Infof("Reading cert chain file %s", f)
+
 			if b, err = os.ReadFile(f); err != nil {
 				return nil, err
 			}
