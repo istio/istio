@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 func TestMultiRootSetup(t *testing.T) {
@@ -56,7 +55,7 @@ func TestMultiRootSetup(t *testing.T) {
 								Address: to.Config().Service,
 								Scheme:  s,
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+							opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 
 							from.CallOrFail(t, opts)
 						})

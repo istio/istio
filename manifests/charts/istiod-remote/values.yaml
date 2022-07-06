@@ -332,7 +332,7 @@ global:
   # When set to true, istiod is not deployed locally and only a subset of the other
   # discovery charts are enabled.
   externalIstiod: true
-  #  Configure a remote cluster as the config cluster for an external istiod.
+  # Configure a remote cluster as the config cluster for an external istiod.
   configCluster: false
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".

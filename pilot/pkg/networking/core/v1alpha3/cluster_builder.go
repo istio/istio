@@ -55,16 +55,6 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
-// h2UpgradeMap specifies the truth table when upgrade takes place.
-var h2UpgradeMap = map[upgradeTuple]bool{
-	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:        true,
-	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}: false,
-	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:        false,
-	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:               true,
-	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}:        false,
-	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:               true,
-}
-
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
 // revive:disable-next-line
@@ -378,6 +368,13 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		}
 	}
 
+	if discoveryType == cluster.Cluster_ORIGINAL_DST {
+		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
+		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
+		// infrequently accessed services.
+		c.CleanupInterval = &durationpb.Duration{Seconds: 60}
+	}
+
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
 	// will be applied, which would be overridden by traffic policy specified in destination rule, if any.
 	opts := buildClusterOpts{
@@ -424,12 +421,6 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	}
 	localCluster := cb.buildDefaultCluster(clusterName, clusterType, localityLbEndpoints,
 		model.TrafficDirectionInbound, instance.ServicePort, instance.Service, allInstance)
-	if clusterType == cluster.Cluster_ORIGINAL_DST {
-		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
-		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
-		// infrequently accessed services.
-		localCluster.cluster.CleanupInterval = &durationpb.Duration{Seconds: 60}
-	}
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
@@ -666,16 +657,19 @@ func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.Tr
 
 	// TODO (mjog)
 	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
-	override := networking.ConnectionPoolSettings_HTTPSettings_DEFAULT
 	if connectionPool != nil && connectionPool.Http != nil {
-		override = connectionPool.Http.H2UpgradePolicy
-	}
-	// If user wants an upgrade at destination rule/port level that means he is sure that
-	// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
-	// enabled and user wants to upgrade/preserve http protocol from client.
-	if override == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE {
-		log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
-		return true
+		override := connectionPool.Http.H2UpgradePolicy
+		// If user wants an upgrade at destination rule/port level that means he is sure that
+		// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
+		// enabled and user wants to upgrade/preserve http protocol from client.
+		if override == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE {
+			log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
+			return true
+		}
+		if override == networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE {
+			log.Debugf("Not upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
+			return false
+		}
 	}
 
 	// Do not upgrade non-http ports. This also ensures that we are only upgrading
@@ -687,13 +681,7 @@ func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.Tr
 		return false
 	}
 
-	if !h2UpgradeMap[upgradeTuple{mesh.H2UpgradePolicy, override}] {
-		log.Debugf("Not upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
-		return false
-	}
-
-	log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
-	return true
+	return mesh.H2UpgradePolicy == meshconfig.MeshConfig_UPGRADE
 }
 
 // setH2Options make the cluster an h2 cluster by setting http2ProtocolOptions.

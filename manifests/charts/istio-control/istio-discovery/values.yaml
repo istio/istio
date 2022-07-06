@@ -394,7 +394,7 @@ global:
   # discovery charts are enabled.
   externalIstiod: false
 
-  #  Configure a remote cluster as the config cluster for an external istiod.
+  # Configure a remote cluster as the config cluster for an external istiod.
   configCluster: false
 
   # Configure the policy for validating JWT.

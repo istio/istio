@@ -39,59 +39,79 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	}
 	// Collect all of our unique parent references. There may be multiple when we have a route without section name,
 	// but reference a parent with multiple sections.
+	// While we process these internally for-each sectionName, in the status we are just supposed to report one merged entry
 	seen := map[k8s.ParentReference]routeParentReference{}
 	failedCount := map[k8s.ParentReference]int{}
-	for _, gw := range gateways {
+	successCount := map[k8s.ParentReference]int{}
+	for _, incoming := range gateways {
 		// We will append it if it is our first occurrence, or the existing one has an error. This means
 		// if *any* section has no errors, we will declare Admitted
-		if gw.DeniedReason != nil {
-			failedCount[gw.OriginalReference]++
+		if incoming.DeniedReason != nil {
+			failedCount[incoming.OriginalReference]++
+		} else {
+			successCount[incoming.OriginalReference]++
 		}
-		if exist, f := seen[gw.OriginalReference]; !f || (exist.DeniedReason != nil && gw.DeniedReason == nil) {
-			seen[gw.OriginalReference] = gw
+		exist, f := seen[incoming.OriginalReference]
+		if !f {
+			exist = incoming
+		} else {
+			if incoming.DeniedReason == nil {
+				// The incoming gateway has no error; wipe out any errors
+				// When we have multiple, this means we attached without sectionName - we only need one success to be valid.
+				exist.DeniedReason = nil
+			} else if exist.DeniedReason != nil {
+				// TODO this only handles message, not reason
+				exist.DeniedReason.Message += "; " + incoming.DeniedReason.Message
+			}
+		}
+		seen[exist.OriginalReference] = exist
+	}
+	// Enhance error message when we have multiple
+	for k, gw := range seen {
+		if gw.DeniedReason == nil {
+			continue
+		}
+		if failedCount[k] > 1 {
+			gw.DeniedReason.Message = fmt.Sprintf("failed to bind to %d parents, errors: %v", failedCount[k], gw.DeniedReason.Message)
 		}
 	}
-	// Now we fill in all the ones we do own
+
+	// Now we fill in all the parents we do own
 	// TODO look into also reporting ResolvedRefs; we should be gracefully dropping invalid backends instead
 	// of rejecting the whole thing.
 	for k, gw := range seen {
-		var condition metav1.Condition
+		msg := "Route was valid"
+		if successCount[k] > 1 {
+			msg = fmt.Sprintf("Route was valid, bound to %d parents", successCount[k])
+		}
+		conds := map[string]*condition{
+			string(k8s.RouteConditionAccepted): {
+				reason:  string(k8s.RouteReasonAccepted),
+				message: msg,
+			},
+			string(k8s.RouteConditionResolvedRefs): {
+				reason:  string(k8s.RouteReasonResolvedRefs),
+				message: "All references resolved",
+			},
+		}
 		if routeErr != nil {
-			condition = metav1.Condition{
-				Type:               string(k8s.RouteConditionAccepted),
-				Status:             kstatus.StatusFalse,
-				ObservedGeneration: obj.Generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             routeErr.Reason,
-				Message:            routeErr.Message,
-			}
-		} else if gw.DeniedReason != nil {
-			err := gw.DeniedReason.Error()
-			if failedCount[k] > 1 {
-				err = fmt.Sprintf("failed to bind to %d parents, last error: %v", failedCount[k], gw.DeniedReason.Error())
-			}
-			condition = metav1.Condition{
-				Type:               string(k8s.RouteConditionAccepted),
-				Status:             kstatus.StatusFalse,
-				ObservedGeneration: obj.Generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             InvalidParentRef,
-				Message:            err,
-			}
-		} else {
-			condition = metav1.Condition{
-				Type:               string(k8s.RouteConditionAccepted),
-				Status:             kstatus.StatusTrue,
-				ObservedGeneration: obj.Generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             "RouteAdmitted",
-				Message:            "Route was valid",
+			// Currently, the spec is not clear on where errors should be reported. The provided resources are:
+			// * Accepted - used to describe errors binding to parents
+			// * ResolvedRefs - used to describe errors about binding to objects
+			// But no general errors
+			// For now, we will treat all general route errors as "Ref" errors.
+			conds[string(k8s.RouteConditionResolvedRefs)].error = routeErr
+		}
+		if gw.DeniedReason != nil {
+			conds[string(k8s.RouteConditionAccepted)].error = &ConfigError{
+				Reason:  ConfigErrorReason(gw.DeniedReason.Reason),
+				Message: gw.DeniedReason.Message,
 			}
 		}
 		gws = append(gws, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
 			ControllerName: ControllerName,
-			Conditions:     []metav1.Condition{condition},
+			Conditions:     setConditions(obj.Generation, nil, conds),
 		})
 	}
 	// Ensure output is deterministic.
@@ -102,9 +122,18 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	return gws
 }
 
+type ParentErrorReason string
+
+const (
+	ParentErrorNotAllowed = ParentErrorReason(k8s.RouteReasonNotAllowedByListeners)
+	ParentErrorNoHostname = ParentErrorReason(k8s.RouteReasonNoMatchingListenerHostname)
+)
+
 type ConfigErrorReason = string
 
 const (
+	// InvalidRefNotPermitted indicates a route was not permitted
+	InvalidRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestination indicates an issue with the destination
 	InvalidDestination ConfigErrorReason = "InvalidDestination"
 	// InvalidParentRef indicates we could not refer to the parent we request
@@ -116,6 +145,12 @@ const (
 	// InvalidConfiguration indicates a generic error for all other invalid configurations
 	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
 )
+
+// ParentError represents that a parent could not be referenced
+type ParentError struct {
+	Reason  ParentErrorReason
+	Message string
+}
 
 // ConfigError represents an invalid configuration that will be reported back to the user.
 type ConfigError struct {

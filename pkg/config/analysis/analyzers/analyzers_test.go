@@ -558,7 +558,7 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/serviceentry-missing-addresses-protocol.yaml",
 		},
-		analyzer: &serviceentry.ProtocolAdressesAnalyzer{},
+		analyzer: &serviceentry.ProtocolAddressesAnalyzer{},
 		expected: []message{
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry default/service-entry-test-03"},
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry default/service-entry-test-04"},
@@ -571,7 +571,7 @@ var testGrid = []testCase{
 			"testdata/serviceentry-missing-addresses-protocol.yaml",
 		},
 		meshConfigFile: "testdata/serviceentry-missing-addresses-protocol-mesh-cfg.yaml",
-		analyzer:       &serviceentry.ProtocolAdressesAnalyzer{},
+		analyzer:       &serviceentry.ProtocolAddressesAnalyzer{},
 		expected:       []message{},
 	},
 	{

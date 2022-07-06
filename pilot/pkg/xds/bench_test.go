@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
@@ -548,7 +549,7 @@ func BenchmarkPushRequest(b *testing.B) {
 				Reason:         []model.TriggerReason{trigger},
 			}
 			for c := 0; c < configs; c++ {
-				nreq.ConfigsUpdated[model.ConfigKey{Kind: gvk.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
+				nreq.ConfigsUpdated[model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
 			}
 			req = req.Merge(nreq)
 		}
@@ -560,22 +561,30 @@ func BenchmarkPushRequest(b *testing.B) {
 
 func makeCacheKey(n int) model.XdsCacheEntry {
 	ns := strconv.Itoa(n)
+
+	// 100 services
+	services := make([]*model.Service, 0, 100)
+	// 100 destinationrules
+	drs := make([]*config.Config, 0, 100)
+	for i := 0; i < 100; i++ {
+		index := strconv.Itoa(i)
+		services = append(services, &model.Service{
+			Hostname:   host.Name(ns + "some" + index + ".example.com"),
+			Attributes: model.ServiceAttributes{Namespace: "test" + index},
+		})
+		drs = append(drs, &config.Config{Meta: config.Meta{Name: index, Namespace: index}})
+	}
+
 	key := &route.Cache{
-		RouteName:       "something",
-		ClusterID:       "my-cluster",
-		DNSDomain:       "some.domain.example.com",
-		DNSCapture:      true,
-		DNSAutoAllocate: false,
-		ListenerPort:    1234,
-		Services: []*model.Service{
-			{Hostname: host.Name(ns + "some1.example.com"), Attributes: model.ServiceAttributes{Namespace: "test1"}},
-			{Hostname: host.Name(ns + "some2.example.com"), Attributes: model.ServiceAttributes{Namespace: "test2"}},
-		},
-		DestinationRules: []*config.Config{
-			{Meta: config.Meta{Name: ns + "a", Namespace: "b"}},
-			{Meta: config.Meta{Name: ns + "d", Namespace: "e"}},
-		},
-		EnvoyFilterKeys: []string{ns + "1/a", ns + "2/b", ns + "3/c"},
+		RouteName:        "something",
+		ClusterID:        "my-cluster",
+		DNSDomain:        "some.domain.example.com",
+		DNSCapture:       true,
+		DNSAutoAllocate:  false,
+		ListenerPort:     1234,
+		Services:         services,
+		DestinationRules: drs,
+		EnvoyFilterKeys:  []string{ns + "1/a", ns + "2/b", ns + "3/c"},
 	}
 	return key
 }

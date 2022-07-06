@@ -2642,7 +2642,7 @@ func VMTestCases(vms echo.Instances) func(t TrafficContext) {
 			checker := check.OK()
 			if !match.Headless.Any(c.to) {
 				// headless load-balancing can be inconsistent
-				checker = check.And(checker, check.ReachedTargetClusters(t.AllClusters()))
+				checker = check.And(checker, check.ReachedTargetClusters(t))
 			}
 			t.RunTraffic(TrafficTestCase{
 				name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),

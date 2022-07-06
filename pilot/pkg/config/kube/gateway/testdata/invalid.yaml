@@ -65,7 +65,7 @@ spec:
   gatewayClassName: istio
   addresses:
   - value: 1.2.3.4
-    type: NamedAddress
+    type: istio.io/FakeType
   listeners:
   - name: default
     hostname: "*.domain.example"

@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 // TestReachability verifies:
@@ -44,7 +43,7 @@ func TestReachability(t *testing.T) {
 			fromAndTo := from.Append(to)
 
 			echotest.New(t, fromAndTo).
-				WithDefaultFilters().
+				WithDefaultFilters(1, 1).
 				FromMatch(match.ServiceName(from.NamespacedName())).
 				ToMatch(match.ServiceName(to.NamespacedName())).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
@@ -55,7 +54,7 @@ func TestReachability(t *testing.T) {
 							Name: "http",
 						},
 					}
-					opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+					opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 
 					from.CallOrFail(t, opts)
 				})

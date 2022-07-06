@@ -1622,7 +1622,7 @@ func newTrafficTest(t framework.TestContext, echos ...echo.Instances) *echotest.
 	}
 
 	return echotest.New(t, all).
-		WithDefaultFilters().
+		WithDefaultFilters(1, 1).
 		FromMatch(match.And(
 			match.NotNaked,
 			match.NotProxylessGRPC)).
@@ -1706,7 +1706,7 @@ func (b *authzTest) Build(t framework.TestContext) *authzTest {
 	b.opts.FillDefaultsOrFail(t)
 
 	if b.allow {
-		b.opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t.Clusters()))
+		b.opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 	} else {
 		b.opts.Check = check.Forbidden(b.opts.Port.Protocol)
 	}

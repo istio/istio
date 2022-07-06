@@ -2460,12 +2460,12 @@ func TestValidateHTTPRoute(t *testing.T) {
 		{name: "total weight > 100", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
-				Weight:      55,
+				Weight:      550,
 			}, {
 				Destination: &networking.Destination{Host: "foo.baz.east"},
-				Weight:      50,
+				Weight:      500,
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "total weight < 100", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
@@ -2474,7 +2474,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Destination: &networking.Destination{Host: "foo.baz.east"},
 				Weight:      50,
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "simple redirect", route: &networking.HTTPRoute{
 			Redirect: &networking.HTTPRedirect{
 				Uri:       "/lerp",
@@ -2778,18 +2778,18 @@ func TestValidateRouteDestination(t *testing.T) {
 		}}, valid: false},
 		{name: "total weight > 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
-			Weight:      55,
+			Weight:      550,
 		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
-			Weight:      50,
-		}}, valid: false},
+			Weight:      500,
+		}}, valid: true},
 		{name: "total weight < 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      49,
 		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
-		}}, valid: false},
+		}}, valid: true},
 		{name: "total weight = 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      100,

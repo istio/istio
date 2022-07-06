@@ -26,27 +26,17 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/util/istiomultierror"
 )
 
 // Each applies the given per-response function across all responses.
-func Each(c func(r echoClient.Response) error) echo.Checker {
-	return func(result echo.CallResult, _ error) error {
-		rs := result.Responses
-		if rs.IsEmpty() {
-			return fmt.Errorf("no responses received")
-		}
-		outErr := istiomultierror.New()
-		for i, r := range rs {
-			if err := c(r); err != nil {
-				outErr = multierror.Append(outErr, fmt.Errorf("response[%d]: %v", i, err))
-			}
-		}
-		return outErr.ErrorOrNil()
-	}
+func Each(v Visitor) echo.Checker {
+	return v.Checker()
 }
 
 // And is an aggregate Checker that requires all Checkers succeed. Any nil Checkers are ignored.
@@ -120,26 +110,21 @@ func ErrorContains(expected string) echo.Checker {
 }
 
 func ErrorOrStatus(expected int) echo.Checker {
-	expectedStr := ""
-	if expected > 0 {
-		expectedStr = strconv.Itoa(expected)
-	}
-	return func(resp echo.CallResult, err error) error {
-		if err != nil {
-			return nil
-		}
-		for _, r := range resp.Responses {
-			if r.Code != expectedStr {
-				return fmt.Errorf("expected response code `%s`, got %q", expectedStr, r.Code)
-			}
-		}
-		return nil
-	}
+	return Or(Error(), Status(expected))
 }
 
-// OK is a shorthand for NoErrorAndStatus(200).
+func ErrorOrNotStatus(expected int) echo.Checker {
+	return Or(Error(), NotStatus(expected))
+}
+
+// OK is shorthand for NoErrorAndStatus(200).
 func OK() echo.Checker {
 	return NoErrorAndStatus(http.StatusOK)
+}
+
+// NotOK is shorthand for ErrorOrNotStatus(http.StatusOK).
+func NotOK() echo.Checker {
+	return ErrorOrNotStatus(http.StatusOK)
 }
 
 // NoErrorAndStatus is checks that no error occurred and htat the returned status code matches the expected
@@ -151,16 +136,40 @@ func NoErrorAndStatus(expected int) echo.Checker {
 // Status checks that the response status code matches the expected value. If the expected value is zero,
 // checks that the response code is unset.
 func Status(expected int) echo.Checker {
+	return Each(VStatus(expected))
+}
+
+// NotStatus checks that the response status code does not match the expected value.
+func NotStatus(expected int) echo.Checker {
+	return Each(VNotStatus(expected))
+}
+
+// VStatus is a Visitor-based version of Status.
+func VStatus(expected int) Visitor {
 	expectedStr := ""
 	if expected > 0 {
 		expectedStr = strconv.Itoa(expected)
 	}
-	return Each(func(r echoClient.Response) error {
+	return func(r echoClient.Response) error {
 		if r.Code != expectedStr {
 			return fmt.Errorf("expected response code `%s`, got %q. Response: %s", expectedStr, r.Code, r)
 		}
 		return nil
-	})
+	}
+}
+
+// VNotStatus is a Visitor-based version of NotStatus.
+func VNotStatus(notExpected int) Visitor {
+	notExpectedStr := ""
+	if notExpected > 0 {
+		notExpectedStr = strconv.Itoa(notExpected)
+	}
+	return func(r echoClient.Response) error {
+		if r.Code == notExpectedStr {
+			return fmt.Errorf("received unexpected response code `%s`. Response: %s", notExpectedStr, r)
+		}
+		return nil
+	}
 }
 
 // GRPCStatus checks that the gRPC response status code matches the expected value.
@@ -361,12 +370,48 @@ func URL(expected string) echo.Checker {
 	})
 }
 
+func isDNSCaptureEnabled(t framework.TestContext) bool {
+	t.Helper()
+	mc := istio.GetOrFail(t, t).MeshConfigOrFail(t)
+	if mc.DefaultConfig != nil && mc.DefaultConfig.ProxyMetadata != nil {
+		return mc.DefaultConfig.ProxyMetadata["ISTIO_META_DNS_CAPTURE"] == "true"
+	}
+	return false
+}
+
 // ReachedTargetClusters is similar to ReachedClusters, except that the set of expected clusters is
 // retrieved from the Target of the request.
-func ReachedTargetClusters(allClusters cluster.Clusters) echo.Checker {
+func ReachedTargetClusters(t framework.TestContext) echo.Checker {
+	dnsCaptureEnabled := isDNSCaptureEnabled(t)
 	return func(result echo.CallResult, err error) error {
-		expectedByNetwork := result.Opts.To.Clusters().ByNetwork()
-		return checkReachedClusters(result, allClusters, expectedByNetwork)
+		from := result.From
+		to := result.Opts.To
+		if from == nil || to == nil {
+			// We need src and target in order to determine which clusters should be reached.
+			return nil
+		}
+
+		if result.Opts.Count < to.Clusters().Len() {
+			// There weren't enough calls to hit all the target clusters. Don't bother
+			// checking which clusters were reached.
+			return nil
+		}
+
+		allClusters := t.Clusters()
+		if to.Config().IsNaked() {
+			// Requests to naked services will not cross network boundaries.
+			// Istio filters out cross-network endpoints.
+			return checkReachedSourceNetworkOnly(result, allClusters)
+		}
+
+		if !dnsCaptureEnabled && to.Config().IsHeadless() {
+			// Requests to headless services will only go cross-cluster when
+			// DNS capture is enabled.
+			return checkReachedSourceClusterOnly(result, allClusters)
+		}
+
+		toClusters := to.Clusters()
+		return checkReachedClusters(result, allClusters, toClusters.ByNetwork())
 	}
 }
 
@@ -387,17 +432,48 @@ func ReachedClusters(allClusters cluster.Clusters, expectedClusters cluster.Clus
 // ReachedNetworks returns an error if requests did not load balance across the clusters in the expected
 // networks.
 func ReachedNetworks(allClusters cluster.Clusters, expectedNetworks ...string) echo.Checker {
+	expectedByNetwork := getExpectedNetworks(allClusters, expectedNetworks...)
+	return func(result echo.CallResult, err error) error {
+		return checkReachedClusters(result, allClusters, expectedByNetwork)
+	}
+}
+
+func getExpectedNetworks(allClusters cluster.Clusters, expectedNetworks ...string) cluster.ClustersByNetwork {
 	allByNetwork := allClusters.ByNetwork()
 
-	// Populate a map containing just the expected clusters.
+	// Populate a map containing just the expected networks.
 	expectedByNetwork := make(map[string]cluster.Clusters)
 	for _, nw := range expectedNetworks {
 		expectedByNetwork[nw] = allByNetwork[nw]
 	}
+	return expectedByNetwork
+}
 
-	return func(result echo.CallResult, err error) error {
-		return checkReachedClusters(result, allClusters, expectedByNetwork)
+// checkReachedSourceClusterOnly verifies that the only cluster that was reached is the cluster where
+// the source workload resides.
+func checkReachedSourceClusterOnly(result echo.CallResult, allClusters cluster.Clusters) error {
+	fromCluster := clusterFor(result.From)
+	if fromCluster == nil {
+		return nil
 	}
+
+	return checkReachedClusters(result, allClusters, cluster.ClustersByNetwork{
+		// Use the source network of the caller.
+		fromCluster.NetworkName(): cluster.Clusters{fromCluster},
+	})
+}
+
+// checkReachedSourceNetworkOnly verifies that the only network that was reached is the network where
+// the source workload resides.
+func checkReachedSourceNetworkOnly(result echo.CallResult, allClusters cluster.Clusters) error {
+	fromCluster := clusterFor(result.From)
+	if fromCluster == nil {
+		return nil
+	}
+
+	toClusters := result.Opts.To.Clusters()
+	expectedByNetwork := getExpectedNetworks(toClusters, fromCluster.NetworkName())
+	return checkReachedClusters(result, allClusters, expectedByNetwork)
 }
 
 func checkReachedClusters(result echo.CallResult, allClusters cluster.Clusters, expectedByNetwork cluster.ClustersByNetwork) error {
@@ -433,21 +509,30 @@ func checkReachedNetworks(result echo.CallResult, allClusters cluster.Clusters, 
 	return nil
 }
 
-func checkReachedClustersInNetwork(result echo.CallResult, allClusters cluster.Clusters, expectedByNetwork cluster.ClustersByNetwork) error {
-	// Determine the source network of the caller.
-	var sourceNetwork string
-	switch from := result.From.(type) {
-	case echo.Instance:
-		sourceNetwork = from.Config().Cluster.NetworkName()
-	case ingress.Instance:
-		sourceNetwork = from.Cluster().NetworkName()
-	default:
-		// Unable to determine the source network of the caller. Skip this check.
-		return nil
+func clusterFor(c echo.Caller) cluster.Cluster {
+	if c != nil {
+		// Determine the source network of the caller.
+		switch from := c.(type) {
+		case echo.Instance:
+			return from.Config().Cluster
+		case ingress.Instance:
+			return from.Cluster()
+		}
 	}
 
+	// Unable to determine the source network of the caller. Skip this check.
+	return nil
+}
+
+func checkReachedClustersInNetwork(result echo.CallResult, allClusters cluster.Clusters, expectedByNetwork cluster.ClustersByNetwork) error {
+	fromCluster := clusterFor(result.From)
+	if fromCluster == nil {
+		return nil
+	}
+	fromNetwork := fromCluster.NetworkName()
+
 	// Lookup only the expected clusters in the same network as the caller.
-	expectedClustersInSourceNetwork := expectedByNetwork[sourceNetwork]
+	expectedClustersInSourceNetwork := expectedByNetwork[fromNetwork]
 
 	clusterHits := make(map[string]int)
 	for _, rr := range result.Responses {
@@ -457,21 +542,21 @@ func checkReachedClustersInNetwork(result echo.CallResult, allClusters cluster.C
 	for _, c := range expectedClustersInSourceNetwork {
 		if clusterHits[c.Name()] == 0 {
 			return fmt.Errorf("did not reach all of %v in source network %v, got %v",
-				expectedClustersInSourceNetwork, sourceNetwork, clusterHits)
+				expectedClustersInSourceNetwork, fromNetwork, clusterHits)
 		}
 	}
 
 	// Verify that no unexpected clusters were reached.
 	for clusterName := range clusterHits {
 		reachedCluster := allClusters.GetByName(clusterName)
-		if reachedCluster == nil || reachedCluster.NetworkName() != sourceNetwork {
+		if reachedCluster == nil || reachedCluster.NetworkName() != fromNetwork {
 			// Ignore clusters on a different network from the source.
 			continue
 		}
 
 		if expectedClustersInSourceNetwork.GetByName(clusterName) == nil {
 			return fmt.Errorf("reached cluster %v in source network %v not in %v, got %v",
-				clusterName, sourceNetwork, expectedClustersInSourceNetwork, clusterHits)
+				clusterName, fromNetwork, expectedClustersInSourceNetwork, clusterHits)
 		}
 	}
 	return nil

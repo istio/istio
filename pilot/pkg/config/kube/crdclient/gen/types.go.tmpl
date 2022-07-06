@@ -22,36 +22,34 @@ package crdclient
 // as declared in the Istio config model.
 
 import (
-	"context"
-	"fmt"
-	metav1alpha1 "istio.io/api/meta/v1alpha1"
+		"context"
+    	"fmt"
 
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+    	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+    	appsv1 "k8s.io/api/apps/v1"
+    	corev1 "k8s.io/api/core/v1"
+    	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+    	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+    	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    	"k8s.io/apimachinery/pkg/runtime"
+    	"k8s.io/apimachinery/pkg/types"
+    	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
-
-	extensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
-	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
-	networkingv1beta1 "istio.io/api/networking/v1beta1"
-	securityv1beta1 "istio.io/api/security/v1beta1"
-	telemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
-	clientextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
-	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	clientnetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
-	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
-	clienttelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
-
-  extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
-  corev1 "k8s.io/api/core/v1"
-  appsv1 "k8s.io/api/apps/v1"
-  admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-  apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    	extensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
+    	metav1alpha1 "istio.io/api/meta/v1alpha1"
+    	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
+    	networkingv1beta1 "istio.io/api/networking/v1beta1"
+    	securityv1beta1 "istio.io/api/security/v1beta1"
+    	telemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
+    	clientextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+    	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+    	clientnetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
+    	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
+    	clienttelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
+    	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+    	"istio.io/istio/pkg/config"
+    	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
@@ -61,7 +59,7 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Create(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
+			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
 		}, metav1.CreateOptions{})
   {{- end }}
 {{- end }}
@@ -77,7 +75,7 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Update(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
+			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
 		}, metav1.UpdateOptions{})
   {{- end }}
 {{- end }}
@@ -115,11 +113,11 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
     case collections.{{ .VariableName }}.Resource().GroupVersionKind():
         oldRes := &{{ .ClientImport }}.{{ .Kind }}{
             ObjectMeta: origMeta,
-            Spec:       *(orig.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
+            Spec:       *(orig.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
         }
         modRes := &{{ .ClientImport }}.{{ .Kind }}{
             ObjectMeta: modMeta,
-            Spec:       *(mod.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
+            Spec:       *(mod.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
         }
         patchBytes, err := genPatchBytes(oldRes, modRes, typ)
         if err != nil {

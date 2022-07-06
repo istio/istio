@@ -34,8 +34,11 @@ func (h *HelmReconciler) RenderCharts() (name.ManifestMap, error) {
 	}
 
 	t := translate.NewTranslator()
-
-	cp, err := controlplane.NewIstioControlPlane(iopSpec, t, nil)
+	ver, err := h.kubeClient.GetKubernetesVersion()
+	if err != nil {
+		return nil, err
+	}
+	cp, err := controlplane.NewIstioControlPlane(iopSpec, t, nil, ver)
 	if err != nil {
 		return nil, err
 	}

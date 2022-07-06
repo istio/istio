@@ -35,10 +35,11 @@ import (
 )
 
 const (
-	jsonOutput       = "json"
-	yamlOutput       = "yaml"
-	summaryOutput    = "short"
-	prometheusOutput = "prom"
+	jsonOutput             = "json"
+	yamlOutput             = "yaml"
+	summaryOutput          = "short"
+	prometheusOutput       = "prom"
+	prometheusMergedOutput = "prom-merged"
 )
 
 var (
@@ -232,14 +233,18 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
 	path := "stats"
+	port := 15000
 	if outputFormat == jsonOutput || outputFormat == yamlOutput {
 		// for yaml output we will convert the json to yaml when printed
 		path += "?format=json"
-	}
-	if outputFormat == prometheusOutput {
+	} else if outputFormat == prometheusOutput {
 		path += "/prometheus"
+	} else if outputFormat == prometheusMergedOutput {
+		path += "/prometheus"
+		port = 15020
 	}
-	result, err := kubeClient.EnvoyDo(context.Background(), podName, podNamespace, "GET", path)
+
+	result, err := kubeClient.EnvoyDoWithPort(context.Background(), podName, podNamespace, "GET", path, port)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -598,6 +603,9 @@ func statsConfigCmd() *cobra.Command {
 
   # Retrieve Envoy server metrics in prometheus format
   istioctl experimental envoy-stats <pod-name[.namespace]> --output prom
+
+  # Retrieve Envoy server metrics in prometheus format with merged application metrics
+  istioctl experimental envoy-stats <pod-name[.namespace]> --output prom-merged
 
   # Retrieve Envoy cluster metrics
   istioctl experimental envoy-stats <pod-name[.namespace]> --type clusters

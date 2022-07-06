@@ -166,7 +166,7 @@ func Create(client kube.ExtendedClient, manifests string) error {
 
 // generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
 func generateValidatingWebhook(config *tagWebhookConfig, chartPath string) (string, error) {
-	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace)
+	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
@@ -216,7 +216,7 @@ base:
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
 func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string, autoInjectNamespaces bool) (string, error) {
-	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace)
+	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)

@@ -30,6 +30,7 @@ import (
 	"gopkg.in/square/go-jose.v2"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -134,10 +135,10 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 // ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/a", "spiffe://td1/ns/def/sa/b"}, {"td2"}) returns
 //
 //	{"spiffe://td1/ns/def/sa/a", "spiffe://td2/ns/def/sa/a", "spiffe://td1/ns/def/sa/b", "spiffe://td2/ns/def/sa/b"}.
-func ExpandWithTrustDomains(spiffeIdentities, trustDomainAliases []string) map[string]struct{} {
-	out := map[string]struct{}{}
-	for _, id := range spiffeIdentities {
-		out[id] = struct{}{}
+func ExpandWithTrustDomains(spiffeIdentities sets.Set, trustDomainAliases []string) sets.Set {
+	out := sets.New()
+	for id := range spiffeIdentities {
+		out.Insert(id)
 		// Expand with aliases set.
 		m, err := ParseIdentity(id)
 		if err != nil {

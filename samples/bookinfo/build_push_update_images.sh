@@ -26,6 +26,11 @@ display_usage() {
     exit 1
 }
 
+# Print usage information for help
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+        display_usage
+fi
+
 # Check if there is atleast one input argument
 if [[ -z "$1" ]] ; then
 	echo "Missing version parameter"
@@ -107,5 +112,5 @@ do
 done
 
 #Update image references in the yaml files
-find . -name "*bookinfo*.yaml" -exec sed -i.bak "s/image:.*\\(\\/examples-bookinfo-.*\\):.*/image: ${PREFIX//\//\\\/}\\1:$VERSION/g" {} +
+find . -name "*bookinfo*.yaml" -exec sed -i.bak "s#image:.*\\(\\/examples-bookinfo-.*\\):.*#image: ${PREFIX//\//\\/}\\1:$VERSION#g" {} +
 
