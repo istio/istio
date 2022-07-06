@@ -121,17 +121,17 @@ func (t *clusterCache) Key() string {
 	return hex.EncodeToString(sum)
 }
 
-func (t clusterCache) DependentConfigs() []model.ConfigKey {
-	configs := []model.ConfigKey{}
+func (t clusterCache) DependentConfigs() []model.ConfigHash {
+	configs := []model.ConfigHash{}
 	if t.destinationRule != nil {
-		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace}.HashCode())
 	}
 	if t.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace}.HashCode())
 	}
 	for _, efKey := range t.envoyFilterKeys {
 		items := strings.Split(efKey, "/")
-		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]})
+		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
 	}
 	return configs
 }

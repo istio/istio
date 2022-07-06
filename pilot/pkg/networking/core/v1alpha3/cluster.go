@@ -506,14 +506,13 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 		return cluster.Cluster_LOGICAL_DNS
 	case model.Passthrough:
 		// Gateways cannot use passthrough clusters. So fallback to EDS
-		if proxyType == model.SidecarProxy {
-			if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
-				return cluster.Cluster_EDS
-			}
-
-			return cluster.Cluster_ORIGINAL_DST
+		if proxyType == model.Router {
+			return cluster.Cluster_EDS
 		}
-		return cluster.Cluster_EDS
+		if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
+			return cluster.Cluster_EDS
+		}
+		return cluster.Cluster_ORIGINAL_DST
 	default:
 		return cluster.Cluster_EDS
 	}
@@ -714,6 +713,8 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
+		// Wipe out any LoadAssignment, if set. This can occur when we have a STATIC Service but PASSTHROUGH traffic policy
+		c.LoadAssignment = nil
 	default:
 		applySimpleDefaultLoadBalancer(c, lb)
 	}
