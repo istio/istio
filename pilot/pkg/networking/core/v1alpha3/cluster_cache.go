@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
@@ -53,7 +52,7 @@ type clusterCache struct {
 
 	// Dependent configs
 	service         *model.Service
-	destinationRule *config.Config
+	destinationRule *model.ConsolidatedDestRule
 	envoyFilterKeys []string
 	peerAuthVersion string   // identifies the versions of all peer authentications
 	serviceAccounts []string // contains all the service accounts associated with the service
@@ -95,10 +94,10 @@ func (t *clusterCache) Key() string {
 	}
 	hash.Write(Separator)
 
-	if t.destinationRule != nil {
-		hash.Write([]byte(t.destinationRule.Name))
+	for _, dr := range t.destinationRule.GetFrom() {
+		hash.Write([]byte(dr.Name))
 		hash.Write(Slash)
-		hash.Write([]byte(t.destinationRule.Namespace))
+		hash.Write([]byte(dr.Namespace))
 	}
 	hash.Write(Separator)
 
@@ -122,9 +121,12 @@ func (t *clusterCache) Key() string {
 }
 
 func (t clusterCache) DependentConfigs() []model.ConfigHash {
-	configs := []model.ConfigHash{}
+	drs := t.destinationRule.GetFrom()
+	configs := make([]model.ConfigHash, 0, len(drs)+1+len(t.envoyFilterKeys))
 	if t.destinationRule != nil {
-		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace}.HashCode())
+		for _, dr := range drs {
+			configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: dr.Name, Namespace: dr.Namespace}.HashCode())
+		}
 	}
 	if t.service != nil {
 		configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace}.HashCode())

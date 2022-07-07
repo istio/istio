@@ -117,14 +117,14 @@ type destinationRuleIndex struct {
 	exportedByNamespace map[string]*consolidatedDestRules
 	rootNamespaceLocal  *consolidatedDestRules
 	// mesh/namespace dest rules to be inherited
-	inheritedByNamespace map[string]*consolidatedDestRule
+	inheritedByNamespace map[string]*ConsolidatedDestRule
 }
 
 func newDestinationRuleIndex() destinationRuleIndex {
 	return destinationRuleIndex{
 		namespaceLocal:       map[string]*consolidatedDestRules{},
 		exportedByNamespace:  map[string]*consolidatedDestRules{},
-		inheritedByNamespace: map[string]*consolidatedDestRule{},
+		inheritedByNamespace: map[string]*ConsolidatedDestRule{},
 	}
 }
 
@@ -256,11 +256,11 @@ type consolidatedDestRules struct {
 	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
 	exportTo map[host.Name]map[visibility.Instance]bool
 	// Map of dest rule host and the merged destination rules for that host
-	destRules map[host.Name][]*consolidatedDestRule
+	destRules map[host.Name][]*ConsolidatedDestRule
 }
 
-// consolidatedDestRule represents a dr and from which it is consolidated.
-type consolidatedDestRule struct {
+// ConsolidatedDestRule represents a dr and from which it is consolidated.
+type ConsolidatedDestRule struct {
 	// rule is merged from the following destinationRules.
 	rule *config.Config
 	// the original dest rules from which above rule is merged.
@@ -987,7 +987,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 }
 
 // destinationRule returns a destination rule for a service name in a given namespace.
-func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) []*consolidatedDestRule {
+func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) []*ConsolidatedDestRule {
 	if service == nil {
 		return nil
 	}
@@ -1054,18 +1054,18 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	if features.EnableDestinationRuleInheritance {
 		// return namespace rule if present
 		if out := ps.destinationRuleIndex.inheritedByNamespace[proxyNameSpace]; out != nil {
-			return []*consolidatedDestRule{out}
+			return []*ConsolidatedDestRule{out}
 		}
 		// return mesh rule
 		if out := ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]; out != nil {
-			return []*consolidatedDestRule{out}
+			return []*ConsolidatedDestRule{out}
 		}
 	}
 
 	return nil
 }
 
-func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*consolidatedDestRule {
+func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*ConsolidatedDestRule {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
 		if specificHostname, ok := MostSpecificHostMatch(hostname,
 			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules,
@@ -1074,13 +1074,13 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
 			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(clientNamespace)] {
 				if features.EnableDestinationRuleInheritance {
-					var parent *consolidatedDestRule
+					var parent *ConsolidatedDestRule
 					// client inherits global DR from its own namespace, not from the exported DR's owning namespace
 					// grab the client namespace DR or mesh if none exists
 					if parent = ps.destinationRuleIndex.inheritedByNamespace[clientNamespace]; parent == nil {
 						parent = ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]
 					}
-					var inheritedDrList []*consolidatedDestRule
+					var inheritedDrList []*ConsolidatedDestRule
 					for _, child := range ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname] {
 						inheritedDr := ps.inheritDestinationRule(parent, child)
 						if inheritedDr != nil {
@@ -1668,7 +1668,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 func newConsolidatedDestRules() *consolidatedDestRules {
 	return &consolidatedDestRules{
 		exportTo:  map[host.Name]map[visibility.Instance]bool{},
-		destRules: map[host.Name][]*consolidatedDestRule{},
+		destRules: map[host.Name][]*ConsolidatedDestRule{},
 	}
 }
 
@@ -1683,7 +1683,7 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newConsolidatedDestRules()
-	inheritedConfigs := make(map[string]*consolidatedDestRule)
+	inheritedConfigs := make(map[string]*ConsolidatedDestRule)
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
@@ -1695,7 +1695,7 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 					configs[i].Namespace, t.rule.CreationTimestamp, configs[i].Name, configs[i].CreationTimestamp)
 				continue
 			}
-			inheritedConfigs[configs[i].Namespace] = convertConsolidatedDestRule(&configs[i])
+			inheritedConfigs[configs[i].Namespace] = ConvertConsolidatedDestRule(&configs[i])
 		}
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
