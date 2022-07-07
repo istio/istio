@@ -5,4 +5,4 @@ issue:
   - 39634
 releaseNotes:
   - |
-    **Fixed** mesh conflicting gateway message does not take care of exporting to the specific namespace. 
+    **Fixed** analyze ConflictingMeshGatewayVirtualServiceHosts (IST0109) message appearing when using exportTo to a specific namespace. 
