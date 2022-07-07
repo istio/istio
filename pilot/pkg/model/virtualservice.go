@@ -412,6 +412,9 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Gateways = root.Gateways
 	}
 
+	if out.StatPrefix == "" {
+		out.StatPrefix = root.StatPrefix
+	}
 	return out
 }
 
