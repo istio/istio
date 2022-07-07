@@ -246,17 +246,32 @@ func (c Config) IsStatefulSet() bool {
 }
 
 // IsNaked checks if the config has no sidecar.
-// Note: mixed workloads are considered 'naked'
+// Note: instances that mix subsets with and without sidecars are considered 'naked'.
 func (c Config) IsNaked() bool {
 	for _, s := range c.Subsets {
-		if s.Annotations == nil {
-			continue
-		}
-		if !s.Annotations.GetBool(SidecarInject) {
+		if s.Annotations != nil && !s.Annotations.GetBool(SidecarInject) {
 			return true
 		}
 	}
 	return false
+}
+
+// IsAllNaked checks if every subset is configured with no sidecar.
+func (c Config) IsAllNaked() bool {
+	if len(c.Subsets) == 0 {
+		// No subsets - default to not-naked.
+		return false
+	}
+
+	for _, s := range c.Subsets {
+		if s.Annotations == nil || s.Annotations.GetBool(SidecarInject) {
+			// Sidecar injection is enabled - it's not naked.
+			return false
+		}
+	}
+
+	// All subsets were annotated indicating no sidecar injection.
+	return true
 }
 
 func (c Config) IsProxylessGRPC() bool {

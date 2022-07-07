@@ -84,6 +84,7 @@ func injectorListCommand() *cobra.Command {
 			ctx := context.Background()
 
 			nslist, err := getNamespaces(ctx, client)
+			nslist = filterSystemNamespaces(nslist)
 			if err != nil {
 				return err
 			}
@@ -117,6 +118,17 @@ func injectorListCommand() *cobra.Command {
 	}
 
 	return cmd
+}
+
+func filterSystemNamespaces(nss []v1.Namespace) []v1.Namespace {
+	filtered := make([]v1.Namespace, 0)
+	for _, ns := range nss {
+		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) || ns.Name == istioNamespace {
+			continue
+		}
+		filtered = append(filtered, ns)
+	}
+	return filtered
 }
 
 func getNamespaces(ctx context.Context, client kube.ExtendedClient) ([]v1.Namespace, error) {
@@ -307,6 +319,9 @@ func hideFromOutput(ns resource.Namespace) bool {
 
 func injectionDisabled(pod *v1.Pod) bool {
 	inject := pod.ObjectMeta.GetAnnotations()[annotation.SidecarInject.Name]
+	if lbl, labelPresent := pod.ObjectMeta.GetLabels()[annotation.SidecarInject.Name]; labelPresent {
+		inject = lbl
+	}
 	return strings.EqualFold(inject, "false")
 }
 

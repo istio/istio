@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - 39726
+
+releaseNotes:
+- |
+  **Fixed** an issue where updating split DestinationRules does not take effect if the rds/cds/eds cache is enabled.

@@ -1411,6 +1411,9 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if tcp.ConnectTimeout != nil {
 			errs = appendErrors(errs, ValidateDuration(tcp.ConnectTimeout))
 		}
+		if tcp.MaxConnectionDuration != nil {
+			errs = appendErrors(errs, ValidateDuration(tcp.MaxConnectionDuration))
+		}
 	}
 
 	return

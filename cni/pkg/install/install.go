@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
+	"time"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
@@ -36,13 +37,15 @@ type Installer struct {
 	saToken            string
 	kubeconfigFilepath string
 	cniConfigFilepath  string
+	saTokenFilepath    string
 }
 
 // NewInstaller returns an instance of Installer with the given config
 func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	return &Installer{
-		cfg:     cfg,
-		isReady: isReady,
+		cfg:             cfg,
+		isReady:         isReady,
+		saTokenFilepath: constants.ServiceAccountPath + "/token",
 	}
 }
 
@@ -54,7 +57,7 @@ func (in *Installer) install(ctx context.Context) (err error) {
 		return
 	}
 
-	if in.saToken, err = readServiceAccountToken(); err != nil {
+	if in.saToken, err = readServiceAccountToken(in.saTokenFilepath); err != nil {
 		cniInstalls.With(resultLabel.Value(resultReadSAFailure)).Increment()
 		return
 	}
@@ -85,7 +88,7 @@ func (in *Installer) Run(ctx context.Context) (err error) {
 	}
 
 	for {
-		if err = sleepCheckInstall(ctx, in.cfg, in.cniConfigFilepath, in.isReady); err != nil {
+		if err = in.sleepCheckInstall(ctx); err != nil {
 			return
 		}
 
@@ -162,8 +165,7 @@ func (in *Installer) Cleanup() error {
 	return nil
 }
 
-func readServiceAccountToken() (string, error) {
-	saToken := constants.ServiceAccountPath + "/token"
+func readServiceAccountToken(saToken string) (string, error) {
 	if !file.Exists(saToken) {
 		return "", fmt.Errorf("service account token file %s does not exist. Is this not running within a pod?", saToken)
 	}
@@ -179,20 +181,23 @@ func readServiceAccountToken() (string, error) {
 // sleepCheckInstall verifies the configuration then blocks until an invalid configuration is detected, and return nil.
 // If an error occurs or context is canceled, the function will return the error.
 // Returning from this function will set the pod to "NotReady".
-func sleepCheckInstall(ctx context.Context, cfg *config.InstallConfig, cniConfigFilepath string, isReady *atomic.Value) error {
+func (in *Installer) sleepCheckInstall(ctx context.Context) error {
 	// Create file watcher before checking for installation
 	// so that no file modifications are missed while and after checking
-	watcher, fileModified, errChan, err := util.CreateFileWatcher(append(cfg.CNIBinTargetDirs, cfg.MountedCNINetDir)...)
+	watcher, fileModified, errChan, err := util.CreateFileWatcher(append(in.cfg.CNIBinTargetDirs, in.cfg.MountedCNINetDir)...)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		SetNotReady(isReady)
+		SetNotReady(in.isReady)
 		_ = watcher.Close()
 	}()
 
+	// Watch for service account token changes in background
+	in.watchSAToken(ctx, fileModified, errChan)
+
 	for {
-		if checkErr := checkInstall(cfg, cniConfigFilepath); checkErr != nil {
+		if checkErr := checkInstall(in.cfg, in.cniConfigFilepath); checkErr != nil {
 			// Pod set to "NotReady" due to invalid configuration
 			installLog.Infof("Invalid configuration. %v", checkErr)
 			return nil
@@ -207,7 +212,7 @@ func sleepCheckInstall(ctx context.Context, cfg *config.InstallConfig, cniConfig
 			return ctx.Err()
 		default:
 			// Valid configuration; set isReady to true and wait for modifications before checking again
-			SetReady(isReady)
+			SetReady(in.isReady)
 			cniInstalls.With(resultLabel.Value(resultSuccess)).Increment()
 			// Pod set to "NotReady" before termination
 			return util.WaitForFileMod(ctx, fileModified, errChan)
@@ -272,4 +277,28 @@ func checkInstall(cfg *config.InstallConfig, cniConfigFilepath string) error {
 		return fmt.Errorf("istio-cni CNI config file modified: %s", cniConfigFilepath)
 	}
 	return nil
+}
+
+// watchSAToken periodically reads SA token file and compares its content with the token stored in the Installer.
+// Sends true into fileModified in case of mismatch.
+// Allows to detect changes in the Bound Service Account Token Volume.
+func (in *Installer) watchSAToken(ctx context.Context, fileModified chan bool, errChan chan error) {
+	curToken := in.saToken
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				token, err := readServiceAccountToken(in.saTokenFilepath)
+				if err != nil {
+					errChan <- err
+				}
+				if curToken != token {
+					fileModified <- true
+				}
+				time.Sleep(1 * time.Minute)
+			}
+		}
+	}()
 }
