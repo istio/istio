@@ -378,7 +378,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		deltaResources := deltaWatchedResources(previousResources, request)
 		con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaResources
 	}
-	if isWildcardTypeURL(request.TypeUrl) && (len(request.ResourceNamesSubscribe) > 0 || len(request.ResourceNamesUnsubscribe) > 0) {
+	if isWildcardTypeURL(request.TypeUrl) && (len(request.ResourceNamesSubscribe) > 0 || len(request.ResourceNamesUnsubscribe) > 0) && features.UnsafeFeaturesEnabled() {
 		panic(fmt.Sprintf("invalid assumption on %+v", request))
 	}
 

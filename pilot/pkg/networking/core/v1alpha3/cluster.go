@@ -268,7 +268,7 @@ func skipForDelta(key model.XdsCacheEntry, updated map[model.ConfigKey]struct{},
 			}
 		}
 		for _, dc := range key.DependentConfigs() {
-			if dc == cfg {
+			if dc == cfg.HashCode() {
 				return false
 			}
 		}
