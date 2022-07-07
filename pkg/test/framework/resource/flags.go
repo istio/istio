@@ -148,6 +148,9 @@ func init() {
 	flag.Var(&settingsFromCommandLine.SkipWorkloadClasses, "istio.test.skipWorkloads",
 		"Skips deploying and using workloads of the given comma-separated classes (e.g. vm, proxyless, etc.)")
 
+	flag.Var(&settingsFromCommandLine.OnlyWorkloadClasses, "istio.test.onlyWorkloads",
+		"Skips deploying and using workloads not included in the given comma-separated classes (e.g. vm, proxyless, etc.)")
+
 	flag.IntVar(&settingsFromCommandLine.Retries, "istio.test.retries", settingsFromCommandLine.Retries,
 		"Number of times to retry tests")
 
