@@ -2525,15 +2525,11 @@ func TestBuildDeltaClusters(t *testing.T) {
 			name:     "service is added",
 			services: []*model.Service{testService1, testService2},
 			cachedServices: map[string]*model.Service{
-				"outbound|8080||test.com":    testService1,
-				"outbound|8080||testnew.com": testService2,
+				"outbound|8080||test.com": testService1,
 			},
 			cacheKeys: map[string]model.XdsCacheEntry{
 				"outbound|8080||test.com": &clusterCache{
 					clusterName: "outbound|8080||test.com",
-				},
-				"outbound|8080||testnew.com": &clusterCache{
-					clusterName: "outbound|8080||testnew.com",
 				},
 			},
 			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
