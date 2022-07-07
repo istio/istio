@@ -130,6 +130,8 @@ func TestSleepCheckInstall(t *testing.T) {
 		cniConfigFilename     string
 		invalidConfigFilename string
 		validConfigFilename   string
+		saFilename            string
+		saNewFilename         string
 	}{
 		{
 			name:                  "chained CNI plugin",
@@ -137,11 +139,14 @@ func TestSleepCheckInstall(t *testing.T) {
 			cniConfigFilename:     "plugins.conflist",
 			invalidConfigFilename: "list.conflist",
 			validConfigFilename:   "list.conflist.golden",
+			saFilename:            "token-foo",
 		},
 		{
 			name:                "standalone CNI plugin",
 			cniConfigFilename:   "istio-cni.conf",
 			validConfigFilename: "istio-cni.conf",
+			saFilename:          "token-foo",
+			saNewFilename:       "token-bar",
 		},
 	}
 
@@ -161,6 +166,14 @@ func TestSleepCheckInstall(t *testing.T) {
 			cniConfigFilepath := filepath.Join(tempDir, c.cniConfigFilename)
 			isReady := &atomic.Value{}
 			SetNotReady(isReady)
+			in := NewInstaller(cfg, isReady)
+			in.cniConfigFilepath = cniConfigFilepath
+
+			in.saToken = "foo"
+			in.saTokenFilepath = filepath.Join(tempDir, c.saFilename)
+			if err := file.AtomicCopy(filepath.Join("testdata", c.saFilename), tempDir, c.saFilename); err != nil {
+				t.Fatal(err)
+			}
 
 			if len(c.invalidConfigFilename) > 0 {
 				// Copy an invalid config file into tempDir
@@ -170,7 +183,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			}
 
 			t.Log("Expecting an invalid configuration log:")
-			if err := sleepCheckInstall(ctx, cfg, cniConfigFilepath, isReady); err != nil {
+			if err := in.sleepCheckInstall(ctx); err != nil {
 				t.Fatalf("error should be nil due to invalid config, got: %v", err)
 			}
 			assert.Equal(t, isReady.Load(), false)
@@ -206,9 +219,9 @@ func TestSleepCheckInstall(t *testing.T) {
 			// Listen to sleepCheckInstall return value
 			// Should detect a valid configuration and wait indefinitely for a file modification
 			errChan := make(chan error)
-			go func(ctx context.Context, cfg *config.InstallConfig, cniConfigFilepath string, isReady *atomic.Value) {
-				errChan <- sleepCheckInstall(ctx, cfg, cniConfigFilepath, isReady)
-			}(ctx, cfg, cniConfigFilepath, isReady)
+			go func(ctx context.Context) {
+				errChan <- in.sleepCheckInstall(ctx)
+			}(ctx)
 
 			select {
 			case <-readyChan:
@@ -220,6 +233,35 @@ func TestSleepCheckInstall(t *testing.T) {
 				t.Fatal(err)
 			case <-time.After(5 * time.Second):
 				t.Fatal("timed out waiting for isReady to be set to true")
+			}
+
+			// Change SA token
+			if len(c.saNewFilename) > 0 {
+				t.Log("Expecting detect changes to the SA token")
+				if err := file.AtomicCopy(filepath.Join("testdata", c.saNewFilename), tempDir, c.saFilename); err != nil {
+					t.Fatal(err)
+				}
+
+				select {
+				case err := <-errChan:
+					if err != nil {
+						// A change in SA token should return nil
+						t.Fatal(err)
+					}
+					assert.Equal(t, isReady.Load(), false)
+				case <-time.After(5 * time.Second):
+					t.Fatal("timed out waiting for invalid configuration to be detected")
+				}
+
+				// Revert valid SA
+				if err := file.AtomicCopy(filepath.Join("testdata", c.saFilename), tempDir, c.saFilename); err != nil {
+					t.Fatal(err)
+				}
+
+				// Run sleepCheckInstall
+				go func(ctx context.Context, in *Installer) {
+					errChan <- in.sleepCheckInstall(ctx)
+				}(ctx, in)
 			}
 
 			// Remove Istio CNI's config
