@@ -115,13 +115,25 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Namespace:      apps.Namespace,
 			Ports:          ports.All(),
 			ServiceAccount: true,
-			Subsets: []echo.SubsetConfig{{
-				Replicas: 2,
-				Labels: map[string]string{
-					"asm-type":   "workload",
-					"asm-remote": "true",
+			Subsets: []echo.SubsetConfig{
+				{
+					Replicas: 1,
+					Version:  "v1",
+					Labels: map[string]string{
+						// TODO: remove or keep https://github.com/solo-io/istio-sidecarless/issues/168
+						"asm-type":   "workload",
+						"asm-remote": "true",
+					},
 				},
-			}},
+				{
+					Replicas: 1,
+					Version:  "v2",
+					Labels: map[string]string{
+						"asm-type":   "workload",
+						"asm-remote": "true",
+					},
+				},
+			},
 		}).
 		//WithConfig(echo.Config{
 		//	Service:        AltRemote,
@@ -140,25 +152,47 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:   Captured,
 			Namespace: apps.Namespace,
 			Ports:     ports.All(),
-			Subsets: []echo.SubsetConfig{{
-				Replicas: 2,
-				Labels: map[string]string{
-					"asm-type":     "workload",
-					"ambient-type": "workload",
+			Subsets: []echo.SubsetConfig{
+				{
+					Replicas: 1,
+					Version:  "v1",
+					Labels: map[string]string{
+						"asm-type":     "workload",
+						"ambient-type": "workload",
+					},
 				},
-			}},
+				{
+					Replicas: 1,
+					Version:  "v2",
+					Labels: map[string]string{
+						"asm-type":     "workload",
+						"ambient-type": "workload",
+					},
+				},
+			},
 		}).
 		WithConfig(echo.Config{
 			Service:   Uncaptured,
 			Namespace: apps.Namespace,
 			Ports:     ports.All(),
-			Subsets: []echo.SubsetConfig{{
-				Replicas: 2,
-				Labels: map[string]string{
-					"asm-type":     "none",
-					"ambient-type": "none",
+			Subsets: []echo.SubsetConfig{
+				{
+					Replicas: 1,
+					Version:  "v1",
+					Labels: map[string]string{
+						"asm-type":     "none",
+						"ambient-type": "none",
+					},
 				},
-			}},
+				{
+					Replicas: 1,
+					Version:  "v2",
+					Labels: map[string]string{
+						"asm-type":     "none",
+						"ambient-type": "none",
+					},
+				},
+			},
 		})
 
 	if err := t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -184,41 +218,68 @@ spec:
 			Service:   SidecarRemote,
 			Namespace: apps.Namespace,
 			Ports:     ports.All(),
-			Subsets: []echo.SubsetConfig{{
-				Replicas: 2,
-				Labels: map[string]string{
-					"asm-type":                "workload",
-					"ambient-type":            "workload",
-					"asm-remote":              "true",
-					"sidecar.istio.io/inject": "true",
+			Subsets: []echo.SubsetConfig{
+				{
+					Replicas: 1,
+					Version:  "v1",
+					Labels: map[string]string{
+						"asm-type":                "workload",
+						"ambient-type":            "workload",
+						"asm-remote":              "true",
+						"sidecar.istio.io/inject": "true",
+					},
 				},
-			}},
+				{
+					Replicas: 1,
+					Version:  "v2",
+					Labels: map[string]string{
+						"asm-type":                "workload",
+						"ambient-type":            "workload",
+						"asm-remote":              "true",
+						"sidecar.istio.io/inject": "true",
+					},
+				},
+			},
 		}).
 			WithConfig(echo.Config{
 				Service:   SidecarCaptured,
 				Namespace: apps.Namespace,
 				Ports:     ports.All(),
-				Subsets: []echo.SubsetConfig{{
-					Replicas: 2,
-					Labels: map[string]string{
-						"asm-type":                "workload",
-						"ambient-type":            "workload",
-						"sidecar.istio.io/inject": "true",
+				Subsets: []echo.SubsetConfig{
+					{
+						Replicas: 1,
+						Version:  "v1",
+						Labels: map[string]string{
+							"asm-type":                "workload",
+							"ambient-type":            "workload",
+							"sidecar.istio.io/inject": "true",
+						},
 					},
-				}},
+					{
+						Replicas: 1,
+						Version:  "v2",
+						Labels: map[string]string{
+							"asm-type":                "workload",
+							"ambient-type":            "workload",
+							"sidecar.istio.io/inject": "true",
+						},
+					},
+				},
 			}).
 			WithConfig(echo.Config{
 				Service:   SidecarUncaptured,
 				Namespace: apps.Namespace,
 				Ports:     ports.All(),
-				Subsets: []echo.SubsetConfig{{
-					Replicas: 2,
-					Labels: map[string]string{
-						"asm-type":                "none",
-						"ambient-type":            "none",
-						"sidecar.istio.io/inject": "true",
+				Subsets: []echo.SubsetConfig{
+					{
+						Replicas: 2,
+						Labels: map[string]string{
+							"asm-type":                "none",
+							"ambient-type":            "none",
+							"sidecar.istio.io/inject": "true",
+						},
 					},
-				}},
+				},
 			})
 	}
 
