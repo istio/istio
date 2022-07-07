@@ -167,7 +167,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			isReady := &atomic.Value{}
 			SetNotReady(isReady)
 			in := NewInstaller(cfg, isReady)
-			in.cniConfigFilepath = filepath.Join(tempDir, c.cniConfigFilename)
+			in.cniConfigFilepath = cniConfigFilepath
 
 			in.saToken = "foo"
 			in.saTokenFilepath = filepath.Join(tempDir, c.saFilename)
@@ -219,9 +219,9 @@ func TestSleepCheckInstall(t *testing.T) {
 			// Listen to sleepCheckInstall return value
 			// Should detect a valid configuration and wait indefinitely for a file modification
 			errChan := make(chan error)
-			go func(ctx context.Context, cfg *config.InstallConfig, cniConfigFilepath string, isReady *atomic.Value) {
+			go func(ctx context.Context) {
 				errChan <- in.sleepCheckInstall(ctx)
-			}(ctx, cfg, cniConfigFilepath, isReady)
+			}(ctx)
 
 			select {
 			case <-readyChan:
