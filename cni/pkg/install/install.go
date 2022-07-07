@@ -283,6 +283,7 @@ func checkInstall(cfg *config.InstallConfig, cniConfigFilepath string) error {
 // Sends true into fileModified in case of mismatch.
 // Allows to detect changes in the Bound Service Account Token Volume.
 func (in *Installer) watchSAToken(ctx context.Context, fileModified chan bool, errChan chan error) {
+	curToken := in.saToken
 	go func() {
 		for {
 			select {
@@ -293,7 +294,7 @@ func (in *Installer) watchSAToken(ctx context.Context, fileModified chan bool, e
 				if err != nil {
 					errChan <- err
 				}
-				if in.saToken != token {
+				if curToken != token {
 					fileModified <- true
 				}
 				time.Sleep(1 * time.Minute)
