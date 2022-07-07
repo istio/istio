@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"math"
 	"reflect"
 	"sort"
@@ -2497,6 +2498,8 @@ func TestBuildDeltaClusters(t *testing.T) {
 	testCases := []struct {
 		name                 string
 		services             []*model.Service
+		cachedServices       map[string]*model.Service
+		cacheKeys            map[string]model.XdsCacheEntry
 		configUpdated        map[model.ConfigKey]struct{}
 		watchedResourceNames []string
 		usedDelta            bool
@@ -2504,12 +2507,24 @@ func TestBuildDeltaClusters(t *testing.T) {
 		expectedClusters     []string
 	}{
 		{
-			name:                 "service is added",
-			services:             []*model.Service{testService1, testService2},
+			name:     "service is added",
+			services: []*model.Service{testService1, testService2},
+			cachedServices: map[string]*model.Service{
+				"outbound|8080||test.com":    testService1,
+				"outbound|8080||testnew.com": testService2,
+			},
+			cacheKeys: map[string]model.XdsCacheEntry{
+				"outbound|8080||test.com": &clusterCache{
+					clusterName: "outbound|8080||test.com",
+				},
+				"outbound|8080||testnew.com": &clusterCache{
+					clusterName: "outbound|8080||testnew.com",
+				},
+			},
 			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|8080||test.com"},
 			usedDelta:            true,
-			removedClusters:      nil,
+			removedClusters:      []string{},
 			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||testnew.com"},
 		},
 		{
@@ -2530,29 +2545,39 @@ func TestBuildDeltaClusters(t *testing.T) {
 			removedClusters:      []string{"outbound|7070||test.com"},
 			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com"},
 		},
-		{
-			name:                 "config update that is not delta aware",
-			services:             []*model.Service{testService1, testService2},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
-			watchedResourceNames: []string{"outbound|7070||test.com"},
-			usedDelta:            false,
-			removedClusters:      nil,
-			expectedClusters: []string{
-				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
-				"outbound|8080||test.com", "outbound|8080||testnew.com",
-			},
-		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				Services: tc.services,
+				UseCache: true,
 			})
-			clusters, removed, delta := cg.DeltaClusters(cg.SetupProxy(nil), tc.configUpdated,
-				&model.WatchedResource{ResourceNames: tc.watchedResourceNames})
+			proxy := cg.SetupProxy(nil)
+			pr := &model.PushRequest{
+				Push: cg.PushContext(), ConfigsUpdated: tc.configUpdated,
+			}
+			cb := NewClusterBuilder(proxy, pr, cg.ConfigGen.Cache)
+			outboundPatcher := clusterPatcher{efw: pr.Push.EnvoyFilters(proxy), pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+			if tc.cacheKeys != nil {
+				for k, _ := range tc.cacheKeys {
+					for _, p := range tc.cachedServices[k].Ports {
+						tc.cacheKeys[k] = buildClusterKey(tc.cachedServices[k], p, cb, proxy, outboundPatcher.efw.Keys())
+					}
+				}
+				proxy.WatchedResources = map[string]*model.WatchedResource{
+					v3.ClusterType: {
+						CacheKeys: tc.cacheKeys,
+					},
+				}
+				for _, cacheKey := range tc.cacheKeys {
+					cg.ConfigGen.Cache.Add(cacheKey, &model.PushRequest{Start: time.Now()}, &discovery.Resource{Name: cacheKey.Key()})
+				}
+			}
+			clusters, removed, delta := cg.DeltaClusters(proxy, tc.configUpdated,
+				&model.WatchedResource{ResourceNames: tc.watchedResourceNames}, pr)
 			if delta != tc.usedDelta {
-				t.Errorf("un expected delta, want %v got %v", tc.usedDelta, delta)
+				t.Errorf("unexpected delta, want %v got %v", tc.usedDelta, delta)
 			}
 			g.Expect(removed).To(Equal(tc.removedClusters))
 			g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal(tc.expectedClusters))

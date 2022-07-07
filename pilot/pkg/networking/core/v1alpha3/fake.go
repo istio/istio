@@ -83,6 +83,9 @@ type TestOptions struct {
 
 	// Used to set the serviceentry registry's cluster id
 	ClusterID cluster2.ID
+
+	// If set, ConfigGen will use an LRU cache and not a disabled cache
+	UseCache bool
 }
 
 type ConfigGenTest struct {
@@ -148,13 +151,19 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	env.NetworksWatcher = opts.NetworksWatcher
 	env.Init()
 
+	var cache model.XdsCache
+	cache = &model.DisabledCache{}
+	if opts.UseCache {
+		cache = model.NewXdsCache()
+	}
+
 	fake := &ConfigGenTest{
 		t:                    t,
 		store:                configController,
 		env:                  env,
 		initialConfigs:       configs,
 		stop:                 test.NewStop(t),
-		ConfigGen:            NewConfigGenerator(&model.DisabledCache{}),
+		ConfigGen:            NewConfigGenerator(cache),
 		MemRegistry:          msd,
 		Registry:             serviceDiscovery,
 		ServiceEntryRegistry: se,
@@ -255,11 +264,9 @@ func (f *ConfigGenTest) DeltaClusters(
 	p *model.Proxy,
 	configUpdated map[model.ConfigKey]struct{},
 	watched *model.WatchedResource,
+	pr *model.PushRequest,
 ) ([]*cluster.Cluster, []string, bool) {
-	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,
-		&model.PushRequest{
-			Push: f.PushContext(), ConfigsUpdated: configUpdated,
-		}, watched)
+	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p, pr, watched)
 	res := make([]*cluster.Cluster, 0, len(raw))
 	for _, r := range raw {
 		c := &cluster.Cluster{}

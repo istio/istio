@@ -333,6 +333,7 @@ func (l *LruCache) assertUnchanged(key string, existing *discovery.Resource, rep
 
 func (l *LruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {
 	if !entry.Cacheable() || pushReq == nil || pushReq.Start.Equal(time.Time{}) {
+		fmt.Println("HEREHERE")
 		return
 	}
 	// It will not overflow until year 2262
@@ -354,6 +355,7 @@ func (l *LruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	}
 
 	if token < l.token {
+		fmt.Println("HERE")
 		return
 	}
 
