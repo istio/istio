@@ -337,11 +337,11 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace st
 				}
 			}
 		} else if !errors.IsNotFound(err) {
-			// TODO use a namespace informer to handle transient errors and to also allow dynamic updates
+			// A transient network error here will have a clear effect in which the remote cluster will not start
+			// working after it gets attached to a control plane. The administrator can fix the problem in this case
+			// by simply removing and then reapplying the remote secret which will presumably work the next time.
+			// So, we will just log the error and return false in this case.
 			log.Errorf("failed to access system namespace %s: %v", systemNamespace, err)
-			// For now, fail open in case it's just a transient error. This may result in some unexpected error messages in istiod
-			// logs and/or some unnecessary attempts at leader election, but a local istiod will always win in those cases.
-			return true
 		}
 	}
 	return false
