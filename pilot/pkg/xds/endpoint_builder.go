@@ -88,10 +88,12 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		port:       port,
 	}
 
+	passthroughMode := model.IsDNSSrvSubsetKey(clusterName)
+
 	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
 	if features.EnableAutomTLSCheckPolicies ||
 		b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		b.mtlsChecker = newMtlsChecker(push, port, dr.GetRule())
+		b.mtlsChecker = newMtlsChecker(push, port, passthroughMode, dr.GetRule())
 	}
 	return b
 }
@@ -359,9 +361,12 @@ type mtlsChecker struct {
 	subsetPolicyMode map[string]*networkingapi.ClientTLSSettings_TLSmode
 	// the tlsMode of the root traffic policy if it's set
 	rootPolicyMode *networkingapi.ClientTLSSettings_TLSmode
+
+	// Indicates the cluster we're checking settings for doesn't care about mTLS settings on the client (DestinationRule).
+	passthroughMode bool
 }
 
-func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config) *mtlsChecker {
+func newMtlsChecker(push *model.PushContext, svcPort int, passthroughMode bool, dr *config.Config) *mtlsChecker {
 	var drSpec *networkingapi.DestinationRule
 	if dr != nil {
 		drSpec = dr.Spec.(*networkingapi.DestinationRule)
@@ -370,6 +375,7 @@ func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config) *mt
 		push:                 push,
 		svcPort:              svcPort,
 		destinationRule:      drSpec,
+		passthroughMode:      passthroughMode,
 		mtlsDisabledHosts:    map[string]struct{}{},
 		peerAuthDisabledMTLS: map[string]bool{},
 		subsetPolicyMode:     map[string]*networkingapi.ClientTLSSettings_TLSmode{},
@@ -428,6 +434,9 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 }
 
 func (c *mtlsChecker) mtlsModeForDestinationRule(ep *model.IstioEndpoint) *networkingapi.ClientTLSSettings_TLSmode {
+	if c.passthroughMode {
+		return nil
+	}
 	if c.destinationRule == nil || len(c.destinationRule.Subsets) == 0 {
 		return c.rootPolicyMode
 	}
