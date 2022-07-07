@@ -504,7 +504,8 @@ func (a *Agent) initSdsServer() error {
 		a.secOpts.FileMountedCerts = true
 	}
 
-	if a.secretCache, err = a.newSecretManager(); err != nil {
+	a.secretCache, err = a.newSecretManager()
+	if err != nil {
 		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
 
