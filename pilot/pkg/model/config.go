@@ -271,7 +271,7 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 
 // MostSpecificHostMatch compares the map of the stack to the needle, and returns the longest element
 // matching the needle, or false if no element in the map matches the needle.
-func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*consolidatedDestRule) (host.Name, bool) {
+func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*ConsolidatedDestRule) (host.Name, bool) {
 	matches := []host.Name{}
 
 	// exact match first

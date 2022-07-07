@@ -565,14 +565,14 @@ func makeCacheKey(n int) model.XdsCacheEntry {
 	// 100 services
 	services := make([]*model.Service, 0, 100)
 	// 100 destinationrules
-	drs := make([]*config.Config, 0, 100)
+	drs := make([]*model.ConsolidatedDestRule, 0, 100)
 	for i := 0; i < 100; i++ {
 		index := strconv.Itoa(i)
 		services = append(services, &model.Service{
 			Hostname:   host.Name(ns + "some" + index + ".example.com"),
 			Attributes: model.ServiceAttributes{Namespace: "test" + index},
 		})
-		drs = append(drs, &config.Config{Meta: config.Meta{Name: index, Namespace: index}})
+		drs = append(drs, model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: index, Namespace: index}}))
 	}
 
 	key := &route.Cache{
