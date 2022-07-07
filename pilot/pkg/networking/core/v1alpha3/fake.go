@@ -19,6 +19,7 @@ package v1alpha3
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 	"text/template"
 	"time"
@@ -271,6 +272,7 @@ func (f *ConfigGenTest) DeltaClusters(
 	for _, r := range raw {
 		c := &cluster.Cluster{}
 		if err := r.Resource.UnmarshalTo(c); err != nil {
+			fmt.Println(r.Name)
 			f.t.Fatal(err)
 		}
 		res = append(res, c)

@@ -2585,8 +2585,8 @@ func TestBuildDeltaClusters(t *testing.T) {
 						CacheKeys: tc.cacheKeys,
 					},
 				}
-				for _, cacheKey := range tc.cacheKeys {
-					cg.ConfigGen.Cache.Add(cacheKey, &model.PushRequest{Start: time.Now()}, &discovery.Resource{Name: cacheKey.Key()})
+				for clusterName, cacheKey := range tc.cacheKeys {
+					cg.ConfigGen.Cache.Add(cacheKey, &model.PushRequest{Start: time.Now()}, &discovery.Resource{Name: clusterName})
 				}
 			}
 			clusters, removed, delta := cg.DeltaClusters(proxy, tc.configUpdated,

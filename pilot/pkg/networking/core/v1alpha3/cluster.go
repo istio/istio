@@ -180,6 +180,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 			clusterKey := buildClusterKey(service, port, cb, proxy, efKeys)
 			// clusterKey can't be nil as per buildClusterKey
+			fmt.Println(clusterKey.Key())
 			subsetKeys := cb.getSubsetKeys(*clusterKey)
 			// it exists, we shouldn't mark as deleted
 			deleted.Delete(clusterKey.clusterName)

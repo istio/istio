@@ -1187,7 +1187,7 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 }
 
 func (cb *ClusterBuilder) getSubsetKeys(clusterKey clusterCache) []clusterCache {
-	destinationRule := CastDestinationRule(clusterKey.destinationRule)
+	destinationRule := CastDestinationRule(clusterKey.destinationRule.GetRule())
 	res := make([]clusterCache, 0, len(destinationRule.GetSubsets()))
 	dir, _, host, port := model.ParseSubsetKey(clusterKey.clusterName)
 	for _, ss := range destinationRule.GetSubsets() {
