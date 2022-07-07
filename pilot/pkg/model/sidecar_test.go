@@ -1925,7 +1925,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					&Proxy{
 						Metadata:        &NodeMetadata{Labels: tt.sidecarConfig.Labels},
 						ConfigNamespace: tt.sidecarConfig.Namespace,
-					}, host.Name("httpbin.org"))
+					}, host.Name("httpbin.org")).GetRule()
 				assert.Equal(t, dr, tt.expectedDr)
 			}
 		})

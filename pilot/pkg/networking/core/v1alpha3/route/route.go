@@ -97,7 +97,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	out := make([]VirtualHostWrapper, 0)
 
 	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
-	dependentDestinationRules := []*config.Config{}
+	dependentDestinationRules := []*model.ConsolidatedDestRule{}
 	// consistent hash policies for the http route destinations
 	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
 	for _, virtualService := range virtualServices {
@@ -1196,11 +1196,12 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 
 func getHashForService(node *model.Proxy, push *model.PushContext,
 	svc *model.Service, port *model.Port,
-) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil
 	}
-	destinationRule := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
+	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
+	destinationRule := mergedDR.GetRule()
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1217,7 +1218,7 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 		}
 	}
 
-	return consistentHash, destinationRule
+	return consistentHash, mergedDR
 }
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
@@ -1247,13 +1248,14 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 // GetHashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
 func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
 	configNamespace string,
-) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil
 	}
 
 	destination := dst.GetDestination()
-	destinationRule := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
+	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
+	destinationRule := mergedDR.GetRule()
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1282,7 +1284,7 @@ func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *
 	case plsHash != nil:
 		consistentHash = plsHash
 	}
-	return consistentHash, destinationRule
+	return consistentHash, mergedDR
 }
 
 // isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise
