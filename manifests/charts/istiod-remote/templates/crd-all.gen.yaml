@@ -4228,6 +4228,10 @@ spec:
                             description: Source namespace constraining the applicability
                               of a rule to workloads in that namespace.
                             type: string
+                          statPrefix:
+                            description: The human readable prefix to use when emitting
+                              statistics for this route.
+                            type: string
                           uri:
                             oneOf:
                             - not:
@@ -4977,6 +4981,10 @@ spec:
                           sourceNamespace:
                             description: Source namespace constraining the applicability
                               of a rule to workloads in that namespace.
+                            type: string
+                          statPrefix:
+                            description: The human readable prefix to use when emitting
+                              statistics for this route.
                             type: string
                           uri:
                             oneOf:
