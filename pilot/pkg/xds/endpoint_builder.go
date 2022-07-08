@@ -88,12 +88,12 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		port:       port,
 	}
 
-	passthroughMode := model.IsDNSSrvSubsetKey(clusterName)
+	sniDNAT := model.IsDNSSrvSubsetKey(clusterName)
 
 	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
 	if features.EnableAutomTLSCheckPolicies ||
 		b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		b.mtlsChecker = newMtlsChecker(push, port, passthroughMode, dr.GetRule())
+		b.mtlsChecker = newMtlsChecker(push, port, sniDNAT, dr.GetRule())
 	}
 	return b
 }
@@ -363,10 +363,10 @@ type mtlsChecker struct {
 	rootPolicyMode *networkingapi.ClientTLSSettings_TLSmode
 
 	// Indicates the cluster we're checking settings for doesn't care about mTLS settings on the client (DestinationRule).
-	passthroughMode bool
+	sniDNAT bool
 }
 
-func newMtlsChecker(push *model.PushContext, svcPort int, passthroughMode bool, dr *config.Config) *mtlsChecker {
+func newMtlsChecker(push *model.PushContext, svcPort int, sniDNAT bool, dr *config.Config) *mtlsChecker {
 	var drSpec *networkingapi.DestinationRule
 	if dr != nil {
 		drSpec = dr.Spec.(*networkingapi.DestinationRule)
@@ -375,7 +375,7 @@ func newMtlsChecker(push *model.PushContext, svcPort int, passthroughMode bool, 
 		push:                 push,
 		svcPort:              svcPort,
 		destinationRule:      drSpec,
-		passthroughMode:      passthroughMode,
+		sniDNAT:              sniDNAT,
 		mtlsDisabledHosts:    map[string]struct{}{},
 		peerAuthDisabledMTLS: map[string]bool{},
 		subsetPolicyMode:     map[string]*networkingapi.ClientTLSSettings_TLSmode{},
@@ -400,10 +400,15 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 	if drMode := c.mtlsModeForDestinationRule(ep); drMode != nil {
 		switch *drMode {
 		case networkingapi.ClientTLSSettings_DISABLE:
-			c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
+			if !c.sniDNAT {
+				// ClientTLSSettings shouldn't affect SNI DNAT clusters.
+				c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
+			}
 			return
 		case networkingapi.ClientTLSSettings_ISTIO_MUTUAL:
-			// don't mark this EP disabled, even if PA or tlsMode meta mark disabled
+			// the client is forcing ISTIO_MUTUAL; don't bother checking PeerAuthentication or tlsMode labels
+			// NOTE: even though the setting shouldn't matter for the SNI DNAT clusters, we allow a TLS mode setting
+			// to prevent endpoint filtering here.
 			return
 		}
 	}
@@ -434,9 +439,6 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 }
 
 func (c *mtlsChecker) mtlsModeForDestinationRule(ep *model.IstioEndpoint) *networkingapi.ClientTLSSettings_TLSmode {
-	if c.passthroughMode {
-		return nil
-	}
 	if c.destinationRule == nil || len(c.destinationRule.Subsets) == 0 {
 		return c.rootPolicyMode
 	}
