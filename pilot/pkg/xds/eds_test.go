@@ -323,6 +323,7 @@ func TestEDSOverlapping(t *testing.T) {
 }
 
 func TestEDSUnhealthyEndpoints(t *testing.T) {
+	test.SetBoolForTest(t, &features.SendUnhealthyEndpoints, true)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addUnhealthyCluster(s)
 	adscon := s.Connect(nil, nil, watchEds)
