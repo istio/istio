@@ -278,6 +278,9 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	if delegate.Rewrite == nil {
 		delegate.Rewrite = root.Rewrite
 	}
+	if delegate.DirectResponse == nil {
+		delegate.DirectResponse = root.DirectResponse
+	}
 	if delegate.Timeout == nil {
 		delegate.Timeout = root.Timeout
 	}
@@ -412,7 +415,7 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Gateways = root.Gateways
 	}
 
-	if out.StatPrefix == "" {
+	if len(out.StatPrefix) == 0 {
 		out.StatPrefix = root.StatPrefix
 	}
 	return out
