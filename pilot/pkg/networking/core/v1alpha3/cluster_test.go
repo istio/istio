@@ -1000,7 +1000,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 	if c.CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
 	}
-	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(0)))
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
 	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
 	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
@@ -1043,7 +1043,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 	if c.CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
 	}
-	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(0)))
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
 	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
 	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
@@ -1106,7 +1106,7 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 	if c.CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
 	}
-	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(0)))
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
 	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
 	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
@@ -1167,7 +1167,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 	if c.CommonLbConfig == nil {
 		t.Errorf("CommonLbConfig should be set for cluster %+v", c)
 	}
-	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(0)))
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
 	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
 		locality := localityLbEndpoint.Locality
@@ -1210,7 +1210,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 	if c.CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
 	}
-	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(0)))
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
 	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
 	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
@@ -1713,6 +1713,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 		lbSettings                         *networking.LoadBalancerSettings
 		discoveryType                      cluster.Cluster_DiscoveryType
 		port                               *model.Port
+		sendUnhealthyEndpoints             bool
 		expectedLbPolicy                   cluster.Cluster_LbPolicy
 		expectedLocalityWeightedConfig     bool
 		expectClusterLoadAssignmenttoBeNil bool
@@ -1759,6 +1760,12 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLbPolicy:                   cluster.Cluster_CLUSTER_PROVIDED,
 			expectClusterLoadAssignmenttoBeNil: true,
 		},
+		{
+			name:                   "Send Unhealthy Endpoints enabled",
+			discoveryType:          cluster.Cluster_EDS,
+			sendUnhealthyEndpoints: true,
+			expectedLbPolicy:       defaultLBAlgorithm(),
+		},
 		// TODO: add more to cover all cases
 	}
 
@@ -1770,6 +1777,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetBoolForTest(t, &features.SendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
 				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
@@ -1784,12 +1792,13 @@ func TestApplyLoadBalancer(t *testing.T) {
 			}
 
 			applyLoadBalancer(c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
-			if c.CommonLbConfig.HealthyPanicThreshold.Value != 0 {
-				t.Errorf("cluster panic threshold should be disabled by default")
-			}
 
 			if c.LbPolicy != tt.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
+			}
+
+			if tt.sendUnhealthyEndpoints && c.CommonLbConfig.HealthyPanicThreshold.GetValue() != 0 {
+				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabeld")
 			}
 
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {

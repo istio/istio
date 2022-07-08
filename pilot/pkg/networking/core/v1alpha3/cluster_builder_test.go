@@ -28,7 +28,6 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
-	types "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -920,9 +919,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
-				CommonLbConfig: &cluster.Cluster_CommonLbConfig{HealthyPanicThreshold: &types.Percent{Value: 0}},
-				Filters:        []*cluster.Filter{xdsfilters.TCPClusterMx},
-				LbPolicy:       defaultLBAlgorithm(),
+				Filters:  []*cluster.Filter{xdsfilters.TCPClusterMx},
+				LbPolicy: defaultLBAlgorithm(),
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
 						util.IstioMetadataKey: {
@@ -1009,7 +1007,6 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Name:                 "foo",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
-				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{HealthyPanicThreshold: &types.Percent{Value: 0}},
 				Filters:              []*cluster.Filter{xdsfilters.TCPClusterMx},
 				LbPolicy:             defaultLBAlgorithm(),
 				LoadAssignment: &endpoint.ClusterLoadAssignment{

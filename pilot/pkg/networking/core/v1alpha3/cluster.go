@@ -684,12 +684,14 @@ func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
 	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig,
 ) {
-	// Disable panic threshold by default as its not typically applicable in k8s environments
-	// with few pods per service. Only enable it when user explicitly asks to enable with OutlierDetection settings.
-	if c.CommonLbConfig == nil {
-		c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
+	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
+	// end points when load balancer is in panic mode.
+	if features.SendUnhealthyEndpoints {
+		if c.CommonLbConfig == nil {
+			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
+		}
+		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
-	c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if localityLbSetting != nil {
 		if c.CommonLbConfig == nil {
