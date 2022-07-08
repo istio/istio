@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Added** description to `admin log`
+  - |
+    **Improved** output format of the active logging levels.
