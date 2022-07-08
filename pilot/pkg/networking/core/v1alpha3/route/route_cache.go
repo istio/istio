@@ -53,7 +53,7 @@ type Cache struct {
 	Services                []*model.Service
 	VirtualServices         []config.Config
 	DelegateVirtualServices []model.ConfigHash
-	DestinationRules        []*config.Config
+	DestinationRules        []*model.ConsolidatedDestRule
 	EnvoyFilterKeys         []string
 }
 
@@ -81,8 +81,12 @@ func (r *Cache) Cacheable() bool {
 }
 
 func (r *Cache) DependentConfigs() []model.ConfigHash {
-	configs := make([]model.ConfigHash, 0, len(r.Services)+len(r.VirtualServices)+
-		len(r.DelegateVirtualServices)+len(r.DestinationRules)+len(r.EnvoyFilterKeys))
+	size := len(r.Services) + len(r.VirtualServices) + len(r.DelegateVirtualServices) + len(r.EnvoyFilterKeys)
+	for _, mergedDR := range r.DestinationRules {
+		size += len(mergedDR.GetFrom())
+	}
+	configs := make([]model.ConfigHash, 0, size)
+
 	for _, svc := range r.Services {
 		configs = append(configs, model.ConfigKey{
 			Kind: kind.ServiceEntry,
@@ -95,8 +99,10 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 	// add delegate virtual services to dependent configs
 	// so that we can clear the rds cache when delegate virtual services are updated
 	configs = append(configs, r.DelegateVirtualServices...)
-	for _, dr := range r.DestinationRules {
-		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: dr.Name, Namespace: dr.Namespace}.HashCode())
+	for _, mergedDR := range r.DestinationRules {
+		for _, dr := range mergedDR.GetFrom() {
+			configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: dr.Name, Namespace: dr.Namespace}.HashCode())
+		}
 	}
 
 	for _, efKey := range r.EnvoyFilterKeys {
@@ -148,11 +154,13 @@ func (r *Cache) Key() string {
 	}
 	hash.Write(Separator)
 
-	for _, dr := range r.DestinationRules {
-		hash.Write([]byte(dr.Name))
-		hash.Write(Slash)
-		hash.Write([]byte(dr.Namespace))
-		hash.Write(Separator)
+	for _, mergedDR := range r.DestinationRules {
+		for _, dr := range mergedDR.GetFrom() {
+			hash.Write([]byte(dr.Name))
+			hash.Write(Slash)
+			hash.Write([]byte(dr.Namespace))
+			hash.Write(Separator)
+		}
 	}
 	hash.Write(Separator)
 

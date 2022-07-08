@@ -287,7 +287,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 func TestCreatePluggedCertCA(t *testing.T) {
 	rootCertFile := "../testdata/multilevelpki/root-cert.pem"
-	certChainFile := "../testdata/multilevelpki/int2-cert-chain.pem"
+	certChainFile := []string{"../testdata/multilevelpki/int2-cert-chain.pem"}
 	signingCertFile := "../testdata/multilevelpki/int2-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int2-key.pem"
 	rsaKeySize := 2048
@@ -295,7 +295,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	defaultWorkloadCertTTL := 99999 * time.Hour
 	maxWorkloadCertTTL := time.Hour
 
-	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
+	caopts, err := NewPluggedCertIstioCAOptions(SigningCAFileBundle{rootCertFile, certChainFile, signingCertFile, signingKeyFile},
 		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
@@ -317,7 +317,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	if !comparePem(signingKeyBytes, signingKeyFile) {
 		t.Errorf("Failed to verify loading of signing key pem.")
 	}
-	if !comparePem(certChainBytes, certChainFile) {
+	if !comparePem(certChainBytes, certChainFile[0]) {
 		t.Errorf("Failed to verify loading of cert chain pem.")
 	}
 	if !comparePem(rootCertBytes, rootCertFile) {
@@ -524,7 +524,7 @@ root-cert-3`
 
 func TestSignWithCertChain(t *testing.T) {
 	rootCertFile := "../testdata/multilevelpki/root-cert.pem"
-	certChainFile := "../testdata/multilevelpki/int-cert-chain.pem"
+	certChainFile := []string{"../testdata/multilevelpki/int-cert-chain.pem"}
 	signingCertFile := "../testdata/multilevelpki/int-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int-key.pem"
 	rsaKeySize := 2048
@@ -532,7 +532,7 @@ func TestSignWithCertChain(t *testing.T) {
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
 
-	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
+	caopts, err := NewPluggedCertIstioCAOptions(SigningCAFileBundle{rootCertFile, certChainFile, signingCertFile, signingKeyFile},
 		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
@@ -581,7 +581,7 @@ func TestSignWithCertChain(t *testing.T) {
 func TestGenKeyCert(t *testing.T) {
 	cases := map[string]struct {
 		rootCertFile      string
-		certChainFile     string
+		certChainFile     []string
 		signingCertFile   string
 		signingKeyFile    string
 		certLifetime      time.Duration
@@ -590,7 +590,7 @@ func TestGenKeyCert(t *testing.T) {
 	}{
 		"RSA cryptography": {
 			rootCertFile:      "../testdata/multilevelpki/root-cert.pem",
-			certChainFile:     "../testdata/multilevelpki/int-cert-chain.pem",
+			certChainFile:     []string{"../testdata/multilevelpki/int-cert-chain.pem"},
 			signingCertFile:   "../testdata/multilevelpki/int-cert.pem",
 			signingKeyFile:    "../testdata/multilevelpki/int-key.pem",
 			certLifetime:      3650 * 24 * time.Hour,
@@ -599,7 +599,7 @@ func TestGenKeyCert(t *testing.T) {
 		},
 		"EC cryptography": {
 			rootCertFile:      "../testdata/multilevelpki/ecc-root-cert.pem",
-			certChainFile:     "../testdata/multilevelpki/ecc-int-cert-chain.pem",
+			certChainFile:     []string{"../testdata/multilevelpki/ecc-int-cert-chain.pem"},
 			signingCertFile:   "../testdata/multilevelpki/ecc-int-cert.pem",
 			signingKeyFile:    "../testdata/multilevelpki/ecc-int-key.pem",
 			certLifetime:      3650 * 24 * time.Hour,
@@ -608,7 +608,7 @@ func TestGenKeyCert(t *testing.T) {
 		},
 		"Pass lifetime check": {
 			rootCertFile:      "../testdata/multilevelpki/ecc-root-cert.pem",
-			certChainFile:     "../testdata/multilevelpki/ecc-int-cert-chain.pem",
+			certChainFile:     []string{"../testdata/multilevelpki/ecc-int-cert-chain.pem"},
 			signingCertFile:   "../testdata/multilevelpki/ecc-int-cert.pem",
 			signingKeyFile:    "../testdata/multilevelpki/ecc-int-key.pem",
 			certLifetime:      24 * time.Hour,
@@ -617,7 +617,7 @@ func TestGenKeyCert(t *testing.T) {
 		},
 		"Error lifetime check": {
 			rootCertFile:      "../testdata/multilevelpki/ecc-root-cert.pem",
-			certChainFile:     "../testdata/multilevelpki/ecc-int-cert-chain.pem",
+			certChainFile:     []string{"../testdata/multilevelpki/ecc-int-cert-chain.pem"},
 			signingCertFile:   "../testdata/multilevelpki/ecc-int-cert.pem",
 			signingKeyFile:    "../testdata/multilevelpki/ecc-int-key.pem",
 			certLifetime:      25 * time.Hour,
@@ -630,7 +630,7 @@ func TestGenKeyCert(t *testing.T) {
 	rsaKeySize := 2048
 
 	for id, tc := range cases {
-		caopts, err := NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
+		caopts, err := NewPluggedCertIstioCAOptions(SigningCAFileBundle{tc.rootCertFile, tc.certChainFile, tc.signingCertFile, tc.signingKeyFile},
 			defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 		if err != nil {
 			t.Fatalf("%s: failed to create a plugged-cert CA Options: %v", id, err)

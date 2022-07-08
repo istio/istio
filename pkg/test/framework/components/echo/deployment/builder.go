@@ -138,6 +138,11 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 		return b
 	}
 
+	shouldSkip := b.ctx.Settings().Skip(cfg.WorkloadClass())
+	if shouldSkip {
+		return b
+	}
+
 	// cache the namespace, so manually added echo.Configs can be a part of it
 	b.namespaces[cfg.Namespace.Prefix()] = cfg.Namespace
 
@@ -146,8 +151,6 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 		targetClusters = cluster.Clusters{cfg.Cluster}
 	}
 
-	// If we didn't deploy VMs, but we don't care about VMs, we can ignore this.
-	shouldSkip := b.ctx.Settings().Skip(echo.VM) && cfg.IsVM()
 	deployedTo := 0
 	for idx, c := range targetClusters {
 		ec, ok := c.(echo.Cluster)

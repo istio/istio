@@ -99,7 +99,7 @@ type SidecarScope struct {
 	// corresponds to a service in the services array above. When computing
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
-	destinationRules map[host.Name][]*consolidatedDestRule
+	destinationRules map[host.Name][]*ConsolidatedDestRule
 
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
@@ -186,7 +186,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		Namespace:          configNamespace,
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
-		destinationRules:   make(map[host.Name][]*consolidatedDestRule),
+		destinationRules:   make(map[host.Name][]*ConsolidatedDestRule),
 		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
 		configDependencies: make(map[ConfigHash]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
@@ -409,7 +409,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
-	out.destinationRules = make(map[host.Name][]*consolidatedDestRule)
+	out.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
 		drList := ps.destinationRule(configNamespace, s)
@@ -566,13 +566,13 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigHash) {
 }
 
 // DestinationRule returns a destinationrule for a svc.
-func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy, svc host.Name) *config.Config {
+func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy, svc host.Name) *ConsolidatedDestRule {
 	destinationRules := sc.destinationRules[svc]
-	var catchAllDr *config.Config
+	var catchAllDr *ConsolidatedDestRule
 	for _, destRule := range destinationRules {
 		destinationRule := destRule.rule.Spec.(*networking.DestinationRule)
 		if destinationRule.GetWorkloadSelector() == nil {
-			catchAllDr = destRule.rule
+			catchAllDr = destRule
 		}
 		// filter DestinationRule based on workloadSelector for outbound configs.
 		// WorkloadSelector configuration is honored only for outbound configuration, because
@@ -582,7 +582,7 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 			workloadSelector := labels.Instance(destinationRule.GetWorkloadSelector().GetMatchLabels())
 			// return destination rule if workload selector matches
 			if workloadSelector.SubsetOf(proxy.Metadata.Labels) {
-				return destRule.rule
+				return destRule
 			}
 		}
 	}
