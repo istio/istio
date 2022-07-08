@@ -439,7 +439,7 @@ func translateRoute(
 	if in.Redirect != nil {
 		applyRedirect(out, in.Redirect, listenPort)
 	} else if in.DirectResponse != nil {
-		applyDirectResponse(out, in.DirectResponse, listenPort)
+		applyDirectResponse(out, in.DirectResponse)
 	} else {
 		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
@@ -638,7 +638,7 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 	out.Action = action
 }
 
-func applyDirectResponse(out *route.Route, directResponse *networking.HTTPDirectResponse, port int) {
+func applyDirectResponse(out *route.Route, directResponse *networking.HTTPDirectResponse) {
 	action := &route.Route_DirectResponse{
 		DirectResponse: &route.DirectResponseAction{
 			Status: directResponse.Status,
