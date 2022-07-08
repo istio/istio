@@ -19,11 +19,15 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ $gateway.name }}
+{{- if not .Values.customAustoscaleSpec }}
   metrics:
   - type: Resource
     resource:
       name: cpu
       targetAverageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
+{{- else }}
+{{- .Values.customAustoscaleSpec | toYaml | nindent 2 }}
+{{- end }}
 ---
 {{- else }}
 {{- if (semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion)}}
@@ -48,6 +52,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ $gateway.name }}
+{{- if not .Values.customAustoscaleSpec }}
   metrics:
   - type: Resource
     resource:
@@ -55,6 +60,9 @@ spec:
       target:
         type: Utilization
         averageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
+{{- else }}
+{{- .Values.customAustoscaleSpec | toYaml | nindent 2 }}
+{{- end }}
 ---
 {{- end }}
 {{- end }}

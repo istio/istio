@@ -30,6 +30,7 @@ gateways:
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
     autoscaleEnabled: true
+    customAutoscaleSpec: null
     autoscaleMin: 1
     autoscaleMax: 5
 
