@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 38077
+releaseNotes:
+- |
+  **Fixed** Install-cni will now detect changes in projected service account token
+  and reinstall istio-cni plugin with a new kubeconfig.

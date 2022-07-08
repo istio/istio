@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
 )
 
@@ -70,7 +70,7 @@ type EndpointBuilder struct {
 	proxyView       model.ProxyView
 	clusterID       cluster.ID
 	locality        *core.Locality
-	destinationRule *config.Config
+	destinationRule *model.ConsolidatedDestRule
 	service         *model.Service
 	clusterLocal    bool
 	tunnelType      networking.TunnelType
@@ -89,7 +89,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	svc := push.ServiceForHostname(proxy, hostname)
 
-	var dr *config.Config
+	var dr *model.ConsolidatedDestRule
 	if svc != nil {
 		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 	}
@@ -114,16 +114,16 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
 	if features.EnableAutomTLSCheckPolicies ||
 		b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		b.mtlsChecker = newMtlsChecker(push, port, dr)
+		b.mtlsChecker = newMtlsChecker(push, port, dr.GetRule())
 	}
 	return b
 }
 
 func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
-	if b.destinationRule == nil {
-		return nil
+	if dr := b.destinationRule.GetRule(); dr != nil {
+		return dr.Spec.(*networkingapi.DestinationRule)
 	}
-	return b.destinationRule.Spec.(*networkingapi.DestinationRule)
+	return nil
 }
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
@@ -147,10 +147,10 @@ func (b EndpointBuilder) Key() string {
 	}
 	hash.Write(Separator)
 
-	if b.destinationRule != nil {
-		hash.Write([]byte(b.destinationRule.Name))
+	for _, dr := range b.destinationRule.GetFrom() {
+		hash.Write([]byte(dr.Name))
 		hash.Write(Slash)
-		hash.Write([]byte(b.destinationRule.Namespace))
+		hash.Write([]byte(dr.Namespace))
 	}
 	hash.Write(Separator)
 
@@ -177,20 +177,29 @@ func (b EndpointBuilder) Cacheable() bool {
 	return b.service != nil
 }
 
-func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
-	configs := []model.ConfigKey{}
+func (b EndpointBuilder) DependentConfigs() []model.ConfigHash {
+	drs := b.destinationRule.GetFrom()
+	configs := make([]model.ConfigHash, 0, len(drs)+1)
 	if b.destinationRule != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace})
+		for _, dr := range drs {
+			configs = append(configs, model.ConfigKey{
+				Kind: kind.DestinationRule,
+				Name: dr.Name, Namespace: dr.Namespace,
+			}.HashCode())
+		}
 	}
 	if b.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{
+			Kind: kind.ServiceEntry,
+			Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace,
+		}.HashCode())
 	}
 	return configs
 }
 
-var edsDependentTypes = []config.GroupVersionKind{gvk.PeerAuthentication}
+var edsDependentTypes = []kind.Kind{kind.PeerAuthentication}
 
-func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
+func (b EndpointBuilder) DependentTypes() []kind.Kind {
 	return edsDependentTypes
 }
 

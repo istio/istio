@@ -28,9 +28,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -90,7 +89,7 @@ func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, names
 	// prevent memory leaks.
 	if event == model.EventDelete {
 		inboundServiceDeletes.Increment()
-		s.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, false)
+		s.Env.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, false)
 	} else {
 		inboundServiceUpdates.Increment()
 	}
@@ -112,7 +111,7 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 		s.ConfigUpdate(&model.PushRequest{
 			Full: pushType == FullPush,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      serviceName,
 				Namespace: namespace,
 			}: {}},
@@ -147,14 +146,14 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		// but we should not delete the keys from EndpointIndex map - that will trigger
 		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
 		// flip flopping between 1 and 0.
-		s.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, true)
+		s.Env.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, true)
 		log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
 		return IncrementalPush
 	}
 
 	pushType := IncrementalPush
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
-	ep, created := s.EndpointIndex.GetOrCreateEndpointShard(hostname, namespace)
+	ep, created := s.Env.EndpointIndex.GetOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
 		log.Infof("Full push, new service %s/%s", namespace, hostname)
@@ -234,7 +233,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	// immediately. However, clearing the cache here has almost no impact on cache performance as we
 	// would clear it shortly after anyways.
 	s.Cache.Clear(map[model.ConfigKey]struct{}{{
-		Kind:      gvk.ServiceEntry,
+		Kind:      kind.ServiceEntry,
 		Name:      hostname,
 		Namespace: namespace,
 	}: {}})
@@ -243,7 +242,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 }
 
 func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
-	s.EndpointIndex.DeleteShard(shardKey)
+	s.Env.EndpointIndex.DeleteShard(shardKey)
 }
 
 // UpdateServiceAccount updates the service endpoints' sa when service/endpoint event happens.
@@ -298,7 +297,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 		return nil, nil
 	}
 
-	epShards, f := s.EndpointIndex.ShardsForService(string(b.hostname), b.service.Attributes.Namespace)
+	epShards, f := s.Env.EndpointIndex.ShardsForService(string(b.hostname), b.service.Attributes.Namespace)
 	if !f {
 		// Shouldn't happen here
 		log.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
@@ -355,16 +354,16 @@ type EdsGenerator struct {
 var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
 
 // Map of all configs that do not impact EDS
-var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
-	gvk.Gateway:               {},
-	gvk.VirtualService:        {},
-	gvk.WorkloadGroup:         {},
-	gvk.AuthorizationPolicy:   {},
-	gvk.RequestAuthentication: {},
-	gvk.Secret:                {},
-	gvk.Telemetry:             {},
-	gvk.WasmPlugin:            {},
-	gvk.ProxyConfig:           {},
+var skippedEdsConfigs = map[kind.Kind]struct{}{
+	kind.Gateway:               {},
+	kind.VirtualService:        {},
+	kind.WorkloadGroup:         {},
+	kind.AuthorizationPolicy:   {},
+	kind.RequestAuthentication: {},
+	kind.Secret:                {},
+	kind.Telemetry:             {},
+	kind.WasmPlugin:            {},
+	kind.ProxyConfig:           {},
 }
 
 func edsNeedsPush(updates model.XdsUpdates) bool {
@@ -468,7 +467,7 @@ func shouldUseDeltaEds(req *model.PushRequest) bool {
 func onlyEndpointsChanged(req *model.PushRequest) bool {
 	if len(req.ConfigsUpdated) > 0 {
 		for k := range req.ConfigsUpdated {
-			if k.Kind != gvk.ServiceEntry {
+			if k.Kind != kind.ServiceEntry {
 				return false
 			}
 		}
@@ -489,7 +488,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	// Despite this code existing on the SotW code path, sending these partial pushes is still allowed;
 	// see https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#grouping-resources-into-responses
 	if !req.Full || (features.PartialFullPushes && onlyEndpointsChanged(req)) {
-		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
+		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, kind.ServiceEntry)
 	}
 	var resources model.Resources
 	empty := 0
@@ -538,7 +537,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 	req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, []string, model.XdsLogDetails) {
-	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
+	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, kind.ServiceEntry)
 	var resources model.Resources
 	var removed []string
 	empty := 0

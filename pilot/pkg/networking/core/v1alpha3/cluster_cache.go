@@ -24,8 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 var (
@@ -53,7 +52,7 @@ type clusterCache struct {
 
 	// Dependent configs
 	service         *model.Service
-	destinationRule *config.Config
+	destinationRule *model.ConsolidatedDestRule
 	envoyFilterKeys []string
 	peerAuthVersion string   // identifies the versions of all peer authentications
 	serviceAccounts []string // contains all the service accounts associated with the service
@@ -95,10 +94,10 @@ func (t *clusterCache) Key() string {
 	}
 	hash.Write(Separator)
 
-	if t.destinationRule != nil {
-		hash.Write([]byte(t.destinationRule.Name))
+	for _, dr := range t.destinationRule.GetFrom() {
+		hash.Write([]byte(dr.Name))
 		hash.Write(Slash)
-		hash.Write([]byte(t.destinationRule.Namespace))
+		hash.Write([]byte(dr.Namespace))
 	}
 	hash.Write(Separator)
 
@@ -121,22 +120,25 @@ func (t *clusterCache) Key() string {
 	return hex.EncodeToString(sum)
 }
 
-func (t clusterCache) DependentConfigs() []model.ConfigKey {
-	configs := []model.ConfigKey{}
+func (t clusterCache) DependentConfigs() []model.ConfigHash {
+	drs := t.destinationRule.GetFrom()
+	configs := make([]model.ConfigHash, 0, len(drs)+1+len(t.envoyFilterKeys))
 	if t.destinationRule != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace})
+		for _, dr := range drs {
+			configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: dr.Name, Namespace: dr.Namespace}.HashCode())
+		}
 	}
 	if t.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace}.HashCode())
 	}
 	for _, efKey := range t.envoyFilterKeys {
 		items := strings.Split(efKey, "/")
-		configs = append(configs, model.ConfigKey{Kind: gvk.EnvoyFilter, Name: items[1], Namespace: items[0]})
+		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
 	}
 	return configs
 }
 
-func (t *clusterCache) DependentTypes() []config.GroupVersionKind {
+func (t *clusterCache) DependentTypes() []kind.Kind {
 	return nil
 }
 

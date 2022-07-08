@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/cmd"
@@ -296,12 +297,12 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	if ctx.Clusters().IsMulticluster() {
 		// Need to determine if there is a setting to watch cluster secret in config cluster
-		// or in external cluster. The flag is named LOCAL_CLUSTER_SECERT_WATCHER and set as
+		// or in external cluster. The flag is named LOCAL_CLUSTER_SECRET_WATCHER and set as
 		// an environment variable for istiod.
 		watchLocalNamespace := false
 		if i.primaryIOP.spec != nil && i.primaryIOP.spec.Values != nil {
 			values := OperatorValues(i.primaryIOP.spec.Values.Fields)
-			localClusterSecretWatcher := values.GetConfigValue("pilot.env.LOCAL_CLUSTER_SECERT_WATCHER")
+			localClusterSecretWatcher := values.GetConfigValue("pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
 			if localClusterSecretWatcher.GetStringValue() == "true" && i.externalControlPlane {
 				watchLocalNamespace = true
 			}
@@ -704,9 +705,9 @@ func (i *istioImpl) deployCACerts() error {
 		}
 		var nsAnnotations map[string]string
 		if c.IsRemote() {
-			const istiodClusterAnnotation = "topology.istio.io/controlPlaneClusters" // TODO proper API annotation.TopologyControlPlaneClusters.Name
 			nsAnnotations = map[string]string{
-				istiodClusterAnnotation: c.Config().Name(), // Use config cluster name because external control plane uses config cluster as its cluster ID
+				annotation.TopologyControlPlaneClusters.Name: c.Config().Name(),
+				// ^^^ Use config cluster name because external control plane uses config cluster as its cluster ID
 			}
 		}
 		if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{

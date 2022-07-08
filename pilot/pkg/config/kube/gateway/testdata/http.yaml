@@ -100,6 +100,40 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
+  name: rewrite
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /original
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        hostname: "new.example.com"
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: "/replacement"
+    backendRefs:
+    - name: httpbin
+      port: 80
+  - filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath # Not currently supported
+          replaceFullPath: "/replacement"
+    backendRefs:
+    - name: httpbin
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
   name: mirror
   namespace: default
 spec:

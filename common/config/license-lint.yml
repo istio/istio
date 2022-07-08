@@ -119,3 +119,7 @@ allowlisted_modules:
 
 # Apache 2.0
 - github.com/google/pprof
+
+# MIT: https://github.com/invopop/yaml/blob/v0.1.0/LICENSE
+- github.com/invopop/yaml
+

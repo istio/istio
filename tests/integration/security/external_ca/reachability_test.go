@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 // TestReachability verifies:
@@ -55,7 +54,7 @@ func TestReachability(t *testing.T) {
 							Name: "http",
 						},
 					}
-					opts.Check = check.And(check.OK(), scheck.ReachedClusters(t, opts))
+					opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 
 					from.CallOrFail(t, opts)
 				})

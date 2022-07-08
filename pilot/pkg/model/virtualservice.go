@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -196,7 +196,7 @@ func mergeVirtualServicesIfNeeded(
 
 	// 2. merge delegates and root
 	for _, root := range rootVses {
-		rootConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: root.Name, Namespace: root.Namespace}
+		rootConfigKey := ConfigKey{Kind: kind.VirtualService, Name: root.Name, Namespace: root.Namespace}
 		rootVs := root.Spec.(*networking.VirtualService)
 		mergedRoutes := []*networking.HTTPRoute{}
 		for _, route := range rootVs.Http {
@@ -206,7 +206,7 @@ func mergeVirtualServicesIfNeeded(
 				if delegateNamespace == "" {
 					delegateNamespace = root.Namespace
 				}
-				delegateConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
+				delegateConfigKey := ConfigKey{Kind: kind.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
 				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
 				delegateVS, ok := delegatesMap[key(delegate.Name, delegateNamespace)]
 				if !ok {
