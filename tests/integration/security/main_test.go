@@ -18,57 +18,63 @@
 package security
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/authz"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/jwt"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/security/util"
-	"istio.io/pkg/log"
 )
 
 var (
-	ist  istio.Instance
-	apps = &util.EchoDeployments{}
+	// Namespaces
+	echo1NS    namespace.Instance
+	echo2NS    namespace.Instance
+	externalNS namespace.Instance
+	serverNS   namespace.Instance
+
+	// Servers
+	apps             deployment.TwoNamespaceView
+	authzServer      authz.Server
+	localAuthzServer authz.Server
+	jwtServer        jwt.Server
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&ist, setupConfig)).
-		Setup(func(ctx resource.Context) error {
-			return util.SetupApps(ctx, ist, apps, !ctx.Settings().Skip(echo.VM))
-		}).
-		Run()
-}
-
-func setupConfig(ctx resource.Context, cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	controlPlaneValues := `
+		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
 values:
   pilot: 
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
 meshConfig:
-  accessLogFile: /dev/stdout
   defaultConfig:
-    image:
-      imageType: "%s"
     gatewayTopology:
-      numTrustedProxies: 1`
-
-	imageType := "default"
-	if strings.HasSuffix(ctx.Settings().Image.Tag, "-distroless") {
-		imageType = "distroless"
-	}
-
-	val := fmt.Sprintf(controlPlaneValues, imageType)
-	log.Infof("controlPlaneValues %v + %v ==> %v ", controlPlaneValues, imageType, val)
-
-	cfg.ControlPlaneValues = val
+      numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
+`
+		})).
+		// Create namespaces first. This way, echo can correctly configure egress to all namespaces.
+		SetupParallel(
+			namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true}),
+			namespace.Setup(&echo2NS, namespace.Config{Prefix: "echo2", Inject: true}),
+			namespace.Setup(&externalNS, namespace.Config{Prefix: "external", Inject: false}),
+			namespace.Setup(&serverNS, namespace.Config{Prefix: "servers", Inject: true})).
+		SetupParallel(
+			jwt.Setup(&jwtServer, namespace.Future(&serverNS)),
+			authz.Setup(&authzServer, namespace.Future(&serverNS)),
+			authz.SetupLocal(&localAuthzServer, namespace.Future(&echo1NS)),
+			deployment.SetupTwoNamespaces(&apps, deployment.Config{
+				IncludeExtAuthz: true,
+				Namespaces: []namespace.Getter{
+					namespace.Future(&echo1NS),
+					namespace.Future(&echo2NS),
+				},
+				ExternalNamespace: namespace.Future(&externalNS),
+			})).
+		Run()
 }

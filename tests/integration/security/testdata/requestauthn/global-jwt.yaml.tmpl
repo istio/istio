@@ -2,7 +2,6 @@ apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
   name: "default"
-  namespace: "{{ .RootNamespace }}"
 spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
@@ -14,7 +13,6 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: authz-ingress
-  namespace: "{{ .RootNamespace }}"
 spec:
   selector:
     matchLabels:
@@ -22,13 +20,19 @@ spec:
   rules:
   - to:
     - operation:
-        hosts: ["example.com"]
+        hosts:
+{{- range $svc := .Services }}
+        - "example.{{ $svc.ServiceName }}.com"
+{{- end }}
     from:
     - source:
         requestPrincipals: ["test-issuer-1@istio.io/sub-1"]
   - to:
     - operation:
-        hosts: ["any-request-principlal-ok.com"]
+        hosts:
+  {{- range $svc := .Services }}
+        - "any-request-principal-ok.{{ $svc.ServiceName }}.com"
+  {{- end }}
     from:
     - source:
         requestPrincipals: ["*"]

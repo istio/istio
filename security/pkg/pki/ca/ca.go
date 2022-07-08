@@ -49,10 +49,23 @@ const (
 	PrivateKeyFile = "key.pem"
 	// RootCertFile is the ID/name for the CA root certificate file.
 	RootCertFile = "root-cert.pem"
-
+	// TLSSecretCACertFile is the CA certificate file name as it exists in tls type k8s secret.
+	TLSSecretCACertFile = "tls.crt"
+	// TLSSecretCAPrivateKeyFile is the CA certificate key file name as it exists in tls type k8s secret.
+	TLSSecretCAPrivateKeyFile = "tls.key"
+	// TLSSecretRootCertFile is the root cert file name as it exists in tls type k8s secret.
+	TLSSecretRootCertFile = "ca.crt"
 	// The standard key size to use when generating an RSA private key
 	rsaKeySize = 2048
 )
+
+// SigningCAFileBundle locations of the files used for the signing CA
+type SigningCAFileBundle struct {
+	RootCertFile    string
+	CertChainFiles  []string
+	SigningCertFile string
+	SigningKeyFile  string
+}
 
 var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
 
@@ -227,7 +240,7 @@ func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCer
 }
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
-func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
+func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int,
 ) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
@@ -238,14 +251,14 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 	}
 
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
-		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
+		fileBundle.SigningCertFile, fileBundle.SigningKeyFile, fileBundle.CertChainFiles, fileBundle.RootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
 
 	// Validate that the passed in signing cert can be used as CA.
 	// The check can't be done inside `KeyCertBundle`, since bundle could also be used to
 	// validate workload certificates (i.e., where the leaf certificate is not a CA).
-	b, err := os.ReadFile(signingCertFile)
+	b, err := os.ReadFile(fileBundle.SigningCertFile)
 	if err != nil {
 		return nil, err
 	}

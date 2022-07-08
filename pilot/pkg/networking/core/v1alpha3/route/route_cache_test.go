@@ -28,10 +28,7 @@ import (
 )
 
 func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
-	stop := make(chan struct{})
-	defer close(stop)
 	xdsCache := model.NewXdsCache()
-	go xdsCache.Run(stop)
 	// root virtual service
 	root := config.Config{
 		Meta: config.Meta{Name: "root", Namespace: "default"},
@@ -52,7 +49,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 	// rds cache entry
 	entry := Cache{
 		VirtualServices:         []config.Config{root},
-		DelegateVirtualServices: []model.ConfigKey{delegate},
+		DelegateVirtualServices: []model.ConfigHash{delegate.HashCode()},
 		ListenerPort:            8080,
 	}
 	resource := &discovery.Resource{Name: "bar"}
