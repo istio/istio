@@ -540,7 +540,12 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration)
 		mu.Lock()
 		defer mu.Unlock()
 		for _, rr := range res.Answer {
-			out = append(out, rr.String())
+			switch dnsType {
+			case dns.TypeA:
+				out = append(out, rr.(*dns.A).A.String())
+			case dns.TypeAAAA:
+				out = append(out, rr.(*dns.AAAA).AAAA.String())
+			}
 			if nextTTL := rr.Header().Ttl; nextTTL < ttl {
 				ttl = nextTTL
 			}
