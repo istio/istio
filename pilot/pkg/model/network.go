@@ -529,7 +529,7 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration)
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	var doResolve = func(dnsType uint16) {
+	doResolve := func(dnsType uint16) {
 		defer wg.Done()
 
 		res := n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dnsType))
