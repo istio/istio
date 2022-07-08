@@ -1784,6 +1784,9 @@ func TestApplyLoadBalancer(t *testing.T) {
 			}
 
 			applyLoadBalancer(c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
+			if c.CommonLbConfig.HealthyPanicThreshold.Value != 0 {
+				t.Errorf("cluster panic threshold should be disabled by default")
+			}
 
 			if c.LbPolicy != tt.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
