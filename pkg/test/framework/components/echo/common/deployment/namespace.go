@@ -195,6 +195,7 @@ func (n EchoNamespace) build(t resource.Context, b deployment.Builder, cfg Confi
 			}
 		}
 	}
+
 	return b
 }
 

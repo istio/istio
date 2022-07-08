@@ -24,25 +24,17 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/util/cert"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (
 	ist  istio.Instance
 	apps = &util.EchoDeployments{}
 )
-
-func loadCert(filename string) (string, error) {
-	data, err := cert.ReadSampleCertFromFile(filename)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
 
 func TestMain(m *testing.M) {
 	framework.
@@ -61,7 +53,7 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 		return
 	}
 	script := path.Join(env.IstioSrc, "samples/jwt-server/testdata", "ca.crt")
-	rootCaCert, err := loadCert(script)
+	rootCaCert, err := cert.LoadCert(script)
 	if err != nil {
 		return
 	}

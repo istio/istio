@@ -33,8 +33,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/util/cert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 const (
