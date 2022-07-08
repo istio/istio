@@ -65,9 +65,6 @@ type EchoNamespace struct {
 	VM echo.Instances
 	// DeltaXDS echo app uses the delta XDS protocol. This should be functionally equivalent to A.
 	DeltaXDS echo.Instances
-	// Custom echo apps used in different tests based on the requirement
-	CustomApps []echo.Instances
-
 	// All echo apps in this namespace
 	All echo.Services
 }
@@ -188,16 +185,16 @@ func (n EchoNamespace) build(t resource.Context, b deployment.Builder, cfg Confi
 	}
 
 	// Add any custom deployments.
-	for _, custom := range cfg.Custom {
-		if custom.Namespace == nil {
-			custom.Namespace = n.Namespace
-		}
-
-		if custom.NamespaceName() == n.Namespace.Name() {
-			b.WithConfig(custom)
+	if cfg.Custom != nil {
+		for _, custom := range cfg.Custom.Get() {
+			if custom.Namespace == nil {
+				custom.Namespace = n.Namespace
+			}
+			if custom.NamespaceName() == n.Namespace.Name() {
+				b.WithConfig(custom)
+			}
 		}
 	}
-
 	return b
 }
 

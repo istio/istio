@@ -24,9 +24,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
-	depl "istio.io/istio/pkg/test/framework/components/echo/deployment"
-	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/util/cert"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -39,16 +37,14 @@ const (
 	tcpWL         = "tcp-wl"
 )
 
-func SetupApps(apps *deployment.SingleNamespaceView, ctx resource.Context) error {
-	var err error
-
+func SetupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]echo.Config) error {
 	tmpdir, err := ctx.CreateTmpDirectory("ca-custom-root")
 	if err != nil {
 		return err
 	}
 
 	// Create testing certs using runtime namespace.
-	err = generateCerts(tmpdir, apps.EchoNamespace.Namespace.Name())
+	err = generateCerts(tmpdir, customNs.Get().Name())
 	if err != nil {
 		return err
 	}
@@ -78,150 +74,133 @@ func SetupApps(apps *deployment.SingleNamespaceView, ctx resource.Context) error
 		return err
 	}
 
-	builder := depl.New(ctx)
-	builder.
-		WithClusters(ctx.Clusters()...).
-		// Deploy 3 workloads:
-		// client: echo app with istio-proxy sidecar injected, holds default trust domain cluster.local.
-		// serverNakedFoo: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-foo.
-		// serverNakedBar: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-bar.
-		WithConfig(echo.Config{
-			Namespace: apps.Namespace,
-			Service:   "client",
-		}).
-		WithConfig(echo.Config{
-			Namespace: apps.EchoNamespace.Namespace,
-			Service:   "server-naked-foo",
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-				},
-			},
-			ServiceAccount: true,
-			Ports: []echo.Port{
-				{
-					Name:         "https",
-					Protocol:     protocol.HTTPS,
-					ServicePort:  443,
-					WorkloadPort: 8443,
-					TLS:          true,
-				},
-			},
-			TLSSettings: &common.TLSSettings{
-				RootCert:      rootCert,
-				ClientCert:    clientCert,
-				Key:           Key,
-				AcceptAnyALPN: true,
-			},
-		}).
-		WithConfig(echo.Config{
-			Namespace: apps.EchoNamespace.Namespace,
-			Service:   "server-naked-bar",
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-				},
-			},
-			ServiceAccount: true,
-			Ports: []echo.Port{
-				{
-					Name:         "https",
-					Protocol:     protocol.HTTPS,
-					ServicePort:  443,
-					WorkloadPort: 8443,
-					TLS:          true,
-				},
-			},
-			TLSSettings: &common.TLSSettings{
-				RootCert:      rootCert,
-				ClientCert:    clientCert,
-				Key:           Key,
-				AcceptAnyALPN: true,
-			},
-		}).
-		WithConfig(echo.Config{
-			// Adding echo server for multi-root tests
-			Namespace: apps.EchoNamespace.Namespace,
-			Service:   "server-naked-foo-alt",
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-				},
-			},
-			ServiceAccount: true,
-			Ports: []echo.Port{
-				{
-					Name:         "https",
-					Protocol:     protocol.HTTPS,
-					ServicePort:  443,
-					WorkloadPort: 8443,
-					TLS:          true,
-				},
-			},
-			TLSSettings: &common.TLSSettings{
-				RootCert:      rootCertAlt,
-				ClientCert:    clientCertAlt,
-				Key:           keyAlt,
-				AcceptAnyALPN: true,
-			},
-		}).
-		WithConfig(echo.Config{
-			Namespace: apps.EchoNamespace.Namespace,
-			Service:   "naked",
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-				},
-			},
-		}).
-		WithConfig(echo.Config{
-			Subsets:        []echo.SubsetConfig{{}},
-			Namespace:      apps.EchoNamespace.Namespace,
-			Service:        "server",
-			ServiceAccount: true,
-			Ports: []echo.Port{
-				{
-					Name:         httpPlaintext,
-					Protocol:     protocol.HTTP,
-					ServicePort:  8090,
-					WorkloadPort: 8090,
-				},
-				{
-					Name:         httpMTLS,
-					Protocol:     protocol.HTTP,
-					ServicePort:  8091,
-					WorkloadPort: 8091,
-				},
-				{
-					Name:         tcpPlaintext,
-					Protocol:     protocol.TCP,
-					ServicePort:  8092,
-					WorkloadPort: 8092,
-				},
-				{
-					Name:         tcpMTLS,
-					Protocol:     protocol.TCP,
-					ServicePort:  8093,
-					WorkloadPort: 8093,
-				},
-				{
-					Name:         tcpWL,
-					WorkloadPort: 9000,
-					Protocol:     protocol.TCP,
-				},
-			},
-		})
-	echos, err := builder.Build()
-	if err != nil {
-		return err
+	var customConfig []echo.Config
+
+	clientConfig := echo.Config{
+		Namespace: customNs.Get(),
+		Service:   "client",
 	}
-	client := match.ServiceName(echo.NamespacedName{Name: "client", Namespace: apps.Namespace}).GetMatches(echos)
-	server := match.ServiceName(echo.NamespacedName{Name: "server", Namespace: apps.Namespace}).GetMatches(echos)
-	serverNakedFoo := match.ServiceName(echo.NamespacedName{Name: "server-naked-foo", Namespace: apps.Namespace}).GetMatches(echos)
-	serverNakedBar := match.ServiceName(echo.NamespacedName{Name: "server-naked-bar", Namespace: apps.Namespace}).GetMatches(echos)
-	serverNakedFooAlt := match.ServiceName(echo.NamespacedName{Name: "server-naked-foo-alt", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.CustomApps = append(apps.CustomApps, client, server, serverNakedFoo, serverNakedBar, serverNakedFooAlt)
-	apps.Naked = match.ServiceName(echo.NamespacedName{Name: "naked", Namespace: apps.Namespace}).GetMatches(echos)
+	serverNakedFooConfig := echo.Config{
+		Namespace: customNs.Get(),
+		Service:   "server-naked-foo",
+		Subsets: []echo.SubsetConfig{
+			{
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			},
+		},
+		ServiceAccount: true,
+		Ports: []echo.Port{
+			{
+				Name:         "https",
+				Protocol:     protocol.HTTPS,
+				ServicePort:  443,
+				WorkloadPort: 8443,
+				TLS:          true,
+			},
+		},
+		TLSSettings: &common.TLSSettings{
+			RootCert:      rootCert,
+			ClientCert:    clientCert,
+			Key:           Key,
+			AcceptAnyALPN: true,
+		},
+	}
+
+	serverNakedBarConfig := echo.Config{
+		Namespace: customNs.Get(),
+		Service:   "server-naked-bar",
+		Subsets: []echo.SubsetConfig{
+			{
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			},
+		},
+		ServiceAccount: true,
+		Ports: []echo.Port{
+			{
+				Name:         "https",
+				Protocol:     protocol.HTTPS,
+				ServicePort:  443,
+				WorkloadPort: 8443,
+				TLS:          true,
+			},
+		},
+		TLSSettings: &common.TLSSettings{
+			RootCert:      rootCert,
+			ClientCert:    clientCert,
+			Key:           Key,
+			AcceptAnyALPN: true,
+		},
+	}
+
+	serverNakedFooAltConfig := echo.Config{
+		// Adding echo server for multi-root tests
+		Namespace: customNs.Get(),
+		Service:   "server-naked-foo-alt",
+		Subsets: []echo.SubsetConfig{
+			{
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			},
+		},
+		ServiceAccount: true,
+		Ports: []echo.Port{
+			{
+				Name:         "https",
+				Protocol:     protocol.HTTPS,
+				ServicePort:  443,
+				WorkloadPort: 8443,
+				TLS:          true,
+			},
+		},
+		TLSSettings: &common.TLSSettings{
+			RootCert:      rootCertAlt,
+			ClientCert:    clientCertAlt,
+			Key:           keyAlt,
+			AcceptAnyALPN: true,
+		},
+	}
+
+	serverConfig := echo.Config{
+		Subsets:        []echo.SubsetConfig{{}},
+		Namespace:      customNs.Get(),
+		Service:        "server",
+		ServiceAccount: true,
+		Ports: []echo.Port{
+			{
+				Name:         httpPlaintext,
+				Protocol:     protocol.HTTP,
+				ServicePort:  8090,
+				WorkloadPort: 8090,
+			},
+			{
+				Name:         httpMTLS,
+				Protocol:     protocol.HTTP,
+				ServicePort:  8091,
+				WorkloadPort: 8091,
+			},
+			{
+				Name:         tcpPlaintext,
+				Protocol:     protocol.TCP,
+				ServicePort:  8092,
+				WorkloadPort: 8092,
+			},
+			{
+				Name:         tcpMTLS,
+				Protocol:     protocol.TCP,
+				ServicePort:  8093,
+				WorkloadPort: 8093,
+			},
+			{
+				Name:         tcpWL,
+				WorkloadPort: 9000,
+				Protocol:     protocol.TCP,
+			},
+		},
+	}
+
+	customConfig = append(customConfig, clientConfig, serverNakedFooConfig, serverNakedBarConfig,
+		serverNakedFooAltConfig, serverConfig)
+
+	*customCfg = customConfig
 	return nil
 }
 

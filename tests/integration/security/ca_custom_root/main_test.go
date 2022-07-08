@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/util/cert"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -43,6 +44,8 @@ var (
 	serverNakedFoo    echo.Instances
 	serverNakedBar    echo.Instances
 	serverNakedFooAlt echo.Instances
+	customConfig      []echo.Config
+	echo1NS           namespace.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -51,18 +54,22 @@ func TestMain(m *testing.M) {
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCASecret)).
-		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
+		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "xyz1", Inject: true})).
 		Setup(func(ctx resource.Context) error {
-			err := customsetup.SetupApps(&apps, ctx)
+			err := customsetup.SetupApps(ctx, namespace.Future(&echo1NS), &customConfig)
 			if err != nil {
 				return err
 			}
-			client = apps.CustomApps[0]
-			server = apps.CustomApps[1]
-			serverNakedFoo = apps.CustomApps[2]
-			serverNakedBar = apps.CustomApps[3]
-			serverNakedFooAlt = apps.CustomApps[4]
 			return nil
+		}).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{
+			Namespaces: []namespace.Getter{
+				namespace.Future(&echo1NS),
+			},
+			Custom: echo.CustomFuture(&customConfig),
+		})).
+		Setup(func(ctx resource.Context) error {
+			return createCustomInstances(&apps)
 		}).
 		Run()
 }
@@ -93,4 +100,22 @@ values:
 {{.pem | indent 8}}
 `, map[string]string{"pem": rootPEM})
 	cfg.ControlPlaneValues = cfgYaml
+}
+
+func createCustomInstances(apps *deployment.SingleNamespaceView) error {
+	for index, namespacedName := range apps.EchoNamespace.All.NamespacedNames() {
+		switch {
+		case namespacedName.Name == "client":
+			client = apps.EchoNamespace.All[index]
+		case namespacedName.Name == "server":
+			server = apps.EchoNamespace.All[index]
+		case namespacedName.Name == "server-naked-foo":
+			serverNakedFoo = apps.EchoNamespace.All[index]
+		case namespacedName.Name == "server-naked-bar":
+			serverNakedBar = apps.EchoNamespace.All[index]
+		case namespacedName.Name == "server-naked-foo-alt":
+			serverNakedFooAlt = apps.EchoNamespace.All[index]
+		}
+	}
+	return nil
 }
