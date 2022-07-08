@@ -63,22 +63,14 @@ const (
 	grpcFallbackPort = 17777
 )
 
-var (
-	tmplMap              = make(map[string]*template.Template)
-	echoKubeTemplatesDir = path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates")
-)
+var echoKubeTemplatesDir = path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates")
 
 func getTemplate(tmplFilePath string) *template.Template {
-	if yamlTmpl, ok := tmplMap[tmplFilePath]; ok {
-		return yamlTmpl
-	}
 	yamlPath := path.Join(echoKubeTemplatesDir, tmplFilePath)
 	if filepath.IsAbs(tmplFilePath) {
 		yamlPath = tmplFilePath
 	}
-	yamlTmpl := tmpl.MustParse(file.MustAsString(yamlPath))
-	tmplMap[tmplFilePath] = yamlTmpl
-	return yamlTmpl
+	return tmpl.MustParse(file.MustAsString(yamlPath))
 }
 
 var _ workloadHandler = &deployment{}
