@@ -16,13 +16,16 @@ package v1alpha3
 
 import (
 	"fmt"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"math"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -2571,7 +2574,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			cb := NewClusterBuilder(proxy, pr, cg.ConfigGen.Cache)
 			outboundPatcher := clusterPatcher{efw: pr.Push.EnvoyFilters(proxy), pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 			if tc.cacheKeys != nil {
-				for k, _ := range tc.cacheKeys {
+				for k := range tc.cacheKeys {
 					for _, p := range tc.cachedServices[k].Ports {
 						tc.cacheKeys[k] = buildClusterKey(tc.cachedServices[k], p, cb, proxy, outboundPatcher.efw.Keys())
 					}
