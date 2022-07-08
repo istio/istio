@@ -16,6 +16,7 @@ package xds
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/networking/uproxygen"
 	"strings"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -63,13 +64,13 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	isWorkloadMeta := false
 	for _, name := range w.ResourceNames {
-		if strings.EqualFold(name, WorkloadMetadataListenerFilterName) {
+		if strings.EqualFold(name, uproxygen.WorkloadMetadataListenerFilterName) {
 			isWorkloadMeta = true
 			break
 		}
 	}
 	if isWorkloadMeta {
-		wg := &WorkloadMetadataGenerator{Server: e.Server}
+		wg := &uproxygen.WorkloadMetadataGenerator{Workloads: e.Server.Env}
 		return wg.Generate(proxy, w, req)
 	}
 

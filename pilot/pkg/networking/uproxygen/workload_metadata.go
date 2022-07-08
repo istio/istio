@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package uproxygen
 
 import (
 	"strings"
 
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/kube/labels"
@@ -29,16 +30,15 @@ import (
 )
 
 const (
-	// TODO: adjust to whatever full scheme is adopted
-	// TODO: move to the xds package, along with configuration for
-	WorkloadMetadataListenerFilterName = "ambient.workload_metadata"
+	WorkloadMetadataListenerFilterName = "envoy.filters.listener.workload_metadata"
+	WorkloadMetadataResourcesTypeURL   = "type.googleapis.com/" + "istio.telemetry.workloadmetadata.v1.WorkloadMetadataResources"
 )
 
 // WorkloadMetadataGenerator is responsible for generating dynamic Ambient Listener Filter
 // configurations. These configurations include workload metadata for individual
 // workload instances (Kubernetes pods) running on a Kubernetes node.
 type WorkloadMetadataGenerator struct {
-	Server *DiscoveryServer
+	Workloads ambient.Cache
 }
 
 var _ model.XdsResourceGenerator = &WorkloadMetadataGenerator{}
@@ -51,32 +51,27 @@ func (g *WorkloadMetadataGenerator) Generate(proxy *model.Proxy, w *model.Watche
 
 	// this is the name of the Kubernetes node on which the proxy requesting this
 	// configuration lives.
-	proxyKubernetesNodeName := ""
+	proxyKubernetesNodeName := proxy.Metadata.NodeName
 
-	nodesToWorkloads := map[string][]*wmpb.WorkloadMetadataResource{}
-	for _, pod := range g.Server.Env.PodInformation() {
+	var workloads []*wmpb.WorkloadMetadataResource
 
+	for _, pod := range g.Workloads.SidecarlessWorkloads().Workloads.ByNode[proxyKubernetesNodeName] {
 		// TODO: this is cheating. we need a way to get the owing workload name
 		// in a way that isn't a shortcut.
-		name, workloadType := workloadNameAndType(pod)
+		name, workloadType := workloadNameAndType(pod.Pod)
 		cs, cr := labels.CanonicalService(pod.Labels, name)
 
-		ips := []string{}
+		var ips = []string{}
 		for _, pip := range pod.Status.PodIPs {
 			ips = append(ips, pip.IP)
 		}
 
-		// TODO: is there a better way to find the node for the proxy calling in?
-		if cmp.Equal(ips, proxy.IPAddresses) {
-			proxyKubernetesNodeName = pod.Spec.NodeName
-		}
-
-		containers := []string{}
+		var containers = []string{}
 		for _, c := range pod.Spec.Containers {
 			containers = append(containers, c.Name)
 		}
 
-		nodesToWorkloads[pod.Spec.NodeName] = append(nodesToWorkloads[pod.Spec.NodeName],
+		workloads = append(workloads,
 			&wmpb.WorkloadMetadataResource{
 				IpAddresses:       ips,
 				InstanceName:      pod.Name,
@@ -91,10 +86,15 @@ func (g *WorkloadMetadataGenerator) Generate(proxy *model.Proxy, w *model.Watche
 
 	wmd := &wmpb.WorkloadMetadataResources{
 		ProxyId:                   proxy.ID,
-		WorkloadMetadataResources: nodesToWorkloads[proxyKubernetesNodeName],
+		WorkloadMetadataResources: workloads,
 	}
 
-	resources := model.Resources{&discovery.Resource{Resource: util.MessageToAny(wmd)}}
+	tec := &corev3.TypedExtensionConfig{
+		Name:        WorkloadMetadataListenerFilterName,
+		TypedConfig: util.MessageToAny(wmd),
+	}
+
+	resources := model.Resources{&discovery.Resource{Resource: util.MessageToAny(tec)}}
 	return resources, model.DefaultXdsLogDetails, nil
 }
 

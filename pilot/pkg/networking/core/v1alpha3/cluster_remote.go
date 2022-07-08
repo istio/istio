@@ -122,7 +122,7 @@ func (cb *ClusterBuilder) buildRemoteInboundVIPInternalCluster(svc *model.Servic
 		model.TrafficDirectionInbound, &port, nil, nil)
 	// no TLS
 	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = nil
+	localCluster.cluster.TransportSocket = BaggagePassthroughTransportSocket
 	return localCluster
 }
 
@@ -165,10 +165,18 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.internal_upstream",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&internalupstream.InternalUpstreamTransport{
-				PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{{
-					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
-					Name: "tunnel",
-				}},
+				PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+					{
+						Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
+						Name: "tunnel",
+					},
+					{
+						Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
+							Host: &metadata.MetadataKind_Host{},
+						}},
+						Name: "istio",
+					},
+				},
 				TransportSocket: &core.TransportSocket{
 					Name:       "envoy.transport_sockets.raw_buffer",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&rawbuffer.RawBuffer{})},
@@ -177,6 +185,24 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 		},
 	},
 	defaultTransportSocketMatch(),
+}
+
+var BaggagePassthroughTransportSocket = &core.TransportSocket{
+	Name: "envoy.transport_sockets.internal_upstream",
+	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&internalupstream.InternalUpstreamTransport{
+		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+			{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
+					Cluster: &metadata.MetadataKind_Cluster{},
+				}},
+				Name: "istio",
+			},
+		},
+		TransportSocket: &core.TransportSocket{
+			Name:       "envoy.transport_sockets.raw_buffer",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&rawbuffer.RawBuffer{})},
+		},
+	})},
 }
 
 // `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name.

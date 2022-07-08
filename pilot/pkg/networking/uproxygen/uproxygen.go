@@ -286,6 +286,19 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 		})
 	}
 
+	l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
+		Name: WorkloadMetadataListenerFilterName,
+		ConfigType: &listener.ListenerFilter_ConfigDiscovery{
+			ConfigDiscovery: &core.ExtensionConfigSource{
+				ConfigSource: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{Ads: &core.AggregatedConfigSource{}},
+					InitialFetchTimeout:   durationpb.New(30 * time.Second),
+				},
+				TypeUrls: []string{WorkloadMetadataResourcesTypeURL},
+			},
+		},
+	})
+
 	// match logic:
 	// dest port == 15001 -> blackhole
 	// source unknown -> passthrough
@@ -504,6 +517,10 @@ func buildPepChain(workload ambient.Workload, peps []ambient.Workload, t string)
 						{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DOWNSTREAM_LOCAL_PORT%"}},
 						{Header: &core.HeaderValue{Key: "x-original-src", Value: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"}},
 						{Header: &core.HeaderValue{Key: "x-direction", Value: "outbound"}},
+
+						// This is for metadata propagation
+						// TODO: should we just set the baggage directly, as we have access to the Pod here (instead of using the filter)?
+						{Header: &core.HeaderValue{Key: "baggage", Value: "%DYNAMIC_METADATA([\"envoy.filters.listener.workload_metadata\", \"baggage\"])%"}},
 					},
 				},
 			},

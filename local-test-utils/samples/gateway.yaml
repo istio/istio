@@ -1,0 +1,8 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: helloworld
+  annotations:
+    istio.io/service-account: helloworld
+spec:
+  gatewayClassName: istio-mesh
