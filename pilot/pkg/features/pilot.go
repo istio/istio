@@ -108,7 +108,7 @@ var (
 		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
 		false,
 		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing."+
-			"  To avoid, sending traffic to non ready endpoints, enabling this flag, disables pani threshold in Envoy i.e. Envoy does not load balance requests"+
+			"  To avoid, sending traffic to non ready endpoints, enabling this flag, disables panic threshold in Envoy i.e. Envoy does not load balance requests"+
 			" to unhealthy/non-ready hosts even if the number of healthy hosts come below minimum health percentage(panic threshold).",
 	).Get()
 
