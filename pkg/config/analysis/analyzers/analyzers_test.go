@@ -288,6 +288,20 @@ var testGrid = []testCase{
 			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/ratings"},
 			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage"},
 			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/bogus-productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService team2/ratings"},
+		},
+	},
+	{
+		name:       "virtualServiceConflictingMeshGatewayHostsWithExportTo",
+		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts_with_exportto.yaml"},
+		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
+		expected: []message{
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage-c"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/productpage-c"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage-d"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/productpage-d"},
 		},
 	},
 	{
