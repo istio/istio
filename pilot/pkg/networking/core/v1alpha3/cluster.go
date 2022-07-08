@@ -660,14 +660,15 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	// with few pods per service.
 	// To do so, set the healthy_panic_threshold field even if its value is 0 (defaults to 50 in Envoy).
 	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
-	if outlier.MinHealthPercent >= 0 {
+	minHealthPercent := outlier.MinHealthPercent
+	if minHealthPercent >= 0 {
 		if c.CommonLbConfig == nil {
 			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 		}
 		// When we are sending unhealthy endpoints, we should disble Panic Threshold. Otherwise
 		// Envoy will send traffic to "Unready" pods when all the pods are "Unready".
 		if features.SendUnhealthyEndpoints {
-			outlier.MinHealthPercent = 0
+			minHealthPercent = 0
 		}
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(outlier.MinHealthPercent)}
 	}
