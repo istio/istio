@@ -24,7 +24,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -886,7 +885,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#late-initialization
-	raw, err := c.nodeLister.Get(pod.Spec.NodeName)
+	node, err := c.nodeLister.Get(pod.Spec.NodeName)
 	if err != nil {
 		if pod.Spec.NodeName != "" {
 			log.Warnf("unable to get node %q for pod %q/%q: %v", pod.Spec.NodeName, pod.Namespace, pod.Name, err)
@@ -894,15 +893,9 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 		return ""
 	}
 
-	nodeMeta, err := meta.Accessor(raw)
-	if err != nil {
-		log.Warnf("unable to get node meta: %v", nodeMeta)
-		return ""
-	}
-
-	region := getLabelValue(nodeMeta, NodeRegionLabel, NodeRegionLabelGA)
-	zone := getLabelValue(nodeMeta, NodeZoneLabel, NodeZoneLabelGA)
-	subzone := getLabelValue(nodeMeta, label.TopologySubzone.Name, "")
+	region := getLabelValue(node.ObjectMeta, NodeRegionLabelGA, NodeRegionLabel)
+	zone := getLabelValue(node.ObjectMeta, NodeZoneLabelGA, NodeZoneLabel)
+	subzone := getLabelValue(node.ObjectMeta, label.TopologySubzone.Name, "")
 
 	if region == "" && zone == "" && subzone == "" {
 		return ""
