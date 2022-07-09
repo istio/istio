@@ -37,6 +37,9 @@ tolerations: []
 # Affinity for pod assignment
 affinity: {}
 
+# Topology Spread Constraints for pod assignment
+topologySpreadConstraints: []
+
 # Additional labels and annotations to apply on the pod level for monitoring and logging configuration.
 podLabels: {}
 podAnnotations: {}
