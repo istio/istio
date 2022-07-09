@@ -332,4 +332,8 @@ spec:
       tolerations:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
+{{- if $gateway.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{- toYaml $gateway.topologySpreadConstraints | nindent 6 }}
+{{- end }}
 {{- end }}
