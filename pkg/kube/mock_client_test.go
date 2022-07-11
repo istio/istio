@@ -19,10 +19,11 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/test/util/assert"
-	version2 "istio.io/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/test/util/assert"
+	version2 "istio.io/pkg/version"
 )
 
 const istioNamespace = "istio-system"
