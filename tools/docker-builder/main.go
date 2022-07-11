@@ -268,7 +268,9 @@ func archToGoFlags(a string) []string {
 }
 
 func archToEnvMap(a string) map[string]string {
-	os, arch, _ := strings.Cut(a, "/")
+	index := strings.Index(a, "/")
+	os := a[:index]
+	arch := a[index+1:]
 	return map[string]string{
 		"TARGET_OS":        os,
 		"TARGET_ARCH":      arch,

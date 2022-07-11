@@ -248,7 +248,7 @@ func Build(b BuildSpec) error {
 			if err != nil {
 				return fmt.Errorf("failed to compute size: %w", err)
 			}
-			os, arch, _ := strings.Cut(b.Args[idx].Arch, "/")
+			index := strings.Index(b.Args[idx].Arch, "/")
 			manifest = mutate.AppendManifests(manifest, mutate.IndexAddendum{
 				Add: i,
 				Descriptor: v1.Descriptor{
@@ -256,8 +256,8 @@ func Build(b BuildSpec) error {
 					Size:      size,
 					Digest:    h,
 					Platform: &v1.Platform{
-						Architecture: arch,
-						OS:           os,
+						Architecture: b.Args[idx].Arch[index+1:],
+						OS:           b.Args[idx].Arch[:index],
 						Variant:      "", // TODO?
 					},
 				},

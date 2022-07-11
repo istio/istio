@@ -57,9 +57,9 @@ func createArgs(args Args, target string, variant string, architecture string) m
 	}
 	// Only needed for crane - buildx does it automagically
 	if architecture != "" {
-		os, arch, _ := strings.Cut(architecture, "/")
-		m["TARGETARCH"] = arch
-		m["TARGETOS"] = os
+		index := strings.Index(architecture, "/")
+		m["TARGETARCH"] = architecture[index+1:]
+		m["TARGETOS"] = architecture[:index]
 	}
 	return m
 }
