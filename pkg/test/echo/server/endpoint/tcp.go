@@ -75,9 +75,9 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 
 	s.l = listener
 	if s.Port.TLS {
-		fmt.Printf("Listening TCP (over TLS) on %v\n", port)
+		epLog.Infof("Listening TCP (over TLS) on %v\n", port)
 	} else {
-		fmt.Printf("Listening TCP on %v\n", port)
+		epLog.Infof("Listening TCP on %v\n", port)
 	}
 
 	// Start serving TCP traffic.
