@@ -401,14 +401,14 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 		switch *drMode {
 		case networkingapi.ClientTLSSettings_DISABLE:
 			if !c.sniDNAT {
-				// ClientTLSSettings shouldn't affect SNI DNAT clusters.
 				c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
+				return
 			}
-			return
+			// ClientTLSSettings shouldn't affect SNI DNAT clusters but we still check PeerAuthn/tlsMode label.
 		case networkingapi.ClientTLSSettings_ISTIO_MUTUAL:
-			// the client is forcing ISTIO_MUTUAL; don't bother checking PeerAuthentication or tlsMode labels
-			// NOTE: even though the setting shouldn't matter for the SNI DNAT clusters, we allow a TLS mode setting
-			// to prevent endpoint filtering here.
+			// The client is forcing ISTIO_MUTUAL; don't bother checking PeerAuthentication or tlsMode labels.
+			// This setting won't actually apply on the SNI-DNAT clusters, but we still allow the setting as
+			// an escape hatch to avoid the filtering here.
 			return
 		}
 	}
