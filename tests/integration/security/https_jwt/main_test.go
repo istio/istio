@@ -36,14 +36,6 @@ var (
 	apps = &util.EchoDeployments{}
 )
 
-func loadCert(filename string) (string, error) {
-	data, err := cert.ReadSampleCertFromFile(filename)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
@@ -61,7 +53,7 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 		return
 	}
 	script := path.Join(env.IstioSrc, "samples/jwt-server/testdata", "ca.crt")
-	rootCaCert, err := loadCert(script)
+	rootCaCert, err := cert.LoadCert(script)
 	if err != nil {
 		return
 	}
