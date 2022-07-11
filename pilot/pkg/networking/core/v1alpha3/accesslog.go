@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"strings"
-	"sync"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -29,6 +28,7 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/sasha-s/go-deadlock"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -137,7 +137,7 @@ type AccessLogBuilder struct {
 	tcpGrpcListenerAccessLog *accesslog.AccessLog
 
 	// file accessLog which is cached and reset on MeshConfig change.
-	mutex                 sync.RWMutex
+	mutex                 deadlock.RWMutex
 	fileAccesslog         *accesslog.AccessLog
 	listenerFileAccessLog *accesslog.AccessLog
 }

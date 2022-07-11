@@ -24,9 +24,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	"gopkg.in/square/go-jose.v2"
 
 	"istio.io/istio/pkg/config/constants"
@@ -49,7 +49,7 @@ const (
 
 var (
 	trustDomain      = defaultTrustDomain
-	trustDomainMutex sync.RWMutex
+	trustDomainMutex deadlock.RWMutex
 
 	firstRetryBackOffTime = time.Millisecond * 50
 

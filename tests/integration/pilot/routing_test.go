@@ -18,9 +18,11 @@
 package pilot
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
@@ -30,5 +32,16 @@ func TestTraffic(t *testing.T) {
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		Run(func(t framework.TestContext) {
 			common.RunAllTrafficTests(t, i, apps)
+		})
+}
+
+func TestPatch(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
+		Run(func(t framework.TestContext) {
+			for i := 0; i < 1000; i++ {
+				istio.GetOrFail(t, t).PatchMeshConfigOrFail(t, t, fmt.Sprintf("dnsRefreshRate: %ds", i))
+			}
 		})
 }

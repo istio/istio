@@ -18,9 +18,9 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/sasha-s/go-deadlock"
 	cert "k8s.io/api/certificates/v1"
 	clientset "k8s.io/client-go/kubernetes"
 
@@ -40,7 +40,7 @@ type KubernetesRA struct {
 	caCertificatesFromMeshConfig map[string]string
 	certSignerDomain             string
 	// mutex protects the R/W to caCertificatesFromMeshConfig.
-	mutex sync.RWMutex
+	mutex deadlock.RWMutex
 }
 
 var pkiRaLog = log.RegisterScope("pkira", "Istiod RA log", 0)

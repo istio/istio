@@ -61,6 +61,7 @@ require (
 	github.com/prometheus/common v0.35.0
 	github.com/prometheus/prometheus v0.36.2
 	github.com/ryanuber/go-glob v1.0.0
+	github.com/sasha-s/go-deadlock v0.3.1
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.12.0
@@ -206,6 +207,7 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
+	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/prometheus/prom2json v1.3.0 // indirect

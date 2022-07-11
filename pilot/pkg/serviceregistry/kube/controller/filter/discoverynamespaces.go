@@ -15,8 +15,7 @@
 package filter
 
 import (
-	"sync"
-
+	"github.com/sasha-s/go-deadlock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -46,7 +45,7 @@ type DiscoveryNamespacesFilter interface {
 }
 
 type discoveryNamespacesFilter struct {
-	lock                sync.RWMutex
+	lock                deadlock.RWMutex
 	nsLister            listerv1.NamespaceLister
 	discoveryNamespaces sets.String
 	discoverySelectors  []labels.Selector // nil if discovery selectors are not specified, permits all namespaces for discovery

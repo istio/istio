@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/sasha-s/go-deadlock"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/spiffe"
@@ -43,10 +44,10 @@ type TrustAnchorUpdate struct {
 
 type TrustBundle struct {
 	sourceConfig       map[Source]TrustAnchorConfig
-	mutex              sync.RWMutex
+	mutex              deadlock.RWMutex
 	mergedCerts        []string
 	updatecb           func()
-	endpointMutex      sync.RWMutex
+	endpointMutex      deadlock.RWMutex
 	endpoints          []string
 	endpointUpdateChan chan struct{}
 	remoteCaCertPool   *x509.CertPool

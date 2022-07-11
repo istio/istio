@@ -16,7 +16,8 @@ package model
 
 import (
 	"strings"
-	"sync"
+
+	"github.com/sasha-s/go-deadlock"
 
 	"istio.io/istio/pkg/config/host"
 )
@@ -61,7 +62,7 @@ func NewClusterLocalProvider(e *Environment) ClusterLocalProvider {
 var _ ClusterLocalProvider = &clusterLocalProvider{}
 
 type clusterLocalProvider struct {
-	mutex sync.Mutex
+	mutex deadlock.Mutex
 	hosts ClusterLocalHosts
 }
 

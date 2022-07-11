@@ -16,10 +16,11 @@ package mesh
 
 import (
 	"reflect"
-	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
+
+	"github.com/sasha-s/go-deadlock"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -59,7 +60,7 @@ func NewMultiWatcher(config *meshconfig.MeshConfig) *MultiWatcher {
 var _ Watcher = &internalWatcher{}
 
 type internalWatcher struct {
-	mutex    sync.Mutex
+	mutex    deadlock.Mutex
 	handlers []func()
 	// Current merged mesh config
 	MeshConfig *meshconfig.MeshConfig
