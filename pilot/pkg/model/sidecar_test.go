@@ -1396,7 +1396,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services: []*Service{
 				{
 					Hostname: "proxy",
-					Ports:    port7000,
+					Ports:    port9000,
 					Attributes: ServiceAttributes{
 						Name:      "s1",
 						Namespace: "default",
@@ -1422,7 +1422,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			excpectedServices: []*Service{
 				{
 					Hostname: "proxy",
-					Ports:    PortList{port7000[0], port7443[0], port7442[0]},
+					Ports:    PortList{port9000[0], port7443[0], port7442[0]},
 					Attributes: ServiceAttributes{
 						Name:      "s1",
 						Namespace: "default",
