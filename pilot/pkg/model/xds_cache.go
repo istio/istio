@@ -47,6 +47,7 @@ var (
 	xdsCacheEvictions = monitoring.NewSum(
 		"xds_cache_evictions",
 		"Total number of xds cache evictions.",
+		monitoring.WithLabels(typeTag),
 	)
 
 	xdsCacheSize = monitoring.NewGauge(
@@ -59,8 +60,10 @@ var (
 		"Current size of dependent configs",
 	)
 
-	xdsCacheHits   = xdsCacheReads.With(typeTag.Value("hit"))
-	xdsCacheMisses = xdsCacheReads.With(typeTag.Value("miss"))
+	xdsCacheHits              = xdsCacheReads.With(typeTag.Value("hit"))
+	xdsCacheMisses            = xdsCacheReads.With(typeTag.Value("miss"))
+	xdsCacheEvictsionsOnClear = xdsCacheEvictions.With(typeTag.Value("clear"))
+	xdsCacheEvictsionsOnSize  = xdsCacheEvictions.With(typeTag.Value("size"))
 )
 
 func hit() {
@@ -128,7 +131,7 @@ func NewXdsCache() XdsCache {
 		configIndex:      map[ConfigHash]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
 	}
-	cache.store = newLru(cache.evict)
+	cache.store = newLru(cache.onEvict)
 
 	return cache
 }
@@ -140,7 +143,7 @@ func NewLenientXdsCache() XdsCache {
 		configIndex:      map[ConfigHash]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
 	}
-	cache.store = newLru(cache.evict)
+	cache.store = newLru(cache.onEvict)
 
 	return cache
 }
@@ -155,8 +158,8 @@ type lruCache struct {
 	configIndex map[ConfigHash]sets.Set
 	typesIndex  map[kind.Kind]sets.Set
 
-	// mark whether a key is evicted passively
-	evicted bool
+	// mark whether a key is evicted on Clear call, passively.
+	evictedOnClear bool
 }
 
 var _ XdsCache = &lruCache{}
@@ -185,19 +188,22 @@ func (l *lruCache) recordDependentConfigSize() {
 }
 
 // This is the callback passed to LRU, it will be called whenever a key is removed.
-func (l *lruCache) evict(k interface{}, v interface{}) {
+func (l *lruCache) onEvict(k interface{}, v interface{}) {
 	if features.EnableXDSCacheMetrics {
-		xdsCacheEvictions.Increment()
+		if l.evictedOnClear {
+			xdsCacheEvictsionsOnClear.Increment()
+		} else {
+			xdsCacheEvictsionsOnSize.Increment()
+		}
 	}
 
-	if !l.evicted {
+	if l.evictedOnClear {
 		return
 	}
-
+	// We don't need to acquire locks, since this function is called when we write to the store.
 	key := k.(string)
 	value := v.(cacheValue)
 
-	// we don't need to acquire locks, since this function is called when we write to the store
 	l.clearConfigIndex(key, value.dependentConfigs)
 	l.clearTypesIndex(key, value.dependentTypes)
 }
@@ -341,9 +347,9 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
 	// not to call evict on keys that are removed actively
-	l.evicted = false
+	l.evictedOnClear = true
 	defer func() {
-		l.evicted = true
+		l.evictedOnClear = false
 	}()
 	for ckey := range configs {
 		referenced := l.configIndex[ckey.HashCode()]
@@ -367,7 +373,7 @@ func (l *lruCache) ClearAll() {
 	// Purge with an evict function would turn up to be pretty slow since
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
-	l.store = newLru(l.evict)
+	l.store = newLru(l.onEvict)
 	l.configIndex = map[ConfigHash]sets.Set{}
 	l.typesIndex = map[kind.Kind]sets.Set{}
 	size(l.store.Len())
