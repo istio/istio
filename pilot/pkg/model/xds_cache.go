@@ -351,6 +351,19 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	defer func() {
 		l.evictedOnClear = false
 	}()
+	for ckey := range configs {
+		referenced := l.configIndex[ckey.HashCode()]
+		delete(l.configIndex, ckey.HashCode())
+		for key := range referenced {
+			l.store.Remove(key)
+		}
+		tReferenced := l.typesIndex[ckey.Kind]
+		delete(l.typesIndex, ckey.Kind)
+		for key := range tReferenced {
+			l.store.Remove(key)
+		}
+	}
+	size(l.store.Len())
 }
 
 func (l *lruCache) ClearAll() {
