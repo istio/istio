@@ -224,7 +224,7 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 	if host := opts.GetHost(); len(host) > 0 {
 		opts.HTTP.Headers.Set(headers.Host, host)
 	}
-	if len(c.cluster.HTTPProxy()) > 0 {
+	if len(c.cluster.HTTPProxy()) > 0 && !c.cluster.ProxyKubectlOnly() {
 		opts.HTTP.HTTPProxy = c.cluster.HTTPProxy()
 	}
 	return c.caller.CallEcho(c, opts)
