@@ -101,7 +101,7 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag str
 	}
 	var result error
 	for _, wh := range webhooks {
-		result = multierror.Append(client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
+		result = multierror.Append(result, client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
 	}
 	return result
 }

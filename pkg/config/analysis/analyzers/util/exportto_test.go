@@ -36,5 +36,5 @@ func TestIsExportToAllNamespaces(t *testing.T) {
 	g.Expect(IsExportToAllNamespaces([]string{".", "*"})).To(Equal(true))
 
 	// Array with "bogus"
-	g.Expect(IsExportToAllNamespaces([]string{"bogus"})).To(Equal(true))
+	g.Expect(IsExportToAllNamespaces([]string{"bogus"})).To(Equal(false))
 }

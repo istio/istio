@@ -3547,6 +3547,21 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "invalid traffic policy, bad max connection duration", in: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						MaxConnectionDuration: &durationpb.Duration{Nanos: 500},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "invalid traffic policy, panic threshold too low", in: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{

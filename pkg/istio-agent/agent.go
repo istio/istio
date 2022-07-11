@@ -501,15 +501,14 @@ func (a *Agent) initSdsServer() error {
 		a.secOpts.RootCertFilePath = security.WorkloadIdentityRootCertPath
 		a.secOpts.CertChainFilePath = security.WorkloadIdentityCertChainPath
 		a.secOpts.KeyFilePath = security.WorkloadIdentityKeyPath
-
-		a.secretCache, err = cache.NewSecretManagerClient(nil, a.secOpts)
-	} else {
-		a.secretCache, err = a.newSecretManager()
+		a.secOpts.FileMountedCerts = true
 	}
 
+	a.secretCache, err = a.newSecretManager()
 	if err != nil {
 		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
+
 	if a.cfg.DisableEnvoy {
 		// For proxyless we don't need an SDS server, but still need the keys and
 		// we need them refreshed periodically.

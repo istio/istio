@@ -13,6 +13,8 @@ spec:
         ISTIO_META_DNS_CAPTURE: "true"
   values:
     pilot:
+      # Lower the reconnect time so we test reconnects. The default of 30min means we almost never trigger in tests.
+      keepaliveMaxServerConnectionAge: 120s
       autoscaleEnabled: false
       env:
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true

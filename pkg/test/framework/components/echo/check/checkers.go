@@ -398,15 +398,24 @@ func ReachedTargetClusters(t framework.TestContext) echo.Checker {
 		}
 
 		allClusters := t.Clusters()
-		if to.Config().IsNaked() {
+		if isNaked(from) {
+			// Naked clients rely on k8s DNS to lookup endpoint IPs. This
+			// means that they will only ever reach endpoint in the same cluster.
+			return checkReachedSourceClusterOnly(result, allClusters)
+		}
+
+		if to.Config().IsAllNaked() {
 			// Requests to naked services will not cross network boundaries.
 			// Istio filters out cross-network endpoints.
 			return checkReachedSourceNetworkOnly(result, allClusters)
 		}
 
 		if !dnsCaptureEnabled && to.Config().IsHeadless() {
-			// Requests to headless services will only go cross-cluster when
-			// DNS capture is enabled.
+			// Headless services rely on DNS resolution. If DNS capture is
+			// enabled, DNS will return all endpoints in the mesh, which will
+			// allow requests to go cross-cluster. Otherwise, k8s DNS will
+			// only return the endpoints within the same cluster as the source
+			// pod.
 			return checkReachedSourceClusterOnly(result, allClusters)
 		}
 
@@ -429,31 +438,22 @@ func ReachedClusters(allClusters cluster.Clusters, expectedClusters cluster.Clus
 	}
 }
 
-// ReachedNetworks returns an error if requests did not load balance across the clusters in the expected
-// networks.
-func ReachedNetworks(allClusters cluster.Clusters, expectedNetworks ...string) echo.Checker {
-	expectedByNetwork := getExpectedNetworks(allClusters, expectedNetworks...)
-	return func(result echo.CallResult, err error) error {
-		return checkReachedClusters(result, allClusters, expectedByNetwork)
-	}
-}
-
-func getExpectedNetworks(allClusters cluster.Clusters, expectedNetworks ...string) cluster.ClustersByNetwork {
-	allByNetwork := allClusters.ByNetwork()
-
-	// Populate a map containing just the expected networks.
-	expectedByNetwork := make(map[string]cluster.Clusters)
-	for _, nw := range expectedNetworks {
-		expectedByNetwork[nw] = allByNetwork[nw]
-	}
-	return expectedByNetwork
-}
-
 // checkReachedSourceClusterOnly verifies that the only cluster that was reached is the cluster where
 // the source workload resides.
 func checkReachedSourceClusterOnly(result echo.CallResult, allClusters cluster.Clusters) error {
-	fromCluster := clusterFor(result.From)
+	from := result.From
+	to := result.Opts.To
+	if from == nil || to == nil {
+		return nil
+	}
+
+	fromCluster := clusterFor(from)
 	if fromCluster == nil {
+		return nil
+	}
+
+	if !to.Clusters().Contains(fromCluster) {
+		// The target is not deployed in the same cluster as the source. Skip this check.
 		return nil
 	}
 
@@ -472,7 +472,7 @@ func checkReachedSourceNetworkOnly(result echo.CallResult, allClusters cluster.C
 	}
 
 	toClusters := result.Opts.To.Clusters()
-	expectedByNetwork := getExpectedNetworks(toClusters, fromCluster.NetworkName())
+	expectedByNetwork := toClusters.ForNetworks(fromCluster.NetworkName()).ByNetwork()
 	return checkReachedClusters(result, allClusters, expectedByNetwork)
 }
 
@@ -507,6 +507,15 @@ func checkReachedNetworks(result echo.CallResult, allClusters cluster.Clusters, 
 		}
 	}
 	return nil
+}
+
+func isNaked(c echo.Caller) bool {
+	if c != nil {
+		if inst, ok := c.(echo.Instance); ok {
+			return inst.Config().IsNaked()
+		}
+	}
+	return false
 }
 
 func clusterFor(c echo.Caller) cluster.Cluster {

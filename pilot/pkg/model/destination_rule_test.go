@@ -25,8 +25,8 @@ import (
 func TestConsolidatedDestRuleEquals(t *testing.T) {
 	testcases := []struct {
 		name     string
-		l        *consolidatedDestRule
-		r        *consolidatedDestRule
+		l        *ConsolidatedDestRule
+		r        *ConsolidatedDestRule
 		expected bool
 	}{
 		{
@@ -36,7 +36,7 @@ func TestConsolidatedDestRuleEquals(t *testing.T) {
 		{
 			name: "l is nil",
 			l:    nil,
-			r: &consolidatedDestRule{
+			r: &ConsolidatedDestRule{
 				from: []types.NamespacedName{
 					{
 						Namespace: "default",
@@ -48,7 +48,7 @@ func TestConsolidatedDestRuleEquals(t *testing.T) {
 		},
 		{
 			name: "r is nil",
-			l: &consolidatedDestRule{
+			l: &ConsolidatedDestRule{
 				from: []types.NamespacedName{
 					{
 						Namespace: "default",
@@ -61,7 +61,7 @@ func TestConsolidatedDestRuleEquals(t *testing.T) {
 		},
 		{
 			name: "from length not equal",
-			l: &consolidatedDestRule{
+			l: &ConsolidatedDestRule{
 				from: []types.NamespacedName{
 					{
 						Namespace: "default",
@@ -69,7 +69,7 @@ func TestConsolidatedDestRuleEquals(t *testing.T) {
 					},
 				},
 			},
-			r: &consolidatedDestRule{
+			r: &ConsolidatedDestRule{
 				from: []types.NamespacedName{
 					{
 						Namespace: "default",
@@ -85,7 +85,7 @@ func TestConsolidatedDestRuleEquals(t *testing.T) {
 		},
 		{
 			name: "from length equals but element is different",
-			l: &consolidatedDestRule{
+			l: &ConsolidatedDestRule{
 				from: []types.NamespacedName{
 					{
 						Namespace: "default",
@@ -97,7 +97,7 @@ func TestConsolidatedDestRuleEquals(t *testing.T) {
 					},
 				},
 			},
-			r: &consolidatedDestRule{
+			r: &ConsolidatedDestRule{
 				from: []types.NamespacedName{
 					{
 						Namespace: "default",
@@ -113,7 +113,7 @@ func TestConsolidatedDestRuleEquals(t *testing.T) {
 		},
 		{
 			name: "all from elements equal",
-			l: &consolidatedDestRule{
+			l: &ConsolidatedDestRule{
 				from: []types.NamespacedName{
 					{
 						Namespace: "default",
@@ -125,7 +125,7 @@ func TestConsolidatedDestRuleEquals(t *testing.T) {
 					},
 				},
 			},
-			r: &consolidatedDestRule{
+			r: &ConsolidatedDestRule{
 				from: []types.NamespacedName{
 					{
 						Namespace: "default",

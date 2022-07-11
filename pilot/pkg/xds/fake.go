@@ -52,7 +52,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -102,7 +102,6 @@ type FakeOptions struct {
 	EnableFakeXDSUpdater       bool
 	DisableSecretAuthorization bool
 	Services                   []*model.Service
-	Instances                  []*model.ServiceInstance
 	Gateways                   []model.NetworkGateway
 }
 
@@ -137,7 +136,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
@@ -229,7 +228,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		SkipRun:   true,
 		ClusterID: defaultKubeController.Cluster(),
 		Services:  opts.Services,
-		Instances: opts.Instances,
 		Gateways:  opts.Gateways,
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
@@ -242,6 +240,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	s.MemRegistry = cg.MemRegistry
+	s.MemRegistry.XdsUpdater = s
 	s.updateMutex.Unlock()
 
 	// Setup config handlers
@@ -250,7 +249,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      curr.GroupVersionKind,
+				Kind:      kind.FromGvk(curr.GroupVersionKind),
 				Name:      curr.Name,
 				Namespace: curr.Namespace,
 			}: {}},
@@ -316,7 +315,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Start the discovery server
 	s.Start(stop)
 	cg.ServiceEntryRegistry.XdsUpdater = s
-	s.MemRegistry.XdsUpdater = s
 	// Now that handlers are added, get everything started
 	cg.Run()
 	kubelib.WaitForCacheSync(stop,

@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -366,23 +366,23 @@ func TestConfigsOnlyHaveKind(t *testing.T) {
 		{
 			name: "mix",
 			configs: map[model.ConfigKey]struct{}{
-				{Kind: gvk.Deployment}: {},
-				{Kind: gvk.Secret}:     {},
+				{Kind: kind.Deployment}: {},
+				{Kind: kind.Secret}:     {},
 			},
 			want: true,
 		},
 		{
 			name: "no secret",
 			configs: map[model.ConfigKey]struct{}{
-				{Kind: gvk.Deployment}: {},
+				{Kind: kind.Deployment}: {},
 			},
 			want: false,
 		},
 		{
 			name: "only secret",
 			configs: map[model.ConfigKey]struct{}{
-				{Kind: gvk.Secret}: {},
-				{Kind: gvk.Secret}: {},
+				{Kind: kind.Secret}: {},
+				{Kind: kind.Secret}: {},
 			},
 			want: true,
 		},
@@ -395,7 +395,7 @@ func TestConfigsOnlyHaveKind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := model.ConfigsHaveKind(tt.configs, gvk.Secret)
+			got := model.ConfigsHaveKind(tt.configs, kind.Secret)
 			if tt.want != got {
 				t.Errorf("got %v want %v", got, tt.want)
 			}

@@ -90,8 +90,6 @@ stringData:
     8mpQUbVH8l8h6gRs6izoPFhtOKJZgkPrx7OCs08CCmYIr9qUvWFhcnsxnW7B5hic
     LEAqdR15WVMSx/Fw8dACEw==
     -----END PRIVATE KEY-----
-
-
 ---
 apiVersion: apps/v1
 kind: Deployment

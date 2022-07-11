@@ -72,7 +72,7 @@ func TestGatewayConformance(t *testing.T) {
 		RequiresSingleCluster().
 		Features("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
-			if !supportsCRDv1(ctx) {
+			if !supportsGatewayAPI(ctx) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
 			if err := ctx.ConfigIstio().

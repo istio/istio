@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
@@ -548,7 +549,7 @@ func BenchmarkPushRequest(b *testing.B) {
 				Reason:         []model.TriggerReason{trigger},
 			}
 			for c := 0; c < configs; c++ {
-				nreq.ConfigsUpdated[model.ConfigKey{Kind: gvk.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
+				nreq.ConfigsUpdated[model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
 			}
 			req = req.Merge(nreq)
 		}
@@ -564,14 +565,14 @@ func makeCacheKey(n int) model.XdsCacheEntry {
 	// 100 services
 	services := make([]*model.Service, 0, 100)
 	// 100 destinationrules
-	drs := make([]*config.Config, 0, 100)
+	drs := make([]*model.ConsolidatedDestRule, 0, 100)
 	for i := 0; i < 100; i++ {
 		index := strconv.Itoa(i)
 		services = append(services, &model.Service{
 			Hostname:   host.Name(ns + "some" + index + ".example.com"),
 			Attributes: model.ServiceAttributes{Namespace: "test" + index},
 		})
-		drs = append(drs, &config.Config{Meta: config.Meta{Name: index, Namespace: index}})
+		drs = append(drs, model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: index, Namespace: index}}))
 	}
 
 	key := &route.Cache{

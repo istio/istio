@@ -544,6 +544,10 @@ var (
 		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
 			"This occurs for EDS in many cases regardless of this setting.").Get()
 
+	// PushOnRepeatNonce is feature flag only, can be cleaned up once stabilized.
+	PushOnRepeatNonce = env.RegisterBoolVar("PILOT_PUSH_REPEATED_NONCES", true,
+		"If enabled, pilot will send responses to XDS requests that have an already requested nonce.").Get()
+
 	EnableLegacyIstioMutualCredentialName = env.RegisterBoolVar("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,
 		"If enabled, Gateway's with ISTIO_MUTUAL mode and credentialName configured will use simple TLS. "+

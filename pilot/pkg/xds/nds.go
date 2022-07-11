@@ -19,8 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 // NdsGenerator Nds stands for Name Discovery Service. Istio agents send NDS requests to istiod
@@ -35,17 +34,17 @@ type NdsGenerator struct {
 var _ model.XdsResourceGenerator = &NdsGenerator{}
 
 // Map of all configs that do not impact NDS
-var skippedNdsConfigs = map[config.GroupVersionKind]struct{}{
-	gvk.Gateway:               {},
-	gvk.VirtualService:        {},
-	gvk.DestinationRule:       {},
-	gvk.EnvoyFilter:           {},
-	gvk.WorkloadEntry:         {},
-	gvk.WorkloadGroup:         {},
-	gvk.AuthorizationPolicy:   {},
-	gvk.RequestAuthentication: {},
-	gvk.PeerAuthentication:    {},
-	gvk.WasmPlugin:            {},
+var skippedNdsConfigs = map[kind.Kind]struct{}{
+	kind.Gateway:               {},
+	kind.VirtualService:        {},
+	kind.DestinationRule:       {},
+	kind.EnvoyFilter:           {},
+	kind.WorkloadEntry:         {},
+	kind.WorkloadGroup:         {},
+	kind.AuthorizationPolicy:   {},
+	kind.RequestAuthentication: {},
+	kind.PeerAuthentication:    {},
+	kind.WasmPlugin:            {},
 }
 
 func ndsNeedsPush(req *model.PushRequest) bool {
