@@ -104,6 +104,23 @@ INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
   test.integration.uproxy.kube
 ```
 
+Run integration tests locally on KinD cluster:
+
+```shell
+# spin up kind cluster using existing scripts
+./local-test-utils/reset-kind.sh
+
+# tell integration test framework which cluster to use
+export KIND_NAME=ambient
+
+# run integation tests
+# rely on HUB and TAG env vars being set and docker images built using steps above
+# use -v to get live output during test run
+# use -run to execute a specific test: i.e. -run "TestServices"
+# skip test cleanup in order to debug state with --istio.test.nocleanup
+go test -tags=integ ./tests/integration/uproxy/... --istio.test.ambient  --istio.test.ci -p 1
+```
+
 ## EKS specific notes
 
 `kubectl version` against working setup:
