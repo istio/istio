@@ -68,6 +68,6 @@ func ConvertResourcesFuzz(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_ = convertResources(r)
+	_ = convertResources(*r)
 	return 1
 }
