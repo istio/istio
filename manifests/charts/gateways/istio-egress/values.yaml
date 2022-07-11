@@ -16,7 +16,6 @@ gateways:
     labels:
       app: istio-egressgateway
       istio: egressgateway
-      security.istio.io/tlsMode: istio
 
     # Scalability tuning
     # replicaCount: 1

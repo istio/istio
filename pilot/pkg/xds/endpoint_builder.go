@@ -413,8 +413,8 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 		}
 	}
 
-	// if endpoint has no sidecar or explicitly tls disabled by "security.istio.io/tlsMode" label.
-	if ep.TLSMode != model.IstioMutualTLSModeLabel {
+	// the endpoint must either be a part of istio or have the securty.istio.io/tlsMode: istio label
+	if !ep.IsIstioGateway() && ep.TLSMode != model.IstioMutualTLSModeLabel {
 		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
 		return
 	}

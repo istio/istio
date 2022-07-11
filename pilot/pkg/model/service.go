@@ -24,6 +24,7 @@ package model
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/util/sets"
 	"strconv"
 	"strings"
 	"time"
@@ -829,6 +830,12 @@ func (s *Service) DeepCopy() *Service {
 // DeepCopy creates a clone of IstioEndpoint.
 func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
+}
+
+var gatewayNames = sets.New("ingressgateway", "egressgateway")
+
+func (ep *IstioEndpoint) IsIstioGateway() bool {
+	return gatewayNames.Contains(ep.Labels["istio"])
 }
 
 func copyInternal(v any) any {
