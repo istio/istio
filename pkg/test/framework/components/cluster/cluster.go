@@ -84,4 +84,9 @@ type Cluster interface {
 	// Metadata returns the value for a given metadata key for the cluster.
 	// If the key is not found in the cluster metadata, an empty string is returned.
 	MetadataValue(key string) string
+
+	// ProxyKubectlOnly returns a boolean value to indicate whether all traffic
+	// should route through the HTTP proxy or only Kubectl traffic. (Useful
+	// in topologies where the API server is private but the ingress is public).
+	ProxyKubectlOnly() bool
 }
