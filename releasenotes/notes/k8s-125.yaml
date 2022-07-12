@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Added** support for Kubernetes 1.25 by using new `HorizontalPodAutoscaler` and `PodDisruptionBudget` API versions when supported.
