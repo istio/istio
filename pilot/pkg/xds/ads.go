@@ -190,7 +190,7 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	stype := v3.GetShortType(req.TypeUrl)
 	log.Debugf("ADS:%s: REQ %s resources:%d nonce:%s version:%s ", stype,
-		con.conID, len(req.ResourceNames), req.ResponseNonce, req.VersionInfo,)
+		con.conID, len(req.ResourceNames), req.ResponseNonce, req.VersionInfo)
 	if req.TypeUrl == v3.HealthInfoType {
 		s.handleWorkloadHealthcheck(con.proxy, req)
 		return nil
