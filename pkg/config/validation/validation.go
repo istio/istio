@@ -83,6 +83,8 @@ const (
 )
 
 const (
+	kb              = 1024
+	mb              = 1024 * kb
 	regionIndex int = iota
 	zoneIndex
 	subZoneIndex
@@ -3024,12 +3026,29 @@ func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
 	return nil
 }
 
-func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) error {
+func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) (errs Validation) {
 	if directResponse == nil {
-		return nil
+		return
 	}
 
-	return validateHTTPStatus(int32(directResponse.Status))
+	if directResponse.Body != nil {
+		size := 0
+		switch op := directResponse.Body.Specifier.(type) {
+		case *networking.HTTPBody_String_:
+			size = len(op.String_)
+		case *networking.HTTPBody_Bytes:
+			size = len(op.Bytes)
+		}
+
+		if size > 1*mb {
+			errs = appendValidation(errs, WrapError(fmt.Errorf("large direct_responses may impact control plane performance, must be less than 1MB")))
+		} else if size > 100*kb {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("large direct_responses may impact control plane performance")))
+		}
+	}
+
+	errs = appendValidation(errs, WrapError(validateHTTPStatus(int32(directResponse.Status))))
+	return
 }
 
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
