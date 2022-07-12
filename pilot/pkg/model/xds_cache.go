@@ -204,8 +204,7 @@ func (l *lruCache) onEvict(k interface{}, v interface{}) {
 	key := k.(string)
 	value := v.(cacheValue)
 
-	l.clearConfigIndex(key, value.dependentConfigs)
-	l.clearTypesIndex(key, value.dependentTypes)
+	l.clearIndexes(key, value)
 }
 
 func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
@@ -250,6 +249,11 @@ func (l *lruCache) clearTypesIndex(k string, dependentTypes []kind.Kind) {
 			}
 		}
 	}
+}
+
+func (l *lruCache) clearIndexes(key string, value cacheValue) {
+	l.clearConfigIndex(key, value.dependentConfigs)
+	l.clearTypesIndex(key, value.dependentTypes)
 }
 
 // assertUnchanged checks that a cache entry is not changed. This helps catch bad cache invalidation
@@ -302,6 +306,13 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 
 	if token < l.token {
 		return
+	}
+
+	// we have to make sure we evict old entries with the same key
+	// to prevent leaking in the index maps
+	if f {
+		value := cur.(cacheValue)
+		l.clearIndexes(k, value)
 	}
 
 	dependentConfigs := entry.DependentConfigs()
