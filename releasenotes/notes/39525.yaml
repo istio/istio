@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** `x injector list` provides wrong pods information.
