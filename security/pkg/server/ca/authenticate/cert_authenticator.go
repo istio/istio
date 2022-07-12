@@ -15,6 +15,7 @@
 package authenticate
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -42,32 +43,24 @@ func (cca *ClientCertAuthenticator) AuthenticatorType() string {
 // method assumes that certificate chain has been properly validated before
 // this method is called. In other words, this method does not do certificate
 // chain validation itself.
-func (cca *ClientCertAuthenticator) Authenticate(ctx *security.AuthContext) (*security.Caller, error) {
-	authResult := security.AuthResult{}
-	peer, ok := peer.FromContext(ctx.RequestContext)
+func (cca *ClientCertAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
+	peer, ok := peer.FromContext(ctx)
 	if !ok || peer.AuthInfo == nil {
-		message := "no client certificate is presented"
-		ctx.Messages[cca.AuthenticatorType()] = append(ctx.Messages[cca.AuthenticatorType()], message)
-		return nil, fmt.Errorf(message)
+		return nil, fmt.Errorf("no client certificate is presented")
 	}
 
 	if authType := peer.AuthInfo.AuthType(); authType != "tls" {
-		message := fmt.Sprintf("unsupported auth type: %q", authType)
-		ctx.Messages[cca.AuthenticatorType()] = append(ctx.Messages[cca.AuthenticatorType()], message)
-		return nil, fmt.Errorf(message)
+		return nil, fmt.Errorf("unsupported auth type: %q", authType)
 	}
 
 	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
 	chains := tlsInfo.State.VerifiedChains
 	if len(chains) == 0 || len(chains[0]) == 0 {
-		message := "no verified chain is found"
-		authResult.Messages = append(authResult.Messages, message)
-		return nil, fmt.Errorf(message)
+		return nil, fmt.Errorf("no verified chain is found")
 	}
 
 	ids, err := util.ExtractIDs(chains[0][0].Extensions)
 	if err != nil {
-		authResult.Messages = append(authResult.Messages, err.Error())
 		return nil, err
 	}
 

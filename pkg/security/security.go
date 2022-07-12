@@ -23,10 +23,13 @@ import (
 	"time"
 
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
+
+var securityLog = istiolog.RegisterScope("security", "security debugging", 0)
 
 const (
 	// etc/certs files are used with external CA managing the certs,
@@ -352,39 +355,44 @@ type Caller struct {
 	Identities []string
 }
 
-// AuthResult is the result of authentication action.
-type AuthResult struct {
-	Identities []string
-	Messages   []string
-}
-
-// AuthContext carries the contextual information and is passed across authenticators.
-type AuthContext struct {
-	// RequestContext is the context from request.
-	RequestContext context.Context
-	// Messages contains list of messages that authenticator wants to record.
-	Messages map[string][]string
-	// Caller indicates the caller that made authentication request.
-	Caller *Caller
-}
-
 // Authenticator determines the caller identity based on request context.
 type Authenticator interface {
-	Authenticate(ctx *AuthContext) (*Caller, error)
+	Authenticate(ctx context.Context) (*Caller, error)
 	AuthenticatorType() string
 	AuthenticateRequest(req *http.Request) (*Caller, error)
 }
 
-func NewAuthContext(ctx context.Context) *AuthContext {
-	return &AuthContext{RequestContext: ctx, Messages: make(map[string][]string)}
+type AuthenticationManager struct {
+	Authenticators []Authenticator
+	// authFailMsgs contains list of messages that authenticator wants to record - mainly used for logging.
+	authFailMsgs []string
 }
 
-func (ac *AuthContext) FailedMessages() string {
-	authFailMsgs := []string{}
-	for key, ar := range ac.Messages {
-		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", key, strings.Join(ar, "; ")))
+func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
+	var errMsg string
+	for _, authn := range am.Authenticators {
+		u, err := authn.Authenticate(ctx)
+		if u != nil && u.Identities != nil && err == nil {
+			securityLog.Debugf("Authentication successful through auth source %v", u.AuthSource)
+			return u
+		}
+		am.authFailMsgs = append(am.authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
+		securityLog.Warnf("Authentication failed for %v: %s", getConnectionAddress(ctx), errMsg)
 	}
-	return strings.Join(authFailMsgs, "; ")
+	return nil
+}
+
+func getConnectionAddress(ctx context.Context) string {
+	peerInfo, ok := peer.FromContext(ctx)
+	peerAddr := "unknown"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+	return peerAddr
+}
+
+func (am *AuthenticationManager) FailedMessages() string {
+	return strings.Join(am.authFailMsgs, "; ")
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {

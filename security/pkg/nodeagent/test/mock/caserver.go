@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/server/ca"
 	"istio.io/pkg/log"
 )
 
@@ -166,7 +165,8 @@ func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCerti
 	}
 	id := []string{"client-identity"}
 	if len(s.Authenticators) > 0 {
-		caller := ca.Authenticate(ctx, s.Authenticators)
+		am := security.AuthenticationManager{Authenticators: s.Authenticators}
+		caller := am.Authenticate(ctx)
 		if caller == nil {
 			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 		}

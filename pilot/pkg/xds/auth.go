@@ -57,19 +57,13 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 		return nil, nil
 	}
 
-	authContext := security.NewAuthContext(ctx)
-
-	for _, authn := range s.Authenticators {
-		// TODO: Refactor to remove the return value of Authencicate. Just rely on AuthContext.
-		u, err := authn.Authenticate(authContext)
-		// If one authenticator passes, return
-		if u != nil && u.Identities != nil && err == nil {
-			authContext.Caller = u
-			return u.Identities, nil
-		}
+	am := security.AuthenticationManager{
+		Authenticators: s.Authenticators,
 	}
-
-	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), authContext.FailedMessages())
+	if u := am.Authenticate(ctx); u != nil {
+		return u.Identities, nil
+	}
+	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), am.FailedMessages())
 	return nil, errors.New("authentication failure")
 }
 

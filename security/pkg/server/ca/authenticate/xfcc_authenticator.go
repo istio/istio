@@ -15,6 +15,7 @@
 package authenticate
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -43,22 +44,20 @@ func (xff XfccAuthenticator) AuthenticatorType() string {
 }
 
 // Authenticate extracts identities from Xfcc Header.
-func (xff XfccAuthenticator) Authenticate(ctx *security.AuthContext) (*security.Caller, error) {
-	authResult := security.AuthResult{}
-	peerInfo, _ := peer.FromContext(ctx.RequestContext)
+func (xff XfccAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
+	peerInfo, _ := peer.FromContext(ctx)
 	// First check if client is trusted client so that we can "trust" the Xfcc Header.
-	if !isTrustedAddress(peerInfo.Addr.String()) {
+	if !isTrustedAddress(peerInfo.Addr.String(), features.TrustedGatewayCIDR) {
 		message := fmt.Sprintf("caller from %s is not in the trusted network. XfccAuthenticator can not be used", peerInfo.Addr.String())
-		ctx.Messages[xff.AuthenticatorType()] = append(ctx.Messages[xff.AuthenticatorType()], message)
 		return nil, fmt.Errorf(message)
 	}
-	meta, ok := metadata.FromIncomingContext(ctx.RequestContext)
+	meta, ok := metadata.FromIncomingContext(ctx)
 
 	if !ok || len(meta.Get(xfccparser.ForwardedClientCertHeader)) == 0 {
 		return nil, nil
 	}
 	xfccHeader := meta.Get(xfccparser.ForwardedClientCertHeader)[0]
-	return buildSecurityCaller(xfccHeader, &authResult)
+	return buildSecurityCaller(xfccHeader)
 }
 
 // AuthenticateRequest validates Xfcc Header.
@@ -67,19 +66,17 @@ func (xff XfccAuthenticator) AuthenticateRequest(req *http.Request) (*security.C
 	if len(xfccHeader) == 0 {
 		return nil, nil
 	}
-	return buildSecurityCaller(xfccHeader, &security.AuthResult{})
+	return buildSecurityCaller(xfccHeader)
 }
 
-func buildSecurityCaller(xfccHeader string, authResult *security.AuthResult) (*security.Caller, error) {
+func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {
 	clientCerts, err := xfccparser.ParseXFCCHeader(xfccHeader)
 	if err != nil {
 		message := fmt.Sprintf("error in parsing xfcc header: %v", err)
-		authResult.Messages = append(authResult.Messages, message)
 		return nil, fmt.Errorf(message)
 	}
 	if len(clientCerts) == 0 {
 		message := "xfcc header does not have atleast one client certs"
-		authResult.Messages = append(authResult.Messages, message)
 		return nil, fmt.Errorf(message)
 	}
 	ids := []string{}
@@ -97,20 +94,14 @@ func buildSecurityCaller(xfccHeader string, authResult *security.AuthResult) (*s
 	}, nil
 }
 
-func isTrustedAddress(addr string) bool {
-	if len(features.TrustedGatewayCIDR) > 0 {
-		cidrs := strings.Split(features.TrustedGatewayCIDR, ",")
-		for _, cidr := range cidrs {
-			if isInRange(addr, cidr) {
-				return true
-			}
+func isTrustedAddress(addr string, trustedCidrs []string) bool {
+	for _, cidr := range trustedCidrs {
+		if isInRange(addr, cidr) {
+			return true
 		}
 	}
 	// Always trust local host addresses.
-	if net.ParseIP(addr).IsLoopback() {
-		return true
-	}
-	return false
+	return net.ParseIP(addr).IsLoopback()
 }
 
 func isInRange(addr, cidr string) bool {

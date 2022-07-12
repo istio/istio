@@ -77,16 +77,13 @@ func (j *JwtAuthenticator) AuthenticateRequest(req *http.Request) (*security.Cal
 }
 
 // Authenticate - based on the old OIDC authenticator for mesh expansion.
-func (j *JwtAuthenticator) Authenticate(ctx *security.AuthContext) (*security.Caller, error) {
-	authResult := security.AuthResult{}
-	bearerToken, err := security.ExtractBearerToken(ctx.RequestContext)
+func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
+	bearerToken, err := security.ExtractBearerToken(ctx)
 	if err != nil {
-		authResult.Messages = append(authResult.Messages, fmt.Sprintf("ID token extraction error: %v", err))
-		ctx.Messages[j.AuthenticatorType()] = append(ctx.Messages[j.AuthenticatorType()], fmt.Sprintf("ID token extraction error: %v", err))
 		return nil, fmt.Errorf("ID token extraction error: %v", err)
 	}
 
-	return j.authenticate(ctx.RequestContext, bearerToken)
+	return j.authenticate(ctx, bearerToken)
 }
 
 func (j *JwtAuthenticator) authenticate(ctx context.Context, bearerToken string) (*security.Caller, error) {

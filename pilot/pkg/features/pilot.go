@@ -406,12 +406,16 @@ var (
 	).Get()
 
 	// TODO: Move this to proper API.
-	TrustedGatewayCIDR = env.RegisterStringVar(
+	trustedGatewayCIDR = env.RegisterStringVar(
 		"TRUSTED_GATEWAY_CIDR",
 		"",
 		"If set, any connections from gateway to Istiod with this CIDR range are treated as trusted for using authenication mechanisms like XFCC."+
 			" This can only be used when the network where Istiod and the authenticating gateways are running in a trusted/secure network",
-	).Get()
+	)
+
+	TrustedGatewayCIDR = func() []string {
+		return strings.Split(trustedGatewayCIDR.Get(), ",")
+	}()
 
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+

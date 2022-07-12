@@ -17,6 +17,7 @@ package authenticate
 import (
 	"net"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/alecholmes/xfccparser"
@@ -24,9 +25,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/test"
 )
 
 func TestIsTrustedAddress(t *testing.T) {
@@ -64,10 +63,7 @@ func TestIsTrustedAddress(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			if len(tt.cidr) > 0 {
-				test.SetStringForTest(t, &features.TrustedGatewayCIDR, tt.cidr)
-			}
-			if result := isTrustedAddress(tt.peer); result != tt.trusted {
+			if result := isTrustedAddress(tt.peer, strings.Split(tt.cidr, ",")); result != tt.trusted {
 				t.Errorf("Unexpected authentication result: want %v but got %v",
 					tt.trusted, result)
 			}
@@ -88,12 +84,32 @@ func TestXfccAuthenticator(t *testing.T) {
 			caller:     nil,
 		},
 		{
-			name: "Xfcc Header",
+			name:               "junk xfcc header",
+			xfccHeader:         `junk xfcc header`,
+			authenticateErrMsg: `error in parsing xfcc header: invalid header format: unexpected token "junk xfcc header"`,
+		},
+		{
+			name: "Xfcc Header single hop",
 			// nolint lll
 			xfccHeader: `Hash=meshclient;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
 			caller: &security.Caller{
 				AuthSource: security.AuthSourceClientCertificate,
 				Identities: []string{
+					"spiffe://mesh.example.com/ns/otherns/sa/othersa",
+				},
+			},
+		},
+		{
+			name: "Xfcc Header multiple hops",
+			// nolint lll
+			xfccHeader: `Hash=hash;Cert="-----BEGIN%20CERTIFICATE-----%0cert%0A-----END%20CERTIFICATE-----%0A";Subject="CN=hello,OU=hello,O=Acme\, Inc.";URI=spiffe://mesh.example.com/ns/firstns/sa/firstsa;DNS=hello.west.example.com;DNS=hello.east.example.com,By=spiffe://mesh.example.com/ns/hellons/sa/hellosa;Hash=again;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
+			caller: &security.Caller{
+				AuthSource: security.AuthSourceClientCertificate,
+				Identities: []string{
+					"spiffe://mesh.example.com/ns/firstns/sa/firstsa",
+					"hello.west.example.com",
+					"hello.east.example.com",
+					"hello",
 					"spiffe://mesh.example.com/ns/otherns/sa/othersa",
 				},
 			},
@@ -110,7 +126,7 @@ func TestXfccAuthenticator(t *testing.T) {
 			}
 			ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: &net.IPAddr{IP: net.ParseIP("127.0.0.1").To4()}})
 			ctx = metadata.NewIncomingContext(ctx, md)
-			result, err := auth.Authenticate(security.NewAuthContext(ctx))
+			result, err := auth.Authenticate(ctx)
 			if len(tt.authenticateErrMsg) > 0 {
 				if err == nil {
 					t.Errorf("Succeeded. Error expected: %v", err)
