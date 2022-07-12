@@ -373,7 +373,7 @@ func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
 	var errMsg string
 	for _, authn := range am.Authenticators {
 		u, err := authn.Authenticate(ctx)
-		if u != nil && u.Identities != nil && err == nil {
+		if u != nil && len(u.Identities) > 0 && err == nil {
 			securityLog.Debugf("Authentication successful through auth source %v", u.AuthSource)
 			return u
 		}
