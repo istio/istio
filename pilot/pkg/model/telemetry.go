@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -74,6 +75,8 @@ type Telemetries struct {
 	// As result, this cache will live until any Telemetry is modified.
 	computedMetricsFilters map[metricsKey]interface{}
 	mu                     sync.Mutex
+
+	push *PushContext
 }
 
 // telemetryKey defines a key into the computedMetricsFilters cache.
@@ -94,12 +97,13 @@ type metricsKey struct {
 }
 
 // getTelemetries returns the Telemetry configurations for the given environment.
-func getTelemetries(env *Environment) (*Telemetries, error) {
+func getTelemetries(push *PushContext, env *Environment) (*Telemetries, error) {
 	telemetries := &Telemetries{
 		NamespaceToTelemetries: map[string][]Telemetry{},
 		RootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
 		computedMetricsFilters: map[metricsKey]interface{}{},
+		push:                   push,
 	}
 
 	fromEnv, err := env.List(collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(), NamespaceAll)
@@ -180,6 +184,7 @@ type TracingSpec struct {
 }
 
 type LoggingConfig struct {
+	Logs      []*accesslog.AccessLog
 	Providers []*meshconfig.MeshConfig_ExtensionProvider
 	Filter    *tpb.AccessLogging_Filter
 }
@@ -214,9 +219,16 @@ func (t *Telemetries) AccessLogging(proxy *Proxy, class networking.ListenerClass
 	cfg.Filter = f
 	for _, p := range providers.SortedList() {
 		fp := t.fetchProvider(p)
-		if fp != nil {
-			cfg.Providers = append(cfg.Providers, fp)
+		if fp == nil {
+			continue
 		}
+
+		cfg.Providers = append(cfg.Providers, fp)
+		al := telemetryAccessLog(t.push, fp)
+		if al == nil {
+			continue
+		}
+		cfg.Logs = append(cfg.Logs, al)
 	}
 	return &cfg
 }
