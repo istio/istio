@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/util/retry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
@@ -73,7 +72,7 @@ func TestAccessLogsDefaultProvider(t *testing.T) {
 accessLogFile: ""
 `
 				ist := *(common.GetIstioInstance())
-				istio.PatchMeshConfigOrFail(t, ist.Settings().SystemNamespace, t.Clusters(), cfg)
+				ist.PatchMeshConfigOrFail(t, t, cfg)
 				runAccessLogsTests(t, false)
 			})
 			t.NewSubTest("enabled").Run(func(t framework.TestContext) {
@@ -84,7 +83,7 @@ defaultProviders:
   - envoy
 `
 				ist := *(common.GetIstioInstance())
-				istio.PatchMeshConfigOrFail(t, ist.Settings().SystemNamespace, t.Clusters(), cfg)
+				ist.PatchMeshConfigOrFail(t, t, cfg)
 				runAccessLogsTests(t, true)
 			})
 		})
