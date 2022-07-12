@@ -403,11 +403,23 @@ func compareInClusterAndGeneratedResources(t framework.TestContext, cs cluster.C
 				_, err = cs.Dynamic().Resource(efgvr).Namespace(ns).Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{})
 			case "PodDisruptionBudget":
-				_, err = cs.Kube().PolicyV1beta1().PodDisruptionBudgets(ns).Get(context.TODO(), name,
-					kubeApiMeta.GetOptions{})
+				// policy/v1 is available on >=1.21
+				if cs.MinKubeVersion(21) {
+					_, err = cs.Kube().PolicyV1().PodDisruptionBudgets(ns).Get(context.TODO(), name,
+						kubeApiMeta.GetOptions{})
+				} else {
+					_, err = cs.Kube().PolicyV1beta1().PodDisruptionBudgets(ns).Get(context.TODO(), name,
+						kubeApiMeta.GetOptions{})
+				}
 			case "HorizontalPodAutoscaler":
-				_, err = cs.Kube().AutoscalingV2beta2().HorizontalPodAutoscalers(ns).Get(context.TODO(), name,
-					kubeApiMeta.GetOptions{})
+				// autoscaling v2 API is available on >=1.23
+				if cs.MinKubeVersion(23) {
+					_, err = cs.Kube().AutoscalingV2().HorizontalPodAutoscalers(ns).Get(context.TODO(), name,
+						kubeApiMeta.GetOptions{})
+				} else {
+					_, err = cs.Kube().AutoscalingV2beta2().HorizontalPodAutoscalers(ns).Get(context.TODO(), name,
+						kubeApiMeta.GetOptions{})
+				}
 			}
 			if err != nil && !expectRemoved {
 				return fmt.Errorf("failed to get expected %s: %s from cluster", kind, name)
