@@ -4784,6 +4784,32 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "protocol unset for addresses empty", in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Name: "http-valid2"},
+				},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "protocol is TCP for addresses empty", in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 81, Protocol: "TCP", Name: "tcp-valid1"},
+				},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
 	}
 
 	for _, c := range cases {
