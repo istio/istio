@@ -51,6 +51,9 @@ func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
+			if t.Clusters().IsMulticluster() {
+				t.Skip("https://github.com/istio/istio/issues/39873")
+			}
 			systemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
 			// Create a custom echo deployment in NS1 with subsets that allows us to test the
