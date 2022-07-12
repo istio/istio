@@ -973,15 +973,22 @@ func recurseMissingTypedConfig(message protoreflect.Message) []string {
 		}
 	}
 
+	hasTypedConfig := false
+	requiresTypedConfig := false
 	// Now go through fields again
 	for i := 0; i < message.Type().Descriptor().Fields().Len(); i++ {
 		field := message.Type().Descriptor().Fields().Get(i)
 		set := message.Has(field)
 		// If it has a typedConfig field, it must be set.
+		requiresTypedConfig = requiresTypedConfig || field.JSONName() == "typedConfig"
 		// Note: it is possible there is some API that has typedConfig but has a non-deprecated alternative,
 		// but I couldn't find any. Worst case, this is a warning, not an error, so a false positive is not so bad.
-		if field.JSONName() == "typedConfig" && !set {
-			deprecatedTypes = append(deprecatedTypes, name)
+		// The one exception is configDiscovery (used for ECDS)
+		if field.JSONName() == "typedConfig" && set {
+			hasTypedConfig = true
+		}
+		if field.JSONName() == "configDiscovery" && set {
+			hasTypedConfig = true
 		}
 		if set {
 			// If the field was set and is a message, recurse into it to check children
@@ -990,6 +997,9 @@ func recurseMissingTypedConfig(message protoreflect.Message) []string {
 				deprecatedTypes = append(deprecatedTypes, recurseMissingTypedConfig(m)...)
 			}
 		}
+	}
+	if requiresTypedConfig && !hasTypedConfig {
+		deprecatedTypes = append(deprecatedTypes, name)
 	}
 	return deprecatedTypes
 }
