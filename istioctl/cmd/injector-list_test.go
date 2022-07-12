@@ -33,17 +33,6 @@ func Test_extractRevisionFromPod(t *testing.T) {
 		expectedRevision string
 	}{
 		{
-			name: "has rev label",
-			pod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						label.IoIstioRev.Name: "test",
-					},
-				},
-			},
-			expectedRevision: "test",
-		},
-		{
 			name:             "no rev",
 			pod:              &corev1.Pod{},
 			expectedRevision: "",
@@ -64,14 +53,14 @@ func Test_extractRevisionFromPod(t *testing.T) {
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						label.IoIstioRev.Name: "test-label",
+						label.IoIstioRev.Name: "test-label", // don't care about the label
 					},
 					Annotations: map[string]string{
 						annotation.SidecarStatus.Name: `{"revision":"test-anno"}`,
 					},
 				},
 			},
-			expectedRevision: "test-label",
+			expectedRevision: "test-anno",
 		},
 	}
 	for i, c := range cases {

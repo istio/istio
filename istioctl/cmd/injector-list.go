@@ -304,10 +304,6 @@ func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revis
 }
 
 func extractRevisionFromPod(pod *v1.Pod) string {
-	rev := pod.GetLabels()[label.IoIstioRev.Name]
-	if rev != "" {
-		return rev
-	}
 	statusAnno, ok := pod.GetAnnotations()[annotation.SidecarStatus.Name]
 	if !ok {
 		return ""
