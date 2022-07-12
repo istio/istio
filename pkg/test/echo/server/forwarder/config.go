@@ -55,6 +55,10 @@ type Config struct {
 	urlPath                 string
 	method                  string
 	secure                  bool
+
+	hboneTLSConfig    *tls.Config
+	hboneClientConfig func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	hboneHeaders      http.Header
 }
 
 func (c *Config) fillDefaults() error {
@@ -62,6 +66,7 @@ func (c *Config) fillDefaults() error {
 	c.timeout = common.GetTimeout(c.Request)
 	c.count = common.GetCount(c.Request)
 	c.headers = common.GetHeaders(c.Request)
+	c.hboneHeaders = common.ProtoToHTTPHeaders(c.Request.Hbone.GetHeaders())
 
 	// Extract the host from the headers and then remove it.
 	c.hostHeader = c.headers.Get(hostHeader)
@@ -88,6 +93,15 @@ func (c *Config) fillDefaults() error {
 	c.secure = c.getClientCertificate != nil
 
 	c.tlsConfig, err = newTLSConfig(c)
+	if err != nil {
+		return err
+	}
+	c.hboneClientConfig, err = getHBONEClientConfig(c.Request.Hbone)
+	if err != nil {
+		return err
+	}
+
+	c.hboneTLSConfig, err = newHBONETLSConfig(c)
 	if err != nil {
 		return err
 	}
@@ -133,6 +147,60 @@ func splitPath(raw string) (url, path string) {
 }
 
 func getClientCertificateFunc(r *proto.ForwardEchoRequest) (func(info *tls.CertificateRequestInfo) (*tls.Certificate, error), error) {
+	if r.KeyFile != "" && r.CertFile != "" {
+		certData, err := os.ReadFile(r.CertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %v", err)
+		}
+		r.Cert = string(certData)
+		keyData, err := os.ReadFile(r.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate key: %v", err)
+		}
+		r.Key = string(keyData)
+	}
+
+	if r.Cert != "" && r.Key != "" {
+		cert, err := tls.X509KeyPair([]byte(r.Cert), []byte(r.Key))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse x509 key pair: %v", err)
+		}
+
+		for _, c := range cert.Certificate {
+			cert, err := x509.ParseCertificate(c)
+			if err != nil {
+				fwLog.Errorf("Failed to parse client certificate: %v", err)
+			}
+			fwLog.Debugf("Using client certificate [%s] issued by %s", cert.SerialNumber, cert.Issuer)
+			for _, uri := range cert.URIs {
+				fwLog.Debugf("  URI SAN: %s", uri)
+			}
+		}
+		// nolint: unparam
+		return func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			fwLog.Debugf("Peer asking for client certificate")
+			for i, ca := range info.AcceptableCAs {
+				x := &pkix.RDNSequence{}
+				if _, err := asn1.Unmarshal(ca, x); err != nil {
+					fwLog.Errorf("Failed to decode AcceptableCA[%d]: %v", i, err)
+				} else {
+					name := &pkix.Name{}
+					name.FillFromRDNSequence(x)
+					fwLog.Debugf("  AcceptableCA[%d]: %s", i, name)
+				}
+			}
+
+			return &cert, nil
+		}, nil
+	}
+
+	return nil, nil
+}
+
+func getHBONEClientConfig(r *proto.HBONE) (func(info *tls.CertificateRequestInfo) (*tls.Certificate, error), error) {
+	if r == nil {
+		return nil, nil
+	}
 	if r.KeyFile != "" && r.CertFile != "" {
 		certData, err := os.ReadFile(r.CertFile)
 		if err != nil {
@@ -235,6 +303,34 @@ func newTLSConfig(c *Config) (*tls.Config, error) {
 		}
 		setALPNForHTTP()
 	}
+	return tlsConfig, nil
+}
+
+func newHBONETLSConfig(c *Config) (*tls.Config, error) {
+	r := c.Request.Hbone
+	if r == nil {
+		return nil, nil
+	}
+	tlsConfig := &tls.Config{
+		GetClientCertificate: c.hboneClientConfig,
+	}
+	if r.CaCertFile != "" {
+		certData, err := os.ReadFile(r.CaCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %v", err)
+		}
+		r.CaCert = string(certData)
+	}
+	if r.InsecureSkipVerify || r.CaCert == "" {
+		tlsConfig.InsecureSkipVerify = true
+	} else if r.CaCert != "" {
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM([]byte(r.CaCert)) {
+			return nil, fmt.Errorf("failed to create cert pool")
+		}
+		tlsConfig.RootCAs = certPool
+	}
+
 	return tlsConfig, nil
 }
 

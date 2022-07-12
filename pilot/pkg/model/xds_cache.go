@@ -346,7 +346,6 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
-	// not to call evict on keys that are removed actively
 	l.evictedOnClear = true
 	defer func() {
 		l.evictedOnClear = false

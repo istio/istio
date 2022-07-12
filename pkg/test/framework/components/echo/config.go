@@ -170,6 +170,22 @@ type Config struct {
 	IPFamilyPolicy string
 }
 
+// Getter for a custom echo deployment
+type CustomGetter func() []Config
+
+// Get is a utility method that helps in readability of call sites.
+func (g CustomGetter) Get() []Config {
+	return g()
+}
+
+// Future creates a Getter for a variable the custom echo deployment that will be set at sometime in the future.
+// This is helpful for configuring a setup chain for a test suite that operates on global variables.
+func CustomFuture(custom *[]Config) CustomGetter {
+	return func() []Config {
+		return *custom
+	}
+}
+
 // NamespaceName returns the string name of the namespace.
 func (c Config) NamespaceName() string {
 	return c.NamespacedName().NamespaceName()

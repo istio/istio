@@ -142,11 +142,10 @@ func newGRPCConnection(cfg *Config) (*grpc.ClientConn, error) {
 		security = grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
 
-	forceDNSLookup := cfg.forceDNSLookup
 	opts := []grpc.DialOption{
 		grpc.WithAuthority(cfg.hostHeader),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			return newDialer(forceDNSLookup).DialContext(ctx, "tcp", addr)
+			return newDialer(cfg).DialContext(ctx, "tcp", addr)
 		}),
 		security,
 	}
