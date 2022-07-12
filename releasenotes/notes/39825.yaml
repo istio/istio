@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 39825
+
+releaseNotes:
+- |
+  **Fixed** an issue where Istio is sending traffic to unready pods when PILOT_SEND_UNHEALTHY_ENDPOINTS is enabled.
