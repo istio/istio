@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# shellcheck disable=all
+
 # socket mark setup
 OUTBOUND_MASK="0x100"
 OUTBOUND_MARK="0x100/$OUTBOUND_MASK"

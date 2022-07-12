@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# shellcheck disable=all
+
 ./local-test-utils/reset-kind.sh
 
 ./local-test-utils/kind-registry.sh

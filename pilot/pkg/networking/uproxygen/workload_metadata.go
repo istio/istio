@@ -61,12 +61,12 @@ func (g *WorkloadMetadataGenerator) Generate(proxy *model.Proxy, w *model.Watche
 		name, workloadType := workloadNameAndType(pod.Pod)
 		cs, cr := labels.CanonicalService(pod.Labels, name)
 
-		var ips = []string{}
+		ips := []string{}
 		for _, pip := range pod.Status.PodIPs {
 			ips = append(ips, pip.IP)
 		}
 
-		var containers = []string{}
+		containers := []string{}
 		for _, c := range pod.Spec.Containers {
 			containers = append(containers, c.Name)
 		}

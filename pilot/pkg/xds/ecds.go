@@ -16,7 +16,6 @@ package xds
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/networking/uproxygen"
 	"strings"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -24,6 +23,7 @@ import (
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pilot/pkg/networking/uproxygen"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"

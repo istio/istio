@@ -600,8 +600,7 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 						scheck.ReachedClusters(t.AllClusters(), &opt))
 					if expectMTLS {
 						// TODO(https://github.com/solo-io/istio-sidecarless/issues/150)
-						// opts.Check = check.And(opts.Check,
-						//	check.MTLSForHTTP())
+						_ = expectMTLS
 					}
 				} else {
 					tpe = "negative"

@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# shellcheck disable=all
+
 # Hello version: v2, instance: helloworld-v2-same-node-67b6b764bf-pct5v
 # Hello version: v1, instance: helloworld-v1-cross-node-6fc96f99b8-8fjt8
 
