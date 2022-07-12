@@ -70,19 +70,15 @@ func TestAccessLogsDefaultProvider(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("disabled").Run(func(t framework.TestContext) {
 				cfg := `
-accessLogFile: "/dev/null"
+accessLogFile: ""
 `
 				ist := *(common.GetIstioInstance())
 				istio.PatchMeshConfigOrFail(t, ist.Settings().SystemNamespace, t.Clusters(), cfg)
 				runAccessLogsTests(t, false)
-				cfg = `
-accessLogFile: "/dev/stdout"
-`
-				istio.PatchMeshConfigOrFail(t, ist.Settings().SystemNamespace, t.Clusters(), cfg)
 			})
 			t.NewSubTest("enabled").Run(func(t framework.TestContext) {
 				cfg := `
-accessLogFile: "/dev/null"
+accessLogFile: ""
 defaultProviders:
   accessLogging:
   - envoy
@@ -90,12 +86,6 @@ defaultProviders:
 				ist := *(common.GetIstioInstance())
 				istio.PatchMeshConfigOrFail(t, ist.Settings().SystemNamespace, t.Clusters(), cfg)
 				runAccessLogsTests(t, true)
-				cfg = `
-accessLogFile: "/dev/stdout"
-defaultProviders:
-  accessLogging: []
-`
-				istio.PatchMeshConfigOrFail(t, ist.Settings().SystemNamespace, t.Clusters(), cfg)
 			})
 		})
 }
