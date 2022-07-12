@@ -376,7 +376,7 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		if err != nil {
 			return err
 		}
-		// If we encounter a directory, recurse only if the --recursve option
+		// If we encounter a directory, recurse only if the --recursive option
 		// was provided and the directory is not the same as dir.
 		if info.IsDir() {
 			if !recursive && dir != path {

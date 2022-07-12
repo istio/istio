@@ -63,32 +63,14 @@ const (
 	grpcFallbackPort = 17777
 )
 
-var (
-	serviceTemplate      *template.Template
-	deploymentTemplate   *template.Template
-	vmDeploymentTemplate *template.Template
+var echoKubeTemplatesDir = path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates")
 
-	echoKubeTemplatesDir = path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates")
-)
-
-func init() {
-	serviceYAMLPath := path.Join(echoKubeTemplatesDir, serviceTemplateFile)
-	if filepath.IsAbs(serviceTemplateFile) {
-		serviceYAMLPath = serviceTemplateFile
+func getTemplate(tmplFilePath string) *template.Template {
+	yamlPath := path.Join(echoKubeTemplatesDir, tmplFilePath)
+	if filepath.IsAbs(tmplFilePath) {
+		yamlPath = tmplFilePath
 	}
-	serviceTemplate = tmpl.MustParse(file.MustAsString(serviceYAMLPath))
-
-	deploymentYAMLPath := path.Join(echoKubeTemplatesDir, deploymentTemplateFile)
-	if filepath.IsAbs(deploymentTemplateFile) {
-		deploymentYAMLPath = deploymentTemplateFile
-	}
-	deploymentTemplate = tmpl.MustParse(file.MustAsString(deploymentYAMLPath))
-
-	vmDeploymentYAMLPath := path.Join(echoKubeTemplatesDir, vmDeploymentTemplateFile)
-	if filepath.IsAbs(vmDeploymentTemplateFile) {
-		vmDeploymentYAMLPath = vmDeploymentTemplateFile
-	}
-	vmDeploymentTemplate = tmpl.MustParse(file.MustAsString(vmDeploymentYAMLPath))
+	return tmpl.MustParse(file.MustAsString(yamlPath))
 }
 
 var _ workloadHandler = &deployment{}
@@ -237,9 +219,9 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 		return "", err
 	}
 
-	deploy := deploymentTemplate
+	deploy := getTemplate(deploymentTemplateFile)
 	if cfg.DeployAsVM {
-		deploy = vmDeploymentTemplate
+		deploy = getTemplate(vmDeploymentTemplateFile)
 	}
 
 	return tmpl.Execute(deploy, params)
@@ -247,7 +229,7 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 
 func GenerateService(cfg echo.Config) (string, error) {
 	params := serviceParams(cfg)
-	return tmpl.Execute(serviceTemplate, params)
+	return tmpl.Execute(getTemplate(serviceTemplateFile), params)
 }
 
 var VMImages = map[echo.VMDistro]string{

@@ -71,7 +71,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.trust-domain-alias-secure-naming").
 		Run(func(t framework.TestContext) {
-			testNS := apps.Namespace
+			testNS := apps.EchoNamespace.Namespace
 
 			t.ConfigIstio().YAML(testNS.Name(), POLICY).ApplyOrFail(t)
 
@@ -104,7 +104,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 						})
 					}
 
-					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
+					client := match.Cluster(cluster).FirstOrFail(t, client)
 					cases := []struct {
 						src    echo.Instance
 						dest   echo.Instances
@@ -112,12 +112,12 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 					}{
 						{
 							src:    client,
-							dest:   apps.ServerNakedFoo,
+							dest:   serverNakedFoo,
 							expect: true,
 						},
 						{
 							src:    client,
-							dest:   apps.ServerNakedBar,
+							dest:   serverNakedBar,
 							expect: false,
 						},
 					}
