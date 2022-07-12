@@ -342,7 +342,6 @@ type AuthSource int
 const (
 	AuthSourceClientCertificate AuthSource = iota
 	AuthSourceIDToken
-	AuthSourceDelegate
 )
 
 const (
@@ -362,12 +361,14 @@ type Authenticator interface {
 	AuthenticateRequest(req *http.Request) (*Caller, error)
 }
 
+// AuthenticationManager orchestrates all authenticators to perform authentication.
 type AuthenticationManager struct {
 	Authenticators []Authenticator
 	// authFailMsgs contains list of messages that authenticator wants to record - mainly used for logging.
 	authFailMsgs []string
 }
 
+// Authenticate loops through all the configured Authenticators and returns if one of the authenticator succeeds.
 func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
 	var errMsg string
 	for _, authn := range am.Authenticators {
