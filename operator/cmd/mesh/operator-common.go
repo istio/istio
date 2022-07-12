@@ -72,7 +72,7 @@ func renderOperatorManifest(_ *RootArgs, ocArgs *operatorCommonArgs) (string, st
 	if err != nil {
 		return "", "", err
 	}
-	r := helm.NewHelmRenderer(installPackagePath, "istio-operator", string(name.IstioOperatorComponentName), ocArgs.operatorNamespace)
+	r := helm.NewHelmRenderer(installPackagePath, "istio-operator", string(name.IstioOperatorComponentName), ocArgs.operatorNamespace, nil)
 
 	if err := r.Run(); err != nil {
 		return "", "", err

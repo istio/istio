@@ -45,7 +45,7 @@ func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
 	return false
 }
 
-func getLabelValue(metadata metav1.Object, label string, fallBackLabel string) string {
+func getLabelValue(metadata metav1.ObjectMeta, label string, fallBackLabel string) string {
 	metaLabels := metadata.GetLabels()
 	val := metaLabels[label]
 	if val != "" {

@@ -180,6 +180,10 @@ collections:
     name: "k8s/gateway_api/v1alpha2/referencepolicies"
     group: "gateway.networking.k8s.io"
 
+  - kind: "ReferenceGrant"
+    name: "k8s/gateway_api/v1alpha2/referencegrants"
+    group: "gateway.networking.k8s.io"
+
 # Configuration for resource types.
 resources:
   # Kubernetes specific configuration.
@@ -309,7 +313,14 @@ resources:
     group: "gateway.networking.k8s.io"
     version: "v1alpha2"
     protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    proto: "k8s.io.gateway_api.api.v1alpha1.ReferencePolicySpec"
+    proto: "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec"
+
+  - kind: "ReferenceGrant"
+    plural: "referencegrants"
+    group: "gateway.networking.k8s.io"
+    version: "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    proto: "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec"
 
   ## Istio resources
   - kind: "VirtualService"

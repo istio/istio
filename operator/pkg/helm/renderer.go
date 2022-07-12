@@ -23,6 +23,7 @@ import (
 
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"k8s.io/apimachinery/pkg/version"
 
 	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/util"
@@ -43,16 +44,19 @@ type Renderer struct {
 	started       bool
 	files         fs.FS
 	dir           string
+	// Kubernetes cluster version
+	version *version.Info
 }
 
 // NewFileTemplateRenderer creates a TemplateRenderer with the given parameters and returns a pointer to it.
 // helmChartDirPath must be an absolute file path to the root of the helm charts.
-func NewGenericRenderer(files fs.FS, dir, componentName, namespace string) *Renderer {
+func NewGenericRenderer(files fs.FS, dir, componentName, namespace string, version *version.Info) *Renderer {
 	return &Renderer{
 		namespace:     namespace,
 		componentName: componentName,
 		dir:           dir,
 		files:         files,
+		version:       version,
 	}
 }
 
@@ -71,7 +75,7 @@ func (h *Renderer) RenderManifest(values string) (string, error) {
 	if !h.started {
 		return "", fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
 	}
-	return renderChart(h.namespace, values, h.chart, nil)
+	return renderChart(h.namespace, values, h.chart, nil, h.version)
 }
 
 // RenderManifestFiltered filters templates to render using the supplied filter function.
@@ -79,7 +83,7 @@ func (h *Renderer) RenderManifestFiltered(values string, filter TemplateFilterFu
 	if !h.started {
 		return "", fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
 	}
-	return renderChart(h.namespace, values, h.chart, filter)
+	return renderChart(h.namespace, values, h.chart, filter, h.version)
 }
 
 func GetFilesRecursive(f fs.FS, root string) ([]string, error) {

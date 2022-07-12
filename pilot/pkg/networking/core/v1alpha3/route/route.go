@@ -97,7 +97,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	out := make([]VirtualHostWrapper, 0)
 
 	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
-	dependentDestinationRules := []*config.Config{}
+	dependentDestinationRules := []*model.ConsolidatedDestRule{}
 	// consistent hash policies for the http route destinations
 	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
 	for _, virtualService := range virtualServices {
@@ -519,6 +519,7 @@ func applyHTTPRouteDestination(
 		}
 	}
 
+	var totalWeight uint32
 	// TODO: eliminate this logic and use the total_weight option in envoy route
 	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 	for _, dst := range in.Route {
@@ -538,6 +539,7 @@ func applyHTTPRouteDestination(
 			Name:   n,
 			Weight: weight,
 		}
+		totalWeight += weight.GetValue()
 		if dst.Headers != nil {
 			operations := translateHeadersOperations(dst.Headers)
 			clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
@@ -579,7 +581,8 @@ func applyHTTPRouteDestination(
 	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
-				Clusters: weighted,
+				Clusters:    weighted,
+				TotalWeight: wrappers.UInt32(totalWeight),
 			},
 		}
 	}
@@ -785,8 +788,6 @@ func translateHeadersOperations(headers *networking.Headers) headersOperations {
 	}
 }
 
-const singleDNSLabelWildcardRegex = "^[-a-zA-Z]*"
-
 // translateRouteMatch translates match condition
 func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
@@ -812,25 +813,6 @@ func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 			matcher := translateHeaderMatch(name, stringMatch)
 			matcher.InvertMatch = true
 			out.Headers = append(out.Headers, matcher)
-		}
-	}
-	if model.UseGatewaySemantics(vs) {
-		hosts := vs.Spec.(*networking.VirtualService).Hosts
-		// If we have a wildcard match, add a header match regex rule to match the
-		// hostname, so we can be sure to only match one DNS label. This is required
-		// as Envoy's virtualhost hostname wildcard matching can match multiple
-		// labels. This match ignores a port in the hostname in case it is present.
-		// Conversion guarantees a single host
-		if len(hosts) == 1 && strings.HasPrefix(hosts[0], "*.") {
-			mm := &route.HeaderMatcher{
-				Name: HeaderAuthority,
-				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
-					StringMatch: util.ConvertToEnvoyMatch(&networking.StringMatch{
-						MatchType: &networking.StringMatch_Regex{Regex: singleDNSLabelWildcardRegex + regexp.QuoteMeta(hosts[0][1:])},
-					}),
-				},
-			}
-			out.Headers = append(out.Headers, mm)
 		}
 	}
 
@@ -1214,11 +1196,12 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 
 func getHashForService(node *model.Proxy, push *model.PushContext,
 	svc *model.Service, port *model.Port,
-) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil
 	}
-	destinationRule := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
+	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
+	destinationRule := mergedDR.GetRule()
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1235,7 +1218,7 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 		}
 	}
 
-	return consistentHash, destinationRule
+	return consistentHash, mergedDR
 }
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
@@ -1265,13 +1248,14 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 // GetHashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
 func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
 	configNamespace string,
-) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil
 	}
 
 	destination := dst.GetDestination()
-	destinationRule := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
+	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
+	destinationRule := mergedDR.GetRule()
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1300,7 +1284,7 @@ func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *
 	case plsHash != nil:
 		consistentHash = plsHash
 	}
-	return consistentHash, destinationRule
+	return consistentHash, mergedDR
 }
 
 // isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise

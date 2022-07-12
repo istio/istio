@@ -135,10 +135,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				// we only apply to config clusters
 				return t.ConfigIstio().YAML("", cfg).Apply()
 			}).
-			WithDefaultFilters().
 			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
 			ToMatch(match.And(append(c.targetMatchers, match.NotProxylessGRPC)...)).
+			WithDefaultFilters(1, c.toN).
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, from echo.Caller, to echo.Services) {

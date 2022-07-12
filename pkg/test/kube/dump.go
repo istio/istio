@@ -189,7 +189,7 @@ func DumpCoreDumps(_ resource.Context, c cluster.Cluster, workDir string, namesp
 			}
 			restarts := containerRestarts(pod, proxyContainer.Name())
 			crashed, _ := containerCrashed(pod, proxyContainer.Name())
-			if !crashed || restarts == 0 {
+			if !crashed && restarts == 0 {
 				// no need to store this dump
 				continue
 			}

@@ -151,6 +151,26 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 		},
 		{
+			name: "destination rule static with pass",
+			cluster: &cluster.Cluster{
+				Name:                 "foo",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
+			},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					LoadBalancer: &networking.LoadBalancerSettings{
+						LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+					},
+				},
+			},
+		},
+		{
 			name:        "destination rule with subsets for SniDnat cluster",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: SniDnatClusterMode,
@@ -496,7 +516,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
+			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname).GetRule()
 
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.proxyView, destRule, nil)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
@@ -507,7 +527,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				compareClusters(t, tt.expectedSubsetClusters[0], subsetClusters[0])
 			}
 			// Validate that use client protocol configures cluster correctly.
-			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
+			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().GetUseClientProtocol() {
 				if ec.httpProtocolOptions == nil {
 					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
 				}
@@ -518,7 +538,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 
 			// Validate that use client protocol configures cluster correctly.
-			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().MaxRequestsPerConnection > 0 {
+			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().GetMaxRequestsPerConnection() > 0 {
 				if ec.httpProtocolOptions == nil {
 					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
 				}
@@ -537,6 +557,9 @@ func TestApplyDestinationRule(t *testing.T) {
 				if subset.GetType() == cluster.Cluster_ORIGINAL_DST && subset.GetLoadAssignment() != nil {
 					t.Errorf("Passthrough subsets should not have load assignments")
 				}
+			}
+			if ec.cluster.GetType() == cluster.Cluster_ORIGINAL_DST && ec.cluster.GetLoadAssignment() != nil {
+				t.Errorf("Passthrough should not have load assignments")
 			}
 		})
 	}
@@ -3307,7 +3330,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
+			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname).GetRule()
 
 			// ACT
 			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.proxyView, destRule, nil)
@@ -3394,7 +3417,6 @@ func TestApplyTCPKeepalive(t *testing.T) {
 }
 
 func TestApplyConnectionPool(t *testing.T) {
-	// only test connectionPool.Http.IdleTimeout and connectionPool.Http.IdleTimeout.MaxRequestsPerConnection
 	cases := []struct {
 		name                string
 		cluster             *cluster.Cluster
@@ -3455,7 +3477,7 @@ func TestApplyConnectionPool(t *testing.T) {
 			},
 		},
 		{
-			name:    "update MaxRequestsPerConnection and IdleTimeout",
+			name:    "update multiple fields",
 			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			httpProtocolOptions: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
@@ -3472,6 +3494,11 @@ func TestApplyConnectionPool(t *testing.T) {
 					},
 					MaxRequestsPerConnection: 22,
 				},
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					MaxConnectionDuration: &durationpb.Duration{
+						Seconds: 500,
+					},
+				},
 			},
 			expectedHTTPPOpt: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
@@ -3479,6 +3506,9 @@ func TestApplyConnectionPool(t *testing.T) {
 						Seconds: 22,
 					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 22},
+					MaxConnectionDuration: &durationpb.Duration{
+						Seconds: 500,
+					},
 				},
 			},
 		},
@@ -3504,6 +3534,8 @@ func TestApplyConnectionPool(t *testing.T) {
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.IdleTimeout)
 			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection,
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.MaxRequestsPerConnection)
+			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.MaxConnectionDuration,
+				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.MaxConnectionDuration)
 		})
 	}
 }

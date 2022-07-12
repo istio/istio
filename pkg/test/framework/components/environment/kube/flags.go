@@ -103,7 +103,7 @@ func getKubeConfigsFromEnvironment() ([]string, error) {
 		return nil, err
 	}
 	if len(out) == 0 {
-		scopes.Framework.Info("Environment variable KUBECONFIG unspecified, defaultiing to ~/.kube/config.")
+		scopes.Framework.Info("Environment variable KUBECONFIG unspecified, defaulting to ~/.kube/config.")
 		normalizedDefaultKubeConfig, err := file.NormalizePath(defaultKubeConfig)
 		if err != nil {
 			return nil, fmt.Errorf("error normalizing default kube config file %s: %v",

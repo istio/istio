@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
@@ -62,8 +63,14 @@ func GenManifests(inFilename []string, setFlags []string, force bool, filter []s
 	}
 
 	t := translate.NewTranslator()
-
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t, filter)
+	var ver *version.Info
+	if client != nil {
+		ver, err = client.GetKubernetesVersion()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t, filter, ver)
 	if err != nil {
 		return nil, nil, err
 	}

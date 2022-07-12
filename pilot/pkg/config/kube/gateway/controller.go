@@ -25,12 +25,10 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
@@ -181,14 +179,19 @@ func (c *Controller) Recompute(context model.GatewayContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to list type BackendPolicy: %v", err)
 	}
+	referenceGrant, err := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
+	if err != nil {
+		return fmt.Errorf("failed to list type BackendPolicy: %v", err)
+	}
 
-	input := &KubernetesResources{
+	input := KubernetesResources{
 		GatewayClass:    deepCopyStatus(gatewayClass),
 		Gateway:         deepCopyStatus(gateway),
 		HTTPRoute:       deepCopyStatus(httpRoute),
 		TCPRoute:        deepCopyStatus(tcpRoute),
 		TLSRoute:        deepCopyStatus(tlsRoute),
 		ReferencePolicy: referencePolicy,
+		ReferenceGrant:  referenceGrant,
 		Domain:          c.domain,
 		Context:         context,
 	}
@@ -222,7 +225,7 @@ func (c *Controller) Recompute(context model.GatewayContext) error {
 	return nil
 }
 
-func (c *Controller) QueueStatusUpdates(r *KubernetesResources) {
+func (c *Controller) QueueStatusUpdates(r KubernetesResources) {
 	c.handleStatusUpdates(r.GatewayClass)
 	c.handleStatusUpdates(r.Gateway)
 	c.handleStatusUpdates(r.HTTPRoute)
@@ -291,20 +294,9 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
-	p, err := credentials.ParseResourceName(resourceName, "", "", "")
-	if err != nil {
-		log.Warnf("failed to parse resource name %q: %v", resourceName, err)
-		return false
-	}
-	from := Reference{Kind: gvk.KubernetesGateway, Namespace: k8s.Namespace(namespace)}
-	to := Reference{Kind: gvk.Secret, Namespace: k8s.Namespace(p.Namespace)}
 	c.stateMu.RLock()
-	allow := c.state.AllowedReferences[from][to]
-	c.stateMu.RUnlock()
-	if allow == nil {
-		return false
-	}
-	return allow.AllowAll || allow.AllowedNames.Contains(p.Name)
+	defer c.stateMu.RUnlock()
+	return c.state.AllowedReferences.SecretAllowed(resourceName, namespace)
 }
 
 // namespaceEvent handles a namespace add/update. Gateway's can select routes by label, so we need to handle
@@ -388,7 +380,7 @@ func filterNamespace(cfgs []config.Config, namespace string) []config.Config {
 
 // anyApisUsed determines if there are any gateway-api resources created at all. If not, we can
 // short circuit all processing to avoid excessive work.
-func anyApisUsed(input *KubernetesResources) bool {
+func anyApisUsed(input KubernetesResources) bool {
 	return len(input.GatewayClass) > 0 ||
 		len(input.Gateway) > 0 ||
 		len(input.HTTPRoute) > 0 ||

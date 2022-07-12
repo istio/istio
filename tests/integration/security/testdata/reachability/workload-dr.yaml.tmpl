@@ -1,0 +1,9 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: "{{ .To.ServiceName }}"
+spec:
+  host: "{{ .To.ClusterLocalFQDN }}"
+  trafficPolicy:
+    tls:
+      mode: {{ .TLSMode }}

@@ -224,7 +224,7 @@ spec:
       - destination:
           host: c
           subset: v2
-        weight: 15`
+        weight: -15`
 	invalidVirtualServiceV1Beta1 = `
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
@@ -608,7 +608,7 @@ $`),
 	\* DestinationRule//reviews-cb-policy: outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead
 
 Error: 1 error occurred:
-	\* VirtualService//invalid-virtual-service: total destination weight 90 != 100`),
+	\* VirtualService//invalid-virtual-service: weight -15 < 0`),
 			wantError: true,
 		},
 	}

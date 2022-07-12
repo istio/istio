@@ -16,7 +16,7 @@ package authz
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -129,14 +130,26 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 func readDeploymentYAML(ctx resource.Context) (string, error) {
 	// Read the samples file.
 	filePath := fmt.Sprintf("%s/samples/extauthz/ext-authz.yaml", env.IstioSrc)
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err
 	}
 	yamlText := string(data)
-
 	// Replace the image.
 	s := ctx.Settings().Image
+	if s.PullSecret != "" {
+		var imageSpec resource.ImageSettings
+		imageSpec.PullSecret = s.PullSecret
+		secretName, err := imageSpec.PullSecretName()
+		if err != nil {
+			return "", err
+		}
+		yamlText, err = addPullSecret(yamlText, secretName)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	oldImage := "gcr.io/istio-testing/ext-authz:latest"
 	newImage := fmt.Sprintf("%s/ext-authz:%s", s.Hub, strings.TrimSuffix(s.Tag, "-distroless"))
 	yamlText = strings.ReplaceAll(yamlText, oldImage, newImage)
@@ -147,6 +160,16 @@ func readDeploymentYAML(ctx resource.Context) (string, error) {
 	yamlText = strings.ReplaceAll(yamlText, oldPolicy, newPolicy)
 
 	return yamlText, nil
+}
+
+func addPullSecret(resource string, pullSecret string) (string, error) {
+	res := yml.SplitString(resource)
+	updatedYaml, err := yml.ApplyPullSecret(res[1], pullSecret)
+	if err != nil {
+		return "", err
+	}
+	mergedYaml := yml.JoinString(res[0], updatedYaml)
+	return mergedYaml, nil
 }
 
 func (s *serverImpl) deploy(ctx resource.Context) error {
@@ -226,7 +249,7 @@ func installProviders(ctx resource.Context, providerYAML string) error {
 		return err
 	}
 
-	return istio.UpdateMeshConfig(ctx, ist.Settings().SystemNamespace, ctx.Clusters(),
+	return ist.UpdateMeshConfig(ctx,
 		func(mc *meshconfig.MeshConfig) error {
 			// Merge the extension providers.
 			mc.ExtensionProviders = append(mc.ExtensionProviders, newMC.ExtensionProviders...)
