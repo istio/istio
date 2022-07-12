@@ -28,8 +28,9 @@ import (
 var (
 	timeoutSeconds       int
 	requestTimeoutMillis int
-	periodMillis         int
 	url                  string
+
+	timeoutCheck = make(chan struct{})
 
 	waitCmd = &cobra.Command{
 		Use:   "wait",
@@ -41,17 +42,23 @@ var (
 			log.Infof("Waiting for Envoy proxy to be ready (timeout: %d seconds)...", timeoutSeconds)
 
 			var err error
-			timeoutAt := time.Now().Add(time.Duration(timeoutSeconds) * time.Second)
-			for time.Now().Before(timeoutAt) {
-				err = checkIfReady(client, url)
-				if err == nil {
-					log.Infof("Envoy is ready!")
-					return nil
+			go func() {
+				time.Sleep(time.Duration(timeoutSeconds) * time.Second)
+				timeoutCheck <- struct{}{}
+			}()
+			for {
+				select {
+				case <-timeoutCheck:
+					return fmt.Errorf("timeout waiting for Envoy proxy to become ready. Last error: %v", err)
+				default:
+					err = checkIfReady(client, url)
+					if err == nil {
+						log.Infof("Envoy is ready!")
+						return nil
+					}
+					log.Debugf("Not ready yet: %v", err)
 				}
-				log.Debugf("Not ready yet: %v", err)
-				time.Sleep(time.Duration(periodMillis) * time.Millisecond)
 			}
-			return fmt.Errorf("timeout waiting for Envoy proxy to become ready. Last error: %v", err)
 		},
 	}
 )
@@ -79,6 +86,5 @@ func checkIfReady(client *http.Client, url string) error {
 func init() {
 	waitCmd.PersistentFlags().IntVar(&timeoutSeconds, "timeoutSeconds", 60, "maximum number of seconds to wait for Envoy to be ready")
 	waitCmd.PersistentFlags().IntVar(&requestTimeoutMillis, "requestTimeoutMillis", 500, "number of milliseconds to wait for response")
-	waitCmd.PersistentFlags().IntVar(&periodMillis, "periodMillis", 500, "number of milliseconds to wait between attempts")
 	waitCmd.PersistentFlags().StringVar(&url, "url", "http://localhost:15021/healthz/ready", "URL to use in requests")
 }
