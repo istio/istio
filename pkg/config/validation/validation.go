@@ -3219,6 +3219,11 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			if port.TargetPort != 0 {
 				errs = appendValidation(errs, ValidatePort(int(port.TargetPort)))
 			}
+			if len(serviceEntry.Addresses) == 0 {
+				if port.Protocol == "" || port.Protocol == "TCP" {
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf("addresses are required for ports serving TCP (or unset) protocol")))
+				}
+			}
 			errs = appendValidation(errs,
 				ValidatePortName(port.Name),
 				ValidateProtocol(port.Protocol),
