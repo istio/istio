@@ -592,7 +592,7 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 			// we cannot return partial error and hope to restart just the downstream
 			// as we are blindly proxying req/responses. For now, the best course of action
 			// is to terminate upstream connection as well and restart afresh.
-			proxyLog.Errorf("downstream [%d] send error: %v", con.conID, err)
+			proxyLog.Errorf("downstream [%d] send error for type url: %v", con.conID, resp.TypeUrl, err)
 		default:
 			// Do not block on downstream error channel push, this could happen when forward
 			// is triggered from a separated goroutine (e.g. ECDS processing go routine) while
