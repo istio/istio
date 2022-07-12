@@ -658,13 +658,20 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 
 	// Disable panic threshold by default as its not typically applicable in k8s environments
 	// with few pods per service.
-	// To do so, set the healthy_panic_threshold field even if its value is 0 (defaults to 50).
+	// To do so, set the healthy_panic_threshold field even if its value is 0 (defaults to 50 in Envoy).
 	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
-	if outlier.MinHealthPercent >= 0 {
+	minHealthPercent := outlier.MinHealthPercent
+	if minHealthPercent >= 0 {
 		if c.CommonLbConfig == nil {
 			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 		}
-		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(outlier.MinHealthPercent)} // defaults to 50
+		// When we are sending unhealthy endpoints, we should disble Panic Threshold. Otherwise
+		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
+		// below minimum health percentage.
+		if features.SendUnhealthyEndpoints {
+			minHealthPercent = 0
+		}
+		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(minHealthPercent)}
 	}
 }
 
@@ -678,6 +685,14 @@ func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
 	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig,
 ) {
+	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
+	// end points when load balancer is in panic mode.
+	if features.SendUnhealthyEndpoints {
+		if c.CommonLbConfig == nil {
+			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
+		}
+		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
+	}
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if localityLbSetting != nil {
 		if c.CommonLbConfig == nil {

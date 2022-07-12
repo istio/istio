@@ -1,0 +1,1160 @@
+[
+    {
+        "clusterName": "agent",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "127.0.0.1",
+                                    "portValue": 15020
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "loadBalancingWeight": 1
+                    }
+                ]
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|9402||cert-manager-istio-csr-metrics.cert-manager.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.156",
+                                    "portValue": 9402
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "cert-manager-istio-csr;cert-manager;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|443||cert-manager-istio-csr.cert-manager.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.156",
+                                    "portValue": 6443
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "cert-manager-istio-csr;cert-manager;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|443||cert-manager-webhook.cert-manager.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.139",
+                                    "portValue": 10250
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "cert-manager-webhook;cert-manager;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|9402||cert-manager.cert-manager.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.142",
+                                    "portValue": 9402
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "cert-manager;cert-manager;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|9080||details.default.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.190",
+                                    "portValue": 9080
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "envoy.transport_socket_match": {
+                                    "tlsMode": "istio"
+                                },
+                                "istio": {
+                                    "workload": "details-v1;default;details;v1;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|9200||elasticsearch.skywalking.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.185",
+                                    "portValue": 9200
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "elasticsearch;skywalking;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|9300||elasticsearch.skywalking.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.185",
+                                    "portValue": 9300
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "elasticsearch;skywalking;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|3000||grafana.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.109",
+                                    "portValue": 3000
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "grafana;istio-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|8000||httpbin.default.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.178",
+                                    "portValue": 80
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "envoy.transport_socket_match": {
+                                    "tlsMode": "istio"
+                                },
+                                "istio": {
+                                    "workload": "httpbin;default;httpbin;v1;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|80||istio-ingressgateway.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.176",
+                                    "portValue": 8080
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "istio-ingressgateway;istio-system;istio-ingressgateway;latest;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|443||istio-ingressgateway.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.176",
+                                    "portValue": 8443
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "istio-ingressgateway;istio-system;istio-ingressgateway;latest;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|15021||istio-ingressgateway.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.176",
+                                    "portValue": 15021
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "istio-ingressgateway;istio-system;istio-ingressgateway;latest;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|443||istiod.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.175",
+                                    "portValue": 15017
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "istiod;istio-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|15010||istiod.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.175",
+                                    "portValue": 15010
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "istiod;istio-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|15012||istiod.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.175",
+                                    "portValue": 15012
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "istiod;istio-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|15014||istiod.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.175",
+                                    "portValue": 15014
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "istiod;istio-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|53||kube-dns.kube-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.8",
+                                    "portValue": 53
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "coredns;kube-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    },
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.3",
+                                    "portValue": 53
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "coredns;kube-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 2
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|9153||kube-dns.kube-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.8",
+                                    "portValue": 9153
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "coredns;kube-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    },
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.3",
+                                    "portValue": 9153
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "coredns;kube-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 2
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|443||kubernetes.default.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "172.18.0.2",
+                                    "portValue": 6443
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": ";;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|4317||otel-collector.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.111",
+                                    "portValue": 4317
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "otel-collector;istio-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|9080||productpage.default.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.194",
+                                    "portValue": 9080
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "envoy.transport_socket_match": {
+                                    "tlsMode": "istio"
+                                },
+                                "istio": {
+                                    "workload": "productpage-v1;default;productpage;v1;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|9090||prometheus.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.110",
+                                    "portValue": 9090
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "prometheus;istio-system;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "prometheus_stats",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "127.0.0.1",
+                                    "portValue": 15000
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "loadBalancingWeight": 1
+                    }
+                ]
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|9080||ratings.default.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.191",
+                                    "portValue": 9080
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "envoy.transport_socket_match": {
+                                    "tlsMode": "istio"
+                                },
+                                "istio": {
+                                    "workload": "ratings-v1;default;ratings;v1;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|9080||reviews.default.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.192",
+                                    "portValue": 9080
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "envoy.transport_socket_match": {
+                                    "tlsMode": "istio"
+                                },
+                                "istio": {
+                                    "workload": "reviews-v3;default;reviews;v3;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    },
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.193",
+                                    "portValue": 9080
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "envoy.transport_socket_match": {
+                                    "tlsMode": "istio"
+                                },
+                                "istio": {
+                                    "workload": "reviews-v2;default;reviews;v2;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    },
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.195",
+                                    "portValue": 9080
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "envoy.transport_socket_match": {
+                                    "tlsMode": "istio"
+                                },
+                                "istio": {
+                                    "workload": "reviews-v1;default;reviews;v1;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 3
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "sds-grpc",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "pipe": {
+                                    "path": "./var/run/secrets/workload-spiffe-uds/socket"
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "loadBalancingWeight": 1
+                    }
+                ]
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|11800||skywalking-oap.skywalking.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.188",
+                                    "portValue": 11800
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "skywalking-oap;skywalking;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|12800||skywalking-oap.skywalking.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.188",
+                                    "portValue": 12800
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "skywalking-oap;skywalking;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|80||skywalking-ui.skywalking.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.189",
+                                    "portValue": 8080
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "skywalking-ui;skywalking;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|80||sleep.default.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.177",
+                                    "portValue": 80
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "envoy.transport_socket_match": {
+                                    "tlsMode": "istio"
+                                },
+                                "istio": {
+                                    "workload": "sleep;default;sleep;latest;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "xds-grpc",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "pipe": {
+                                    "path": "./etc/istio/proxy/XDS"
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "loadBalancingWeight": 1
+                    }
+                ]
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    }
+]

@@ -38,8 +38,8 @@ func TestReachability(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-			from := apps.A
-			to := apps.B
+			from := apps.EchoNamespace.A
+			to := apps.EchoNamespace.B
 			fromAndTo := from.Append(to)
 
 			echotest.New(t, fromAndTo).

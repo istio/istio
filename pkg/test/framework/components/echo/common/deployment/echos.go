@@ -63,7 +63,7 @@ type Config struct {
 	//
 	// Custom echo instances will be accessible from the `All` field in the namespace(s) under which they
 	// were created.
-	Custom []echo.Config
+	Custom echo.CustomGetter
 }
 
 func (c *Config) fillDefaults(ctx resource.Context) error {
@@ -75,18 +75,20 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 	}
 
 	// Verify the namespace for any custom deployments.
-	for _, custom := range c.Custom {
-		if custom.Namespace != nil {
-			found := false
-			for _, ns := range c.Namespaces {
-				if custom.Namespace.Name() == ns.Get().Name() {
-					found = true
-					break
+	if c.Custom != nil {
+		for _, custom := range c.Custom.Get() {
+			if custom.Namespace != nil {
+				found := false
+				for _, ns := range c.Namespaces {
+					if custom.Namespace.Name() == ns.Get().Name() {
+						found = true
+						break
+					}
 				}
-			}
-			if !found {
-				return fmt.Errorf("custom echo deployment %s uses unconfigured namespace %s",
-					custom.NamespacedName().String(), custom.NamespaceName())
+				if !found {
+					return fmt.Errorf("custom echo deployment %s uses unconfigured namespace %s",
+						custom.NamespacedName().String(), custom.NamespaceName())
+				}
 			}
 		}
 	}
