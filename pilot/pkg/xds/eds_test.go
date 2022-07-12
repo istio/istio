@@ -34,6 +34,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	uatomic "go.uber.org/atomic"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/xds"
@@ -43,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -354,6 +356,7 @@ func TestEDSOverlapping(t *testing.T) {
 }
 
 func TestEDSUnhealthyEndpoints(t *testing.T) {
+	test.SetBoolForTest(t, &features.SendUnhealthyEndpoints, true)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addUnhealthyCluster(s)
 	adscon := s.Connect(nil, nil, watchEds)
@@ -1020,7 +1023,8 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 // This test includes a 'bad client' regression test, which fails to read on the
 // stream.
 func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
-	nPushes int, to time.Duration, _ map[string]string, t *testing.T) {
+	nPushes int, to time.Duration, _ map[string]string, t *testing.T,
+) {
 	wgConnect := &sync.WaitGroup{}
 	wg := &sync.WaitGroup{}
 	errChan := make(chan error, nclients)
