@@ -148,7 +148,10 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 			results = append(results, res)
 		}
 	}
-	return results, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
+	return results, model.XdsLogDetails{
+		Incremental:    updatedSecrets != nil,
+		AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated),
+	}, nil
 }
 
 func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {
