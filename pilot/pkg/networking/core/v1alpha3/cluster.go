@@ -662,9 +662,6 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
 	minHealthPercent := outlier.MinHealthPercent
 	if minHealthPercent >= 0 {
-		if c.CommonLbConfig == nil {
-			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
-		}
 		// When we are sending unhealthy endpoints, we should disble Panic Threshold. Otherwise
 		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
 		// below minimum health percentage.
@@ -688,16 +685,10 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
 	// end points when load balancer is in panic mode.
 	if features.SendUnhealthyEndpoints {
-		if c.CommonLbConfig == nil {
-			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
-		}
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if localityLbSetting != nil {
-		if c.CommonLbConfig == nil {
-			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
-		}
 		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
 			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}

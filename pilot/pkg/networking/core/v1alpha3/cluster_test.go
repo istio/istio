@@ -1781,6 +1781,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
 				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
+				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 			}
 
 			if tt.discoveryType == cluster.Cluster_ORIGINAL_DST {
