@@ -205,27 +205,27 @@ func TestCreateCertificate(t *testing.T) {
 			ca:   &mockca.FakeCA{},
 		},
 		"CA not ready": {
-			authenticators: []security.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Invalid CSR": {
-			authenticators: []security.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CSRError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Invalid TTL": {
-			authenticators: []security.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.TTLError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
-			authenticators: []security.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CertGenError, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Successful signing": {
-			authenticators: []security.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte("cert"),
 				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
