@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -579,7 +578,7 @@ func TestAgent(t *testing.T) {
 	})
 	t.Run("GCP", func(t *testing.T) {
 		os.MkdirAll(filepath.Join(wd, "var/run/secrets/tokens"), 0o755)
-		ioutil.WriteFile(filepath.Join(wd, "var/run/secrets/tokens/istio-token"), []byte("test-token"), 0o644)
+		os.WriteFile(filepath.Join(wd, "var/run/secrets/tokens/istio-token"), []byte("test-token"), 0o644)
 		a := Setup(t, func(a AgentTest) AgentTest {
 			a.envoyEnable = true
 			a.enableSTS = true

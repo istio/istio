@@ -31,6 +31,7 @@ import (
 	"github.com/lucas-clemente/quic-go/http3"
 	"golang.org/x/net/http2"
 
+	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -107,7 +108,7 @@ func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 			return &http2.Transport{
 				TLSClientConfig: cfg.tlsConfig,
 				DialTLS: func(network, addr string, tlsConfig *tls.Config) (net.Conn, error) {
-					return tls.DialWithDialer(newDialer(cfg.forceDNSLookup), network, addr, tlsConfig)
+					return hbone.TLSDialWithDialer(newDialer(cfg), network, addr, tlsConfig)
 				},
 			}
 		}
@@ -119,7 +120,7 @@ func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 			AllowHTTP: true,
 			// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
 			DialTLS: func(network, addr string, _ *tls.Config) (net.Conn, error) {
-				return newDialer(cfg.forceDNSLookup).Dial(network, addr)
+				return newDialer(cfg).Dial(network, addr)
 			},
 		}
 	}
@@ -147,11 +148,11 @@ func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 func newHTTPTransportGetter(cfg *Config) (httpTransportGetter, func()) {
 	newConn := func() *http.Transport {
 		dialContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return newDialer(cfg.forceDNSLookup).DialContext(ctx, network, addr)
+			return newDialer(cfg).DialContext(ctx, network, addr)
 		}
 		if len(cfg.UDS) > 0 {
 			dialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return newDialer(cfg.forceDNSLookup).DialContext(ctx, "unix", cfg.UDS)
+				return newDialer(cfg).DialContext(ctx, "unix", cfg.UDS)
 			}
 		}
 		out := &http.Transport{

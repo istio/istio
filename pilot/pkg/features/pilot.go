@@ -106,8 +106,10 @@ var (
 
 	SendUnhealthyEndpoints = env.RegisterBoolVar(
 		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
-		true,
-		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing.",
+		false,
+		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing."+
+			"  To avoid, sending traffic to non ready endpoints, enabling this flag, disables panic threshold in Envoy i.e. Envoy does not load balance requests"+
+			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
 	).Get()
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
@@ -382,7 +384,7 @@ var (
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
-	ExternalIstiod = env.RegisterBoolVar("EXTERNAL_ISTIOD", true,
+	ExternalIstiod = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
@@ -552,6 +554,10 @@ var (
 		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
 			"This occurs for EDS in many cases regardless of this setting.").Get()
 
+	// PushOnRepeatNonce is feature flag only, can be cleaned up once stabilized.
+	PushOnRepeatNonce = env.RegisterBoolVar("PILOT_PUSH_REPEATED_NONCES", true,
+		"If enabled, pilot will send responses to XDS requests that have an already requested nonce.").Get()
+
 	EnableLegacyIstioMutualCredentialName = env.RegisterBoolVar("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,
 		"If enabled, Gateway's with ISTIO_MUTUAL mode and credentialName configured will use simple TLS. "+
@@ -631,7 +637,7 @@ var (
 		"If enabled, metadata representing canonical services for ServiceEntry resources with a location of mesh_external will be populated"+
 			"in the cluster metadata for those endpoints.").Get()
 
-	LocalClusterSecretWatcher = env.RegisterBoolVar("LOCAL_CLUSTER_SECERT_WATCHER", false,
+	LocalClusterSecretWatcher = env.RegisterBoolVar("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
 )
 

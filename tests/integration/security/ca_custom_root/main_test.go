@@ -31,241 +31,264 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
-	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
-const (
-	ASvc = "a"
-	BSvc = "b"
+var (
+	inst              istio.Instance
+	apps              deployment.SingleNamespaceView
+	client            echo.Instances
+	server            echo.Instances
+	serverNakedFoo    echo.Instances
+	serverNakedBar    echo.Instances
+	serverNakedFooAlt echo.Instances
+	customConfig      []echo.Config
+	echo1NS           namespace.Instance
 )
 
-type EchoDeployments struct {
-	Namespace namespace.Instance
-	// workloads for TestSecureNaming
-	A, B echo.Instances
-	// workloads for TestTrustDomainAliasSecureNaming
-	// workload Client is also used by TestTrustDomainValidation
-	// ServerNakedFooAlt using also used in the multi_root_test.go test case
-	Client, ServerNakedFoo, ServerNakedBar, ServerNakedFooAlt echo.Instances
-	// workloads for TestTrustDomainValidation
-	Naked, Server echo.Instances
+func TestMain(m *testing.M) {
+	framework.
+		NewSuite(m).
+		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
+		Label(label.CustomSetup).
+		Setup(istio.Setup(&inst, setupConfig, cert.CreateCASecret)).
+		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true})).
+		Setup(func(ctx resource.Context) error {
+			err := SetupApps(ctx, namespace.Future(&echo1NS), &customConfig)
+			if err != nil {
+				return err
+			}
+			return nil
+		}).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{
+			Namespaces: []namespace.Getter{
+				namespace.Future(&echo1NS),
+			},
+			Custom: echo.CustomFuture(&customConfig),
+		})).
+		Setup(func(ctx resource.Context) error {
+			return createCustomInstances(&apps)
+		}).
+		Run()
 }
 
-var (
-	inst istio.Instance
-	apps = &EchoDeployments{}
-)
-
-func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
-	var err error
-	apps.Namespace, err = namespace.New(ctx, namespace.Config{
-		Prefix: "test-ns",
-		Inject: true,
-	})
+func setupConfig(_ resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	// Add alternate root certificate to list of trusted anchors
+	script := path.Join(env.IstioSrc, "samples/certs", "root-cert-alt.pem")
+	rootPEM, err := cert.LoadCert(script)
 	if err != nil {
-		return err
+		return
 	}
 
+	cfgYaml := tmpl.MustEvaluate(`
+values:
+  pilot:
+    env:
+      ISTIO_MULTIROOT_MESH: true
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        PROXY_CONFIG_XDS_AGENT: "true"
+    trustDomainAliases: [some-other, trust-domain-foo]
+    caCertificates:
+    - pem: |
+{{.pem | indent 8}}
+`, map[string]string{"pem": rootPEM})
+	cfg.ControlPlaneValues = cfgYaml
+}
+
+func createCustomInstances(apps *deployment.SingleNamespaceView) error {
+	for index, namespacedName := range apps.EchoNamespace.All.NamespacedNames() {
+		switch {
+		case namespacedName.Name == "client":
+			client = apps.EchoNamespace.All[index]
+		case namespacedName.Name == "server":
+			server = apps.EchoNamespace.All[index]
+		case namespacedName.Name == "server-naked-foo":
+			serverNakedFoo = apps.EchoNamespace.All[index]
+		case namespacedName.Name == "server-naked-bar":
+			serverNakedBar = apps.EchoNamespace.All[index]
+		case namespacedName.Name == "server-naked-foo-alt":
+			serverNakedFooAlt = apps.EchoNamespace.All[index]
+		}
+	}
+	return nil
+}
+
+func SetupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]echo.Config) error {
 	tmpdir, err := ctx.CreateTmpDirectory("ca-custom-root")
 	if err != nil {
 		return err
 	}
 
 	// Create testing certs using runtime namespace.
-	err = generateCerts(tmpdir, apps.Namespace.Name())
+	err = generateCerts(tmpdir, customNs.Get().Name())
 	if err != nil {
 		return err
 	}
-	rootCert, err := loadCert(path.Join(tmpdir, "root-cert.pem"))
+	rootCert, err := cert.LoadCert(path.Join(tmpdir, "root-cert.pem"))
 	if err != nil {
 		return err
 	}
-	clientCert, err := loadCert(path.Join(tmpdir, "workload-server-naked-foo-cert.pem"))
+	clientCert, err := cert.LoadCert(path.Join(tmpdir, "workload-server-naked-foo-cert.pem"))
 	if err != nil {
 		return err
 	}
-	Key, err := loadCert(path.Join(tmpdir, "workload-server-naked-foo-key.pem"))
-	if err != nil {
-		return err
-	}
-
-	rootCertAlt, err := loadCert(path.Join(tmpdir, "root-cert-alt.pem"))
-	if err != nil {
-		return err
-	}
-	clientCertAlt, err := loadCert(path.Join(tmpdir, "workload-server-naked-foo-alt-cert.pem"))
-	if err != nil {
-		return err
-	}
-	keyAlt, err := loadCert(path.Join(tmpdir, "workload-server-naked-foo-alt-key.pem"))
+	Key, err := cert.LoadCert(path.Join(tmpdir, "workload-server-naked-foo-key.pem"))
 	if err != nil {
 		return err
 	}
 
-	builder := deployment.New(ctx)
-	builder.
-		WithClusters(ctx.Clusters()...).
-		WithConfig(util.EchoConfig(ASvc, apps.Namespace, false, nil)).
-		WithConfig(util.EchoConfig(BSvc, apps.Namespace, false, nil)).
-		// Deploy 3 workloads:
-		// client: echo app with istio-proxy sidecar injected, holds default trust domain cluster.local.
-		// serverNakedFoo: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-foo.
-		// serverNakedBar: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-bar.
-		WithConfig(echo.Config{
-			Namespace: apps.Namespace,
-			Service:   "client",
-		}).
-		WithConfig(echo.Config{
-			Namespace: apps.Namespace,
-			Service:   "server-naked-foo",
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-				},
-			},
-			ServiceAccount: true,
-			Ports: []echo.Port{
-				{
-					Name:         "https",
-					Protocol:     protocol.HTTPS,
-					ServicePort:  443,
-					WorkloadPort: 8443,
-					TLS:          true,
-				},
-			},
-			TLSSettings: &common.TLSSettings{
-				RootCert:      rootCert,
-				ClientCert:    clientCert,
-				Key:           Key,
-				AcceptAnyALPN: true,
-			},
-		}).
-		WithConfig(echo.Config{
-			Namespace: apps.Namespace,
-			Service:   "server-naked-bar",
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-				},
-			},
-			ServiceAccount: true,
-			Ports: []echo.Port{
-				{
-					Name:         "https",
-					Protocol:     protocol.HTTPS,
-					ServicePort:  443,
-					WorkloadPort: 8443,
-					TLS:          true,
-				},
-			},
-			TLSSettings: &common.TLSSettings{
-				RootCert:      rootCert,
-				ClientCert:    clientCert,
-				Key:           Key,
-				AcceptAnyALPN: true,
-			},
-		}).
-		WithConfig(echo.Config{
-			// Adding echo server for multi-root tests
-			Namespace: apps.Namespace,
-			Service:   "server-naked-foo-alt",
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-				},
-			},
-			ServiceAccount: true,
-			Ports: []echo.Port{
-				{
-					Name:         "https",
-					Protocol:     protocol.HTTPS,
-					ServicePort:  443,
-					WorkloadPort: 8443,
-					TLS:          true,
-				},
-			},
-			TLSSettings: &common.TLSSettings{
-				RootCert:      rootCertAlt,
-				ClientCert:    clientCertAlt,
-				Key:           keyAlt,
-				AcceptAnyALPN: true,
-			},
-		}).
-		WithConfig(echo.Config{
-			Namespace: apps.Namespace,
-			Service:   "naked",
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-				},
-			},
-		}).
-		WithConfig(echo.Config{
-			Subsets:        []echo.SubsetConfig{{}},
-			Namespace:      apps.Namespace,
-			Service:        "server",
-			ServiceAccount: true,
-			Ports: []echo.Port{
-				{
-					Name:         httpPlaintext,
-					Protocol:     protocol.HTTP,
-					ServicePort:  8090,
-					WorkloadPort: 8090,
-				},
-				{
-					Name:         httpMTLS,
-					Protocol:     protocol.HTTP,
-					ServicePort:  8091,
-					WorkloadPort: 8091,
-				},
-				{
-					Name:         tcpPlaintext,
-					Protocol:     protocol.TCP,
-					ServicePort:  8092,
-					WorkloadPort: 8092,
-				},
-				{
-					Name:         tcpMTLS,
-					Protocol:     protocol.TCP,
-					ServicePort:  8093,
-					WorkloadPort: 8093,
-				},
-				{
-					Name:         tcpWL,
-					WorkloadPort: 9000,
-					Protocol:     protocol.TCP,
-				},
-			},
-		})
-	echos, err := builder.Build()
+	rootCertAlt, err := cert.LoadCert(path.Join(tmpdir, "root-cert-alt.pem"))
 	if err != nil {
 		return err
 	}
-	apps.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Client = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.ServerNakedFoo = match.ServiceName(echo.NamespacedName{Name: "server-naked-foo", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.ServerNakedBar = match.ServiceName(echo.NamespacedName{Name: "server-naked-bar", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.ServerNakedFooAlt = match.ServiceName(echo.NamespacedName{Name: "server-naked-foo-alt", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Naked = match.ServiceName(echo.NamespacedName{Name: "naked", Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: apps.Namespace}).GetMatches(echos)
+	clientCertAlt, err := cert.LoadCert(path.Join(tmpdir, "workload-server-naked-foo-alt-cert.pem"))
+	if err != nil {
+		return err
+	}
+	keyAlt, err := cert.LoadCert(path.Join(tmpdir, "workload-server-naked-foo-alt-key.pem"))
+	if err != nil {
+		return err
+	}
+
+	var customConfig []echo.Config
+
+	clientConfig := echo.Config{
+		Namespace: customNs.Get(),
+		Service:   "client",
+	}
+	serverNakedFooConfig := echo.Config{
+		Namespace: customNs.Get(),
+		Service:   "server-naked-foo",
+		Subsets: []echo.SubsetConfig{
+			{
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			},
+		},
+		ServiceAccount: true,
+		Ports: []echo.Port{
+			{
+				Name:         "https",
+				Protocol:     protocol.HTTPS,
+				ServicePort:  443,
+				WorkloadPort: 8443,
+				TLS:          true,
+			},
+		},
+		TLSSettings: &common.TLSSettings{
+			RootCert:      rootCert,
+			ClientCert:    clientCert,
+			Key:           Key,
+			AcceptAnyALPN: true,
+		},
+	}
+
+	serverNakedBarConfig := echo.Config{
+		Namespace: customNs.Get(),
+		Service:   "server-naked-bar",
+		Subsets: []echo.SubsetConfig{
+			{
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			},
+		},
+		ServiceAccount: true,
+		Ports: []echo.Port{
+			{
+				Name:         "https",
+				Protocol:     protocol.HTTPS,
+				ServicePort:  443,
+				WorkloadPort: 8443,
+				TLS:          true,
+			},
+		},
+		TLSSettings: &common.TLSSettings{
+			RootCert:      rootCert,
+			ClientCert:    clientCert,
+			Key:           Key,
+			AcceptAnyALPN: true,
+		},
+	}
+
+	serverNakedFooAltConfig := echo.Config{
+		// Adding echo server for multi-root tests
+		Namespace: customNs.Get(),
+		Service:   "server-naked-foo-alt",
+		Subsets: []echo.SubsetConfig{
+			{
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			},
+		},
+		ServiceAccount: true,
+		Ports: []echo.Port{
+			{
+				Name:         "https",
+				Protocol:     protocol.HTTPS,
+				ServicePort:  443,
+				WorkloadPort: 8443,
+				TLS:          true,
+			},
+		},
+		TLSSettings: &common.TLSSettings{
+			RootCert:      rootCertAlt,
+			ClientCert:    clientCertAlt,
+			Key:           keyAlt,
+			AcceptAnyALPN: true,
+		},
+	}
+
+	serverConfig := echo.Config{
+		Subsets:        []echo.SubsetConfig{{}},
+		Namespace:      customNs.Get(),
+		Service:        "server",
+		ServiceAccount: true,
+		Ports: []echo.Port{
+			{
+				Name:         httpPlaintext,
+				Protocol:     protocol.HTTP,
+				ServicePort:  8090,
+				WorkloadPort: 8090,
+			},
+			{
+				Name:         httpMTLS,
+				Protocol:     protocol.HTTP,
+				ServicePort:  8091,
+				WorkloadPort: 8091,
+			},
+			{
+				Name:         tcpPlaintext,
+				Protocol:     protocol.TCP,
+				ServicePort:  8092,
+				WorkloadPort: 8092,
+			},
+			{
+				Name:         tcpMTLS,
+				Protocol:     protocol.TCP,
+				ServicePort:  8093,
+				WorkloadPort: 8093,
+			},
+			{
+				Name:         tcpWL,
+				WorkloadPort: 9000,
+				Protocol:     protocol.TCP,
+			},
+		},
+	}
+
+	customConfig = append(customConfig, clientConfig, serverNakedFooConfig, serverNakedBarConfig,
+		serverNakedFooAltConfig, serverConfig)
+
+	*customCfg = customConfig
 	return nil
-}
-
-func loadCert(filename string) (string, error) {
-	data, err := cert.ReadSampleCertFromFile(filename)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 func generateCerts(tmpdir, ns string) error {
@@ -309,45 +332,4 @@ func generateCerts(tmpdir, ns string) error {
 		return fmt.Errorf("failed to create testing certificates: %s", err)
 	}
 	return nil
-}
-
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite(m).
-		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
-		Label(label.CustomSetup).
-		Setup(istio.Setup(&inst, setupConfig, cert.CreateCASecret)).
-		Setup(func(ctx resource.Context) error {
-			return SetupApps(ctx, apps)
-		}).
-		Run()
-}
-
-func setupConfig(_ resource.Context, cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-
-	// Add alternate root certificate to list of trusted anchors
-	script := path.Join(env.IstioSrc, "samples/certs", "root-cert-alt.pem")
-	rootPEM, err := loadCert(script)
-	if err != nil {
-		return
-	}
-
-	cfgYaml := tmpl.MustEvaluate(`
-values:
-  pilot:
-    env:
-      ISTIO_MULTIROOT_MESH: true
-  meshConfig:
-    defaultConfig:
-      proxyMetadata:
-        PROXY_CONFIG_XDS_AGENT: "true"
-    trustDomainAliases: [some-other, trust-domain-foo]
-    caCertificates:
-    - pem: |
-{{.pem | indent 8}}
-`, map[string]string{"pem": rootPEM})
-	cfg.ControlPlaneValues = cfgYaml
 }

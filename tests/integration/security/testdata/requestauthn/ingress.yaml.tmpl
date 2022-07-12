@@ -1,8 +1,7 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: test-ingress
-  namespace: {{ .Namespace }}
+  name: {{ .To.ServiceName }}-gateway
 spec:
   selector:
     istio: ingressgateway # use istio default ingress gateway
@@ -12,21 +11,20 @@ spec:
         name: http
         protocol: HTTP
       hosts:
-        - "*"
+        - "*.{{ .To.ServiceName }}.com"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: test-vs
-  namespace: {{ .Namespace }}
+  name: {{ .To.ServiceName }}
 spec:
   hosts:
-  - "*"
+  - "*.{{ .To.ServiceName }}.com"
   gateways:
-  - test-ingress
+  - {{ .To.ServiceName }}-gateway
   http:
   - route:
     - destination:
-        host: {{ .dst }}
+        host: "{{ .To.ClusterLocalFQDN }}"
         port:
-          number: 8095
+          number: {{ (.To.PortForName `http`).ServicePort }}

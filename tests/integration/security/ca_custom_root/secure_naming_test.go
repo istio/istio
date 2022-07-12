@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util/cert"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 const (
@@ -99,7 +98,9 @@ spec:
 // - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
 // - The plugin CA certs are correctly used in workload mTLS.
 // - The CA certificate in the configmap of each namespace is as expected, which
-//   is used for data plane to control plane TLS authentication.
+//
+//	is used for data plane to control plane TLS authentication.
+//
 // - Secure naming information is respected in the mTLS handshake.
 func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
@@ -107,18 +108,18 @@ func TestSecureNaming(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 
-			testNamespace := apps.Namespace
+			testNamespace := apps.EchoNamespace.Namespace
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 			// Check that the CA certificate in the configmap of each namespace is as expected, which
 			// is used for data plane to control plane TLS authentication.
 			retry.UntilSuccessOrFail(t, func() error {
 				return checkCACert(t, testNamespace)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-			to := match.Namespace(testNamespace).GetMatches(apps.B)
+			to := match.Namespace(testNamespace).GetMatches(apps.EchoNamespace.B)
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.A)[0]
-					b := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.B)[0]
+					a := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.EchoNamespace.A)[0]
+					b := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.EchoNamespace.B)[0]
 					t.NewSubTest("mTLS cert validation with plugin CA").
 						Run(func(t framework.TestContext) {
 							// Verify that the certificate issued to the sidecar is as expected.
@@ -132,7 +133,7 @@ func TestSecureNaming(t *testing.T) {
 									Name: "http",
 								},
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+							opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 							a.CallOrFail(t, opts)
 						})
 
@@ -175,9 +176,9 @@ func TestSecureNaming(t *testing.T) {
 									},
 								}
 								if tc.expectSuccess {
-									opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+									opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 								} else {
-									opts.Check = scheck.NotOK()
+									opts.Check = check.NotOK()
 								}
 
 								a.CallOrFail(t, opts)

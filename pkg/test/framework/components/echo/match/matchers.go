@@ -119,9 +119,14 @@ var External Matcher = func(i echo.Instance) bool {
 // NotExternal is equivalent to Not(External)
 var NotExternal = Not(External)
 
-// Naked matches instances that are Pods with a SidecarInject annotation equal to false.
+// Naked matches instances with any subset marked with SidecarInject equal to false.
 var Naked Matcher = func(i echo.Instance) bool {
 	return i.Config().IsNaked()
+}
+
+// AllNaked matches instances where every subset has SidecarInject set to false.
+var AllNaked Matcher = func(i echo.Instance) bool {
+	return i.Config().IsAllNaked()
 }
 
 // NotNaked is equivalent to Not(Naked)

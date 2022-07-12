@@ -25,6 +25,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
@@ -47,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test"
 )
 
@@ -1707,12 +1709,14 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 
 func TestApplyLoadBalancer(t *testing.T) {
 	testcases := []struct {
-		name                           string
-		lbSettings                     *networking.LoadBalancerSettings
-		discoveryType                  cluster.Cluster_DiscoveryType
-		port                           *model.Port
-		expectedLbPolicy               cluster.Cluster_LbPolicy
-		expectedLocalityWeightedConfig bool
+		name                               string
+		lbSettings                         *networking.LoadBalancerSettings
+		discoveryType                      cluster.Cluster_DiscoveryType
+		port                               *model.Port
+		sendUnhealthyEndpoints             bool
+		expectedLbPolicy                   cluster.Cluster_LbPolicy
+		expectedLocalityWeightedConfig     bool
+		expectClusterLoadAssignmenttoBeNil bool
 	}{
 		{
 			name:             "ORIGINAL_DST discovery type is a no op",
@@ -1747,6 +1751,21 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLbPolicy:               defaultLBAlgorithm(),
 			expectedLocalityWeightedConfig: true,
 		},
+		{
+			name:          "DNS cluster with PASSTHROUGH in DR",
+			discoveryType: cluster.Cluster_STRICT_DNS,
+			lbSettings: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+			},
+			expectedLbPolicy:                   cluster.Cluster_CLUSTER_PROVIDED,
+			expectClusterLoadAssignmenttoBeNil: true,
+		},
+		{
+			name:                   "Send Unhealthy Endpoints enabled",
+			discoveryType:          cluster.Cluster_EDS,
+			sendUnhealthyEndpoints: true,
+			expectedLbPolicy:       defaultLBAlgorithm(),
+		},
 		// TODO: add more to cover all cases
 	}
 
@@ -1758,8 +1777,10 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetBoolForTest(t, &features.SendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
+				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
 			}
 
 			if tt.discoveryType == cluster.Cluster_ORIGINAL_DST {
@@ -1776,8 +1797,15 @@ func TestApplyLoadBalancer(t *testing.T) {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
 			}
 
+			if tt.sendUnhealthyEndpoints && c.CommonLbConfig.HealthyPanicThreshold.GetValue() != 0 {
+				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabeld")
+			}
+
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
 				t.Errorf("cluster expected to have weighed config, but is nil")
+			}
+			if tt.expectClusterLoadAssignmenttoBeNil && c.LoadAssignment != nil {
+				t.Errorf("cluster expected not to have load assignmentset, but is present")
 			}
 		})
 	}
@@ -2505,7 +2533,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "service is added",
 			services:             []*model.Service{testService1, testService2},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|8080||test.com"},
 			usedDelta:            true,
 			removedClusters:      nil,
@@ -2514,7 +2542,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "service is removed",
 			services:             []*model.Service{},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|8080||test.com"},
 			usedDelta:            true,
 			removedClusters:      []string{"outbound|8080||test.com"},
@@ -2523,7 +2551,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "service port is removed",
 			services:             []*model.Service{testService1},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|7070||test.com"},
 			usedDelta:            true,
 			removedClusters:      []string{"outbound|7070||test.com"},
@@ -2532,7 +2560,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "config update that is not delta aware",
 			services:             []*model.Service{testService1, testService2},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|7070||test.com"},
 			usedDelta:            false,
 			removedClusters:      nil,

@@ -72,7 +72,7 @@ func TestGatewayConformance(t *testing.T) {
 		RequiresSingleCluster().
 		Features("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
-			if !supportsCRDv1(ctx) {
+			if !supportsGatewayAPI(ctx) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
 			if err := ctx.ConfigIstio().
@@ -100,6 +100,7 @@ func TestGatewayConformance(t *testing.T) {
 				GatewayClassName:     "istio",
 				Debug:                scopes.Framework.DebugEnabled(),
 				CleanupBaseResources: gatewayConformanceInputs.Cleanup,
+				SupportedFeatures:    []suite.SupportedFeature{suite.SupportReferenceGrant},
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{

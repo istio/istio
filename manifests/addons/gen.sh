@@ -56,7 +56,7 @@ function compressDashboard() {
 {
   helm3 template grafana grafana \
     --namespace istio-system \
-    --version 6.29.5 \
+    --version 6.31.1 \
     --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-grafana.yaml"
 

@@ -138,7 +138,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		serviceDiscovery.AddRegistry(reg)
 	}
 
-	env := &model.Environment{PushContext: model.NewPushContext()}
+	env := model.NewEnvironment()
 	env.Watcher = mesh.NewFixedWatcher(m)
 	if opts.NetworksWatcher == nil {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)

@@ -54,7 +54,7 @@ func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			if !supportsCRDv1(t) {
+			if !supportsGatewayAPI(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
 			if err := t.ConfigIstio().
