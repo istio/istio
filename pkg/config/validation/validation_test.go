@@ -20,6 +20,7 @@ import (
 	"time"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/proto"
@@ -7535,9 +7536,14 @@ func TestRecurseMissingTypedConfig(t *testing.T) {
 		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: nil},
 	}
+	ecds := &hcm.HttpFilter{
+		Name:       "something",
+		ConfigType: &hcm.HttpFilter_ConfigDiscovery{},
+	}
 	bad := &listener.Filter{
 		Name: wellknown.TCPProxy,
 	}
 	assert.Equal(t, recurseMissingTypedConfig(good.ProtoReflect()), []string{}, "typed config set")
+	assert.Equal(t, recurseMissingTypedConfig(ecds.ProtoReflect()), []string{}, "config discovery set")
 	assert.Equal(t, recurseMissingTypedConfig(bad.ProtoReflect()), []string{wellknown.TCPProxy}, "typed config not set")
 }
