@@ -197,9 +197,9 @@ func (l *lruCache) onEvict(k interface{}, v interface{}) {
 		}
 	}
 
-	if l.evictedOnClear {
-		return
-	}
+	// The following cleanup logic needs to be called on every evict(whether passive or on exceeding size)
+	// because, passive eviction might be triggered by one of many dependent configs and we need to clear the
+	// reference from other dependents.
 	// We don't need to acquire locks, since this function is called when we write to the store.
 	key := k.(string)
 	value := v.(cacheValue)
@@ -346,7 +346,6 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
-	// not to call evict on keys that are removed actively
 	l.evictedOnClear = true
 	defer func() {
 		l.evictedOnClear = false
