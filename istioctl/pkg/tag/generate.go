@@ -65,7 +65,7 @@ type GenerateOptions struct {
 	// TODO(Monkeyanator) once we stop using Helm templating remove this.
 	ManifestsPath string
 	// Generate determines whether we should just generate the webhooks without applying. This
-	// applying is not done here but we are looser with checks when doing generate.
+	// applying is not done here, but we are looser with checks when doing generate.
 	Generate bool
 	// Overwrite removes analysis checks around existing webhooks.
 	Overwrite bool
