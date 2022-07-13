@@ -29,7 +29,7 @@ type (
 // Setup runs the given function in the source deployment context.
 //
 // For example, given apps a, b, and c in 2 clusters,
-// these tests would all run before the the context is cleaned up:
+// these tests would all run before the context is cleaned up:
 //     a/to_b/from_cluster-1
 //     a/to_b/from_cluster-2
 //     a/to_c/from_cluster-1

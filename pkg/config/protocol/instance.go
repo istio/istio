@@ -39,7 +39,7 @@ const (
 	HTTP2 Instance = "HTTP2"
 	// HTTPS declares that the port carries HTTPS traffic.
 	HTTPS Instance = "HTTPS"
-	// TCP declares the the port uses TCP.
+	// TCP declares the port uses TCP.
 	// This is the default protocol for a service port.
 	TCP Instance = "TCP"
 	// TLS declares that the port carries TLS traffic.
