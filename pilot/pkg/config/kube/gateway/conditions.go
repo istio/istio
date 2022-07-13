@@ -136,6 +136,9 @@ const (
 	InvalidRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestination indicates an issue with the destination
 	InvalidDestination ConfigErrorReason = "InvalidDestination"
+	InvalidDestinationPermit ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
+	// InvalidDestinationKind indicates an issue with the destination kind
+	InvalidDestinationKind ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonInvalidKind)
 	// InvalidParentRef indicates we could not refer to the parent we request
 	InvalidParentRef ConfigErrorReason = "InvalidParentReference"
 	// InvalidFilter indicates an issue with the filters

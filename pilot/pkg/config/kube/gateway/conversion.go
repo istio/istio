@@ -789,7 +789,7 @@ func buildTCPDestination(refs AllowedReferences, forwardTo []k8s.BackendRef, ns,
 		if toNs := fwd.Namespace; toNs != nil && string(*toNs) != ns {
 			if !refs.BackendAllowed(gvk.HTTPRoute, fwd.Name, *toNs, ns) {
 				return nil, &ConfigError{
-					Reason:  InvalidDestination,
+					Reason:  InvalidDestinationPermit,
 					Message: fmt.Sprintf("backendRef %v/%v not accessible to a route in namespace %q (missing a ReferenceGrant?)", fwd.Name, *toNs, ns),
 				}
 			}
@@ -857,7 +857,7 @@ func buildHTTPDestination(
 		if toNs := fwd.BackendRef.Namespace; toNs != nil && string(*toNs) != ns {
 			if !refs.BackendAllowed(gvk.HTTPRoute, fwd.BackendRef.Name, *toNs, ns) {
 				return nil, &ConfigError{
-					Reason:  InvalidDestination,
+					Reason:  InvalidDestinationPermit,
 					Message: fmt.Sprintf("backendRef %v/%v not accessible to a route in namespace %q (missing a ReferenceGrant?)", fwd.BackendRef.Name, *toNs, ns),
 				}
 			}
@@ -935,7 +935,7 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 		}, nil
 	}
 	return nil, &ConfigError{
-		Reason:  InvalidDestination,
+		Reason:  InvalidDestinationKind,
 		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", emptyIfNil((*string)(to.Group)), emptyIfNil((*string)(to.Kind))),
 	}
 }
@@ -1503,21 +1503,21 @@ func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
 func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerIndex int) (*istio.Server, bool) {
 	listenerConditions := map[string]*condition{
 		string(k8s.ListenerConditionReady): {
-			reason:  "ListenerReady",
+			reason:  string(k8s.ListenerReasonReady),
 			message: "No errors found",
 		},
 		string(k8s.ListenerConditionDetached): {
-			reason:  "ListenerReady",
+			reason:  string(k8s.ListenerReasonAttached),
 			message: "No errors found",
 			status:  kstatus.StatusFalse,
 		},
 		string(k8s.ListenerConditionConflicted): {
-			reason:  "ListenerReady",
+			reason:  string(k8s.ListenerReasonNoConflicts),
 			message: "No errors found",
 			status:  kstatus.StatusFalse,
 		},
 		string(k8s.ListenerConditionResolvedRefs): {
-			reason:  "ListenerReady",
+			reason:  string(k8s.ListenerReasonResolvedRefs),
 			message: "No errors found",
 		},
 	}
