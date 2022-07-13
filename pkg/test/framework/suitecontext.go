@@ -232,7 +232,7 @@ func (c *suiteContext) RequestTestDump() bool {
 	return c.dumpCount.Inc() < c.settings.MaxDumps
 }
 
-func (c *suiteContext) Id() string {
+func (c *suiteContext) ID() string {
 	return c.globalScope.id
 }
 

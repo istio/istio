@@ -385,7 +385,7 @@ func (c *testContext) Skipped() bool {
 	return c.T.Skipped()
 }
 
-func (c *testContext) Id() string {
+func (c *testContext) ID() string {
 	return c.id
 }
 
