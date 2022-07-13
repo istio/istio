@@ -850,7 +850,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 		have := make(map[host.Name]bool)
 		for _, svc := range instances {
 			if svc.ServicePort.Port != opts.port.Port {
-				// If the service port is different from the the port of the cluster that is being built,
+				// If the service port is different from the port of the cluster that is being built,
 				// skip adding telemetry metadata for the service to the cluster.
 				continue
 			}

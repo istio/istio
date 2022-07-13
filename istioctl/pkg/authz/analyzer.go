@@ -43,7 +43,7 @@ func NewAnalyzer(envoyConfig *configdump.Wrapper) (*Analyzer, error) {
 	return &Analyzer{listenerDump: listeners}, nil
 }
 
-// Print print sthe analyze results.
+// Print print the analysis results.
 func (a *Analyzer) Print(writer io.Writer) {
 	var listeners []*listener.Listener
 	for _, l := range a.listenerDump.DynamicListeners {
