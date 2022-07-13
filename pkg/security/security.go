@@ -76,7 +76,6 @@ const (
 
 	// WorkloadKeyCertResourceName is the resource name of the discovery request for workload
 	// identity.
-	// TODO: change all the pilot one reference definition here instead.
 	WorkloadKeyCertResourceName = "default"
 
 	// GCE is Credential fetcher type of Google plugin
@@ -120,8 +119,6 @@ var (
 
 const (
 	BearerTokenPrefix = "Bearer "
-
-	K8sTokenPrefix = "Istio "
 
 	// CertSigner info
 	CertSigner = "CertSigner"
@@ -385,9 +382,6 @@ func ExtractRequestToken(req *http.Request) (string, error) {
 
 	if strings.HasPrefix(value, BearerTokenPrefix) {
 		return strings.TrimPrefix(value, BearerTokenPrefix), nil
-	}
-	if strings.HasPrefix(value, K8sTokenPrefix) {
-		return strings.TrimPrefix(value, K8sTokenPrefix), nil
 	}
 
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
