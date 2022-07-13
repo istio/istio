@@ -2154,6 +2154,115 @@ func TestValidateHTTPRedirect(t *testing.T) {
 	}
 }
 
+func TestValidateHTTPDirectResponse(t *testing.T) {
+	testCases := []struct {
+		name           string
+		directResponse *networking.HTTPDirectResponse
+		valid          bool
+		warning        bool
+	}{
+		{
+			name:           "nil redirect",
+			directResponse: nil,
+			valid:          true,
+		},
+		{
+			name: "status 200",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+			},
+			valid: true,
+		},
+		{
+			name: "status 100",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 199,
+			},
+			valid: false,
+		},
+		{
+			name: "status 600",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 601,
+			},
+			valid: false,
+		},
+		{
+			name: "with string body",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_String_{String_: "hello"},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "with string body over 100kb",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_String_{String_: strings.Repeat("a", 101*kb)},
+				},
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "with string body over 1mb",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_String_{String_: strings.Repeat("a", 2*mb)},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "with bytes body",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_Bytes{Bytes: []byte("hello")},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "with bytes body over 100kb",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_Bytes{Bytes: []byte(strings.Repeat("a", (100*kb)+1))},
+				},
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "with bytes body over 1mb",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_Bytes{Bytes: []byte(strings.Repeat("a", (1*mb)+1))},
+				},
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateHTTPDirectResponse(tc.directResponse); (err.Err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Err == nil, tc.valid, err)
+			}
+			if err := validateHTTPDirectResponse(tc.directResponse); (err.Warning != nil) != tc.warning {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Warning != nil, tc.warning, err)
+			}
+		})
+	}
+}
+
 func TestValidateDestinationWithInheritance(t *testing.T) {
 	test.SetBoolForTest(t, &features.EnableDestinationRuleInheritance, true)
 	cases := []struct {
