@@ -22,11 +22,11 @@ import (
 )
 
 var (
-	callTimeout      = 20 * time.Second
-	callDelay        = 10 * time.Millisecond
+	callTimeout      = 30 * time.Second
+	callDelay        = 20 * time.Millisecond
 	callConverge     = 3
 	readinessTimeout = 10 * time.Minute
-	callsPerWorkload = 5
+	callsPerWorkload = 3
 )
 
 // init registers the command-line flags that we can exposed for "go test".
