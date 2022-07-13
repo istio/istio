@@ -139,8 +139,7 @@ func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig
 			merged.Concurrency = wrapperspb.Int32(pcConcurrency.Value)
 		}
 		if pcs[i].GetImage() != nil {
-			pcImage := pcs[i].GetImage()
-			merged.Image = &v1beta1.ProxyImage{ImageType: pcImage.ImageType}
+			merged.Image = proto.Clone(pcs[i].GetImage()).(*v1beta1.ProxyImage)
 		}
 	}
 	return merged
