@@ -109,7 +109,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			ipAddr:    mockIPAddr,
 			code:      codes.Unauthenticated,
 		},
-		//"unsupported auth type: not-tls"
+		// "unsupported auth type: not-tls"
 		"Unsupported auth type": {
 			certChain:    nil,
 			caller:       nil,
@@ -124,7 +124,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			ipAddr:    mockIPAddr,
 			code:      codes.Unauthenticated,
 		},
-		// certificate misses the the SAN field
+		// certificate misses the SAN field
 		"Certificate has no SAN": {
 			certChain: [][]*x509.Certificate{
 				{

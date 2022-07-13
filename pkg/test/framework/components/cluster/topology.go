@@ -57,7 +57,7 @@ type Topology struct {
 	ConfigMetadata config.Map
 }
 
-// MetadataValue provides the configured value for a metadata key in the the cluster configuration.
+// MetadataValue provides the configured value for a metadata key in the cluster configuration.
 func (c Topology) MetadataValue(key string) string {
 	return c.ConfigMetadata.String(key)
 }
