@@ -44,10 +44,11 @@ var (
 			timeout := time.After(time.Duration(timeoutSeconds) * time.Second)
 
 			for {
+				duration := time.After(time.Duration(periodMillis) * time.Second)
 				select {
 				case <-timeout:
 					return fmt.Errorf("timeout waiting for Envoy proxy to become ready. Last error: %v", err)
-				case <-time.After(time.Duration(periodMillis) * time.Second):
+				case <-duration:
 					err = checkIfReady(client, url)
 					if err == nil {
 						log.Infof("Envoy is ready!")
