@@ -438,6 +438,8 @@ func translateRoute(
 
 	if in.Redirect != nil {
 		applyRedirect(out, in.Redirect, listenPort)
+	} else if in.DirectResponse != nil {
+		applyDirectResponse(out, in.DirectResponse)
 	} else {
 		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
@@ -631,6 +633,33 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 	default:
 		log.Warnf("Redirect Code %d is not yet supported", redirect.RedirectCode)
 		action = nil
+	}
+
+	out.Action = action
+}
+
+func applyDirectResponse(out *route.Route, directResponse *networking.HTTPDirectResponse) {
+	action := &route.Route_DirectResponse{
+		DirectResponse: &route.DirectResponseAction{
+			Status: directResponse.Status,
+		},
+	}
+
+	if directResponse.Body != nil {
+		switch op := directResponse.Body.Specifier.(type) {
+		case *networking.HTTPBody_String_:
+			action.DirectResponse.Body = &core.DataSource{
+				Specifier: &core.DataSource_InlineString{
+					InlineString: op.String_,
+				},
+			}
+		case *networking.HTTPBody_Bytes:
+			action.DirectResponse.Body = &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: op.Bytes,
+				},
+			}
+		}
 	}
 
 	out.Action = action
