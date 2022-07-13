@@ -20,11 +20,13 @@ package forwardproxy
 import (
 	"fmt"
 
+	envoy_accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	envoy_bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	envoy_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_fileaccesslogv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	envoy_clusters_dynamic_forward_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	envoy_common_dynamic_forward_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/common/dynamic_forward_proxy/v3"
 	envoy_filters_dynamic_forward_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
@@ -33,6 +35,7 @@ import (
 	envoy_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -78,9 +81,10 @@ func GenerateForwardProxyBootstrapConfig(listeners []ListenerSettings) (string, 
 		},
 	}
 	for _, listenerSettings := range listeners {
-		hcm := createHTTPConnectionManager(listenerSettings.HTTPVersion)
+		listenerName := fmt.Sprintf("http_forward_proxy_%d", listenerSettings.Port)
+		hcm := createHTTPConnectionManager(listenerName, listenerSettings.HTTPVersion)
 		bootstrap.StaticResources.Listeners = append(bootstrap.StaticResources.Listeners, &envoy_listener.Listener{
-			Name:    fmt.Sprintf("http_forward_proxy_%d", listenerSettings.Port),
+			Name:    listenerName,
 			Address: createSocketAddress("::", listenerSettings.Port),
 			FilterChains: []*envoy_listener.FilterChain{
 				{
@@ -118,8 +122,33 @@ var dynamicForwardProxyCacheConfig = &envoy_common_dynamic_forward_proxy.DnsCach
 	},
 }
 
-func createHTTPConnectionManager(httpVersion string) *envoy_hcm.HttpConnectionManager {
+func createAccessLog(listenerName string) []*envoy_accesslogv3.AccessLog {
+	return []*envoy_accesslogv3.AccessLog{
+		{
+			Name: "envoy.access_loggers.file",
+			ConfigType: &envoy_accesslogv3.AccessLog_TypedConfig{
+				TypedConfig: util.MessageToAny(&envoy_fileaccesslogv3.FileAccessLog{
+					Path: "/dev/stdout",
+					AccessLogFormat: &envoy_fileaccesslogv3.FileAccessLog_LogFormat{
+						LogFormat: &envoy_core.SubstitutionFormatString{
+							Format: &envoy_core.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &envoy_core.DataSource{
+									Specifier: &envoy_core.DataSource_InlineString{
+										InlineString: createAccessLogFormat(listenerName),
+									},
+								},
+							},
+						},
+					},
+				}),
+			},
+		},
+	}
+}
+
+func createHTTPConnectionManager(listenerName, httpVersion string) *envoy_hcm.HttpConnectionManager {
 	hcm := &envoy_hcm.HttpConnectionManager{
+		AccessLog: createAccessLog(listenerName),
 		HttpFilters: []*envoy_hcm.HttpFilter{
 			{
 				Name: "envoy.filters.http.dynamic_forward_proxy",
@@ -220,4 +249,11 @@ func createSocketAddress(addr string, port uint32) *envoy_core.Address {
 			},
 		},
 	}
+}
+
+func createAccessLogFormat(listenerName string) string {
+	return "[%START_TIME%] " + listenerName + " \"%PROTOCOL% %REQ(:METHOD)% %REQ(:AUTHORITY)%\" " +
+		"%RESPONSE_CODE% %RESPONSE_FLAGS% %RESPONSE_CODE_DETAILS% " +
+		"%CONNECTION_TERMINATION_DETAILS% \"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" " +
+		"\"%UPSTREAM_HOST%\" %UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_REMOTE_ADDRESS%\n"
 }
