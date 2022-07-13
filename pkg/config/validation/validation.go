@@ -86,8 +86,8 @@ const (
 	regionIndex int = iota
 	zoneIndex
 	subZoneIndex
-	kb              = 1024
-	mb              = 1024 * kb
+	kb = 1024
+	mb = 1024 * kb
 )
 
 var (
