@@ -191,7 +191,7 @@ func (s *scope) dump(ctx resource.Context, recursive bool) {
 	}
 	st := time.Now()
 	defer func() {
-		scopes.Framework.Debugf("Done dumping scope: %s (%v)", s.id, time.Since(st))
+		scopes.Framework.Debugf("Done dumping: %s for %s (%v)", s.id, ctx.Id(), time.Since(st))
 	}()
 	s.mu.Lock()
 	defer s.mu.Unlock()

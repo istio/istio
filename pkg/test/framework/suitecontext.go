@@ -232,6 +232,10 @@ func (c *suiteContext) RequestTestDump() bool {
 	return c.dumpCount.Inc() < c.settings.MaxDumps
 }
 
+func (c *suiteContext) Id() string {
+	return c.globalScope.id
+}
+
 type Outcome string
 
 const (
