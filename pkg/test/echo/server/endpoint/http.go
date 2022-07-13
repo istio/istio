@@ -121,13 +121,13 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	}
 
 	if s.isUDS() {
-		fmt.Printf("Listening HTTP/1.1 on %v\n", s.UDSServer)
+		epLog.Infof("Listening HTTP/1.1 on %v\n", s.UDSServer)
 	} else if s.Port.TLS {
 		s.server.Addr = fmt.Sprintf(":%d", port)
-		fmt.Printf("Listening HTTPS/1.1 on %v\n", port)
+		epLog.Infof("Listening HTTPS/1.1 on %v\n", port)
 	} else {
 		s.server.Addr = fmt.Sprintf(":%d", port)
-		fmt.Printf("Listening HTTP/1.1 on %v\n", port)
+		epLog.Infof("Listening HTTP/1.1 on %v\n", port)
 	}
 
 	// Start serving HTTP traffic.
