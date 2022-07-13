@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,10 +21,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/alecholmes/xfccparser"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
-
-	"github.com/alecholmes/xfccparser"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/security"
