@@ -74,6 +74,7 @@ type Telemetries struct {
 	// creation, we will preserve the Telemetries (and thus the cache) if not Telemetries are modified.
 	// As result, this cache will live until any Telemetry is modified.
 	computedMetricsFilters map[metricsKey]interface{}
+	computedLoggingConfig  map[loggingKey]*LoggingConfig
 	mu                     sync.Mutex
 
 	push *PushContext
@@ -87,6 +88,13 @@ type telemetryKey struct {
 	Namespace NamespacedName
 	// Workload stores the Telemetry in the root namespace, if any
 	Workload NamespacedName
+}
+
+// loggingKey defines a key into the computedLoggingConfig cache.
+type loggingKey struct {
+	telemetryKey
+	Class    networking.ListenerClass
+	Protocol networking.ListenerProtocol
 }
 
 // metricsKey defines a key into the computedMetricsFilters cache.
@@ -103,6 +111,7 @@ func getTelemetries(push *PushContext, env *Environment) (*Telemetries, error) {
 		RootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
 		computedMetricsFilters: map[metricsKey]interface{}{},
+		computedLoggingConfig:  map[loggingKey]*LoggingConfig{},
 		push:                   push,
 	}
 
@@ -214,7 +223,18 @@ func (t *Telemetries) AccessLogging(proxy *Proxy, class networking.ListenerClass
 		return nil
 	}
 
-	cfg := LoggingConfig{}
+	key := loggingKey{
+		telemetryKey: ct.telemetryKey,
+		Class:        class,
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	precomputed, ok := t.computedLoggingConfig[key]
+	if ok {
+		return precomputed
+	}
+
+	cfg := &LoggingConfig{}
 	providers, f := mergeLogs(ct.Logging, t.meshConfig, workloadMode(class))
 	cfg.Filter = f
 	for _, p := range providers.SortedList() {
@@ -230,7 +250,9 @@ func (t *Telemetries) AccessLogging(proxy *Proxy, class networking.ListenerClass
 		}
 		cfg.Logs = append(cfg.Logs, al)
 	}
-	return &cfg
+
+	t.computedLoggingConfig[key] = cfg
+	return cfg
 }
 
 // Tracing returns the logging tracing for a given proxy. If nil is returned, tracing
