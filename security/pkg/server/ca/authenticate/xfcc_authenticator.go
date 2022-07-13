@@ -48,8 +48,7 @@ func (xff XfccAuthenticator) Authenticate(ctx context.Context) (*security.Caller
 	peerInfo, _ := peer.FromContext(ctx)
 	// First check if client is trusted client so that we can "trust" the Xfcc Header.
 	if !isTrustedAddress(peerInfo.Addr.String(), features.TrustedGatewayCIDR) {
-		message := fmt.Sprintf("caller from %s is not in the trusted network. XfccAuthenticator can not be used", peerInfo.Addr.String())
-		return nil, fmt.Errorf(message)
+		return nil, fmt.Errorf("caller from %s is not in the trusted network. XfccAuthenticator can not be used", peerInfo.Addr.String())
 	}
 	meta, ok := metadata.FromIncomingContext(ctx)
 

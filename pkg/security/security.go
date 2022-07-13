@@ -370,7 +370,6 @@ type AuthenticationManager struct {
 
 // Authenticate loops through all the configured Authenticators and returns if one of the authenticator succeeds.
 func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
-	var errMsg string
 	for _, authn := range am.Authenticators {
 		u, err := authn.Authenticate(ctx)
 		if u != nil && len(u.Identities) > 0 && err == nil {
@@ -378,12 +377,11 @@ func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
 			return u
 		}
 		am.authFailMsgs = append(am.authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
-		securityLog.Warnf("Authentication failed for %v: %s", getConnectionAddress(ctx), errMsg)
 	}
 	return nil
 }
 
-func getConnectionAddress(ctx context.Context) string {
+func GetConnectionAddress(ctx context.Context) string {
 	peerInfo, ok := peer.FromContext(ctx)
 	peerAddr := "unknown"
 	if ok {
