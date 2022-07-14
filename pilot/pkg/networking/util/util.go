@@ -496,6 +496,10 @@ func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.
 	}
 	epTLSMode := ""
 	if ep.Metadata.FilterMetadata != nil {
+		if _, f := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey].GetFields()[model.TunnelLabelShortName]; f {
+			// Tunnel > MTLS
+			return nil, false
+		}
 		if v, ok := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey]; ok {
 			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
 		}

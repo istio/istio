@@ -3,9 +3,6 @@ kind: IstioOperator
 metadata:
   namespace: istio-system
 spec:
-  hub: gcr.io/istio-testing
-  tag: latest
-
   unvalidatedValues:
     uproxyType: kind
 
@@ -13,18 +10,19 @@ spec:
   meshConfig:
     ambientMesh:
       mode: DEFAULT
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_ENABLE_HBONE: "true"
 
   components:
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
-      enabled: false
+      enabled: true
     egressGateways:
     - name: istio-egressgateway
       enabled: false
 
-  # Global values passed through to helm global.yaml.
-  # Please keep this in sync with manifests/charts/global.yaml
-  values:
-    global:
-      operatorManageWebhooks: true
+#  values:
+#    global:
+#      operatorManageWebhooks: false

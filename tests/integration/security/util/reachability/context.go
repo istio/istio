@@ -169,17 +169,13 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 								opts.Timeout = time.Second * 10
 
 								expectSuccess := c.ExpectSuccess(from, opts)
-								expectMTLS := c.ExpectMTLS(from, opts)
 								var tpe string
 								if expectSuccess {
 									tpe = "positive"
 									opts.Check = check.And(
 										check.OK(),
 										scheck.ReachedClusters(t.AllClusters(), &opts))
-									if expectMTLS {
-										opts.Check = check.And(opts.Check,
-											check.MTLSForHTTP())
-									}
+									// TODO: expect mTLS
 								} else {
 									tpe = "negative"
 									opts.Check = scheck.NotOK()

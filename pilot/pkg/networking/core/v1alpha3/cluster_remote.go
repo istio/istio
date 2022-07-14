@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 	"time"
@@ -42,6 +43,19 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/log"
 )
+
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance) []*cluster.Cluster {
+	if !proxy.EnableHBONE() {
+		return nil
+	}
+	clusters := make([]*cluster.Cluster, 0)
+	for _, i := range instances {
+		p := i.Endpoint.EndpointPort
+		name := fmt.Sprintf("inbound-hbone|%d", p)
+		clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
+	}
+	return clusters
+}
 
 func (configgen *ConfigGeneratorImpl) buildRemoteInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
@@ -111,6 +125,18 @@ func (cb *ClusterBuilder) buildRemoteInboundPodCluster(wl ambient.Workload, port
 	return localCluster
 }
 
+func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
+	clusterType := cluster.Cluster_STATIC
+	llb := buildInternalEndpoint(listenerName, nil)
+	port := &model.Port{}
+	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
+		model.TrafficDirectionInbound, port, nil, nil)
+	// no TLS
+	localCluster.cluster.TransportSocketMatches = nil
+	localCluster.cluster.TransportSocket = nil
+	return localCluster
+}
+
 // `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name (without internal subset)
 func (cb *ClusterBuilder) buildRemoteInboundVIPInternalCluster(svc *model.Service, port model.Port) *MutableCluster {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "internal", svc.Hostname, port.Port)
@@ -159,7 +185,7 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 		Name: "internal_upstream",
 		Match: &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				ambient.TransportMatchKey: {Kind: &structpb.Value_StringValue{StringValue: ambient.TransportMatchValue}},
+				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
 			},
 		},
 		TransportSocket: &core.TransportSocket{
@@ -177,6 +203,9 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 						Name: "istio",
 					},
 				},
+				//PassthroughFilterStateObjects: []*internalupstream.InternalUpstreamTransport_FilterStateSource{{
+				//	Name: "envoy.network.upstream_socket_options",
+				//}},
 				TransportSocket: &core.TransportSocket{
 					Name:       "envoy.transport_sockets.raw_buffer",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&rawbuffer.RawBuffer{})},
@@ -279,6 +308,26 @@ func (cb *ClusterBuilder) buildRemoteInboundConnect(proxy *model.Proxy, push *mo
 			Name: "envoy.transport_sockets.tls",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
 				CommonTlsContext: ctx,
+			})},
+		},
+	}
+}
+
+func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+	return &cluster.Cluster{
+		Name:                 "tunnel", // TODO rename
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:       durationpb.New(2 * time.Second),
+		CleanupInterval:      durationpb.New(60 * time.Second),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{UseHttpHeader: true},
+		},
+		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		TransportSocket: &core.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+				CommonTlsContext: buildCommonTLSContext(proxy, nil, push, false),
 			})},
 		},
 	}

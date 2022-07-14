@@ -52,7 +52,7 @@ Listener pep_outbound, 0.0.0.0:15001:
 	CDS "<svc_vip>_<port>":
 	    -> forward to internal listener "<svc_vip>_<port>"
 
-Listener pep_tunnel, internal:
+Listener tunnel, internal:
 
 	Single Chain:
 	    -> Tunnel to cluster "outbound_tunnel_clus_<identity>"
@@ -79,7 +79,7 @@ func (p *PEPGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 			})
 		}
 		out = append(p.buildPEPListeners(proxy, req.Push), resources...)
-		out = append(out, outboundTunnelListener("pep_tunnel", proxy.Metadata.ServiceAccount))
+		out = append(out, outboundTunnelListener("tunnel", proxy.Metadata.ServiceAccount))
 	case v3.ClusterType:
 		sidecarClusters, _ := p.ConfigGenerator.BuildClusters(proxy, req)
 		remoteClusters := p.buildClusters(proxy, req.Push)
@@ -221,7 +221,7 @@ func (p *PEPGenerator) buildClusters(node *model.Proxy, push *model.PushContext)
 						ClusterName: name,
 						Endpoints: []*endpoint.LocalityLbEndpoints{{
 							LbEndpoints: []*endpoint.LbEndpoint{{
-								HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Address: internalAddress(name)}},
+								HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Address: util.BuildInternalAddress(name)}},
 								Metadata:       nil, // TODO metadata for passthrough
 							}},
 						}},

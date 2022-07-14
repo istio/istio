@@ -163,6 +163,12 @@ const (
 )
 
 const (
+	TunnelLabel          = "networking.istio.io/tunnel"
+	TunnelLabelShortName = "tunnel"
+	TunnelH2             = "h2"
+)
+
+const (
 	// TLSModeLabelShortname name used for determining endpoint level tls transport socket configuration
 	TLSModeLabelShortname = "tlsMode"
 
@@ -230,10 +236,11 @@ const (
 //
 // For example, the set of service instances associated with catalog.mystore.com
 // are modeled like this
-//      --> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-//      --> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-//      --> IstioEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-//      --> IstioEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+//
+//	--> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
+//	--> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
+//	--> IstioEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+//	--> IstioEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
 	Service     *Service       `json:"service,omitempty"`
 	ServicePort *Port          `json:"servicePort,omitempty"`
@@ -415,8 +422,9 @@ const (
 //
 // then internally, we have two endpoint structs for the
 // service catalog.mystore.com
-//  --> 172.16.0.1:55446 (with ServicePort pointing to 80) and
-//  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
+//
+//	--> 172.16.0.1:55446 (with ServicePort pointing to 80) and
+//	--> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 //
 // TODO: Investigate removing ServiceInstance entirely.
 type IstioEndpoint struct {

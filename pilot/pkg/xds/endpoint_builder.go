@@ -432,14 +432,19 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	tunnelAddress, tunnelPort := address, 15008
 
 	supportsTunnel := false
+	// Other side has a PEP or uProxy
 	if al := e.Labels[ambient.LabelType]; al == ambient.TypePEP || al == ambient.TypeWorkload {
+		supportsTunnel = true
+	}
+	// Otherwise supports tunnel directly
+	if tm := e.Labels[model.TunnelLabel]; tm == model.TunnelH2 {
 		supportsTunnel = true
 	}
 
 	// For outbound case, we selectively add tunnel info if the other side supports the tunnel
 	if dir != model.TrafficDirectionInboundVIP && supportsTunnel {
 		ambientTunnelMeta, _ := structpb.NewStruct(map[string]interface{}{
-			"target":           "pep_tunnel",
+			"target":           "tunnel",
 			"tunnel_address":   net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
 			"detunnel_address": net.JoinHostPort(address, strconv.Itoa(int(port))),
 			"detunnel_ip":      address,
@@ -448,7 +453,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		ep.Metadata.FilterMetadata["tunnel"] = ambientTunnelMeta
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				ambient.TransportMatchKey: {Kind: &structpb.Value_StringValue{StringValue: ambient.TransportMatchValue}},
+				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
 			},
 		}
 	}

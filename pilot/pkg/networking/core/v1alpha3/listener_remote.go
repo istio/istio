@@ -690,3 +690,37 @@ func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push 
 
 	return ctx
 }
+
+// outboundTunnelListener is built for each ServiceAccount from pods on the node.
+// This listener adds the original destination headers from the dynamic EDS metadata pass through.
+// We build the listener per-service account so that it can point to the corresponding cluster that presents the correct cert.
+func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	name := "tunnel" // TODO: rename
+	p := &tcp.TcpProxy{
+		StatPrefix: name,
+		// TODO
+		// AccessLog:        accessLogString("outbound tunnel"),
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "host.com:443", // TODO not sure how to set host properly here without svc?
+			HeadersToAdd: []*core.HeaderValueOption{
+				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_address\"])%"}},
+				// TODO the following are unused at this point
+				{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_ip\"])%"}},
+				{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_port\"])%"}},
+			},
+		},
+	}
+
+	l := &listener.Listener{
+		Name:              name,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		Address:           util.BuildInternalAddress(name),
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
+		}},
+	}
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarOutbound)
+	return l
+}

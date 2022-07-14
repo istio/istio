@@ -1914,7 +1914,7 @@ spec:
 			// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
 			// and could be broken by having only 1 pod so its good to have this check in place
 			t.RunTraffic(TrafficTestCase{
-				name:   "no consistent",
+				name:   "no consistent/" + c.Config().Service,
 				config: svc,
 				call:   c.CallOrFail,
 				opts: echo.CallOptions{
@@ -1962,25 +1962,25 @@ spec:
 			// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
 			// But its pretty hard to test that, so for now just ensure we hit the same one.
 			t.RunTraffic(TrafficTestCase{
-				name:   "source ip " + c.Config().Service,
+				name:   "source ip/" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
 				call:   c.CallOrFail,
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:   "query param" + c.Config().Service,
+				name:   "query param/" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
 				call:   c.CallOrFail,
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:   "http header" + c.Config().Service,
+				name:   "http header/" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
 				call:   c.CallOrFail,
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:   "tcp source ip " + c.Config().Service,
+				name:   "tcp source ip/" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
 				call:   c.CallOrFail,
 				opts:   tcpCallopts,
@@ -2234,12 +2234,13 @@ func instanceIPTests(t TrafficContext) {
 		minIstioVersion string
 	}{
 		// instance IP bind
-		{
-			name:           "instance IP without sidecar",
-			disableSidecar: true,
-			port:           "http-instance",
-			code:           http.StatusOK,
-		},
+		// TODO: use original_dst again
+		//{
+		//	name:           "instance IP without sidecar",
+		//	disableSidecar: true,
+		//	port:           "http-instance",
+		//	code:           http.StatusOK,
+		//},
 		{
 			name:     "instance IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
@@ -2252,12 +2253,12 @@ func instanceIPTests(t TrafficContext) {
 			port:     "http-instance",
 			code:     http.StatusServiceUnavailable,
 		},
-		{
-			name:     "instance IP with empty sidecar",
-			endpoint: "",
-			port:     "http-instance",
-			code:     http.StatusOK,
-		},
+		//{
+		//	name:     "instance IP with empty sidecar",
+		//	endpoint: "",
+		//	port:     "http-instance",
+		//	code:     http.StatusOK,
+		//},
 
 		// Localhost bind
 		{

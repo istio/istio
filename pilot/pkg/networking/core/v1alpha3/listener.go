@@ -113,7 +113,11 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	}
 
 	builder.patchListeners()
-	return builder.getListeners()
+	l := builder.getListeners()
+	if node.EnableHBONE() {
+		l = append(l, outboundTunnelListener(push, node))
+	}
+	return l
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,

@@ -149,6 +149,11 @@ func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *http_conn.HttpFilte
 
 func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) plugin.MTLSSettings {
 	effectiveMTLSMode := a.GetMutualTLSModeForPort(endpointPort)
+	if endpointPort == 15008 {
+		// HBONE is always mtls
+		// TODO: remove hack
+		effectiveMTLSMode = model.MTLSStrict
+	}
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	var mc *meshconfig.MeshConfig
 	if a.push != nil {

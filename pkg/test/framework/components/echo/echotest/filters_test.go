@@ -134,7 +134,7 @@ func TestFilters(t *testing.T) {
 		expect echo.Instances
 	}{
 		"SingleSimplePodServiceAndAllSpecial": {
-			filter: echotest.SingleSimplePodServiceAndAllSpecial(),
+			filter: echotest.SingleSimplePodServiceAndAllSpecial(1),
 			expect: echo.Instances{
 				// Keep pods for one regular service per namespace.
 				a1, a2, a1Ns2, a2Ns2,
@@ -223,7 +223,7 @@ func TestRun(t *testing.T) {
 			"Run_WithDefaultFilters": {
 				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
 					echotest.New(t, all).
-						WithDefaultFilters().
+						WithDefaultFilters(1, 1).
 						Run(func(ctx framework.TestContext, from echo.Instance, to echo.Target) {
 							// TODO if the destinations would change based on which cluster then add cluster to srCkey
 							fromKey := from.Config().ClusterLocalFQDN()
@@ -273,7 +273,7 @@ func TestRun(t *testing.T) {
 			"RunToN": {
 				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
 					echotest.New(t, all).
-						WithDefaultFilters().
+						WithDefaultFilters(1, 1).
 						FromMatch(match.And(match.NotNaked, match.NotHeadless)).
 						ToMatch(match.NotHeadless).
 						RunToN(3, func(ctx framework.TestContext, from echo.Instance, dsts echo.Services) {

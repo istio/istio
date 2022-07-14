@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
@@ -69,7 +70,7 @@ var (
 		{
 			Port:    echo.Port{Name: "http"},
 			Scheme:  scheme.HTTP,
-			Count:   1, // TODO use more
+			Count:   10, // TODO use more
 			Timeout: time.Second * 2,
 		},
 		//{
@@ -621,6 +622,45 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 	}
 }
 
+func TestIngress(t *testing.T) {
+	runIngressTest(t, func(t framework.TestContext, src ingress.Instance, dst echo.Instance, opt echo.CallOptions) {
+		if opt.Scheme != scheme.HTTP {
+			return
+		}
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": dst.Config().Service,
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+		src.CallOrFail(t, opt)
+	})
+}
+
 var CheckDeny = check.Or(
 	check.ErrorContains("rpc error: code = PermissionDenied"), // gRPC
 	check.ErrorContains("EOF"),                                // TCP
@@ -646,6 +686,26 @@ func runTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, ds
 						}
 					})
 				}
+			})
+		}
+	})
+}
+
+func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.Instance, dst echo.Instance, opt echo.CallOptions)) {
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+		svcs := apps.All
+		for _, dst := range svcs {
+			t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
+				dst := dst
+				opt := echo.CallOptions{
+					Port:    echo.Port{Name: "http"},
+					Scheme:  scheme.HTTP,
+					Count:   5,
+					Timeout: time.Second * 2,
+					Check:   check.OK(),
+					To:      dst,
+				}
+				f(t, istio.DefaultIngressOrFail(t, t), dst, opt)
 			})
 		}
 	})

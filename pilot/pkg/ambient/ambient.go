@@ -52,9 +52,6 @@ const (
 	LabelProxy = "ambient-proxy"
 	// LabelPEP marks the Pod as needing a PEP (remote proxy/policy enforcement point)
 	LabelPEP = "ambient-pep"
-
-	TransportMatchKey   = "transport"
-	TransportMatchValue = "tunnel"
 )
 
 // Cache holds Indexes of client workloads, peps and uproxies

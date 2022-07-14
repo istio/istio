@@ -108,6 +108,7 @@ type ClusterBuilder struct {
 	passThroughBindIP string                   // Passthrough IP to be used while building clusters.
 	supportsIPv4      bool                     // Whether Proxy IPs has IPv4 address.
 	supportsIPv6      bool                     // Whether Proxy IPs has IPv6 address.
+	hbone             bool                     // Does the proxy support HBONE
 	locality          *core.Locality           // Locality information of proxy.
 	proxyLabels       map[string]string        // Proxy labels.
 	proxyView         model.ProxyView          // Proxy view of endpoints.
@@ -132,6 +133,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		passThroughBindIP: getPassthroughBindIP(proxy),
 		supportsIPv4:      proxy.SupportsIPv4(),
 		supportsIPv6:      proxy.SupportsIPv6(),
+		hbone:             proxy.EnableHBONE(),
 		locality:          proxy.Locality,
 		proxyLabels:       proxy.Metadata.Labels,
 		proxyView:         proxy.GetView(),
@@ -936,14 +938,27 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
 			transportSocket := c.cluster.TransportSocket
 			c.cluster.TransportSocket = nil
-			c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-				{
-					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
-					Match:           istioMtlsTransportSocketMatch,
-					TransportSocket: transportSocket,
-				},
-				defaultTransportSocketMatch(),
+			if cb.hbone {
+				c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+					InternalUpstreamSocketMatch[0],
+					{
+						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+						Match:           istioMtlsTransportSocketMatch,
+						TransportSocket: transportSocket,
+					},
+					defaultTransportSocketMatch(),
+				}
+			} else {
+				c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+					{
+						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+						Match:           istioMtlsTransportSocketMatch,
+						TransportSocket: transportSocket,
+					},
+					defaultTransportSocketMatch(),
+				}
 			}
+
 		}
 	}
 }

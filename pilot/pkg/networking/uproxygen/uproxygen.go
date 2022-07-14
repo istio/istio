@@ -188,7 +188,12 @@ func (g *UProxyConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.Pu
 	}
 
 	out = append(out, buildPepClusters(proxy, push)...)
-	out = append(out, g.buildVirtualInboundCluster(), passthroughCluster(push), tcpPassthroughCluster(push), blackholeCluster(push))
+	out = append(out,
+		g.buildVirtualInboundCluster(),
+		g.buildVirtualInboundClusterHBONE(),
+		passthroughCluster(push),
+		tcpPassthroughCluster(push),
+		blackholeCluster(push))
 	return out
 }
 
@@ -275,16 +280,17 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 			},
 		}},
 	}
-	if features.SidecarlessCapture == model.VariantIptables {
-		l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
-			Name: wellknown.OriginalSource,
-			ConfigType: &listener.ListenerFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
-					Mark: OriginalSrcMark,
-				}),
-			},
-		})
-	}
+	// nolint: gocritic
+	//if features.SidecarlessCapture == model.VariantIptables {
+	//	l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
+	//		Name: wellknown.OriginalSource,
+	//		ConfigType: &listener.ListenerFilter_TypedConfig{
+	//			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+	//				Mark: OriginalSrcMark,
+	//			}),
+	//		},
+	//	})
+	//}
 
 	l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
 		Name: WorkloadMetadataListenerFilterName,
@@ -464,22 +470,22 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 	}
 
 	l.FilterChainMatcher = destPortMatch.BuildMatcher()
-	l.FilterChains = append(l.FilterChains, passthroughFilterChain(), blackholeFilterChain())
+	l.FilterChains = append(l.FilterChains, passthroughFilterChain(), blackholeFilterChain("outbound"))
 	return &discovery.Resource{
 		Name:     l.Name,
 		Resource: util.MessageToAny(l),
 	}
 }
 
-func blackholeFilterChain() *listener.FilterChain {
+func blackholeFilterChain(t string) *listener.FilterChain {
 	return &listener.FilterChain{
-		Name: model.VirtualOutboundBlackholeFilterChainName,
+		Name: "blackhole " + t,
 		Filters: []*listener.Filter{{
 			Name: wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-				AccessLog:        accessLogString("blackhole"),
+				AccessLog:        accessLogString("blackhole " + t),
 				StatPrefix:       util.BlackHoleCluster,
-				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "blackhole " + t},
 			})},
 		}},
 	}
@@ -738,7 +744,12 @@ func (g *UProxyConfigGenerator) upstreamLbEndpointsFromShards(proxy *model.Proxy
 			}
 			supportsTunnel := false
 			if al := istioEndpoint.Labels[ambient.LabelType]; al == ambient.TypePEP || al == ambient.TypeWorkload {
+				// PEPs and in-meshed workloads can do a tunnel
 				supportsTunnel = true
+			}
+			if al := istioEndpoint.Labels[model.TunnelLabel]; al == model.TunnelH2 && istioEndpoint.EndpointPort == UproxyInboundCapturePort {
+				// Even if it is in the mesh, if it supports tunnel directly then we should pass through the traffic if its already tunneled
+				supportsTunnel = false
 			}
 			// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
 			// Instead, just go direct
@@ -762,7 +773,7 @@ func (g *UProxyConfigGenerator) upstreamLbEndpointsFromShards(proxy *model.Proxy
 				}}
 				lbe.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 					Fields: map[string]*structpb.Value{
-						ambient.TransportMatchKey: {Kind: &structpb.Value_StringValue{StringValue: ambient.TransportMatchValue}},
+						model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
 					},
 				}
 			}
@@ -811,7 +822,7 @@ func outboundTunnelListener(name string, sa string) *discovery.Resource {
 		Name:              name,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		Address:           internalAddress(name),
+		Address:           util.BuildInternalAddress(name),
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
@@ -988,66 +999,86 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 	}
 
 	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
-		l.FilterChains = append(l.FilterChains, &listener.FilterChain{
-			Name:             "inbound_" + workload.Status.PodIP,
-			FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.Status.PodIP)},
-			TransportSocket: &core.TransportSocket{
-				Name: "envoy.transport_sockets.tls",
-				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
-					CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, true),
-				})},
-			},
-			Filters: []*listener.Filter{{
-				Name: "envoy.filters.network.http_connection_manager",
-				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: util.MessageToAny(&httpconn.HttpConnectionManager{
-						AccessLog:  accessLogString("inbound hcm"),
-						CodecType:  0,
-						StatPrefix: "inbound_hcm",
-						RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
-							RouteConfig: &route.RouteConfiguration{
-								Name: "local_route",
-								VirtualHosts: []*route.VirtualHost{{
-									Name:    "local_service",
-									Domains: []string{"*"},
-									Routes: []*route.Route{{
-										Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_ConnectMatcher_{
-											ConnectMatcher: &route.RouteMatch_ConnectMatcher{},
-										}},
-										Action: &route.Route_Route{
-											Route: &route.RouteAction{
-												UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-													UpgradeType:   "CONNECT",
-													ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-												}},
-												ClusterSpecifier: &route.RouteAction_Cluster{
-													// TODO this cluster passes through arbitrary requests; including unauthenticated destinations.
-													Cluster: "virtual_inbound",
+		if workload.Labels[model.TunnelLabel] != model.TunnelH2 {
+			l.FilterChains = append(l.FilterChains, &listener.FilterChain{
+				Name:             "inbound_" + workload.Status.PodIP,
+				FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.Status.PodIP)},
+				TransportSocket: &core.TransportSocket{
+					Name: "envoy.transport_sockets.tls",
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+						CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, true),
+					})},
+				},
+				Filters: []*listener.Filter{{
+					Name: "envoy.filters.network.http_connection_manager",
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: util.MessageToAny(&httpconn.HttpConnectionManager{
+							AccessLog:  accessLogString("inbound hcm"),
+							CodecType:  0,
+							StatPrefix: "inbound_hcm",
+							RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
+								RouteConfig: &route.RouteConfiguration{
+									Name: "local_route",
+									VirtualHosts: []*route.VirtualHost{{
+										Name:    "local_service",
+										Domains: []string{"*"},
+										Routes: []*route.Route{{
+											Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_ConnectMatcher_{
+												ConnectMatcher: &route.RouteMatch_ConnectMatcher{},
+											}},
+											Action: &route.Route_Route{
+												Route: &route.RouteAction{
+													UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+														UpgradeType:   "CONNECT",
+														ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+													}},
+													ClusterSpecifier: &route.RouteAction_Cluster{
+														// TODO this cluster passes through arbitrary requests; including unauthenticated destinations.
+														Cluster: "virtual_inbound",
+													},
 												},
 											},
-										},
+										}},
 									}},
-								}},
+								},
 							},
-						},
-						// TODO rewrite destination port to original_dest port
-						HttpFilters: []*httpconn.HttpFilter{{
-							Name:       "envoy.filters.http.router",
-							ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(&routerfilter.Router{})},
-						}},
-						Http2ProtocolOptions: &core.Http2ProtocolOptions{
-							AllowConnect: true,
-						},
-						UpgradeConfigs: []*httpconn.HttpConnectionManager_UpgradeConfig{{
-							UpgradeType: "CONNECT",
-						}},
-					}),
-				},
-			}},
-		})
+							// TODO rewrite destination port to original_dest port
+							HttpFilters: []*httpconn.HttpFilter{{
+								Name:       "envoy.filters.http.router",
+								ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(&routerfilter.Router{})},
+							}},
+							Http2ProtocolOptions: &core.Http2ProtocolOptions{
+								AllowConnect: true,
+							},
+							UpgradeConfigs: []*httpconn.HttpConnectionManager_UpgradeConfig{{
+								UpgradeType: "CONNECT",
+							}},
+						}),
+					},
+				}},
+			})
+		} else {
+			// Pod is already handling HBONE, and this is an HBONE request. Pass it through directly.
+			l.FilterChains = append(l.FilterChains, &listener.FilterChain{
+				Name:             "inbound_" + workload.Status.PodIP,
+				FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.Status.PodIP)},
+				Filters: []*listener.Filter{{
+					Name: wellknown.TCPProxy,
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+							StatPrefix: "virtual_inbound_hbone",
+							AccessLog:  accessLogString("inbound passthrough"),
+							ClusterSpecifier: &tcp.TcpProxy_Cluster{
+								Cluster: "virtual_inbound_hbone",
+							},
+						}),
+					},
+				}},
+			})
+		}
 	}
 	// TODO cases where we passthrough
-	l.FilterChains = append(l.FilterChains, blackholeFilterChain())
+	l.FilterChains = append(l.FilterChains, blackholeFilterChain("inbound"))
 
 	return &discovery.Resource{
 		Name:     l.Name,
@@ -1118,7 +1149,7 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 		})
 	}
 	// TODO cases where we passthrough
-	l.FilterChains = append(l.FilterChains, blackholeFilterChain())
+	l.FilterChains = append(l.FilterChains, blackholeFilterChain("inbound plaintext"))
 
 	return &discovery.Resource{
 		Name:     l.Name,
@@ -1134,6 +1165,27 @@ func (g *UProxyConfigGenerator) buildVirtualInboundCluster() *discovery.Resource
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UseHttpHeader: true,
+			},
+		},
+	}
+	return &discovery.Resource{
+		Name:     c.Name,
+		Resource: util.MessageToAny(c),
+	}
+}
+
+// Like virtual_inbound, but always sets port to 15008. This is a huge hack to fix HBONE passhrough
+// to node-local endpoints. These would send to 15088, which then gets looped back to us then
+// forwarded. But we need the forwarding to go to 15008 the second iteration.
+func (g *UProxyConfigGenerator) buildVirtualInboundClusterHBONE() *discovery.Resource {
+	c := &cluster.Cluster{
+		Name:                 "virtual_inbound_hbone",
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UseHttpHeader:        true,
+				UpstreamPortOverride: UproxyInboundCapturePort,
 			},
 		},
 	}
@@ -1197,10 +1249,4 @@ func ipPortAddress(ip string, port uint32) *core.Address {
 			},
 		},
 	}}
-}
-
-func internalAddress(name string) *core.Address {
-	return &core.Address{Address: &core.Address_EnvoyInternalAddress{EnvoyInternalAddress: &core.EnvoyInternalAddress{
-		AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{ServerListenerName: name},
-	}}}
 }

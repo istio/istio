@@ -506,7 +506,7 @@ var (
 
 	EnableInboundPassthrough = env.RegisterBoolVar(
 		"PILOT_ENABLE_INBOUND_PASSTHROUGH",
-		true,
+		false, // TODO(https://github.com/solo-io/istio-sidecarless/issues/155)
 		"If enabled, inbound clusters will be configured as ORIGINAL_DST clusters. When disabled, "+
 			"requests are always sent to localhost. The primary implication of this is that when enabled, binding to POD_IP "+
 			"will work while localhost will not; when disable, bind to POD_IP will not work, while localhost will. "+

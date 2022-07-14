@@ -138,10 +138,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				// we only apply to config clusters
 				return t.ConfigIstio().YAML("", cfg).Apply()
 			}).
-			WithDefaultFilters().
 			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
 			ToMatch(match.And(append(c.targetMatchers, match.NotProxylessGRPC)...)).
+			WithDefaultFilters(1, c.toN).
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, from echo.Caller, to echo.Services) {
@@ -256,7 +256,9 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	RunSkipAmbient("autopassthrough", autoPassthroughCases, "ingress needed")
 	RunCase("loop", trafficLoopCases)
 	RunCase("tls-origination", tlsOriginationCases)
-	RunSkipAmbient("instanceip", instanceIPTests, "not supported")
+	// TODO(https://github.com/solo-io/istio-sidecarless/issues/155)
+	// RunSkipAmbient("instanceip", instanceIPTests, "not supported")
+	_ = instanceIPTests
 	RunCase("services", serviceCases)
 	RunCase("host", hostCases)
 	RunSkipAmbient("envoyfilter", envoyFilterCases, "not supported")

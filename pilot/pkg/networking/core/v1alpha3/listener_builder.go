@@ -119,7 +119,11 @@ func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
 		lb.inboundListeners = lb.buildRemoteInbound()
 	} else {
 		lb.inboundListeners = lb.buildInboundListeners()
+		if lb.node.EnableHBONE() {
+			lb.inboundListeners = append(lb.inboundListeners, lb.buildInboundHBONEListeners()...)
+		}
 	}
+
 	return lb
 }
 

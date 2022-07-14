@@ -167,6 +167,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 			clusters = append(clusters, configgen.buildRemoteInboundClusters(cb, proxy, req.Push)...)
 		} else {
 			clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
+			clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, proxy, instances)...)
 		}
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
@@ -184,6 +185,9 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
 
+	if proxy.EnableHBONE() {
+		clusters = append(clusters, outboundTunnelCluster(proxy, req.Push))
+	}
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
 	}

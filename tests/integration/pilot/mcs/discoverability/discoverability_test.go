@@ -208,7 +208,7 @@ func runForAllClusterCombinations(
 ) {
 	t.Helper()
 	echotest.New(t, echos.Instances).
-		WithDefaultFilters().
+		WithDefaultFilters(1, 1).
 		FromMatch(serviceA).
 		ToMatch(serviceB).
 		Run(fn)

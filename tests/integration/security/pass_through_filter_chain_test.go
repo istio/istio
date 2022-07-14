@@ -618,7 +618,7 @@ spec:
 						FromMatch(srcMatcher).
 						ConditionallyTo(echotest.ReachableDestinations).
 						To(
-							echotest.SingleSimplePodServiceAndAllSpecial(),
+							echotest.SingleSimplePodServiceAndAllSpecial(1),
 							echotest.FilterMatch(match.And(
 								match.Namespace(ns),
 								match.NotHeadless,

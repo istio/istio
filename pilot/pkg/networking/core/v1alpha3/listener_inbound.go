@@ -21,6 +21,8 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	routerfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -37,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
@@ -140,6 +143,100 @@ type ServiceInstancePort struct {
 
 	// Protocol to be used for the port.
 	Protocol protocol.Instance `json:"protocol,omitempty"`
+}
+
+func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
+	vhost := &route.VirtualHost{
+		Name:    "connect",
+		Domains: []string{"*"},
+	}
+	for _, cc := range lb.buildInboundChainConfigs() {
+		// TODO passthrough
+		p := cc.port.TargetPort
+		name := fmt.Sprintf("inbound-hbone|%d", p)
+		vhost.Routes = append(vhost.Routes, &route.Route{
+			Match: &route.RouteMatch{
+				PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
+				Headers: []*route.HeaderMatcher{
+					istiomatcher.HeaderMatcher("x-original-port", fmt.Sprint(p)),
+				},
+			},
+			Action: &route.Route_Route{Route: &route.RouteAction{
+				UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+					UpgradeType:   "CONNECT",
+					ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+				}},
+
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: name},
+			}},
+		})
+	}
+	l := &listener.Listener{
+		Name:    "inbound-hbone",
+		Address: util.BuildAddress("0.0.0.0", 15008),
+		FilterChains: []*listener.FilterChain{
+			{
+				TransportSocket: buildDownstreamTLSTransportSocket(lb.authnBuilder.ForPort(15008).TCP),
+				Filters: []*listener.Filter{{
+					Name: "envoy.filters.network.http_connection_manager",
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
+							StatPrefix: "inbound-hbone",
+							RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
+								RouteConfig: &route.RouteConfiguration{
+									Name:             "local_route",
+									VirtualHosts:     []*route.VirtualHost{vhost},
+									ValidateClusters: proto.BoolFalse,
+								},
+							},
+							HttpFilters: []*hcm.HttpFilter{{
+								Name:       "envoy.filters.http.router",
+								ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(&routerfilter.Router{})},
+							}},
+							Http2ProtocolOptions: &core.Http2ProtocolOptions{
+								AllowConnect: true,
+							},
+							UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{{
+								UpgradeType: "CONNECT",
+							}},
+						}),
+					},
+				}},
+			},
+		},
+	}
+	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
+
+	var listeners []*listener.Listener
+	listeners = append(listeners, l)
+	// Now we have top level listener... but we must have an internal listener for each standard filter chain
+	// 1 listener per port; that listener will do protocol detection.
+	for _, cc := range lb.buildInboundChainConfigs() {
+		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
+		// Internal chain has no mTLS
+		mtls := plugin.MTLSSettings{Port: cc.port.TargetPort, Mode: model.MTLSDisable}
+		opts := getFilterChainMatchOptions(mtls, lp)
+		chains := lb.inboundChainForOpts(cc, mtls, opts)
+		for _, c := range chains {
+			fcm := c.GetFilterChainMatch()
+			if fcm != nil {
+				// Clear out settings that do not matter anymore
+				fcm.DestinationPort = nil
+				fcm.TransportProtocol = ""
+			}
+		}
+		name := fmt.Sprintf("inbound-hbone|%d", cc.port.TargetPort)
+		l := &listener.Listener{
+			Name:             name,
+			Address:          util.BuildInternalAddress(name),
+			TrafficDirection: core.TrafficDirection_INBOUND,
+			FilterChains:     chains,
+		}
+		accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
+		l.ListenerFilters = populateListenerFilters(lb.node, l, true)
+		listeners = append(listeners, l)
+	}
+	return listeners
 }
 
 // buildInboundListeners creates inbound listeners.

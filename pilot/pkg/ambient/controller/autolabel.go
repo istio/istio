@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	kubelib "istio.io/istio/pkg/kube"
@@ -62,7 +63,9 @@ func ambientLabelFilter(ignoredNamespaces sets.Set) func(o controllers.Object) b
 	return func(o controllers.Object) bool {
 		_, alreadyLabelled := o.GetLabels()[ambient.LabelType] // PEPs uProxies will already be labeled
 		ignored := inject.IgnoredNamespaces.Contains(o.GetNamespace()) || ignoredNamespaces.Contains(o.GetNamespace())
-		return !alreadyLabelled && !ignored
+		// TODO(https://github.com/solo-io/istio-sidecarless/issues/154) allow this
+		_, injected := o.GetLabels()[label.SecurityTlsMode.Name]
+		return !alreadyLabelled && !ignored && !injected
 	}
 }
 

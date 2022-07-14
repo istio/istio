@@ -214,8 +214,61 @@ spec:
 	}
 	// Only setup sidecar tests if webhook is installed
 	if whErr == nil {
+		// TODO(https://github.com/solo-io/istio-sidecarless/issues/154) support sidecars that are captured
+		//builder = builder.WithConfig(echo.Config{
+		//	Service:   SidecarRemote,
+		//	Namespace: apps.Namespace,
+		//	Ports:     ports.All(),
+		//	Subsets: []echo.SubsetConfig{
+		//		{
+		//			Replicas: 1,
+		//			Version:  "v1",
+		//			Labels: map[string]string{
+		//				"asm-type":                "workload",
+		//				"ambient-type":            "workload",
+		//				"asm-remote":              "true",
+		//				"sidecar.istio.io/inject": "true",
+		//			},
+		//		},
+		//		{
+		//			Replicas: 1,
+		//			Version:  "v2",
+		//			Labels: map[string]string{
+		//				"asm-type":                "workload",
+		//				"ambient-type":            "workload",
+		//				"asm-remote":              "true",
+		//				"sidecar.istio.io/inject": "true",
+		//			},
+		//		},
+		//	},
+		//})
+		//	builder = builder.WithConfig(echo.Config{
+		//		Service:   SidecarCaptured,
+		//		Namespace: apps.Namespace,
+		//		Ports:     ports.All(),
+		//		Subsets: []echo.SubsetConfig{
+		//			{
+		//				Replicas: 1,
+		//				Version:  "v1",
+		//				Labels: map[string]string{
+		//					"asm-type":                "workload",
+		//					"ambient-type":            "workload",
+		//					"sidecar.istio.io/inject": "true",
+		//				},
+		//			},
+		//			{
+		//				Replicas: 1,
+		//				Version:  "v2",
+		//				Labels: map[string]string{
+		//					"asm-type":                "workload",
+		//					"ambient-type":            "workload",
+		//					"sidecar.istio.io/inject": "true",
+		//				},
+		//			},
+		//		},
+		//	})
 		builder = builder.WithConfig(echo.Config{
-			Service:   SidecarRemote,
+			Service:   SidecarUncaptured,
 			Namespace: apps.Namespace,
 			Ports:     ports.All(),
 			Subsets: []echo.SubsetConfig{
@@ -223,9 +276,8 @@ spec:
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"asm-type":                "workload",
-						"ambient-type":            "workload",
-						"asm-remote":              "true",
+						"asm-type":                "none",
+						"ambient-type":            "none",
 						"sidecar.istio.io/inject": "true",
 					},
 				},
@@ -233,54 +285,13 @@ spec:
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"asm-type":                "workload",
-						"ambient-type":            "workload",
-						"asm-remote":              "true",
+						"asm-type":                "none",
+						"ambient-type":            "none",
 						"sidecar.istio.io/inject": "true",
 					},
 				},
 			},
-		}).
-			WithConfig(echo.Config{
-				Service:   SidecarCaptured,
-				Namespace: apps.Namespace,
-				Ports:     ports.All(),
-				Subsets: []echo.SubsetConfig{
-					{
-						Replicas: 1,
-						Version:  "v1",
-						Labels: map[string]string{
-							"asm-type":                "workload",
-							"ambient-type":            "workload",
-							"sidecar.istio.io/inject": "true",
-						},
-					},
-					{
-						Replicas: 1,
-						Version:  "v2",
-						Labels: map[string]string{
-							"asm-type":                "workload",
-							"ambient-type":            "workload",
-							"sidecar.istio.io/inject": "true",
-						},
-					},
-				},
-			}).
-			WithConfig(echo.Config{
-				Service:   SidecarUncaptured,
-				Namespace: apps.Namespace,
-				Ports:     ports.All(),
-				Subsets: []echo.SubsetConfig{
-					{
-						Replicas: 2,
-						Labels: map[string]string{
-							"asm-type":                "none",
-							"ambient-type":            "none",
-							"sidecar.istio.io/inject": "true",
-						},
-					},
-				},
-			})
+		})
 	}
 
 	echos, err := builder.Build()

@@ -612,6 +612,10 @@ type NodeMetadata struct {
 	// This depends on DNSCapture.
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
+	// EnableHBONE, if set, will enable generation of HBONE config.
+	// Note: this only impacts sidecars; uProxy and PEP unconditionally use HBONE.
+	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
+
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
 
@@ -681,6 +685,10 @@ func (node *Proxy) InCluster(cluster cluster.ID) bool {
 
 func (node *Proxy) IsPEP() bool {
 	return node.Metadata.SidecarlessType == ambient.TypePEP
+}
+
+func (node *Proxy) IsUproxy() bool {
+	return node.Metadata.SidecarlessType == ambient.TypeUProxy
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
@@ -1119,6 +1127,10 @@ func (node *Proxy) IsVM() bool {
 
 func (node *Proxy) IsProxylessGrpc() bool {
 	return node.Metadata != nil && node.Metadata.Generator == "grpc"
+}
+
+func (node *Proxy) EnableHBONE() bool {
+	return bool(node.Metadata.EnableHBONE)
 }
 
 type GatewayController interface {
