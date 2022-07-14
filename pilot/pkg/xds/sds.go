@@ -51,8 +51,12 @@ func (sr SecretResource) DependentTypes() []kind.Kind {
 	return nil
 }
 
-func (sr SecretResource) DependentConfigs() []model.ConfigKey {
-	return relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace})
+func (sr SecretResource) DependentConfigs() []model.ConfigHash {
+	configs := []model.ConfigHash{}
+	for _, config := range relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
+		configs = append(configs, config.HashCode())
+	}
+	return configs
 }
 
 func (sr SecretResource) Cacheable() bool {
@@ -144,7 +148,10 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 			results = append(results, res)
 		}
 	}
-	return results, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
+	return results, model.XdsLogDetails{
+		Incremental:    updatedSecrets != nil,
+		AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated),
+	}, nil
 }
 
 func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {

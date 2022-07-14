@@ -93,6 +93,10 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	if err == nil {
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
 	}
+	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
+	if maxConnectionDuration != nil {
+		tcpProxy.MaxDownstreamConnectionDuration = maxConnectionDuration
+	}
 	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
 	applyTunnelingConfig(tcpProxy, destinationRule, subsetName)
 	class := model.OutboundListenerClass(node.Type)
@@ -123,6 +127,10 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
 	if err == nil {
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
+	}
+	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
+	if maxConnectionDuration != nil {
+		tcpProxy.MaxDownstreamConnectionDuration = maxConnectionDuration
 	}
 
 	for _, route := range routes {
@@ -221,7 +229,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
 	var destinationRule *networking.DestinationRule
 	if service != nil {
-		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, service.Hostname))
+		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
 	}
 	if len(routes) == 1 {
 		clusterName := istioroute.GetDestinationCluster(routes[0].Destination, service, port.Port)

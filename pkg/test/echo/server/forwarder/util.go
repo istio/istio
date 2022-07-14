@@ -25,6 +25,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -45,11 +46,19 @@ func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header)
 	}
 }
 
-func newDialer(forceDNSLookup bool) *net.Dialer {
+func newDialer(cfg *Config) hbone.Dialer {
+	if cfg.Request.Hbone.GetAddress() != "" {
+		out := hbone.NewDialer(hbone.Config{
+			ProxyAddress: cfg.Request.Hbone.GetAddress(),
+			Headers:      cfg.hboneHeaders,
+			TLS:          cfg.hboneTLSConfig,
+		})
+		return out
+	}
 	out := &net.Dialer{
 		Timeout: common.ConnectionTimeout,
 	}
-	if forceDNSLookup {
+	if cfg.forceDNSLookup {
 		out.Resolver = newResolver(common.ConnectionTimeout, "", "")
 	}
 	return out
@@ -77,10 +86,6 @@ func newResolver(timeout time.Duration, protocol, dnsServer string) *net.Resolve
 
 // doForward sends the requests and collect the responses.
 func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context.Context, *Config, int) (string, error)) (*proto.ForwardEchoResponse, error) {
-	if err := cfg.fillDefaults(); err != nil {
-		return nil, err
-	}
-
 	// make the timeout apply to the entire set of requests
 	ctx, cancel := context.WithTimeout(ctx, cfg.timeout)
 	defer cancel()
@@ -101,15 +106,21 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 	for index := 0; index < cfg.count; index++ {
 		index := index
 		if throttle != nil {
-			<-throttle.C
+			select {
+			case <-ctx.Done():
+				break
+			case <-throttle.C:
+			}
 		}
 
 		g.Go(ctx, func() error {
 			st := time.Now()
 			resp, err := doReq(ctx, cfg, index)
 			if err != nil {
+				fwLog.Debugf("request failed: %v", err)
 				return err
 			}
+			fwLog.Debugf("got resp: %v", resp)
 
 			responsesMu.Lock()
 			responses[index] = resp

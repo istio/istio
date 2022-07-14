@@ -189,8 +189,8 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	stype := v3.GetShortType(req.TypeUrl)
-	log.Debugf("ADS:%s: REQUEST %s verson received, %s nonce received %s", stype,
-		con.conID, req.VersionInfo, req.ResponseNonce)
+	log.Debugf("ADS:%s: REQ %s resources:%d nonce:%s version:%s ", stype,
+		con.conID, len(req.ResourceNames), req.ResponseNonce, req.VersionInfo)
 	if req.TypeUrl == v3.HealthInfoType {
 		s.handleWorkloadHealthcheck(con.proxy, req)
 		return nil
@@ -386,10 +386,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.RUnlock()
 
 	// This can happen in two cases:
-	// 1. Envoy initially send request to Istiod
-	// 2. Envoy reconnect to Istiod i.e. Istiod does not have
-	// information about this typeUrl, but Envoy sends response nonce - either
-	// because Istiod is restarted or Envoy disconnects and reconnects.
+	// 1. When Envoy starts for the first time, it sends an initial Discovery request to Istiod.
+	// 2. When Envoy reconnects to a new Istiod that does not have information about this typeUrl
+	// i.e. non empty response nonce.
 	// We should always respond with the current resource names.
 	if request.ResponseNonce == "" || previousInfo == nil {
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
@@ -411,8 +410,8 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return false, emptyResourceDelta
 	}
 
-	// If it comes here, that means nonce match. This an ACK. We should record
-	// the ack details and respond if there is a change in resource names.
+	// If it comes here, that means nonce match. This an ACK.
+	previousNonceAcked := previousInfo.NonceAcked
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
@@ -420,13 +419,23 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
 	con.proxy.Unlock()
 
+	// Envoy can send two DiscoveryRequests with same version and nonce
+	// when it detects a new resource. We should respond if they change.
 	prev := sets.New(previousResources...)
 	cur := sets.New(request.ResourceNames...)
 	removed := prev.Difference(cur)
 	added := cur.Difference(prev)
-	// Envoy can send two DiscoveryRequests with same version and nonce
-	// when it detects a new resource. We should respond if they change.
+
 	if len(removed) == 0 && len(added) == 0 {
+		// We got a request which looks like an ACK, but we already got the same ACK. Envoy won't ACK the
+		// same resource twice. However, in some cases a request for new resources is indistinguishable
+		// from an ACK (in particular, when requesting EDS after a CDS push):
+		// https://github.com/envoyproxy/envoy/issues/13009. As a result, if we see the same ACK multiple
+		// times, we treat subsequent requests as something we should respond to.
+		if features.PushOnRepeatNonce && request.ResponseNonce == previousNonceAcked {
+			log.Debugf("ADS:%s: REQ %s Repeated nonce received %s", stype, con.conID, request.ResponseNonce)
+			return true, emptyResourceDelta
+		}
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
 	}

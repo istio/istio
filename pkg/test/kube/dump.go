@@ -189,7 +189,7 @@ func DumpCoreDumps(_ resource.Context, c cluster.Cluster, workDir string, namesp
 			}
 			restarts := containerRestarts(pod, proxyContainer.Name())
 			crashed, _ := containerCrashed(pod, proxyContainer.Name())
-			if !crashed || restarts == 0 {
+			if !crashed && restarts == 0 {
 				// no need to store this dump
 				continue
 			}
@@ -431,6 +431,18 @@ func dumpProxyCommand(c cluster.Cluster, pod corev1.Pod, workDir, filename, comm
 			if err = os.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
 				scopes.Framework.Errorf("Unable to write output for command %q on cluster/pod/container: %s/%s/%s: %v",
 					command, c.Name(), pod.Namespace, pod.Name, container.Name, err)
+			}
+			if filename == "proxy-config.json" {
+				cds := strings.Contains(cfgDump, "dynamic_warming_clusters")
+				sds := strings.Contains(cfgDump, "dynamic_warming_secrets")
+				lds := strings.Contains(cfgDump, "warming_state")
+				// Add extra logs if we have anything warming. FAIL syntax is import to make prow highlight
+				// it. Note: this doesn't make the test fail, just adds logging; if we hit this code the test
+				// already failed.
+				if cds || lds || sds {
+					scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources",
+						c.Name(), pod.Namespace, pod.Name)
+				}
 			}
 		} else {
 			scopes.Framework.Errorf("Unable to get execute command %q on cluster/pod: %s/%s/%s for: %v",

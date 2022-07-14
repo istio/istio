@@ -1,0 +1,1310 @@
+{
+    "configs": [
+        {
+            "@type": "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump",
+            "static_endpoint_configs": [
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "zipkin",
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "sds-grpc",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "pipe": {
+                                                    "path": "./var/run/secrets/workload-spiffe-uds/socket"
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "load_balancing_weight": 1
+                                    }
+                                ]
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "agent",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "127.0.0.1",
+                                                    "port_value": 15020
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "load_balancing_weight": 1
+                                    }
+                                ]
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "xds-grpc",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "pipe": {
+                                                    "path": "./etc/istio/proxy/XDS"
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "load_balancing_weight": 1
+                                    }
+                                ]
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "prometheus_stats",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "127.0.0.1",
+                                                    "port_value": 15000
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "load_balancing_weight": 1
+                                    }
+                                ]
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                }
+            ],
+            "dynamic_endpoint_configs": [
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|9080||reviews.default.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.192",
+                                                    "port_value": 9080
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "envoy.transport_socket_match": {
+                                                    "tlsMode": "istio"
+                                                },
+                                                "istio": {
+                                                    "workload": "reviews-v3;default;reviews;v3;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    },
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.193",
+                                                    "port_value": 9080
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "reviews-v2;default;reviews;v2;Kubernetes"
+                                                },
+                                                "envoy.transport_socket_match": {
+                                                    "tlsMode": "istio"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    },
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.195",
+                                                    "port_value": 9080
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "envoy.transport_socket_match": {
+                                                    "tlsMode": "istio"
+                                                },
+                                                "istio": {
+                                                    "workload": "reviews-v1;default;reviews;v1;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 3
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|443||istiod.istio-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.175",
+                                                    "port_value": 15017
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "istiod;istio-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|15014||istiod.istio-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.175",
+                                                    "port_value": 15014
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "istiod;istio-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|8000||httpbin.default.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.178",
+                                                    "port_value": 80
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "httpbin;default;httpbin;v1;Kubernetes"
+                                                },
+                                                "envoy.transport_socket_match": {
+                                                    "tlsMode": "istio"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|15012||istiod.istio-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.175",
+                                                    "port_value": 15012
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "istiod;istio-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|15021||istio-ingressgateway.istio-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.176",
+                                                    "port_value": 15021
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "istio-ingressgateway;istio-system;istio-ingressgateway;latest;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|9080||ratings.default.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.191",
+                                                    "port_value": 9080
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "envoy.transport_socket_match": {
+                                                    "tlsMode": "istio"
+                                                },
+                                                "istio": {
+                                                    "workload": "ratings-v1;default;ratings;v1;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|9090||prometheus.istio-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.110",
+                                                    "port_value": 9090
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "prometheus;istio-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|443||cert-manager-istio-csr.cert-manager.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.156",
+                                                    "port_value": 6443
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "cert-manager-istio-csr;cert-manager;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "BlackHoleCluster",
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|4317||otel-collector.istio-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.111",
+                                                    "port_value": 4317
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "otel-collector;istio-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|9300||elasticsearch.skywalking.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.185",
+                                                    "port_value": 9300
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "elasticsearch;skywalking;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|80||istio-ingressgateway.istio-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.176",
+                                                    "port_value": 8080
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "istio-ingressgateway;istio-system;istio-ingressgateway;latest;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "inbound|9080||",
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|443||istio-ingressgateway.istio-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.176",
+                                                    "port_value": 8443
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "istio-ingressgateway;istio-system;istio-ingressgateway;latest;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "PassthroughCluster",
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|11800||skywalking-oap.skywalking.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.188",
+                                                    "port_value": 11800
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "skywalking-oap;skywalking;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|443||cert-manager-webhook.cert-manager.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.139",
+                                                    "port_value": 10250
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "cert-manager-webhook;cert-manager;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|53||kube-dns.kube-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.8",
+                                                    "port_value": 53
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "coredns;kube-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    },
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.3",
+                                                    "port_value": 53
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "coredns;kube-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 2
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|9402||cert-manager-istio-csr-metrics.cert-manager.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.156",
+                                                    "port_value": 9402
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "cert-manager-istio-csr;cert-manager;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|9200||elasticsearch.skywalking.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.185",
+                                                    "port_value": 9200
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "elasticsearch;skywalking;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|15010||istiod.istio-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.175",
+                                                    "port_value": 15010
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "istiod;istio-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|9080||details.default.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.190",
+                                                    "port_value": 9080
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "envoy.transport_socket_match": {
+                                                    "tlsMode": "istio"
+                                                },
+                                                "istio": {
+                                                    "workload": "details-v1;default;details;v1;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|9402||cert-manager.cert-manager.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.142",
+                                                    "port_value": 9402
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "cert-manager;cert-manager;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|12800||skywalking-oap.skywalking.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.188",
+                                                    "port_value": 12800
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "skywalking-oap;skywalking;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|3000||grafana.istio-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.109",
+                                                    "port_value": 3000
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "grafana;istio-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|80||sleep.default.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.177",
+                                                    "port_value": 80
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "sleep;default;sleep;latest;Kubernetes"
+                                                },
+                                                "envoy.transport_socket_match": {
+                                                    "tlsMode": "istio"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "InboundPassthroughClusterIpv4",
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|9153||kube-dns.kube-system.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.8",
+                                                    "port_value": 9153
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "coredns;kube-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    },
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.3",
+                                                    "port_value": 9153
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "coredns;kube-system;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 2
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|80||skywalking-ui.skywalking.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.189",
+                                                    "port_value": 8080
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "skywalking-ui;skywalking;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|9080||productpage.default.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "10.244.0.194",
+                                                    "port_value": 9080
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": "productpage-v1;default;productpage;v1;Kubernetes"
+                                                },
+                                                "envoy.transport_socket_match": {
+                                                    "tlsMode": "istio"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                },
+                {
+                    "endpoint_config": {
+                        "@type": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                        "cluster_name": "outbound|443||kubernetes.default.svc.cluster.local",
+                        "endpoints": [
+                            {
+                                "locality": {},
+                                "lb_endpoints": [
+                                    {
+                                        "endpoint": {
+                                            "address": {
+                                                "socket_address": {
+                                                    "address": "172.18.0.2",
+                                                    "port_value": 6443
+                                                }
+                                            },
+                                            "health_check_config": {}
+                                        },
+                                        "health_status": "HEALTHY",
+                                        "metadata": {
+                                            "filter_metadata": {
+                                                "istio": {
+                                                    "workload": ";;;;Kubernetes"
+                                                }
+                                            }
+                                        },
+                                        "load_balancing_weight": 1
+                                    }
+                                ],
+                                "load_balancing_weight": 1
+                            }
+                        ],
+                        "policy": {
+                            "overprovisioning_factor": 140
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

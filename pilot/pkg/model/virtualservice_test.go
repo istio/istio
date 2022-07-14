@@ -1794,6 +1794,9 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 		func(r *networking.HTTPRedirect, c fuzz.Continue) {
 			*r = networking.HTTPRedirect{}
 		},
+		func(r *networking.HTTPDirectResponse, c fuzz.Continue) {
+			*r = networking.HTTPDirectResponse{}
+		},
 		func(r *networking.Delegate, c fuzz.Continue) {
 			*r = networking.Delegate{}
 		},

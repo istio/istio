@@ -135,9 +135,9 @@ func TestXdsCache(t *testing.T) {
 		c := model.NewLenientXdsCache()
 
 		ep1 := ep1
-		ep1.destinationRule = &config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}
+		ep1.destinationRule = model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}})
 		ep2 := ep2
-		ep2.destinationRule = &config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}}
+		ep2.destinationRule = model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}})
 		start := time.Now()
 		c.Add(ep1, &model.PushRequest{Start: start}, any1)
 		c.Add(ep2, &model.PushRequest{Start: start}, any2)

@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -36,6 +37,7 @@ import (
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 type revisionCount struct {
@@ -84,6 +86,7 @@ func injectorListCommand() *cobra.Command {
 			ctx := context.Background()
 
 			nslist, err := getNamespaces(ctx, client)
+			nslist = filterSystemNamespaces(nslist)
 			if err != nil {
 				return err
 			}
@@ -117,6 +120,17 @@ func injectorListCommand() *cobra.Command {
 	}
 
 	return cmd
+}
+
+func filterSystemNamespaces(nss []v1.Namespace) []v1.Namespace {
+	filtered := make([]v1.Namespace, 0)
+	for _, ns := range nss {
+		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) || ns.Name == istioNamespace {
+			continue
+		}
+		filtered = append(filtered, ns)
+	}
+	return filtered
 }
 
 func getNamespaces(ctx context.Context, client kube.ExtendedClient) ([]v1.Namespace, error) {
@@ -284,7 +298,7 @@ func getInjectedImages(ctx context.Context, client kube.ExtendedClient) (map[str
 func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revisionCount {
 	retval := map[string]revisionCount{}
 	for _, pod := range pods {
-		revision := pod.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
+		revision := extractRevisionFromPod(&pod)
 		revisionLabel := revision
 		if revision == "" {
 			revisionLabel = "<non-Istio>"
@@ -301,12 +315,27 @@ func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revis
 	return retval
 }
 
+func extractRevisionFromPod(pod *v1.Pod) string {
+	statusAnno, ok := pod.GetAnnotations()[annotation.SidecarStatus.Name]
+	if !ok {
+		return ""
+	}
+	var sidecarinjection inject.SidecarInjectionStatus
+	if err := json.Unmarshal([]byte(statusAnno), &sidecarinjection); err != nil {
+		return ""
+	}
+	return sidecarinjection.Revision
+}
+
 func hideFromOutput(ns resource.Namespace) bool {
 	return (analyzer_util.IsSystemNamespace(ns) || ns == resource.Namespace(istioNamespace))
 }
 
 func injectionDisabled(pod *v1.Pod) bool {
 	inject := pod.ObjectMeta.GetAnnotations()[annotation.SidecarInject.Name]
+	if lbl, labelPresent := pod.ObjectMeta.GetLabels()[annotation.SidecarInject.Name]; labelPresent {
+		inject = lbl
+	}
 	return strings.EqualFold(inject, "false")
 }
 

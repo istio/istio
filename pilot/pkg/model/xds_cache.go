@@ -34,6 +34,7 @@ func init() {
 	monitoring.MustRegister(xdsCacheReads)
 	monitoring.MustRegister(xdsCacheEvictions)
 	monitoring.MustRegister(xdsCacheSize)
+	monitoring.MustRegister(dependentConfigSize)
 }
 
 var (
@@ -46,6 +47,7 @@ var (
 	xdsCacheEvictions = monitoring.NewSum(
 		"xds_cache_evictions",
 		"Total number of xds cache evictions.",
+		monitoring.WithLabels(typeTag),
 	)
 
 	xdsCacheSize = monitoring.NewGauge(
@@ -53,8 +55,15 @@ var (
 		"Current size of xds cache",
 	)
 
-	xdsCacheHits   = xdsCacheReads.With(typeTag.Value("hit"))
-	xdsCacheMisses = xdsCacheReads.With(typeTag.Value("miss"))
+	dependentConfigSize = monitoring.NewGauge(
+		"xds_cache_dependent_config_size",
+		"Current size of dependent configs",
+	)
+
+	xdsCacheHits              = xdsCacheReads.With(typeTag.Value("hit"))
+	xdsCacheMisses            = xdsCacheReads.With(typeTag.Value("miss"))
+	xdsCacheEvictsionsOnClear = xdsCacheEvictions.With(typeTag.Value("clear"))
+	xdsCacheEvictsionsOnSize  = xdsCacheEvictions.With(typeTag.Value("size"))
 )
 
 func hit() {
@@ -86,7 +95,7 @@ type XdsCacheEntry interface {
 	DependentTypes() []kind.Kind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
-	DependentConfigs() []ConfigKey
+	DependentConfigs() []ConfigHash
 	// Cacheable indicates whether this entry is valid for cache. For example
 	// for EDS to be cacheable, the Endpoint should have corresponding service.
 	Cacheable() bool
@@ -119,10 +128,10 @@ type XdsCache interface {
 func NewXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
-		configIndex:      map[ConfigKey]sets.Set{},
+		configIndex:      map[ConfigHash]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
 	}
-	cache.store = newLru(cache.evict)
+	cache.store = newLru(cache.onEvict)
 
 	return cache
 }
@@ -131,10 +140,10 @@ func NewXdsCache() XdsCache {
 func NewLenientXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
-		configIndex:      map[ConfigKey]sets.Set{},
+		configIndex:      map[ConfigHash]sets.Set{},
 		typesIndex:       map[kind.Kind]sets.Set{},
 	}
-	cache.store = newLru(cache.evict)
+	cache.store = newLru(cache.onEvict)
 
 	return cache
 }
@@ -146,8 +155,11 @@ type lruCache struct {
 	// It is refreshed when Clear or ClearAll are called
 	token       CacheToken
 	mu          sync.RWMutex
-	configIndex map[ConfigKey]sets.Set
+	configIndex map[ConfigHash]sets.Set
 	typesIndex  map[kind.Kind]sets.Set
+
+	// mark whether a key is evicted on Clear call, passively.
+	evictedOnClear bool
 }
 
 var _ XdsCache = &lruCache{}
@@ -164,29 +176,48 @@ func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
 	return l
 }
 
-func (l *lruCache) evict(k interface{}, v interface{}) {
+func (l *lruCache) recordDependentConfigSize() {
+	if !features.EnableXDSCacheMetrics {
+		return
+	}
+	dsize := 0
+	for _, dependents := range l.configIndex {
+		dsize += len(dependents)
+	}
+	dependentConfigSize.Record(float64(dsize))
+}
+
+// This is the callback passed to LRU, it will be called whenever a key is removed.
+func (l *lruCache) onEvict(k interface{}, v interface{}) {
 	if features.EnableXDSCacheMetrics {
-		xdsCacheEvictions.Increment()
+		if l.evictedOnClear {
+			xdsCacheEvictsionsOnClear.Increment()
+		} else {
+			xdsCacheEvictsionsOnSize.Increment()
+		}
 	}
 
+	// The following cleanup logic needs to be called on every evict(whether passive or on exceeding size)
+	// because, passive eviction might be triggered by one of many dependent configs and we need to clear the
+	// reference from other dependents.
+	// We don't need to acquire locks, since this function is called when we write to the store.
 	key := k.(string)
 	value := v.(cacheValue)
 
-	// we don't need to acquire locks, since this function is called when we write to the store
-	l.clearConfigIndex(key, value.dependentConfigs)
-	l.clearTypesIndex(key, value.dependentTypes)
+	l.clearIndexes(key, value)
 }
 
-func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigKey) {
+func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
 		if l.configIndex[cfg] == nil {
 			l.configIndex[cfg] = sets.New()
 		}
 		l.configIndex[cfg].Insert(k)
 	}
+	l.recordDependentConfigSize()
 }
 
-func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigKey) {
+func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
 		index := l.configIndex[cfg]
 		if index != nil {
@@ -196,6 +227,7 @@ func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigKey) {
 			}
 		}
 	}
+	l.recordDependentConfigSize()
 }
 
 func (l *lruCache) updateTypesIndex(k string, dependentTypes []kind.Kind) {
@@ -217,6 +249,11 @@ func (l *lruCache) clearTypesIndex(k string, dependentTypes []kind.Kind) {
 			}
 		}
 	}
+}
+
+func (l *lruCache) clearIndexes(key string, value cacheValue) {
+	l.clearConfigIndex(key, value.dependentConfigs)
+	l.clearTypesIndex(key, value.dependentTypes)
 }
 
 // assertUnchanged checks that a cache entry is not changed. This helps catch bad cache invalidation
@@ -273,8 +310,9 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 
 	// we have to make sure we evict old entries with the same key
 	// to prevent leaking in the index maps
-	if old, ok := l.store.Get(k); ok {
-		l.evict(k, old)
+	if f {
+		value := cur.(cacheValue)
+		l.clearIndexes(k, value)
 	}
 
 	dependentConfigs := entry.DependentConfigs()
@@ -290,7 +328,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 type cacheValue struct {
 	value            *discovery.Resource
 	token            CacheToken
-	dependentConfigs []ConfigKey
+	dependentConfigs []ConfigHash
 	dependentTypes   []kind.Kind
 }
 
@@ -319,9 +357,13 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
+	l.evictedOnClear = true
+	defer func() {
+		l.evictedOnClear = false
+	}()
 	for ckey := range configs {
-		referenced := l.configIndex[ckey]
-		delete(l.configIndex, ckey)
+		referenced := l.configIndex[ckey.HashCode()]
+		delete(l.configIndex, ckey.HashCode())
 		for key := range referenced {
 			l.store.Remove(key)
 		}
@@ -341,8 +383,8 @@ func (l *lruCache) ClearAll() {
 	// Purge with an evict function would turn up to be pretty slow since
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
-	l.store = newLru(l.evict)
-	l.configIndex = map[ConfigKey]sets.Set{}
+	l.store = newLru(l.onEvict)
+	l.configIndex = map[ConfigHash]sets.Set{}
 	l.typesIndex = map[kind.Kind]sets.Set{}
 	size(l.store.Len())
 }

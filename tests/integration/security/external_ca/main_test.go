@@ -22,58 +22,17 @@ import (
 
 	csrctrl "istio.io/istio/pkg/test/csrctrl/controllers"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
-	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/security/util"
 )
-
-const (
-	ASvc = "a"
-	BSvc = "b"
-)
-
-type EchoDeployments struct {
-	Namespace namespace.Instance
-	// workloads for TestSecureNaming
-	A, B echo.Instances
-}
 
 var (
-	inst     istio.Instance
-	apps     = &EchoDeployments{}
+	apps     deployment.SingleNamespaceView
 	stopChan = make(chan struct{})
 )
-
-func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
-	var err error
-	apps.Namespace, err = namespace.New(ctx, namespace.Config{
-		Prefix: "test-ns",
-		Inject: true,
-	})
-	if err != nil {
-		return err
-	}
-
-	builder := deployment.New(ctx)
-	builder.
-		WithClusters(ctx.Clusters()...).
-		WithConfig(util.EchoConfig(ASvc, apps.Namespace, false, nil)).
-		WithConfig(util.EchoConfig(BSvc, apps.Namespace, false, nil))
-
-	echos, err := builder.Build()
-	if err != nil {
-		return err
-	}
-	apps.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: apps.Namespace}).GetMatches(echos)
-	return nil
-}
 
 func TestMain(m *testing.M) {
 	// Integration test for testing interoperability with external CA's that are integrated with K8s CSR API
@@ -82,10 +41,8 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireMinVersion(19).
-		Setup(istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) error {
-			return SetupApps(ctx, apps)
-		}).
+		Setup(istio.Setup(nil, setupConfig)).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Run()
 	stopChan <- struct{}{}
 	close(stopChan)
@@ -116,7 +73,6 @@ values:
   meshConfig:
     defaultConfig:
       proxyMetadata:
-        PROXY_CONFIG_XDS_AGENT: "true"
         ISTIO_META_CERT_SIGNER: signer1
     trustDomainAliases: [some-other, trust-domain-foo]
     caCertificates:

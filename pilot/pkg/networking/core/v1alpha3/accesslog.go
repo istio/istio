@@ -73,6 +73,8 @@ const (
 	devStdout = "/dev/stdout"
 
 	celFilter = "envoy.access_loggers.extension_filters.cel"
+
+	defaultEnvoyAccessLogProvider = "envoy"
 )
 
 var (
@@ -142,9 +144,9 @@ type AccessLogBuilder struct {
 
 func newAccessLogBuilder() *AccessLogBuilder {
 	return &AccessLogBuilder{
-		tcpGrpcAccessLog:         buildTCPGrpcAccessLog(false),
-		httpGrpcAccessLog:        buildHTTPGrpcAccessLog(),
-		tcpGrpcListenerAccessLog: buildTCPGrpcAccessLog(true),
+		tcpGrpcAccessLog:         tcpGrpcAccessLog(false),
+		httpGrpcAccessLog:        httpGrpcAccessLog(),
+		tcpGrpcListenerAccessLog: tcpGrpcAccessLog(true),
 	}
 }
 
@@ -185,13 +187,18 @@ func buildAccessLogFromTelemetry(push *model.PushContext, spec *model.LoggingCon
 		var al *accesslog.AccessLog
 		switch prov := p.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
-			al = buildEnvoyFileAccessLogHelper(prov.EnvoyFileAccessLog)
+			// For built-in provider, fallback to Mesh Config for formatting options.
+			if p.Name == defaultEnvoyAccessLogProvider {
+				al = fileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
+			} else {
+				al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog)
+			}
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
-			al = buildHTTPGrpcAccessLogHelper(push, prov.EnvoyHttpAls)
+			al = httpGrpcAccessLogFromTelemetry(push, prov.EnvoyHttpAls)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
-			al = buildTCPGrpcAccessLogHelper(push, prov.EnvoyTcpAls)
+			al = tcpGrpcAccessLogFromTelemetry(push, prov.EnvoyTcpAls)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
-			al = buildOpenTelemetryLogHelper(push, prov.EnvoyOtelAls)
+			al = openTelemetryLog(push, prov.EnvoyOtelAls)
 		}
 		if al == nil {
 			continue
@@ -272,7 +279,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	}
 }
 
-func buildTCPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider) *accesslog.AccessLog {
+func tcpGrpcAccessLogFromTelemetry(push *model.PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider) *accesslog.AccessLog {
 	logName := tcpEnvoyAccessLogFriendlyName
 	if prov != nil && prov.LogName != "" {
 		logName = prov.LogName
@@ -311,15 +318,15 @@ func buildTCPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.MeshC
 	}
 }
 
-func buildEnvoyFileAccessLogHelper(prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider) *accesslog.AccessLog {
+func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider) *accesslog.AccessLog {
 	p := prov.Path
 	if p == "" {
 		p = devStdout
 	}
-
 	fl := &fileaccesslog.FileAccessLog{
 		Path: p,
 	}
+
 	needsFormatter := false
 	if prov.LogFormat != nil {
 		switch logFormat := prov.LogFormat.LogFormat.(type) {
@@ -391,7 +398,7 @@ func buildFileAccessJSONLogFormat(
 	}, needsFormatter
 }
 
-func buildHTTPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) *accesslog.AccessLog {
+func httpGrpcAccessLogFromTelemetry(push *model.PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) *accesslog.AccessLog {
 	logName := httpEnvoyAccessLogFriendlyName
 	if prov != nil && prov.LogName != "" {
 		logName = prov.LogName
@@ -433,7 +440,7 @@ func buildHTTPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.Mesh
 	}
 }
 
-func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+func fileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	// We need to build access log. This is needed either on first access or when mesh config changes.
 	fl := &fileaccesslog.FileAccessLog{
 		Path: path,
@@ -494,7 +501,7 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 	return al
 }
 
-func buildOpenTelemetryLogHelper(pushCtx *model.PushContext,
+func openTelemetryLog(pushCtx *model.PushContext,
 	provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider,
 ) *accesslog.AccessLog {
 	hostname, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
@@ -581,7 +588,7 @@ func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *acce
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	al := buildFileAccessLogHelper(mesh.AccessLogFile, mesh)
+	al := fileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -622,7 +629,7 @@ func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfi
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	lal := buildFileAccessLogHelper(mesh.AccessLogFile, mesh)
+	lal := fileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
 	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 	// not get filter Access Logs like in cases like NR to upstream.
 	lal.Filter = addAccessLogFilter()
@@ -646,7 +653,7 @@ func (b *AccessLogBuilder) cachedListenerFileAccessLog() *accesslog.AccessLog {
 	return b.listenerFileAccessLog
 }
 
-func buildTCPGrpcAccessLog(isListener bool) *accesslog.AccessLog {
+func tcpGrpcAccessLog(isListener bool) *accesslog.AccessLog {
 	accessLogFriendlyName := tcpEnvoyAccessLogFriendlyName
 	if isListener {
 		accessLogFriendlyName = listenerEnvoyAccessLogFriendlyName
@@ -677,7 +684,7 @@ func buildTCPGrpcAccessLog(isListener bool) *accesslog.AccessLog {
 	}
 }
 
-func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
+func httpGrpcAccessLog() *accesslog.AccessLog {
 	fl := &grpcaccesslog.HttpGrpcAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: httpEnvoyAccessLogFriendlyName,

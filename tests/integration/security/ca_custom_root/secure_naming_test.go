@@ -108,18 +108,18 @@ func TestSecureNaming(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 
-			testNamespace := apps.Namespace
+			testNamespace := apps.EchoNamespace.Namespace
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 			// Check that the CA certificate in the configmap of each namespace is as expected, which
 			// is used for data plane to control plane TLS authentication.
 			retry.UntilSuccessOrFail(t, func() error {
 				return checkCACert(t, testNamespace)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-			to := match.Namespace(testNamespace).GetMatches(apps.B)
+			to := match.Namespace(testNamespace).GetMatches(apps.EchoNamespace.B)
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.A)[0]
-					b := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.B)[0]
+					a := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.EchoNamespace.A)[0]
+					b := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.EchoNamespace.B)[0]
 					t.NewSubTest("mTLS cert validation with plugin CA").
 						Run(func(t framework.TestContext) {
 							// Verify that the certificate issued to the sidecar is as expected.

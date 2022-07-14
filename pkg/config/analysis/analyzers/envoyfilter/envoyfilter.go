@@ -160,9 +160,6 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_INSERT_BEFORE || patch.Patch.Operation == network.EnvoyFilter_Patch_INSERT_AFTER {
 			// Also a relative operation (INSERT_BEFORE or INSERT_AFTER) was used so check if priority is set and if not set provide a warning
 			relativeOperationMsg(r, c, index, ef.Priority, patchFilterNames, instanceName)
-		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_MERGE {
-			// A relative operation (MERGE) was used so check if priority is set and if not set provide a warning
-			relativeOperationMsg(r, c, index, ef.Priority, patchFilterNames, instanceName)
 		}
 		// append the patchValueStr to the slice for next iteration if the proxyVersion is set
 		if patch.GetMatch() != nil {

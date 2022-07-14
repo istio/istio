@@ -26,6 +26,7 @@ import (
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes/duration"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -343,6 +344,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	c := &cluster.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
+		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
 	ec := NewMutableCluster(c)
 	switch discoveryType {
@@ -366,6 +368,13 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 			ClusterName: name,
 			Endpoints:   localityLbEndpoints,
 		}
+	}
+
+	if discoveryType == cluster.Cluster_ORIGINAL_DST {
+		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
+		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
+		// infrequently accessed services.
+		c.CleanupInterval = &durationpb.Duration{Seconds: 60}
 	}
 
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
@@ -414,12 +423,6 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	}
 	localCluster := cb.buildDefaultCluster(clusterName, clusterType, localityLbEndpoints,
 		model.TrafficDirectionInbound, instance.ServicePort, instance.Service, allInstance)
-	if clusterType == cluster.Cluster_ORIGINAL_DST {
-		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
-		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
-		// infrequently accessed services.
-		localCluster.cluster.CleanupInterval = &durationpb.Duration{Seconds: 60}
-	}
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
@@ -442,7 +445,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	// (not the defaults) to handle the increased traffic volume
 	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
 	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-	cfg := proxy.SidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, instance.Service.Hostname)
+	cfg := proxy.SidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, instance.Service.Hostname).GetRule()
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
@@ -825,6 +828,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	threshold := getDefaultCircuitBreakerThresholds()
 	var idleTimeout *durationpb.Duration
 	var maxRequestsPerConnection uint32
+	var maxConnectionDuration *duration.Duration
 
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
@@ -847,12 +851,15 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 
 	cb.applyDefaultConnectionPool(mc.cluster)
 	if settings.Tcp != nil {
-		if settings.Tcp != nil && settings.Tcp.ConnectTimeout != nil {
+		if settings.Tcp.ConnectTimeout != nil {
 			mc.cluster.ConnectTimeout = settings.Tcp.ConnectTimeout
 		}
 
-		if settings.Tcp != nil && settings.Tcp.MaxConnections > 0 {
+		if settings.Tcp.MaxConnections > 0 {
 			threshold.MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
+		}
+		if settings.Tcp.MaxConnectionDuration != nil {
+			maxConnectionDuration = settings.Tcp.MaxConnectionDuration
 		}
 	}
 	applyTCPKeepalive(mesh, mc.cluster, settings.Tcp)
@@ -861,7 +868,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		Thresholds: []*cluster.CircuitBreakers_Thresholds{threshold},
 	}
 
-	if idleTimeout != nil || maxRequestsPerConnection > 0 {
+	if maxConnectionDuration != nil || idleTimeout != nil || maxRequestsPerConnection > 0 {
 		if mc.httpProtocolOptions == nil {
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
@@ -875,6 +882,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		}
 		if maxRequestsPerConnection > 0 {
 			commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: maxRequestsPerConnection}
+		}
+		if maxConnectionDuration != nil {
+			commonOptions.CommonHttpProtocolOptions.MaxConnectionDuration = maxConnectionDuration
 		}
 	}
 
@@ -1186,7 +1196,7 @@ func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([
 	if !features.EnableCDSCaching {
 		return nil, false
 	}
-	destinationRule := CastDestinationRule(clusterKey.destinationRule)
+	destinationRule := CastDestinationRule(clusterKey.destinationRule.GetRule())
 	res := make([]*discovery.Resource, 0, 1+len(destinationRule.GetSubsets()))
 	cachedCluster, f := cb.cache.Get(&clusterKey)
 	allFound := f

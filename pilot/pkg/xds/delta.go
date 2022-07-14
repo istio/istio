@@ -504,7 +504,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	}
 
 	switch {
-	case logdata.Incremental:
+	case !req.Full:
 		if deltaLog.DebugEnabled() {
 			deltaLog.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)

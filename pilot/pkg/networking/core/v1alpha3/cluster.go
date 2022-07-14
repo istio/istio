@@ -242,16 +242,16 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
-				clusterKey.proxyView, clusterKey.destinationRule, clusterKey.serviceAccounts)
+				clusterKey.proxyView, clusterKey.destinationRule.GetRule(), clusterKey.serviceAccounts)
 
-			if patched := cp.applyResource(nil, defaultCluster.build()); patched != nil {
+			if patched := cp.patch(nil, defaultCluster.build()); patched != nil {
 				resources = append(resources, patched)
 				if features.EnableCDSCaching {
 					cb.cache.Add(clusterKey, cb.req, patched)
 				}
 			}
 			for _, ss := range subsetClusters {
-				if patched := cp.applyResource(nil, ss); patched != nil {
+				if patched := cp.patch(nil, ss); patched != nil {
 					resources = append(resources, patched)
 					if features.EnableCDSCaching {
 						nk := *clusterKey
@@ -271,15 +271,15 @@ type clusterPatcher struct {
 	pctx networking.EnvoyFilter_PatchContext
 }
 
-func (p clusterPatcher) applyResource(hosts []host.Name, c *cluster.Cluster) *discovery.Resource {
-	cluster := p.apply(hosts, c)
+func (p clusterPatcher) patch(hosts []host.Name, c *cluster.Cluster) *discovery.Resource {
+	cluster := p.doPatch(hosts, c)
 	if cluster == nil {
 		return nil
 	}
 	return &discovery.Resource{Name: cluster.Name, Resource: util.MessageToAny(cluster)}
 }
 
-func (p clusterPatcher) apply(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
+func (p clusterPatcher) doPatch(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
 	if !envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
 		return nil
 	}
@@ -291,7 +291,7 @@ func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.N
 		return append(l, clusters...)
 	}
 	for _, c := range clusters {
-		if patched := p.apply(hosts, c); patched != nil {
+		if patched := p.doPatch(hosts, c); patched != nil {
 			l = append(l, patched)
 		}
 	}
@@ -322,7 +322,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			continue
 		}
 
-		destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
+		destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname).GetRule()
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -506,14 +506,13 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 		return cluster.Cluster_LOGICAL_DNS
 	case model.Passthrough:
 		// Gateways cannot use passthrough clusters. So fallback to EDS
-		if proxyType == model.SidecarProxy {
-			if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
-				return cluster.Cluster_EDS
-			}
-
-			return cluster.Cluster_ORIGINAL_DST
+		if proxyType == model.Router {
+			return cluster.Cluster_EDS
 		}
-		return cluster.Cluster_EDS
+		if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
+			return cluster.Cluster_EDS
+		}
+		return cluster.Cluster_ORIGINAL_DST
 	default:
 		return cluster.Cluster_EDS
 	}
@@ -659,13 +658,17 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 
 	// Disable panic threshold by default as its not typically applicable in k8s environments
 	// with few pods per service.
-	// To do so, set the healthy_panic_threshold field even if its value is 0 (defaults to 50).
+	// To do so, set the healthy_panic_threshold field even if its value is 0 (defaults to 50 in Envoy).
 	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
-	if outlier.MinHealthPercent >= 0 {
-		if c.CommonLbConfig == nil {
-			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
+	minHealthPercent := outlier.MinHealthPercent
+	if minHealthPercent >= 0 {
+		// When we are sending unhealthy endpoints, we should disble Panic Threshold. Otherwise
+		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
+		// below minimum health percentage.
+		if features.SendUnhealthyEndpoints {
+			minHealthPercent = 0
 		}
-		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(outlier.MinHealthPercent)} // defaults to 50
+		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(minHealthPercent)}
 	}
 }
 
@@ -679,11 +682,13 @@ func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
 	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig,
 ) {
+	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
+	// end points when load balancer is in panic mode.
+	if features.SendUnhealthyEndpoints {
+		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
+	}
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if localityLbSetting != nil {
-		if c.CommonLbConfig == nil {
-			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
-		}
 		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
 			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
@@ -714,6 +719,8 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
+		// Wipe out any LoadAssignment, if set. This can occur when we have a STATIC Service but PASSTHROUGH traffic policy
+		c.LoadAssignment = nil
 	default:
 		applySimpleDefaultLoadBalancer(c, lb)
 	}
@@ -834,7 +841,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 		have := make(map[host.Name]bool)
 		for _, svc := range instances {
 			if svc.ServicePort.Port != opts.port.Port {
-				// If the service port is different from the the port of the cluster that is being built,
+				// If the service port is different from the port of the cluster that is being built,
 				// skip adding telemetry metadata for the service to the cluster.
 				continue
 			}

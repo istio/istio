@@ -575,7 +575,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 func TestGenCertFromCSR(t *testing.T) {
 	keyFile := "../testdata/key.pem"
 	certFile := "../testdata/cert.pem"
-	keycert, err := NewVerifiedKeyCertBundleFromFile(certFile, keyFile, "", certFile)
+	keycert, err := NewVerifiedKeyCertBundleFromFile(certFile, keyFile, nil, certFile)
 	if err != nil {
 		t.Errorf("Failed to load CA key and cert from files: %s, %s", keyFile, certFile)
 	}
