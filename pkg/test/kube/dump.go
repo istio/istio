@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -480,9 +481,9 @@ func dumpProxyCommand(c cluster.Cluster, fw kube.PortForwarder, pod corev1.Pod, 
 					path, c.Name(), pod.Namespace, pod.Name, container.Name, err)
 			}
 			if filename == "proxy-config.json" {
-				cds := strings.Contains(cfgDump, "dynamic_warming_clusters")
-				sds := strings.Contains(cfgDump, "dynamic_warming_secrets")
-				lds := strings.Contains(cfgDump, "warming_state")
+				cds := bytes.Contains(cfgDump, []byte("dynamic_warming_clusters"))
+				sds := bytes.Contains(cfgDump, []byte("dynamic_warming_secrets"))
+				lds := bytes.Contains(cfgDump, []byte("warming_state"))
 				// Add extra logs if we have anything warming. FAIL syntax is import to make prow highlight
 				// it. Note: this doesn't make the test fail, just adds logging; if we hit this code the test
 				// already failed.
