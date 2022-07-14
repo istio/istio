@@ -367,7 +367,6 @@ func TestSetTCPAccessLog(t *testing.T) {
 			b.setTCPAccessLog(tc.push, tc.proxy, tc.tcp, tc.class)
 			assert.Equal(t, tc.expected, tc.tcp)
 		})
-
 	}
 }
 
@@ -421,7 +420,6 @@ func TestSetHttpAccessLog(t *testing.T) {
 			b.setHTTPAccessLog(tc.push, tc.proxy, tc.hcm, tc.class)
 			assert.Equal(t, tc.expected, tc.hcm)
 		})
-
 	}
 }
 
@@ -465,7 +463,6 @@ func TestSetListenerAccessLog(t *testing.T) {
 			listener: &listener.Listener{},
 			class:    networking.ListenerClassSidecarInbound,
 			expected: &listener.Listener{
-
 				AccessLog: []*accesslog.AccessLog{
 					{
 						Name: wellknown.FileAccessLog,
@@ -486,6 +483,5 @@ func TestSetListenerAccessLog(t *testing.T) {
 			b.setListenerAccessLog(tc.push, tc.proxy, tc.listener, tc.class)
 			assert.Equal(t, tc.expected, tc.listener)
 		})
-
 	}
 }
