@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func createTestTelemetries(configs []config.Config, t *testing.T) *Telemetries {
+func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries, *PushContext) {
 	t.Helper()
 
 	store := &telemetryStore{}
@@ -62,13 +62,14 @@ func createTestTelemetries(configs []config.Config, t *testing.T) *Telemetries {
 		ConfigStore: MakeIstioStore(store),
 		Watcher:     mesh.NewFixedWatcher(m),
 	}
-	ctx := NewPushContext()
-	ctx.Mesh = m
-	telemetries, err := getTelemetries(ctx, environment)
+	telemetries, err := getTelemetries(environment)
 	if err != nil {
 		t.Fatalf("getTelemetries failed: %v", err)
 	}
-	return telemetries
+
+	ctx := NewPushContext()
+	ctx.Mesh = m
+	return telemetries, ctx
 }
 
 func newTelemetry(ns string, spec config.Spec) config.Config {
@@ -444,7 +445,7 @@ func TestTracing(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			telemetry := createTestTelemetries(tt.cfgs, t)
+			telemetry, _ := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.Tracing = tt.defaultProviders
 			got := telemetry.Tracing(tt.proxy)
 			if got != nil && got.ServerSpec.Provider != nil {
@@ -767,7 +768,7 @@ func TestTelemetryFilters(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			telemetry := createTestTelemetries(tt.cfgs, t)
+			telemetry, _ := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders = tt.defaultProviders
 			got := telemetry.telemetryFilters(tt.proxy, tt.class, tt.protocol)
 			res := map[string]string{}

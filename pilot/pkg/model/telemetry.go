@@ -76,8 +76,6 @@ type Telemetries struct {
 	computedMetricsFilters map[metricsKey]interface{}
 	computedLoggingConfig  map[loggingKey]*LoggingConfig
 	mu                     sync.Mutex
-
-	push *PushContext
 }
 
 // telemetryKey defines a key into the computedMetricsFilters cache.
@@ -105,14 +103,13 @@ type metricsKey struct {
 }
 
 // getTelemetries returns the Telemetry configurations for the given environment.
-func getTelemetries(push *PushContext, env *Environment) (*Telemetries, error) {
+func getTelemetries(env *Environment) (*Telemetries, error) {
 	telemetries := &Telemetries{
 		NamespaceToTelemetries: map[string][]Telemetry{},
 		RootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
 		computedMetricsFilters: map[metricsKey]interface{}{},
 		computedLoggingConfig:  map[loggingKey]*LoggingConfig{},
-		push:                   push,
 	}
 
 	fromEnv, err := env.List(collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(), NamespaceAll)
@@ -217,7 +214,7 @@ func workloadMode(class networking.ListenerClass) tpb.WorkloadMode {
 // AccessLogging returns the logging configuration for a given proxy and listener class.
 // If nil is returned, access logs are not configured via Telemetry and should use fallback mechanisms.
 // If a non-nil but empty configuration is passed, access logging is explicitly disabled.
-func (t *Telemetries) AccessLogging(proxy *Proxy, class networking.ListenerClass) *LoggingConfig {
+func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class networking.ListenerClass) *LoggingConfig {
 	ct := t.applicableTelemetries(proxy)
 	if len(ct.Logging) == 0 && len(t.meshConfig.GetDefaultProviders().GetAccessLogging()) == 0 {
 		return nil
@@ -244,7 +241,7 @@ func (t *Telemetries) AccessLogging(proxy *Proxy, class networking.ListenerClass
 		}
 
 		cfg.Providers = append(cfg.Providers, fp)
-		al := telemetryAccessLog(t.push, fp)
+		al := telemetryAccessLog(push, fp)
 		if al == nil {
 			continue
 		}

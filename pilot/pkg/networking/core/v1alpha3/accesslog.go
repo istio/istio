@@ -127,7 +127,7 @@ func newAccessLogBuilder() *AccessLogBuilder {
 
 func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass) {
 	mesh := push.Mesh
-	cfg := push.Telemetry.AccessLogging(proxy, class)
+	cfg := push.Telemetry.AccessLogging(push, proxy, class)
 
 	if cfg == nil {
 		// No Telemetry API configured, fall back to legacy mesh config setting
@@ -193,7 +193,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass,
 ) {
 	mesh := push.Mesh
-	cfg := push.Telemetry.AccessLogging(proxy, class)
+	cfg := push.Telemetry.AccessLogging(push, proxy, class)
 
 	if cfg == nil {
 		// No Telemetry API configured, fall back to legacy mesh config setting
@@ -220,7 +220,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 		return
 	}
 
-	cfg := push.Telemetry.AccessLogging(proxy, class)
+	cfg := push.Telemetry.AccessLogging(push, proxy, class)
 
 	if cfg == nil {
 		// No Telemetry API configured, fall back to legacy mesh config setting
