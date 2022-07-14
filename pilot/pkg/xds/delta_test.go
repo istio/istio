@@ -15,9 +15,10 @@
 package xds_test
 
 import (
-	"istio.io/pkg/log"
 	"reflect"
 	"testing"
+
+	"istio.io/pkg/log"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -38,15 +39,13 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 	log.FindScope("delta").SetOutputLevel(log.DebugLevel)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.EndpointType)
-	nonce := ""
 	sendEDSReqAndVerify := func(add, remove, expect []string) {
 		t.Helper()
 		res := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
-			ResponseNonce:            nonce,
+			ResponseNonce:            "",
 			ResourceNamesSubscribe:   add,
 			ResourceNamesUnsubscribe: remove,
 		})
-		nonce = res.Nonce
 		got := xdstest.MapKeys(xdstest.ExtractLoadAssignments(xdstest.UnmarshalClusterLoadAssignment(t, model.ResourcesToAny(res.Resources))))
 		if !reflect.DeepEqual(expect, got) {
 			t.Fatalf("expected clusters %v got %v", expect, got)
@@ -57,7 +56,7 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 	// Only send the one that is requested
 	sendEDSReqAndVerify([]string{"outbound|81||local.default.svc.cluster.local"}, nil, []string{"outbound|81||local.default.svc.cluster.local"})
 	ads.Request(&discovery.DeltaDiscoveryRequest{
-		ResponseNonce:            nonce,
+		ResponseNonce:            "",
 		ResourceNamesUnsubscribe: []string{"outbound|81||local.default.svc.cluster.local"},
 	})
 	ads.ExpectNoResponse()
