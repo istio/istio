@@ -111,8 +111,8 @@ metadata:
 spec:
   accessLogging:
   - disabled: %v
-`, !enableLogs)
-	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).ApplyOrFail(t)
+`, enableLogs)
+	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).DeleteOrFail(t)
 }
 
 func runAccessLogsTests(t framework.TestContext, expectLogs bool) {
