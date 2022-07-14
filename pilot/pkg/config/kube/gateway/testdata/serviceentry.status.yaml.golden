@@ -23,22 +23,22 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: NoConflicts
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: Attached
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: Ready
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
     name: default

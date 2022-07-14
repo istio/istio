@@ -65,6 +65,13 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
+var skippedTests = map[string]string{
+	"HTTPRouteInvalidNonExistentBackendRef":    "https://github.com/istio/istio/issues/39919",
+	"HTTPRouteInvalidBackendRefUnknownKind":    "https://github.com/istio/istio/issues/39919",
+	"HTTPRouteInvalidCrossNamespaceBackendRef": "https://github.com/istio/istio/issues/39919",
+	"HTTPRouteInvalidReferenceGrant":           "https://github.com/istio/istio/issues/39919",
+}
+
 func TestGatewayConformance(t *testing.T) {
 	// nolint: staticcheck
 	framework.
@@ -120,6 +127,9 @@ func TestGatewayConformance(t *testing.T) {
 
 			for _, ct := range tests.ConformanceTests {
 				t.Run(ct.ShortName, func(t *testing.T) {
+					if reason, f := skippedTests[ct.ShortName]; f {
+						t.Skip(reason)
+					}
 					ct.Run(t, csuite)
 				})
 			}
