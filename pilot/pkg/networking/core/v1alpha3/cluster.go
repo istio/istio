@@ -84,6 +84,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, req
 	var services []*model.Service
 	// for delta, we'll pass in all services to buildClusters, and buildClusters should filter
 	// based on cache dependencies.
+
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
 		services = req.Push.GatewayServices(proxy)
 	} else {
@@ -164,6 +165,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, proxy *model.Proxy,
 	cp clusterPatcher, services []*model.Service, updated map[model.ConfigKey]struct{}, deleted sets.Set, delta bool,
 ) ([]*discovery.Resource, cacheStats) {
+	log.Debug("WIGJ#OINGI#OGNGN")
 	var oldCacheKeys map[string]model.XdsCacheEntry
 	if proxy.WatchedResources[v3.ClusterType] == nil {
 		oldCacheKeys = make(map[string]model.XdsCacheEntry)

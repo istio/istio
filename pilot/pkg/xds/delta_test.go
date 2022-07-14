@@ -15,6 +15,7 @@
 package xds_test
 
 import (
+	"istio.io/pkg/log"
 	"reflect"
 	"testing"
 
@@ -34,6 +35,7 @@ func TestDeltaAds(t *testing.T) {
 }
 
 func TestDeltaAdsClusterUpdate(t *testing.T) {
+	log.FindScope("delta").SetOutputLevel(log.DebugLevel)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.EndpointType)
 	nonce := ""
