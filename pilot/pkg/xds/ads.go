@@ -400,7 +400,13 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 
 	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
+	// previousInfo.NonceSent can be empty if we previously had shouldRespond=true but didn't send any resources.
 	if request.ResponseNonce != previousInfo.NonceSent {
+		if features.EnableUnsafeAssertions && previousInfo.NonceSent == "" {
+			// Assert we do not end up in an invalid state
+			log.Fatalf("ADS:%s: REQ %s Expired nonce received %s, but we never sent any nonce", stype,
+				con.conID, request.ResponseNonce)
+		}
 		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
