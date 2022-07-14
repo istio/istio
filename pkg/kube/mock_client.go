@@ -80,6 +80,9 @@ type MockClient struct {
 	IstiodVersion     string
 }
 
+func (c MockClient) SetPortManager(manager PortManager) {
+}
+
 func (c MockClient) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
 	return WaitForCacheSync(stop, cacheSyncs...)
 }

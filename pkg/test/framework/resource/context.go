@@ -79,4 +79,6 @@ type Context interface {
 
 	// RecordTraceEvent records an event. This is later saved to trace.yaml for analysis
 	RecordTraceEvent(key string, value interface{})
+	// Id returns the name of the context
+	ID() string
 }
