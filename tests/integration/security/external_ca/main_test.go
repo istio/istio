@@ -73,7 +73,6 @@ values:
   meshConfig:
     defaultConfig:
       proxyMetadata:
-        PROXY_CONFIG_XDS_AGENT: "true"
         ISTIO_META_CERT_SIGNER: signer1
     trustDomainAliases: [some-other, trust-domain-foo]
     caCertificates:
