@@ -23,10 +23,13 @@ import (
 	"time"
 
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
+
+var securityLog = istiolog.RegisterScope("security", "security debugging", 0)
 
 const (
 	// etc/certs files are used with external CA managing the certs,
@@ -351,10 +354,44 @@ type Caller struct {
 	Identities []string
 }
 
+// Authenticator determines the caller identity based on request context.
 type Authenticator interface {
 	Authenticate(ctx context.Context) (*Caller, error)
 	AuthenticatorType() string
 	AuthenticateRequest(req *http.Request) (*Caller, error)
+}
+
+// AuthenticationManager orchestrates all authenticators to perform authentication.
+type AuthenticationManager struct {
+	Authenticators []Authenticator
+	// authFailMsgs contains list of messages that authenticator wants to record - mainly used for logging.
+	authFailMsgs []string
+}
+
+// Authenticate loops through all the configured Authenticators and returns if one of the authenticator succeeds.
+func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
+	for _, authn := range am.Authenticators {
+		u, err := authn.Authenticate(ctx)
+		if u != nil && len(u.Identities) > 0 && err == nil {
+			securityLog.Debugf("Authentication successful through auth source %v", u.AuthSource)
+			return u
+		}
+		am.authFailMsgs = append(am.authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
+	}
+	return nil
+}
+
+func GetConnectionAddress(ctx context.Context) string {
+	peerInfo, ok := peer.FromContext(ctx)
+	peerAddr := "unknown"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+	return peerAddr
+}
+
+func (am *AuthenticationManager) FailedMessages() string {
+	return strings.Join(am.authFailMsgs, "; ")
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {

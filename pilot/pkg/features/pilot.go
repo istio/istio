@@ -405,6 +405,18 @@ var (
 		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
 	).Get()
 
+	// TODO: Move this to proper API.
+	trustedGatewayCIDR = env.RegisterStringVar(
+		"TRUSTED_GATEWAY_CIDR",
+		"",
+		"If set, any connections from gateway to Istiod with this CIDR range are treated as trusted for using authenication mechanisms like XFCC."+
+			" This can only be used when the network where Istiod and the authenticating gateways are running in a trusted/secure network",
+	)
+
+	TrustedGatewayCIDR = func() []string {
+		return strings.Split(trustedGatewayCIDR.Get(), ",")
+	}()
+
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()

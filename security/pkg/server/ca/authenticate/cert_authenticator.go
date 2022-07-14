@@ -15,10 +15,10 @@
 package authenticate
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
