@@ -355,6 +355,11 @@ type WatchedResource struct {
 	// NonceNacked is the last nacked message. This is reset following a successful ACK
 	NonceNacked string
 
+	// AlwaysRespond, if true, will ensure that even when a request would otherwise be treated as an
+	// ACK, it will be responded to. Typically, this should be set to 'false' after response; keeping it
+	// true would likely result in an endless loop.
+	AlwaysRespond bool
+
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
 
