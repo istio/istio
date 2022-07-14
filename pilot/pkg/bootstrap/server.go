@@ -322,6 +322,9 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// so we build it later.
 	authenticators = append(authenticators,
 		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+	if len(features.TrustedGatewayCIDR) > 0 {
+		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
+	}
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
