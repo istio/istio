@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"reflect"
@@ -205,7 +206,12 @@ type ExtendedClient interface {
 
 	// UtilFactory returns a kubectl factory
 	UtilFactory() util.Factory
+
+	// SetPortManager overrides the default port manager to provision local ports
+	SetPortManager(PortManager)
 }
+
+type PortManager func() (uint16, error)
 
 var (
 	_ Client         = &client{}
@@ -345,6 +351,8 @@ type client struct {
 
 	versionOnce sync.Once
 	version     *kubeVersion.Info
+
+	portManager PortManager
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -413,6 +421,8 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 		return nil, err
 	}
 	c.extInformer = kubeExtInformers.NewSharedInformerFactory(c.extSet, resyncInterval)
+
+	c.portManager = defaultAvailablePort
 
 	return &c, nil
 }
@@ -917,7 +927,7 @@ func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, erro
 }
 
 func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort int, podPort int) (PortForwarder, error) {
-	return newPortForwarder(c.config, podName, ns, localAddress, localPort, podPort)
+	return newPortForwarder(c, podName, ns, localAddress, localPort, podPort)
 }
 
 func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.PodList, error) {
@@ -1127,6 +1137,10 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 	return nil
 }
 
+func (c *client) SetPortManager(manager PortManager) {
+	c.portManager = manager
+}
+
 func closeQuietly(c io.Closer) {
 	_ = c.Close()
 }
@@ -1194,4 +1208,18 @@ func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo
 	} else {
 		serverInfo.Version = istioInfo
 	}
+}
+
+func defaultAvailablePort() (uint16, error) {
+	addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort("127.0.0.1", "0"))
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	return uint16(port), l.Close()
 }

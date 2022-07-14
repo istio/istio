@@ -32,6 +32,9 @@ type Config struct {
 	Revision string
 	// Labels to be applied to namespace
 	Labels map[string]string
+	// SkipDump, if enabled, will disable dumping the namespace. This is useful to avoid duplicate
+	// dumping of istio-system.
+	SkipDump bool
 }
 
 func (c *Config) overwriteRevisionIfEmpty(revision string) {
