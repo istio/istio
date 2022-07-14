@@ -135,7 +135,7 @@ const (
 	// InvalidRefNotPermitted indicates a route was not permitted
 	InvalidRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestination indicates an issue with the destination
-	InvalidDestination ConfigErrorReason = "InvalidDestination"
+	InvalidDestination       ConfigErrorReason = "InvalidDestination"
 	InvalidDestinationPermit ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestinationKind indicates an issue with the destination kind
 	InvalidDestinationKind ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonInvalidKind)
