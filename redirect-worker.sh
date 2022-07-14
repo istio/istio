@@ -25,8 +25,6 @@ POD_OUTBOUND=15001
 POD_INBOUND=15008
 POD_INBOUND_PLAINTEXT=15006
 
-
-
 if $IPTABLES -t mangle -C OUTPUT -j uproxy-OUTPUT; then
   $IPTABLES -t nat -F uproxy-PREROUTING
   $IPTABLES -t nat -F uproxy-POSTROUTING
@@ -63,20 +61,20 @@ UPROXY_IP=$(crictl exec $UPROXYID ip addr show eth0 | grep "inet\b" | awk '{prin
 UPROXY_VETH=$(ip route get $UPROXY_IP | sed -nr 's/.* dev ([[:alnum:]]+) .*/\1/p')
 # In host ns:
 # everything with skip mark goes directly to the main table.
-ip rule add priority 20000 fwmark $SKIP_MARK goto 32766
+ip rule add priority $(($IP_RULE_BASE+0)) fwmark $SKIP_MARK goto $IP_RULE_GOTO
 # everything with outbound mark, goes to the tunnel out device using the outbound route table
-ip rule add priority 20001 fwmark $OUTBOUND_MARK lookup $OUTBOUND_ROUTE_TABLE
+ip rule add priority $(($IP_RULE_BASE+1)) fwmark $OUTBOUND_MARK lookup $OUTBOUND_ROUTE_TABLE
 # things with proxy return mark go directly to the proxy veth using the proxy route table (i.e. useful for original src)
-ip rule add priority 20002 fwmark $PROXY_RET_MARK lookup $PROXY_ROUTE_TABLE
+ip rule add priority $(($IP_RULE_BASE+2)) fwmark $PROXY_RET_MARK lookup $PROXY_ROUTE_TABLE
 
 # send all traffic to the inbound table. this table has routes only to pods in the mesh.
 # this table doesn't have a catch-all route. if a route is missing, the search will continue.
 # this allows us to "override" routing just for member pods.
 
-ip rule add priority 20004 goto 20007
-ip rule add priority 20005 table $INBOUND_ROUTE_TABLE2
-ip rule add priority 20006 goto 32766
-ip rule add priority 20007 table $INBOUND_ROUTE_TABLE
+ip rule add priority $(($IP_RULE_BASE+4)) goto $(($IP_RULE_BASE+7))
+ip rule add priority $(($IP_RULE_BASE+5)) table $INBOUND_ROUTE_TABLE2
+ip rule add priority $(($IP_RULE_BASE+6)) goto $IP_RULE_GOTO
+ip rule add priority $(($IP_RULE_BASE+7)) table $INBOUND_ROUTE_TABLE
 
 
 # create the set of pod members
@@ -109,15 +107,20 @@ $IPTABLES -t mangle -A uproxy-OUTPUT --source $HOST_IP -j MARK --set-mark $CONNS
 
 # disable for now (as i'm not sure if needed), but if you see `martian` packets in the logs, renable this.
 # # allow original src to go through
-# echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter # need to set all as well, as the max is taken.
-# echo 0 > /proc/sys/net/ipv4/conf/$UPROXY_VETH/rp_filter
-# echo 1 > /proc/sys/net/ipv4/conf/$UPROXY_VETH/accept_local
+echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter # need to set all as well, as the max is taken.
+echo 0 > /proc/sys/net/ipv4/conf/$UPROXY_VETH/rp_filter
+echo 1 > /proc/sys/net/ipv4/conf/$UPROXY_VETH/accept_local
+
+# disable rp filter everywhere, as its needed on AWS
+echo 0 > /proc/sys/net/ipv4/conf/default/rp_filter
+for i in /proc/sys/net/ipv4/conf/*/rp_filter; do
+  echo 0 > $i
+done
 
 # If we have an outbound mark, we don't need kube-proxy to do anything, so accept it before kube proxy
 # translates service vips to pod ips.
 $IPTABLES -t nat -A uproxy-PREROUTING -m mark --mark $OUTBOUND_MARK -j ACCEPT
 $IPTABLES -t nat -A uproxy-POSTROUTING -m mark --mark $OUTBOUND_MARK -j ACCEPT
-
 
 # don't set anything on the tunnel (geneve port is 6081), as the tunnel copies the mark to the un-tunneled packet.
 $IPTABLES -t mangle -A uproxy-PREROUTING -p udp -m udp --dport 6081 -j RETURN
@@ -135,7 +138,6 @@ $IPTABLES -t mangle -A uproxy-PREROUTING -m mark --mark $PROXY_RET_MARK -j RETUR
 # make sure we don't tproxy it.
 $IPTABLES -t mangle -A uproxy-PREROUTING -i $UPROXY_VETH ! --source $UPROXY_IP -j MARK --set-mark $PROXY_MARK
 $IPTABLES -t mangle -A uproxy-PREROUTING -m mark --mark $SKIP_MARK -j RETURN
-
 
 # make sure anything that leaves the uproxy is routed normally (xds, connections to other uproxies, connections to upstream pods...) .
 $IPTABLES -t mangle -A uproxy-PREROUTING -i $UPROXY_VETH -j MARK --set-mark $CONNSKIP_MARK
@@ -159,16 +161,20 @@ ip link set $INBOUND_TUN up
 ip link set $OUTBOUND_TUN up
 
 # route uproxy ip (i.e. geneve remote) to the uproxy veth directly. needed so geneve doesn't go into a loop
-ip route add table $OUTBOUND_ROUTE_TABLE $UPROXY_IP dev $UPROXY_VETH scope host
+ip route add table $OUTBOUND_ROUTE_TABLE $UPROXY_IP dev $UPROXY_VETH scope link
 # anything else in the outbound route table just goes to the outbound tunnel
 ip route add table $OUTBOUND_ROUTE_TABLE 0.0.0.0/0 via $UPROXY_OUTBOUND_TUN_IP dev $OUTBOUND_TUN
 # handle original src, by sending original src traffic to the uproxy veth...
-ip route add table $PROXY_ROUTE_TABLE $UPROXY_IP dev $UPROXY_VETH scope host
+ip route add table $PROXY_ROUTE_TABLE $UPROXY_IP dev $UPROXY_VETH scope link
 ip route add table $PROXY_ROUTE_TABLE 0.0.0.0/0 via $UPROXY_IP dev $UPROXY_VETH onlink
 # same for inbound table. in theory i don't think i should need this, but didn't work without.
-ip route add table $INBOUND_ROUTE_TABLE $UPROXY_IP dev $UPROXY_VETH scope host
+ip route add table $INBOUND_ROUTE_TABLE $UPROXY_IP dev $UPROXY_VETH scope link
 
 
+echo 0 > /proc/sys/net/ipv4/conf/$INBOUND_TUN/rp_filter
+echo 1 > /proc/sys/net/ipv4/conf/$INBOUND_TUN/accept_local
+echo 0 > /proc/sys/net/ipv4/conf/$OUTBOUND_TUN/rp_filter
+echo 1 > /proc/sys/net/ipv4/conf/$OUTBOUND_TUN/accept_local
 
 ################################ UPROXY #################################
 # all this stuff below should ideally be in the uproxy init container, but for now it's easier to do it here.
@@ -212,10 +218,10 @@ crictl exec $UPROXYID ip rule add priority 20002 fwmark $PROXY_INBOUND_MARK look
 crictl exec $UPROXYID ip rule add priority 20003 fwmark $ORG_SRC_RET_MARK lookup 100
 crictl exec $UPROXYID ip route add local 0.0.0.0/0 dev lo table 100
 
-crictl exec $UPROXYID ip route add table 101 $HOST_IP dev eth0 scope host
+crictl exec $UPROXYID ip route add table 101 $HOST_IP dev eth0 scope link
 crictl exec $UPROXYID ip route add table 101 0.0.0.0/0 via $OUTBOUND_TUN_IP dev p$OUTBOUND_TUN
 
-crictl exec $UPROXYID ip route add table 102 $HOST_IP dev eth0 scope host
+crictl exec $UPROXYID ip route add table 102 $HOST_IP dev eth0 scope link
 crictl exec $UPROXYID ip route add table 102 0.0.0.0/0 via $INBOUND_TUN_IP dev p$INBOUND_TUN
 
 crictl exec $UPROXYID $IPTABLES -t mangle -F PREROUTING # clean up previous rules to make script idempotent

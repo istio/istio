@@ -105,7 +105,7 @@ for pip in \$PODS; do
 done
 
 # activate secondary table
-ip rule add priority 20003 goto 20005
+ip rule add priority $(($IP_RULE_BASE+3)) goto $(($IP_RULE_BASE+5))
 
 # add everything to the primary table
 ip route flush table $INBOUND_ROUTE_TABLE
@@ -113,7 +113,7 @@ for pip in \$PODS; do
         ip route add table $INBOUND_ROUTE_TABLE \$pip/32 via $UPROXY_INBOUND_TUN_IP dev $INBOUND_TUN src \$HOST_IP
 done
 # deactivate the secondary table
-ip rule del priority 20003 goto 20005
+ip rule del priority $(($IP_RULE_BASE+3)) goto $(($IP_RULE_BASE+5))
 
 EOF
 

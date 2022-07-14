@@ -126,14 +126,14 @@ if [[ "${2:-}" == clean ]]; then
     ip route flush table $OUTBOUND_ROUTE_TABLE
     ip route flush table $PROXY_ROUTE_TABLE
     
-    ip rule del priority 20000
-    ip rule del priority 20001
-    ip rule del priority 20002
-    ip rule del priority 20003
-    ip rule del priority 20004
-    ip rule del priority 20005
-    ip rule del priority 20006
-    ip rule del priority 20007
+    ip rule del priority $(($IP_RULE_BASE+0))
+    ip rule del priority $(($IP_RULE_BASE+1))
+    ip rule del priority $(($IP_RULE_BASE+2))
+    ip rule del priority $(($IP_RULE_BASE+3))
+    ip rule del priority $(($IP_RULE_BASE+4))
+    ip rule del priority $(($IP_RULE_BASE+5))
+    ip rule del priority $(($IP_RULE_BASE+6))
+    ip rule del priority $(($IP_RULE_BASE+7))
 
     ip link del name $INBOUND_TUN
     ip link del name $OUTBOUND_TUN
