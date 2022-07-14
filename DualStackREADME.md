@@ -24,16 +24,14 @@ Jacob's working on here.
 There are 2 installation approaches will be introduced in this section:
 
 - **Install via istioctl** - It's very easy for user who install Istio via istioctl to enable dual stack feature support,
-    just set the environment variables of both `ISTIO_DUAL_STACK` and `PILOT_USE_ENDPOINT_SLICE` as true, the commands may be below:
+    just set the environment variables of both `ISTIO_DUAL_STACK` and `PILOT_USE_ENDPOINT_SLICE` as true, the command may be below:
 
     - istioctl install --set values.pilot.env.ISTIO_DUAL_STACK=true --set values.pilot.env.PILOT_USE_ENDPOINT_SLICE=true -y
 
 - **Install via helm** - Many enterprise users may choose helm as the installation tool, however, it's similar with using `istioctl`.
-    Both `ISTIO_DUAL_STACK` and `PILOT_USE_ENDPOINT_SLICE` are required to set true, and the commands may be below:
+    Both `ISTIO_DUAL_STACK` and `PILOT_USE_ENDPOINT_SLICE` are required to set true, and the command may be below:
 
-    - cd 
-
-    - helm install istiod ../manifests/charts/istio-control/istio-discovery \
+    - helm install istiod manifests/charts/istio-control/istio-discovery \
         --set global.imagePullPolicy="Always" \
         --set global.hub="<YOUR-IMAGE-HUB>" \
         --set global.tag="<YOUR-IMAGE-TAG>" \
