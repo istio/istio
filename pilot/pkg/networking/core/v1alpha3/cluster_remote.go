@@ -159,6 +159,19 @@ func (cb *ClusterBuilder) buildRemoteInboundVIPCluster(svc *model.Service, port 
 	clusterType := cluster.Cluster_EDS
 	localCluster := cb.buildDefaultCluster(clusterName, clusterType, nil,
 		model.TrafficDirectionInbound, &port, nil, nil)
+
+	// Ensure VIP cluster has services metadata for stats filter usage
+	im := getOrCreateIstioMetadata(localCluster.cluster)
+	im.Fields["services"] = &structpb.Value{
+		Kind: &structpb.Value_ListValue{
+			ListValue: &structpb.ListValue{
+				Values: []*structpb.Value{},
+			},
+		},
+	}
+	svcMetaList := im.Fields["services"].GetListValue()
+	svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
+
 	//opts := buildClusterOpts{
 	//	mesh:             cb.req.Push.Mesh,
 	//	mutable:          localCluster,
