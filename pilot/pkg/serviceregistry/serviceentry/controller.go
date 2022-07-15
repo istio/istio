@@ -494,6 +494,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	instances := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
 	configsUpdated := map[model.ConfigKey]struct{}{}
+	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
 		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
@@ -516,12 +517,15 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		} else {
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
 		}
-		for _, inst := range instance {
-			configsUpdated[model.ConfigKey{
-				Kind:      kind.ServiceEntry,
-				Name:      string(inst.Service.Hostname),
-				Namespace: cfg.Namespace,
-			}] = struct{}{}
+		if se.Resolution == networking.ServiceEntry_DNS && se.WorkloadSelector != nil {
+			fullPush = true
+			for _, inst := range instance {
+				configsUpdated[model.ConfigKey{
+					Kind:      kind.ServiceEntry,
+					Name:      string(inst.Service.Hostname),
+					Namespace: cfg.Namespace,
+				}] = struct{}{}
+			}
 		}
 	}
 	if len(instancesDeleted) > 0 {
@@ -540,12 +544,16 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	// ServiceEntry with WorkloadEntry results in STRICT_DNS cluster with hardcoded endpoints
 	// need to update CDS to refresh endpoints
 	// https://github.com/istio/istio/issues/39505
-	pushReq := &model.PushRequest{
-		Full:           true,
-		ConfigsUpdated: configsUpdated,
-		Reason:         []model.TriggerReason{model.ServiceUpdate},
+	if fullPush {
+		log.Debugf("Full push triggered during event %s for workload instance (%s/%s) in namespace %s", event,
+			wi.Kind, wi.Endpoint.Address, wi.Namespace)
+		pushReq := &model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: configsUpdated,
+			Reason:         []model.TriggerReason{model.ServiceUpdate},
+		}
+		s.XdsUpdater.ConfigUpdate(pushReq)
 	}
-	s.XdsUpdater.ConfigUpdate(pushReq)
 }
 
 func (s *Controller) Provider() provider.ID {
