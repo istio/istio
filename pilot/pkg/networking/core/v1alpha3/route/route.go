@@ -152,7 +152,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	}
 
 	// append default hosts for the service missing virtual Services
-	out = append(out, buildSidecarVirtualHostsForService(node, serviceRegistry, hashByService, push.Mesh)...)
+	out = append(out, buildSidecarVirtualHostsForService(node, serviceRegistry, hashByService, push.Mesh, routeName)...)
 	return out
 }
 
@@ -274,8 +274,10 @@ func buildSidecarVirtualHostsForService(
 	serviceRegistry map[host.Name]*model.Service,
 	hashByService map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB,
 	mesh *meshconfig.MeshConfig,
+	routeName string,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
+	needIPv6Hosts := strings.HasSuffix(routeName, constants.IPv6Suffix)
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
@@ -288,10 +290,14 @@ func buildSidecarVirtualHostsForService(
 						if features.EnableDualStack && node.SupportsIPv6() {
 							clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound6, "", svc.Hostname, port.Port))
 						} else {
-							clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port))
+							if !needIPv6Hosts {
+								clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port))
+							}
 						}
 					} else {
-						clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port))
+						if !needIPv6Hosts {
+							clusters = append(clusters, model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port))
+						}
 					}
 				}
 				if len(svc.DefaultAddresses) == 1 && svc.DefaultAddresses[0] == coreV1.ClusterIPNone {
@@ -394,7 +400,9 @@ func BuildHTTPRoutesForVirtualService(
 				hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh, vskey); r != nil {
 				out = append(out, r)
 			}
-			catchall = true
+			if len(out) > 0 {
+				catchall = true
+			}
 		} else {
 			for _, match := range http.Match {
 				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry,
