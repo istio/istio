@@ -240,7 +240,7 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 		// Authenticate request with the same method as XDS
 		authFailMsgs := make([]string, 0)
 		var ids []string
-		authRequest := security.AuthenticateContext{Request: req}
+		authRequest := security.AuthContext{Request: req}
 		for _, authn := range s.Authenticators {
 			u, err := authn.Authenticate(authRequest)
 			// If one authenticator passes, return

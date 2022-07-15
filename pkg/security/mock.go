@@ -83,12 +83,12 @@ func NewFakeAuthenticator(name string) *FakeAuthenticator {
 	}
 }
 
-func (f *FakeAuthenticator) Authenticate(authReq AuthenticateContext) (*Caller, error) {
-	if authReq.GrpcContext != nil {
-		return f.authenticateGrpc(authReq.GrpcContext)
+func (f *FakeAuthenticator) Authenticate(authCtx AuthContext) (*Caller, error) {
+	if authCtx.GrpcContext != nil {
+		return f.authenticateGrpc(authCtx.GrpcContext)
 	}
-	if authReq.Request != nil {
-		return f.authenticateHTTP(authReq.Request)
+	if authCtx.Request != nil {
+		return f.authenticateHTTP(authCtx.Request)
 	}
 	return nil, nil
 }

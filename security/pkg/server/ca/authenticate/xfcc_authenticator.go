@@ -42,7 +42,7 @@ func (xff XfccAuthenticator) AuthenticatorType() string {
 }
 
 // Authenticate extracts identities from Xfcc Header.
-func (xff XfccAuthenticator) Authenticate(ctx security.AuthenticateContext) (*security.Caller, error) {
+func (xff XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.Caller, error) {
 	peerInfo, _ := peer.FromContext(ctx.GrpcContext)
 	// First check if client is trusted client so that we can "trust" the Xfcc Header.
 	if !isTrustedAddress(peerInfo.Addr.String(), features.TrustedGatewayCIDR) {

@@ -46,7 +46,7 @@ func (authn *mockAuthenticator) AuthenticatorType() string {
 	return "mockAuthenticator"
 }
 
-func (authn *mockAuthenticator) Authenticate(_ security.AuthenticateContext) (*security.Caller, error) {
+func (authn *mockAuthenticator) Authenticate(_ security.AuthContext) (*security.Caller, error) {
 	if len(authn.errMsg) > 0 {
 		return nil, fmt.Errorf("%v", authn.errMsg)
 	}

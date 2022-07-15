@@ -43,12 +43,12 @@ func (cca *ClientCertAuthenticator) AuthenticatorType() string {
 // method assumes that certificate chain has been properly validated before
 // this method is called. In other words, this method does not do certificate
 // chain validation itself.
-func (cca *ClientCertAuthenticator) Authenticate(authReq security.AuthenticateContext) (*security.Caller, error) {
-	if authReq.GrpcContext != nil {
-		return cca.authenticateGrpc(authReq.GrpcContext)
+func (cca *ClientCertAuthenticator) Authenticate(authCtx security.AuthContext) (*security.Caller, error) {
+	if authCtx.GrpcContext != nil {
+		return cca.authenticateGrpc(authCtx.GrpcContext)
 	}
-	if authReq.Request != nil {
-		return cca.authenticateHTTP(authReq.Request)
+	if authCtx.Request != nil {
+		return cca.authenticateHTTP(authCtx.Request)
 	}
 	return nil, nil
 }

@@ -85,7 +85,7 @@ func isAllowedKubernetesAudience(a string) bool {
 
 // Authenticate authenticates the call using the K8s JWT from the context.
 // The returned Caller.Identities is in SPIFFE format.
-func (a *KubeJWTAuthenticator) Authenticate(authRequest security.AuthenticateContext) (*security.Caller, error) {
+func (a *KubeJWTAuthenticator) Authenticate(authRequest security.AuthContext) (*security.Caller, error) {
 	if authRequest.GrpcContext != nil {
 		return a.authenticateGrpc(authRequest.GrpcContext)
 	}

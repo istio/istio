@@ -348,7 +348,7 @@ const (
 	authorizationMeta = "authorization"
 )
 
-type AuthenticateContext struct {
+type AuthContext struct {
 	// grpc context
 	GrpcContext context.Context
 	// http request
@@ -363,7 +363,7 @@ type Caller struct {
 
 // Authenticator determines the caller identity based on request context.
 type Authenticator interface {
-	Authenticate(ctx AuthenticateContext) (*Caller, error)
+	Authenticate(ctx AuthContext) (*Caller, error)
 	AuthenticatorType() string
 }
 
@@ -376,7 +376,7 @@ type AuthenticationManager struct {
 
 // Authenticate loops through all the configured Authenticators and returns if one of the authenticator succeeds.
 func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
-	req := AuthenticateContext{GrpcContext: ctx}
+	req := AuthContext{GrpcContext: ctx}
 	for _, authn := range am.Authenticators {
 		u, err := authn.Authenticate(req)
 		if u != nil && len(u.Identities) > 0 && err == nil {

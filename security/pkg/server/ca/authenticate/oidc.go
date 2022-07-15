@@ -68,7 +68,7 @@ func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule, trustDomain string) (*JwtAuth
 }
 
 // Authenticate - based on the old OIDC authenticator for mesh expansion.
-func (j *JwtAuthenticator) Authenticate(authRequest security.AuthenticateContext) (*security.Caller, error) {
+func (j *JwtAuthenticator) Authenticate(authRequest security.AuthContext) (*security.Caller, error) {
 	if authRequest.GrpcContext != nil {
 		bearerToken, err := security.ExtractBearerToken(authRequest.GrpcContext)
 		if err != nil {
