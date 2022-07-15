@@ -143,6 +143,8 @@ spec:
           value: "uproxy-envoy"
         - name: ISTIO_META_SIDECARLESS_TYPE
           value: "uproxy"
+        - name: ISTIO_META_CLUSTER_ID
+          value: {{ .Values.global.multiCluster.clusterName | default "Kubernetes" }}
         - name: CREDENTIAL_FETCHER_TYPE
           value: "TokenRequest"
         - name: POD_NAME
