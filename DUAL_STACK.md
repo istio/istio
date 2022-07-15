@@ -19,6 +19,12 @@ In addition, here are some other information you may wish to read:
 
 Jacob's working on here.
 
+Note: 
+
+- User can build necessary binary via command `make build`
+
+- User can build image in your local envrionment via command `make docker`, `make docker.pilot` and `make docker.proxyv2`, etc. 
+
 ## Installation
 
 There are 2 installation approaches will be introduced in this section:
@@ -40,7 +46,7 @@ There are 2 installation approaches will be introduced in this section:
         ...... \
         -n istio-system
 
-> Note: For environment variable PILOT_USE_ENDPOINT_SLICE, it will be true by default for some kubernetes version, such as 1.21+. 
+> Note: For environment variable PILOT_USE_ENDPOINT_SLICE, it will be true by default for some kubernetes version, such as 1.21+.  
 
 
 ## Others
@@ -60,3 +66,7 @@ There are 2 installation approaches will be introduced in this section:
 > A: This extra branch is based on 1.13 release of Istio.
 
 ...... looking forward to more for this!
+
+- **Q: Is there any verification for this branch code?**
+
+> A: Only basic verification has been completed, however, the unit test and integration test is unavailable for now and both these 2 sections will be going on.
