@@ -146,6 +146,8 @@ type AgentOptions struct {
 	DNSCapture bool
 	// DNSAddr is the DNS capture address
 	DNSAddr string
+	// DNSForwardParallel indicates whether the agent should send parallel DNS queries to all upstream nameservers.
+	DNSForwardParallel bool
 	// ProxyType is the type of proxy we are configured to handle
 	ProxyType model.NodeType
 	// ProxyNamespace to use for local dns resolution
@@ -583,7 +585,8 @@ func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
 func (a *Agent) initLocalDNSServer() (err error) {
 	// we don't need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
-		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr); err != nil {
+		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr,
+			a.cfg.DNSForwardParallel); err != nil {
 			return err
 		}
 		a.localDNSServer.StartDNS()

@@ -31,8 +31,17 @@ import (
 
 var testAgentDNSAddr = "127.0.0.1:15053"
 
+func TestDNSForwardParallel(t *testing.T) {
+	initDNS(t, true)
+	testDNS(t)
+}
+
 func TestDNS(t *testing.T) {
-	initDNS(t)
+	initDNS(t, false)
+	testDNS(t)
+}
+
+func testDNS(t *testing.T) {
 	testCases := []struct {
 		name                     string
 		host                     string
@@ -319,7 +328,7 @@ func TestDNS(t *testing.T) {
 //   docker run -v $PWD:$PWD -w $PWD --network host quay.io/ssro/dnsperf dnsperf -p 15053 -d input -c 100 -l 30
 // where `input` contains dns queries to run, such as `echo.default. A`
 func BenchmarkDNS(t *testing.B) {
-	initDNS(t)
+	initDNS(t, false)
 	t.Run("via-agent-cache-miss", func(b *testing.B) {
 		bench(b, testAgentDNSAddr, "www.bing.com.")
 	})
@@ -473,9 +482,9 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 	return server.Addr
 }
 
-func initDNS(t test.Failer) *LocalDNSServer {
+func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 	srv := makeUpstream(t, map[string]string{"www.bing.com.": "1.1.1.1"})
-	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:15053")
+	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:15053", forwardToUpstreamParallel)
 	if err != nil {
 		t.Fatal(err)
 	}
