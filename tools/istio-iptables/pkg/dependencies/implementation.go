@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spf13/viper"
 
 	"istio.io/istio/pkg/util/sets"
@@ -67,16 +68,18 @@ var XTablesCmds = sets.New(
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct {
 	NetworkNamespace string
+	HostNSEnterExec  bool
 	CNIMode          bool
 }
 
 func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) error {
-	if r.CNIMode {
+	if r.CNIMode && r.HostNSEnterExec {
 		originalCmd := cmd
 		cmd = constants.NSENTER
 		args = append([]string{fmt.Sprintf("--net=%v", r.NetworkNamespace), "--", originalCmd}, args...)
 	}
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
+
 	externalCommand := exec.Command(cmd, args...)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
@@ -92,8 +95,21 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 		}
 		externalCommand.Env = append(externalCommand.Env, fmt.Sprintf("%s=%v", strings.ToUpper(repl.Replace(k)), v))
 	}
+	var err error
+	var nsContainer ns.NetNS
+	if r.CNIMode && !r.HostNSEnterExec {
+		nsContainer, err = ns.GetNS(r.NetworkNamespace)
+		if err != nil {
+			return err
+		}
 
-	err := externalCommand.Run()
+		err = nsContainer.Do(func(ns.NetNS) error {
+			return externalCommand.Run()
+		})
+		nsContainer.Close()
+	} else {
+		err = externalCommand.Run()
+	}
 
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
@@ -107,7 +123,7 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 }
 
 func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) error {
-	if r.CNIMode {
+	if r.CNIMode && r.HostNSEnterExec {
 		originalCmd := cmd
 		cmd = constants.NSENTER
 		args = append([]string{fmt.Sprintf("--net=%v", r.NetworkNamespace), "--", originalCmd}, args...)
@@ -115,19 +131,34 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 
 	var stdout, stderr *bytes.Buffer
+	var err error
+	var nsContainer ns.NetNS
+
+	if r.CNIMode && !r.HostNSEnterExec {
+		nsContainer, err = ns.GetNS(r.NetworkNamespace)
+		if err != nil {
+			return err
+		}
+		defer nsContainer.Close()
+	}
 
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = 100 * time.Millisecond
 	b.MaxInterval = 2 * time.Second
 	b.MaxElapsedTime = 10 * time.Second
-	var err error
 	backoffError := backoff.Retry(func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
 		stderr = &bytes.Buffer{}
 		externalCommand.Stdout = stdout
 		externalCommand.Stderr = stderr
-		err = externalCommand.Run()
+		if r.CNIMode && !r.HostNSEnterExec {
+			err = nsContainer.Do(func(ns.NetNS) error {
+				return externalCommand.Run()
+			})
+		} else {
+			err = externalCommand.Run()
+		}
 		exitCode, ok := exitCode(err)
 		if !ok {
 			// cannot get exit code. consider this as non-retriable.

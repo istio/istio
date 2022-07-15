@@ -443,6 +443,7 @@ func GetOSRootFilePath() string {
 		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // CentOS/RHEL 7
 		"/etc/ssl/cert.pem",                                 // Alpine Linux
 		"/usr/local/etc/ssl/cert.pem",                       // FreeBSD
+		"/etc/ssl/certs/ca-certificates",                    // Talos Linux
 	}
 
 	for _, cert := range certFiles {
