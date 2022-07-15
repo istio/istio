@@ -277,7 +277,6 @@ func buildSidecarVirtualHostsForService(
 	routeName string,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
-
 	needIPv6Hosts := strings.HasSuffix(routeName, constants.IPv6Suffix)
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
