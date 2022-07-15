@@ -394,6 +394,14 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		// Due to https://github.com/envoyproxy/envoy/issues/13009, we must always send an EDS response when CDS is pushed.
+		// However, during reconnect scenarios, Envoy may fail to send EDS requests that we can reasonably identify as non-ACKs.
+		// Instead, we force the next EDS request to always respond, rather than an ACK, to ensure we send EDS.
+		if request.TypeUrl == v3.ClusterType {
+			if eds, f := con.proxy.WatchedResources[v3.EndpointType]; f {
+				eds.AlwaysRespond = true
+			}
+		}
 		con.proxy.Unlock()
 		return true, emptyResourceDelta
 	}
@@ -423,6 +431,8 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
 	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
+	alwaysRespond := previousInfo.AlwaysRespond
+	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
@@ -440,6 +450,10 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		// times, we treat subsequent requests as something we should respond to.
 		if features.PushOnRepeatNonce && request.ResponseNonce == previousNonceAcked {
 			log.Debugf("ADS:%s: REQ %s Repeated nonce received %s", stype, con.conID, request.ResponseNonce)
+			return true, emptyResourceDelta
+		}
+		if alwaysRespond {
+			log.Infof("ADS:%s: REQ %s forced response", stype, con.conID)
 			return true, emptyResourceDelta
 		}
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
