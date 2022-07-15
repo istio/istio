@@ -74,7 +74,7 @@ type Telemetries struct {
 	// creation, we will preserve the Telemetries (and thus the cache) if not Telemetries are modified.
 	// As result, this cache will live until any Telemetry is modified.
 	computedMetricsFilters map[metricsKey]interface{}
-	computedLoggingConfig  map[loggingKey]*LoggingConfig
+	computedLoggingConfig  map[loggingKey]LoggingConfig
 	mu                     sync.Mutex
 }
 
@@ -109,7 +109,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 		RootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
 		computedMetricsFilters: map[metricsKey]interface{}{},
-		computedLoggingConfig:  map[loggingKey]*LoggingConfig{},
+		computedLoggingConfig:  map[loggingKey]LoggingConfig{},
 	}
 
 	fromEnv, err := env.List(collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(), NamespaceAll)
@@ -228,10 +228,10 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 	defer t.mu.Unlock()
 	precomputed, ok := t.computedLoggingConfig[key]
 	if ok {
-		return precomputed
+		return &precomputed
 	}
 
-	cfg := &LoggingConfig{}
+	cfg := LoggingConfig{}
 	providers, f := mergeLogs(ct.Logging, t.meshConfig, workloadMode(class))
 	cfg.Filter = f
 	for _, p := range providers.SortedList() {
@@ -249,7 +249,7 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 	}
 
 	t.computedLoggingConfig[key] = cfg
-	return cfg
+	return &cfg
 }
 
 // Tracing returns the logging tracing for a given proxy. If nil is returned, tracing
