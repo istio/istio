@@ -483,6 +483,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 
 	instances := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
+	configsUpdated := map[model.ConfigKey]struct{}{}
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
 		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
@@ -505,6 +506,13 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		} else {
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
 		}
+		for _, inst := range instance {
+			configsUpdated[model.ConfigKey{
+				Kind:      kind.ServiceEntry,
+				Name:      string(inst.Service.Hostname),
+				Namespace: cfg.Namespace,
+			}] = struct{}{}
+		}
 	}
 	if len(instancesDeleted) > 0 {
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
@@ -518,6 +526,16 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	s.mutex.Unlock()
 
 	s.edsUpdate(instances)
+
+	// ServiceEntry with WorkloadEntry results in STRICT_DNS cluster with hardcoded endpoints
+	// need to update CDS to refresh endpoints
+	// https://github.com/istio/istio/issues/39505
+	pushReq := &model.PushRequest{
+		Full:           true,
+		ConfigsUpdated: configsUpdated,
+		Reason:         []model.TriggerReason{model.ServiceUpdate},
+	}
+	s.XdsUpdater.ConfigUpdate(pushReq)
 }
 
 func (s *Controller) Provider() provider.ID {
