@@ -60,6 +60,7 @@ type Config struct {
 	OutputPath              string        `json:"OUTPUT_PATH"`
 	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
 	CNIMode                 bool          `json:"CNI_MODE"`
+	HostNSEnterExec         bool          `json:"HOST_NSENTER_EXEC"`
 	TraceLogging            bool          `json:"IPTABLES_TRACE_LOGGING"`
 }
 
@@ -98,6 +99,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("OUTPUT_PATH=%s\n", c.OutputPath))
 	b.WriteString(fmt.Sprintf("NETWORK_NAMESPACE=%s\n", c.NetworkNamespace))
 	b.WriteString(fmt.Sprintf("CNI_MODE=%s\n", strconv.FormatBool(c.CNIMode)))
+	b.WriteString(fmt.Sprintf("HOST_NSENTER_EXEC=%s\n", strconv.FormatBool(c.HostNSEnterExec)))
 	b.WriteString(fmt.Sprintf("EXCLUDE_INTERFACES=%s\n", c.ExcludeInterfaces))
 	log.Infof("Istio iptables variables:\n%s", b.String())
 }
