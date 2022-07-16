@@ -55,7 +55,6 @@ func TestAccessLogging(t *testing.T) {
 			},
 		},
 	}
-
 	client := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -144,6 +143,17 @@ func TestAccessLogging(t *testing.T) {
 				Providers: []*tpb.ProviderRef{
 					{
 						Name: "envoy",
+					},
+				},
+			},
+		},
+	}
+	stackdriver := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "stackdriver",
 					},
 				},
 			},
@@ -469,6 +479,14 @@ func TestAccessLogging(t *testing.T) {
 			[]string{"envoy"},
 		},
 		{
+			"stackdriver",
+			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", stackdriver)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{},
+		},
+		{
 			"default envoy JSON",
 			[]config.Config{newTelemetry("istio-system", defaultJSON)},
 			networking.ListenerClassSidecarOutbound,
@@ -736,6 +754,34 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
 			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound)
 			assert.Equal(t, tt.excepted, got)
+		})
+	}
+}
+
+func TestAccessLoggingCache(t *testing.T) {
+	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	otherNamespace := &Proxy{ConfigNamespace: "common", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	cfgs := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 400",
+				},
+			},
+		},
+	}
+
+	telemetry, ctx := createTestTelemetries([]config.Config{newTelemetry("default", cfgs)}, t)
+	for _, s := range []*Proxy{sidecar, otherNamespace} {
+		t.Run(s.ConfigNamespace, func(t *testing.T) {
+			first := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound)
+			second := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound)
+			assert.Equal(t, first, second)
 		})
 	}
 }
