@@ -226,6 +226,7 @@ func workloadMode(class networking.ListenerClass) tpb.WorkloadMode {
 func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class networking.ListenerClass) []LoggingConfig {
 	ct := t.applicableTelemetries(proxy)
 	if len(ct.Logging) == 0 && len(t.meshConfig.GetDefaultProviders().GetAccessLogging()) == 0 {
+		// No Telemetry API configured, fall back to legacy mesh config setting
 		return nil
 	}
 
