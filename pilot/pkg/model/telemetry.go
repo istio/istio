@@ -246,6 +246,7 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 	for p, f := range providers {
 		fp := t.fetchProvider(p)
 		if fp == nil {
+			log.Debugf("fail to fetch provider %s", p)
 			continue
 		}
 		cfg := LoggingConfig{
@@ -255,6 +256,7 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 
 		al := telemetryAccessLog(push, fp)
 		if al == nil {
+			// stackdriver will be handled in HTTPFilters/TCPFilters
 			continue
 		}
 		cfg.AccessLog = al
@@ -532,7 +534,6 @@ func mergeLogs(logs []*computedAccessLogging, mesh *meshconfig.MeshConfig, mode 
 			names.InsertAll(subProviders...)
 
 			for _, prov := range subProviders {
-				// TODO: consider pick the non-nil?
 				filters[prov] = p.Filter
 			}
 		}
@@ -562,6 +563,7 @@ func mergeLogs(logs []*computedAccessLogging, mesh *meshconfig.MeshConfig, mode 
 					continue
 				}
 
+				// see UT: server - multi filters disabled
 				if m.GetDisabled().GetValue() {
 					delete(providers, provider)
 					continue
