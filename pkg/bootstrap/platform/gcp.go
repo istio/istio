@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -122,7 +123,24 @@ func IsGCP() bool {
 		// Assume this is running on GCP if GCP project env variable is set.
 		return true
 	}
-	return metadata.OnGCE()
+
+	timeC := time.After(time.Millisecond * 100)
+	ch := make(chan bool)
+	defer close(ch)
+	go func() {
+		ch <- metadata.OnGCE()
+	}()
+
+	for {
+		select {
+		case res, ok := <-ch:
+			if ok {
+				return res
+			}
+		case <-timeC:
+			return false
+		}
+	}
 }
 
 // NewGCP returns a platform environment customized for Google Cloud Platform.
