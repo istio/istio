@@ -330,7 +330,7 @@ func TestAccessLogging(t *testing.T) {
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
-			[]string{},
+			nil, // No Telemetry API configured, fall back to legacy mesh config setting
 		},
 		{
 			"default provider only",
@@ -561,12 +561,15 @@ func TestAccessLogging(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry, ctx := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
-			got := []string{}
+			var got []string
 			cfgs := telemetry.AccessLogging(ctx, tt.proxy, tt.class)
-			for _, p := range cfgs {
-				got = append(got, p.Provider.Name)
+			if cfgs != nil {
+				got = []string{}
+				for _, p := range cfgs {
+					got = append(got, p.Provider.Name)
+				}
+				sort.Strings(got)
 			}
-			sort.Strings(got)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("got %v want %v", got, tt.want)
 			}
