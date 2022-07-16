@@ -127,7 +127,7 @@ spec:
 								},
 								Check: check.And(
 									check.OK(),
-									check.ReachedClusters(t.AllClusters(), cluster.Clusters{source.Config().Cluster}),
+									check.ReachedClusters(t.AllClusters(), cluster.Clusters{source.Config().Cluster}, t),
 								),
 								Retry: echo.Retry{
 									Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
