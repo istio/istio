@@ -41,19 +41,6 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-var (
-	defaultJSONLabelsOut = &fileaccesslog.FileAccessLog{
-		Path: "/dev/stdout",
-		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_JsonFormat{
-					JsonFormat: EnvoyJSONLogFormatIstio,
-				},
-			},
-		},
-	}
-)
-
 func TestAccessLogging(t *testing.T) {
 	labels := map[string]string{"app": "test"}
 	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: labels}}
