@@ -70,11 +70,11 @@ func (f *forwarder) Start() error {
 			fw, err := f.buildK8sPortForwarder(readyCh)
 			if err != nil {
 				errCh <- err
-				break
+				return
 			}
 			if err = fw.ForwardPorts(); err != nil {
 				errCh <- err
-				break
+				return
 			}
 			// At this point, either the stopCh has been closed, or port forwarder connection is broken.
 			// the port forwarder should have already been ready before.
