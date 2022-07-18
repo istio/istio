@@ -73,12 +73,8 @@ func (f *forwarder) Start() error {
 				return
 			}
 			if err = fw.ForwardPorts(); err != nil {
-				select {
-				case errCh <- err:
-					return
-				default:
-					break
-				}
+				errCh <- err
+				return
 			}
 			// At this point, either the stopCh has been closed, or port forwarder connection is broken.
 			// the port forwarder should have already been ready before.
