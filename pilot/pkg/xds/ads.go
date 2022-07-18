@@ -442,7 +442,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// We should always respond "alwayRespond" marked requests to let Envoy finish warming
 	// even though Nonce match and it looks like an ACK.
 	if alwaysRespond {
-		log.Infof("ADS:%s: FORCE RESPONCE %s for warming.", stype, con.conID)
+		log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
 		return true, emptyResourceDelta
 	}
 
