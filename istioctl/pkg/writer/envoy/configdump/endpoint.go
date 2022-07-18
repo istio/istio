@@ -24,6 +24,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	any "github.com/golang/protobuf/ptypes/any"
 	"sigs.k8s.io/yaml"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
@@ -136,38 +137,16 @@ func (c *ConfigWriter) retrieveSortedEndpointsSlice(filter EndpointFilter) ([]*e
 	}
 	endpoints := make([]*endpoint.ClusterLoadAssignment, 0, len(dump.DynamicEndpointConfigs))
 	for _, e := range dump.GetDynamicEndpointConfigs() {
-		cla := &endpoint.ClusterLoadAssignment{}
-		if err := e.EndpointConfig.UnmarshalTo(cla); err != nil {
-			return nil, err
+		cla, epCount := retrieveEndpoint(e.EndpointConfig, filter)
+		if epCount != 0 {
+			endpoints = append(endpoints, cla)
 		}
-		for _, llb := range cla.Endpoints {
-			filtered := make([]*endpoint.LbEndpoint, 0, len(llb.LbEndpoints))
-			for _, ep := range llb.LbEndpoints {
-				if !filter.Verify(ep, cla.ClusterName) {
-					continue
-				}
-				filtered = append(filtered, ep)
-			}
-			llb.LbEndpoints = filtered
-		}
-		endpoints = append(endpoints, cla)
 	}
 	for _, e := range dump.GetStaticEndpointConfigs() {
-		cla := &endpoint.ClusterLoadAssignment{}
-		if err := e.EndpointConfig.UnmarshalTo(cla); err != nil {
-			return nil, err
+		cla, epCount := retrieveEndpoint(e.EndpointConfig, filter)
+		if epCount != 0 {
+			endpoints = append(endpoints, cla)
 		}
-		for _, llb := range cla.Endpoints {
-			filtered := make([]*endpoint.LbEndpoint, 0, len(llb.LbEndpoints))
-			for _, ep := range llb.LbEndpoints {
-				if !filter.Verify(ep, cla.ClusterName) {
-					continue
-				}
-				filtered = append(filtered, ep)
-			}
-			llb.LbEndpoints = filtered
-		}
-		endpoints = append(endpoints, cla)
 	}
 	sort.Slice(endpoints, func(i, j int) bool {
 		iDirection, iSubset, iName, iPort := safelyParseSubsetKey(endpoints[i].ClusterName)
@@ -184,4 +163,25 @@ func (c *ConfigWriter) retrieveSortedEndpointsSlice(filter EndpointFilter) ([]*e
 		return iName < jName
 	})
 	return endpoints, nil
+}
+
+func retrieveEndpoint(epConfig *any.Any, filter EndpointFilter) (*endpoint.ClusterLoadAssignment, int) {
+	cla := &endpoint.ClusterLoadAssignment{}
+	if err := epConfig.UnmarshalTo(cla); err != nil {
+		return nil, 0
+	}
+	filteredCount := 0
+	for _, llb := range cla.Endpoints {
+		filtered := make([]*endpoint.LbEndpoint, 0, len(llb.LbEndpoints))
+		for _, ep := range llb.LbEndpoints {
+			if !filter.Verify(ep, cla.ClusterName) {
+				continue
+			}
+			filtered = append(filtered, ep)
+		}
+		llb.LbEndpoints = filtered
+		filteredCount += len(llb.LbEndpoints)
+	}
+
+	return cla, filteredCount
 }

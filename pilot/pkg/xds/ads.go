@@ -189,8 +189,8 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	stype := v3.GetShortType(req.TypeUrl)
-	log.Debugf("ADS:%s: REQ %s verson received %s, nonce received %s", stype,
-		con.conID, req.VersionInfo, req.ResponseNonce)
+	log.Debugf("ADS:%s: REQ %s resources:%d nonce:%s version:%s ", stype,
+		con.conID, len(req.ResourceNames), req.ResponseNonce, req.VersionInfo)
 	if req.TypeUrl == v3.HealthInfoType {
 		s.handleWorkloadHealthcheck(con.proxy, req)
 		return nil
@@ -398,13 +398,27 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 			ResourceNames: request.ResourceNames,
 			CacheKeys:     map[string]model.XdsCacheEntry{},
 		}
+		// Due to https://github.com/envoyproxy/envoy/issues/13009, we must always send an EDS response when CDS is pushed.
+		// However, during reconnect scenarios, Envoy may fail to send EDS requests that we can reasonably identify as non-ACKs.
+		// Instead, we force the next EDS request to always respond, rather than an ACK, to ensure we send EDS.
+		if request.TypeUrl == v3.ClusterType {
+			if eds, f := con.proxy.WatchedResources[v3.EndpointType]; f {
+				eds.AlwaysRespond = true
+			}
+		}
 		con.proxy.Unlock()
 		return true, emptyResourceDelta
 	}
 
 	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
+	// previousInfo.NonceSent can be empty if we previously had shouldRespond=true but didn't send any resources.
 	if request.ResponseNonce != previousInfo.NonceSent {
+		if features.EnableUnsafeAssertions && previousInfo.NonceSent == "" {
+			// Assert we do not end up in an invalid state
+			log.Fatalf("ADS:%s: REQ %s Expired nonce received %s, but we never sent any nonce", stype,
+				con.conID, request.ResponseNonce)
+		}
 		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
@@ -421,6 +435,8 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
 	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
+	alwaysRespond := previousInfo.AlwaysRespond
+	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
@@ -438,6 +454,10 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		// times, we treat subsequent requests as something we should respond to.
 		if features.PushOnRepeatNonce && request.ResponseNonce == previousNonceAcked {
 			log.Debugf("ADS:%s: REQ %s Repeated nonce received %s", stype, con.conID, request.ResponseNonce)
+			return true, emptyResourceDelta
+		}
+		if alwaysRespond {
+			log.Infof("ADS:%s: REQ %s forced response", stype, con.conID)
 			return true, emptyResourceDelta
 		}
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)

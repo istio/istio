@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -27,12 +26,13 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
 )
 
 var AuthPlaintext = env.RegisterBoolVar("XDS_AUTH_PLAINTEXT", false,
-	"Authenticate plain text requests - used if Istiod is behind a gateway handling TLS").Get()
+	"Authenticate plain text requests - used if Istiod is running on a secure/trusted network").Get()
 
 // authenticate authenticates the ADS request using the configured authenticators.
 // Returns the validated principals or an error.
@@ -56,17 +56,14 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok && !AuthPlaintext {
 		return nil, nil
 	}
-	authFailMsgs := []string{}
-	for _, authn := range s.Authenticators {
-		u, err := authn.Authenticate(ctx)
-		// If one authenticator passes, return
-		if u != nil && u.Identities != nil && err == nil {
-			return u.Identities, nil
-		}
-		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
-	}
 
-	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), strings.Join(authFailMsgs, "; "))
+	am := security.AuthenticationManager{
+		Authenticators: s.Authenticators,
+	}
+	if u := am.Authenticate(ctx); u != nil {
+		return u.Identities, nil
+	}
+	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), am.FailedMessages())
 	return nil, errors.New("authentication failure")
 }
 

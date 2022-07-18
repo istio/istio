@@ -365,6 +365,27 @@ func TestShouldRespond(t *testing.T) {
 			response: false,
 		},
 		{
+			name: "ack forced",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{
+						v3.EndpointType: {
+							VersionSent:   "v1",
+							NonceSent:     "nonce",
+							AlwaysRespond: true,
+						},
+					},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.EndpointType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+				ResourceNames: []string{"my-resource"},
+			},
+			response: true,
+		},
+		{
 			name: "nack",
 			connection: &Connection{
 				proxy: &model.Proxy{

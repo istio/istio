@@ -106,8 +106,10 @@ var (
 
 	SendUnhealthyEndpoints = env.RegisterBoolVar(
 		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
-		true,
-		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing.",
+		false,
+		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing."+
+			"  To avoid, sending traffic to non ready endpoints, enabling this flag, disables panic threshold in Envoy i.e. Envoy does not load balance requests"+
+			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
 	).Get()
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
@@ -402,6 +404,18 @@ var (
 		true,
 		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
 	).Get()
+
+	// TODO: Move this to proper API.
+	trustedGatewayCIDR = env.RegisterStringVar(
+		"TRUSTED_GATEWAY_CIDR",
+		"",
+		"If set, any connections from gateway to Istiod with this CIDR range are treated as trusted for using authenication mechanisms like XFCC."+
+			" This can only be used when the network where Istiod and the authenticating gateways are running in a trusted/secure network",
+	)
+
+	TrustedGatewayCIDR = func() []string {
+		return strings.Split(trustedGatewayCIDR.Get(), ",")
+	}()
 
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+

@@ -125,7 +125,7 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 	return uri
 }
 
-// ExpandWithTrustDomains expands a given spiffe identities, plus a list of truts domain aliases.
+// ExpandWithTrustDomains expands a given spiffe identities, plus a list of trust domain aliases.
 // We ensure the returned list does not contain duplicates; the original input is always retained.
 // For example,
 // ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/def"}, {"td1", "td2"}) returns
@@ -202,7 +202,7 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 	}
 
 	ret := map[string][]*x509.Certificate{}
-	for trustdomain, endpoint := range config {
+	for trustDomain, endpoint := range config {
 		if !strings.HasPrefix(endpoint, "https://") {
 			endpoint = "https://" + endpoint
 		}
@@ -248,7 +248,7 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 
 			if startTime.Add(retryTimeout).Before(time.Now()) {
 				return nil, fmt.Errorf("exhausted retries to fetch the SPIFFE bundle %s from url %s. Latest error: %v",
-					trustdomain, endpoint, errMsg)
+					trustDomain, endpoint, errMsg)
 			}
 
 			spiffeLog.Warnf("%s, retry in %v", errMsg, retryBackoffTime)
@@ -259,7 +259,7 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 
 		doc := new(bundleDoc)
 		if err := json.NewDecoder(resp.Body).Decode(doc); err != nil {
-			return nil, fmt.Errorf("trust domain [%s] at URL [%s] failed to decode bundle: %v", trustdomain, endpoint, err)
+			return nil, fmt.Errorf("trust domain [%s] at URL [%s] failed to decode bundle: %v", trustDomain, endpoint, err)
 		}
 
 		var cert *x509.Certificate
@@ -267,18 +267,18 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 			if key.Use == "x509-svid" {
 				if len(key.Certificates) != 1 {
 					return nil, fmt.Errorf("trust domain [%s] at URL [%s] expected 1 certificate in x509-svid entry %d; got %d",
-						trustdomain, endpoint, i, len(key.Certificates))
+						trustDomain, endpoint, i, len(key.Certificates))
 				}
 				cert = key.Certificates[0]
 			}
 		}
 		if cert == nil {
-			return nil, fmt.Errorf("trust domain [%s] at URL [%s] does not provide a X509 SVID", trustdomain, endpoint)
+			return nil, fmt.Errorf("trust domain [%s] at URL [%s] does not provide a X509 SVID", trustDomain, endpoint)
 		}
-		if certs, ok := ret[trustdomain]; ok {
-			ret[trustdomain] = append(certs, cert)
+		if certs, ok := ret[trustDomain]; ok {
+			ret[trustDomain] = append(certs, cert)
 		} else {
-			ret[trustdomain] = []*x509.Certificate{cert}
+			ret[trustDomain] = []*x509.Certificate{cert}
 		}
 	}
 	for trustDomain, certs := range ret {

@@ -86,6 +86,8 @@ const (
 	regionIndex int = iota
 	zoneIndex
 	subZoneIndex
+	kb = 1024
+	mb = 1024 * kb
 )
 
 var (
@@ -973,15 +975,22 @@ func recurseMissingTypedConfig(message protoreflect.Message) []string {
 		}
 	}
 
+	hasTypedConfig := false
+	requiresTypedConfig := false
 	// Now go through fields again
 	for i := 0; i < message.Type().Descriptor().Fields().Len(); i++ {
 		field := message.Type().Descriptor().Fields().Get(i)
 		set := message.Has(field)
 		// If it has a typedConfig field, it must be set.
+		requiresTypedConfig = requiresTypedConfig || field.JSONName() == "typedConfig"
 		// Note: it is possible there is some API that has typedConfig but has a non-deprecated alternative,
 		// but I couldn't find any. Worst case, this is a warning, not an error, so a false positive is not so bad.
-		if field.JSONName() == "typedConfig" && !set {
-			deprecatedTypes = append(deprecatedTypes, name)
+		// The one exception is configDiscovery (used for ECDS)
+		if field.JSONName() == "typedConfig" && set {
+			hasTypedConfig = true
+		}
+		if field.JSONName() == "configDiscovery" && set {
+			hasTypedConfig = true
 		}
 		if set {
 			// If the field was set and is a message, recurse into it to check children
@@ -990,6 +999,9 @@ func recurseMissingTypedConfig(message protoreflect.Message) []string {
 				deprecatedTypes = append(deprecatedTypes, recurseMissingTypedConfig(m)...)
 			}
 		}
+	}
+	if requiresTypedConfig && !hasTypedConfig {
+		deprecatedTypes = append(deprecatedTypes, name)
 	}
 	return deprecatedTypes
 }
@@ -3024,6 +3036,31 @@ func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
 	return nil
 }
 
+func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) (errs Validation) {
+	if directResponse == nil {
+		return
+	}
+
+	if directResponse.Body != nil {
+		size := 0
+		switch op := directResponse.Body.Specifier.(type) {
+		case *networking.HTTPBody_String_:
+			size = len(op.String_)
+		case *networking.HTTPBody_Bytes:
+			size = len(op.Bytes)
+		}
+
+		if size > 1*mb {
+			errs = appendValidation(errs, WrapError(fmt.Errorf("large direct_responses may impact control plane performance, must be less than 1MB")))
+		} else if size > 100*kb {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("large direct_responses may impact control plane performance")))
+		}
+	}
+
+	errs = appendValidation(errs, WrapError(validateHTTPStatus(int32(directResponse.Status))))
+	return
+}
+
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
 		return errors.New("rewrite must specify URI, authority, or both")
@@ -3218,6 +3255,11 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			servicePortNumbers[port.Number] = true
 			if port.TargetPort != 0 {
 				errs = appendValidation(errs, ValidatePort(int(port.TargetPort)))
+			}
+			if len(serviceEntry.Addresses) == 0 {
+				if port.Protocol == "" || port.Protocol == "TCP" {
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf("addresses are required for ports serving TCP (or unset) protocol")))
+				}
 			}
 			errs = appendValidation(errs,
 				ValidatePortName(port.Name),

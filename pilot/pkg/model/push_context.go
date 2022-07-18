@@ -472,8 +472,12 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 	return merged
 }
 
+func (pr *PushRequest) IsRequest() bool {
+	return len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest
+}
+
 func (pr *PushRequest) PushReason() string {
-	if len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest {
+	if pr.IsRequest() {
 		return " request"
 	}
 	return ""

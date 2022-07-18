@@ -86,7 +86,7 @@ func TestGetLabelValue(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := getLabelValue(test.node, NodeRegionLabel, NodeRegionLabelGA)
+			got := getLabelValue(test.node.ObjectMeta, NodeRegionLabel, NodeRegionLabelGA)
 			if test.expectedLabelValue != got {
 				t.Errorf("Expected %v, but got %v", test.expectedLabelValue, got)
 			}

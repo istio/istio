@@ -32,7 +32,7 @@ func TestMultiRootSetup(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.multiple-root").
 		Run(func(t framework.TestContext) {
-			testNS := apps.Namespace
+			testNS := apps.EchoNamespace.Namespace
 
 			t.ConfigIstio().YAML(testNS.Name(), POLICY).ApplyOrFail(t)
 
@@ -61,7 +61,7 @@ func TestMultiRootSetup(t *testing.T) {
 						})
 					}
 
-					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
+					client := match.Cluster(cluster).FirstOrFail(t, client)
 					cases := []struct {
 						from   echo.Instance
 						to     echo.Instances
@@ -69,7 +69,7 @@ func TestMultiRootSetup(t *testing.T) {
 					}{
 						{
 							from:   client,
-							to:     apps.ServerNakedFooAlt,
+							to:     serverNakedFooAlt,
 							expect: true,
 						},
 					}

@@ -34,6 +34,7 @@ var getNs = ns.GetNS
 // provided in Redirect.
 func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	viper.Set(constants.CNIMode, true)
+	viper.Set(constants.HostNSEnterExec, rdrct.hostNSEnterExec)
 	viper.Set(constants.NetworkNamespace, netns)
 	viper.Set(constants.EnvoyPort, rdrct.targetPort)
 	viper.Set(constants.ProxyUID, rdrct.noRedirectUID)

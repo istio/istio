@@ -344,6 +344,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	c := &cluster.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
+		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
 	ec := NewMutableCluster(c)
 	switch discoveryType {

@@ -19,7 +19,6 @@ import (
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
-	md "istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -61,7 +60,7 @@ func NewOrFail(t test.Failer, ctx resource.Context, c Config, realSD bool) Insta
 }
 
 func UseRealStackdriver() bool {
-	// Use real stackdriver only if the test intends to AND the test is running on GCP.
-	// Currently real stackdriver only works if the test runs on GCP.
-	return framework.UseRealStackdriver && md.IsGCP()
+	// If the framework requests a real backend, honor that request. It is possible
+	// to configure the CA to generate GCP credentials off-GCP.
+	return framework.UseRealStackdriver
 }

@@ -372,12 +372,25 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 
 	configs, k8sConfig := getConfigsWithCache(t, config)
+	m := mesh.DefaultMeshConfig()
+	m.ExtensionProviders = append(m.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy-json",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: "/dev/stdout",
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{},
+				},
+			},
+		},
+	})
 	s := NewFakeDiscoveryServer(t, FakeOptions{
 		Configs:                configs,
 		KubernetesObjectString: k8sConfig,
 		// Allow debounce to avoid overwhelming with writes
 		DebounceTime:               time.Millisecond * 10,
 		DisableSecretAuthorization: true,
+		MeshConfig:                 m,
 	})
 
 	return s, proxy

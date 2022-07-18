@@ -44,7 +44,6 @@ import (
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/nodeagent/util"
-	ca2 "istio.io/istio/security/pkg/server/ca"
 )
 
 const (
@@ -67,7 +66,8 @@ type mockCAServer struct {
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
 	if ca.Authenticator != nil {
-		caller := ca2.Authenticate(ctx, []security.Authenticator{ca.Authenticator})
+		am := security.AuthenticationManager{Authenticators: []security.Authenticator{ca.Authenticator}}
+		caller := am.Authenticate(ctx)
 		if caller == nil {
 			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 		}
