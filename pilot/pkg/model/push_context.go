@@ -1345,6 +1345,8 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
+		ps.sidecarIndex.defaultSidecarMu.Lock()
+		defer ps.sidecarIndex.defaultSidecarMu.Unlock()
 		ps.sidecarIndex.sidecarsByNamespace = oldPushContext.sidecarIndex.sidecarsByNamespace
 	}
 
@@ -1637,6 +1639,8 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
+	ps.sidecarIndex.defaultSidecarMu.Lock()
+	defer ps.sidecarIndex.defaultSidecarMu.Unlock()
 	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
 	for i, sidecarConfig := range sidecarConfigs {
 		ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
