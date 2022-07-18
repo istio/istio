@@ -313,6 +313,9 @@ type Proxy struct {
 	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
 	WatchedResources map[string]*WatchedResource
 
+	// nolint
+	LastSentTypeUrl string
+
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
 
@@ -356,8 +359,10 @@ type WatchedResource struct {
 	NonceNacked string
 
 	// AlwaysRespond, if true, will ensure that even when a request would otherwise be treated as an
-	// ACK, it will be responded to. Typically, this should be set to 'false' after response; keeping it
-	// true would likely result in an endless loop.
+	// ACK, it will be responded to. This typically happens when a proxy reconnects to another instance of
+	// Istiod. In that case, Envoy expects us to respond to EDS/RDS/SDS requests to finish warming of
+	// clusters/listeners.
+	// Typically, this should be set to 'false' after response; keeping it true would likely result in an endless loop.
 	AlwaysRespond bool
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
