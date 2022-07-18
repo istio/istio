@@ -1,5 +1,5 @@
 # prepare a distroless source context to copy files from
-FROM gcr.io/distroless/static-debian11@sha256:d6fa9db9548b5772860fecddb11d84f9ebd7e0321c0cb3c02870402680cc315f as distroless_source
+FROM gcr.io/distroless/static-debian11@sha256:21d3f84a4f37c36199fd07ad5544dcafecc17776e3f3628baf9a57c8c0181b3f as distroless_source
 
 # prepare a base dev to modify file contents
 FROM ubuntu:focal as ubuntu_source
