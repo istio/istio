@@ -402,9 +402,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		// 3. Envoy sends CDS request and we respond with clusters.
 		// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
 		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
-		for _, wr := range con.proxy.WatchedResources {
-			if !isWildcardTypeURL(wr.TypeUrl) {
-				wr.AlwaysRespond = true
+		for _, dependent := range warmingDependencies(request.TypeUrl) {
+			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
+				dwr.AlwaysRespond = true
 			}
 		}
 		con.proxy.Unlock()
@@ -493,6 +493,19 @@ func isWildcardTypeURL(typeURL string) bool {
 	default:
 		// All of our internal types use wildcard semantics
 		return true
+	}
+}
+
+// warmingDependencies returns the dependent typeURLs that need to be responded with
+// for warming of this typeURL.
+func warmingDependencies(typeURL string) []string {
+	switch typeURL {
+	case v3.ClusterType:
+		return []string{v3.EndpointType, v3.SecretType}
+	case v3.ListenerType:
+		return []string{v3.RouteType}
+	default:
+		return nil
 	}
 }
 
