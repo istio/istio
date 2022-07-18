@@ -126,21 +126,20 @@ func IsGCP() bool {
 
 	timeC := time.After(time.Millisecond * 100)
 	ch := make(chan bool)
-	defer close(ch)
 	go func() {
 		ch <- metadata.OnGCE()
 	}()
 
-	for {
-		select {
-		case res, ok := <-ch:
-			if ok {
-				return res
-			}
-		case <-timeC:
-			return false
+	select {
+	case res, ok := <-ch:
+		if ok {
+			return res
 		}
+	case <-timeC:
+		return false
 	}
+
+	return false
 }
 
 // NewGCP returns a platform environment customized for Google Cloud Platform.
