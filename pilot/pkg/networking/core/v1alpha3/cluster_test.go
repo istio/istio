@@ -2574,7 +2574,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			if tc.cacheKeys != nil {
 				for k := range tc.cacheKeys {
 					for _, p := range tc.cachedServices[k].Ports {
-						tc.cacheKeys[k] = buildClusterKey(tc.cachedServices[k], p, cb, proxy, outboundPatcher.efw.Keys())
+						tc.cacheKeys[k] = BuildClusterKey(tc.cachedServices[k], p, cb, proxy, outboundPatcher.efw.Keys())
 					}
 				}
 				proxy.WatchedResources = map[string]*model.WatchedResource{

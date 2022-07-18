@@ -165,7 +165,6 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, proxy *model.Proxy,
 	cp clusterPatcher, services []*model.Service, updated map[model.ConfigKey]struct{}, deleted sets.Set, delta bool,
 ) ([]*discovery.Resource, cacheStats) {
-	log.Debug("WIGJ#OINGI#OGNGN")
 	var oldCacheKeys map[string]model.XdsCacheEntry
 	if proxy.WatchedResources[v3.ClusterType] == nil {
 		oldCacheKeys = make(map[string]model.XdsCacheEntry)
@@ -180,8 +179,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			clusterKey := buildClusterKey(service, port, cb, proxy, efKeys)
-			// clusterKey can't be nil as per buildClusterKey
+			clusterKey := BuildClusterKey(service, port, cb, proxy, efKeys)
+			// clusterKey can't be nil as per BuildClusterKey
 			subsetKeys := cb.getSubsetKeys(*clusterKey)
 			// it exists, we shouldn't mark as deleted
 			deleted.Delete(clusterKey.clusterName)
@@ -195,10 +194,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 				// We can only skip if we skip ALL subsets. This could probably be optimized in the future
 				canSkip = canSkip && skipSubset
 			}
-			// replace old cache key with our generated key
-			oldCacheKeys[clusterKey.clusterName] = clusterKey
+			// replace old cache key with our reduced generated key
+			oldCacheKeys[clusterKey.clusterName] = ReducedKeyFromClusterKey(clusterKey)
 			for i, ss := range subsetKeys {
-				oldCacheKeys[ss.clusterName] = &subsetKeys[i]
+				oldCacheKeys[ss.clusterName] = ReducedKeyFromClusterKey(&subsetKeys[i])
 			}
 			// if the service is eligible for skip and we are using delta, skip it
 			if canSkip && delta {

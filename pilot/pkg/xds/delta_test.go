@@ -18,8 +18,6 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/pkg/log"
-
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -36,7 +34,6 @@ func TestDeltaAds(t *testing.T) {
 }
 
 func TestDeltaAdsClusterUpdate(t *testing.T) {
-	log.FindScope("delta").SetOutputLevel(log.DebugLevel)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.EndpointType)
 	sendEDSReqAndVerify := func(add, remove, expect []string) {

@@ -17,6 +17,8 @@ package v1alpha3
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"istio.io/istio/pkg/config/host"
+	"k8s.io/apimachinery/pkg/types"
 	"strconv"
 	"strings"
 
@@ -120,6 +122,13 @@ func (t *clusterCache) Key() string {
 	return hex.EncodeToString(sum)
 }
 
+// DependentConfigs
+/*
+NEED:
+- t.destinationRule.GetFrom()
+- EnvoyFilter envoyFilterKeys
+- ServiceEntry service.Hostname service.Attributes.Namespace
+*/
 func (t clusterCache) DependentConfigs() []model.ConfigHash {
 	drs := t.destinationRule.GetFrom()
 	configs := make([]model.ConfigHash, 0, len(drs)+1+len(t.envoyFilterKeys))
@@ -162,7 +171,7 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 	}
 }
 
-func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) *clusterCache {
+func BuildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) *clusterCache {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 	clusterKey := &clusterCache{
 		clusterName:     clusterName,
@@ -180,6 +189,56 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		metadataCerts:   cb.metadataCerts,
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
 		serviceAccounts: cb.req.Push.ServiceAccounts[service.Hostname][port.Port],
+	}
+	return clusterKey
+}
+
+type reducedClusterCache struct {
+	originalKeyHash      string
+	destRulesFrom        []types.NamespacedName
+	envoyFilterKeys      []string
+	serviceEntryHostname host.Name
+	serviceEntryNs       string
+}
+
+// Key returns the key for the original, expanded cluster cache.
+// This is so that the reduced cluster cache key can be used to lookup the original cluster cache.
+func (r *reducedClusterCache) Key() string {
+	return r.originalKeyHash
+}
+
+func (r *reducedClusterCache) DependentTypes() []kind.Kind {
+	return nil
+}
+
+func (r *reducedClusterCache) Cacheable() bool {
+	return true
+}
+
+func (r *reducedClusterCache) DependentConfigs() []model.ConfigHash {
+	configs := make([]model.ConfigHash, 0, len(r.destRulesFrom)+len(r.envoyFilterKeys))
+	for _, dr := range r.destRulesFrom {
+		configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: dr.Name, Namespace: dr.Namespace}.HashCode())
+	}
+	for _, efKey := range r.envoyFilterKeys {
+		items := strings.Split(efKey, "/")
+		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
+	}
+	configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: string(r.serviceEntryHostname), Namespace: r.serviceEntryNs}.HashCode())
+	return configs
+}
+
+func ReducedKeyFromClusterKey(originalKey *clusterCache) model.XdsCacheEntry {
+	clusterKey := &reducedClusterCache{
+		originalKeyHash: originalKey.Key(),
+		envoyFilterKeys: originalKey.envoyFilterKeys,
+	}
+	if originalKey.destinationRule != nil {
+		clusterKey.destRulesFrom = originalKey.destinationRule.GetFrom()
+	}
+	if originalKey.service != nil {
+		clusterKey.serviceEntryHostname = originalKey.service.Hostname
+		clusterKey.serviceEntryNs = originalKey.service.Attributes.Namespace
 	}
 	return clusterKey
 }

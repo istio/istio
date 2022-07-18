@@ -620,3 +620,19 @@ func BenchmarkCache(b *testing.B) {
 		}
 	})
 }
+
+//func makeClusterCacheKey(n int) model.XdsCacheEntry {
+//	ns := strconv.Itoa(n)
+//
+//	svc := &model.Service{
+//		Hostname:   host.Name(ns + "some" + ns + ".example.com"),
+//		Attributes: model.ServiceAttributes{Namespace: "test" + ns},
+//	}
+//	dr := model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: ns, Namespace: ns}})
+//
+//	key := v1alpha3.BuildClusterKey(svc, &model.Port{Protocol: protocol.HTTP, Port: n}, &v1alpha3.ClusterBuilder{})
+//}
+//
+//func BenchmarkXdsCacheEntry(b *testing.B) {
+//
+//}
