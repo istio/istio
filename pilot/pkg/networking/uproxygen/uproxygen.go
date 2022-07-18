@@ -414,16 +414,10 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 
 				name := sourceWl.Identity() + "_to_" + wl.Status.PodIP
 				tunnel := &tcp.TcpProxy_TunnelingConfig{
-					Hostname: "istio-uproxy-to-pep", // (unused, per extended connect)
+					Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
 					HeadersToAdd: []*core.HeaderValueOption{
 						// This is for server uProxy - not really needed for PEP
 						{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-
-						// These are the MTP headers
-						{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DOWNSTREAM_LOCAL_ADDRESS_WITHOUT_PORT%"}},
-						{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DOWNSTREAM_LOCAL_PORT%"}},
-						{Header: &core.HeaderValue{Key: "x-original-src", Value: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"}},
-						{Header: &core.HeaderValue{Key: "x-direction", Value: "outbound"}},
 					},
 				}
 				// Case 1: tunnel cross node
@@ -513,16 +507,10 @@ func buildPepChain(workload ambient.Workload, peps []ambient.Workload, t string)
 				StatPrefix:       cluster,
 				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: cluster},
 				TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-					Hostname: "istio-uproxy-to-pep", // (unused, per extended connect)
+					Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%", // (unused, per extended connect)
 					HeadersToAdd: []*core.HeaderValueOption{
 						// This is for server uProxy - not really needed for PEP
 						{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-
-						// These are the MTP headers
-						{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DOWNSTREAM_LOCAL_ADDRESS_WITHOUT_PORT%"}},
-						{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DOWNSTREAM_LOCAL_PORT%"}},
-						{Header: &core.HeaderValue{Key: "x-original-src", Value: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"}},
-						{Header: &core.HeaderValue{Key: "x-direction", Value: "outbound"}},
 
 						// This is for metadata propagation
 						// TODO: should we just set the baggage directly, as we have access to the Pod here (instead of using the filter)?
@@ -832,12 +820,9 @@ func outboundTunnelListener(name string, sa string) *discovery.Resource {
 						AccessLog:        accessLogString("outbound tunnel"),
 						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: outboundTunnelClusterName(sa)},
 						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-							Hostname: "host.com:443", // TODO not sure how to set host properly here without svc?
+							Hostname: "%DYNAMIC_METADATA(tunnel:detunnel_address)%",
 							HeadersToAdd: []*core.HeaderValueOption{
 								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_address\"])%"}},
-								// TODO the following are unused at this point
-								{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_ip\"])%"}},
-								{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_port\"])%"}},
 							},
 						},
 					}),

@@ -120,11 +120,9 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 				name := fmt.Sprintf("%s_%d", bind, port.Port)
 				vhost.Routes = append(vhost.Routes, &route.Route{
 					Match: &route.RouteMatch{
-						// PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 						PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 						Headers: []*route.HeaderMatcher{
-							istiomatcher.HeaderMatcher("x-original-ip", service.GetAddressForProxy(proxy)),
-							istiomatcher.HeaderMatcher("x-original-port", fmt.Sprint(port.Port)),
+							istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("%s:%d", service.GetAddressForProxy(proxy), port.Port)),
 						},
 					},
 					Action: &route.Route_Route{Route: &route.RouteAction{

@@ -158,7 +158,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 			Match: &route.RouteMatch{
 				PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 				Headers: []*route.HeaderMatcher{
-					istiomatcher.HeaderMatcher("x-original-port", fmt.Sprint(p)),
+					istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("*:%d", p)),
 				},
 			},
 			Action: &route.Route_Route{Route: &route.RouteAction{

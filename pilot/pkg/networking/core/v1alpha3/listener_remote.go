@@ -128,8 +128,7 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 					Headers: []*route.HeaderMatcher{
-						istiomatcher.HeaderMatcher("x-original-ip", svc.GetAddressForProxy(lb.node)),
-						istiomatcher.HeaderMatcher("x-original-port", fmt.Sprint(port.Port)),
+						istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("%s:%d", svc.GetAddressForProxy(lb.node), port.Port)),
 					},
 				},
 				Action: &route.Route_Route{Route: &route.RouteAction{
@@ -197,12 +196,12 @@ func (lb *ListenerBuilder) buildRemoteInboundOriginateConnect() *listener.Listen
 						StatPrefix:       name,
 						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
 						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-							Hostname: "host.com:443", // TODO not sure how to set host properly here without svc?
+							Hostname: "%DYNAMIC_METADATA(tunnel:detunnel_address)%",
 							HeadersToAdd: []*core.HeaderValueOption{
 								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_address\"])%"}},
 								// TODO the following are unused at this point
-								{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_ip\"])%"}},
-								{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_port\"])%"}},
+								//{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_ip\"])%"}},
+								//{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_port\"])%"}},
 							},
 						},
 					}),
@@ -417,7 +416,6 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTPService(svc *model.S
 }
 
 func buildRemoteInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
-	log.Infof("buildRemoteInboundHTTPRouteConfig")
 	vss := getConfigsForHost(svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 	if len(vss) == 0 {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
@@ -702,12 +700,9 @@ func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listen
 		// AccessLog:        accessLogString("outbound tunnel"),
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "host.com:443", // TODO not sure how to set host properly here without svc?
+			Hostname: "%DYNAMIC_METADATA(tunnel:detunnel_address)%",
 			HeadersToAdd: []*core.HeaderValueOption{
 				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_address\"])%"}},
-				// TODO the following are unused at this point
-				{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_ip\"])%"}},
-				{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_port\"])%"}},
 			},
 		},
 	}

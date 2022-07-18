@@ -64,7 +64,6 @@ func initWorkloadCache(opts *Options) *workloadCache {
 }
 
 func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
-	log.Infof("landow: %v", key)
 	ctx := context.Background()
 	// TODO use lister
 	pod, err := wc.pods(key.Namespace).Get(ctx, key.Name, metav1.GetOptions{})
