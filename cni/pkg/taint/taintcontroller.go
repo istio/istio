@@ -55,12 +55,13 @@ func NewTaintSetterController(ts *Setter) (*Controller, error) {
 	// construct a series of pod controller according to the configmaps' namespace and labelselector
 	c.podController = []cache.Controller{}
 	for _, config := range ts.configs {
+		label := config.LabelSelector
 		podListWatch := cache.NewFilteredListWatchFromClient(
 			c.clientset.CoreV1().RESTClient(),
 			"pods",
 			config.Namespace,
 			func(options *metav1.ListOptions) {
-				options.LabelSelector = config.LabelSelector
+				options.LabelSelector = label
 			},
 		)
 		tempcontroller := buildPodController(c, config, podListWatch)
