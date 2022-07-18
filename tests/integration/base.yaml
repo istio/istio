@@ -21,7 +21,7 @@ spec:
         PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
     global:
       logging:
-        level: ads:debug,xdsproxy:debug
+        level: ads:debug,xdsproxy:debug,delta:debug
       proxy:
         resources:
           requests:

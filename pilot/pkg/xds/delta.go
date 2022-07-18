@@ -257,7 +257,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			}
 			conn.proxy.Unlock()
 		}
-	} else {
+	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
 		deltaLog.Infof("Timeout writing %s", conn.conID)
 		xdsResponseWriteTimeouts.Increment()
 	}
@@ -451,6 +451,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		}
 		return err
 	}
+	expandVersion(res, req.Push.PushVersion)
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 	resp := &discovery.DeltaDiscoveryResponse{
 		ControlPlane: ControlPlane(),
@@ -520,6 +521,15 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	}
 
 	return nil
+}
+
+// expandVersion sets all unset resource versions to the global pushVersion
+func expandVersion(res model.Resources, pushVersion string) {
+	for _, r := range res {
+		if r.Version == "" {
+			r.Version = pushVersion
+		}
+	}
 }
 
 func newDeltaConnection(peerAddr string, stream DeltaDiscoveryStream) *Connection {
