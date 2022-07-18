@@ -987,10 +987,8 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// parseInjectEnvs parse new envs from inject url path
-// follow format: /inject/k1/v1/k2/v2 when values do not contain slashes,
-// follow format: /inject/:ENV:net=network1:ENV:cluster=cluster1:ENV:rootpage=/foo/bar
-// when values contain slashes.
+// parseInjectEnvs parse new envs from inject url path. format: /inject/k1/v1/k2/v2
+// slash characters in values must be replaced by --slash-- (e.g. /inject/k1/abc--slash--def/k2/v2).
 func parseInjectEnvs(path string) map[string]string {
 	path = strings.TrimSuffix(path, "/")
 	res := func(path string) []string {
@@ -1002,6 +1000,9 @@ func parseInjectEnvs(path string) map[string]string {
 		var newRes []string
 		if len(parts) == 3 {
 			if strings.HasPrefix(parts[2], ":ENV:") {
+				//TODO Deprecate this, because it is not recommended. It also fails validation when used to set
+				//     injectionPath (i.e., service.path in mwh). It doesn't fail validation when used to set
+				//     injectionURL, however. K8s bug maybe?
 				pairs := strings.Split(parts[2], ":ENV:")
 				for i := 1; i < len(pairs); i++ { // skip the first part, it is a nil
 					pair := strings.SplitN(pairs[i], "=", 2)
@@ -1015,7 +1016,13 @@ func parseInjectEnvs(path string) map[string]string {
 				}
 				return newRes
 			}
-			return strings.Split(parts[2], "/")
+			newRes = strings.Split(parts[2], "/")
+		}
+		for i, value := range newRes {
+			if i%2 != 0 {
+				// Replace --slash-- with / in values.
+				newRes[i] = strings.ReplaceAll(value, "--slash--", "/")
+			}
 		}
 		return newRes
 	}(path)
