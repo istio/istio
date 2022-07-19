@@ -1000,9 +1000,9 @@ func parseInjectEnvs(path string) map[string]string {
 		var newRes []string
 		if len(parts) == 3 {
 			if strings.HasPrefix(parts[2], ":ENV:") {
-				// TODO Deprecate this, because it is not recommended. It also fails validation when used to set
-				//      injectionPath (i.e., service.path in mwh). It doesn't fail validation when used to set
-				//      injectionURL, however. K8s bug maybe?
+				// Deprecated, not recommended.
+				//    Note that this systax fails validation when used to set injectionPath (i.e., service.path in mwh).
+				//    It doesn't fail validation when used to set injectionURL, however. K8s bug maybe?
 				pairs := strings.Split(parts[2], ":ENV:")
 				for i := 1; i < len(pairs); i++ { // skip the first part, it is a nil
 					pair := strings.SplitN(pairs[i], "=", 2)
