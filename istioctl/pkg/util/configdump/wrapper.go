@@ -21,7 +21,9 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+
+	// nolint: staticcheck
+	legacyproto "github.com/golang/protobuf/proto"
 	emptypb "github.com/golang/protobuf/ptypes/empty"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -31,19 +33,19 @@ type nonstrictResolver struct{}
 
 var envoyResolver nonstrictResolver
 
-func (m *nonstrictResolver) Resolve(typeURL string) (proto.Message, error) {
+func (m *nonstrictResolver) Resolve(typeURL string) (legacyproto.Message, error) {
 	// See https://github.com/golang/protobuf/issues/747#issuecomment-437463120
 	mname := typeURL
 	if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
 		mname = mname[slash+1:]
 	}
 	// nolint: staticcheck
-	mt := proto.MessageType(mname)
+	mt := legacyproto.MessageType(mname)
 	if mt == nil {
 		// istioctl should keep going if it encounters new Envoy versions; ignore unknown types
 		return &exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}, nil
 	}
-	return reflect.New(mt.Elem()).Interface().(proto.Message), nil
+	return reflect.New(mt.Elem()).Interface().(legacyproto.Message), nil
 }
 
 // Wrapper is a wrapper around the Envoy ConfigDump
