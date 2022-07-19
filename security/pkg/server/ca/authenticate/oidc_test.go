@@ -209,7 +209,7 @@ func TestOIDCAuthenticate(t *testing.T) {
 			}
 			ctx = metadata.NewIncomingContext(ctx, md)
 
-			actualCaller, err := authenticator.Authenticate(ctx)
+			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			gotErr := err != nil
 			if gotErr != tc.expectErr {
 				t.Errorf("gotErr (%v) whereas expectErr (%v)", gotErr, tc.expectErr)

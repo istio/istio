@@ -132,7 +132,7 @@ func TestXfccAuthenticator(t *testing.T) {
 			}
 			ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: &net.IPAddr{IP: net.ParseIP("127.0.0.1").To4()}})
 			ctx = metadata.NewIncomingContext(ctx, md)
-			result, err := auth.Authenticate(ctx)
+			result, err := auth.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tt.authenticateErrMsg) > 0 {
 				if err == nil {
 					t.Errorf("Succeeded. Error expected: %v", err)
