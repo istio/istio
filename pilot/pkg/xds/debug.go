@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
 )
@@ -239,8 +240,9 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 		// Authenticate request with the same method as XDS
 		authFailMsgs := make([]string, 0)
 		var ids []string
+		authRequest := security.AuthContext{Request: req}
 		for _, authn := range s.Authenticators {
-			u, err := authn.AuthenticateRequest(req)
+			u, err := authn.Authenticate(authRequest)
 			// If one authenticator passes, return
 			if u != nil && u.Identities != nil && err == nil {
 				ids = u.Identities

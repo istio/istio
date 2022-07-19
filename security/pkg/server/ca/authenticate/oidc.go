@@ -17,7 +17,6 @@ package authenticate
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
 	oidc "github.com/coreos/go-oidc/v3/oidc"
@@ -68,22 +67,23 @@ func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule, trustDomain string) (*JwtAuth
 	}, nil
 }
 
-func (j *JwtAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
-	targetJWT, err := security.ExtractRequestToken(req)
-	if err != nil {
-		return nil, fmt.Errorf("target JWT extraction error: %v", err)
-	}
-	return j.authenticate(req.Context(), targetJWT)
-}
-
 // Authenticate - based on the old OIDC authenticator for mesh expansion.
-func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
-	bearerToken, err := security.ExtractBearerToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("ID token extraction error: %v", err)
+func (j *JwtAuthenticator) Authenticate(authRequest security.AuthContext) (*security.Caller, error) {
+	if authRequest.GrpcContext != nil {
+		bearerToken, err := security.ExtractBearerToken(authRequest.GrpcContext)
+		if err != nil {
+			return nil, fmt.Errorf("ID token extraction error: %v", err)
+		}
+		return j.authenticate(authRequest.GrpcContext, bearerToken)
 	}
-
-	return j.authenticate(ctx, bearerToken)
+	if authRequest.Request != nil {
+		bearerToken, err := security.ExtractRequestToken(authRequest.Request)
+		if err != nil {
+			return nil, fmt.Errorf("target JWT extraction error: %v", err)
+		}
+		return j.authenticate(authRequest.Request.Context(), bearerToken)
+	}
+	return nil, nil
 }
 
 func (j *JwtAuthenticator) authenticate(ctx context.Context, bearerToken string) (*security.Caller, error) {

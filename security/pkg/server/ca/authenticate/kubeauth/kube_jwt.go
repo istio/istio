@@ -83,7 +83,19 @@ func isAllowedKubernetesAudience(a string) bool {
 	return strings.HasPrefix(a, "kubernetes.default.svc")
 }
 
-func (a *KubeJWTAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
+// Authenticate authenticates the call using the K8s JWT from the context.
+// The returned Caller.Identities is in SPIFFE format.
+func (a *KubeJWTAuthenticator) Authenticate(authRequest security.AuthContext) (*security.Caller, error) {
+	if authRequest.GrpcContext != nil {
+		return a.authenticateGrpc(authRequest.GrpcContext)
+	}
+	if authRequest.Request != nil {
+		return a.authenticateHTTP(authRequest.Request)
+	}
+	return nil, nil
+}
+
+func (a *KubeJWTAuthenticator) authenticateHTTP(req *http.Request) (*security.Caller, error) {
 	targetJWT, err := security.ExtractRequestToken(req)
 	if err != nil {
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
@@ -92,9 +104,7 @@ func (a *KubeJWTAuthenticator) AuthenticateRequest(req *http.Request) (*security
 	return a.authenticate(targetJWT, clusterID)
 }
 
-// Authenticate authenticates the call using the K8s JWT from the context.
-// The returned Caller.Identities is in SPIFFE format.
-func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
+func (a *KubeJWTAuthenticator) authenticateGrpc(ctx context.Context) (*security.Caller, error) {
 	targetJWT, err := security.ExtractBearerToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
@@ -105,7 +115,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 }
 
 func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.ID) (*security.Caller, error) {
-	kubeClient := a.GetKubeClient(clusterID)
+	kubeClient := a.getKubeClient(clusterID)
 	if kubeClient == nil {
 		return nil, fmt.Errorf("could not get cluster %s's kube client", clusterID)
 	}
@@ -155,7 +165,7 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	}, nil
 }
 
-func (a *KubeJWTAuthenticator) GetKubeClient(clusterID cluster.ID) kubernetes.Interface {
+func (a *KubeJWTAuthenticator) getKubeClient(clusterID cluster.ID) kubernetes.Interface {
 	// first match local/primary cluster
 	// or if clusterID is not sent (we assume that its a single cluster)
 	if a.clusterID == clusterID || clusterID == "" {
