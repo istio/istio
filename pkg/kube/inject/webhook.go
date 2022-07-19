@@ -993,12 +993,8 @@ func parseInjectEnvs(path string) map[string]string {
 	path = strings.TrimSuffix(path, "/")
 	res := func(path string) []string {
 		parts := strings.SplitN(path, "/", 3)
-		// The 3rd part has to start with separator :ENV:
-		// If not, this inject path is considered using slash as separator
-		// If length is less than 3, then the path is simply "/inject",
-		// process just like before :ENV: separator is introduced.
 		var newRes []string
-		if len(parts) == 3 {
+		if len(parts) == 3 { // If length is less than 3, then the path is simply "/inject".
 			if strings.HasPrefix(parts[2], ":ENV:") {
 				// Deprecated, not recommended.
 				//    Note that this systax fails validation when used to set injectionPath (i.e., service.path in mwh).
