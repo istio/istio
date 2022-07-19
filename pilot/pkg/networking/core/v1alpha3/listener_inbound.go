@@ -271,11 +271,16 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				Protocol:   i.ServicePort.Protocol,
 			}
 
+			bindAddr := WildcardAddress
+			if lb.node.IsIPv6() {
+				bindAddr = WildcardIPv6Address
+			}
+
 			cc := inboundChainConfig{
 				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: i.Service.Hostname},
 				port:              port,
 				clusterName:       model.BuildInboundSubsetKey(int(port.TargetPort)),
-				bind:              "0.0.0.0", // TODO ipv6
+				bind:              bindAddr,
 				bindToPort:        getBindToPort(networking.CaptureMode_DEFAULT, lb.node),
 			}
 			if i.Service.Attributes.ServiceRegistry == provider.Kubernetes {
