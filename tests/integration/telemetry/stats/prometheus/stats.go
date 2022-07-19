@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 )
@@ -223,7 +224,7 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 
 			// The main SE is available only to app namespace, make one the egress can access.
 			t.ConfigIstio().Eval(ist.Settings().SystemNamespace, map[string]interface{}{
-				"Namespace": GetAppNamespace().Name(),
+				"Namespace": apps.External.Namespace.Name(),
 				"Hostname":  cdeployment.ExternalHostname,
 			}, `apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -241,8 +242,7 @@ spec:
   - name: https
     number: 443
     protocol: HTTPS
-    targetPort: 18443
-`)
+`).ApplyOrFail(t, apply.NoCleanup)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
 				cltInstance := cltInstance
