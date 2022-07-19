@@ -24,6 +24,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/golang/protobuf/jsonpb"
+
+	// nolint: staticcheck
 	legacyproto "github.com/golang/protobuf/proto"
 	"github.com/kylelemons/godebug/diff"
 	"google.golang.org/protobuf/proto"
