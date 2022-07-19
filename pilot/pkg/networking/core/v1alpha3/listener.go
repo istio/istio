@@ -1079,6 +1079,9 @@ type httpListenerOpts struct {
 	http3Only bool
 
 	class istionetworking.ListenerClass
+
+	// controls whether or not the filter chain should have telemetry filters.
+	skipTelemetryFilters bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context

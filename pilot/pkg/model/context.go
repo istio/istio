@@ -683,12 +683,19 @@ func (node *Proxy) InCluster(cluster cluster.ID) bool {
 	return node == nil || identifier.IsSameOrEmpty(cluster.String(), node.Metadata.ClusterID.String())
 }
 
+// IsPEP returns true if the proxy is acting as a PEP in an ambient mesh.
 func (node *Proxy) IsPEP() bool {
 	return node.Metadata.SidecarlessType == ambient.TypePEP
 }
 
+// IsUproxy returns true if the proxy is acting as a uProxy (node proxy) in an ambient mesh.
 func (node *Proxy) IsUproxy() bool {
 	return node.Metadata.SidecarlessType == ambient.TypeUProxy
+}
+
+// IsUProxy returns true if the proxy is acting as either a uProxy (node proxy) or a PEP in an ambient mesh.
+func (node *Proxy) IsAmbient() bool {
+	return node.IsPEP() || node.IsUproxy()
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {

@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -707,7 +708,9 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 // This avoids a possible loop where traffic sent to this port would continually call itself indefinitely.
 func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+	if !lb.node.IsAmbient() {
+		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+	}
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, &listener.Filter{
 		Name: wellknown.TCPProxy,
@@ -756,6 +759,12 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 		}
 	}
 
+	// Never set telemetry filters on the pod listener for ambient. They should
+	// only apply in the internal inbound-vip listener.
+	if strings.HasPrefix(cc.clusterName, string(model.TrafficDirectionInboundPod)) && lb.node.IsAmbient() {
+		httpOpts.skipTelemetryFilters = true
+	}
+
 	return httpOpts
 }
 
@@ -763,7 +772,10 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
 	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+
+	if !lb.node.IsAmbient() {
+		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+	}
 
 	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
 	hcm := lb.buildHTTPConnectionManager(httpOpts)
@@ -792,7 +804,9 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound)
 
 	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+	if !lb.node.IsAmbient() {
+		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+	}
 	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
 	filters = append(filters, lb.authzBuilder.BuildTCP()...)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)

@@ -13,6 +13,12 @@ spec:
     defaultConfig:
       proxyMetadata:
         ISTIO_META_ENABLE_HBONE: "true"
+    defaultProviders:
+      metrics:
+      - prometheus
+    extensionProviders:
+    - name: prometheus
+      prometheus: {}
 
   components:
     # Istio Gateway feature
@@ -23,6 +29,13 @@ spec:
     - name: istio-egressgateway
       enabled: false
 
-#  values:
-#    global:
-#      operatorManageWebhooks: false
+  # Global values passed through to helm global.yaml.
+  # Please keep this in sync with manifests/charts/global.yaml
+  values:
+    global:
+      operatorManageWebhooks: true
+    telemetry:
+      enabled: false
+      v2:
+        enabled: false
+

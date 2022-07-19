@@ -13,6 +13,12 @@ spec:
   meshConfig:
     ambientMesh:
       mode: DEFAULT
+    defaultProviders:
+      metrics:
+      - prometheus
+    extensionProviders:
+    - name: prometheus
+      prometheus: {}
 
   components:
     # Istio Gateway feature
@@ -28,3 +34,7 @@ spec:
   values:
     global:
       operatorManageWebhooks: true
+    telemetry:
+      enabled: false
+      v2:
+        enabled: false

@@ -147,10 +147,12 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 			VirtualHosts:     []*route.VirtualHost{vhost},
 			ValidateClusters: proto.BoolFalse,
 		},
-		statPrefix: "inbound_hcm",
-		protocol:   protocol.HTTP2,
-		class:      istionetworking.ListenerClassSidecarInbound,
+		statPrefix:           "inbound_hcm",
+		protocol:             protocol.HTTP2,
+		class:                istionetworking.ListenerClassSidecarInbound,
+		skipTelemetryFilters: true, // do not include telemetry filters on the CONNECT termination chain
 	}
+
 	h := lb.buildHTTPConnectionManager(httpOpts)
 	h.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
 		UpgradeType: "CONNECT",
@@ -377,7 +379,9 @@ func getPorts(services []*model.ServiceInstance) []model.Port {
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTPService(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
 	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+	if !lb.node.IsAmbient() {
+		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+	}
 
 	httpOpts := &httpListenerOpts{
 		routeConfig:      buildRemoteInboundHTTPRouteConfig(lb, svc, cc),

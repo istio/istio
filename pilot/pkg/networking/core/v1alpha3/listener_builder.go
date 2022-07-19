@@ -400,7 +400,8 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 
-	if features.MetadataExchange {
+	// never enable MX for Ambient proxies (uProxies or PEPs)
+	if features.MetadataExchange && !lb.node.IsAmbient() {
 		filters = append(filters, xdsfilters.HTTPMx)
 	}
 
@@ -421,7 +422,9 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	// TypedPerFilterConfig in route needs these filters.
 	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
-	filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class)...)
+	if !httpOpts.skipTelemetryFilters {
+		filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class)...)
+	}
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.HttpFilters = filters
