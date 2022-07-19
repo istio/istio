@@ -33,6 +33,7 @@ import (
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -126,10 +127,11 @@ type metricsConfig struct {
 
 type telemetryFilterConfig struct {
 	metricsConfig
-	Provider      *meshconfig.MeshConfig_ExtensionProvider
-	Metrics       bool
-	AccessLogging bool
-	LogsFilter    *tpb.AccessLogging_Filter
+	Provider        *meshconfig.MeshConfig_ExtensionProvider
+	Metrics         bool
+	AccessLogging   bool
+	LogsFilter      *tpb.AccessLogging_Filter
+	SidecarlessType ambient.NodeType
 }
 
 func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) []metricsOverride {
@@ -425,11 +427,12 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		_, logging := tml[k]
 		_, metrics := tmm[k]
 		cfg := telemetryFilterConfig{
-			Provider:      p,
-			metricsConfig: tmm[k],
-			AccessLogging: logging,
-			Metrics:       metrics,
-			LogsFilter:    logsFilter,
+			Provider:        p,
+			metricsConfig:   tmm[k],
+			AccessLogging:   logging,
+			Metrics:         metrics,
+			LogsFilter:      logsFilter,
+			SidecarlessType: proxy.Metadata.SidecarlessType,
 		}
 		m = append(m, cfg)
 	}
@@ -965,6 +968,9 @@ var metricToPrometheusMetric = map[string]string{
 func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFilterConfig) *anypb.Any {
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
+	}
+	if metricsCfg.SidecarlessType == ambient.TypePEP {
+		cfg.MetadataMode = stats.PluginConfig_AMBIENT_PEP_METADATA_MODE
 	}
 	for _, override := range metricsCfg.MetricsForClass(class) {
 		metricName, f := metricToPrometheusMetric[override.Name]

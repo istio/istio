@@ -12,7 +12,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 replace github.com/envoyproxy/go-control-plane => github.com/howardjohn/go-control-plane v0.0.0-20220525221400-e382f4d319a9
 
 // TODO replace when merged with OSS project
-replace istio.io/api => github.com/solo-io/istio-api-sidecarless v0.0.0-20220513171139-b76e722b2e0e
+replace istio.io/api => github.com/solo-io/istio-api-sidecarless v0.0.0-20220719180948-2e548bfb0941
 
 require (
 	cloud.google.com/go/compute v1.6.1
