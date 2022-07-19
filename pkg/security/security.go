@@ -348,6 +348,13 @@ const (
 	authorizationMeta = "authorization"
 )
 
+type AuthContext struct {
+	// grpc context
+	GrpcContext context.Context
+	// http request
+	Request *http.Request
+}
+
 // Caller carries the identity and authentication source of a caller.
 type Caller struct {
 	AuthSource AuthSource
@@ -356,9 +363,8 @@ type Caller struct {
 
 // Authenticator determines the caller identity based on request context.
 type Authenticator interface {
-	Authenticate(ctx context.Context) (*Caller, error)
+	Authenticate(ctx AuthContext) (*Caller, error)
 	AuthenticatorType() string
-	AuthenticateRequest(req *http.Request) (*Caller, error)
 }
 
 // AuthenticationManager orchestrates all authenticators to perform authentication.
@@ -370,8 +376,9 @@ type AuthenticationManager struct {
 
 // Authenticate loops through all the configured Authenticators and returns if one of the authenticator succeeds.
 func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
+	req := AuthContext{GrpcContext: ctx}
 	for _, authn := range am.Authenticators {
-		u, err := authn.Authenticate(ctx)
+		u, err := authn.Authenticate(req)
 		if u != nil && len(u.Identities) > 0 && err == nil {
 			securityLog.Debugf("Authentication successful through auth source %v", u.AuthSource)
 			return u
