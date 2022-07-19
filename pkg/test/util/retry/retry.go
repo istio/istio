@@ -44,11 +44,12 @@ var defaultConfig = config{
 }
 
 type config struct {
-	error    string
-	timeout  time.Duration
-	delay    time.Duration
-	delayMax time.Duration
-	converge int
+	error       string
+	timeout     time.Duration
+	delay       time.Duration
+	delayMax    time.Duration
+	converge    int
+	maxAttempts int
 }
 
 // Option for a retry operation.
@@ -90,6 +91,13 @@ func Converge(successes int) Option {
 func Message(errorMessage string) Option {
 	return func(cfg *config) {
 		cfg.error = errorMessage
+	}
+}
+
+// MaxAttempts allows defining a maximum number of attempts. If unset, only timeout is considered.
+func MaxAttempts(attempts int) Option {
+	return func(cfg *config) {
+		cfg.maxAttempts = attempts
 	}
 }
 
@@ -165,6 +173,9 @@ func UntilComplete(fn RetriableFunc, options ...Option) (interface{}, error) {
 	to := time.After(cfg.timeout)
 	delay := cfg.delay
 	for {
+		if cfg.maxAttempts > 0 && attempts >= cfg.maxAttempts {
+			return nil, fmt.Errorf("hit max attempts %d attempts (last error: %v)", attempts, lasterr)
+		}
 		select {
 		case <-to:
 			return nil, fmt.Errorf("timeout while waiting after %d attempts (last error: %v)", attempts, lasterr)

@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 type wellKnownContainer string
@@ -417,7 +419,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 
 // DumpPodProxies will dump Envoy proxy config and clusters in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
+func DumpPodProxies(ctx resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 	g := errgroup.Group{}
 	for _, pod := range pods {
@@ -427,11 +429,8 @@ func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace st
 		}
 
 		g.Go(func() error {
-			fw, err := c.NewPortForwarder(pod.Name, pod.Namespace, "127.0.0.1", 0, 15000)
+			fw, err := newPortForward(c, pod, 15000)
 			if err != nil {
-				return err
-			}
-			if err = fw.Start(); err != nil {
 				return err
 			}
 			defer fw.Close()
@@ -444,6 +443,23 @@ func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace st
 	if err := g.Wait(); err != nil {
 		scopes.Framework.Errorf("dump failed: %v", err)
 	}
+}
+
+func newPortForward(c cluster.Cluster, pod corev1.Pod, port int) (kube.PortForwarder, error) {
+	var fw kube.PortForwarder
+	// add a retry loop since sometimes reserving a port fails
+	err := retry.UntilSuccess(func() error {
+		var err error
+		fw, err = c.NewPortForwarder(pod.Name, pod.Namespace, "127.0.0.1", 0, port)
+		if err != nil {
+			return err
+		}
+		if err = fw.Start(); err != nil {
+			return err
+		}
+		return nil
+	}, retry.MaxAttempts(5), retry.Delay(time.Millisecond*10))
+	return fw, err
 }
 
 func portForwardRequest(fw kube.PortForwarder, method, path string) ([]byte, error) {
@@ -481,15 +497,37 @@ func dumpProxyCommand(c cluster.Cluster, fw kube.PortForwarder, pod corev1.Pod, 
 					path, c.Name(), pod.Namespace, pod.Name, container.Name, err)
 			}
 			if filename == "proxy-config.json" {
-				cds := bytes.Contains(cfgDump, []byte("dynamic_warming_clusters"))
-				sds := bytes.Contains(cfgDump, []byte("dynamic_warming_secrets"))
-				lds := bytes.Contains(cfgDump, []byte("warming_state"))
 				// Add extra logs if we have anything warming. FAIL syntax is import to make prow highlight
 				// it. Note: this doesn't make the test fail, just adds logging; if we hit this code the test
 				// already failed.
-				if cds || lds || sds {
-					scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources",
-						c.Name(), pod.Namespace, pod.Name)
+				// We add backoff because we may see transient warming errors during cleanup of resources.
+				attempts := 0
+				backoff := time.Second * 1 // Try after 0s, 1s, 2s, 4s, 8s, or 7s total
+				for {
+					attempts++
+					warming := isWarming(cfgDump)
+					if warming == "" {
+						// Not warming
+						break
+					}
+					if attempts > 3 {
+						scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources (%v) on final attempt",
+							c.Name(), pod.Namespace, pod.Name, warming)
+						break
+					}
+					scopes.Framework.Warnf("cluster/pod %s/%s/%s found warming resources (%v) on attempt %d",
+						c.Name(), pod.Namespace, pod.Name, warming, attempts)
+					time.Sleep(backoff)
+					backoff *= 2
+					cfgDump, err = portForwardRequest(fw, "GET", path)
+					if err != nil {
+						scopes.Framework.Errorf("FAIL: Unable to get execute command %q on cluster/pod: %s/%s/%s for: %v",
+							path, c.Name(), pod.Namespace, pod.Name, err)
+					}
+				}
+				if warming := isWarming(cfgDump); warming != "" {
+					scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources (%v)",
+						c.Name(), pod.Namespace, pod.Name, warming)
 				}
 			}
 		} else {
@@ -497,6 +535,19 @@ func dumpProxyCommand(c cluster.Cluster, fw kube.PortForwarder, pod corev1.Pod, 
 				path, c.Name(), pod.Namespace, pod.Name, err)
 		}
 	}
+}
+
+func isWarming(dump []byte) string {
+	if bytes.Contains(dump, []byte("dynamic_warming_clusters")) {
+		return "dynamic_warming_clusters"
+	}
+	if bytes.Contains(dump, []byte("dynamic_warming_secrets")) {
+		return "dynamic_warming_secrets"
+	}
+	if bytes.Contains(dump, []byte("warming_state")) {
+		return "warming_state (listeners)"
+	}
+	return ""
 }
 
 func hasEnvoy(pod corev1.Pod) bool {
@@ -563,16 +614,13 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 	}
 }
 
-func DumpNdsz(_ resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
+func DumpNdsz(ctx resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
 	g := errgroup.Group{}
 	for _, pod := range pods {
 		pod := pod
 		g.Go(func() error {
-			fw, err := c.NewPortForwarder(pod.Name, pod.Namespace, "127.0.0.1", 0, 15020)
+			fw, err := newPortForward(c, pod, 15020)
 			if err != nil {
-				return err
-			}
-			if err = fw.Start(); err != nil {
 				return err
 			}
 			defer fw.Close()
