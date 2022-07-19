@@ -596,7 +596,7 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 		return
 	}
 	if con.isClosed() {
-		// TODO: do we need to redirect to the new connection
+		proxyLog.Errorf("downstream [%d] dropped xds push to Envoy, connection already closed", con.conID)
 		return
 	}
 	if err := sendDownstream(con.downstream, resp); err != nil {
