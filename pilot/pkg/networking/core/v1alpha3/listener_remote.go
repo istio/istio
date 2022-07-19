@@ -154,6 +154,18 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 	}
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
+
+	baggageFilter := &hcm.HttpFilter{
+		Name: "istio.filters.http.baggage_handler",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: &any.Any{
+				// nolint: staticcheck
+				TypeUrl: "type.googleapis.com/" + "istio.telemetry.baggagehandler.v1.Config",
+			},
+		},
+	}
+
+	h.HttpFilters = append([]*hcm.HttpFilter{baggageFilter}, h.HttpFilters...)
 	h.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
 		UpgradeType: "CONNECT",
 	}}
@@ -257,6 +269,15 @@ func (lb *ListenerBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Servi
 					},
 				}},
 				FilterChains: []*listener.FilterChain{},
+				ListenerFilters: []*listener.ListenerFilter{
+					{
+						Name: "envoy.filters.listener.metadata_to_peer_node",
+						ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: &any.Any{
+							// nolint: staticcheck
+							TypeUrl: "type.googleapis.com/" + "istio.telemetry.metadatatopeernode.v1.Config",
+						}},
+					},
+				},
 			}
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector
