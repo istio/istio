@@ -265,9 +265,7 @@ func installProviders(ctx resource.Context, providerYAML string) error {
 					newProviders = append(newProviders, o)
 				}
 			}
-			for _, n := range newMC.ExtensionProviders {
-				newProviders = append(newProviders, n)
-			}
+			newProviders = append(newProviders, newMC.ExtensionProviders...)
 			mc.ExtensionProviders = newProviders
 			return nil
 		}, cleanup.Conditionally)

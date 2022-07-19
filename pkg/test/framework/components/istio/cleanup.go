@@ -79,6 +79,7 @@ func (i *istioImpl) Dump(ctx resource.Context) {
 		return nil
 	})
 	for _, c := range ctx.Clusters().Kube().Primaries() {
+		c := c
 		g.Go(func() error {
 			kube2.DumpDebug(ctx, c, d, "configz")
 			return nil

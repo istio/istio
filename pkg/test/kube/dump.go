@@ -514,10 +514,9 @@ func dumpProxyCommand(c cluster.Cluster, fw kube.PortForwarder, pod corev1.Pod, 
 						scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources (%v) on final attempt",
 							c.Name(), pod.Namespace, pod.Name, warming)
 						break
-					} else {
-						scopes.Framework.Warnf("cluster/pod %s/%s/%s found warming resources (%v) on attempt %d",
-							c.Name(), pod.Namespace, pod.Name, warming, attempts)
 					}
+					scopes.Framework.Warnf("cluster/pod %s/%s/%s found warming resources (%v) on attempt %d",
+						c.Name(), pod.Namespace, pod.Name, warming, attempts)
 					time.Sleep(backoff)
 					backoff *= 2
 					cfgDump, err = portForwardRequest(fw, "GET", path)
