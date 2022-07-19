@@ -136,20 +136,6 @@ func TestAdsReconnectRequests(t *testing.T) {
 	})
 }
 
-// TestAdsDoubleNonce tests the PushOnRepeatNonce flag. If enabled, we should see a response to our repeated request.
-func TestAdsDoubleNonce(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-
-	ads := s.ConnectADS().WithType(v3.EndpointType)
-	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
-	// Reconnect with the same resources
-	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
-		ResourceNames: []string{"fake-cluster"},
-		ResponseNonce: res.Nonce,
-		VersionInfo:   res.VersionInfo,
-	})
-}
-
 func TestAdsUnsubscribe(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 

@@ -394,12 +394,19 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
-		// Due to https://github.com/envoyproxy/envoy/issues/13009, we must always send an EDS response when CDS is pushed.
-		// However, during reconnect scenarios, Envoy may fail to send EDS requests that we can reasonably identify as non-ACKs.
-		// Instead, we force the next EDS request to always respond, rather than an ACK, to ensure we send EDS.
-		if request.TypeUrl == v3.ClusterType {
-			if eds, f := con.proxy.WatchedResources[v3.EndpointType]; f {
-				eds.AlwaysRespond = true
+		// For all EDS requests that we have already responded with in the same stream let us
+		// force the response. It is important to respond to those requests for Envoy to finish
+		// warming of those resources(Clusters).
+		// This can happen with the following sequence
+		// 1. Envoy disconnects and reconnects to Istiod.
+		// 2. Envoy sends EDS request and we respond with it.
+		// 3. Envoy sends CDS request and we respond with clusters.
+		// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
+		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
+		// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
+		for _, dependent := range warmingDependencies(request.TypeUrl) {
+			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
+				dwr.AlwaysRespond = true
 			}
 		}
 		con.proxy.Unlock()
@@ -424,8 +431,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return false, emptyResourceDelta
 	}
 
-	// If it comes here, that means nonce match. This an ACK.
-	previousNonceAcked := previousInfo.NonceAcked
+	// If it comes here, that means nonce match.
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
@@ -435,7 +441,14 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
-	// Envoy can send two DiscoveryRequests with same version and nonce
+	// We should always respond "alwayRespond" marked requests to let Envoy finish warming
+	// even though Nonce match and it looks like an ACK.
+	if alwaysRespond {
+		log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
+		return true, emptyResourceDelta
+	}
+
+	// Envoy can send two DiscoveryRequests with same version and nonce.
 	// when it detects a new resource. We should respond if they change.
 	prev := sets.New(previousResources...)
 	cur := sets.New(request.ResourceNames...)
@@ -443,19 +456,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	added := cur.Difference(prev)
 
 	if len(removed) == 0 && len(added) == 0 {
-		// We got a request which looks like an ACK, but we already got the same ACK. Envoy won't ACK the
-		// same resource twice. However, in some cases a request for new resources is indistinguishable
-		// from an ACK (in particular, when requesting EDS after a CDS push):
-		// https://github.com/envoyproxy/envoy/issues/13009. As a result, if we see the same ACK multiple
-		// times, we treat subsequent requests as something we should respond to.
-		if features.PushOnRepeatNonce && request.ResponseNonce == previousNonceAcked {
-			log.Debugf("ADS:%s: REQ %s Repeated nonce received %s", stype, con.conID, request.ResponseNonce)
-			return true, emptyResourceDelta
-		}
-		if alwaysRespond {
-			log.Infof("ADS:%s: REQ %s forced response", stype, con.conID)
-			return true, emptyResourceDelta
-		}
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
 	}
@@ -495,6 +495,17 @@ func isWildcardTypeURL(typeURL string) bool {
 	default:
 		// All of our internal types use wildcard semantics
 		return true
+	}
+}
+
+// warmingDependencies returns the dependent typeURLs that need to be responded with
+// for warming of this typeURL.
+func warmingDependencies(typeURL string) []string {
+	switch typeURL {
+	case v3.ClusterType:
+		return []string{v3.EndpointType}
+	default:
+		return nil
 	}
 }
 
