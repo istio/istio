@@ -394,14 +394,16 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
-		// For all non wildcard resources that we have already responded with in the same stream let us
-		// force response. It is important to respond to those requests for Envoy to finish warming of those resources.
+		// For all EDS requests that we have already responded with in the same stream let us
+		// force the response. It is important to respond to those requests for Envoy to finish
+		// warming of those resources(Clusters).
 		// This can happen with the following sequence
 		// 1. Envoy disconnects and reconnects to Istiod.
 		// 2. Envoy sends EDS request and we respond with it.
 		// 3. Envoy sends CDS request and we respond with clusters.
 		// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
 		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
+		// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
 		for _, dependent := range warmingDependencies(request.TypeUrl) {
 			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
 				dwr.AlwaysRespond = true
