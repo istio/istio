@@ -56,10 +56,10 @@ type kubeNamespace struct {
 
 func (n *kubeNamespace) Dump(ctx resource.Context) {
 	if n.skipDump {
-		scopes.Framework.Debugf("=== Skip dumping Namespace %s State...", n.name)
+		scopes.Framework.Debugf("=== Skip dumping Namespace %s State for %v...", n.name, ctx.ID())
 		return
 	}
-	scopes.Framework.Errorf("=== Dumping Namespace %s State...", n.name)
+	scopes.Framework.Errorf("=== Dumping Namespace %s State for %v...", n.name, ctx.ID())
 
 	d, err := ctx.CreateTmpDirectory(n.name + "-state")
 	if err != nil {
