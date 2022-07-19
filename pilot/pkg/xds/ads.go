@@ -441,13 +441,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
-	// We should always respond "alwayRespond" marked requests to let Envoy finish warming
-	// even though Nonce match and it looks like an ACK.
-	if alwaysRespond {
-		log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
-		return true, emptyResourceDelta
-	}
-
 	// Envoy can send two DiscoveryRequests with same version and nonce.
 	// when it detects a new resource. We should respond if they change.
 	prev := sets.New(previousResources...)
@@ -456,6 +449,13 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	added := cur.Difference(prev)
 
 	if len(removed) == 0 && len(added) == 0 {
+		// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
+		// even though Nonce match and it looks like an ACK.
+		if alwaysRespond {
+			log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
+			return true, emptyResourceDelta
+		}
+
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
 	}
