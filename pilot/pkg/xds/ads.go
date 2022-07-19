@@ -501,9 +501,7 @@ func isWildcardTypeURL(typeURL string) bool {
 func warmingDependencies(typeURL string) []string {
 	switch typeURL {
 	case v3.ClusterType:
-		return []string{v3.EndpointType, v3.SecretType}
-	case v3.ListenerType:
-		return []string{v3.RouteType}
+		return []string{v3.EndpointType}
 	default:
 		return nil
 	}
