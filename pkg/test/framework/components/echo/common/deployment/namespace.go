@@ -252,6 +252,7 @@ kind: ServiceEntry
 metadata:
   name: external-service
 spec:
+  exportTo: [.]
   hosts:
   - {{.Hostname}}
   location: MESH_EXTERNAL
