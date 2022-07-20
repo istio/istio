@@ -441,7 +441,7 @@ func translateRoute(
 	} else if in.DirectResponse != nil {
 		applyDirectResponse(out, in.DirectResponse)
 	} else {
-		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		applyHTTPRouteDestination(out, node, virtualService, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -466,6 +466,7 @@ func translateRoute(
 func applyHTTPRouteDestination(
 	out *route.Route,
 	node *model.Proxy,
+	vs config.Config,
 	in *networking.HTTPRoute,
 	mesh *meshconfig.MeshConfig,
 	authority string,
@@ -495,6 +496,12 @@ func applyHTTPRouteDestination(
 		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
 		// nolint: staticcheck
 		action.MaxGrpcTimeout = action.Timeout
+	}
+
+	if model.UseGatewaySemantics(vs) && util.IsIstioVersionGE115(node.IstioVersion) {
+		// return 500 for invalid backends
+		// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L204
+		action.ClusterNotFoundResponseCode = route.RouteAction_INTERNAL_SERVER_ERROR
 	}
 
 	out.Action = &route.Route_Route{Route: action}
