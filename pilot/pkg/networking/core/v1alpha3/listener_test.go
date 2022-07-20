@@ -78,14 +78,7 @@ func getIPv6Proxy() *model.Proxy {
 	pr := &model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"2001:1::1"},
-		ID:          "v0.default",
-		DNSDomain:   "default.example.org",
-		Metadata: &model.NodeMetadata{
-			Namespace: "not-default",
-		},
-		ConfigNamespace: "not-default",
 	}
-	pr.DiscoverIPMode()
 	return pr
 }
 
@@ -582,7 +575,6 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 func TestOutboundListenerForExternalServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Attributes.ServiceRegistry = provider.Kubernetes
-	services := []*model.Service{svc}
 
 	autoSvc := buildServiceWithPort("test.com", 9999, protocol.Unsupported, tnow)
 	autoSvc.Attributes.ServiceRegistry = provider.External
@@ -597,37 +589,30 @@ func TestOutboundListenerForExternalServices(t *testing.T) {
 		listenersOn string
 	}{
 		{
-			name: "listeners with ipv4 endpoint for Kubernetes TCP protocol",
+			name: "internal k8s service with ipv4 & ipv6 endpoint for Kubernetes TCP protocol",
 			instances: []*model.ServiceInstance{
-				buildServiceInstance(services[0], "11.11.11.11"),
+				buildServiceInstance(svc, "10.10.10.10"),
+				buildServiceInstance(svc, "fd00:10:244:1::11"),
 			},
 			services:    []*model.Service{svc},
-			listenersOn: "::_9999",
+			listenersOn: "0.0.0.0_9999",
 		},
 		{
-			name: "listeners with ipv6 endpoint for Kubernetes TCP protocol",
-			instances: []*model.ServiceInstance{
-				buildServiceInstance(services[0], "fd00:10:244:1::11"),
-			},
-			services:    []*model.Service{svc},
-			listenersOn: "::_9999",
-		},
-		{
-			name: "external service with ipv4 & ipv6 endpoints ",
-			instances: []*model.ServiceInstance{
-				buildServiceInstance(extSvc, "10.10.10.10"),
-				buildServiceInstance(extSvc, "fd00:10:244:1::11"),
-			},
-			services:    []*model.Service{extSvc},
-			listenersOn: "::_9999",
-		},
-		{
-			name: "listeners with ipv4 & ipv6 endpoints for Kubernetes auto protocol",
+			name: "external service with ipv4 & ipv6 endpoints for Kubernetes auto protocol",
 			instances: []*model.ServiceInstance{
 				buildServiceInstance(autoSvc, "10.10.10.10"),
 				buildServiceInstance(autoSvc, "fd00:10:244:1::11"),
 			},
 			services:    []*model.Service{autoSvc},
+			listenersOn: "::_9999",
+		},
+		{
+			name: "external service with ipv4 & ipv6 endpoints for Kubernetes TCP protocol",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(extSvc, "10.10.10.10"),
+				buildServiceInstance(extSvc, "fd00:10:244:1::11"),
+			},
+			services:    []*model.Service{extSvc},
 			listenersOn: "::_9999",
 		},
 	}
