@@ -316,8 +316,7 @@ func TestConvertResources(t *testing.T) {
 					Service:     svc,
 					ServicePort: ports[0],
 					Endpoint:    &model.IstioEndpoint{EndpointPort: 8080},
-				})
-				instances = append(instances, &model.ServiceInstance{
+				}, &model.ServiceInstance{
 					Service:     svc,
 					ServicePort: ports[1],
 					Endpoint:    &model.IstioEndpoint{},
