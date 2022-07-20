@@ -457,11 +457,11 @@ func TestReachability(t *testing.T) {
 										} else if c.expectCrossCluster(from, opts) {
 											// Expect to stay in the same network as the source pod.
 											expectedClusters := to.Clusters().ForNetworks(from.Config().Cluster.NetworkName())
-											opts.Check = check.And(opts.Check, check.ReachedClusters(t.Clusters(), expectedClusters))
+											opts.Check = check.And(opts.Check, check.ReachedClusters(t, t.Clusters(), expectedClusters))
 										} else {
 											// Expect to stay in the same cluster as the source pod.
 											expectedClusters := cluster.Clusters{from.Config().Cluster}
-											opts.Check = check.And(opts.Check, check.ReachedClusters(t.Clusters(), expectedClusters))
+											opts.Check = check.And(opts.Check, check.ReachedClusters(t, t.Clusters(), expectedClusters))
 										}
 									} else {
 										opts.Check = check.NotOK()
