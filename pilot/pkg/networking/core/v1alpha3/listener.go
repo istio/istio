@@ -690,7 +690,7 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 		svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
 		// if listenerOpts.service is not the common k8s svc and headless svc, it may be a svc converted from service entry, etc.
 		// It's hard to detect IP family for this kind of service, such se with only host name, so follows the current proxy's
-		if listenerOpts.service.ClusterVIPs.IsEmpty() && svcListenAddress == constants.UnspecifiedIP {
+		if listenerOpts.service.Attributes.ServiceRegistry == provider.External {
 			if listenerOpts.proxy.IsIPv6() {
 				svcListenAddress = constants.UnspecifiedIPv6
 			}
