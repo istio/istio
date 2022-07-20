@@ -98,7 +98,13 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 
 	image := ctx.Settings().Image
 	if image.PullSecret != "" {
-		yamlText, err = addPullSecret(yamlText, image.PullSecret)
+		var imageSpec resource.ImageSettings
+		imageSpec.PullSecret = image.PullSecret
+		secretName, err := imageSpec.PullSecretName()
+		if err != nil {
+			return err
+		}
+		yamlText, err = addPullSecret(yamlText, secretName)
 		if err != nil {
 			return err
 		}
