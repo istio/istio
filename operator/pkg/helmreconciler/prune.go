@@ -365,7 +365,7 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		selector = selector.Add(*componentRequirement)
 		if err := h.client.List(context.TODO(), objects, client.MatchingLabelsSelector{Selector: selector}); err != nil {
 			// we only want to retrieve resources clusters
-			scope.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
+			scope.Debugf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
 			continue
 		}
 		for _, obj := range objects.Items {
