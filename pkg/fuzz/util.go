@@ -1,0 +1,80 @@
+package fuzz
+
+import (
+	"bytes"
+	"fmt"
+	"testing"
+
+	fuzzheaders "github.com/AdaLogics/go-fuzz-headers"
+)
+
+// Helper is a helper struct for fuzzing
+type Helper struct {
+	cf *fuzzheaders.ConsumeFuzzer
+	t  *testing.T
+}
+
+type Validator interface {
+	// FuzzValidate returns true if the current struct is valid for fuzzing.
+	FuzzValidate() bool
+}
+
+// New creates a new fuzz.Helper, capable of generating more complex types
+func New(t *testing.T, data []byte) Helper {
+	return Helper{cf: fuzzheaders.NewConsumer(data), t: t}
+}
+
+// Struct generates a Struct. Validation patterns can be passed in - if any return false, the fuzz case is skipped.
+// Additionally, if the T implements Validator, it will implicitly be used.
+func Struct[T any](h Helper, validators ...func(T) bool) T {
+	d := new(T)
+	if err := h.cf.GenerateStruct(d); err != nil {
+		h.t.Skip(err.Error())
+	}
+	r := *d
+	validate(h, validators, r)
+	return r
+}
+
+// Slice generates a slice of Structs
+func Slice[T any](h Helper, count int, validators ...func(T) bool) []T {
+	if count < 0 {
+		// Make it easier to just pass fuzzer generated counts, typically with %max applied
+		count *= -1
+	}
+	res := make([]T, 0, count)
+	for i := 0; i < count; i++ {
+		d := new(T)
+		if err := h.cf.GenerateStruct(d); err != nil {
+			h.t.Skip(err.Error())
+		}
+		r := *d
+		validate(h, validators, r)
+		res = append(res, r)
+	}
+	return res
+}
+
+func validate[T any](h Helper, validators []func(T) bool, r T) {
+	if fz, ok := any(r).(Validator); ok {
+		if !fz.FuzzValidate() {
+			h.t.Skip(fmt.Sprintf("struct didn't pass validator"))
+		}
+	}
+	for i, v := range validators {
+		if !v(r) {
+			h.t.Skipf(fmt.Sprintf("struct didn't pass validator %d", i))
+		}
+	}
+}
+
+// BaseCases inserts a few trivial test cases to do a very brief sanity check of a test that relies on []byte inputs
+func BaseCases(f *testing.F) {
+	for _, c := range [][]byte{
+		{},
+		[]byte("."),
+		bytes.Repeat([]byte("."), 1000),
+	} {
+		f.Add(c)
+	}
+}
