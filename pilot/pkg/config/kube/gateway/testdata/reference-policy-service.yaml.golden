@@ -36,4 +36,10 @@ spec:
         host: my-svc.service.svc.domain.suffix
         port:
           number: 80
+      weight: 1
+    - destination:
+        host: zzz-invalid-backend.istio.io
+        port:
+          number: 15012
+      weight: 1
 ---

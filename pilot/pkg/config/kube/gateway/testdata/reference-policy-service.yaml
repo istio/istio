@@ -47,3 +47,8 @@ spec:
     - name: my-svc
       namespace: service
       port: 80
+      weight: 1
+    - name: httpbin
+      namespace: default
+      port: 80
+      weight: 1

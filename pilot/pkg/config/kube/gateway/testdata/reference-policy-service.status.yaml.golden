@@ -64,9 +64,10 @@ status:
       status: "True"
       type: Accepted
     - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
+      message: backendRef httpbin/default not accessible to a route in namespace "istio-system"
+        (missing a ReferenceGrant?)
+      reason: RefNotPermitted
+      status: "False"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
