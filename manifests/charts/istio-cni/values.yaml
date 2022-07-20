@@ -6,6 +6,7 @@ cni:
 
   # Configuration log level of istio-cni binary
   # by default istio-cni send all logs to UDS server
+  # if want to see them you need change global.logging.level with cni:debug
   logLevel: debug
 
   # Configuration file to insert istio-cni plugin configuration
