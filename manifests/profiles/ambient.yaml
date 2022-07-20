@@ -21,6 +21,8 @@ spec:
       prometheus: {}
 
   components:
+    cni:
+      enabled: true
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -28,14 +30,13 @@ spec:
     egressGateways:
     - name: istio-egressgateway
       enabled: false
-
-  # Global values passed through to helm global.yaml.
-  # Please keep this in sync with manifests/charts/global.yaml
   values:
+    cni:
+      logLevel: "debug"
+      privileged: true
     global:
       operatorManageWebhooks: true
     telemetry:
       enabled: false
       v2:
         enabled: false
-

@@ -19,6 +19,7 @@ LABEL description="Istio CNI plugin installer."
 ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/istio-cni /opt/cni/bin/istio-cni
 COPY ${TARGETARCH:-amd64}/install-cni /usr/local/bin/install-cni
+COPY ${TARGETARCH:-amd64}/ambient-ds /usr/local/bin/ambient-ds
 
 # Copy over the Taint binary
 COPY ${TARGETARCH:-amd64}/istio-cni-taint /opt/local/bin/istio-cni-taint

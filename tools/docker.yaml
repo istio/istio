@@ -59,6 +59,10 @@ images:
   - ${TARGET_OUT_LINUX}/release/metadata-exchange-filter.compiled.wasm
   targets:
   - ${TARGET_OUT_LINUX}/pilot-agent
+- name: ambient-ds
+  dockerfile: cni/docker/Dockerfile.ambient-ds
+  targets:
+  - ${TARGET_OUT_LINUX}/ambient-ds
 
 - name: istioctl
   dockerfile: istioctl/docker/Dockerfile.istioctl
@@ -79,6 +83,7 @@ images:
   - ${TARGET_OUT_LINUX}/istio-iptables
   - ${TARGET_OUT_LINUX}/install-cni
   - ${TARGET_OUT_LINUX}/istio-cni-taint
+  - ${TARGET_OUT_LINUX}/ambient-ds
 
 # Test images
 - name: app

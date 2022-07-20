@@ -32,26 +32,36 @@ if [[ $HUB == *localhost* ]]; then
     BUILDER="--builder=crane"
 fi
 
-tools/docker --targets=pilot,proxyv2,app --hub=$HUB --tag=$TAG --push $BUILDER
+tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --push $BUILDER
 
-tools/docker --targets=pilot,proxyv2,app --hub=$HUB --tag=$TAG --push # consider --builder=crane
+kubectl label namespace default istio.io/dataplane-mode=ambient --overwrite
 
 # Install Istio without gateway or webhook
 # profile can be "ambient" or "ambient-gke" or "ambient-aws"
 # Mesh config options are optional to improve debugging
-CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
-  --set profile=$PROFILE --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0
+cat <<EOF | CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ -y -f -
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: ingress-gateway
+  namespace: istio-system
+spec:
+  hub: ${HUB}
+  tag: ${TAG}
+  profile: ${PROFILE}
+  meshConfig:
+    accessLogFile: /dev/stdout
+    defaultHttpRetryPolicy:
+      attempts: 0
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "true"
+        ISTIO_META_DNS_AUTO_ALLOCATE: "true"
+        DNS_PROXY_ADDR: "0.0.0.0:15053"
+EOF
 
 if [ -z "$BUILDER" ]; then
 ./local-test-utils/refresh-istio-images.sh
 fi
 
 kubectl apply -f local-test-utils/samples/
-
-# Turn mesh on
-./redirect.sh ambient
-
-sleep 5
-
-# Update pod membership (will move to CNI). can stop it after it does 1 iteration if pods don't change
-./tmp-update-pod-set.sh

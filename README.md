@@ -5,6 +5,7 @@
 ```shell
 ./local-test-utils/kind-registry.sh
 
+export ISTIO_ENVOY_BASE_URL=https://storage.googleapis.com/solo-istio-build/proxy
 HUB=gcr.io/xyz # consider localhost:5000
 TAG=ambient
 export GOPRIVATE=github.com/solo-io/istio-api-sidecarless
@@ -13,14 +14,14 @@ export GOPRIVATE=github.com/solo-io/istio-api-sidecarless
 # git config --global url."ssh://git@github.com/solo-io".insteadOf https://github.com/solo-io
 
 # Build Istiod and proxy (uproxy and remote proxy are the same image)
-tools/docker --targets=pilot,proxyv2,app --hub=$HUB --tag=$TAG --push # consider --builder=crane
+tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --push # consider --builder=crane
 ```
 
-## Cluster setup (kind)
+## Cluster Setup and Install
 
 ```shell
-# Create (or re-create) cluster
 ./local-test-utils/reset-kind.sh
+
 # Configure cluster to use the local registry
 ./local-test-utils/kind-registry.sh
 
@@ -37,21 +38,13 @@ tools/docker --targets=pilot,proxyv2,app --hub=$HUB --tag=$TAG --push # consider
 CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
   --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0
 
-# Optionally, clean up redirection if needed
-./redirect.sh ambient clean
-
-# Enable redirection
-./redirect.sh ambient
+kubectl apply -f local_test_utils/samples/
 ```
 
-## Test it out
+## New Test
 
 ```shell
-# Deploy helloworld and sleep client
-k apply -f local-test-utils/samples/
-
-# Update pod membership (will move to CNI). can stop it after it does 1 iteration if pods don't change
-./tmp-update-pod-set.sh
+kubectl exec -it deploy/sleep -- curl http://helloworld:5000/hello
 
 # In a separate shell, start an interactive session on the client pod
 k exec -it $(k get po -lapp=sleep -ojsonpath='{.items[0].metadata.name}') -- sh

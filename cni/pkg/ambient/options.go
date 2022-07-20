@@ -1,0 +1,124 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package ambient
+
+import (
+	"os"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/api/label"
+	"istio.io/api/mesh/v1alpha1"
+	ipsetlib "istio.io/istio/cni/pkg/ipset"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/pkg/env"
+)
+
+var (
+	PodNamespace = env.RegisterStringVar("PODNAMESPACE", constants.IstioSystemNamespace, "pod's namespace").Get()
+	PodName      = env.RegisterStringVar("POD_NAME", "", "").Get()
+	NodeName     = env.RegisterStringVar("NODE_NAME", "", "").Get()
+	Revision     = env.RegisterStringVar("REVISION", "", "").Get()
+	HostIP       = env.RegisterStringVar("HOST_IP", "", "").Get()
+)
+
+type ConfigSourceAddressScheme string
+
+const (
+	Kubernetes ConfigSourceAddressScheme = "k8s"
+)
+
+const (
+	dataplaneLabelAmbientValue = "ambient"
+
+	AmbientMeshNamespace = v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT
+	AmbientMeshOff       = v1alpha1.MeshConfig_AmbientMeshConfig_OFF
+	AmbientMeshOn        = v1alpha1.MeshConfig_AmbientMeshConfig_ON
+)
+
+var Ipset = &ipsetlib.IPSet{
+	Name: "uproxy-pods-ips",
+}
+
+var ambientSelectors metav1.LabelSelector = metav1.LabelSelector{
+	MatchLabels: map[string]string{
+		label.IoIstioDataplaneMode.Name: dataplaneLabelAmbientValue,
+	},
+}
+
+var legacySelectors = []*metav1.LabelSelector{
+	{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "istio-injection",
+				Operator: metav1.LabelSelectorOpIn,
+				Values: []string{
+					"enabled",
+				},
+			},
+		},
+	},
+	{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      label.IoIstioRev.Name,
+				Operator: metav1.LabelSelectorOpExists,
+			},
+		},
+	},
+}
+
+type AmbientArgs struct {
+	PodName          string
+	Namespace        string
+	NodeName         string
+	Revision         string
+	RegistryOptions  RegistryOptions
+	MeshConfigFile   string
+	ShutdownDuration time.Duration
+}
+
+type RegistryOptions struct {
+	FileDir string
+
+	Registries  []string
+	KubeOptions kubecontroller.Options
+	KubeConfig  string
+}
+
+func NewAmbientArgs(initFuncs ...func(*AmbientArgs)) *AmbientArgs {
+	a := &AmbientArgs{}
+
+	a.ApplyDefaults()
+
+	for _, fn := range initFuncs {
+		fn(a)
+	}
+
+	return a
+}
+
+func (a *AmbientArgs) ApplyDefaults() {
+	a.Namespace = PodNamespace
+	a.PodName = PodName
+	a.Revision = Revision
+	a.NodeName = NodeName
+	if a.NodeName == "" {
+		NodeName, _ = os.Hostname()
+		a.NodeName = NodeName
+	}
+}

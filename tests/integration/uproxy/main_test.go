@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -63,6 +62,18 @@ type EchoDeployments struct {
 	All               echo.Instances
 }
 
+var ControlPlaneValues = `
+profile: ambient
+values:
+  meshConfig:
+    ambientMesh:
+      mode: "DEFAULT"
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "true"
+        DNS_PROXY_ADDR: "0.0.0.0:15053"
+    accessLogFile: /dev/stdout`
+
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
@@ -73,12 +84,11 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployEastWestGW = false
-			cfg.ControlPlaneValues = "profile: ambient"
+			cfg.ControlPlaneValues = ControlPlaneValues
 		})).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
-		Setup(ambient.Redirection).
 		Run()
 }
 
@@ -97,6 +107,9 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Namespace, err = namespace.New(t, namespace.Config{
 		Prefix: "echo",
 		Inject: false,
+		Labels: map[string]string{
+			"istio.io/dataplane-mode": "ambient",
+		},
 	})
 	if err != nil {
 		return err

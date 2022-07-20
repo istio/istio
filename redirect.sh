@@ -236,4 +236,11 @@ EOF
 
 done
 
-fi
+exit 0
+
+# some thoughts as how to make the rules more hermetic.
+# we can mark outgoing connections from envoy to localpods with a special mark
+# then attach an iptable rule on the interface of the ambient pods to check that the mark is there
+# this way even if we miss an ip address, we will know for certainty that the pod only gets traffic form the mesh
+# the catch is that it is harder to know the interface if we are not a cni plugin (unless we assume container runtime specifc knowledge)
+# so might be harder to impl for existing pods.

@@ -30,6 +30,7 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/cni/pkg/ambient"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/pkg/log"
 )
@@ -182,16 +183,19 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	} else {
 		loggedPrevResult = conf.PrevResult
 	}
-	log.Debugf("istio-cni CmdAdd config: %+v", conf)
-	log.Debugf("istio-cni CmdAdd previous result: %s", loggedPrevResult)
+	// Reset back to Debugf
+	log.Infof("istio-cni IfName=%s", args.IfName)
+	log.Infof("istio-cni CmdAdd config: %+v", conf)
+	log.Infof("istio-cni CmdAdd previous result: %+v", loggedPrevResult)
 
 	// Determine if running under k8s by checking the CNI args
-	log.Debugf("istio-cni cmdAdd args: %s", args.Args)
+	log.Infof("istio-cni cmdAdd args: %+v", args.Args)
 	k8sArgs := K8sArgs{}
 	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
 		return err
 	}
 
+	// Reset back to Debugf
 	log.Infof("istio-cni cmdAdd with k8s args: %+v", k8sArgs)
 	if conf.Kubernetes.CNIBinDir != "" {
 		nsSetupBinDir = conf.Kubernetes.CNIBinDir
@@ -200,10 +204,17 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType
 	}
 
+	ambientConf, err := ambient.ReadAmbientConfig()
+	if err != nil {
+		log.Errorf("istio-cni cmdAdd failed to read ambient config %v", err)
+		return err
+	}
+
 	// Check if the workload is running under Kubernetes.
 	// TODO(bianpengyuan): refactor the following code to make it less nested.
 	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
 	podName := string(k8sArgs.K8S_POD_NAME)
+
 	if podNamespace != "" && podName != "" {
 		excludePod := false
 		for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
@@ -212,7 +223,22 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 				break
 			}
 		}
-		if !excludePod {
+		log.Infof("ambientConf.Mode: %s", ambientConf.Mode)
+		log.Infof("ambientConf.UproxyReady: %v", ambientConf.UproxyReady)
+		added := false
+		if ambientConf.Mode != ambient.AmbientMeshOff.String() && ambientConf.UproxyReady {
+			podIPs, err := getPodIPs(args.IfName, conf.PrevResult)
+			if err != nil {
+				log.Errorf("istio-cni cmdAdd failed to get pod IPs: %s", err)
+				return err
+			}
+			log.Infof("istio-cni cmdAdd podName: %s podIPs: %+v", podName, podIPs)
+			added, err = checkAmbient(*conf, *ambientConf, podName, podNamespace, args.IfName, podIPs)
+			if err != nil {
+				log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
+			}
+		}
+		if !added && !excludePod {
 			client, err := newKubeClient(*conf)
 			if err != nil {
 				return err
@@ -281,8 +307,8 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 			} else {
 				log.Infof("Pod %s/%s excluded because it only has %d containers", podNamespace, podName, len(pi.Containers))
 			}
-		} else {
-			log.Infof("Pod %s/%s excluded", podNamespace, podName)
+		} else if !added {
+			log.Infof("Pod %s/%s excluded from sidecar", podNamespace, podName)
 		}
 	} else {
 		log.Debugf("Not a kubernetes pod")
@@ -297,6 +323,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		// Pass through the result for the next plugin
 		result = conf.PrevResult
 	}
+
 	return types.PrintResult(result, conf.CNIVersion)
 }
 
@@ -306,4 +333,26 @@ func CmdCheck(args *skel.CmdArgs) (err error) {
 
 func CmdDelete(args *skel.CmdArgs) (err error) {
 	return nil
+}
+
+func getPodIPs(iface string, prevResult *cniv1.Result) ([]net.IPNet, error) {
+	if prevResult == nil || len(prevResult.IPs) == 0 {
+		return nil, fmt.Errorf("no ip addresses supplied")
+	}
+
+	ips := make([]net.IPNet, 0, len(prevResult.IPs))
+
+	for _, ipConfig := range prevResult.IPs {
+		if ipConfig.Interface == nil {
+			ips = append(ips, ipConfig.Address)
+			continue
+		}
+		idx := *ipConfig.Interface
+		if idx >= 0 && idx < len(prevResult.Interfaces) && prevResult.Interfaces[idx].Name != iface {
+			continue
+		}
+		ips = append(ips, ipConfig.Address)
+	}
+
+	return ips, nil
 }

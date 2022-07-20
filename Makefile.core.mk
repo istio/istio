@@ -261,7 +261,8 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni \
   ./tools/istio-iptables \
-  ./tools/bug-report
+  ./tools/bug-report \
+  ./cni/cmd/ambient-ds
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES)
 
 # List of binaries included in releases

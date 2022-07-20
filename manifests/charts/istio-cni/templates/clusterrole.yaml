@@ -10,11 +10,8 @@ metadata:
     operator.istio.io/component: "Cni"
 rules:
 - apiGroups: [""]
-  resources:
-  - pods
-  - nodes
-  verbs:
-  - get
+  resources: ["pods","nodes","namespaces","configmaps"]
+  verbs: ["get", "list", "watch"]
 ---
 {{- if .Values.cni.repair.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1

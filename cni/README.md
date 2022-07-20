@@ -63,7 +63,7 @@ $ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=
 ### Overview
 
 - [istio-cni Helm chart](../manifests/charts/istio-cni/templates)
-    - `install-cni` daemonset
+    - `istio-cni-node` daemonset (consists of `install-cni` container and `ambient-ds` container)
     - `istio-cni-config` configmap with CNI plugin config to add to CNI plugin chained config
     - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info
 
@@ -74,6 +74,8 @@ $ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=
         - CNI installer will try to look for the config file under the mounted CNI net dir based on file name extensions (`.conf`, `.conflist`)
         - the file name can be explicitly set by `CNI_CONF_NAME` env var
         - the program inserts `CNI_NETWORK_CONFIG` into the `plugins` list in `/etc/cni/net.d/${CNI_CONF_NAME}`
+- `ambient-ds` container
+    - monitors existing resources to update the ambient mesh as needed
 
 - `istio-cni`
     - CNI plugin executable copied to `/opt/cni/bin`

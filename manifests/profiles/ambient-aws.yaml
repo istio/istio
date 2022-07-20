@@ -28,7 +28,6 @@ spec:
     egressGateways:
       - name: istio-egressgateway
         enabled: false
-
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/charts/global.yaml
   values:
