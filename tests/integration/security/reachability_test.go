@@ -18,7 +18,6 @@
 package security
 
 import (
-	"fmt"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -383,95 +382,94 @@ func TestReachability(t *testing.T) {
 						Source(c.configs...).
 						BuildAll(nil, allServices).
 						Apply()
+					// Run the test against a number of ports.
+					allOpts := append([]echo.CallOptions{}, c.callOpts...)
+					if len(allOpts) == 0 {
+						allOpts = []echo.CallOptions{
+							{
+								Port: echo.Port{
+									Name: ports.HTTP,
+								},
+							},
+							{
+								Port: echo.Port{
+									Name: ports.HTTP,
+								},
+								Scheme: scheme.WebSocket,
+							},
+							{
+								Port: echo.Port{
+									Name: ports.HTTP2,
+								},
+							},
+							{
+								Port: echo.Port{
+									Name: ports.HTTPS,
+								},
+							},
+							{
+								Port: echo.Port{
+									Name: ports.TCP,
+								},
+							},
+							{
+								Port: echo.Port{
+									Name: ports.GRPC,
+								},
+							},
+						}
+					}
 
-					// Run the test cases.
-					echotest.New(t, allServices.Instances()).
-						FromMatch(match.And(c.fromMatch, match.NotProxylessGRPC)).
-						ToMatch(match.And(c.toMatch, match.NotProxylessGRPC)).
-						WithDefaultFilters(1, 1).
-						ConditionallyTo(echotest.NoSelfCalls).
-						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							// Run the test against a number of ports.
-							allOpts := append([]echo.CallOptions{}, c.callOpts...)
-							if len(allOpts) == 0 {
-								allOpts = []echo.CallOptions{
-									{
-										Port: echo.Port{
-											Name: ports.HTTP,
-										},
-									},
-									{
-										Port: echo.Port{
-											Name: ports.HTTP,
-										},
-										Scheme: scheme.WebSocket,
-									},
-									{
-										Port: echo.Port{
-											Name: ports.HTTP2,
-										},
-									},
-									{
-										Port: echo.Port{
-											Name: ports.HTTPS,
-										},
-									},
-									{
-										Port: echo.Port{
-											Name: ports.TCP,
-										},
-									},
-									{
-										Port: echo.Port{
-											Name: ports.GRPC,
-										},
-									},
-								}
-							}
+					// Iterate over all protocols outside, rather than inside, the destination match
+					// This is to workaround a known bug (https://github.com/istio/istio/issues/38982) causing
+					// connection resets when sending traffic to multiple ports at once
+					for _, opts := range allOpts {
+						opts := opts
 
-							for _, opts := range allOpts {
-								opts := opts
-								opts.To = to
+						schemeStr := string(opts.Scheme)
+						if len(schemeStr) == 0 {
+							schemeStr = opts.Port.Name
+						}
+						t.NewSubTestf("%s%s", schemeStr, opts.HTTP.Path).Run(func(t framework.TestContext) {
+							// Run the test cases.
+							echotest.New(t, allServices.Instances()).
+								FromMatch(match.And(c.fromMatch, match.NotProxylessGRPC)).
+								ToMatch(match.And(c.toMatch, match.NotProxylessGRPC)).
+								WithDefaultFilters(1, 1).
+								ConditionallyTo(echotest.NoSelfCalls).
+								Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+									opts := opts.DeepCopy()
+									opts.To = to
 
-								var successStr string
-								if c.expectSuccess(from, opts) {
-									successStr = "succeed"
-									opts.Check = check.OK()
+									if c.expectSuccess(from, opts) {
+										opts.Check = check.OK()
 
-									// Check HTTP headers to confirm expected use of mTLS in the request.
-									if c.expectMTLS(from, opts) {
-										opts.Check = check.And(opts.Check, check.MTLSForHTTP())
+										// Check HTTP headers to confirm expected use of mTLS in the request.
+										if c.expectMTLS(from, opts) {
+											opts.Check = check.And(opts.Check, check.MTLSForHTTP())
+										} else {
+											opts.Check = check.And(opts.Check, check.PlaintextForHTTP())
+										}
+
+										// Check that the correct clusters/networks were reached.
+										if c.expectCrossNetwork(from, opts) {
+											opts.Check = check.And(opts.Check, check.ReachedTargetClusters(t))
+										} else if c.expectCrossCluster(from, opts) {
+											// Expect to stay in the same network as the source pod.
+											expectedClusters := to.Clusters().ForNetworks(from.Config().Cluster.NetworkName())
+											opts.Check = check.And(opts.Check, check.ReachedClusters(t.Clusters(), expectedClusters))
+										} else {
+											// Expect to stay in the same cluster as the source pod.
+											expectedClusters := cluster.Clusters{from.Config().Cluster}
+											opts.Check = check.And(opts.Check, check.ReachedClusters(t.Clusters(), expectedClusters))
+										}
 									} else {
-										opts.Check = check.And(opts.Check, check.PlaintextForHTTP())
+										opts.Check = check.NotOK()
 									}
-
-									// Check that the correct clusters/networks were reached.
-									if c.expectCrossNetwork(from, opts) {
-										opts.Check = check.And(opts.Check, check.ReachedTargetClusters(t))
-									} else if c.expectCrossCluster(from, opts) {
-										// Expect to stay in the same network as the source pod.
-										expectedClusters := to.Clusters().ForNetworks(from.Config().Cluster.NetworkName())
-										opts.Check = check.And(opts.Check, check.ReachedClusters(t.Clusters(), expectedClusters))
-									} else {
-										// Expect to stay in the same cluster as the source pod.
-										expectedClusters := cluster.Clusters{from.Config().Cluster}
-										opts.Check = check.And(opts.Check, check.ReachedClusters(t.Clusters(), expectedClusters))
-									}
-								} else {
-									successStr = "fail"
-									opts.Check = check.NotOK()
-								}
-
-								schemeStr := string(opts.Scheme)
-								if len(schemeStr) == 0 {
-									schemeStr = opts.Port.Name
-								}
-								t.NewSubTest(fmt.Sprintf("%s%s(%s)", schemeStr, opts.HTTP.Path, successStr)).
-									RunParallel(func(t framework.TestContext) {
-										from.CallOrFail(t, opts)
-									})
-							}
+									from.CallOrFail(t, opts)
+								})
 						})
+					}
 				})
 			}
 		})
