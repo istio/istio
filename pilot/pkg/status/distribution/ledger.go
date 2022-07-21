@@ -29,7 +29,7 @@ func tryLedgerPut(configLedger ledger.Ledger, obj config.Config) {
 }
 
 func tryLedgerDelete(configLedger ledger.Ledger, obj config.Config) {
-	key := config.Key(obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
+	key := config.Key(obj.GroupVersionKind.Group, obj.GroupVersionKind.Version, obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
 	if _, err := configLedger.Delete(key); err != nil {
 		scope.Errorf("Failed to delete %s in ledger, status will be out of date: %s", key, err)
 	}

@@ -328,7 +328,8 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		return nil
 	})
 	s.XDSServer.StatusReporter = s.statusReporter
-	if writeStatus && s.kubeRestConfig != nil {
+	s.kubeClient.RESTConfig()
+	if writeStatus && s.kubeClient.RESTConfig() != nil {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
