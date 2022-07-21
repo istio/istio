@@ -77,8 +77,6 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	}
 
 	// Now we fill in all the parents we do own
-	// TODO look into also reporting ResolvedRefs; we should be gracefully dropping invalid backends instead
-	// of rejecting the whole thing.
 	for k, gw := range seen {
 		msg := "Route was valid"
 		if successCount[k] > 1 {
@@ -135,10 +133,13 @@ const (
 	// InvalidRefNotPermitted indicates a route was not permitted
 	InvalidRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestination indicates an issue with the destination
-	InvalidDestination       ConfigErrorReason = "InvalidDestination"
+	InvalidDestination ConfigErrorReason = "InvalidDestination"
+	// InvalidDestinationPermit indicates a destination was not permitted
 	InvalidDestinationPermit ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestinationKind indicates an issue with the destination kind
 	InvalidDestinationKind ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonInvalidKind)
+	// InvalidDestinationNotFound indicates a destination does not exist
+	InvalidDestinationNotFound ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonBackendNotFound)
 	// InvalidParentRef indicates we could not refer to the parent we request
 	InvalidParentRef ConfigErrorReason = "InvalidParentReference"
 	// InvalidFilter indicates an issue with the filters

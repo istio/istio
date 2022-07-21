@@ -232,13 +232,13 @@ func convertReferencePolicies(r KubernetesResources) AllowedReferences {
 func convertVirtualService(r ConfigContext) []config.Config {
 	result := []config.Config{}
 	for _, obj := range r.TCPRoute {
-		if vsConfig := buildTCPVirtualService(r.AllowedReferences, obj, r.GatewayReferences, r.Domain); vsConfig != nil {
+		if vsConfig := buildTCPVirtualService(r, obj); vsConfig != nil {
 			result = append(result, *vsConfig)
 		}
 	}
 
 	for _, obj := range r.TLSRoute {
-		result = append(result, buildTLSVirtualService(r.AllowedReferences, obj, r.GatewayReferences, r.Domain)...)
+		result = append(result, buildTLSVirtualService(r, obj)...)
 	}
 
 	// for gateway routes, build one VS per gateway+host
@@ -246,7 +246,7 @@ func convertVirtualService(r ConfigContext) []config.Config {
 	// for mesh routes, build one VS per namespace+host
 	meshRoutes := make(map[string]map[string]*config.Config)
 	for _, obj := range r.HTTPRoute {
-		buildHTTPVirtualServices(r.AllowedReferences, obj, r.GatewayReferences, r.Domain, gatewayRoutes, meshRoutes)
+		buildHTTPVirtualServices(r, obj, gatewayRoutes, meshRoutes)
 	}
 	for _, vsByHost := range gatewayRoutes {
 		for _, vsConfig := range vsByHost {
@@ -262,27 +262,14 @@ func convertVirtualService(r ConfigContext) []config.Config {
 }
 
 func buildHTTPVirtualServices(
-	refs AllowedReferences,
+	ctx ConfigContext,
 	obj config.Config,
-	gateways map[parentKey]map[k8s.SectionName]*parentInfo,
-	domain string,
 	gatewayRoutes map[string]map[string]*config.Config,
 	meshRoutes map[string]map[string]*config.Config,
 ) {
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
-	var splitRules []k8s.HTTPRouteRule
-	for _, r := range route.Rules {
-		if len(r.Matches) > 1 {
-			// split the rule to make sure each rule has up to one match
-			matches := r.Matches
-			for _, m := range matches {
-				r.Matches = []k8s.HTTPRouteMatch{m}
-				splitRules = append(splitRules, r)
-			}
-		}
-	}
 	ns := obj.Namespace
-	parentRefs := extractParentReferenceInfo(gateways, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, ns)
+	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, ns)
 
 	reportError := func(routeErr *ConfigError) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
@@ -292,6 +279,7 @@ func buildHTTPVirtualServices(
 		})
 	}
 
+	var invalidBackendErr *ConfigError
 	httproutes := []*istio.HTTPRoute{}
 	hosts := hostnameToStringList(route.Hostnames)
 	convertHTTPRoute := func(r k8s.HTTPRouteRule) *ConfigError {
@@ -328,7 +316,7 @@ func buildHTTPVirtualServices(
 			case k8s.HTTPRouteFilterRequestRedirect:
 				vs.Redirect = createRedirectFilter(filter.RequestRedirect)
 			case k8s.HTTPRouteFilterRequestMirror:
-				mirror, err := createMirrorFilter(filter.RequestMirror, ns, domain)
+				mirror, err := createMirrorFilter(ctx, filter.RequestMirror, ns)
 				if err != nil {
 					return err
 				}
@@ -362,9 +350,13 @@ func buildHTTPVirtualServices(
 			}}
 		}
 
-		route, err := buildHTTPDestination(refs, r.BackendRefs, ns, domain, zero)
+		route, err := buildHTTPDestination(ctx, r.BackendRefs, ns, zero)
 		if err != nil {
-			return err
+			if isInvalidBackend(err) {
+				invalidBackendErr = err
+			} else {
+				return err
+			}
 		}
 		vs.Route = route
 
@@ -374,20 +366,21 @@ func buildHTTPVirtualServices(
 
 	for _, r := range route.Rules {
 		if len(r.Matches) > 1 {
-			continue
-		}
-		if err := convertHTTPRoute(r); err != nil {
+			// split the rule to make sure each rule has up to one match
+			matches := r.Matches
+			for _, m := range matches {
+				r.Matches = []k8s.HTTPRouteMatch{m}
+				if err := convertHTTPRoute(r); err != nil {
+					reportError(err)
+					return
+				}
+			}
+		} else if err := convertHTTPRoute(r); err != nil {
 			reportError(err)
 			return
 		}
 	}
-	for _, r := range splitRules {
-		if err := convertHTTPRoute(r); err != nil {
-			reportError(err)
-			return
-		}
-	}
-	reportError(nil)
+	reportError(invalidBackendErr)
 
 	count := 0
 	for _, gw := range filteredReferences(parentRefs) {
@@ -418,7 +411,7 @@ func buildHTTPVirtualServices(
 						Name:              name,
 						Annotations:       routeMeta(obj),
 						Namespace:         ns,
-						Domain:            domain,
+						Domain:            ctx.Domain,
 					},
 					Spec: &istio.VirtualService{
 						Hosts:    []string{h},
@@ -650,10 +643,10 @@ func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*pare
 	return parentRefs
 }
 
-func buildTCPVirtualService(refs AllowedReferences, obj config.Config, gateways map[parentKey]map[k8s.SectionName]*parentInfo, domain string) *config.Config {
+func buildTCPVirtualService(ctx ConfigContext, obj config.Config) *config.Config {
 	route := obj.Spec.(*k8s.TCPRouteSpec)
 
-	parentRefs := extractParentReferenceInfo(gateways, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
+	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
 
 	reportError := func(routeErr *ConfigError) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
@@ -670,7 +663,7 @@ func buildTCPVirtualService(refs AllowedReferences, obj config.Config, gateways 
 
 	routes := []*istio.TCPRoute{}
 	for _, r := range route.Rules {
-		route, err := buildTCPDestination(refs, r.BackendRefs, obj.Namespace, domain)
+		route, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace)
 		if err != nil {
 			reportError(err)
 			return nil
@@ -689,7 +682,7 @@ func buildTCPVirtualService(refs AllowedReferences, obj config.Config, gateways 
 			Name:              fmt.Sprintf("%s-tcp-%s", obj.Name, constants.KubernetesGatewayName),
 			Annotations:       routeMeta(obj),
 			Namespace:         obj.Namespace,
-			Domain:            domain,
+			Domain:            ctx.Domain,
 		},
 		Spec: &istio.VirtualService{
 			// We can use wildcard here since each listener can have at most one route bound to it, so we have
@@ -702,10 +695,10 @@ func buildTCPVirtualService(refs AllowedReferences, obj config.Config, gateways 
 	return &vsConfig
 }
 
-func buildTLSVirtualService(refs AllowedReferences, obj config.Config, gateways map[parentKey]map[k8s.SectionName]*parentInfo, domain string) []config.Config {
+func buildTLSVirtualService(ctx ConfigContext, obj config.Config) []config.Config {
 	route := obj.Spec.(*k8s.TLSRouteSpec)
 
-	parentRefs := extractParentReferenceInfo(gateways, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
+	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
 
 	reportError := func(routeErr *ConfigError) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
@@ -717,7 +710,7 @@ func buildTLSVirtualService(refs AllowedReferences, obj config.Config, gateways 
 
 	routes := []*istio.TLSRoute{}
 	for _, r := range route.Rules {
-		dest, err := buildTCPDestination(refs, r.BackendRefs, obj.Namespace, domain)
+		dest, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace)
 		if err != nil {
 			reportError(err)
 			return nil
@@ -750,7 +743,7 @@ func buildTLSVirtualService(refs AllowedReferences, obj config.Config, gateways 
 				Name:              name,
 				Annotations:       routeMeta(obj),
 				Namespace:         obj.Namespace,
-				Domain:            domain,
+				Domain:            ctx.Domain,
 			},
 			Spec: &istio.VirtualService{
 				Hosts:    []string{host},
@@ -763,11 +756,12 @@ func buildTLSVirtualService(refs AllowedReferences, obj config.Config, gateways 
 	return configs
 }
 
-func buildTCPDestination(refs AllowedReferences, forwardTo []k8s.BackendRef, ns, domain string) ([]*istio.RouteDestination, *ConfigError) {
+func buildTCPDestination(ctx ConfigContext, forwardTo []k8s.BackendRef, ns string) ([]*istio.RouteDestination, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil
 	}
 
+	refs := ctx.AllowedReferences
 	weights := []int{}
 	action := []k8s.BackendRef{}
 	for i, w := range forwardTo {
@@ -794,7 +788,7 @@ func buildTCPDestination(refs AllowedReferences, forwardTo []k8s.BackendRef, ns,
 				}
 			}
 		}
-		dst, err := buildDestination(fwd, ns, domain)
+		dst, err := buildDestination(ctx, fwd, ns)
 		if err != nil {
 			return nil, err
 		}
@@ -825,10 +819,9 @@ func hostnamesToStringListWithWildcard(h []k8s.Hostname) []string {
 }
 
 func buildHTTPDestination(
-	refs AllowedReferences,
+	ctx ConfigContext,
 	forwardTo []k8s.HTTPBackendRef,
 	ns string,
-	domain string,
 	totalZero bool,
 ) ([]*istio.HTTPRouteDestination, *ConfigError) {
 	if forwardTo == nil {
@@ -852,19 +845,18 @@ func buildHTTPDestination(
 	if len(weights) == 1 {
 		weights = []int{0}
 	}
+
+	var invalidBackendErr *ConfigError
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		if toNs := fwd.BackendRef.Namespace; toNs != nil && string(*toNs) != ns {
-			if !refs.BackendAllowed(gvk.HTTPRoute, fwd.BackendRef.Name, *toNs, ns) {
-				return nil, &ConfigError{
-					Reason:  InvalidDestinationPermit,
-					Message: fmt.Sprintf("backendRef %v/%v not accessible to a route in namespace %q (missing a ReferenceGrant?)", fwd.BackendRef.Name, *toNs, ns),
-				}
-			}
-		}
-		dst, err := buildDestination(fwd.BackendRef, ns, domain)
+		dst, err := buildDestination(ctx, fwd.BackendRef, ns)
 		if err != nil {
-			return nil, err
+			if isInvalidBackend(err) {
+				invalidBackendErr = err
+				// keep going, we will gracefully drop invalid backends
+			} else {
+				return nil, err
+			}
 		}
 		rd := &istio.HTTPRouteDestination{
 			Destination: dst,
@@ -880,11 +872,23 @@ func buildHTTPDestination(
 		}
 		res = append(res, rd)
 	}
-	return res, nil
+	return res, invalidBackendErr
 }
 
-func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination, *ConfigError) {
+func buildDestination(ctx ConfigContext, to k8s.BackendRef, ns string) (*istio.Destination, *ConfigError) {
+	// check if the reference is allowed
+	refs := ctx.AllowedReferences
+	if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
+		if !refs.BackendAllowed(gvk.HTTPRoute, to.Name, *toNs, ns) {
+			return &istio.Destination{}, &ConfigError{
+				Reason:  InvalidDestinationPermit,
+				Message: fmt.Sprintf("backendRef %v/%v not accessible to a route in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, ns),
+			}
+		}
+	}
+
 	namespace := defaultIfNil((*string)(to.Namespace), ns)
+	var invalidBackendErr *ConfigError
 	if nilOrEqual((*string)(to.Group), "") && nilOrEqual((*string)(to.Kind), gvk.Service.Kind) {
 		// Service
 		if to.Port == nil {
@@ -894,19 +898,23 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 		if strings.Contains(string(to.Name), ".") {
 			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
 		}
+		hostname := fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.Domain)
+		if ctx.Context.GetService(hostname, namespace) == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+		}
 		return &istio.Destination{
 			// TODO: implement ReferencePolicy for cross namespace
-			Host: fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, domain),
+			Host: hostname,
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
-		}, nil
+		}, invalidBackendErr
 	}
 	if nilOrEqual((*string)(to.Group), features.MCSAPIGroup) && nilOrEqual((*string)(to.Kind), "ServiceImport") {
 		// Service import
-		name := fmt.Sprintf("%s.%s.svc.clusterset.local", to.Name, namespace)
+		hostname := fmt.Sprintf("%s.%s.svc.clusterset.local", to.Name, namespace)
 		if !features.EnableMCSHost {
 			// They asked for ServiceImport, but actually don't have full support enabled...
 			// No problem, we can just treat it as Service, which is already cross-cluster in this mode anyways
-			name = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, domain)
+			hostname = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.Domain)
 		}
 		if to.Port == nil {
 			// We don't know where to send without port
@@ -915,10 +923,13 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 		if strings.Contains(string(to.Name), ".") {
 			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
 		}
+		if ctx.Context.GetService(hostname, namespace) == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+		}
 		return &istio.Destination{
-			Host: name,
+			Host: hostname,
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
-		}, nil
+		}, invalidBackendErr
 	}
 	if nilOrEqual((*string)(to.Group), gvk.ServiceEntry.Group) && nilOrEqual((*string)(to.Kind), "Hostname") {
 		// Hostname synthetic type
@@ -929,15 +940,26 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 		if to.Namespace != nil {
 			return nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
 		}
+		hostname := string(to.Name)
+		if ctx.Context.GetService(hostname, namespace) == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+		}
 		return &istio.Destination{
 			Host: string(to.Name),
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
-		}, nil
+		}, invalidBackendErr
 	}
-	return nil, &ConfigError{
+	return &istio.Destination{}, &ConfigError{
 		Reason:  InvalidDestinationKind,
 		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", emptyIfNil((*string)(to.Group)), emptyIfNil((*string)(to.Kind))),
 	}
+}
+
+// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L207-L212
+func isInvalidBackend(err *ConfigError) bool {
+	return err.Reason == InvalidDestinationPermit ||
+		err.Reason == InvalidDestinationNotFound ||
+		err.Reason == InvalidDestinationKind
 }
 
 func headerListToMap(hl []k8s.HTTPHeader) map[string]string {
@@ -956,15 +978,15 @@ func headerListToMap(hl []k8s.HTTPHeader) map[string]string {
 	return res
 }
 
-func createMirrorFilter(filter *k8s.HTTPRequestMirrorFilter, ns, domain string) (*istio.Destination, *ConfigError) {
+func createMirrorFilter(ctx ConfigContext, filter *k8s.HTTPRequestMirrorFilter, ns string) (*istio.Destination, *ConfigError) {
 	if filter == nil {
 		return nil, nil
 	}
 	var weightOne int32 = 1
-	return buildDestination(k8s.BackendRef{
+	return buildDestination(ctx, k8s.BackendRef{
 		BackendObjectReference: filter.BackendRef,
 		Weight:                 &weightOne,
-	}, ns, domain)
+	}, ns)
 }
 
 func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
