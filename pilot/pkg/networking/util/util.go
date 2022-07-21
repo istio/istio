@@ -215,6 +215,12 @@ func IsIstioVersionGE115(version *model.IstioVersion) bool {
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 15, Patch: -1}) >= 0
 }
 
+// IsIstioVersionGE116 checks whether the given Istio version is greater than or equals 1.16.
+func IsIstioVersionGE116(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 16, Patch: -1}) >= 0
+}
+
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
 	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
