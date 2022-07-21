@@ -632,6 +632,42 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 				"dev", uproxyVeth, "scope", "link",
 			},
 		),
+		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L62-L77
+		// Everything with the skip mark goes directly to the main table
+		newExec("ip",
+			[]string{
+				"rule", "add", "priority", "100",
+				"fwmark", fmt.Sprint(constants.SkipMark),
+				"goto", "32766",
+			},
+		),
+		// Everything with the outbound mark goes to the tunnel out device
+		// using the outbound route table
+		newExec("ip",
+			[]string{
+				"rule", "add", "priority", "101",
+				"fwmark", fmt.Sprint(constants.OutboundMark),
+				"lookup", fmt.Sprint(constants.RouteTableOutbound),
+			},
+		),
+		// Things with the proxy return mark go directly to the proxy veth using the proxy
+		// route table (useful for original src)
+		newExec("ip",
+			[]string{
+				"rule", "add", "priority", "102",
+				"fwmark", fmt.Sprint(constants.ProxyRetMark),
+				"lookup", fmt.Sprint(constants.RouteTableProxy),
+			},
+		),
+		// Send all traffic to the inbound table. This table has routes only to pods in the mesh.
+		// It does not have a catch-all route, so if a route is missing, the search will continue
+		// allowing us to override routing just for member pods.
+		newExec("ip",
+			[]string{
+				"rule", "add", "priority", "103",
+				"table", fmt.Sprint(constants.RouteTableInbound),
+			},
+		),
 	}
 
 	for _, route := range routes {
