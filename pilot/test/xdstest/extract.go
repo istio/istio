@@ -68,6 +68,49 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 	return routes
 }
 
+func ExtractClusterSecretResources(t test.Failer, c *cluster.Cluster) []string {
+	resourceNames := sets.New()
+	sockets := []*core.TransportSocket{}
+	if c.TransportSocket != nil {
+		sockets = append(sockets, c.TransportSocket)
+	}
+	for _, ts := range c.TransportSocketMatches {
+		sockets = append(sockets, ts.TransportSocket)
+	}
+	for _, s := range sockets {
+		if s.GetTypedConfig().TypeUrl != TypeName[*tls.UpstreamTlsContext]() {
+			continue
+		}
+		tl := UnmarshalAny[tls.UpstreamTlsContext](t, s.GetTypedConfig())
+		resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
+		for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
+			resourceNames.Insert(s.GetName())
+		}
+	}
+	return resourceNames.SortedList()
+}
+
+func ExtractListenerSecretResources(t test.Failer, l *listener.Listener) []string {
+	resourceNames := sets.New()
+	sockets := []*core.TransportSocket{}
+	for _, fc := range l.GetFilterChains() {
+		if fc.GetTransportSocket() != nil {
+			sockets = append(sockets, fc.GetTransportSocket())
+		}
+	}
+	if ts := l.GetDefaultFilterChain().GetTransportSocket(); ts != nil {
+		sockets = append(sockets, ts)
+	}
+	for _, s := range sockets {
+		tl := UnmarshalAny[tls.DownstreamTlsContext](t, s.GetTypedConfig())
+		resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
+		for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
+			resourceNames.Insert(s.GetName())
+		}
+	}
+	return resourceNames.SortedList()
+}
+
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
 func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
 	resourceNames := sets.New[string]()
@@ -337,6 +380,8 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 			if v.Type != cluster.Cluster_EDS {
 				continue
 			}
+		default:
+			continue
 		}
 		res = append(res, c.Name)
 	}
@@ -346,10 +391,7 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 func ExtractTLSSecrets(t test.Failer, secrets []*anypb.Any) map[string]*tls.Secret {
 	res := map[string]*tls.Secret{}
 	for _, a := range secrets {
-		scrt := &tls.Secret{}
-		if err := a.UnmarshalTo(scrt); err != nil {
-			t.Fatal(err)
-		}
+		scrt := UnmarshalAny[tls.Secret](t, a)
 		res[scrt.Name] = scrt
 	}
 	return res
@@ -429,4 +471,9 @@ func MapKeys[M ~map[string]V, V any](mp M) []string {
 	res := maps.Keys(mp)
 	sort.Strings(res)
 	return res
+}
+
+func TypeName[T proto.Message]() string {
+	ft := new(T)
+	return "type.googleapis.com/" + string((*ft).ProtoReflect().Descriptor().FullName())
 }
