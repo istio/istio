@@ -51,15 +51,45 @@ func TestAccessLogs(t *testing.T) {
 		Features("observability.telemetry.logging").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("enabled").Run(func(t framework.TestContext) {
+				applyTelemetryResource(t, true)
 				runAccessLogsTests(t, true)
+				deleteTelemetryResource(t, true)
 			})
 			t.NewSubTest("disabled").Run(func(t framework.TestContext) {
+				applyTelemetryResource(t, false)
 				runAccessLogsTests(t, false)
+				deleteTelemetryResource(t, false)
 			})
 		})
 }
 
-func runAccessLogsTests(t framework.TestContext, expectLogs bool) {
+func TestAccessLogsDefaultProvider(t *testing.T) {
+	framework.NewTest(t).
+		Features("observability.telemetry.logging.defaultprovider").
+		Run(func(t framework.TestContext) {
+			t.NewSubTest("disabled").Run(func(t framework.TestContext) {
+				cfg := `
+accessLogFile: ""
+`
+				ist := *(common.GetIstioInstance())
+				ist.PatchMeshConfigOrFail(t, t, cfg)
+				runAccessLogsTests(t, false)
+			})
+			t.NewSubTest("enabled").Run(func(t framework.TestContext) {
+				cfg := `
+accessLogFile: ""
+defaultProviders:
+  accessLogging:
+  - envoy
+`
+				ist := *(common.GetIstioInstance())
+				ist.PatchMeshConfigOrFail(t, t, cfg)
+				runAccessLogsTests(t, true)
+			})
+		})
+}
+
+func applyTelemetryResource(t framework.TestContext, enableLogs bool) {
 	config := fmt.Sprintf(`apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
@@ -69,13 +99,30 @@ spec:
   - providers:
     - name: envoy
     disabled: %v
-`, !expectLogs)
+`, !enableLogs)
 	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).ApplyOrFail(t)
+}
+
+func deleteTelemetryResource(t framework.TestContext, enableLogs bool) {
+	config := fmt.Sprintf(`apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: logs
+spec:
+  accessLogging:
+  - disabled: %v
+`, enableLogs)
+	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).DeleteOrFail(t)
+}
+
+func runAccessLogsTests(t framework.TestContext, expectLogs bool) {
 	testID := rand.String(16)
 	to := common.GetTarget()
 	if expectLogs {
 		// For positive test, we use the same ID and repeatedly send requests and check the count
-		retry.UntilSuccessOrFail(t, func() error {
+		// Retry a bit to get the logs. There is some delay before they are output(MeshConfig will not take effect immediately),
+		// so they may not be immediately ready. If not ready, we retry sending a call again.
+		err := retry.UntilSuccess(func() error {
 			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
 				To: to,
 				Port: echo.Port{
@@ -85,17 +132,15 @@ spec:
 					Path: "/" + testID,
 				},
 			})
-			// Retry a bit to get the logs. There is some delay before they are output, so they may not be immediately ready
-			// If not ready in 5s, we retry sending a call again.
-			retry.UntilSuccessOrFail(t, func() error {
-				count := logCount(t, to, testID)
-				if count > 0 != expectLogs {
-					return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
-				}
-				return nil
-			}, retry.Timeout(time.Second*5))
+			count := logCount(t, to, testID)
+			if count > 0 != expectLogs {
+				return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
+			}
 			return nil
-		})
+		}, retry.Timeout(time.Second*10))
+		if err != nil {
+			t.Fatalf("expected logs but got nil, err: %v", err)
+		}
 	} else {
 		// For negative case, we retry with a new ID each time. This ensures that a previous failure
 		// (due to hitting old code path with logs still enabled) doesn't stop us from succeeding later
