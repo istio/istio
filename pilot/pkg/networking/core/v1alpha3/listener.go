@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
+	secconst "istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -139,13 +140,16 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		ctx.RequireClientCertificate = proto.BoolTrue
 	}
-
+	credentialSocketExist := false
+	if proxy.Metadata != nil && proxy.Metadata.Raw[secconst.CredentialMetaDataName] == "true" {
+		credentialSocketExist = true
+	}
 	if features.EnableLegacyIstioMutualCredentialName {
 		// Legacy code path. Can be removed after a couple releases.
 		switch {
 		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
 		case serverTLSSettings.CredentialName != "":
-			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
+			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
 		case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
 			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
 		default:
@@ -166,7 +170,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
 		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
 		case serverTLSSettings.CredentialName != "":
-			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
+			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
 		default:
 			certProxy := &model.Proxy{}
 			certProxy.IstioVersion = proxy.IstioVersion
