@@ -622,17 +622,22 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	}
 	s.computeProxyState(proxy, nil)
 
+	var localityStr string
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality.
 	// So its enough to look at the first instance.
 	if len(proxy.ServiceInstances) > 0 {
-		proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
+		localityStr = proxy.ServiceInstances[0].Endpoint.Locality.Label
+	} else {
+		// If no service instances(this maybe common for a pure client), respect LocalityLabel
+		localityStr = proxy.Metadata.Labels[model.LocalityLabel]
 	}
-
-	// If there is no locality in the registry then use the one sent as part of the discovery request.
-	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
-	// can still help provide some client-side Envoy context when load balancing based on location.
-	if util.IsLocalityEmpty(proxy.Locality) {
+	if localityStr != "" {
+		proxy.Locality = util.ConvertLocality(localityStr)
+	} else {
+		// If there is no locality in the registry then use the one sent as part of the discovery request.
+		// This is not preferable as only the connected Pilot is aware of this proxies location, but it
+		// can still help provide some client-side Envoy context when load balancing based on location.
 		proxy.Locality = &core.Locality{
 			Region:  node.Locality.GetRegion(),
 			Zone:    node.Locality.GetZone(),
@@ -658,14 +663,19 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushRequest) {
 	s.computeProxyState(proxy, request)
 	if util.IsLocalityEmpty(proxy.Locality) {
+		var localityStr string
 		// Get the locality from the proxy's service instances.
 		// We expect all instances to have the same locality.
 		// So its enough to look at the first instance.
 		if len(proxy.ServiceInstances) > 0 {
-			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
-			locality := proxy.ServiceInstances[0].Endpoint.Locality.Label
+			localityStr = proxy.ServiceInstances[0].Endpoint.Locality.Label
+		} else {
+			localityStr = proxy.Metadata.Labels[model.LocalityLabel]
+		}
+		proxy.Locality = util.ConvertLocality(localityStr)
+		if !util.IsLocalityEmpty(proxy.Locality) {
 			// add topology labels to proxy metadata labels
-			proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
+			proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, localityStr, proxy.Metadata.Network)
 		}
 	}
 }
