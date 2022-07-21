@@ -1134,12 +1134,7 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster) {
 }
 
 func http2ProtocolOptions() *core.Http2ProtocolOptions {
-	return &core.Http2ProtocolOptions{
-		// Envoy default value of 100 is too low for data path.
-		MaxConcurrentStreams: &wrappers.UInt32Value{
-			Value: 1073741824,
-		},
-	}
+	return &core.Http2ProtocolOptions{}
 }
 
 // nolint
