@@ -864,9 +864,12 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 // 2. node meta labels.
 func (node *Proxy) SetWorkloadLabels(env *Environment) {
 	labels := env.GetProxyWorkloadLabels(node)
+	if node.Metadata.Labels == nil {
+		node.Metadata.Labels = make(map[string]string)
+	}
 	// First get labels from proxy workload
-	if len(labels) > 0 {
-		node.Metadata.Labels = labels
+	for k, v := range labels {
+		node.Metadata.Labels[k] = v
 	}
 
 	// Fallback to get the workload labels from node meta
