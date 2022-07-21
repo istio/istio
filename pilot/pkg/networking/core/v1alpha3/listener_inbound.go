@@ -34,9 +34,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
@@ -232,7 +232,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, address *core.Addre
 }
 
 // inboundChainForOpts builds a set of filter chains
-func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls plugin.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
+func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
 	chains := make([]*listener.FilterChain, 0, len(opts))
 	for _, opt := range opts {
 		switch opt.Protocol {

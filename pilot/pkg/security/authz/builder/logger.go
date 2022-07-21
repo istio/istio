@@ -20,7 +20,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/pkg/log"
 )
@@ -40,15 +40,15 @@ func (al *AuthzLogger) AppendError(err error) {
 	al.errMsg = multierror.Append(al.errMsg, err)
 }
 
-func (al *AuthzLogger) Report(in *plugin.InputParams) {
+func (al *AuthzLogger) Report(node *model.Proxy) {
 	if al.errMsg != nil {
 		al.errMsg.ErrorFormat = istiomultierror.MultiErrorFormat()
-		authzLog.Errorf("Processed authorization policy for %s, %s", in.Node.ID, al.errMsg)
+		authzLog.Errorf("Processed authorization policy for %s, %s", node.ID, al.errMsg)
 	}
 	if authzLog.DebugEnabled() && len(al.debugMsg) != 0 {
 		out := strings.Join(al.debugMsg, "\n\t* ")
-		authzLog.Debugf("Processed authorization policy for %s with details:\n\t* %v", in.Node.ID, out)
+		authzLog.Debugf("Processed authorization policy for %s with details:\n\t* %v", node.ID, out)
 	} else {
-		authzLog.Debugf("Processed authorization policy for %s", in.Node.ID)
+		authzLog.Debugf("Processed authorization policy for %s", node.ID)
 	}
 }
