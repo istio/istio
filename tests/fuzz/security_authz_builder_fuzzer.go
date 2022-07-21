@@ -20,7 +20,7 @@ package builder
 import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
@@ -29,31 +29,36 @@ func InternalFuzzBuildHTTP(data []byte) int {
 	bundle := trustdomain.Bundle{}
 	err := f.GenerateStruct(&bundle)
 
-	in := &plugin.InputParams{}
+	push := &model.PushContext{}
 	err = f.GenerateStruct(in)
 	if err != nil {
 		return 0
 	}
-	if in.Push == nil {
+	proxy := &model.Proxy{}
+	err = f.GenerateStruct(in)
+	if err != nil {
 		return 0
 	}
-	if in.Push.AuthzPolicies == nil {
+	if push == nil {
 		return 0
 	}
-	if in.Node == nil {
+	if push.AuthzPolicies == nil {
 		return 0
 	}
-	if in.Node.Metadata == nil {
+	if proxy == nil {
+		return 0
+	}
+	if proxy.Metadata == nil {
 		return 0
 	}
 
-	policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
 	option := Option{}
 	err = f.GenerateStruct(&option)
 	if err != nil {
 		return 0
 	}
-	g := New(bundle, in.Push, policies, option)
+	g := New(bundle, push, policies, option)
 	if g == nil {
 		return 0
 	}
@@ -66,31 +71,36 @@ func InternalFuzzBuildTCP(data []byte) int {
 	bundle := trustdomain.Bundle{}
 	err := f.GenerateStruct(&bundle)
 
-	in := &plugin.InputParams{}
+	push := &model.PushContext{}
 	err = f.GenerateStruct(in)
 	if err != nil {
 		return 0
 	}
-	if in.Push == nil {
+	proxy := &model.Proxy{}
+	err = f.GenerateStruct(in)
+	if err != nil {
 		return 0
 	}
-	if in.Push.AuthzPolicies == nil {
+	if push == nil {
 		return 0
 	}
-	if in.Node == nil {
+	if push.AuthzPolicies == nil {
 		return 0
 	}
-	if in.Node.Metadata == nil {
+	if proxy == nil {
+		return 0
+	}
+	if proxy.Metadata == nil {
 		return 0
 	}
 
-	policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
 	option := Option{}
 	err = f.GenerateStruct(&option)
 	if err != nil {
 		return 0
 	}
-	g := New(bundle, in.Push, policies, option)
+	g := New(bundle, push, policies, option)
 	if g == nil {
 		return 0
 	}
