@@ -35,7 +35,7 @@ spec:
       logLevel: "debug"
       privileged: true
     global:
-      operatorManageWebhooks: true
+      operatorManageWebhooks: false
     telemetry:
       enabled: false
       v2:

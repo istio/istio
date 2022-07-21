@@ -15,40 +15,30 @@
 package ambient
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"sync"
-	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/rest"
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/cni/pkg/ambient/constants"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/server"
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config/mesh"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
-
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
 )
 
 type Server struct {
-	kubeClient       kube.Client
-	environment      *model.Environment
-	fileWathcer      filewatcher.FileWatcher
-	shutdownDuration time.Duration
-	internalStop     chan struct{}
-	server           server.Instance
-	queue            controllers.Queue
+	kubeClient  kube.Client
+	environment *model.Environment
+	ctx         context.Context
+	queue       controllers.Queue
 
 	nsLister listerv1.NamespaceLister
 
@@ -69,27 +59,23 @@ var (
 	ErrRouteDelete = errors.New("deleting route")
 )
 
-func NewServer(args *AmbientArgs) (*Server, error) {
+func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	e := &model.Environment{
 		PushContext: model.NewPushContext(),
 	}
+	client, err := buildKubeClient(args.KubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error initializing kube client: %v", err)
+	}
 	// Set some defaults
 	s := &Server{
-		fileWathcer:       filewatcher.NewWatcher(),
-		shutdownDuration:  args.ShutdownDuration,
 		environment:       e,
-		internalStop:      make(chan struct{}),
-		server:            server.New(),
+		ctx:               ctx,
 		meshMode:          v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT,
 		disabledSelectors: legacySelectors,
 		uproxyRunning:     false,
+		kubeClient:        client,
 	}
-
-	if err := s.initKubeClient(args); err != nil {
-		return nil, fmt.Errorf("error initializing kube client: %v", err)
-	}
-
-	args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.DetectEndpointMode(s.kubeClient)
 
 	// We need to find our Host IP -- is there a better way to do this?
 	h, err := GetHostIP(s.kubeClient.Kube())
@@ -99,7 +85,7 @@ func NewServer(args *AmbientArgs) (*Server, error) {
 	HostIP = h
 	log.Infof("HostIP=%v", HostIP)
 
-	s.initMeshConfiguration(args, s.fileWathcer)
+	s.initMeshConfiguration(args)
 	s.environment.AddMeshHandler(s.newConfigMapWatcher)
 	s.setupHandlers()
 
@@ -111,20 +97,6 @@ func NewServer(args *AmbientArgs) (*Server, error) {
 	}
 
 	s.UpdateConfig()
-
-	// This must be last, otherwise we will not know which informers to register
-	if s.kubeClient != nil {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			go func() {
-				s.Run(stop)
-			}()
-			return nil
-		})
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			s.kubeClient.RunAndWait(stop)
-			return nil
-		})
-	}
 
 	return s, nil
 }
@@ -142,86 +114,31 @@ func (s *Server) isUproxyRunning() bool {
 	return s.uproxyRunning
 }
 
-// initKubeClient creates the k8s client if running in an k8s environment.
-// This is determined by the presence of a kube registry, which
-// uses in-context k8s, or a config source of type k8s.
-func (s *Server) initKubeClient(args *AmbientArgs) error {
-	if s.kubeClient != nil {
-		// Already initialized by startup arguments
-		return nil
-	}
-	hasK8SConfigStore := false
-	if args.RegistryOptions.FileDir == "" {
-		// If file dir is set - config controller will just use file.
-		if _, err := os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
-			meshConfig, err := mesh.ReadMeshConfig(args.MeshConfigFile)
-			if err != nil {
-				return fmt.Errorf("failed reading mesh config: %v", err)
-			}
-			if len(meshConfig.ConfigSources) == 0 && args.RegistryOptions.KubeConfig != "" {
-				hasK8SConfigStore = true
-			}
-			for _, cs := range meshConfig.ConfigSources {
-				if cs.Address == string(Kubernetes)+"://" {
-					hasK8SConfigStore = true
-					break
-				}
-			}
-		} else if args.RegistryOptions.KubeConfig != "" {
-			hasK8SConfigStore = true
-		}
+// buildKubeClient creates the kube client
+func buildKubeClient(kubeConfig string) (kube.Client, error) {
+	// Used by validation
+	kubeRestConfig, err := kube.DefaultRestConfig(kubeConfig, "", func(config *rest.Config) {
+		config.QPS = 80
+		config.Burst = 160
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed creating kube config: %v", err)
 	}
 
-	if hasK8SConfigStore || hasKubeRegistry(args.RegistryOptions.Registries) {
-		// Used by validation
-		kubeRestConfig, err := kube.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
-			config.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
-			config.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
-		})
-		if err != nil {
-			return fmt.Errorf("failed creating kube config: %v", err)
-		}
-
-		s.kubeClient, err = kube.NewClient(kube.NewClientConfigForRestConfig(kubeRestConfig))
-		if err != nil {
-			return fmt.Errorf("failed creating kube client: %v", err)
-		}
+	client, err := kube.NewClient(kube.NewClientConfigForRestConfig(kubeRestConfig))
+	if err != nil {
+		return nil, fmt.Errorf("failed creating kube client: %v", err)
 	}
 
-	return nil
+	return client, nil
 }
 
-// addStartFunc appends a function to be run. These are run synchronously in order,
-// so the function should start a go routine if it needs to do anything blocking
-func (s *Server) addStartFunc(fn server.Component) {
-	s.server.RunComponent(fn)
-}
-
-func (s *Server) Start(stop <-chan struct{}) error {
-	log.Infof("Starting ambient-ds")
-
-	if err := s.server.Start(stop); err != nil {
-		return err
-	}
-
-	s.waitForShutdown(stop)
-
-	return nil
-}
-
-func (s *Server) waitForShutdown(stop <-chan struct{}) {
+func (s *Server) Start() {
+	s.kubeClient.RunAndWait(s.ctx.Done())
 	go func() {
-		<-stop
-		close(s.internalStop)
-		_ = s.fileWathcer.Close()
+		s.queue.Run(s.ctx.Done())
 		s.cleanup()
 	}()
-}
-
-// WaitUntilCompletion waits for everything marked as a "required termination" to complete.
-// This should be called before exiting.
-func (s *Server) WaitUntilCompletion() {
-	s.server.Wait()
 }
 
 func (s *Server) UpdateConfig() {

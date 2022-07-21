@@ -141,7 +141,9 @@ spec:
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
-            privileged: {{ .Values.cni.privileged }}
+            privileged: true
+            capabilities:
+              add: ["NET_ADMIN"]
           command: ["install-cni"]
           env:
 {{- if .Values.cni.cniConfFileName }}
@@ -181,6 +183,11 @@ spec:
               value: "{{.Values.cni.repair.brokenPodLabelKey}}"
             - name: REPAIR_BROKEN_POD_LABEL_VALUE
               value: "{{.Values.cni.repair.brokenPodLabelValue}}"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
@@ -188,38 +195,14 @@ spec:
               name: cni-net-dir
             - mountPath: /var/run/istio-cni
               name: cni-log-dir
+            - mountPath: /etc/ambient-config
+              name: cni-ambientconfig
           resources:
 {{- if .Values.cni.resources }}
 {{ toYaml .Values.cni.resources | trim | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
-        - name: ambient-ds
-{{- if contains "/" .Values.cni.image }}
-          image: "{{ .Values.cni.image }}"
-{{- else }}
-          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}"
-{{- end }}
-{{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
-{{- end }}
-          command: ["/usr/local/bin/ambient-ds"]
-          args:
-          - --log_output_level=default:debug
-          - informer
-          securityContext:
-            privileged: true
-            capabilities:
-              add: ["NET_ADMIN"]
-          env:
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: spec.nodeName
-          volumeMounts:
-            - mountPath: /etc/ambient-config
-              name: cni-ambientconfig
           lifecycle:
             preStop:
               exec:

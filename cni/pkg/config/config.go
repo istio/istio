@@ -79,6 +79,9 @@ type InstallConfig struct {
 
 	// The UDS server address that CNI plugin will send log to.
 	LogUDSAddress string
+
+	// Whether ambient is enabled
+	AmbientEnabled bool
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration

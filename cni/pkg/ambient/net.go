@@ -29,8 +29,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
+
+var log = istiolog.RegisterScope("ambient", "ambient controller", 0)
 
 func IsPodInIpset(pod *corev1.Pod) bool {
 	ipset, err := Ipset.List()
@@ -643,6 +645,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 }
 
 func (s *Server) cleanup() {
+	log.Infof("server terminated, cleaning up")
 	s.cleanRules()
 
 	// Clean up ip route tables

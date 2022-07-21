@@ -34,6 +34,7 @@ const (
 	UpdateCNIBinaries    = "update-cni-binaries"
 	MonitoringPort       = "monitoring-port"
 	LogUDSAddress        = "log-uds-address"
+	AmbientEnabled       = "ambient-enabled"
 
 	// Repair
 	RepairEnabled            = "repair-enabled"

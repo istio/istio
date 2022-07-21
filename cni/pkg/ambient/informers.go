@@ -18,12 +18,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/pkg/log"
-
-	"k8s.io/client-go/tools/cache"
 )
 
 var ErrLegacyLabel = "Namespace %s has sidecar label istio-injection or istio.io/rev " +
@@ -55,7 +53,7 @@ func (s *Server) newConfigMapWatcher() {
 }
 
 func (s *Server) setupHandlers() {
-	s.queue = controllers.NewQueue("ambient-ds",
+	s.queue = controllers.NewQueue("ambient",
 		controllers.WithReconciler(s.Reconciler),
 		controllers.WithMaxAttempts(5),
 	)

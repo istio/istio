@@ -15,21 +15,17 @@
 package ambient
 
 import (
-	"os"
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
 	"istio.io/api/mesh/v1alpha1"
 	ipsetlib "istio.io/istio/cni/pkg/ipset"
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/env"
 )
 
 var (
-	PodNamespace = env.RegisterStringVar("PODNAMESPACE", constants.IstioSystemNamespace, "pod's namespace").Get()
+	PodNamespace = env.RegisterStringVar("SYSTEM_NAMESPACE", constants.IstioSystemNamespace, "pod's namespace").Get()
 	PodName      = env.RegisterStringVar("POD_NAME", "", "").Get()
 	NodeName     = env.RegisterStringVar("NODE_NAME", "", "").Get()
 	Revision     = env.RegisterStringVar("REVISION", "", "").Get()
@@ -83,42 +79,7 @@ var legacySelectors = []*metav1.LabelSelector{
 }
 
 type AmbientArgs struct {
-	PodName          string
-	Namespace        string
-	NodeName         string
-	Revision         string
-	RegistryOptions  RegistryOptions
-	MeshConfigFile   string
-	ShutdownDuration time.Duration
-}
-
-type RegistryOptions struct {
-	FileDir string
-
-	Registries  []string
-	KubeOptions kubecontroller.Options
-	KubeConfig  string
-}
-
-func NewAmbientArgs(initFuncs ...func(*AmbientArgs)) *AmbientArgs {
-	a := &AmbientArgs{}
-
-	a.ApplyDefaults()
-
-	for _, fn := range initFuncs {
-		fn(a)
-	}
-
-	return a
-}
-
-func (a *AmbientArgs) ApplyDefaults() {
-	a.Namespace = PodNamespace
-	a.PodName = PodName
-	a.Revision = Revision
-	a.NodeName = NodeName
-	if a.NodeName == "" {
-		NodeName, _ = os.Hostname()
-		a.NodeName = NodeName
-	}
+	SystemNamespace string
+	Revision        string
+	KubeConfig      string
 }

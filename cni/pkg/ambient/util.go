@@ -26,18 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/pkg/log"
 )
-
-func hasKubeRegistry(registries []string) bool {
-	for _, r := range registries {
-		if provider.ID(r) == provider.Kubernetes {
-			return true
-		}
-	}
-	return false
-}
 
 type ExecList struct {
 	Cmd  string

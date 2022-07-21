@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
-	"istio.io/pkg/log"
 )
 
 type iptablesRule struct {

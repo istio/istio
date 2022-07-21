@@ -17,7 +17,6 @@ package ambient
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,8 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -36,8 +33,8 @@ const (
 	configMapKey             = "mesh"
 )
 
-func (s *Server) initMeshConfiguration(args *AmbientArgs, fileWatcher filewatcher.FileWatcher) {
-	log.Infof("Initializing mesh configuration %s", args.MeshConfigFile)
+func (s *Server) initMeshConfiguration(args AmbientArgs) {
+	log.Infof("Initializing mesh configuration")
 
 	defer func() {
 		if s.environment.Watcher != nil {
@@ -48,36 +45,15 @@ func (s *Server) initMeshConfiguration(args *AmbientArgs, fileWatcher filewatche
 		}
 	}()
 
-	var err error
-
 	multiWatch := features.SharedMeshConfig != ""
-
-	if _, err = os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
-		s.environment.Watcher, err = mesh.NewFileWatcher(fileWatcher, args.MeshConfigFile, multiWatch)
-		if err == nil {
-			if multiWatch && s.kubeClient != nil {
-				kubemesh.AddUserMeshConfig(s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
-			} else {
-				log.Warnf("Using local mesh config file %s, in cluster configs ignored.", args.MeshConfigFile)
-			}
-			return
-		}
-	}
-
-	if s.kubeClient == nil {
-		meshConfig := mesh.DefaultMeshConfig()
-		s.environment.Watcher = mesh.NewFixedWatcher(meshConfig)
-		log.Warnf("Using default mesh - missing file %s and no k8s client", args.MeshConfigFile)
-		return
-	}
 
 	configMapName := getMeshConfigMapName(args.Revision)
 	multiWatcher := kubemesh.NewConfigMapWatcher(
-		s.kubeClient, args.Namespace, configMapName, configMapKey, multiWatch, s.internalStop)
+		s.kubeClient, args.SystemNamespace, configMapName, configMapKey, multiWatch, s.ctx.Done())
 	s.environment.Watcher = multiWatcher
 
 	if multiWatch {
-		kubemesh.AddUserMeshConfig(s.kubeClient, multiWatcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
+		kubemesh.AddUserMeshConfig(s.kubeClient, multiWatcher, args.SystemNamespace, configMapKey, features.SharedMeshConfig, s.ctx.Done())
 	}
 }
 
