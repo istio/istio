@@ -208,6 +208,10 @@ const (
 // ResolveShortnameToFQDN uses metadata information to resolve a reference
 // to shortname of the service to FQDN
 func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
+	if len(hostname) == 0 {
+		// only happens when the gateway-api BackendRef is invalid
+		return ""
+	}
 	out := hostname
 	// Treat the wildcard hostname as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.

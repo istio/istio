@@ -233,12 +233,16 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				Regex:      `/route/v1((\/).*)?`,
 			},
 		}))
+		g.Expect(routes[0].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
+			To(gomega.Equal(envoyroute.RouteAction_SERVICE_UNAVAILABLE))
 		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
 			Prefix: "/",
 		}))
+		g.Expect(routes[1].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
+			To(gomega.Equal(envoyroute.RouteAction_SERVICE_UNAVAILABLE))
 	})
 
-	t.Run("for internally generated virtual service with ingress semantics (istio version>=1.14)", func(t *testing.T) {
+	t.Run("for internally generated virtual service with ingress semantics", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
@@ -261,7 +265,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}))
 	})
 
-	t.Run("for internally generated virtual service with gateway semantics (istio version>=1.14)", func(t *testing.T) {
+	t.Run("for internally generated virtual service with gateway semantics", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
@@ -279,9 +283,13 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_PathSeparatedPrefix{
 			PathSeparatedPrefix: "/route/v1",
 		}))
+		g.Expect(routes[0].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
+			To(gomega.Equal(envoyroute.RouteAction_INTERNAL_SERVER_ERROR))
 		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
 			Prefix: "/",
 		}))
+		g.Expect(routes[1].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
+			To(gomega.Equal(envoyroute.RouteAction_INTERNAL_SERVER_ERROR))
 	})
 
 	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
