@@ -21,7 +21,7 @@ spec:
         readiness.status.sidecar.istio.io/failureThreshold: "300"
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
         readiness.status.sidecar.istio.io/periodSeconds: "200"
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
         status.sidecar.istio.io/port: "123"
       creationTimestamp: null
       labels:
@@ -130,6 +130,8 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket
+        - mountPath: /var/run/secrets/credential-uds
+          name: credential-socket
         - mountPath: /var/run/secrets/workload-spiffe-credentials
           name: workload-certs
         - mountPath: /var/run/secrets/istio
@@ -188,6 +190,7 @@ spec:
         fsGroup: 1337
       volumes:
       - name: workload-socket
+      - name: credential-socket
       - name: workload-certs
       - emptyDir:
           medium: Memory

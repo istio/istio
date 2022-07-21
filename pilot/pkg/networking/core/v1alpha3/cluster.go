@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -179,7 +180,10 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
-
+	// if credential socket exists, create a cluster for it
+	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
+		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
+	}
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
 	}

@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -3542,6 +3543,42 @@ func TestApplyConnectionPool(t *testing.T) {
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.MaxRequestsPerConnection)
 			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.MaxConnectionDuration,
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.MaxConnectionDuration)
+		})
+	}
+}
+
+func TestBuildExternalSDSClusters(t *testing.T) {
+	proxy := &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Raw: map[string]interface{}{
+				security.CredentialMetaDataName: "true",
+			},
+		},
+	}
+
+	cases := []struct {
+		name         string
+		expectedName string
+		expectedPath string
+	}{
+		{
+			name:         "uds",
+			expectedName: security.SDSExternalClusterName,
+			expectedPath: security.CredentialNameSocketPath,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{})
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+			cluster := cb.buildExternalSDSCluster(security.CredentialNameSocketPath)
+			path := cluster.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetPipe().Path
+			if cluster.Name != tt.expectedName {
+				t.Errorf("Unexpected cluster name, got: %v, want: %v", cluster.Name, tt.expectedName)
+			}
+			if path != tt.expectedPath {
+				t.Errorf("Unexpected path, got: %v, want: %v", path, tt.expectedPath)
+			}
 		})
 	}
 }
