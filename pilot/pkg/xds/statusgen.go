@@ -24,7 +24,7 @@ import (
 	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
@@ -75,7 +75,7 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req 
 		for _, v := range sg.Server.Clients() {
 			res = append(res, &discovery.Resource{
 				Name:     v.node.Id,
-				Resource: util.MessageToAny(v.node),
+				Resource: protoconv.MessageToAny(v.node),
 			})
 		}
 	case TypeDebugSyncronization:
@@ -141,7 +141,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 			}
 			res = append(res, &discovery.Resource{
 				Name:     clientConfig.Node.Id,
-				Resource: util.MessageToAny(clientConfig),
+				Resource: protoconv.MessageToAny(clientConfig),
 			})
 		}
 		con.proxy.RUnlock()
@@ -205,7 +205,7 @@ func (sg *StatusGen) pushStatusEvent(typeURL string, data []proto.Message) {
 
 	resources := make([]*any.Any, 0, len(data))
 	for _, v := range data {
-		resources = append(resources, util.MessageToAny(v))
+		resources = append(resources, protoconv.MessageToAny(v))
 	}
 	dr := &discovery.DiscoveryResponse{
 		TypeUrl:   typeURL,

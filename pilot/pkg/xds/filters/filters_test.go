@@ -23,7 +23,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 func TestBuildRouterFilter(t *testing.T) {
@@ -38,7 +38,7 @@ func TestBuildRouterFilter(t *testing.T) {
 			expected: &hcm.HttpFilter{
 				Name: wellknown.Router,
 				ConfigType: &hcm.HttpFilter_TypedConfig{
-					TypedConfig: util.MessageToAny(&router.Router{
+					TypedConfig: protoconv.MessageToAny(&router.Router{
 						StartChildSpan: true,
 					}),
 				},
@@ -50,7 +50,7 @@ func TestBuildRouterFilter(t *testing.T) {
 			expected: &hcm.HttpFilter{
 				Name: wellknown.Router,
 				ConfigType: &hcm.HttpFilter_TypedConfig{
-					TypedConfig: util.MessageToAny(&router.Router{
+					TypedConfig: protoconv.MessageToAny(&router.Router{
 						StartChildSpan: false,
 					}),
 				},
@@ -62,7 +62,7 @@ func TestBuildRouterFilter(t *testing.T) {
 			expected: &hcm.HttpFilter{
 				Name: wellknown.Router,
 				ConfigType: &hcm.HttpFilter_TypedConfig{
-					TypedConfig: util.MessageToAny(&router.Router{}),
+					TypedConfig: protoconv.MessageToAny(&router.Router{}),
 				},
 			},
 		},

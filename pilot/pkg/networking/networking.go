@@ -15,19 +15,13 @@
 package networking
 
 import (
-	"fmt"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"google.golang.org/protobuf/encoding/prototext"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/pkg/log"
 )
 
 // ListenerProtocol is the protocol associated with the listener.
@@ -182,26 +176,3 @@ const (
 	ListenerClassSidecarOutbound
 	ListenerClassGateway
 )
-
-// MessageToAnyWithError converts from proto message to proto Any
-func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
-	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-	return &anypb.Any{
-		// nolint: staticcheck
-		TypeUrl: "type.googleapis.com/" + string(proto.MessageName(msg)),
-		Value:   b,
-	}, nil
-}
-
-// MessageToAny converts from proto message to proto Any
-func MessageToAny(msg proto.Message) *anypb.Any {
-	out, err := MessageToAnyWithError(msg)
-	if err != nil {
-		log.Error(fmt.Sprintf("error marshaling Any %s: %v", prototext.Format(msg), err))
-		return nil
-	}
-	return out
-}
