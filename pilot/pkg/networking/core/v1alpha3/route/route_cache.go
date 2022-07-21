@@ -48,6 +48,8 @@ type Cache struct {
 	// This allows resolving ServiceEntries, which is especially useful for distinguishing TCP traffic
 	// This depends on DNSCapture.
 	DNSAutoAllocate bool
+	// AllowAny indicates if the proxy should allow all outbound traffic or only known registries
+	AllowAny bool
 
 	ListenerPort            int
 	Services                []*model.Service
@@ -130,6 +132,8 @@ func (r *Cache) Key() string {
 	hash.Write([]byte(strconv.FormatBool(r.DNSCapture)))
 	hash.Write(Separator)
 	hash.Write([]byte(strconv.FormatBool(r.DNSAutoAllocate)))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(r.AllowAny)))
 	hash.Write(Separator)
 
 	for _, svc := range r.Services {
