@@ -245,10 +245,13 @@ issues:
         - errcheck
         - maligned
 
-    # TODO(https://github.com/dominikh/go-tools/issues/732) remove this once we update
+    # We need to use the deprecated module since the jsonpb replacement is not backwards compatible.
     - linters:
         - staticcheck
-      text: "SA1019: package github.com/golang/protobuf"
+      text: "SA1019: package github.com/golang/protobuf/jsonpb"
+    - linters:
+        - staticcheck
+      text: 'SA1019: "github.com/golang/protobuf/jsonpb"'
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all
