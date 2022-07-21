@@ -859,14 +859,18 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 	node.ServiceInstances = instances
 }
 
-// SetWorkloadLabels will set the node.Metadata.Labels only when it is nil.
+// SetWorkloadLabels will set the node.Metadata.Labels with priority:
+// 1. Proxy workload labels.
+// 2. node meta labels.
 func (node *Proxy) SetWorkloadLabels(env *Environment) {
-	// First get the workload labels from node meta
-	if len(node.Metadata.Labels) > 0 {
-		return
+	labels := env.GetProxyWorkloadLabels(node)
+	// First get labels from proxy workload
+	if len(labels) > 0 {
+		node.Metadata.Labels = labels
 	}
-	// Fallback to calling GetProxyWorkloadLabels
-	node.Metadata.Labels = env.GetProxyWorkloadLabels(node)
+
+	// Fallback to get the workload labels from node meta
+	return
 }
 
 // DiscoverIPMode discovers the IP Versions supported by Proxy based on its IP addresses.
