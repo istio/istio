@@ -48,6 +48,18 @@ const (
 	// WorkloadIdentitySocketPath is the well-known path to the Unix Domain Socket for SDS.
 	WorkloadIdentitySocketPath = "./var/run/secrets/workload-spiffe-uds/socket"
 
+	// CredentialNameSocketPath is the well-known path to the Unix Domain Socket for Credential Name.
+	CredentialNameSocketPath = "./var/run/secrets/credential-uds/socket"
+
+	// CredentialMetaDataName is the name in node meta data.
+	CredentialMetaDataName = "credential"
+
+	// SDSExternalClusterName is the name of the cluster for external SDS connections which is defined via CredentialNameSocketPath
+	SDSExternalClusterName = "sds-external"
+
+	// SDSExternalCredentialPrefix is the prefix for the credentialName which will utilize external SDS connections defined via CredentialNameSocketPath
+	SDSExternalCredentialPrefix = "sds://"
+
 	// WorkloadIdentityCredentialsPath is the well-known path to a folder with workload certificate files.
 	WorkloadIdentityCredentialsPath = "./var/run/secrets/workload-spiffe-credentials"
 
