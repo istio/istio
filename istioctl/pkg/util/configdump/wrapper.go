@@ -21,7 +21,6 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
-
 	// nolint: staticcheck
 	legacyproto "github.com/golang/protobuf/proto"
 	emptypb "github.com/golang/protobuf/ptypes/empty"

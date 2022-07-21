@@ -37,8 +37,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/operator/pkg/tpath"
@@ -53,6 +51,7 @@ import (
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/shellescape"
+	"istio.io/pkg/log"
 )
 
 var (

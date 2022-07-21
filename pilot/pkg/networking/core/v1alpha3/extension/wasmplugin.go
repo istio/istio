@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/sets"
-
 	// include for registering wasm logging scope
 	_ "istio.io/istio/pkg/wasm"
 	"istio.io/pkg/log"

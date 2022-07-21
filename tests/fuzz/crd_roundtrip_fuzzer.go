@@ -24,7 +24,6 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	"github.com/davecgh/go-spew/spew"
-
 	// nolint: staticcheck
 	legacyproto "github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"

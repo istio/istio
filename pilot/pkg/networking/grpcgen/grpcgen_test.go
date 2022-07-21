@@ -34,7 +34,6 @@ import (
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
 	"google.golang.org/grpc/status"
-
 	// To install the xds resolvers and balancers.
 	xdsgrpc "google.golang.org/grpc/xds"
 
