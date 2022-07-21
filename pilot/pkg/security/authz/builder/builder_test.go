@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
@@ -257,10 +256,11 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 				IsCustomBuilder: tc.meshConfig != nil,
 				Logger:          &AuthzLogger{},
 			}
-			in := inputParams(t, baseDir+tc.input, tc.meshConfig, tc.version)
-			defer option.Logger.Report(in)
-			policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
-			g := New(tc.tdBundle, in.Push, policies, option)
+			push := push(t, baseDir+tc.input, tc.meshConfig)
+			proxy := node(tc.version)
+			defer option.Logger.Report(proxy)
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -324,10 +324,11 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 				IsCustomBuilder: tc.meshConfig != nil,
 				Logger:          &AuthzLogger{},
 			}
-			in := inputParams(t, baseDir+tc.input, tc.meshConfig, nil)
-			defer option.Logger.Report(in)
-			policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
-			g := New(tc.tdBundle, in.Push, policies, option)
+			push := push(t, baseDir+tc.input, tc.meshConfig)
+			proxy := node(nil)
+			defer option.Logger.Report(proxy)
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -434,28 +435,29 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 	return authzPolicies
 }
 
-func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig, version *model.IstioVersion) *plugin.InputParams {
+func push(t *testing.T, input string, mc *meshconfig.MeshConfig) *model.PushContext {
 	t.Helper()
-	ret := &plugin.InputParams{
-		Node: &model.Proxy{
-			ID:              "test-node",
-			ConfigNamespace: "foo",
-			Metadata: &model.NodeMetadata{
-				Labels: httpbin,
-			},
-			IstioVersion: version,
-		},
-		Push: &model.PushContext{
-			AuthzPolicies: yamlPolicy(t, basePath+input),
-			Mesh:          mc,
-		},
+	p := &model.PushContext{
+		AuthzPolicies: yamlPolicy(t, basePath+input),
+		Mesh:          mc,
 	}
-	ret.Push.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+	p.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
 		"my-custom-ext-authz.foo.svc.cluster.local": {
 			"foo": &model.Service{
 				Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
 			},
 		},
 	}
-	return ret
+	return p
+}
+
+func node(version *model.IstioVersion) *model.Proxy {
+	return &model.Proxy{
+		ID:              "test-node",
+		ConfigNamespace: "foo",
+		Metadata: &model.NodeMetadata{
+			Labels: httpbin,
+		},
+		IstioVersion: version,
+	}
 }

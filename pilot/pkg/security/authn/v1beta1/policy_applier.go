@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
@@ -148,7 +147,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *http_conn.HttpFilte
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) plugin.MTLSSettings {
+func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) authn.MTLSSettings {
 	effectiveMTLSMode := a.GetMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	var mc *meshconfig.MeshConfig
@@ -157,7 +156,7 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *mo
 	}
 	// Configure TLS version based on meshconfig TLS API.
 	minTLSVersion := authn_utils.GetMinTLSVersion(mc.GetMeshMTLS().GetMinProtocolVersion())
-	return plugin.MTLSSettings{
+	return authn.MTLSSettings{
 		Port: endpointPort,
 		Mode: effectiveMTLSMode,
 		TCP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP,
