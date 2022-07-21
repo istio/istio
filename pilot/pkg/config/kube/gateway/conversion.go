@@ -847,35 +847,15 @@ func buildHTTPDestination(
 	}
 
 	var invalidBackendErr *ConfigError
-	refs := ctx.AllowedReferences
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		invalid := false
-		if toNs := fwd.BackendRef.Namespace; toNs != nil && string(*toNs) != ns {
-			if !refs.BackendAllowed(gvk.HTTPRoute, fwd.BackendRef.Name, *toNs, ns) {
-				invalidBackendErr = &ConfigError{
-					Reason:  InvalidDestinationPermit,
-					Message: fmt.Sprintf("backendRef %v/%v not accessible to a route in namespace %q (missing a ReferenceGrant?)", fwd.BackendRef.Name, *toNs, ns),
-				}
-				invalid = true
-				// keep going, we will gracefully drop invalid backends
-			}
-		}
 		dst, err := buildDestination(ctx, fwd.BackendRef, ns)
 		if err != nil {
 			if isInvalidBackend(err) {
-				// keep going, we will gracefully drop invalid backends
 				invalidBackendErr = err
-				invalid = true
+				// keep going, we will gracefully drop invalid backends
 			} else {
 				return nil, err
-			}
-		}
-		if invalid {
-			// this backend is invalid, set a nonexistent host so that envoy will return 500 when traffic goes to this cluster
-			dst = &istio.Destination{
-				Host: "zzz-invalid-backend.istio.io",
-				Port: &istio.PortSelector{Number: uint32(15012)},
 			}
 		}
 		rd := &istio.HTTPRouteDestination{
@@ -896,6 +876,17 @@ func buildHTTPDestination(
 }
 
 func buildDestination(ctx ConfigContext, to k8s.BackendRef, ns string) (*istio.Destination, *ConfigError) {
+	// check if the reference is allowed
+	refs := ctx.AllowedReferences
+	if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
+		if !refs.BackendAllowed(gvk.HTTPRoute, to.Name, *toNs, ns) {
+			return &istio.Destination{}, &ConfigError{
+				Reason:  InvalidDestinationPermit,
+				Message: fmt.Sprintf("backendRef %v/%v not accessible to a route in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, ns),
+			}
+		}
+	}
+
 	namespace := defaultIfNil((*string)(to.Namespace), ns)
 	var invalidBackendErr *ConfigError
 	if nilOrEqual((*string)(to.Group), "") && nilOrEqual((*string)(to.Kind), gvk.Service.Kind) {
@@ -908,8 +899,8 @@ func buildDestination(ctx ConfigContext, to k8s.BackendRef, ns string) (*istio.D
 			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
 		}
 		hostname := fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.Domain)
-		if ctx.Context.GetService(hostname) == nil {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: "the service does not exist"}
+		if ctx.Context.GetService(hostname, namespace) == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 		return &istio.Destination{
 			// TODO: implement ReferencePolicy for cross namespace
@@ -932,8 +923,8 @@ func buildDestination(ctx ConfigContext, to k8s.BackendRef, ns string) (*istio.D
 		if strings.Contains(string(to.Name), ".") {
 			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
 		}
-		if ctx.Context.GetService(hostname) == nil {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: "the service does not exist"}
+		if ctx.Context.GetService(hostname, namespace) == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 		return &istio.Destination{
 			Host: hostname,
@@ -950,15 +941,15 @@ func buildDestination(ctx ConfigContext, to k8s.BackendRef, ns string) (*istio.D
 			return nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
 		}
 		hostname := string(to.Name)
-		if ctx.Context.GetService(hostname) == nil {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: "the service does not exist"}
+		if ctx.Context.GetService(hostname, namespace) == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 		return &istio.Destination{
 			Host: string(to.Name),
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
 		}, invalidBackendErr
 	}
-	return nil, &ConfigError{
+	return &istio.Destination{}, &ConfigError{
 		Reason:  InvalidDestinationKind,
 		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", emptyIfNil((*string)(to.Group)), emptyIfNil((*string)(to.Kind))),
 	}

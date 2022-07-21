@@ -65,6 +65,8 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
+var skippedTests = map[string]string{}
+
 func TestGatewayConformance(t *testing.T) {
 	// nolint: staticcheck
 	framework.
@@ -120,6 +122,9 @@ func TestGatewayConformance(t *testing.T) {
 
 			for _, ct := range tests.ConformanceTests {
 				t.Run(ct.ShortName, func(t *testing.T) {
+					if reason, f := skippedTests[ct.ShortName]; f {
+						t.Skip(reason)
+					}
 					ct.Run(t, csuite)
 				})
 			}

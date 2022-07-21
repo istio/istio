@@ -21,7 +21,7 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - attachedRoutes: 1
+  - attachedRoutes: 2
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -52,7 +52,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: http
+  name: backend-not-allowed
   namespace: istio-system
 spec: null
 status:
@@ -68,6 +68,31 @@ status:
         (missing a ReferenceGrant?)
       reason: RefNotPermitted
       status: "False"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: http
+  namespace: istio-system
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:

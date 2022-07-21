@@ -296,6 +296,10 @@ func buildSidecarVirtualHostsForService(
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	if len(destination.GetHost()) == 0 {
+		// only happens when the gateway-api BackendRef is invalid
+		return "UnknownService"
+	}
 	port := listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())

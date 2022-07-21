@@ -322,7 +322,6 @@ func TestConvertResources(t *testing.T) {
 					Endpoint:    &model.IstioEndpoint{},
 				})
 			}
-
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services:  services,
 				Instances: instances,

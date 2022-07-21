@@ -2061,8 +2061,8 @@ func NewGatewayContext(ps *PushContext) GatewayContext {
 	return GatewayContext{ps}
 }
 
-func (gc GatewayContext) GetService(hostname string) *Service {
-	return gc.ps.ServiceForHostname(nil, host.Name(hostname))
+func (gc GatewayContext) GetService(hostname, namespace string) *Service {
+	return gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(hostname)][namespace]
 }
 
 // ResolveGatewayInstances attempts to resolve all instances that a gateway will be exposed on.

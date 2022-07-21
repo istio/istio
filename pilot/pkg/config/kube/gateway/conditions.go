@@ -138,7 +138,7 @@ const (
 	InvalidDestinationPermit ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestinationKind indicates an issue with the destination kind
 	InvalidDestinationKind ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonInvalidKind)
-	// InvalidDestinationKind indicates a destination does not exist
+	// InvalidDestinationNotFound indicates a destination does not exist
 	InvalidDestinationNotFound ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonBackendNotFound)
 	// InvalidParentRef indicates we could not refer to the parent we request
 	InvalidParentRef ConfigErrorReason = "InvalidParentReference"

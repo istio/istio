@@ -2445,47 +2445,7 @@ spec:
 					for _, tc := range tt.cfg {
 						cfg = cfg + "\n---\n" + tc.Config(variant)
 					}
-					s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-						ConfigString: cfg,
-						Services: []*model.Service{
-							{
-								Hostname: "alt-known-default.example.com",
-							},
-							{
-								Hostname: "foo.com",
-							},
-							{
-								Hostname: "arbitrary.example.com",
-							},
-							{
-								Hostname: "default.example.com",
-							},
-							{
-								Hostname: "not-default.example.com",
-							},
-							{
-								Hostname: "wild.example.com",
-							},
-							{
-								Hostname: "explicit.example.com",
-							},
-							{
-								Hostname: "old.example.com",
-							},
-							{
-								Hostname: "new.example.com",
-							},
-							{
-								Hostname: "producer.example.com",
-							},
-							{
-								Hostname: "consumer.example.com",
-							},
-							{
-								Hostname: "example.com",
-							},
-						},
-					})
+					s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: cfg})
 					sim := simulation.NewSimulation(t, s, s.SetupProxy(tt.proxy))
 					xdstest.ValidateListeners(t, sim.Listeners)
 					xdstest.ValidateRouteConfigurations(t, sim.Routes)
