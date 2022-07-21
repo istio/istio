@@ -34,7 +34,6 @@ import (
 	envoy_dns_cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
 	envoy_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -127,7 +126,7 @@ func createAccessLog(listenerName string) []*envoy_accesslogv3.AccessLog {
 		{
 			Name: "envoy.access_loggers.file",
 			ConfigType: &envoy_accesslogv3.AccessLog_TypedConfig{
-				TypedConfig: util.MessageToAny(&envoy_fileaccesslogv3.FileAccessLog{
+				TypedConfig: protoconv.MessageToAny(&envoy_fileaccesslogv3.FileAccessLog{
 					Path: "/dev/stdout",
 					AccessLogFormat: &envoy_fileaccesslogv3.FileAccessLog_LogFormat{
 						LogFormat: &envoy_core.SubstitutionFormatString{
