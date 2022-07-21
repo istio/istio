@@ -2061,6 +2061,10 @@ func NewGatewayContext(ps *PushContext) GatewayContext {
 	return GatewayContext{ps}
 }
 
+func (gc GatewayContext) GetService(hostname, namespace string) *Service {
+	return gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(hostname)][namespace]
+}
+
 // ResolveGatewayInstances attempts to resolve all instances that a gateway will be exposed on.
 // Note: this function considers *all* instances of the service; its possible those instances will not actually be properly functioning
 // gateways, so this is not 100% accurate, but sufficient to expose intent to users.
