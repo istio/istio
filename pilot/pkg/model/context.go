@@ -873,7 +873,6 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 	}
 
 	// Fallback to get the workload labels from node meta
-	return
 }
 
 // DiscoverIPMode discovers the IP Versions supported by Proxy based on its IP addresses.
