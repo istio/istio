@@ -250,8 +250,6 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
-			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
 			if features.EnableUnsafeDeltaTest {
 				conn.proxy.WatchedResources[res.TypeUrl].LastResources = applyDelta(conn.proxy.WatchedResources[res.TypeUrl].LastResources, res)
 			}
@@ -323,11 +321,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		if s.StatusGen != nil {
 			s.StatusGen.OnNack(con.proxy, deltaToSotwRequest(request))
 		}
-		con.proxy.Lock()
-		if w, f := con.proxy.WatchedResources[request.TypeUrl]; f {
-			w.NonceNacked = request.ResponseNonce
-		}
-		con.proxy.Unlock()
 		return false
 	}
 
@@ -375,9 +368,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		deltaLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
-		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
-		con.proxy.Unlock()
 		return false
 	}
 
@@ -387,7 +377,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
 	deltaResources := deltaWatchedResources(previousResources, request)
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
-	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaResources
 	alwaysRespond := previousInfo.AlwaysRespond
 	previousInfo.AlwaysRespond = false

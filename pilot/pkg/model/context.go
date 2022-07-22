@@ -341,10 +341,6 @@ type WatchedResource struct {
 	// For Delta Xds, all resources of the TypeUrl that a client has subscribed to.
 	ResourceNames []string
 
-	// VersionSent is the version of the resource included in the last sent response.
-	// It corresponds to the [Cluster/Route/Listener]VersionSent in the XDS package.
-	VersionSent string
-
 	// NonceSent is the nonce sent in the last sent response. If it is equal with NonceAcked, the
 	// last message has been processed. If empty: we never sent a message of this type.
 	NonceSent string
@@ -352,18 +348,12 @@ type WatchedResource struct {
 	// NonceAcked is the last acked message.
 	NonceAcked string
 
-	// NonceNacked is the last nacked message. This is reset following a successful ACK
-	NonceNacked string
-
 	// AlwaysRespond, if true, will ensure that even when a request would otherwise be treated as an
 	// ACK, it will be responded to. This typically happens when a proxy reconnects to another instance of
 	// Istiod. In that case, Envoy expects us to respond to EDS/RDS/SDS requests to finish warming of
 	// clusters/listeners.
 	// Typically, this should be set to 'false' after response; keeping it true would likely result in an endless loop.
 	AlwaysRespond bool
-
-	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
-	LastSent time.Time
 
 	// LastResources tracks the contents of the last push.
 	// This field is extremely expensive to maintain and is typically disabled
