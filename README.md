@@ -44,6 +44,9 @@ kubectl apply -f local_test_utils/samples/
 ## New Test
 
 ```shell
+# Label the default namespace to make it part of the mesh
+kubectl label namespace default istio.io/dataplane-mode=ambient
+
 kubectl exec -it deploy/sleep -- curl http://helloworld:5000/hello
 
 # In a separate shell, start an interactive session on the client pod
