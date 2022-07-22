@@ -58,7 +58,7 @@ type KubernetesResources struct {
 
 	// Domain for the cluster. Typically, cluster.local
 	Domain  string
-	Context model.GatewayContext
+	Context GatewayContext
 }
 
 type AllowedReferences map[Reference]map[Reference]*ReferenceAllowance
