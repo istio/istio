@@ -859,11 +859,17 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 	node.ServiceInstances = instances
 }
 
-// SetWorkloadLabels will set the node.Metadata.Labels to workload labels.
+// SetWorkloadLabels will set the node.Metadata.Labels.
+// It merges both node meta labels and workload labels and give preference to workload labels.
 func (node *Proxy) SetWorkloadLabels(env *Environment) {
 	labels := env.GetProxyWorkloadLabels(node)
 	if len(labels) > 0 {
-		node.Metadata.Labels = make(map[string]string, len(labels))
+		if node.Metadata.Labels == nil {
+			node.Metadata.Labels = make(map[string]string)
+		}
+		// we can not make workload labels override node meta labels as it may be customized by user
+		// with `ISTIO_METAJSON_LABELS` env.
+		// TODO: handle labels remove
 		for k, v := range labels {
 			node.Metadata.Labels[k] = v
 		}
