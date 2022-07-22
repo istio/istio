@@ -38,7 +38,7 @@ tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --pus
 CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
   --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0
 
-kubectl apply -f local_test_utils/samples/
+kubectl apply -f local-test-utils/samples/
 ```
 
 ## New Test
