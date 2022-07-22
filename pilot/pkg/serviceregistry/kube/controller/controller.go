@@ -384,7 +384,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			})
 		}
 	})
-	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, nil)
+	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)

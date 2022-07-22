@@ -665,9 +665,9 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest, skipLabels bool) {
+	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
 	if !skipLabels {
 		proxy.SetWorkloadLabels(s.Env)
-		proxy.SetServiceInstances(s.Env.ServiceDiscovery)
 		setTopologyLabels(proxy)
 	}
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
@@ -742,8 +742,9 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
 	if pushRequest.Full {
+		skipLabel := !pushRequest.IsProxyUpdate()
 		// Update Proxy with current information.
-		s.computeProxyState(con.proxy, pushRequest, false)
+		s.computeProxyState(con.proxy, pushRequest, skipLabel)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
