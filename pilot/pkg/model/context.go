@@ -862,9 +862,11 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 // SetWorkloadLabels will set the node.Metadata.Labels to workload labels.
 func (node *Proxy) SetWorkloadLabels(env *Environment) {
 	labels := env.GetProxyWorkloadLabels(node)
-	node.Metadata.Labels = make(map[string]string)
-	for k, v := range labels {
-		node.Metadata.Labels[k] = v
+	if len(labels) > 0 {
+		node.Metadata.Labels = make(map[string]string, len(labels))
+		for k, v := range labels {
+			node.Metadata.Labels[k] = v
+		}
 	}
 }
 
