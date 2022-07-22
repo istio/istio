@@ -36,10 +36,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-const (
-	appContainerName = "app"
-)
-
 var _ echo.Workload = &workload{}
 
 type workloadConfig struct {

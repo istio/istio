@@ -22,6 +22,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -155,9 +156,10 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 										if expected == nil {
 											expected = apps.C
 										}
-
-										return verifyTrafficMirror(apps.B, expected, c, testID)
-									}, echo.DefaultCallRetryOptions()...)
+										return retry.UntilSuccess(func() error {
+											return verifyTrafficMirror(apps.B, expected, c, testID)
+										}, []retry.Option{retry.Timeout(20 * time.Second), retry.BackoffDelay(10 * time.Millisecond), retry.Converge(2)}...)
+									}, []retry.Option{retry.Timeout(60 * time.Second), retry.BackoffDelay(10 * time.Millisecond), retry.Converge(2)}...)
 								})
 							}
 						})
