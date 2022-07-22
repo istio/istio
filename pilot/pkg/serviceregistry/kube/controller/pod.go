@@ -121,7 +121,7 @@ func (pc *PodCache) labelFilter(old, cur interface{}) bool {
 		pc.proxyUpdates(curPod.Status.PodIP)
 	}
 
-	// continue processing
+	// always continue calling pc.onEvent
 	return false
 }
 
