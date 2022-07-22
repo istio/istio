@@ -30,7 +30,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -61,7 +61,7 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 }
 
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
-func ExtractSecretResources(t test.Failer, rs []*any.Any) []string {
+func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
 	resourceNames := sets.New()
 	for _, r := range rs {
 		switch r.TypeUrl {
@@ -317,7 +317,7 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 	return res
 }
 
-func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret {
+func ExtractTLSSecrets(t test.Failer, secrets []*anypb.Any) map[string]*tls.Secret {
 	res := map[string]*tls.Secret{}
 	for _, a := range secrets {
 		scrt := &tls.Secret{}
@@ -329,7 +329,7 @@ func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret
 	return res
 }
 
-func UnmarshalRouteConfiguration(t test.Failer, resp []*any.Any) []*route.RouteConfiguration {
+func UnmarshalRouteConfiguration(t test.Failer, resp []*anypb.Any) []*route.RouteConfiguration {
 	un := make([]*route.RouteConfiguration, 0, len(resp))
 	for _, r := range resp {
 		u := &route.RouteConfiguration{}
@@ -341,7 +341,7 @@ func UnmarshalRouteConfiguration(t test.Failer, resp []*any.Any) []*route.RouteC
 	return un
 }
 
-func UnmarshalClusterLoadAssignment(t test.Failer, resp []*any.Any) []*endpoint.ClusterLoadAssignment {
+func UnmarshalClusterLoadAssignment(t test.Failer, resp []*anypb.Any) []*endpoint.ClusterLoadAssignment {
 	un := make([]*endpoint.ClusterLoadAssignment, 0, len(resp))
 	for _, r := range resp {
 		u := &endpoint.ClusterLoadAssignment{}
@@ -368,7 +368,7 @@ func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
 	if len(slice) == 0 {
 		return &discovery.DiscoveryResponse{}
 	}
-	resources := make([]*any.Any, 0, len(slice))
+	resources := make([]*anypb.Any, 0, len(slice))
 	for _, v := range slice {
 		resources = append(resources, protoconv.MessageToAny(v.(proto.Message)))
 	}

@@ -23,7 +23,7 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"go.uber.org/atomic"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -32,7 +32,7 @@ import (
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
 // It downloads the Wasm module and stores the module locally in the file system.
-func MaybeConvertWasmExtensionConfig(resources []*any.Any, cache Cache) bool {
+func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
 	var wg sync.WaitGroup
 	numResources := len(resources)
 	wg.Add(numResources)
@@ -59,7 +59,7 @@ func MaybeConvertWasmExtensionConfig(resources []*any.Any, cache Cache) bool {
 	return sendNack.Load()
 }
 
-func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendNack bool) {
+func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, sendNack bool) {
 	ec := &core.TypedExtensionConfig{}
 	newExtensionConfig = resource
 	sendNack = false
@@ -184,7 +184,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 		},
 	}
 
-	wasmTypedConfig, err := any.New(wasmHTTPFilterConfig)
+	wasmTypedConfig, err := anypb.New(wasmHTTPFilterConfig)
 	if err != nil {
 		status = marshalFailure
 		wasmLog.Errorf("failed to marshal new wasm HTTP filter %+v to protobuf Any: %v", wasmHTTPFilterConfig, err)
@@ -193,7 +193,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	ec.TypedConfig = wasmTypedConfig
 	wasmLog.Debugf("new extension config resource %+v", ec)
 
-	nec, err := any.New(ec)
+	nec, err := anypb.New(ec)
 	if err != nil {
 		status = marshalFailure
 		wasmLog.Errorf("failed to marshal new extension config resource: %v", err)

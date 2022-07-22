@@ -17,7 +17,7 @@ package configdump
 import (
 	"fmt"
 
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 type configTypeURL string
@@ -33,8 +33,8 @@ const (
 )
 
 // getSection takes a TypeURL and returns the types.Any from the config dump corresponding to that URL
-func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (*any.Any, error) {
-	var dumpAny *any.Any
+func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (*anypb.Any, error) {
+	var dumpAny *anypb.Any
 	for _, conf := range w.Configs {
 		if conf.TypeUrl == string(sectionTypeURL) {
 			dumpAny = conf

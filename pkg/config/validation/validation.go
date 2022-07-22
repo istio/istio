@@ -35,7 +35,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
@@ -927,7 +927,7 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 	message.Range(func(descriptor protoreflect.FieldDescriptor, value protoreflect.Value) bool {
 		m, isMessage := value.Interface().(protoreflect.Message)
 		if isMessage {
-			anyMessage, isAny := m.Interface().(*any.Any)
+			anyMessage, isAny := m.Interface().(*anypb.Any)
 			if isAny {
 				mt, err := protoregistry.GlobalTypes.FindMessageByURL(anyMessage.TypeUrl)
 				if err != nil {

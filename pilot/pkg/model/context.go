@@ -29,7 +29,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -191,7 +191,7 @@ type Resources = []*discovery.Resource
 // DeletedResources is an alias for array of strings that represent removed resources in delta.
 type DeletedResources = []string
 
-func AnyToUnnamedResources(r []*any.Any) Resources {
+func AnyToUnnamedResources(r []*anypb.Any) Resources {
 	a := make(Resources, 0, len(r))
 	for _, rr := range r {
 		a = append(a, &discovery.Resource{Resource: rr})
@@ -199,8 +199,8 @@ func AnyToUnnamedResources(r []*any.Any) Resources {
 	return a
 }
 
-func ResourcesToAny(r Resources) []*any.Any {
-	a := make([]*any.Any, 0, len(r))
+func ResourcesToAny(r Resources) []*anypb.Any {
+	a := make([]*anypb.Any, 0, len(r))
 	for _, rr := range r {
 		a = append(a, rr.Resource)
 	}
