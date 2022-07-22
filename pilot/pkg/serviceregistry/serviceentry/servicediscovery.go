@@ -507,7 +507,11 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		} else {
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
 		}
-		if se.Resolution == networking.ServiceEntry_DNS && se.WorkloadSelector != nil {
+		// If serviceentry's resolution is DNS, make a full push
+		// TODO: maybe cds?
+		if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
+			se.WorkloadSelector != nil {
+
 			fullPush = true
 			for _, inst := range instance {
 				configsUpdated[model.ConfigKey{
