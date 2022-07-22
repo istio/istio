@@ -50,11 +50,11 @@ func (q *pq) Swap(i, j int) {
 	(*q)[i], (*q)[j] = (*q)[j], (*q)[i]
 }
 
-func (q *pq) Push(x interface{}) {
+func (q *pq) Push(x any) {
 	*q = append(*q, x.(*delayTask))
 }
 
-func (q *pq) Pop() interface{} {
+func (q *pq) Pop() any {
 	old := *q
 	n := len(old)
 	c := cap(old)
@@ -74,7 +74,7 @@ func (q *pq) Pop() interface{} {
 }
 
 // Peek is not managed by the container/heap package, so we return the 0th element in the list.
-func (q *pq) Peek() interface{} {
+func (q *pq) Peek() any {
 	if q.Len() < 1 {
 		return nil
 	}

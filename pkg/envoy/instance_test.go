@@ -483,7 +483,7 @@ func absPath(path string) string {
 
 func newBootstrapFile(t *testing.T, tempDir string, adminPort, listenerPort uint16) string {
 	t.Helper()
-	data := map[string]interface{}{
+	data := map[string]any{
 		"nodeID":       t.Name(),
 		"cluster":      t.Name(),
 		"localhost":    "127.0.0.1",

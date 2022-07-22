@@ -102,7 +102,7 @@ func (cr *store) List(kind config.GroupVersionKind, namespace string) ([]config.
 	out := make([]config.Config, 0, len(cr.data[kind]))
 	if namespace == "" {
 		for _, ns := range data {
-			ns.Range(func(key, value interface{}) bool {
+			ns.Range(func(key, value any) bool {
 				out = append(out, value.(config.Config))
 				return true
 			})
@@ -112,7 +112,7 @@ func (cr *store) List(kind config.GroupVersionKind, namespace string) ([]config.
 		if !exists {
 			return nil, nil
 		}
-		ns.Range(func(key, value interface{}) bool {
+		ns.Range(func(key, value any) bool {
 			out = append(out, value.(config.Config))
 			return true
 		})

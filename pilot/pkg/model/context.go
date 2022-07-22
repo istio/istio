@@ -472,7 +472,7 @@ type Node struct {
 	// Metadata is the typed node metadata
 	Metadata *BootstrapNodeMetadata
 	// RawMetadata is the untyped node metadata
-	RawMetadata map[string]interface{}
+	RawMetadata map[string]any
 	// Locality from Envoy bootstrap
 	Locality *core.Locality
 }
@@ -648,7 +648,7 @@ type NodeMetadata struct {
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
-	Raw map[string]interface{} `json:"-"`
+	Raw map[string]any `json:"-"`
 }
 
 // ProxyConfigOrDefault is a helper function to get the ProxyConfig from metadata, or fallback to a default
@@ -688,7 +688,7 @@ func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, t2); err != nil {
 		return err
 	}
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}

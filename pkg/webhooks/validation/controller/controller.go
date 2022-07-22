@@ -138,7 +138,7 @@ func filterWatchedObject(obj metav1.Object) (skip bool, key string) {
 
 func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.ResourceEventHandlerFuncs {
 	return &cache.ResourceEventHandlerFuncs{
-		AddFunc: func(curr interface{}) {
+		AddFunc: func(curr any) {
 			obj, err := meta.Accessor(curr)
 			if err != nil {
 				return
@@ -155,7 +155,7 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.
 			}
 			queue.Add(req)
 		},
-		UpdateFunc: func(prev, curr interface{}) {
+		UpdateFunc: func(prev, curr any) {
 			currObj, err := meta.Accessor(curr)
 			if err != nil {
 				return

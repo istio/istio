@@ -69,7 +69,7 @@ type TestingM interface {
 
 type TestingTB interface {
 	Cleanup(func())
-	Errorf(format string, args ...interface{})
+	Errorf(format string, args ...any)
 }
 
 var gracePeriod = time.Second * 5
@@ -160,10 +160,10 @@ func CheckMain(m TestingM) {
 
 // MustGarbageCollect asserts than an object was garbage collected by the end of the test.
 // The input must be a pointer to an object.
-func MustGarbageCollect(tb test.Failer, i interface{}) {
+func MustGarbageCollect(tb test.Failer, i any) {
 	tb.Helper()
 	collected := atomic.NewBool(false)
-	runtime.SetFinalizer(i, func(x interface{}) {
+	runtime.SetFinalizer(i, func(x any) {
 		collected.Store(true)
 	})
 	tb.Cleanup(func() {

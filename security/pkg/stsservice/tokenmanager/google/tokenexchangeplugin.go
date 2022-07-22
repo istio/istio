@@ -478,7 +478,7 @@ func (p *Plugin) generateSTSRespInner(token string, expire int64) ([]byte, error
 // DumpTokenStatus dumps all token status in JSON
 func (p *Plugin) DumpPluginStatus() ([]byte, error) {
 	tokenStatus := make([]stsservice.TokenInfo, 0)
-	p.tokens.Range(func(k interface{}, v interface{}) bool {
+	p.tokens.Range(func(k any, v any) bool {
 		token := v.(stsservice.TokenInfo)
 		tokenStatus = append(tokenStatus, stsservice.TokenInfo{
 			TokenType: token.TokenType, IssueTime: token.IssueTime, ExpireTime: token.ExpireTime,

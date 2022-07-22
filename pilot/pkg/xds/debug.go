@@ -622,7 +622,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		wasmCfgs := make([]interface{}, 0, len(resource))
+		wasmCfgs := make([]any, 0, len(resource))
 		for _, rr := range resource {
 			if w, err := unmarshalToWasm(rr); err != nil {
 				istiolog.Warnf("failed to unmarshal wasm: %v", err)
@@ -635,7 +635,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
+func unmarshalToWasm(r *discovery.Resource) (any, error) {
 	tce := &core.TypedExtensionConfig{}
 	if err := r.GetResource().UnmarshalTo(tce); err != nil {
 		return nil, err
@@ -1117,7 +1117,7 @@ func (p jsonMarshalProto) MarshalJSON() ([]byte, error) {
 }
 
 // writeJSON writes a json payload, handling content type, marshaling, and errors
-func writeJSON(w http.ResponseWriter, obj interface{}, req *http.Request) {
+func writeJSON(w http.ResponseWriter, obj any, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var b []byte
 	var err error

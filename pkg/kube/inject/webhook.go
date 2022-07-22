@@ -269,7 +269,7 @@ func ParseTemplates(tmpls RawTemplates) (Templates, error) {
 type ValuesConfig struct {
 	raw      string
 	asStruct *opconfig.Values
-	asMap    map[string]interface{}
+	asMap    map[string]any
 }
 
 func NewValuesConfig(v string) (ValuesConfig, error) {
@@ -280,7 +280,7 @@ func NewValuesConfig(v string) (ValuesConfig, error) {
 	}
 	c.asStruct = valuesStruct
 
-	values := map[string]interface{}{}
+	values := map[string]any{}
 	if err := yaml.Unmarshal([]byte(v), &values); err != nil {
 		return c, fmt.Errorf("could not parse configuration values: %v", err)
 	}
@@ -760,12 +760,12 @@ func applyInitContainer(target *corev1.Pod, container corev1.Container) (*corev1
 	return applyOverlay(target, overlayJSON)
 }
 
-func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v interface{}) error) (map[string]interface{}, error) {
+func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v any) error) (map[string]any, error) {
 	if j == nil {
 		j = []byte("{}")
 	}
 
-	m := map[string]interface{}{}
+	m := map[string]any{}
 	err := unmarshal(j, &m)
 	if err != nil {
 		return nil, mergepatch.ErrBadJSONDoc
@@ -775,7 +775,7 @@ func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v interface{}) e
 
 // StrategicMergePatchYAML is a small fork of strategicpatch.StrategicMergePatch to allow YAML patches
 // This avoids expensive conversion from YAML to JSON
-func StrategicMergePatchYAML(originalJSON []byte, patchYAML []byte, dataStruct interface{}) ([]byte, error) {
+func StrategicMergePatchYAML(originalJSON []byte, patchYAML []byte, dataStruct any) ([]byte, error) {
 	schema, err := strategicpatch.NewPatchMetaFromStruct(dataStruct)
 	if err != nil {
 		return nil, err
@@ -785,7 +785,7 @@ func StrategicMergePatchYAML(originalJSON []byte, patchYAML []byte, dataStruct i
 	if err != nil {
 		return nil, err
 	}
-	patchMap, err := patchHandleUnmarshal(patchYAML, func(data []byte, v interface{}) error {
+	patchMap, err := patchHandleUnmarshal(patchYAML, func(data []byte, v any) error {
 		return yaml.Unmarshal(data, v)
 	})
 	if err != nil {

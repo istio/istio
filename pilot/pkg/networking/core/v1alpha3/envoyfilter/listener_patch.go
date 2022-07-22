@@ -41,7 +41,7 @@ func ApplyListenerPatches(
 	listeners []*xdslistener.Listener,
 	skipAdds bool,
 ) (out []*xdslistener.Listener) {
-	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Listener)
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})

@@ -84,7 +84,7 @@ func RegisterEchoTestServiceServer(s grpc.ServiceRegistrar, srv EchoTestServiceS
 	s.RegisterService(&EchoTestService_ServiceDesc, srv)
 }
 
-func _EchoTestService_Echo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _EchoTestService_Echo_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(EchoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -96,13 +96,13 @@ func _EchoTestService_Echo_Handler(srv interface{}, ctx context.Context, dec fun
 		Server:     srv,
 		FullMethod: "/proto.EchoTestService/Echo",
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(EchoTestServiceServer).Echo(ctx, req.(*EchoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _EchoTestService_ForwardEcho_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _EchoTestService_ForwardEcho_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(ForwardEchoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func _EchoTestService_ForwardEcho_Handler(srv interface{}, ctx context.Context, 
 		Server:     srv,
 		FullMethod: "/proto.EchoTestService/ForwardEcho",
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(EchoTestServiceServer).ForwardEcho(ctx, req.(*ForwardEchoRequest))
 	}
 	return interceptor(ctx, in, info, handler)

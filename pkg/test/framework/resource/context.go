@@ -34,7 +34,7 @@ type Context interface {
 	// For a slice pointer, the matching resources from this scope and its parent(s) will be appended.
 	// If ref is not a pointer, an error will be returned.
 	// If there is no match for a non-slice pointer, an error will be returned.
-	GetResource(ref interface{}) error
+	GetResource(ref any) error
 
 	// The Environment in which the tests run
 	Environment() Environment
@@ -78,7 +78,7 @@ type Context interface {
 	ConfigIstio() config.Factory
 
 	// RecordTraceEvent records an event. This is later saved to trace.yaml for analysis
-	RecordTraceEvent(key string, value interface{})
+	RecordTraceEvent(key string, value any)
 	// Id returns the name of the context
 	ID() string
 }

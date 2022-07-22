@@ -49,7 +49,7 @@ var (
 )
 
 type Printer interface {
-	Printf(format string, a ...interface{})
+	Printf(format string, a ...any)
 	Println(string)
 }
 
@@ -61,7 +61,7 @@ type writerPrinter struct {
 	writer io.Writer
 }
 
-func (w *writerPrinter) Printf(format string, a ...interface{}) {
+func (w *writerPrinter) Printf(format string, a ...any) {
 	_, _ = fmt.Fprintf(w.writer, format, a...)
 }
 

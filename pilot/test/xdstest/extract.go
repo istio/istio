@@ -363,7 +363,7 @@ func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*c
 	return res
 }
 
-func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
+func ToDiscoveryResponse(p any) *discovery.DiscoveryResponse {
 	slice := InterfaceSlice(p)
 	if len(slice) == 0 {
 		return &discovery.DiscoveryResponse{}
@@ -378,13 +378,13 @@ func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
 	}
 }
 
-func InterfaceSlice(slice interface{}) []interface{} {
+func InterfaceSlice(slice any) []any {
 	s := reflect.ValueOf(slice)
 	if s.Kind() != reflect.Slice {
 		panic("InterfaceSlice() given a non-slice type")
 	}
 
-	ret := make([]interface{}, s.Len())
+	ret := make([]any, s.Len())
 
 	for i := 0; i < s.Len(); i++ {
 		ret[i] = s.Index(i).Interface()
@@ -394,7 +394,7 @@ func InterfaceSlice(slice interface{}) []interface{} {
 }
 
 // DumpList will dump a list of protos. To workaround go type issues, call DumpList(t, InterfaceSlice([]proto.Message))
-func DumpList(t test.Failer, protoList []interface{}) []string {
+func DumpList(t test.Failer, protoList []any) []string {
 	res := []string{}
 	for _, i := range protoList {
 		p, ok := i.(proto.Message)
@@ -418,7 +418,7 @@ func Dump(t test.Failer, p proto.Message) string {
 	return s
 }
 
-func MapKeys(mp interface{}) []string {
+func MapKeys(mp any) []string {
 	keys := reflect.ValueOf(mp).MapKeys()
 	res := []string{}
 	for _, k := range keys {

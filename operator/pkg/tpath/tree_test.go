@@ -37,7 +37,7 @@ a:
 	tests := []struct {
 		desc      string
 		path      string
-		value     interface{}
+		value     any
 		want      string
 		wantFound bool
 		wantErr   string
@@ -333,7 +333,7 @@ a: {}
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			root := make(map[string]interface{})
+			root := make(map[string]any)
 			if err := yaml.Unmarshal([]byte(rootYAML), &root); err != nil {
 				t.Fatal(err)
 			}
@@ -574,7 +574,7 @@ a:
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			root := make(map[string]interface{})
+			root := make(map[string]any)
 			if tt.baseYAML != "" {
 				if err := yaml.Unmarshal([]byte(tt.baseYAML), &root); err != nil {
 					t.Fatal(err)
@@ -648,14 +648,14 @@ a:
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			root := make(map[string]interface{})
+			root := make(map[string]any)
 			if tt.baseYAML != "" {
 				if err := yaml.Unmarshal([]byte(tt.baseYAML), &root); err != nil {
 					t.Fatal(err)
 				}
 			}
 			p := util.PathFromString(tt.path)
-			iv := make(map[string]interface{})
+			iv := make(map[string]any)
 			err := yaml.Unmarshal([]byte(tt.value), &iv)
 			if err != nil {
 				t.Fatal(err)
@@ -689,13 +689,13 @@ values:
       istio-egressgateway:
          secretVolumes: []
 `
-	root := make(map[string]interface{})
+	root := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(rootYAML), &root); err != nil {
 		t.Fatal(err)
 	}
 	overrides := []struct {
 		path  string
-		value interface{}
+		value any
 	}{
 		{
 			path:  "values.gateways.istio-egressgateway.secretVolumes[0].name",
@@ -794,7 +794,7 @@ values:
 	tests := []struct {
 		desc      string
 		path      string
-		value     interface{}
+		value     any
 		want      string
 		wantFound bool
 		wantErr   string
@@ -814,7 +814,7 @@ values:
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			root := make(map[string]interface{})
+			root := make(map[string]any)
 			if err := yaml.Unmarshal([]byte(rootYAML), &root); err != nil {
 				t.Fatal(err)
 			}

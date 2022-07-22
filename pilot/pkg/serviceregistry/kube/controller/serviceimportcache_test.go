@@ -545,7 +545,7 @@ func newServiceImport(importType mcsapi.ServiceImportType, vips []string) *unstr
 	return toUnstructured(si)
 }
 
-func toUnstructured(o interface{}) *unstructured.Unstructured {
+func toUnstructured(o any) *unstructured.Unstructured {
 	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
 	if err != nil {
 		panic(err)

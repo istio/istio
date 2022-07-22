@@ -226,7 +226,7 @@ func (wc *WebhookController) upsertSecret(secretName, dnsName, secretNamespace s
 	return nil
 }
 
-func (wc *WebhookController) scrtDeleted(obj interface{}) {
+func (wc *WebhookController) scrtDeleted(obj any) {
 	log.Debugf("enter WebhookController.scrtDeleted()")
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
@@ -252,7 +252,7 @@ func (wc *WebhookController) scrtDeleted(obj interface{}) {
 
 // scrtUpdated() is the callback function for update event. It handles
 // the certificate rotations.
-func (wc *WebhookController) scrtUpdated(oldObj, newObj interface{}) {
+func (wc *WebhookController) scrtUpdated(oldObj, newObj any) {
 	log.Debugf("enter WebhookController.scrtUpdated()")
 	scrt, ok := newObj.(*v1.Secret)
 	if !ok {

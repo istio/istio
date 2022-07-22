@@ -188,7 +188,7 @@ func (l *lruCache) recordDependentConfigSize() {
 }
 
 // This is the callback passed to LRU, it will be called whenever a key is removed.
-func (l *lruCache) onEvict(k interface{}, v interface{}) {
+func (l *lruCache) onEvict(k any, v any) {
 	if features.EnableXDSCacheMetrics {
 		if l.evictedOnClear {
 			xdsCacheEvictsionsOnClear.Increment()

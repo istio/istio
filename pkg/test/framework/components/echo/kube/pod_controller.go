@@ -55,12 +55,12 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 		})
 	q := queue.NewQueue(1 * time.Second)
 	_, informer := cache.NewInformer(podListWatch, &kubeCore.Pod{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj interface{}) {
+		AddFunc: func(newObj any) {
 			q.Push(func() error {
 				return handlers.added(newObj.(*kubeCore.Pod))
 			})
 		},
-		UpdateFunc: func(old, cur interface{}) {
+		UpdateFunc: func(old, cur any) {
 			q.Push(func() error {
 				oldObj := old.(metav1.Object)
 				newObj := cur.(metav1.Object)
@@ -71,7 +71,7 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 				return nil
 			})
 		},
-		DeleteFunc: func(curr interface{}) {
+		DeleteFunc: func(curr any) {
 			q.Push(func() error {
 				pod, ok := curr.(*kubeCore.Pod)
 				if !ok {
