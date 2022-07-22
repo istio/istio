@@ -227,7 +227,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	// but proxy's SidecarScope has been updated(s.updateProxy) due to optimizations that skip sidecar scope
 	// computation.
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
-		s.computeProxyState(con.proxy, request)
+		s.computeProxyState(con.proxy, request, true)
 	}
 	return s.pushXds(con, con.Watched(req.TypeUrl), request)
 }
@@ -563,7 +563,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	defer close(con.initialized)
 
 	// Complete full initialization of the proxy
-	if err := s.initializeProxy(node, con); err != nil {
+	if err := s.initializeProxy(con); err != nil {
 		s.closeConnection(con)
 		return err
 	}
@@ -651,7 +651,7 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.connectedAt); err != nil {
 		return err
 	}
-	s.computeProxyState(proxy, nil)
+	s.computeProxyState(proxy, nil, false)
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
 	proxy.DiscoverIPMode()
 
@@ -664,14 +664,12 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 	return nil
 }
 
-func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushRequest) {
-	s.computeProxyState(proxy, request)
-}
-
-func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
-	proxy.SetWorkloadLabels(s.Env)
-	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
-	setTopologyLabels(proxy)
+func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest, skipLabels bool) {
+	if !skipLabels {
+		proxy.SetWorkloadLabels(s.Env)
+		proxy.SetServiceInstances(s.Env.ServiceDiscovery)
+		setTopologyLabels(proxy)
+	}
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
@@ -745,7 +743,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		s.updateProxy(con.proxy, pushRequest)
+		s.computeProxyState(con.proxy, pushRequest, false)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {

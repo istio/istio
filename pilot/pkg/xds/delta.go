@@ -155,7 +155,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		s.updateProxy(con.proxy, pushRequest)
+		s.computeProxyState(con.proxy, pushRequest, false)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
@@ -303,7 +303,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but before proxy's SidecarScope has been updated(s.updateProxy).
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
-		s.computeProxyState(con.proxy, request)
+		s.computeProxyState(con.proxy, request, false)
 	}
 	return s.pushDeltaXds(con, con.Watched(req.TypeUrl), request)
 }
