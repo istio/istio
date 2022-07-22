@@ -1056,8 +1056,8 @@ func runSimulationTest(t *testing.T, proxy *model.Proxy, o xds.FakeOptions, tt s
 		if t.Failed() && debugMode {
 			t.Log(xdstest.MapKeys(xdstest.ExtractClusters(sim.Clusters)))
 			t.Log(xdstest.ExtractListenerNames(sim.Listeners))
-			t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Listeners)))
-			t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Routes)))
+			t.Log(xdstest.DumpList(t, sim.Listeners))
+			t.Log(xdstest.DumpList(t, sim.Routes))
 			t.Log(tt.config)
 			t.Log(tt.kubeConfig)
 		}
