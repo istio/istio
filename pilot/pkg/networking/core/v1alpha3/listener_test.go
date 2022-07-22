@@ -306,6 +306,30 @@ func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 		buildService("test3.com", wildcardIP, protocol.TCP, tnow.Add(2*time.Second)))
 }
 
+func TestOutboundListenerConflict_TCPWithTLS(t *testing.T) {
+	run := func(t *testing.T, s []*model.Service) {
+		proxy := getProxy()
+		proxy.DiscoverIPMode()
+		listeners := buildOutboundListeners(t, getProxy(), nil, nil, s...)
+		if len(listeners) != 1 {
+			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+		}
+		listenertest.VerifyListener(t, listeners[0], listenertest.ListenerTest{Filters: []string{wellknown.TlsInspector}})
+	}
+	t.Run("tcp older", func(t *testing.T) {
+		run(t, []*model.Service{
+			buildService("test1.com", wildcardIP, protocol.TCP, tnow.Add(-1*time.Second)),
+			buildService("test2.com", wildcardIP, protocol.TLS, tnow),
+		})
+	})
+	t.Run("tls older", func(t *testing.T) {
+		run(t, []*model.Service{
+			buildService("test2.com", wildcardIP, protocol.TLS, tnow),
+			buildService("test1.com", wildcardIP, protocol.TCP, tnow.Add(1*time.Second)),
+		})
+	})
+}
+
 func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	services := []*model.Service{
 		buildService("test1.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
