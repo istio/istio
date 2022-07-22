@@ -27,7 +27,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 func TestRetry(t *testing.T) {
@@ -206,7 +206,7 @@ func TestRetry(t *testing.T) {
 				expected := &envoyroute.RetryPolicy_RetryPriority{
 					Name: "envoy.retry_priorities.previous_priorities",
 					ConfigType: &envoyroute.RetryPolicy_RetryPriority_TypedConfig{
-						TypedConfig: util.MessageToAny(previousPrioritiesConfig),
+						TypedConfig: protoconv.MessageToAny(previousPrioritiesConfig),
 					},
 				}
 				if !reflect.DeepEqual(policy.RetryPriority, expected) {

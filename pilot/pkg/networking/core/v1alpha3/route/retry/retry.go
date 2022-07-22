@@ -24,11 +24,11 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
 
-var defaultRetryPriorityTypedConfig = util.MessageToAny(buildPreviousPrioritiesConfig())
+var defaultRetryPriorityTypedConfig = protoconv.MessageToAny(buildPreviousPrioritiesConfig())
 
 // DefaultPolicy gets a copy of the default retry policy.
 func DefaultPolicy() *route.RetryPolicy {

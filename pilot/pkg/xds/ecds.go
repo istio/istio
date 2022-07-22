@@ -23,7 +23,7 @@ import (
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
@@ -111,7 +111,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	for _, c := range ec {
 		resources = append(resources, &discovery.Resource{
 			Name:     c.Name,
-			Resource: util.MessageToAny(c),
+			Resource: protoconv.MessageToAny(c),
 		})
 	}
 

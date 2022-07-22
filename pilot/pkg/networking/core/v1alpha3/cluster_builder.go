@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	istio_cluster "istio.io/istio/pkg/cluster"
@@ -59,7 +60,7 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
 // revive:disable-next-line
-var passthroughHttpProtocolOptions = util.MessageToAny(&http.HttpProtocolOptions{
+var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOptions{
 	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
 			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
@@ -916,7 +917,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 	if tlsContext != nil {
 		c.cluster.TransportSocket = &core.TransportSocket{
 			Name:       wellknown.TransportSocketTls,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
 	}
 
@@ -1229,7 +1230,7 @@ func (mc *MutableCluster) build() *cluster.Cluster {
 			}
 		}
 		mc.cluster.TypedExtensionProtocolOptions = map[string]*any.Any{
-			v3.HttpProtocolOptionsType: util.MessageToAny(mc.httpProtocolOptions),
+			v3.HttpProtocolOptionsType: protoconv.MessageToAny(mc.httpProtocolOptions),
 		}
 	}
 	return mc.cluster

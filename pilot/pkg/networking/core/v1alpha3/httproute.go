@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -75,7 +76,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 				}
 				rc = &discovery.Resource{
 					Name:     routeName,
-					Resource: util.MessageToAny(emptyRoute),
+					Resource: protoconv.MessageToAny(emptyRoute),
 				}
 			}
 			routeConfigurations = append(routeConfigurations, rc)
@@ -87,7 +88,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, efw, rc)
 				resource := &discovery.Resource{
 					Name:     routeName,
-					Resource: util.MessageToAny(rc),
+					Resource: protoconv.MessageToAny(rc),
 				}
 				routeConfigurations = append(routeConfigurations, resource)
 			}
@@ -206,7 +207,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 
 	resource = &discovery.Resource{
 		Name:     out.Name,
-		Resource: util.MessageToAny(out),
+		Resource: protoconv.MessageToAny(out),
 	}
 
 	if features.EnableRDSCaching && routeCache != nil {

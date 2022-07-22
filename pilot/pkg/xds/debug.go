@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -710,7 +711,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 	for _, cs := range clusters {
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs.Resource})
 	}
-	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
+	clustersAny, err := protoconv.MessageToAnyWithError(&adminapi.ClustersConfigDump{
 		VersionInfo:           version,
 		DynamicActiveClusters: dynamicActiveClusters,
 	})
@@ -732,7 +733,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 			},
 		})
 	}
-	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
+	listenersAny, err := protoconv.MessageToAnyWithError(&adminapi.ListenersConfigDump{
 		VersionInfo:      version,
 		DynamicListeners: dynamicActiveListeners,
 	})
@@ -751,7 +752,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 			RouteConfig: cs.Resource,
 		})
 	}
-	routesAny, err := util.MessageToAnyWithError(&adminapi.RoutesConfigDump{
+	routesAny, err := protoconv.MessageToAnyWithError(&adminapi.RoutesConfigDump{
 		DynamicRouteConfigs: dynamicRouteConfig,
 	})
 	if err != nil {
@@ -779,10 +780,10 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 		}
 		dynamicSecretsConfig = append(dynamicSecretsConfig, &adminapi.SecretsConfigDump_DynamicSecret{
 			VersionInfo: version,
-			Secret:      util.MessageToAny(secret),
+			Secret:      protoconv.MessageToAny(secret),
 		})
 	}
-	secretsAny, err := util.MessageToAnyWithError(&adminapi.SecretsConfigDump{
+	secretsAny, err := protoconv.MessageToAnyWithError(&adminapi.SecretsConfigDump{
 		DynamicActiveSecrets: dynamicSecretsConfig,
 	})
 	if err != nil {
@@ -803,7 +804,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 				EndpointConfig: cs.Resource,
 			})
 		}
-		endpointsAny, err = util.MessageToAnyWithError(&adminapi.EndpointsConfigDump{
+		endpointsAny, err = protoconv.MessageToAnyWithError(&adminapi.EndpointsConfigDump{
 			DynamicEndpointConfigs: endpointConfig,
 		})
 		if err != nil {
@@ -811,8 +812,8 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 		}
 	}
 
-	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
-	scopedRoutesAny := util.MessageToAny(&adminapi.ScopedRoutesConfigDump{})
+	bootstrapAny := protoconv.MessageToAny(&adminapi.BootstrapConfigDump{})
+	scopedRoutesAny := protoconv.MessageToAny(&adminapi.ScopedRoutesConfigDump{})
 	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
 	configs := []*any.Any{

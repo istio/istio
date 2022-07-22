@@ -35,6 +35,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/xds"
@@ -799,7 +800,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 
 			f := &hcm.HttpFilter{
 				Name:       xds.StatsFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
@@ -817,7 +818,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 
 			f := &hcm.HttpFilter{
 				Name:       xds.StackdriverFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		default:
@@ -848,7 +849,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 
 			f := &listener.Filter{
 				Name:       xds.StatsFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
@@ -866,7 +867,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 
 			f := &listener.Filter{
 				Name:       xds.StackdriverFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		default:
@@ -977,7 +978,7 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 	// to mimic MarshalProtoNames() with configured JSON Encoder.
 	pb := &wrappers.StringValue{Value: jsonUnescaper.Replace(string(cfgJSON))}
 
-	return networking.MessageToAny(pb)
+	return protoconv.MessageToAny(pb)
 }
 
 var metricToPrometheusMetric = map[string]string{
@@ -1019,7 +1020,7 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 	}
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
-	return networking.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
+	return protoconv.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
 }
 
 func disableHostHeaderFallback(class networking.ListenerClass) bool {

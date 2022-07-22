@@ -26,6 +26,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/proto/merge"
@@ -527,7 +528,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 	}
 	if filter.GetTypedConfig() != nil {
 		// convert to any type
-		filter.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpconn)}
+		filter.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(httpconn)}
 	}
 }
 

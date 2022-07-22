@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -614,7 +615,7 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, &listener.Filter{
 		Name: wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 			StatPrefix:       util.BlackHoleCluster,
 			ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 		})},
@@ -672,7 +673,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	hcm := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 	})
 	return filters
 }
