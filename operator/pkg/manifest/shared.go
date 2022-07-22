@@ -575,10 +575,9 @@ func GetValueForSetFlag(setFlags []string, path string) string {
 
 // getPV returns the path and value components for the given set flag string, which must be in path=value format.
 func getPV(setFlag string) (path string, value string) {
-	pv := strings.Split(setFlag, "=")
-	if len(pv) != 2 {
-		return setFlag, ""
+	p, v, found := strings.Cut(setFlag, "=")
+	if found {
+		path, value = strings.TrimSpace(p), strings.TrimSpace(v)
 	}
-	path, value = strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1])
 	return
 }
