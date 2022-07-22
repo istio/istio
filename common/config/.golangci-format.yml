@@ -36,9 +36,15 @@ linters:
   enable:
   - goimports
   - gofumpt
+  - gci
   fast: false
 
 linters-settings:
+  gci:
+    sections:
+      - standard # Captures all standard packages if they do not match another section.
+      - default # Contains all imports that could not be matched to another section type.
+      - prefix(istio.io/) # Groups all imports with the specified Prefix.
   goimports:
     # put imports beginning with prefix after 3rd-party packages;
     # it's a comma-separated list of prefixes

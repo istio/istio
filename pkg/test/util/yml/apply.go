@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"sigs.k8s.io/yaml"
-
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/tmpl"
