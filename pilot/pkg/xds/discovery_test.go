@@ -351,8 +351,7 @@ func TestShouldRespond(t *testing.T) {
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.ClusterType: {
-							VersionSent: "v1",
-							NonceSent:   "nonce",
+							NonceSent: "nonce",
 						},
 					},
 				},
@@ -370,7 +369,6 @@ func TestShouldRespond(t *testing.T) {
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
-							VersionSent:   "v1",
 							NonceSent:     "nonce",
 							AlwaysRespond: true,
 							ResourceNames: []string{"my-resource"},
@@ -392,8 +390,7 @@ func TestShouldRespond(t *testing.T) {
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.ClusterType: {
-							VersionSent: "v1",
-							NonceSent:   "nonce",
+							NonceSent: "nonce",
 						},
 					},
 				},
@@ -425,7 +422,6 @@ func TestShouldRespond(t *testing.T) {
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
-							VersionSent:   "v1",
 							NonceSent:     "nonce",
 							ResourceNames: []string{"cluster1"},
 						},
@@ -446,7 +442,6 @@ func TestShouldRespond(t *testing.T) {
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
-							VersionSent:   "v1",
 							NonceSent:     "nonce",
 							ResourceNames: []string{"cluster2", "cluster1"},
 						},
@@ -467,7 +462,6 @@ func TestShouldRespond(t *testing.T) {
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
-							VersionSent:   "v1",
 							NonceSent:     "nonce",
 							ResourceNames: []string{"cluster2", "cluster1"},
 						},
