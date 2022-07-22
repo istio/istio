@@ -72,7 +72,7 @@ func Slice[T any](h Helper, count int, validators ...func(T) bool) []T {
 func validate[T any](h Helper, validators []func(T) bool, r T) {
 	if fz, ok := any(r).(Validator); ok {
 		if !fz.FuzzValidate() {
-			h.t.Skip(fmt.Sprintf("struct didn't pass validator"))
+			h.t.Skip("struct didn't pass validator")
 		}
 	}
 	for i, v := range validators {
