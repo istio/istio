@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue causing TLS `ServiceEntries` to sometimes not work when created after TCP ones.
