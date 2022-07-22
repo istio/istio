@@ -16,7 +16,7 @@ package jwt
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -81,7 +81,7 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 func readDeploymentYAML() (string, error) {
 	// Read the samples file.
 	filePath := filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err
 	}
