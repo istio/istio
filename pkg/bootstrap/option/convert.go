@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/security"
 	"istio.io/pkg/log"
 )
@@ -78,7 +79,7 @@ func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName stri
 		// This double conversion is to encode the typed config and get it out as struct
 		// so that convertToJSON properly encodes the structure. Since this is just for
 		// bootstrap generation this is better than having our custom structs.
-		tlsContextStruct, _ := conversion.MessageToStruct(util.MessageToAny(tlsContext))
+		tlsContextStruct, _ := conversion.MessageToStruct(protoconv.MessageToAny(tlsContext))
 		transportSocket := &TransportSocket{
 			Name:        wellknown.TransportSocketTls,
 			TypedConfig: tlsContextStruct,

@@ -34,7 +34,7 @@ import (
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/xds"
 )
 
@@ -172,7 +172,7 @@ func TestWasmConvert(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			resources := make([]*any.Any, 0, len(c.input))
 			for _, i := range c.input {
-				resources = append(resources, util.MessageToAny(i))
+				resources = append(resources, protoconv.MessageToAny(i))
 			}
 			mc := &mockCache{}
 			gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
@@ -200,7 +200,7 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 	ws, _ := conversion.MessageToStruct(wasm)
 	return &core.TypedExtensionConfig{
 		Name: name,
-		TypedConfig: util.MessageToAny(
+		TypedConfig: protoconv.MessageToAny(
 			&udpa.TypedStruct{
 				TypeUrl: xds.WasmHTTPFilterType,
 				Value:   ws,
@@ -212,20 +212,20 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 func buildWasmExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedExtensionConfig {
 	return &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: util.MessageToAny(wasm),
+		TypedConfig: protoconv.MessageToAny(wasm),
 	}
 }
 
 var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 	"empty": {
 		Name: "empty",
-		TypedConfig: util.MessageToAny(
+		TypedConfig: protoconv.MessageToAny(
 			&structpb.Struct{},
 		),
 	},
 	"no-wasm": {
 		Name: "no-wasm",
-		TypedConfig: util.MessageToAny(
+		TypedConfig: protoconv.MessageToAny(
 			&udpa.TypedStruct{TypeUrl: resource.APITypePrefix + "sometype"},
 		),
 	},

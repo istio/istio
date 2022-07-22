@@ -33,7 +33,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
@@ -98,7 +98,7 @@ var (
 	accessLogFormatters = []*core.TypedExtensionConfig{
 		{
 			Name:        "envoy.formatter.req_without_query",
-			TypedConfig: util.MessageToAny(&formatters.ReqWithoutQuery{}),
+			TypedConfig: protoconv.MessageToAny(&formatters.ReqWithoutQuery{}),
 		},
 	}
 )
@@ -183,7 +183,7 @@ func buildAccessLogFilterFromTelemetry(spec *model.LoggingConfig) *accesslog.Acc
 		FilterSpecifier: &accesslog.AccessLogFilter_ExtensionFilter{
 			ExtensionFilter: &accesslog.ExtensionFilter{
 				Name:       celFilter,
-				ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+				ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
 			},
 		},
 	}
@@ -296,7 +296,7 @@ func fileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 	}
 	al := &accesslog.AccessLog{
 		Name:       wellknown.FileAccessLog,
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
 	}
 
 	return al
@@ -399,7 +399,7 @@ func tcpGrpcAccessLog(isListener bool) *accesslog.AccessLog {
 	}
 	return &accesslog.AccessLog{
 		Name:       model.TCPEnvoyALSName,
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
 		Filter:     filter,
 	}
 }
@@ -422,7 +422,7 @@ func httpGrpcAccessLog() *accesslog.AccessLog {
 
 	return &accesslog.AccessLog{
 		Name:       wellknown.HTTPGRPCAccessLog,
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
 	}
 }
 

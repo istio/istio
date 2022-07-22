@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/constant"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -453,7 +454,7 @@ func translateRoute(
 	}
 	if in.Fault != nil {
 		out.TypedPerFilterConfig = make(map[string]*any.Any)
-		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
+		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(translateFault(in.Fault))
 	}
 
 	if isHTTP3AltSvcHeaderNeeded {
