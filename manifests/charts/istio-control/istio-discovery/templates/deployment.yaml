@@ -204,6 +204,10 @@ spec:
           - name: extracacerts
             mountPath: /cacerts
           {{- end }}
+          - name: istio-csr-dns-cert
+            mountPath: /var/run/secrets/istiod/tls
+          - name: istio-csr-ca-configmap
+            mountPath: /var/run/secrets/istiod/ca
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -232,5 +236,15 @@ spec:
       - name: extracacerts
         configMap:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+      # Optional: istio-csr dns pilot certs
+      - name: istio-csr-dns-cert
+        secret:
+          secretName: istiod-tls
+          optional: true
+      - name: istio-csr-ca-configmap
+        configMap:
+          name: istio-ca-root-cert
+          defaultMode: 420
+        optional": true
   {{- end }}
 ---
