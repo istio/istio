@@ -611,17 +611,9 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	return proxy, nil
 }
 
-// initializeProxy completes the initialization of a proxy. It is expected to be called only after
-// initProxyMetadata.
-func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) error {
-	proxy := con.proxy
-	// this should be done before we look for service instances, but after we load metadata
-	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
-	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.connectedAt); err != nil {
-		return err
-	}
-	s.computeProxyState(proxy, nil)
-
+// setTopologyLabels sets locality, cluster, network label
+// must be called after `SetWorkloadLabels` and `SetServiceInstances`.
+func setTopologyLabels(proxy *model.Proxy) {
 	var localityStr string
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality.
@@ -639,15 +631,27 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 		// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 		// can still help provide some client-side Envoy context when load balancing based on location.
 		proxy.Locality = &core.Locality{
-			Region:  node.Locality.GetRegion(),
-			Zone:    node.Locality.GetZone(),
-			SubZone: node.Locality.GetSubZone(),
+			Region:  proxy.XdsNode.Locality.GetRegion(),
+			Zone:    proxy.XdsNode.Locality.GetZone(),
+			SubZone: proxy.XdsNode.Locality.GetSubZone(),
 		}
 	}
 
 	locality := util.LocalityToString(proxy.Locality)
 	// add topology labels to proxy metadata labels
 	proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
+}
+
+// initializeProxy completes the initialization of a proxy. It is expected to be called only after
+// initProxyMetadata.
+func (s *DiscoveryServer) initializeProxy(con *Connection) error {
+	proxy := con.proxy
+	// this should be done before we look for service instances, but after we load metadata
+	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
+	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.connectedAt); err != nil {
+		return err
+	}
+	s.computeProxyState(proxy, nil)
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
 	proxy.DiscoverIPMode()
 
@@ -662,27 +666,12 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 
 func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushRequest) {
 	s.computeProxyState(proxy, request)
-	if util.IsLocalityEmpty(proxy.Locality) {
-		var localityStr string
-		// Get the locality from the proxy's service instances.
-		// We expect all instances to have the same locality.
-		// So its enough to look at the first instance.
-		if len(proxy.ServiceInstances) > 0 {
-			localityStr = proxy.ServiceInstances[0].Endpoint.Locality.Label
-		} else {
-			localityStr = proxy.Metadata.Labels[model.LocalityLabel]
-		}
-		proxy.Locality = util.ConvertLocality(localityStr)
-		if !util.IsLocalityEmpty(proxy.Locality) {
-			// add topology labels to proxy metadata labels
-			proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, localityStr, proxy.Metadata.Network)
-		}
-	}
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
 	proxy.SetWorkloadLabels(s.Env)
 	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
+	setTopologyLabels(proxy)
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
