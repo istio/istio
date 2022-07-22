@@ -20,6 +20,8 @@ var (
 	serviceTemplateFile      = "service.yaml"
 	deploymentTemplateFile   = "deployment.yaml"
 	vmDeploymentTemplateFile = "vm_deployment.yaml"
+
+	appContainerName = "app"
 )
 
 func init() {
@@ -32,4 +34,6 @@ func init() {
 	flag.StringVar(&vmDeploymentTemplateFile, "istio.test.echo.kube.template.deployment.vm", vmDeploymentTemplateFile,
 		"Specifies the default template file to be used when generating the Kubernetes Deployment to simulate an instance of echo application in a VM. "+
 			"Can be either an absolute path or relative to the templates directory under the echo test component. A default will be selected if not specified.")
+	flag.StringVar(&appContainerName, "istio.test.echo.kube.container", appContainerName,
+		"Specifies the default container name to be used for the echo application. A default will be selected if not specified.")
 }
