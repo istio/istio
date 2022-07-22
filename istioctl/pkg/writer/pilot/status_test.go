@@ -27,7 +27,7 @@ import (
 	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
-	networkingutil "istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
@@ -394,7 +394,7 @@ func xdsResponseInput(istiodID string, configInputs []clientConfigInput) *xdsapi
 
 	resources := make([]*any.Any, 0)
 	for _, input := range configInputs {
-		resources = append(resources, networkingutil.MessageToAny(newXdsClientConfig(input)))
+		resources = append(resources, protoconv.MessageToAny(newXdsClientConfig(input)))
 	}
 
 	return &xdsapi.DiscoveryResponse{

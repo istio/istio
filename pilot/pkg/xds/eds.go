@@ -27,6 +27,7 @@ import (
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -520,7 +521,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			}
 			resource := &discovery.Resource{
 				Name:     l.ClusterName,
-				Resource: util.MessageToAny(l),
+				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
 			eds.Server.Cache.Add(builder, req, resource)
@@ -573,7 +574,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			}
 			resource := &discovery.Resource{
 				Name:     l.ClusterName,
-				Resource: util.MessageToAny(l),
+				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
 			eds.Server.Cache.Add(builder, req, resource)

@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1351,7 +1352,7 @@ func (ml *MutableListener) build(builder *ListenerBuilder, opts buildListenerOpt
 			httpConnectionManagers[i] = builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(httpConnectionManagers[i])},
 			}
 			ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
@@ -1565,7 +1566,7 @@ func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *c
 	}
 	return &core.TransportSocket{
 		Name:       wellknown.TransportSocketTls,
-		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 	}
 }
 
@@ -1576,7 +1577,7 @@ func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *
 	return &core.TransportSocket{
 		Name: wellknown.TransportSocketQuic,
 		ConfigType: &core.TransportSocket_TypedConfig{
-			TypedConfig: util.MessageToAny(&envoyquicv3.QuicDownstreamTransport{
+			TypedConfig: protoconv.MessageToAny(&envoyquicv3.QuicDownstreamTransport{
 				DownstreamTlsContext: tlsContext,
 			}),
 		},

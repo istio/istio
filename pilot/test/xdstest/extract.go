@@ -32,7 +32,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -370,7 +370,7 @@ func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
 	}
 	resources := make([]*any.Any, 0, len(slice))
 	for _, v := range slice {
-		resources = append(resources, util.MessageToAny(v.(proto.Message)))
+		resources = append(resources, protoconv.MessageToAny(v.(proto.Message)))
 	}
 	return &discovery.DiscoveryResponse{
 		Resources: resources,

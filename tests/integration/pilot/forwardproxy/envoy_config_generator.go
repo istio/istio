@@ -34,8 +34,7 @@ import (
 	envoy_dns_cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
 	envoy_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
-	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -71,7 +70,7 @@ func GenerateForwardProxyBootstrapConfig(listeners []ListenerSettings) (string, 
 					ClusterDiscoveryType: &envoy_cluster.Cluster_ClusterType{
 						ClusterType: &envoy_cluster.Cluster_CustomClusterType{
 							Name: "envoy.clusters.dynamic_forward_proxy",
-							TypedConfig: networking.MessageToAny(&envoy_clusters_dynamic_forward_proxy.ClusterConfig{
+							TypedConfig: protoconv.MessageToAny(&envoy_clusters_dynamic_forward_proxy.ClusterConfig{
 								DnsCacheConfig: dynamicForwardProxyCacheConfig,
 							}),
 						},
@@ -92,7 +91,7 @@ func GenerateForwardProxyBootstrapConfig(listeners []ListenerSettings) (string, 
 						{
 							Name: "envoy.filters.network.http_connection_manager",
 							ConfigType: &envoy_listener.Filter_TypedConfig{
-								TypedConfig: networking.MessageToAny(hcm),
+								TypedConfig: protoconv.MessageToAny(hcm),
 							},
 						},
 					},
@@ -109,7 +108,7 @@ var dynamicForwardProxyCacheConfig = &envoy_common_dynamic_forward_proxy.DnsCach
 	Name: "dynamic_forward_proxy_cache_config",
 	TypedDnsResolverConfig: &envoy_core.TypedExtensionConfig{
 		Name: "envoy.network.dns_resolver.cares",
-		TypedConfig: networking.MessageToAny(&envoy_dns_cares.CaresDnsResolverConfig{
+		TypedConfig: protoconv.MessageToAny(&envoy_dns_cares.CaresDnsResolverConfig{
 			Resolvers: []*envoy_core.Address{
 				createSocketAddress("8.8.8.8", 53),
 			},
@@ -127,7 +126,7 @@ func createAccessLog(listenerName string) []*envoy_accesslogv3.AccessLog {
 		{
 			Name: "envoy.access_loggers.file",
 			ConfigType: &envoy_accesslogv3.AccessLog_TypedConfig{
-				TypedConfig: util.MessageToAny(&envoy_fileaccesslogv3.FileAccessLog{
+				TypedConfig: protoconv.MessageToAny(&envoy_fileaccesslogv3.FileAccessLog{
 					Path: "/dev/stdout",
 					AccessLogFormat: &envoy_fileaccesslogv3.FileAccessLog_LogFormat{
 						LogFormat: &envoy_core.SubstitutionFormatString{
@@ -153,7 +152,7 @@ func createHTTPConnectionManager(listenerName, httpVersion string) *envoy_hcm.Ht
 			{
 				Name: "envoy.filters.http.dynamic_forward_proxy",
 				ConfigType: &envoy_hcm.HttpFilter_TypedConfig{
-					TypedConfig: networking.MessageToAny(&envoy_filters_dynamic_forward_proxy.FilterConfig{
+					TypedConfig: protoconv.MessageToAny(&envoy_filters_dynamic_forward_proxy.FilterConfig{
 						DnsCacheConfig: dynamicForwardProxyCacheConfig,
 					}),
 				},
@@ -215,7 +214,7 @@ func createTransportSocket(tlsEnabled bool) *envoy_core.TransportSocket {
 	return &envoy_core.TransportSocket{
 		Name: "envoy.transport_sockets.tls",
 		ConfigType: &envoy_core.TransportSocket_TypedConfig{
-			TypedConfig: networking.MessageToAny(&envoy_tls.DownstreamTlsContext{
+			TypedConfig: protoconv.MessageToAny(&envoy_tls.DownstreamTlsContext{
 				CommonTlsContext: &envoy_tls.CommonTlsContext{
 					TlsCertificates: []*envoy_tls.TlsCertificate{
 						{

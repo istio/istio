@@ -38,8 +38,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	protovalue "istio.io/istio/pkg/proto"
@@ -91,7 +91,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(
+					TypedConfig: protoconv.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -159,7 +159,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(
+					TypedConfig: protoconv.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -232,7 +232,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(
+					TypedConfig: protoconv.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -312,7 +312,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(
+					TypedConfig: protoconv.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -435,7 +435,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(
+					TypedConfig: protoconv.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -502,7 +502,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(
+					TypedConfig: protoconv.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -570,7 +570,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(
+					TypedConfig: protoconv.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -639,7 +639,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(
+					TypedConfig: protoconv.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -1070,7 +1070,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
 						SkipValidateTrustDomain: true,
 						Policy: &authn_alpha.Policy{
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
@@ -1105,7 +1105,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
 						SkipValidateTrustDomain: true,
 						DisableClearRouteCache:  true,
 						Policy: &authn_alpha.Policy{
@@ -1153,7 +1153,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
 						SkipValidateTrustDomain: true,
 						Policy: &authn_alpha.Policy{
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
@@ -1205,7 +1205,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
 						SkipValidateTrustDomain: true,
 						Policy: &authn_alpha.Policy{
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
