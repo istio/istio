@@ -976,6 +976,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 		if currentListenerEntry != nil {
 			currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
 				listenerOpts, listenerMapKey, listenerMap)
+			currentListenerEntry.listener.ListenerFilters = mergeListenerFilters(currentListenerEntry.listener.ListenerFilters, mutable.Listener.ListenerFilters)
 		} else {
 			listenerMap[listenerMapKey] = &outboundListenerEntry{
 				services:    []*model.Service{listenerOpts.service},
@@ -1001,10 +1002,12 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
 		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains, listenerOpts, listenerMapKey, listenerMap)
+		currentListenerEntry.listener.ListenerFilters = mergeListenerFilters(currentListenerEntry.listener.ListenerFilters, mutable.Listener.ListenerFilters)
 	case TCPOverAuto:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
 		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains, listenerOpts, listenerMapKey, listenerMap)
+		currentListenerEntry.listener.ListenerFilters = mergeListenerFilters(currentListenerEntry.listener.ListenerFilters, mutable.Listener.ListenerFilters)
 
 	case AutoOverHTTP:
 		listenerMap[listenerMapKey] = &outboundListenerEntry{
@@ -1644,6 +1647,29 @@ func isConflictWithWellKnownPort(incoming, existing protocol.Instance, conflict 
 	}
 
 	return true
+}
+
+func mergeListenerFilters(a, b []*listener.ListenerFilter) []*listener.ListenerFilter {
+	alreadyHasTLSInspector := false
+	alreadyHasHTTPInspector := false
+	for _, f := range a {
+		alreadyHasTLSInspector = alreadyHasTLSInspector || f.Name == wellknown.TlsInspector
+		alreadyHasHTTPInspector = alreadyHasHTTPInspector || f.Name == wellknown.HttpInspector
+	}
+	wantTLSInspector := false
+	wantHTTPInspector := false
+	for _, f := range b {
+		wantTLSInspector = wantTLSInspector || f.Name == wellknown.TlsInspector
+		wantHTTPInspector = wantHTTPInspector || f.Name == wellknown.HttpInspector
+	}
+
+	if !alreadyHasTLSInspector && wantTLSInspector {
+		a = append(a, xdsfilters.TLSInspector)
+	}
+	if !alreadyHasHTTPInspector && wantHTTPInspector {
+		a = append(a, xdsfilters.HTTPInspector)
+	}
+	return a
 }
 
 func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.ListenerFilter {
