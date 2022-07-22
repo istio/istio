@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -1349,13 +1349,13 @@ func TestInboundMTLSSettings(t *testing.T) {
 	tlsContextHTTP := proto.Clone(tlsContext).(*tls.DownstreamTlsContext)
 	tlsContextHTTP.CommonTlsContext.AlpnProtocols = []string{"h2", "http/1.1"}
 
-	expectedStrict := plugin.MTLSSettings{
+	expectedStrict := authn.MTLSSettings{
 		Port: 8080,
 		Mode: model.MTLSStrict,
 		TCP:  tlsContext,
 		HTTP: tlsContextHTTP,
 	}
-	expectedPermissive := plugin.MTLSSettings{
+	expectedPermissive := authn.MTLSSettings{
 		Port: 8080,
 		Mode: model.MTLSPermissive,
 		TCP:  tlsContext,
@@ -1365,7 +1365,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 	cases := []struct {
 		name         string
 		peerPolicies []*config.Config
-		expected     plugin.MTLSSettings
+		expected     authn.MTLSSettings
 	}{
 		{
 			name:     "No policy - behave as permissive",
@@ -1382,7 +1382,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 					},
 				},
 			},
-			expected: plugin.MTLSSettings{Port: 8080, Mode: model.MTLSDisable},
+			expected: authn.MTLSSettings{Port: 8080, Mode: model.MTLSDisable},
 		},
 		{
 			name: "Single policy - permissive mode",
