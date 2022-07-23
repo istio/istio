@@ -381,9 +381,14 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
 			all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
+			instances := make([]*model.ServiceInstance, len(all))
+			for _, inst := range all {
+				// Service is redundant in instances so  skip it as we group by service name.
+				instances = append(instances, &model.ServiceInstance{ServicePort: inst.ServicePort, Endpoint: inst.Endpoint})
+			}
 			resp = append(resp, endpointzResponse{
 				Service:   fmt.Sprintf("%s:%s", ss.Hostname, p.Name),
-				Endpoints: all,
+				Endpoints: instances,
 			})
 		}
 	}
@@ -1030,6 +1035,11 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 	for _, con := range s.Clients() {
 		con.proxy.RLock()
 		if con.proxy != nil {
+			proxyInstances := con.proxy.ServiceInstances
+			copied := make([]*model.ServiceInstance, len(proxyInstances))
+			for _, pi := range proxyInstances {
+				copied = append(copied, pi.DeepCopy())
+			}
 			instances[con.proxy.ID] = con.proxy.ServiceInstances
 		}
 		con.proxy.RUnlock()
