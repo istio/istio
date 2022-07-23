@@ -2113,7 +2113,7 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 	return out
 }
 
-// ServiceInstances returns the cached instances by svc it exists.
+// ServiceInstances returns the cached instances by svc if exists.
 func (ps *PushContext) ServiceInstances(svcKey string) map[int][]*ServiceInstance {
 	if instances, exists := ps.ServiceIndex.instancesByPort[svcKey]; exists {
 		return instances
