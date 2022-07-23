@@ -302,6 +302,10 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
 // Can be combined with the push debug interface to reproduce changes.
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	all := s.Env.ServiceDiscovery.Services()
+	copied := make([]*model.Service, len(all))
+	for _, svc := range all {
+		copied = append(copied, svc.DeepCopy())
+	}
 	writeJSON(w, all, req)
 }
 
