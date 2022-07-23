@@ -59,49 +59,26 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
+// Check if the secret updates is relevant to Wasm image pull. If not relevant, skip pushing ECDS.
+// this occurs when user only update the Secret referenced by WasmPlugin/EnvoyFilter.
+func secretConfigsUpdatedOnly(req *model.PushRequest) bool {
+	return !model.ConfigsHaveKind(req.ConfigsUpdated, kind.WasmPlugin) &&
+		!model.ConfigsHaveKind(req.ConfigsUpdated, kind.EnvoyFilter) &&
+		model.ConfigsHaveKind(req.ConfigsUpdated, kind.Secret)
+}
+
 // Generate returns ECDS resources for a given proxy.
 func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !ecdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
-	secretResources := referencedSecrets(proxy, req.Push, w.ResourceNames)
-	// Check if the secret updates is relevant to Wasm image pull. If not relevant, skip pushing ECDS.
-	if !model.ConfigsHaveKind(req.ConfigsUpdated, kind.WasmPlugin) && !model.ConfigsHaveKind(req.ConfigsUpdated, kind.EnvoyFilter) &&
-		model.ConfigsHaveKind(req.ConfigsUpdated, kind.Secret) {
-		// Get the updated secrets
-		updatedSecrets := model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
-		needsPush := false
-		for _, sr := range secretResources {
-			if _, found := updatedSecrets[model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
-				needsPush = true
-				break
-			}
-		}
-		if !needsPush {
-			return nil, model.DefaultXdsLogDetails, nil
-		}
-	}
-
-	var secrets map[string][]byte
-	if len(secretResources) > 0 {
-		// Generate the pull secrets first, which will be used when populating the extension config.
-		var secretController credscontroller.Controller
-		if e.secretController != nil {
-			var err error
-			secretController, err = e.secretController.ForCluster(proxy.Metadata.ClusterID)
-			if err != nil {
-				log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates for Wasm image pull: %v", proxy.ID, err)
-				return nil, model.DefaultXdsLogDetails, nil
-			}
-		}
-		// Inserts Wasm pull secrets in ECDS response, which will be used at xds proxy for image pull.
-		// Before forwarding to Envoy, xds proxy will remove the secret from ECDS response.
-		secrets = e.GeneratePullSecrets(proxy, secretResources, secretController)
+	secrets, needsPush := e.pullSecrets(proxy, w, req)
+	if !needsPush {
+		return nil, model.DefaultXdsLogDetails, nil
 	}
 
 	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames, secrets)
-
 	if ec == nil {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -117,7 +94,57 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	return resources, model.DefaultXdsLogDetails, nil
 }
 
-func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, secretResources []SecretResource,
+func (e *EcdsGenerator) pullSecrets(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (secrets map[string][]byte, needsPush bool) {
+	secretResources := referencedSecrets(proxy, req.Push, w.ResourceNames)
+	if secretConfigsUpdatedOnly(req) {
+		if len(secretResources) == 0 {
+			// skip when only secret updated but no referenced secret
+			return
+		}
+
+		// Get the updated secrets
+		updatedSecrets := model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
+		for _, sr := range secretResources {
+			if _, found := updatedSecrets[model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
+				needsPush = true
+				break
+			}
+		}
+		if !needsPush {
+			return
+		}
+	}
+
+	if len(secretResources) > 0 {
+		// Generate the pull secrets first, which will be used when populating the extension config.
+		var (
+			secretController credscontroller.Controller
+			err              error
+		)
+		if e.secretController != nil {
+			secretController, err = e.secretController.ForCluster(proxy.Metadata.ClusterID)
+			if err != nil {
+				log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates for Wasm image pull: %v", proxy.ID, err)
+				return
+			}
+		}
+
+		if secretController == nil {
+			// should not happen, in case panic in generatePullSecrets
+			log.Warnf("proxy %s is from an unknown cluster, cannot retrieve with empty secret controller for Wasm image pull", err)
+			return
+		}
+
+		// Inserts Wasm pull secrets in ECDS response, which will be used at xds proxy for image pull.
+		// Before forwarding to Envoy, xds proxy will remove the secret from ECDS response.
+		secrets = e.generatePullSecrets(proxy, secretResources, secretController)
+	}
+
+	needsPush = true
+	return
+}
+
+func (e *EcdsGenerator) generatePullSecrets(proxy *model.Proxy, secretResources []SecretResource,
 	secretController credscontroller.Controller,
 ) map[string][]byte {
 	if proxy.VerifiedIdentity == nil {
@@ -129,7 +156,7 @@ func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, secretResources 
 	for _, sr := range secretResources {
 		cred, err := secretController.GetDockerCredential(sr.Name, sr.Namespace)
 		if err != nil {
-			log.Warnf("Failed to fetch docker credential %s: %v", sr.ResourceName, err)
+			log.Warnf("Failed to fetch docker credential %s for proxy %s: %v", sr.ResourceName, proxy.ID, err)
 		} else {
 			results[sr.ResourceName] = cred
 		}

@@ -187,6 +187,19 @@ func TestECDSGenerate(t *testing.T) {
 			wantSecrets:      sets.Set{},
 		},
 		{
+			name:           "no_relevant_secret_config_update",
+			proxyNamespace: "default",
+			request: &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Kind: kind.Secret}: {},
+				},
+			},
+			watchedResources: []string{"default.default-plugin"},
+			wantExtensions:   sets.Set{},
+			wantSecrets:      sets.Set{},
+		},
+		{
 			name:           "has_relevant_config_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
