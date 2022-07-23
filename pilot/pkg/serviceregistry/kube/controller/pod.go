@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -109,6 +110,19 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 		}
 	}
 	return -1, nil
+}
+
+func (pc *PodCache) labelFilter(old, cur interface{}) bool {
+	oldPod := old.(*v1.Pod)
+	curPod := cur.(*v1.Pod)
+
+	// If labels updated, trigger proxy push
+	if curPod.Status.PodIP != "" && !reflect.DeepEqual(oldPod.Labels, curPod.Labels) {
+		pc.proxyUpdates(curPod.Status.PodIP)
+	}
+
+	// always continue calling pc.onEvent
+	return false
 }
 
 // onEvent updates the IP-based index (pc.podsByIP).
