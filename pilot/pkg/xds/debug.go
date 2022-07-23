@@ -306,7 +306,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	for _, svc := range all {
 		copied = append(copied, svc.DeepCopy())
 	}
-	writeJSON(w, all, req)
+	writeJSON(w, copied, req)
 }
 
 // Dumps info about the endpoint shards, tracked using the new direct interface.
@@ -1044,7 +1044,7 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 			for _, pi := range proxyInstances {
 				copied = append(copied, pi.DeepCopy())
 			}
-			instances[con.proxy.ID] = con.proxy.ServiceInstances
+			instances[con.proxy.ID] = copied
 		}
 		con.proxy.RUnlock()
 	}
