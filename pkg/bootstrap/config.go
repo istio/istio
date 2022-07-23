@@ -484,6 +484,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 		case "ISTIO_METAJSON_LABELS":
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
+				meta.IstioMetaLabels = m
 				meta.Labels = m
 			}
 		case "POD_NAME":

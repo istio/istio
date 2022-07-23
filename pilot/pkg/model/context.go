@@ -543,10 +543,15 @@ type NodeMetadata struct {
 	// Mostly used when istiod requests the upstream.
 	IstioRevision string `json:"ISTIO_REVISION,omitempty"`
 
-	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
+	// IstioMetaLabels specifies the labels specified by ISTIO_METAJSON_LABELS, so we can tell the difference
+	// between user specified labels and istio labels.
+	IstioMetaLabels map[string]string `json:"ISTIO_META_LABELS,omitempty"`
+
+	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node. Labels is a
+	// superset of IstioMetaLabels.
 	Labels map[string]string `json:"LABELS,omitempty"`
 
-	// Labels specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
+	// Annotations specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
 	Annotations map[string]string `json:"ANNOTATIONS,omitempty"`
 
 	// InstanceIPs is the set of IPs attached to this proxy
@@ -867,10 +872,11 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 		if node.Metadata.Labels == nil {
 			node.Metadata.Labels = make(map[string]string)
 		}
-		// we can not make workload labels override node meta labels as it may be customized by user
-		// with `ISTIO_METAJSON_LABELS` env.
-		// TODO: handle labels remove
-		for k, v := range labels {
+		// we can't just equate proxy workload labels to node meta labels as it may be customized by user
+		// with `ISTIO_METAJSON_LABELS` env (pkg/bootstrap/config.go extractAttributesMetadata).
+		// so, we fill the `ISTIO_METAJSON_LABELS` as well.
+		node.Metadata.Labels = labels
+		for k, v := range node.Metadata.IstioMetaLabels {
 			node.Metadata.Labels[k] = v
 		}
 	}
