@@ -282,12 +282,26 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
-		r, err := s.parseChunk(r, name, lineNum, chunk)
+		resource, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError
 			if errors.As(err, &uerr) {
-				// Note the error to the debug log but continue
-				scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
+				if uerr.kind == "List" {
+					resourceChunks, err := extractResourceChunksFromListYamlChunk(chunk)
+					if err != nil {
+						scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
+					}
+					for _, resourceChunk := range resourceChunks {
+						lr, err := s.parseChunk(r, name, resourceChunk.lineNum, resourceChunk.yamlChunk)
+						if err != nil && errors.As(err, &uerr) {
+							scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
+						}
+						resources = append(resources, lr)
+					}
+				} else {
+					// Note the error to the debug log but continue
+					scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
+				}
 			} else {
 				e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
 				scope.Warnf("%v - skipping", e)
@@ -296,7 +310,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 			}
 			continue
 		}
-		resources = append(resources, r)
+		resources = append(resources, resource)
 	}
 
 	return resources, errs
@@ -407,6 +421,48 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		sha:    sha256.Sum256(yamlChunk),
 		config: c,
 	}, nil
+}
+
+type resourceYamlChunk struct {
+	lineNum   int
+	yamlChunk []byte
+}
+
+func extractResourceChunksFromListYamlChunk(chunk []byte) ([]resourceYamlChunk, error) {
+	chunks := make([]resourceYamlChunk, 0)
+	yamlChunkNode := yamlv3.Node{}
+	err := yamlv3.Unmarshal(chunk, &yamlChunkNode)
+	if err != nil {
+		return nil, fmt.Errorf("failed parsing yamlChunk: %v", err)
+	}
+	if len(yamlChunkNode.Content) == 0 {
+		return nil, fmt.Errorf("failed parsing yamlChunk: no content")
+	}
+	yamlNode := yamlChunkNode.Content[0]
+	var itemsInd int
+	for ; itemsInd < len(yamlNode.Content); itemsInd++ {
+		if yamlNode.Content[itemsInd].Kind == yamlv3.ScalarNode && yamlNode.Content[itemsInd].Value == "items" {
+			itemsInd++
+			break
+		}
+	}
+	if itemsInd >= len(yamlNode.Content) && yamlNode.Content[itemsInd].Kind != yamlv3.SequenceNode {
+		return nil, fmt.Errorf("failed parsing yamlChunk: malformed items field")
+	}
+	for _, n := range yamlNode.Content[itemsInd].Content {
+		if n.Kind != yamlv3.MappingNode {
+			return nil, fmt.Errorf("failed parsing yamlChunk: malformed items field")
+		}
+		resourceChunk, err := yamlv3.Marshal(n)
+		if err != nil {
+			return nil, fmt.Errorf("failed marshaling yamlChunk: %v", err)
+		}
+		chunks = append(chunks, resourceYamlChunk{
+			lineNum:   n.Line,
+			yamlChunk: resourceChunk,
+		})
+	}
+	return chunks, nil
 }
 
 const (
