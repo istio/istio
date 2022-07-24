@@ -197,15 +197,14 @@ func (l *lruCache) onEvict(k interface{}, v interface{}) {
 		}
 	}
 
-	if l.evictedOnClear {
-		return
-	}
+	// The following cleanup logic needs to be called on every evict(whether passive or on exceeding size)
+	// because, passive eviction might be triggered by one of many dependent configs and we need to clear the
+	// reference from other dependents.
 	// We don't need to acquire locks, since this function is called when we write to the store.
 	key := k.(string)
 	value := v.(cacheValue)
 
-	l.clearConfigIndex(key, value.dependentConfigs)
-	l.clearTypesIndex(key, value.dependentTypes)
+	l.clearIndexes(key, value)
 }
 
 func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
@@ -250,6 +249,11 @@ func (l *lruCache) clearTypesIndex(k string, dependentTypes []kind.Kind) {
 			}
 		}
 	}
+}
+
+func (l *lruCache) clearIndexes(key string, value cacheValue) {
+	l.clearConfigIndex(key, value.dependentConfigs)
+	l.clearTypesIndex(key, value.dependentTypes)
 }
 
 // assertUnchanged checks that a cache entry is not changed. This helps catch bad cache invalidation
@@ -304,6 +308,13 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 		return
 	}
 
+	// we have to make sure we evict old entries with the same key
+	// to prevent leaking in the index maps
+	if f {
+		value := cur.(cacheValue)
+		l.clearIndexes(k, value)
+	}
+
 	dependentConfigs := entry.DependentConfigs()
 	dependentTypes := entry.DependentTypes()
 	toWrite := cacheValue{value: value, token: token, dependentConfigs: dependentConfigs, dependentTypes: dependentTypes}
@@ -346,7 +357,6 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
-	// not to call evict on keys that are removed actively
 	l.evictedOnClear = true
 	defer func() {
 		l.evictedOnClear = false

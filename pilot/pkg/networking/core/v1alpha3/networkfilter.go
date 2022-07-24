@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -74,7 +75,7 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, c
 
 	tcpFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(config)},
 	}
 	return tcpFilter
 }
@@ -258,7 +259,7 @@ func buildMongoFilter(statPrefix string) *listener.Filter {
 
 	out := &listener.Filter{
 		Name:       wellknown.MongoProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mongoProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(mongoProxy)},
 	}
 
 	return out
@@ -299,7 +300,7 @@ func buildRedisFilter(statPrefix, clusterName string) *listener.Filter {
 
 	out := &listener.Filter{
 		Name:       wellknown.RedisProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(redisProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(redisProxy)},
 	}
 
 	return out
@@ -313,7 +314,7 @@ func buildMySQLFilter(statPrefix string) *listener.Filter {
 
 	out := &listener.Filter{
 		Name:       wellknown.MySQLProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mySQLProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(mySQLProxy)},
 	}
 
 	return out

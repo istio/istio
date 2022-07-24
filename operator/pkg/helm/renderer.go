@@ -165,7 +165,7 @@ func readProfiles(chartsDir string) (map[string]bool, error) {
 	return profiles, nil
 }
 
-// stripPrefix removes the the given prefix from prefix.
+// stripPrefix removes the given prefix from prefix.
 func stripPrefix(path, prefix string) string {
 	pl := len(strings.Split(prefix, "/"))
 	pv := strings.Split(path, "/")

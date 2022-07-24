@@ -16,12 +16,16 @@ package istio
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test"
@@ -214,7 +218,33 @@ func (cm *configMap) getConfigMap(c cluster.Cluster) (*corev1.ConfigMap, error) 
 
 func (cm *configMap) updateConfigMap(c cluster.Cluster, cfgMap *corev1.ConfigMap) error {
 	_, err := c.Kube().CoreV1().ConfigMaps(cm.namespace).Update(context.TODO(), cfgMap, metav1.UpdateOptions{})
-	return err
+	if err != nil {
+		return err
+	}
+	if c.IsExternalControlPlane() {
+		// Normal control plane uses ConfigMap informers to load mesh config. This is ~instant.
+		// The external config uses a file mounted ConfigMap. This is super slow, but we can trigger it explicitly:
+		// https://github.com/kubernetes/kubernetes/issues/30189
+		pl, err := c.Kube().CoreV1().Pods(cm.namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=istiod"})
+		if err != nil {
+			return err
+		}
+		for _, pod := range pl.Items {
+			patchBytes := fmt.Sprintf(`{ "metadata": {"annotations": { "test.istio.io/mesh-config-hash": "%s" } } }`, hash(cfgMap.Data["mesh"]))
+			_, err := c.Kube().CoreV1().Pods(cm.namespace).Patch(context.TODO(), pod.Name,
+				types.MergePatchType, []byte(patchBytes), metav1.PatchOptions{FieldManager: "istio-ci"})
+			if err != nil {
+				return fmt.Errorf("patch %v: %v", patchBytes, err)
+			}
+		}
+	}
+	return nil
+}
+
+func hash(s string) string {
+	h := md5.New()
+	_, _ = io.WriteString(h, s)
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func getMeshConfigData(c cluster.Cluster, cm *corev1.ConfigMap) (string, error) {

@@ -385,6 +385,10 @@ func (c *testContext) Skipped() bool {
 	return c.T.Skipped()
 }
 
+func (c *testContext) ID() string {
+	return c.id
+}
+
 var _ io.Closer = &closer{}
 
 type closer struct {

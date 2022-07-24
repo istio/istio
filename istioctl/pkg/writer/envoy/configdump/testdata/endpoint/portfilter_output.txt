@@ -1,0 +1,3 @@
+ENDPOINT              STATUS      LOCALITY     CLUSTER
+10.244.0.176:8080     HEALTHY                  outbound|80||istio-ingressgateway.istio-system.svc.cluster.local
+10.244.0.189:8080     HEALTHY                  outbound|80||skywalking-ui.skywalking.svc.cluster.local

@@ -150,7 +150,7 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 
 // Recompute takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
 // Any status updates required will be enqueued as well.
-func (c *Controller) Recompute(context model.GatewayContext) error {
+func (c *Controller) Recompute(ps *model.PushContext) error {
 	t0 := time.Now()
 	defer func() {
 		log.Debugf("recompute complete in %v", time.Since(t0))
@@ -193,7 +193,7 @@ func (c *Controller) Recompute(context model.GatewayContext) error {
 		ReferencePolicy: referencePolicy,
 		ReferenceGrant:  referenceGrant,
 		Domain:          c.domain,
-		Context:         context,
+		Context:         NewGatewayContext(ps),
 	}
 
 	if !anyApisUsed(input) {

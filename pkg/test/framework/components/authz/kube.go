@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -249,10 +250,23 @@ func installProviders(ctx resource.Context, providerYAML string) error {
 		return err
 	}
 
+	providerNames := sets.New()
+	for _, p := range newMC.GetExtensionProviders() {
+		providerNames.Insert(p.Name)
+	}
+
 	return ist.UpdateMeshConfig(ctx,
 		func(mc *meshconfig.MeshConfig) error {
+			newProviders := []*meshconfig.MeshConfig_ExtensionProvider{}
 			// Merge the extension providers.
-			mc.ExtensionProviders = append(mc.ExtensionProviders, newMC.ExtensionProviders...)
+			// If we are overwriting an existing one, keep the new one.
+			for _, o := range mc.ExtensionProviders {
+				if !providerNames.Contains(o.Name) {
+					newProviders = append(newProviders, o)
+				}
+			}
+			newProviders = append(newProviders, newMC.ExtensionProviders...)
+			mc.ExtensionProviders = newProviders
 			return nil
 		}, cleanup.Conditionally)
 }

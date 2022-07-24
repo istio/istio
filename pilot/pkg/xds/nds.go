@@ -18,7 +18,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
@@ -75,6 +75,6 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	if nt == nil {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	resources := model.Resources{&discovery.Resource{Resource: util.MessageToAny(nt)}}
+	resources := model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(nt)}}
 	return resources, model.DefaultXdsLogDetails, nil
 }

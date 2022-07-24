@@ -31,10 +31,10 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
@@ -146,6 +146,8 @@ type AgentOptions struct {
 	DNSCapture bool
 	// DNSAddr is the DNS capture address
 	DNSAddr string
+	// DNSForwardParallel indicates whether the agent should send parallel DNS queries to all upstream nameservers.
+	DNSForwardParallel bool
 	// ProxyType is the type of proxy we are configured to handle
 	ProxyType model.NodeType
 	// ProxyNamespace to use for local dns resolution
@@ -267,8 +269,11 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	})
 }
 
-func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
+func (a *Agent) initializeEnvoyAgent(ctx context.Context, credentialSocketExists bool) error {
 	node, err := a.generateNodeMetadata()
+	if credentialSocketExists {
+		node.RawMetadata[security.CredentialMetaDataName] = "true"
+	}
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
 	}
@@ -422,15 +427,21 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	}
 
 	if socketExists {
-		log.Info("SDS socket found. Istio SDS Server won't be started")
+		log.Info("Workload SDS socket found. Istio SDS Server won't be started")
 	} else {
-		log.Info("SDS socket not found. Starting Istio SDS Server")
+		log.Info("Workload SDS socket not found. Starting Istio SDS Server")
 		err = a.initSdsServer()
 		if err != nil {
 			return nil, fmt.Errorf("failed to start SDS server: %v", err)
 		}
 	}
-
+	credentialSocketExists, err := checkSocket(ctx, security.CredentialNameSocketPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check credential SDS socket: %v", err)
+	}
+	if credentialSocketExists {
+		log.Info("Credential SDS socket found")
+	}
 	a.xdsProxy, err = initXdsProxy(a)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start xds proxy: %v", err)
@@ -443,11 +454,10 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	}
 
 	if a.cfg.GRPCBootstrapPath != "" {
-		if err := a.generateGRPCBootstrap(); err != nil {
+		if err := a.generateGRPCBootstrap(credentialSocketExists); err != nil {
 			return nil, fmt.Errorf("failed generating gRPC XDS bootstrap: %v", err)
 		}
 	}
-
 	rootCAForXDS, err := a.FindRootCAForXDS()
 	if err != nil {
 		return nil, fmt.Errorf("failed to find root XDS CA: %v", err)
@@ -455,7 +465,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	go a.caFileWatcherHandler(ctx, rootCAForXDS)
 
 	if !a.EnvoyDisabled() {
-		err = a.initializeEnvoyAgent(ctx)
+		err = a.initializeEnvoyAgent(ctx, credentialSocketExists)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start envoy agent: %v", err)
 		}
@@ -583,7 +593,8 @@ func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
 func (a *Agent) initLocalDNSServer() (err error) {
 	// we don't need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
-		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr); err != nil {
+		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr,
+			a.cfg.DNSForwardParallel); err != nil {
 			return err
 		}
 		a.localDNSServer.StartDNS()
@@ -591,9 +602,13 @@ func (a *Agent) initLocalDNSServer() (err error) {
 	return nil
 }
 
-func (a *Agent) generateGRPCBootstrap() error {
+func (a *Agent) generateGRPCBootstrap(credentialSocketExists bool) error {
 	// generate metadata
 	node, err := a.generateNodeMetadata()
+	if credentialSocketExists {
+		node.RawMetadata[security.CredentialMetaDataName] = "true"
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed generating node metadata: %v", err)
 	}

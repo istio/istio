@@ -28,9 +28,9 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 var rbacPolicyMatchNever = &rbacpb.Policy{
@@ -261,7 +261,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 		return []*httppb.HttpFilter{
 			{
 				Name:       wellknown.HTTPRoleBasedAccessControl,
-				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	}
@@ -273,7 +273,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 		return []*httppb.HttpFilter{
 			{
 				Name:       wellknown.HTTPRoleBasedAccessControl,
-				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	}
@@ -289,11 +289,11 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 	return []*httppb.HttpFilter{
 		{
 			Name:       wellknown.HTTPRoleBasedAccessControl,
-			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 		},
 		{
 			Name:       wellknown.HTTPExternalAuthorization,
-			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(extauthz.http)},
+			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.http)},
 		},
 	}
 }
@@ -309,7 +309,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		return []*tcppb.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	}
@@ -323,7 +323,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		return []*tcppb.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	} else if extauthz.tcp == nil {
@@ -338,11 +338,11 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		return []*tcppb.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 			{
 				Name:       wellknown.ExternalAuthorization,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(extauthz.tcp)},
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
 			},
 		}
 	}

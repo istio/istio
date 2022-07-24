@@ -29,10 +29,9 @@ import (
 
 // InsertDataToConfigMap inserts a data to a configmap in a namespace.
 // client: the k8s client interface.
-// namespace: the namespace of the configmap.
-// value: the value of the data to insert.
-// configName: the name of the configmap.
-// dataName: the name of the data in the configmap.
+// lister: the configmap lister.
+// meta: the metadata of configmap.
+// caBundle: ca cert data bytes.
 func InsertDataToConfigMap(client corev1.ConfigMapsGetter, lister listerv1.ConfigMapLister, meta metav1.ObjectMeta, caBundle []byte) error {
 	configmap, err := lister.ConfigMaps(meta.Namespace).Get(meta.Name)
 	if err != nil && !errors.IsNotFound(err) {

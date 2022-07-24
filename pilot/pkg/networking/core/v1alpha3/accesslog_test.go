@@ -19,36 +19,32 @@ import (
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
-	cel "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/filters/cel/v3"
-	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
-	otelaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/open_telemetry/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/google/go-cmp/cmp"
-	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
-)
-
-var (
-	httpCodeExpress = "response.code >= 400"
-	httpCodeFilter  = &cel.ExpressionFilter{
-		Expression: httpCodeExpress,
-	}
 )
 
 func TestListenerAccessLog(t *testing.T) {
@@ -98,7 +94,7 @@ func TestListenerAccessLog(t *testing.T) {
 		{
 			name:       "default text format",
 			encoding:   meshconfig.MeshConfig_TEXT,
-			wantFormat: EnvoyTextLogFormat,
+			wantFormat: model.EnvoyTextLogFormat,
 		},
 	} {
 		tc := tc
@@ -180,691 +176,6 @@ func verify(t *testing.T, encoding meshconfig.MeshConfig_AccessLogEncoding, got 
 	}
 }
 
-func TestBuildAccessLogFromTelemetry(t *testing.T) {
-	singleCfg := &model.LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: devStdout,
-					},
-				},
-			},
-		},
-	}
-
-	singleCfgWithFilter := &model.LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: devStdout,
-					},
-				},
-			},
-		},
-		Filter: &tpb.AccessLogging_Filter{
-			Expression: httpCodeExpress,
-		},
-	}
-
-	customTextFormat := &model.LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: devStdout,
-						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
-							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text{
-								Text: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	defaultJSONFormat := &model.LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: devStdout,
-						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
-							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
-								Labels: &structpb.Struct{},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	customLabelsFormat := &model.LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: devStdout,
-						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
-							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
-								Labels: &structpb.Struct{
-									Fields: map[string]*structpb.Value{
-										"start_time":                     {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
-										"route_name":                     {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
-										"method":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
-										"path":                           {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-										"protocol":                       {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
-										"response_code":                  {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-										"response_flags":                 {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-										"response_code_details":          {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE_DETAILS%"}},
-										"connection_termination_details": {Kind: &structpb.Value_StringValue{StringValue: "%CONNECTION_TERMINATION_DETAILS%"}},
-										"bytes_received":                 {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-										"bytes_sent":                     {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-										"duration":                       {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
-										"upstream_service_time":          {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-										"x_forwarded_for":                {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-										"user_agent":                     {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-										"request_id":                     {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-										"authority":                      {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-										"upstream_host":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-										"upstream_cluster":               {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-										"upstream_local_address":         {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-										"downstream_local_address":       {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-										"downstream_remote_address":      {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-										"requested_server_name":          {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	multiCfg := &model.LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "stdout",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: devStdout,
-					},
-				},
-			},
-			{
-				Name: "stderr",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: "/dev/stderr",
-					},
-				},
-			},
-		},
-	}
-
-	fakeFilterStateObjects := []string{"fake-filter-state-object1", "fake-filter-state-object1"}
-	grpcCfg := &model.LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "stdout",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: devStdout,
-					},
-				},
-			},
-			{
-				Name: "grpc-http-als",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls{
-					EnvoyHttpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
-						LogName:                         "grpc-http-als",
-						Service:                         "grpc-als.foo.svc.cluster.local",
-						Port:                            9811,
-						AdditionalRequestHeadersToLog:   []string{"fake-request-header1"},
-						AdditionalResponseHeadersToLog:  []string{"fake-response-header1"},
-						AdditionalResponseTrailersToLog: []string{"fake-response-trailer1"},
-						FilterStateObjectsToLog:         fakeFilterStateObjects,
-					},
-				},
-			},
-		},
-	}
-
-	grpcTCPCfg := &model.LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "stdout",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: devStdout,
-					},
-				},
-			},
-			{
-				Name: "grpc-tcp-als",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls{
-					EnvoyTcpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
-						LogName:                 "grpc-tcp-als",
-						Service:                 "grpc-als.foo.svc.cluster.local",
-						Port:                    9811,
-						FilterStateObjectsToLog: fakeFilterStateObjects,
-					},
-				},
-			},
-		},
-	}
-
-	labels := &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"protocol": {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
-		},
-	}
-
-	multiWithOtelCfg := &model.LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "stdout",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: devStdout,
-					},
-				},
-			},
-			{
-				Name: otelEnvoyAccessLogFriendlyName,
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
-					EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
-						Service: "otel.foo.svc.cluster.local",
-						Port:    9811,
-						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider_LogFormat{
-							Labels: labels,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	defaultEnvoyProvider := &model.LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "envoy",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: "/dev/stdout",
-					},
-				},
-			},
-		},
-	}
-
-	grpcBackendClusterName := "outbound|9811||grpc-als.foo.svc.cluster.local"
-	grpcBackendAuthority := "grpc-als.foo.svc.cluster.local"
-	otelCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
-		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
-			LogName: otelEnvoyAccessLogFriendlyName,
-			GrpcService: &core.GrpcService{
-				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: grpcBackendClusterName,
-						Authority:   grpcBackendAuthority,
-					},
-				},
-			},
-			TransportApiVersion:     core.ApiVersion_V3,
-			FilterStateObjectsToLog: envoyWasmStateToLog,
-		},
-		Body: &otlpcommon.AnyValue{
-			Value: &otlpcommon.AnyValue_StringValue{
-				StringValue: EnvoyTextLogFormat,
-			},
-		},
-		Attributes: &otlpcommon.KeyValueList{
-			Values: convertStructToAttributeKeyValues(labels.Fields),
-		},
-	}
-
-	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
-		return grpcBackendAuthority, grpcBackendClusterName, nil
-	}
-
-	stdout := &fileaccesslog.FileAccessLog{
-		Path: devStdout,
-		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_TextFormatSource{
-					TextFormatSource: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							InlineString: EnvoyTextLogFormat,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	customTextOut := &fileaccesslog.FileAccessLog{
-		Path: devStdout,
-		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_TextFormatSource{
-					TextFormatSource: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							InlineString: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	defaultJSONLabelsOut := &fileaccesslog.FileAccessLog{
-		Path: devStdout,
-		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_JsonFormat{
-					JsonFormat: EnvoyJSONLogFormatIstio,
-				},
-			},
-		},
-	}
-
-	customLabelsOut := &fileaccesslog.FileAccessLog{
-		Path: devStdout,
-		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_JsonFormat{
-					JsonFormat: &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							"start_time":                     {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
-							"route_name":                     {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
-							"method":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
-							"path":                           {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-							"protocol":                       {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
-							"response_code":                  {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-							"response_flags":                 {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-							"response_code_details":          {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE_DETAILS%"}},
-							"connection_termination_details": {Kind: &structpb.Value_StringValue{StringValue: "%CONNECTION_TERMINATION_DETAILS%"}},
-							"bytes_received":                 {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-							"bytes_sent":                     {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-							"duration":                       {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
-							"upstream_service_time":          {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-							"x_forwarded_for":                {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-							"user_agent":                     {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-							"request_id":                     {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-							"authority":                      {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-							"upstream_host":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-							"upstream_cluster":               {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-							"upstream_local_address":         {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-							"downstream_local_address":       {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-							"downstream_remote_address":      {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-							"requested_server_name":          {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	errout := &fileaccesslog.FileAccessLog{
-		Path: "/dev/stderr",
-		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_TextFormatSource{
-					TextFormatSource: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							InlineString: EnvoyTextLogFormat,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	grpcHTTPout := &grpcaccesslog.HttpGrpcAccessLogConfig{
-		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
-			LogName: "grpc-http-als",
-			GrpcService: &core.GrpcService{
-				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: grpcBackendClusterName,
-						Authority:   grpcBackendAuthority,
-					},
-				},
-			},
-			TransportApiVersion:     core.ApiVersion_V3,
-			FilterStateObjectsToLog: fakeFilterStateObjects,
-		},
-		AdditionalRequestHeadersToLog:   []string{"fake-request-header1"},
-		AdditionalResponseHeadersToLog:  []string{"fake-response-header1"},
-		AdditionalResponseTrailersToLog: []string{"fake-response-trailer1"},
-	}
-
-	grpcTCPOut := &grpcaccesslog.TcpGrpcAccessLogConfig{
-		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
-			LogName: "grpc-tcp-als",
-			GrpcService: &core.GrpcService{
-				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: grpcBackendClusterName,
-						Authority:   grpcBackendAuthority,
-					},
-				},
-			},
-			TransportApiVersion:     core.ApiVersion_V3,
-			FilterStateObjectsToLog: fakeFilterStateObjects,
-		},
-	}
-
-	defaultFormatJSON, _ := protomarshal.ToJSON(EnvoyJSONLogFormatIstio)
-
-	ctx := model.NewPushContext()
-	ctx.ServiceIndex.HostnameAndNamespace["otel-collector.foo.svc.cluster.local"] = map[string]*model.Service{
-		"foo": {
-			Hostname:       "otel-collector.foo.svc.cluster.local",
-			DefaultAddress: "172.217.0.0/16",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "grpc-port",
-					Port:     3417,
-					Protocol: protocol.TCP,
-				},
-				&model.Port{
-					Name:     "http-port",
-					Port:     3418,
-					Protocol: protocol.HTTP,
-				},
-			},
-			Resolution: model.ClientSideLB,
-			Attributes: model.ServiceAttributes{
-				Name:            "otel-collector",
-				Namespace:       "foo",
-				ServiceRegistry: provider.Kubernetes,
-			},
-		},
-	}
-
-	for _, tc := range []struct {
-		name        string
-		ctx         *model.PushContext
-		meshConfig  *meshconfig.MeshConfig
-		spec        *model.LoggingConfig
-		forListener bool
-
-		expected []*accesslog.AccessLog
-	}{
-		{
-			name: "single",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec:        singleCfg,
-			forListener: false,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
-				},
-			},
-		},
-		{
-			name: "with-filter",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec:        singleCfgWithFilter,
-			forListener: false,
-			expected: []*accesslog.AccessLog{
-				{
-					Name: wellknown.FileAccessLog,
-					Filter: &accesslog.AccessLogFilter{
-						FilterSpecifier: &accesslog.AccessLogFilter_ExtensionFilter{
-							ExtensionFilter: &accesslog.ExtensionFilter{
-								Name:       celFilter,
-								ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: util.MessageToAny(httpCodeFilter)},
-							},
-						},
-					},
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
-				},
-			},
-		},
-		{
-			name: "tcp-with-filter",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec:        singleCfgWithFilter,
-			forListener: true,
-			expected: []*accesslog.AccessLog{
-				{
-					Name: wellknown.FileAccessLog,
-					Filter: &accesslog.AccessLogFilter{
-						FilterSpecifier: &accesslog.AccessLogFilter_AndFilter{
-							AndFilter: &accesslog.AndFilter{
-								Filters: []*accesslog.AccessLogFilter{
-									{
-										FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
-											ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"NR"}},
-										},
-									},
-									{
-										FilterSpecifier: &accesslog.AccessLogFilter_ExtensionFilter{
-											ExtensionFilter: &accesslog.ExtensionFilter{
-												Name:       celFilter,
-												ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: util.MessageToAny(httpCodeFilter)},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
-				},
-			},
-		},
-		{
-			name: "custom-text",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec:        customTextFormat,
-			forListener: false,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(customTextOut)},
-				},
-			},
-		},
-		{
-			name: "default-labels",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec:        defaultJSONFormat,
-			forListener: false,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(defaultJSONLabelsOut)},
-				},
-			},
-		},
-		{
-			name: "custom-labels",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec:        customLabelsFormat,
-			forListener: false,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(customLabelsOut)},
-				},
-			},
-		},
-		{
-			name: "single-listener",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec:        singleCfg,
-			forListener: true,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					Filter:     addAccessLogFilter(),
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
-				},
-			},
-		},
-		{
-			name: "multi",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec:        multiCfg,
-			forListener: false,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
-				},
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(errout)},
-				},
-			},
-		},
-		{
-			name: "multi-listener",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec:        multiCfg,
-			forListener: true,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					Filter:     addAccessLogFilter(),
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
-				},
-				{
-					Name:       wellknown.FileAccessLog,
-					Filter:     addAccessLogFilter(),
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(errout)},
-				},
-			},
-		},
-		{
-			name: "grpc-als",
-			spec: grpcCfg,
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			forListener: false,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
-				},
-				{
-					Name:       wellknown.HTTPGRPCAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(grpcHTTPout)},
-				},
-			},
-		},
-		{
-			name: "grpc-tcp-als",
-			spec: grpcTCPCfg,
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			forListener: false,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
-				},
-				{
-					Name:       tcpEnvoyALSName,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(grpcTCPOut)},
-				},
-			},
-		},
-		{
-			name: "multi-with-open-telemetry",
-			ctx:  ctx,
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec:        multiWithOtelCfg,
-			forListener: true,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					Filter:     addAccessLogFilter(),
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
-				},
-				{
-					Name:       otelEnvoyALSName,
-					Filter:     addAccessLogFilter(),
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(otelCfg)},
-				},
-			},
-		},
-		{
-			name: "default-envoy-provider",
-			ctx:  ctx,
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_JSON,
-				AccessLogFormat:   defaultFormatJSON,
-				ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
-					{
-						Name: "envoy",
-						Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-							EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-								Path: "/dev/stdout",
-							},
-						},
-					},
-				},
-			},
-			spec:        defaultEnvoyProvider,
-			forListener: false,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(defaultJSONLabelsOut)},
-				},
-			},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := tc.ctx
-			if ctx == nil {
-				ctx = model.NewPushContext()
-			}
-			ctx.Mesh = tc.meshConfig
-			got := buildAccessLogFromTelemetry(ctx, tc.spec, tc.forListener)
-
-			assert.Equal(t, tc.expected, got)
-		})
-	}
-}
-
 func TestAccessLogPatch(t *testing.T) {
 	// Regression test for https://github.com/istio/istio/issues/35778
 	cg := NewConfigGenTest(t, TestOptions{
@@ -914,89 +225,263 @@ spec:
 	}
 }
 
-func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
-	fakeCluster := "outbound|55680||otel-collector.monitoring.svc.cluster.local"
-	fakeAuthority := "otel-collector.monitoring.svc.cluster.local"
-	for _, tc := range []struct {
-		name        string
-		logName     string
-		clusterName string
-		hostname    string
-		body        string
-		labels      *structpb.Struct
-		expected    *otelaccesslog.OpenTelemetryAccessLogConfig
+func newTestEnviroment() *model.Environment {
+	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
+		Hostname:       "test.example.org",
+		DefaultAddress: "1.1.1.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+	})
+
+	meshConfig := mesh.DefaultMeshConfig()
+	meshConfig.AccessLogFile = model.DevStdout
+	meshConfig.ExtensionProviders = append(meshConfig.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy-json",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: model.DevStdout,
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{},
+				},
+			},
+		},
+	})
+
+	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+	configStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             "test",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Telemetry,
+		},
+		Spec: &tpb.Telemetry{
+			Selector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"app": "test",
+				},
+			},
+			AccessLogging: []*tpb.AccessLogging{
+				{
+					Providers: []*tpb.ProviderRef{
+						{
+							Name: "envoy-json",
+						},
+					},
+				},
+			},
+		},
+	})
+
+	env := model.NewEnvironment()
+	env.ServiceDiscovery = serviceDiscovery
+	env.ConfigStore = configStore
+	env.Watcher = mesh.NewFixedWatcher(meshConfig)
+
+	env.PushContext = model.NewPushContext()
+	env.Init()
+	_ = env.PushContext.InitContext(env, nil, nil)
+
+	return env
+}
+
+var (
+	defaultJSONLabelsOut = &fileaccesslog.FileAccessLog{
+		Path: model.DevStdout,
+		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: EnvoyJSONLogFormatIstio,
+				},
+			},
+		},
+	}
+
+	defaultOut = &fileaccesslog.FileAccessLog{
+		Path: model.DevStdout,
+		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_TextFormatSource{
+					TextFormatSource: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{
+							InlineString: model.EnvoyTextLogFormat,
+						},
+					},
+				},
+			},
+		},
+	}
+)
+
+func TestSetTCPAccessLog(t *testing.T) {
+	b := newAccessLogBuilder()
+
+	env := newTestEnviroment()
+
+	cases := []struct {
+		name     string
+		push     *model.PushContext
+		proxy    *model.Proxy
+		tcp      *tcp.TcpProxy
+		class    networking.ListenerClass
+		expected *tcp.TcpProxy
 	}{
 		{
-			name:        "default",
-			logName:     otelEnvoyAccessLogFriendlyName,
-			clusterName: fakeCluster,
-			hostname:    fakeAuthority,
-			body:        EnvoyTextLogFormat,
-			expected: &otelaccesslog.OpenTelemetryAccessLogConfig{
-				CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
-					LogName: otelEnvoyAccessLogFriendlyName,
-					GrpcService: &core.GrpcService{
-						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-								ClusterName: fakeCluster,
-								Authority:   fakeAuthority,
-							},
-						},
-					},
-					TransportApiVersion:     core.ApiVersion_V3,
-					FilterStateObjectsToLog: envoyWasmStateToLog,
-				},
-				Body: &otlpcommon.AnyValue{
-					Value: &otlpcommon.AnyValue_StringValue{
-						StringValue: EnvoyTextLogFormat,
+			name:  "telemetry",
+			push:  env.PushContext,
+			proxy: &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "test"}}},
+			tcp:   &tcp.TcpProxy{},
+			class: networking.ListenerClassSidecarInbound,
+			expected: &tcp.TcpProxy{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
 					},
 				},
 			},
 		},
 		{
-			name:        "with attrs",
-			logName:     otelEnvoyAccessLogFriendlyName,
-			clusterName: fakeCluster,
-			hostname:    fakeAuthority,
-			body:        EnvoyTextLogFormat,
-			labels: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"protocol": {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
-				},
-			},
-			expected: &otelaccesslog.OpenTelemetryAccessLogConfig{
-				CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
-					LogName: otelEnvoyAccessLogFriendlyName,
-					GrpcService: &core.GrpcService{
-						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-								ClusterName: fakeCluster,
-								Authority:   fakeAuthority,
-							},
-						},
-					},
-					TransportApiVersion:     core.ApiVersion_V3,
-					FilterStateObjectsToLog: envoyWasmStateToLog,
-				},
-				Body: &otlpcommon.AnyValue{
-					Value: &otlpcommon.AnyValue_StringValue{
-						StringValue: EnvoyTextLogFormat,
-					},
-				},
-				Attributes: &otlpcommon.KeyValueList{
-					Values: []*otlpcommon.KeyValue{
-						{
-							Key:   "protocol",
-							Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%PROTOCOL%"}},
-						},
+			name:  "without-telemetry",
+			push:  env.PushContext,
+			proxy: &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}}},
+			tcp:   &tcp.TcpProxy{},
+			class: networking.ListenerClassSidecarInbound,
+			expected: &tcp.TcpProxy{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultOut)},
 					},
 				},
 			},
 		},
-	} {
+	}
+
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := buildOpenTelemetryAccessLogConfig(tc.logName, tc.hostname, tc.clusterName, tc.body, tc.labels)
-			assert.Equal(t, tc.expected, got)
+			b.setTCPAccessLog(tc.push, tc.proxy, tc.tcp, tc.class)
+			assert.Equal(t, tc.expected, tc.tcp)
+		})
+	}
+}
+
+func TestSetHttpAccessLog(t *testing.T) {
+	b := newAccessLogBuilder()
+
+	env := newTestEnviroment()
+
+	cases := []struct {
+		name     string
+		push     *model.PushContext
+		proxy    *model.Proxy
+		hcm      *httppb.HttpConnectionManager
+		class    networking.ListenerClass
+		expected *httppb.HttpConnectionManager
+	}{
+		{
+			name:  "telemetry",
+			push:  env.PushContext,
+			proxy: &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "test"}}},
+			hcm:   &httppb.HttpConnectionManager{},
+			class: networking.ListenerClassSidecarInbound,
+			expected: &httppb.HttpConnectionManager{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+					},
+				},
+			},
+		},
+		{
+			name:  "without-telemetry",
+			push:  env.PushContext,
+			proxy: &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}}},
+			hcm:   &httppb.HttpConnectionManager{},
+			class: networking.ListenerClassSidecarInbound,
+			expected: &httppb.HttpConnectionManager{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultOut)},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			b.setHTTPAccessLog(tc.push, tc.proxy, tc.hcm, tc.class)
+			assert.Equal(t, tc.expected, tc.hcm)
+		})
+	}
+}
+
+func TestSetListenerAccessLog(t *testing.T) {
+	b := newAccessLogBuilder()
+
+	env := newTestEnviroment()
+
+	cases := []struct {
+		name     string
+		push     *model.PushContext
+		proxy    *model.Proxy
+		listener *listener.Listener
+		class    networking.ListenerClass
+		expected *listener.Listener
+	}{
+		{
+			name:     "telemetry",
+			push:     env.PushContext,
+			proxy:    &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "test"}}},
+			listener: &listener.Listener{},
+			class:    networking.ListenerClassSidecarInbound,
+			expected: &listener.Listener{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name: wellknown.FileAccessLog,
+						Filter: &accesslog.AccessLogFilter{
+							FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
+								ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"NR"}},
+							},
+						},
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+					},
+				},
+			},
+		},
+		{
+			name:     "without-telemetry",
+			push:     env.PushContext,
+			proxy:    &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}}},
+			listener: &listener.Listener{},
+			class:    networking.ListenerClassSidecarInbound,
+			expected: &listener.Listener{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name: wellknown.FileAccessLog,
+						Filter: &accesslog.AccessLogFilter{
+							FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
+								ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"NR"}},
+							},
+						},
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultOut)},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			b.setListenerAccessLog(tc.push, tc.proxy, tc.listener, tc.class)
+			assert.Equal(t, tc.expected, tc.listener)
 		})
 	}
 }

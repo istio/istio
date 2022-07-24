@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 )
 
@@ -1713,6 +1714,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 		lbSettings                         *networking.LoadBalancerSettings
 		discoveryType                      cluster.Cluster_DiscoveryType
 		port                               *model.Port
+		sendUnhealthyEndpoints             bool
 		expectedLbPolicy                   cluster.Cluster_LbPolicy
 		expectedLocalityWeightedConfig     bool
 		expectClusterLoadAssignmenttoBeNil bool
@@ -1759,6 +1761,12 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLbPolicy:                   cluster.Cluster_CLUSTER_PROVIDED,
 			expectClusterLoadAssignmenttoBeNil: true,
 		},
+		{
+			name:                   "Send Unhealthy Endpoints enabled",
+			discoveryType:          cluster.Cluster_EDS,
+			sendUnhealthyEndpoints: true,
+			expectedLbPolicy:       defaultLBAlgorithm(),
+		},
 		// TODO: add more to cover all cases
 	}
 
@@ -1770,9 +1778,11 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetBoolForTest(t, &features.SendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
 				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
+				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 			}
 
 			if tt.discoveryType == cluster.Cluster_ORIGINAL_DST {
@@ -1787,6 +1797,10 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 			if c.LbPolicy != tt.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
+			}
+
+			if tt.sendUnhealthyEndpoints && c.CommonLbConfig.HealthyPanicThreshold.GetValue() != 0 {
+				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabeld")
 			}
 
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
@@ -2573,4 +2587,45 @@ func TestBuildDeltaClusters(t *testing.T) {
 			g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal(tc.expectedClusters))
 		})
 	}
+}
+
+func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
+	g := NewWithT(t)
+
+	service := &model.Service{
+		Hostname: host.Name("static.test"),
+		Ports: []*model.Port{
+			{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution:   model.DNSLB,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{service},
+	})
+	proxy := cg.SetupProxy(nil)
+	proxy.Metadata.Raw = map[string]interface{}{
+		security.CredentialMetaDataName: "true",
+	}
+	// Expect sds_external cluster be added if credentialSocket exists
+	clusters := cg.Clusters(proxy)
+	xdstest.ValidateClusters(t, clusters)
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
+		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", security.SDSExternalClusterName,
+	}))
+
+	// Expect no sds_external cluster be added if if credentialSocket does NOT exists
+	proxy = cg.SetupProxy(nil)
+	clusters = cg.Clusters(proxy)
+	xdstest.ValidateClusters(t, clusters)
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
+		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+	}))
 }

@@ -147,13 +147,13 @@ type BugReportConfig struct {
 	// Exclude is a list of SelectionSpec entries for resources t0 exclude.
 	Exclude SelectionSpecs `json:"exclude,omitempty"`
 
-	// StartTime is the start time the the log capture time range.
+	// StartTime is the start time the log capture time range.
 	// If set, Since must be unset.
 	StartTime time.Time `json:"startTime,omitempty"`
-	// EndTime is the end time the the log capture time range.
+	// EndTime is the end time the log capture time range.
 	// Default is now.
 	EndTime time.Time `json:"endTime,omitempty"`
-	// Since defines the start time the the log capture time range.
+	// Since defines the start time the log capture time range.
 	// StartTime is set to EndTime - Since.
 	// If set, StartTime must be unset.
 	Since Duration `json:"since,omitempty"`

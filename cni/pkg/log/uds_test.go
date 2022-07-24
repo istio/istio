@@ -30,6 +30,7 @@ func TestUDSLog(t *testing.T) {
 	udsSockDir := t.TempDir()
 	udsSock := filepath.Join(udsSockDir, "cni.sock")
 	logger := NewUDSLogger()
+	pluginLog.SetOutputLevel(log.DebugLevel) // this will be configured by global.logging.level
 	stop := make(chan struct{})
 	defer close(stop)
 	logger.StartUDSLogServer(udsSock, stop)
@@ -61,7 +62,7 @@ func TestUDSLog(t *testing.T) {
 	gotLogs := strings.Split(
 		strings.TrimSuffix(string(out), "\n"), "\n")
 	if want, got := len(wantLevels), len(gotLogs); want != got {
-		t.Fatalf("Number of logs want %v, got %v", want, got)
+		t.Fatalf("Number of logs want %v, got %v logs: %v", want, got, gotLogs)
 	}
 
 	for i, l := range gotLogs {

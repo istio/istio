@@ -33,7 +33,7 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -156,7 +156,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
 		}
 
-		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath, s.pkpConf))
+		res := protoconv.MessageToAny(toEnvoySecret(secret, s.rootCaPath, s.pkpConf))
 		resources = append(resources, &discovery.Resource{
 			Name:     resourceName,
 			Resource: res,
@@ -235,7 +235,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 		switch pkpConf.GetProvider().(type) {
 		case *mesh.PrivateKeyProvider_Cryptomb:
 			crypto := pkpConf.GetCryptomb()
-			msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
+			msg := protoconv.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
 				PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
 				PrivateKey: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{

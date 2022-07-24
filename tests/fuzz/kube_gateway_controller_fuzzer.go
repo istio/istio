@@ -54,6 +54,11 @@ func validateKubernetesResouces(r *KubernetesResources) error {
 			return fmt.Errorf("Resource is nil")
 		}
 	}
+	for _, tr := range r.ReferenceGrant {
+		if tr.Spec == nil {
+			return fmt.Errorf("Resource is nil")
+		}
+	}
 	return nil
 }
 

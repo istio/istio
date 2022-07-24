@@ -106,7 +106,7 @@ spec:
         app: jwt-server
     spec:
       containers:
-      - image: docker.io/istio/jwt-server:0.6
+      - image: gcr.io/istio-testing/jwt-server:0.6
         imagePullPolicy: IfNotPresent
         name: jwt-server
         volumeMounts:

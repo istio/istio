@@ -191,7 +191,12 @@ func (s *scope) dump(ctx resource.Context, recursive bool) {
 	}
 	st := time.Now()
 	defer func() {
-		scopes.Framework.Debugf("Done dumping scope: %s (%v)", s.id, time.Since(st))
+		l := scopes.Framework.Debugf
+		if time.Since(st) > time.Second*10 {
+			// Log slow dumps at higher level
+			l = scopes.Framework.Infof
+		}
+		l("Done dumping: %s for %s (%v)", s.id, ctx.ID(), time.Since(st))
 	}()
 	s.mu.Lock()
 	defer s.mu.Unlock()

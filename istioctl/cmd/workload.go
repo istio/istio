@@ -329,7 +329,7 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		portBehavior = strings.Join(ports, ",")
 	}
 
-	// 22: ssh is extremely common for VMs, and we do not want to make VM unaccessible if there is an issue
+	// 22: ssh is extremely common for VMs, and we do not want to make VM inaccessible if there is an issue
 	// 15090: prometheus
 	// 15021/15020: agent
 	excludePorts := "22,15090,15021"

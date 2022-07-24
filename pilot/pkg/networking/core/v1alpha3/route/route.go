@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/constant"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -296,6 +297,10 @@ func buildSidecarVirtualHostsForService(
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	if len(destination.GetHost()) == 0 {
+		// only happens when the gateway-api BackendRef is invalid
+		return "UnknownService"
+	}
 	port := listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
@@ -438,8 +443,10 @@ func translateRoute(
 
 	if in.Redirect != nil {
 		applyRedirect(out, in.Redirect, listenPort)
+	} else if in.DirectResponse != nil {
+		applyDirectResponse(out, in.DirectResponse)
 	} else {
-		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		applyHTTPRouteDestination(out, node, virtualService, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -447,7 +454,7 @@ func translateRoute(
 	}
 	if in.Fault != nil {
 		out.TypedPerFilterConfig = make(map[string]*any.Any)
-		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
+		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(translateFault(in.Fault))
 	}
 
 	if isHTTP3AltSvcHeaderNeeded {
@@ -464,6 +471,7 @@ func translateRoute(
 func applyHTTPRouteDestination(
 	out *route.Route,
 	node *model.Proxy,
+	vs config.Config,
 	in *networking.HTTPRoute,
 	mesh *meshconfig.MeshConfig,
 	authority string,
@@ -493,6 +501,12 @@ func applyHTTPRouteDestination(
 		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
 		// nolint: staticcheck
 		action.MaxGrpcTimeout = action.Timeout
+	}
+
+	if model.UseGatewaySemantics(vs) && util.IsIstioVersionGE115(node.IstioVersion) {
+		// return 500 for invalid backends
+		// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L204
+		action.ClusterNotFoundResponseCode = route.RouteAction_INTERNAL_SERVER_ERROR
 	}
 
 	out.Action = &route.Route_Route{Route: action}
@@ -631,6 +645,33 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 	default:
 		log.Warnf("Redirect Code %d is not yet supported", redirect.RedirectCode)
 		action = nil
+	}
+
+	out.Action = action
+}
+
+func applyDirectResponse(out *route.Route, directResponse *networking.HTTPDirectResponse) {
+	action := &route.Route_DirectResponse{
+		DirectResponse: &route.DirectResponseAction{
+			Status: directResponse.Status,
+		},
+	}
+
+	if directResponse.Body != nil {
+		switch op := directResponse.Body.Specifier.(type) {
+		case *networking.HTTPBody_String_:
+			action.DirectResponse.Body = &core.DataSource{
+				Specifier: &core.DataSource_InlineString{
+					InlineString: op.String_,
+				},
+			}
+		case *networking.HTTPBody_Bytes:
+			action.DirectResponse.Body = &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: op.Bytes,
+				},
+			}
+		}
 	}
 
 	out.Action = action

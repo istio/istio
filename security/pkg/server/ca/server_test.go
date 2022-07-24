@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"testing"
 
 	"golang.org/x/net/context"
@@ -48,7 +46,7 @@ func (authn *mockAuthenticator) AuthenticatorType() string {
 	return "mockAuthenticator"
 }
 
-func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
+func (authn *mockAuthenticator) Authenticate(_ security.AuthContext) (*security.Caller, error) {
 	if len(authn.errMsg) > 0 {
 		return nil, fmt.Errorf("%v", authn.errMsg)
 	}
@@ -57,10 +55,6 @@ func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*security.Cal
 		AuthSource: authn.authSource,
 		Identities: authn.identities,
 	}, nil
-}
-
-func (authn *mockAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
-	return nil, errors.New("not implemented")
 }
 
 type mockAuthInfo struct {
@@ -109,7 +103,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			ipAddr:    mockIPAddr,
 			code:      codes.Unauthenticated,
 		},
-		//"unsupported auth type: not-tls"
+		// "unsupported auth type: not-tls"
 		"Unsupported auth type": {
 			certChain:    nil,
 			caller:       nil,
@@ -124,7 +118,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 			ipAddr:    mockIPAddr,
 			code:      codes.Unauthenticated,
 		},
-		// certificate misses the the SAN field
+		// certificate misses the SAN field
 		"Certificate has no SAN": {
 			certChain: [][]*x509.Certificate{
 				{
@@ -205,27 +199,27 @@ func TestCreateCertificate(t *testing.T) {
 			ca:   &mockca.FakeCA{},
 		},
 		"CA not ready": {
-			authenticators: []security.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Invalid CSR": {
-			authenticators: []security.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CSRError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Invalid TTL": {
-			authenticators: []security.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.TTLError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
-			authenticators: []security.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CertGenError, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Successful signing": {
-			authenticators: []security.Authenticator{&mockAuthenticator{}},
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte("cert"),
 				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),

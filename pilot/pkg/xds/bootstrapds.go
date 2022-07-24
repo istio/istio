@@ -26,7 +26,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -60,7 +60,7 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, w *model.WatchedResour
 	bs = e.applyPatches(bs, proxy, req.Push)
 	return model.Resources{
 		&discovery.Resource{
-			Resource: util.MessageToAny(bs),
+			Resource: protoconv.MessageToAny(bs),
 		},
 	}, model.DefaultXdsLogDetails, nil
 }

@@ -24,6 +24,7 @@ import (
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/reserveport"
 )
 
 const (
@@ -63,6 +64,11 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 			return nil, err
 		}
 	}
+	m, err := reserveport.NewPortManager()
+	if err != nil {
+		return nil, err
+	}
+	client.SetPortManager(m.ReservePortNumber)
 
 	// support fake VMs by default
 	vmSupport := true

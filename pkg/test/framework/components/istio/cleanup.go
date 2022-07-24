@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"golang.org/x/sync/errgroup"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -60,22 +61,43 @@ func (i *istioImpl) Close() error {
 }
 
 func (i *istioImpl) Dump(ctx resource.Context) {
-	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
+	scopes.Framework.Errorf("=== Dumping Istio Deployment State for %v...", ctx.ID())
 	ns := i.cfg.SystemNamespace
 	d, err := ctx.CreateTmpDirectory("istio-state")
 	if err != nil {
 		scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 		return
 	}
-	kube2.DumpPods(ctx, d, ns, []string{})
-	kube2.DumpWebhooks(ctx, d)
+	g := errgroup.Group{}
+	g.Go(func() error {
+		kube2.DumpPods(ctx, d, ns, []string{})
+		return nil
+	})
+
+	g.Go(func() error {
+		kube2.DumpWebhooks(ctx, d)
+		return nil
+	})
 	for _, c := range ctx.Clusters().Kube().Primaries() {
-		kube2.DumpDebug(ctx, c, d, "configz")
-		kube2.DumpDebug(ctx, c, d, "mcsz")
-		kube2.DumpDebug(ctx, c, d, "clusterz")
+		c := c
+		g.Go(func() error {
+			kube2.DumpDebug(ctx, c, d, "configz")
+			return nil
+		})
+		g.Go(func() error {
+			kube2.DumpDebug(ctx, c, d, "mcsz")
+			return nil
+		})
+		g.Go(func() error {
+			kube2.DumpDebug(ctx, c, d, "clusterz")
+			return nil
+		})
 	}
 	// Dump istio-cni.
-	kube2.DumpPods(ctx, d, "kube-system", []string{"k8s-app=istio-cni-node"})
+	g.Go(func() error {
+		kube2.DumpPods(ctx, d, "kube-system", []string{"k8s-app=istio-cni-node"})
+		return nil
+	})
 }
 
 func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {

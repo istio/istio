@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - https://github.com/istio/istio/issues/39604
-releaseNotes:
-  - |
-    **Fixed** if a previous installation existed and a revision was used, users
-    couldn't opt-in automatic sidecar injection by changing .Values.enableNamespacesByDefault setting.

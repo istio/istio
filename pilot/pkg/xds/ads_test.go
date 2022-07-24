@@ -97,17 +97,42 @@ func TestAdsReconnectAfterRestart(t *testing.T) {
 	})
 }
 
-// TestAdsDoubleNonce tests the PushOnRepeatNonce flag. If enabled, we should see a response to our repeated request.
-func TestAdsDoubleNonce(t *testing.T) {
+// TestAdsReconnectRequests provides a regression test for a case where Envoy sends an EDS request as the first
+// request on a connection.
+func TestAdsReconnectRequests(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
-	ads := s.ConnectADS().WithType(v3.EndpointType)
-	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
-	// Reconnect with the same resources
+	ads := s.ConnectADS()
+	// Send normal CDS and EDS requests
+	_ = ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+	eres := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.EndpointType, ResourceNames: []string{"my-resource"}})
+
+	// A push should get a response for both
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
+	ads.ExpectResponse(t)
+	ads.ExpectResponse(t)
+	// Close the connection and reconnect
+	ads.Cleanup()
+	ads = s.ConnectADS()
+
+	// Send a request for EDS version 1 - we do not explicitly ACK this.
+	ads.Request(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{"my-resource"},
+		ResponseNonce: eres.Nonce,
+	})
+	// We should get a response
+	eres3 := ads.ExpectResponse(t)
+	// Now send our CDS request
 	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
-		ResourceNames: []string{"fake-cluster"},
-		ResponseNonce: res.Nonce,
-		VersionInfo:   res.VersionInfo,
+		TypeUrl:       v3.ClusterType,
+		ResponseNonce: eres.Nonce,
+	})
+	// Send another request. This is essentially an ACK of eres3. However, envoy expects a response
+	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{"my-resource"},
+		ResponseNonce: eres3.Nonce,
 	})
 }
 
