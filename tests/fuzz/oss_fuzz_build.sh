@@ -35,35 +35,6 @@ grep --line-buffered --include '*.go' -Pr 'func Fuzz.*\(.* \*testing\.F' | sed -
   compile_native_go_fuzzer istio.io/istio/$fname $func $func
 '
 
-mv ./tests/fuzz/kube_gateway_controller_fuzzer.go ./pilot/pkg/config/kube/gateway/
-compile_go_fuzzer istio.io/istio/pilot/pkg/config/kube/gateway ConvertResourcesFuzz fuzz_convert_resources
-
-mv ./tests/fuzz/ca_server_fuzzer.go ./security/pkg/server/ca
-mv ./security/pkg/server/ca/server_test.go ./security/pkg/server/ca/server_fuzz.go
-compile_go_fuzzer istio.io/istio/security/pkg/server/ca CreateCertificateFuzz fuzz_create_certificate
-
-# Some of the fuzzers are moved to their respective packages before they are compiled. These are compiled first. TODO: Add support for regression testing of these fuzzers.
-export CUR_FUZZ_PATH="${SRC}"/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter
-mv "${SRC}"/istio/tests/fuzz/networking_core_v1alpha3_envoyfilter_fuzzer.go "${CUR_FUZZ_PATH}"/
-mv "${CUR_FUZZ_PATH}"/cluster_patch_test.go "${CUR_FUZZ_PATH}"/cluster_patch_test_fuzz.go
-mv "${CUR_FUZZ_PATH}"/listener_patch_test.go "${CUR_FUZZ_PATH}"/listener_patch_test_fuzz.go
-compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter InternalFuzzApplyClusterMerge fuzz_apply_cluster_merge
-
-export CUR_FUZZ_PATH="${SRC}"/istio/pilot/pkg/networking/core/v1alpha3
-mv "${SRC}"/istio/tests/fuzz/networking_core_v1alpha3_fuzzer.go "${CUR_FUZZ_PATH}"/
-mv "${CUR_FUZZ_PATH}"/listener_test.go "${CUR_FUZZ_PATH}"/listener_test_fuzz.go
-mv "${CUR_FUZZ_PATH}"/listener_builder_test.go "${CUR_FUZZ_PATH}"/listener_builder_test_fuzz.go
-compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildGatewayListeners fuzz_build_gateway_listeners
-compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildSidecarOutboundHTTPRouteConfig fuzz_build_sidecar_outbound_http_route_config
-compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildSidecarOutboundListeners fuzz_build_sidecar_outbound_listeners
-
-mv "${SRC}"/istio/tests/fuzz/kube_controller_fuzzer.go "${SRC}"/istio/pilot/pkg/serviceregistry/kube/controller/
-compile_go_fuzzer istio.io/istio/pilot/pkg/serviceregistry/kube/controller InternalFuzzKubeController fuzz_kube_controller
-
-mv "${SRC}"/istio/tests/fuzz/security_authz_builder_fuzzer.go "${SRC}"/istio/pilot/pkg/security/authz/builder/
-compile_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder InternalFuzzBuildHTTP fuzz_build_http
-compile_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder InternalFuzzBuildTCP fuzz_build_tcp
-
 # Now compile fuzzers from tests/fuzz
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCRDRoundtrip fuzz_crd_roundtrip
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzExtractIDs fuzz_extract_ids

@@ -1770,3 +1770,42 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 	ret[NamespaceNameLabel] = name
 	return ret
 }
+
+func (r KubernetesResources) FuzzValidate() bool {
+	for _, gwc := range r.GatewayClass {
+		if gwc.Spec == nil {
+			return false
+		}
+	}
+	for _, rp := range r.ReferencePolicy {
+		if rp.Spec == nil {
+			return false
+		}
+	}
+	for _, rp := range r.ReferenceGrant {
+		if rp.Spec == nil {
+			return false
+		}
+	}
+	for _, hr := range r.HTTPRoute {
+		if hr.Spec == nil {
+			return false
+		}
+	}
+	for _, tr := range r.TLSRoute {
+		if tr.Spec == nil {
+			return false
+		}
+	}
+	for _, g := range r.Gateway {
+		if g.Spec == nil {
+			return false
+		}
+	}
+	for _, tr := range r.TCPRoute {
+		if tr.Spec == nil {
+			return false
+		}
+	}
+	return true
+}
