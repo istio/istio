@@ -544,7 +544,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: configsUpdated,
-			Reason:         []model.TriggerReason{model.ServiceUpdate},
+			Reason:         []model.TriggerReason{model.EndpointUpdate},
 		}
 		s.XdsUpdater.ConfigUpdate(pushReq)
 	}
