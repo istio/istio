@@ -173,13 +173,13 @@ func (h timerHeap) Swap(i, j int) {
 	h[j].index = j
 }
 
-func (h *timerHeap) Push(x interface{}) {
+func (h *timerHeap) Push(x any) {
 	e := x.(*entry)
 	*h = append(*h, e)
 	e.index = len(*h) - 1
 }
 
-func (h *timerHeap) Pop() interface{} {
+func (h *timerHeap) Pop() any {
 	n := h.Len()
 	e := (*h)[n-1]
 	*h = (*h)[:n-1]

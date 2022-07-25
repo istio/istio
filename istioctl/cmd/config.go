@@ -28,7 +28,7 @@ import (
 )
 
 // settableFlags are the flags used to istioctl
-var settableFlags = map[string]interface{}{
+var settableFlags = map[string]any{
 	"istioNamespace":      env.RegisterStringVar("ISTIOCTL_ISTIONAMESPACE", constants.IstioSystemNamespace, "The istioctl --istioNamespace override"),
 	"xds-address":         env.RegisterStringVar("ISTIOCTL_XDS_ADDRESS", "", "The istioctl --xds-address override"),
 	"xds-port":            env.RegisterIntVar("ISTIOCTL_XDS_PORT", 15012, "The istioctl --xds-port override"),
@@ -84,7 +84,7 @@ func runList(writer io.Writer) error {
 	return w.Flush()
 }
 
-func configSource(flag string, v interface{}) string {
+func configSource(flag string, v any) string {
 	// Environment variables have high precedence in Viper
 	if isVarSet(v) {
 		return "$" + getVarVar(v).Name
@@ -97,7 +97,7 @@ func configSource(flag string, v interface{}) string {
 	return "default"
 }
 
-func getVarVar(v interface{}) env.Var {
+func getVarVar(v any) env.Var {
 	switch ev := v.(type) {
 	case env.StringVar:
 		return ev.Var
@@ -114,7 +114,7 @@ func getVarVar(v interface{}) env.Var {
 	}
 }
 
-func isVarSet(v interface{}) bool {
+func isVarSet(v any) bool {
 	switch ev := v.(type) {
 	case env.StringVar:
 		_, ok := ev.Lookup()

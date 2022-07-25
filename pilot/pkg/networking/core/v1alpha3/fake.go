@@ -55,7 +55,7 @@ type TestOptions struct {
 	// If provided, the yaml string will be parsed and used as configs
 	ConfigString string
 	// If provided, the ConfigString will be treated as a go template, with this as input params
-	ConfigTemplateInput interface{}
+	ConfigTemplateInput any
 
 	// Services to pre-populate as part of the service discovery
 	Services  []*model.Service

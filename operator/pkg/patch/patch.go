@@ -173,7 +173,7 @@ func YAMLManifestPatch(baseYAML string, defaultNamespace string, overlays []*v1a
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
 // or a list of errors otherwise.
 func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_PathValue) (outYAML string, errs util.Errors) {
-	bo := make(map[interface{}]interface{})
+	bo := make(map[any]any)
 	by, err := base.YAML()
 	if err != nil {
 		return "", util.NewErrs(err)

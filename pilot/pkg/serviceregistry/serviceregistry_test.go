@@ -1218,7 +1218,7 @@ func expectServiceInstances(t *testing.T, sd serviceregistry.Instance, svc *mode
 	}, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
 }
 
-func compare(t *testing.T, actual, expected interface{}) error {
+func compare(t *testing.T, actual, expected any) error {
 	return util.Compare(jsonBytes(t, actual), jsonBytes(t, expected))
 }
 
@@ -1231,7 +1231,7 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 	})
 }
 
-func jsonBytes(t *testing.T, v interface{}) []byte {
+func jsonBytes(t *testing.T, v any) []byte {
 	data, err := json.MarshalIndent(v, "", " ")
 	if err != nil {
 		t.Fatal(t)

@@ -29,7 +29,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -191,7 +191,7 @@ type Resources = []*discovery.Resource
 // DeletedResources is an alias for array of strings that represent removed resources in delta.
 type DeletedResources = []string
 
-func AnyToUnnamedResources(r []*any.Any) Resources {
+func AnyToUnnamedResources(r []*anypb.Any) Resources {
 	a := make(Resources, 0, len(r))
 	for _, rr := range r {
 		a = append(a, &discovery.Resource{Resource: rr})
@@ -199,8 +199,8 @@ func AnyToUnnamedResources(r []*any.Any) Resources {
 	return a
 }
 
-func ResourcesToAny(r Resources) []*any.Any {
-	a := make([]*any.Any, 0, len(r))
+func ResourcesToAny(r Resources) []*anypb.Any {
+	a := make([]*anypb.Any, 0, len(r))
 	for _, rr := range r {
 		a = append(a, rr.Resource)
 	}
@@ -472,7 +472,7 @@ type Node struct {
 	// Metadata is the typed node metadata
 	Metadata *BootstrapNodeMetadata
 	// RawMetadata is the untyped node metadata
-	RawMetadata map[string]interface{}
+	RawMetadata map[string]any
 	// Locality from Envoy bootstrap
 	Locality *core.Locality
 }
@@ -648,7 +648,7 @@ type NodeMetadata struct {
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
-	Raw map[string]interface{} `json:"-"`
+	Raw map[string]any `json:"-"`
 }
 
 // ProxyConfigOrDefault is a helper function to get the ProxyConfig from metadata, or fallback to a default
@@ -688,7 +688,7 @@ func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, t2); err != nil {
 		return err
 	}
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}

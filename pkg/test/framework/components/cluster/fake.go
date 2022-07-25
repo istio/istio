@@ -29,7 +29,7 @@ func init() {
 func NewFake(name, major, minor string) Cluster {
 	c, _ := newFakeCluster(
 		Config{
-			Meta: map[string]interface{}{
+			Meta: map[string]any{
 				"majorVersion": major,
 				"minorVersion": minor,
 			},

@@ -116,7 +116,7 @@ func (lb *weightedLeastRequest) Request(onDone func()) {
 	lb.doRequest(selected, onDone)
 }
 
-func (lb *weightedLeastRequest) calcEDFWeight(_ float64, value interface{}) float64 {
+func (lb *weightedLeastRequest) calcEDFWeight(_ float64, value any) float64 {
 	conn := value.(*WeightedConnection)
 
 	weight := float64(conn.Weight)

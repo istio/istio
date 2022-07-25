@@ -39,7 +39,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -72,7 +72,7 @@ var connectionNumber = atomic.NewUint32(0)
 // ResponseHandler handles a XDS response in the agent. These will not be forwarded to Envoy.
 // Currently, all handlers function on a single resource per type, so the API only exposes one
 // resource.
-type ResponseHandler func(resp *any.Any) error
+type ResponseHandler func(resp *anypb.Any) error
 
 // XdsProxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
@@ -157,7 +157,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		proxy.handlers[v3.NameTableType] = func(resp *any.Any) error {
+		proxy.handlers[v3.NameTableType] = func(resp *anypb.Any) error {
 			var nt dnsProto.NameTable
 			if err := resp.UnmarshalTo(&nt); err != nil {
 				log.Errorf("failed to unmarshal name table: %v", err)
@@ -168,7 +168,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
-		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
+		proxy.handlers[v3.ProxyConfigType] = func(resp *anypb.Any) error {
 			pc := &meshconfig.ProxyConfig{}
 			if err := resp.UnmarshalTo(pc); err != nil {
 				log.Errorf("failed to unmarshal proxy config: %v", err)

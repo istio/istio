@@ -226,7 +226,7 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-vs.yaml")).ApplyOrFail(t)
 
 			// The main SE is available only to app namespace, make one the egress can access.
-			t.ConfigIstio().Eval(ist.Settings().SystemNamespace, map[string]interface{}{
+			t.ConfigIstio().Eval(ist.Settings().SystemNamespace, map[string]any{
 				"Namespace": apps.External.Namespace.Name(),
 				"Hostname":  cdeployment.ExternalHostname,
 			}, `apiVersion: networking.istio.io/v1alpha3

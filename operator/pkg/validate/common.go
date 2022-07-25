@@ -90,7 +90,7 @@ var (
 )
 
 // validateWithRegex checks whether the given value matches the regexp r.
-func validateWithRegex(path util.Path, val interface{}, r *regexp.Regexp) (errs util.Errors) {
+func validateWithRegex(path util.Path, val any, r *regexp.Regexp) (errs util.Errors) {
 	valStr := fmt.Sprint(val)
 	if len(r.FindString(valStr)) != len(valStr) {
 		errs = util.AppendErr(errs, fmt.Errorf("invalid value %s: %v", path, val))
@@ -102,7 +102,7 @@ func validateWithRegex(path util.Path, val interface{}, r *regexp.Regexp) (errs 
 // validateStringList returns a validator function that works on a string list, using the supplied ValidatorFunc vf on
 // each element.
 func validateStringList(vf ValidatorFunc) ValidatorFunc {
-	return func(path util.Path, val interface{}) util.Errors {
+	return func(path util.Path, val any) util.Errors {
 		msg := fmt.Sprintf("validateStringList %v", val)
 		if !util.IsString(val) {
 			err := fmt.Errorf("validateStringList %s got %T, want string", path, val)
@@ -121,7 +121,7 @@ func validateStringList(vf ValidatorFunc) ValidatorFunc {
 }
 
 // validatePortNumberString checks if val is a string with a valid port number.
-func validatePortNumberString(path util.Path, val interface{}) util.Errors {
+func validatePortNumberString(path util.Path, val any) util.Errors {
 	scope.Debugf("validatePortNumberString %v:", val)
 	if !util.IsString(val) {
 		return util.NewErrs(fmt.Errorf("validatePortNumberString(%s) bad type %T, want string", path, val))
@@ -137,12 +137,12 @@ func validatePortNumberString(path util.Path, val interface{}) util.Errors {
 }
 
 // validatePortNumber checks whether val is an integer representing a valid port number.
-func validatePortNumber(path util.Path, val interface{}) util.Errors {
+func validatePortNumber(path util.Path, val any) util.Errors {
 	return validateIntRange(path, val, 0, 65535)
 }
 
 // validateIPRangesOrStar validates IP ranges and also allow star, examples: "1.1.0.256/16,2.2.0.257/16", "*"
-func validateIPRangesOrStar(path util.Path, val interface{}) (errs util.Errors) {
+func validateIPRangesOrStar(path util.Path, val any) (errs util.Errors) {
 	scope.Debugf("validateIPRangesOrStar at %v: %v", path, val)
 
 	if !util.IsString(val) {
@@ -159,7 +159,7 @@ func validateIPRangesOrStar(path util.Path, val interface{}) (errs util.Errors) 
 }
 
 // validateIntRange checks whether val is an integer in [min, max].
-func validateIntRange(path util.Path, val interface{}, min, max int64) util.Errors {
+func validateIntRange(path util.Path, val any, min, max int64) util.Errors {
 	k := reflect.TypeOf(val).Kind()
 	var err error
 	switch {
@@ -181,7 +181,7 @@ func validateIntRange(path util.Path, val interface{}, min, max int64) util.Erro
 }
 
 // validateCIDR checks whether val is a string with a valid CIDR.
-func validateCIDR(path util.Path, val interface{}) util.Errors {
+func validateCIDR(path util.Path, val any) util.Errors {
 	var err error
 	if !util.IsString(val) {
 		err = fmt.Errorf("validateCIDR %s got %T, want string", path, val)
@@ -204,7 +204,7 @@ func printError(err error) {
 }
 
 // logWithError prints debug log with err message
-func logWithError(err error, format string, args ...interface{}) {
+func logWithError(err error, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	if err == nil {
 		msg += ": OK\n"
@@ -268,12 +268,12 @@ func anchored(res ...*regexp.Regexp) *regexp.Regexp {
 }
 
 // ValidatorFunc validates a value.
-type ValidatorFunc func(path util.Path, i interface{}) util.Errors
+type ValidatorFunc func(path util.Path, i any) util.Errors
 
 // UnmarshalIOP unmarshals a string containing IstioOperator as YAML.
 func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 	// Remove creationDate (util.UnmarshalWithJSONPB fails if present)
-	mapIOP := make(map[string]interface{})
+	mapIOP := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(iopYAML), &mapIOP); err != nil {
 		return nil, err
 	}

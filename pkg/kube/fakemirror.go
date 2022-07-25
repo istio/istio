@@ -29,7 +29,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-type convertFn func(obj interface{}) metav1.Common
+type convertFn func(obj any) metav1.Common
 
 type untypedMirror struct {
 	createClient reflect.Value
@@ -37,7 +37,7 @@ type untypedMirror struct {
 	convertRes   convertFn
 }
 
-func mirrorTo(q queue.Instance, createClient interface{}, convert convertFn) *untypedMirror {
+func mirrorTo(q queue.Instance, createClient any, convert convertFn) *untypedMirror {
 	// TODO go 1.18 generics may help avoid reflection
 	untyped := reflect.ValueOf(createClient)
 	if untyped.Type().Kind() != reflect.Func {
@@ -50,7 +50,7 @@ func mirrorTo(q queue.Instance, createClient interface{}, convert convertFn) *un
 	}
 }
 
-func (c *untypedMirror) OnAdd(obj interface{}) {
+func (c *untypedMirror) OnAdd(obj any) {
 	meta := obj.(metav1.Object)
 	res := c.convertRes(obj)
 	if res == nil {
@@ -63,7 +63,7 @@ func (c *untypedMirror) OnAdd(obj interface{}) {
 	})
 }
 
-func (c *untypedMirror) OnUpdate(_, obj interface{}) {
+func (c *untypedMirror) OnUpdate(_, obj any) {
 	meta := obj.(metav1.Object)
 	res := c.convertRes(obj)
 	if res == nil {
@@ -77,7 +77,7 @@ func (c *untypedMirror) OnUpdate(_, obj interface{}) {
 	})
 }
 
-func (c *untypedMirror) OnDelete(obj interface{}) {
+func (c *untypedMirror) OnDelete(obj any) {
 	meta := obj.(metav1.Object)
 	log.Debugf("Mirroring DELETE %s/%s", meta.GetName(), meta.GetName())
 	c.queue.Push(func() error {
@@ -85,17 +85,17 @@ func (c *untypedMirror) OnDelete(obj interface{}) {
 	})
 }
 
-func (c *untypedMirror) do(ns string, method string, args ...interface{}) []reflect.Value {
+func (c *untypedMirror) do(ns string, method string, args ...any) []reflect.Value {
 	return c.createClient.Call(argValues(ns))[0].MethodByName(method).Call(argValues(args...))
 }
 
-func (c *untypedMirror) Create(ns string, obj interface{}) error {
+func (c *untypedMirror) Create(ns string, obj any) error {
 	ret := c.do(ns, "Create", context.TODO(), obj, metav1.CreateOptions{})
 	err, _ := ret[1].Interface().(error)
 	return err
 }
 
-func (c *untypedMirror) Update(ns string, obj interface{}) error {
+func (c *untypedMirror) Update(ns string, obj any) error {
 	ret := c.do(ns, "Update", context.TODO(), obj, metav1.UpdateOptions{})
 	err, _ := ret[1].Interface().(error)
 	return err
@@ -107,7 +107,7 @@ func (c *untypedMirror) Delete(ns string, name string) error {
 	return err
 }
 
-func argValues(args ...interface{}) []reflect.Value {
+func argValues(args ...any) []reflect.Value {
 	out := make([]reflect.Value, len(args))
 	for i, arg := range args {
 		out[i] = reflect.ValueOf(arg)
@@ -115,11 +115,11 @@ func argValues(args ...interface{}) []reflect.Value {
 	return out
 }
 
-func mirrorResource(q queue.Instance, from cache.SharedIndexInformer, toClientFunc interface{}, convertFn convertFn) {
+func mirrorResource(q queue.Instance, from cache.SharedIndexInformer, toClientFunc any, convertFn convertFn) {
 	from.AddEventHandler(mirrorTo(q, toClientFunc, convertFn))
 }
 
-func endpointSliceV1toV1beta1(obj interface{}) metav1.Common {
+func endpointSliceV1toV1beta1(obj any) metav1.Common {
 	in, ok := obj.(*discoveryv1.EndpointSlice)
 	if !ok {
 		return nil

@@ -22,7 +22,7 @@ import (
 )
 
 // Evaluate parses the template and then executes it with the given parameters.
-func Evaluate(tpl string, data interface{}) (string, error) {
+func Evaluate(tpl string, data any) (string, error) {
 	t, err := Parse(tpl)
 	if err != nil {
 		return "", err
@@ -31,7 +31,7 @@ func Evaluate(tpl string, data interface{}) (string, error) {
 	return Execute(t, data)
 }
 
-func EvaluateFile(filePath string, data interface{}) (string, error) {
+func EvaluateFile(filePath string, data any) (string, error) {
 	tpl, err := file.AsString(filePath)
 	if err != nil {
 		return "", err
@@ -40,7 +40,7 @@ func EvaluateFile(filePath string, data interface{}) (string, error) {
 }
 
 // EvaluateOrFail calls Evaluate and fails tests if it returns error.
-func EvaluateOrFail(t test.Failer, tpl string, data interface{}) string {
+func EvaluateOrFail(t test.Failer, tpl string, data any) string {
 	t.Helper()
 	s, err := Evaluate(tpl, data)
 	if err != nil {
@@ -49,7 +49,7 @@ func EvaluateOrFail(t test.Failer, tpl string, data interface{}) string {
 	return s
 }
 
-func EvaluateFileOrFail(t test.Failer, filePath string, data interface{}) string {
+func EvaluateFileOrFail(t test.Failer, filePath string, data any) string {
 	t.Helper()
 	s, err := EvaluateFile(filePath, data)
 	if err != nil {
@@ -59,7 +59,7 @@ func EvaluateFileOrFail(t test.Failer, filePath string, data interface{}) string
 }
 
 // MustEvaluate calls Evaluate and panics if there is an error.
-func MustEvaluate(tpl string, data interface{}) string {
+func MustEvaluate(tpl string, data any) string {
 	s, err := Evaluate(tpl, data)
 	if err != nil {
 		panic(fmt.Sprintf("tmpl.MustEvaluate: %v", err))
@@ -67,7 +67,7 @@ func MustEvaluate(tpl string, data interface{}) string {
 	return s
 }
 
-func MustEvaluateFile(filePath string, data interface{}) string {
+func MustEvaluateFile(filePath string, data any) string {
 	s, err := EvaluateFile(filePath, data)
 	if err != nil {
 		panic(fmt.Sprintf("tmpl.MustEvaluate: %v", err))
@@ -76,7 +76,7 @@ func MustEvaluateFile(filePath string, data interface{}) string {
 }
 
 // EvaluateAll calls Evaluate the same data args against each of the given templates.
-func EvaluateAll(data interface{}, templates ...string) ([]string, error) {
+func EvaluateAll(data any, templates ...string) ([]string, error) {
 	out := make([]string, 0, len(templates))
 	for _, t := range templates {
 		content, err := Evaluate(t, data)
@@ -88,7 +88,7 @@ func EvaluateAll(data interface{}, templates ...string) ([]string, error) {
 	return out, nil
 }
 
-func EvaluateAllFiles(data interface{}, filePaths ...string) ([]string, error) {
+func EvaluateAllFiles(data any, filePaths ...string) ([]string, error) {
 	templates, err := file.AsStringArray(filePaths...)
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func EvaluateAllFiles(data interface{}, filePaths ...string) ([]string, error) {
 	return EvaluateAll(data, templates...)
 }
 
-func MustEvaluateAll(data interface{}, templates ...string) []string {
+func MustEvaluateAll(data any, templates ...string) []string {
 	out, err := EvaluateAll(data, templates...)
 	if err != nil {
 		panic(fmt.Sprintf("tmpl.MustEvaluateAll: %v", err))
@@ -105,7 +105,7 @@ func MustEvaluateAll(data interface{}, templates ...string) []string {
 }
 
 // EvaluateAllOrFail calls Evaluate and fails t if an error occurs.
-func EvaluateAllOrFail(t test.Failer, data interface{}, templates ...string) []string {
+func EvaluateAllOrFail(t test.Failer, data any, templates ...string) []string {
 	t.Helper()
 	out, err := EvaluateAll(data, templates...)
 	if err != nil {
@@ -114,7 +114,7 @@ func EvaluateAllOrFail(t test.Failer, data interface{}, templates ...string) []s
 	return out
 }
 
-func EvaluateAllFilesOrFail(t test.Failer, data interface{}, filePaths ...string) []string {
+func EvaluateAllFilesOrFail(t test.Failer, data any, filePaths ...string) []string {
 	t.Helper()
 	out, err := EvaluateAllFiles(data, filePaths...)
 	if err != nil {

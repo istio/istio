@@ -42,7 +42,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	args := map[string]interface{}{
+	args := map[string]any{
 		"DockerConfigJson": base64.StdEncoding.EncodeToString(
 			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
 	}

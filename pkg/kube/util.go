@@ -292,7 +292,7 @@ func HTTPConfigReader(req *http.Request) ([]byte, error) {
 
 // StripUnusedFields is the transform function for shared informers,
 // it removes unused fields from objects before they are stored in the cache to save memory.
-func StripUnusedFields(obj interface{}) (interface{}, error) {
+func StripUnusedFields(obj any) (any, error) {
 	t, ok := obj.(metav1.ObjectMetaAccessor)
 	if !ok {
 		// shouldn't happen

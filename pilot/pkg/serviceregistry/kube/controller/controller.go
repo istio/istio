@@ -332,7 +332,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	_ = c.nsInformer.SetTransform(kubelib.StripUnusedFields)
 	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
 	if c.opts.SystemNamespace != "" {
-		nsInformer := filter.NewFilteredSharedIndexInformer(func(obj interface{}) bool {
+		nsInformer := filter.NewFilteredSharedIndexInformer(func(obj any) bool {
 			ns, ok := obj.(*v1.Namespace)
 			if !ok {
 				log.Warnf("Namespace watch getting wrong type in event: %T", obj)
@@ -497,7 +497,7 @@ func (c *Controller) Cleanup() error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
+func (c *Controller) onServiceEvent(curr any, event model.Event) error {
 	svc, err := extractService(curr)
 	if err != nil {
 		log.Errorf(err)
@@ -596,7 +596,7 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 	return endpoints
 }
 
-func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
+func (c *Controller) onNodeEvent(obj any, event model.Event) error {
 	node, ok := obj.(*v1.Node)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -650,13 +650,13 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 }
 
 // FilterOutFunc func for filtering out objects during update callback
-type FilterOutFunc func(old, cur interface{}) bool
+type FilterOutFunc func(old, cur any) bool
 
 func (c *Controller) registerHandlers(
 	informer filter.FilteredSharedIndexInformer, otype string,
-	handler func(interface{}, model.Event) error, filter FilterOutFunc,
+	handler func(any, model.Event) error, filter FilterOutFunc,
 ) {
-	wrappedHandler := func(obj interface{}, event model.Event) error {
+	wrappedHandler := func(obj any, event model.Event) error {
 		obj = tryGetLatestObject(informer, obj)
 		return handler(obj, event)
 	}
@@ -665,7 +665,7 @@ func (c *Controller) registerHandlers(
 	}
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
+			AddFunc: func(obj any) {
 				incrementEvent(otype, "add")
 				if !shouldEnqueue(otype, c.beginSync) {
 					return
@@ -674,7 +674,7 @@ func (c *Controller) registerHandlers(
 					return wrappedHandler(obj, model.EventAdd)
 				})
 			},
-			UpdateFunc: func(old, cur interface{}) {
+			UpdateFunc: func(old, cur any) {
 				if filter != nil {
 					if filter(old, cur) {
 						incrementEvent(otype, "updatesame")
@@ -690,7 +690,7 @@ func (c *Controller) registerHandlers(
 					return wrappedHandler(cur, model.EventUpdate)
 				})
 			},
-			DeleteFunc: func(obj interface{}) {
+			DeleteFunc: func(obj any) {
 				incrementEvent(otype, "delete")
 				if !shouldEnqueue(otype, c.beginSync) {
 					return
@@ -704,7 +704,7 @@ func (c *Controller) registerHandlers(
 
 // tryGetLatestObject attempts to fetch the latest version of the object from the cache.
 // Changes may have occurred between queuing and processing.
-func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj interface{}) interface{} {
+func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj any) any {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		log.Warnf("failed creating key for informer object: %v", err)
@@ -1185,7 +1185,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
-func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) error {
+func (c *Controller) onSystemNamespaceEvent(obj any, ev model.Event) error {
 	if ev == model.EventDelete {
 		return nil
 	}

@@ -26,7 +26,7 @@ import (
 
 // createBuffer to get a buffer. io.Copy uses 32k.
 // experimental use shows ~20k max read with Firefox.
-var bufferPoolCopy = sync.Pool{New: func() interface{} {
+var bufferPoolCopy = sync.Pool{New: func() any {
 	return make([]byte, 0, 32*1024)
 }}
 

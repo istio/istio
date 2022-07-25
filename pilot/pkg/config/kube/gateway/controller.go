@@ -98,10 +98,10 @@ func NewController(client kube.Client, c model.ConfigStoreController, options co
 	}
 
 	nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+		AddFunc: func(obj any) {
 			gatewayController.namespaceEvent(nil, obj)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
+		UpdateFunc: func(oldObj, newObj any) {
 			gatewayController.namespaceEvent(oldObj, newObj)
 		},
 	})
@@ -140,7 +140,7 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	c.statusEnabled.Store(enabled)
 	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
-		c.statusController = statusManager.CreateGenericController(func(status interface{}, context interface{}) status.GenerationProvider {
+		c.statusController = statusManager.CreateGenericController(func(status any, context any) status.GenerationProvider {
 			return &gatewayGeneration{context}
 		})
 	} else {
@@ -303,7 +303,7 @@ func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
 // when the labels change.
 // Note: we don't handle delete as a delete would also clean up any relevant gateway-api types which will
 // trigger its own event.
-func (c *Controller) namespaceEvent(oldObj interface{}, newObj interface{}) {
+func (c *Controller) namespaceEvent(oldObj any, newObj any) {
 	// First, find all the label keys on the old/new namespace. We include NamespaceNameLabel
 	// since we have special logic to always allow this on namespace.
 	touchedNamespaceLabels := sets.New(NamespaceNameLabel)
@@ -325,7 +325,7 @@ func (c *Controller) namespaceEvent(oldObj interface{}, newObj interface{}) {
 }
 
 // getLabelKeys extracts all label keys from a namespace object.
-func getLabelKeys(obj interface{}) []string {
+func getLabelKeys(obj any) []string {
 	if obj == nil {
 		return nil
 	}

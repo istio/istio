@@ -126,7 +126,7 @@ func (pc *PodCache) labelFilter(old, cur interface{}) bool {
 }
 
 // onEvent updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
+func (pc *PodCache) onEvent(curr any, ev model.Event) error {
 	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
 	pod, ok := curr.(*v1.Pod)
 	if !ok {

@@ -27,7 +27,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/duration"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -638,7 +638,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		TypedExtensionProtocolOptions: map[string]*any.Any{
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
@@ -1229,7 +1229,7 @@ func (mc *MutableCluster) build() *cluster.Cluster {
 				},
 			}
 		}
-		mc.cluster.TypedExtensionProtocolOptions = map[string]*any.Any{
+		mc.cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(mc.httpProtocolOptions),
 		}
 	}

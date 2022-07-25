@@ -2611,7 +2611,7 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 		Services: []*model.Service{service},
 	})
 	proxy := cg.SetupProxy(nil)
-	proxy.Metadata.Raw = map[string]interface{}{
+	proxy.Metadata.Raw = map[string]any{
 		security.CredentialMetaDataName: "true",
 	}
 	// Expect sds_external cluster be added if credentialSocket exists

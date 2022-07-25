@@ -74,7 +74,7 @@ type Telemetries struct {
 	// The computedMetricsFilters lifetime is bound to the Telemetries object. During a push context
 	// creation, we will preserve the Telemetries (and thus the cache) if not Telemetries are modified.
 	// As result, this cache will live until any Telemetry is modified.
-	computedMetricsFilters map[metricsKey]interface{}
+	computedMetricsFilters map[metricsKey]any
 	computedLoggingConfig  map[loggingKey]LoggingConfig
 	mu                     sync.Mutex
 }
@@ -109,7 +109,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 		NamespaceToTelemetries: map[string][]Telemetry{},
 		RootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
-		computedMetricsFilters: map[metricsKey]interface{}{},
+		computedMetricsFilters: map[metricsKey]any{},
 		computedLoggingConfig:  map[loggingKey]LoggingConfig{},
 	}
 
@@ -416,7 +416,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 // set of applicable Telemetries, merges them, then translates to the appropriate filters based on the
 // extension providers in the mesh config. Where possible, the result is cached.
 // Currently, this includes metrics and access logging, as some providers are implemented in filters.
-func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) interface{} {
+func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) any {
 	if t == nil {
 		return nil
 	}
@@ -466,7 +466,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		m = append(m, cfg)
 	}
 
-	var res interface{}
+	var res any
 	// Finally, compute the actual filters based on the protoc
 	switch protocol {
 	case networking.ListenerProtocolHTTP:

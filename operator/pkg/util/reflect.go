@@ -21,7 +21,7 @@ import (
 
 // kindOf returns the reflection Kind that represents the dynamic type of value.
 // If value is a nil interface value, kindOf returns reflect.Invalid.
-func kindOf(value interface{}) reflect.Kind {
+func kindOf(value any) reflect.Kind {
 	if value == nil {
 		return reflect.Invalid
 	}
@@ -29,43 +29,43 @@ func kindOf(value interface{}) reflect.Kind {
 }
 
 // IsString reports whether value is a string type.
-func IsString(value interface{}) bool {
+func IsString(value any) bool {
 	return kindOf(value) == reflect.String
 }
 
 // IsPtr reports whether value is a ptr type.
-func IsPtr(value interface{}) bool {
+func IsPtr(value any) bool {
 	return kindOf(value) == reflect.Ptr
 }
 
 // IsMap reports whether value is a map type.
-func IsMap(value interface{}) bool {
+func IsMap(value any) bool {
 	return kindOf(value) == reflect.Map
 }
 
 // IsMapPtr reports whether v is a map ptr type.
-func IsMapPtr(v interface{}) bool {
+func IsMapPtr(v any) bool {
 	t := reflect.TypeOf(v)
 	return t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Map
 }
 
 // IsSlice reports whether value is a slice type.
-func IsSlice(value interface{}) bool {
+func IsSlice(value any) bool {
 	return kindOf(value) == reflect.Slice
 }
 
 // IsStruct reports whether value is a struct type
-func IsStruct(value interface{}) bool {
+func IsStruct(value any) bool {
 	return kindOf(value) == reflect.Struct
 }
 
 // IsSlicePtr reports whether v is a slice ptr type.
-func IsSlicePtr(v interface{}) bool {
+func IsSlicePtr(v any) bool {
 	return kindOf(v) == reflect.Ptr && reflect.TypeOf(v).Elem().Kind() == reflect.Slice
 }
 
 // IsSliceInterfacePtr reports whether v is a slice ptr type.
-func IsSliceInterfacePtr(v interface{}) bool {
+func IsSliceInterfacePtr(v any) bool {
 	// Must use ValueOf because Elem().Elem() type resolves dynamically.
 	vv := reflect.ValueOf(v)
 	return vv.Kind() == reflect.Ptr && vv.Elem().Kind() == reflect.Interface && vv.Elem().Elem().Kind() == reflect.Slice
@@ -118,7 +118,7 @@ func IsNilOrInvalidValue(v reflect.Value) bool {
 
 // IsValueNil returns true if either value is nil, or has dynamic type {ptr,
 // map, slice} with value nil.
-func IsValueNil(value interface{}) bool {
+func IsValueNil(value any) bool {
 	if value == nil {
 		return true
 	}
@@ -131,7 +131,7 @@ func IsValueNil(value interface{}) bool {
 
 // IsValueNilOrDefault returns true if either IsValueNil(value) or the default
 // value for the type.
-func IsValueNilOrDefault(value interface{}) bool {
+func IsValueNilOrDefault(value any) bool {
 	if IsValueNil(value) {
 		return true
 	}
@@ -193,7 +193,7 @@ func ValuesAreSameType(v1 reflect.Value, v2 reflect.Value) bool {
 }
 
 // IsEmptyString returns true if value is an empty string.
-func IsEmptyString(value interface{}) bool {
+func IsEmptyString(value any) bool {
 	if value == nil {
 		return true
 	}
@@ -207,7 +207,7 @@ func IsEmptyString(value interface{}) bool {
 }
 
 // DeleteFromSlicePtr deletes an entry at index from the parent, which must be a slice ptr.
-func DeleteFromSlicePtr(parentSlice interface{}, index int) error {
+func DeleteFromSlicePtr(parentSlice any, index int) error {
 	scope.Debugf("DeleteFromSlicePtr index=%d, slice=\n%v", index, parentSlice)
 	pv := reflect.ValueOf(parentSlice)
 
@@ -226,7 +226,7 @@ func DeleteFromSlicePtr(parentSlice interface{}, index int) error {
 }
 
 // UpdateSlicePtr updates an entry at index in the parent, which must be a slice ptr, with the given value.
-func UpdateSlicePtr(parentSlice interface{}, index int, value interface{}) error {
+func UpdateSlicePtr(parentSlice any, index int, value any) error {
 	scope.Debugf("UpdateSlicePtr parent=\n%v\n, index=%d, value=\n%v", parentSlice, index, value)
 	pv := reflect.ValueOf(parentSlice)
 	v := reflect.ValueOf(value)
@@ -246,7 +246,7 @@ func UpdateSlicePtr(parentSlice interface{}, index int, value interface{}) error
 }
 
 // InsertIntoMap inserts value with key into parent which must be a map, map ptr, or interface to map.
-func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) error {
+func InsertIntoMap(parentMap any, key any, value any) error {
 	scope.Debugf("InsertIntoMap key=%v, value=%v, map=\n%v", key, value, parentMap)
 	v := reflect.ValueOf(parentMap)
 	kv := reflect.ValueOf(key)
@@ -270,7 +270,7 @@ func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) er
 }
 
 // DeleteFromMap deletes an entry with the given key parent, which must be a map.
-func DeleteFromMap(parentMap interface{}, key interface{}) error {
+func DeleteFromMap(parentMap any, key any) error {
 	scope.Debugf("DeleteFromMap key=%s, parent:\n%v\n", key, parentMap)
 	pv := reflect.ValueOf(parentMap)
 
@@ -283,7 +283,7 @@ func DeleteFromMap(parentMap interface{}, key interface{}) error {
 }
 
 // ToIntValue returns 0, false if val is not a number type, otherwise it returns the int value of val.
-func ToIntValue(val interface{}) (int, bool) {
+func ToIntValue(val any) (int, bool) {
 	if IsValueNil(val) {
 		return 0, false
 	}

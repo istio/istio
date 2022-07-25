@@ -3550,7 +3550,7 @@ func TestApplyConnectionPool(t *testing.T) {
 func TestBuildExternalSDSClusters(t *testing.T) {
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{
-			Raw: map[string]interface{}{
+			Raw: map[string]any{
 				security.CredentialMetaDataName: "true",
 			},
 		},

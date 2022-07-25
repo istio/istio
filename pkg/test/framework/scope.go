@@ -73,7 +73,7 @@ func (s *scope) add(r resource.Resource, id *resourceID) {
 	}
 }
 
-func (s *scope) get(ref interface{}) error {
+func (s *scope) get(ref any) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

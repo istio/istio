@@ -225,7 +225,7 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 
 	// Restrict egress from this namespace to only those endpoints in the same Echos.
 	cfg := t.ConfigIstio().New()
-	cfg.Eval(ns.Name(), map[string]interface{}{
+	cfg.Eval(ns.Name(), map[string]any{
 		"Namespaces": namespaces,
 	}, `
 apiVersion: networking.istio.io/v1alpha3
@@ -243,7 +243,7 @@ spec:
 
 	// Create a ServiceEntry to allow apps in this namespace to talk to the external service.
 	if d.External.Namespace != nil {
-		cfg.Eval(ns.Name(), map[string]interface{}{
+		cfg.Eval(ns.Name(), map[string]any{
 			"Namespace": d.External.Namespace.Name(),
 			"Hostname":  ExternalHostname,
 			"Ports":     serviceEntryPorts(),
