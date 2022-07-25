@@ -46,7 +46,7 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 		for _, fc := range l.FilterChains {
 			for _, filter := range fc.Filters {
 				if filter.Name == wellknown.HTTPConnectionManager {
-					h := SilentlyUnmarshalAny[*hcm.HttpConnectionManager](filter.GetTypedConfig())
+					h := SilentlyUnmarshalAny[hcm.HttpConnectionManager](filter.GetTypedConfig())
 					switch r := h.GetRouteSpecifier().(type) {
 					case *hcm.HttpConnectionManager_Rds:
 						routes = append(routes, r.Rds.RouteConfigName)
@@ -64,7 +64,7 @@ func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
 	for _, r := range rs {
 		switch r.TypeUrl {
 		case v3.ClusterType:
-			c := UnmarshalAny[*cluster.Cluster](t, r)
+			c := UnmarshalAny[cluster.Cluster](t, r)
 			sockets := []*core.TransportSocket{}
 			if c.TransportSocket != nil {
 				sockets = append(sockets, c.TransportSocket)
@@ -73,14 +73,14 @@ func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
 				sockets = append(sockets, ts.TransportSocket)
 			}
 			for _, s := range sockets {
-				tl := UnmarshalAny[*tls.UpstreamTlsContext](t, s.GetTypedConfig())
+				tl := UnmarshalAny[tls.UpstreamTlsContext](t, s.GetTypedConfig())
 				resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
 				for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
 					resourceNames.Insert(s.GetName())
 				}
 			}
 		case v3.ListenerType:
-			l := UnmarshalAny[*listener.Listener](t, r)
+			l := UnmarshalAny[listener.Listener](t, r)
 			sockets := []*core.TransportSocket{}
 			for _, fc := range l.GetFilterChains() {
 				if fc.GetTransportSocket() != nil {
@@ -91,7 +91,7 @@ func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
 				sockets = append(sockets, ts)
 			}
 			for _, s := range sockets {
-				tl := UnmarshalAny[*tls.DownstreamTlsContext](t, s.GetTypedConfig())
+				tl := UnmarshalAny[tls.DownstreamTlsContext](t, s.GetTypedConfig())
 				resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
 				for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
 					resourceNames.Insert(s.GetName())
@@ -113,18 +113,21 @@ func ExtractListenerNames(ll []*listener.Listener) []string {
 	return res
 }
 
-func SilentlyUnmarshalAny[T proto.Message](a *anypb.Any) T {
-	dst := *new(T)
-	_ = a.UnmarshalTo(dst)
-	return dst
+func SilentlyUnmarshalAny[T any](a *anypb.Any) *T {
+	dst := any(new(T)).(proto.Message)
+	if err := a.UnmarshalTo(dst); err != nil {
+		var z *T
+		return z
+	}
+	return any(dst).(*T)
 }
 
-func UnmarshalAny[T proto.Message](t test.Failer, a *anypb.Any) T {
-	dst := *new(T)
+func UnmarshalAny[T any](t test.Failer, a *anypb.Any) *T {
+	dst := any(new(T)).(proto.Message)
 	if err := a.UnmarshalTo(dst); err != nil {
 		t.Fatalf("failed to unmarshal to %T: %v", dst, err)
 	}
-	return dst
+	return any(dst).(*T)
 }
 
 func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
