@@ -1440,7 +1440,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if !f {
 				continue
 			}
-			if svc.Attributes.ServiceRegistry == provider.Kubernetes {
+			if svc.Attributes.ServiceRegistry == provider.Kubernetes || features.EnableServiceEntrySelectPods {
 				s.RLock()
 				sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
 				s.RUnlock()
