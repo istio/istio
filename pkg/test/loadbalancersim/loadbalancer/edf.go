@@ -22,7 +22,7 @@ import (
 type Entry struct {
 	deadline float64
 	index    int64
-	value    interface{}
+	value    any
 	weight   float64
 }
 
@@ -47,13 +47,13 @@ func (pq priorityQueue) Swap(i, j int) {
 }
 
 // Push implements heap.Interface for pushing an item into the heap
-func (pq *priorityQueue) Push(x interface{}) {
+func (pq *priorityQueue) Push(x any) {
 	entry := x.(*Entry)
 	*pq = append(*pq, entry)
 }
 
 // Pop implements heap.Interface for poping an item from the heap
-func (pq *priorityQueue) Pop() interface{} {
+func (pq *priorityQueue) Pop() any {
 	old := *pq
 	n := len(old)
 	entry := old[n-1]
@@ -69,7 +69,7 @@ type EDF struct {
 }
 
 // Add a new entry for load balance
-func (e *EDF) Add(weight float64, value interface{}) {
+func (e *EDF) Add(weight float64, value any) {
 	e.currentIndex++
 	heap.Push(e.pq, &Entry{
 		value:    value,
@@ -80,7 +80,7 @@ func (e *EDF) Add(weight float64, value interface{}) {
 }
 
 // PickAndAdd picks an available entry and re-adds it with the given weight calculation
-func (e *EDF) PickAndAdd(calcWeight func(prevWeight float64, value interface{}) float64) interface{} {
+func (e *EDF) PickAndAdd(calcWeight func(prevWeight float64, value any) float64) any {
 	// if no available entry, return nil
 	if len(*e.pq) == 0 {
 		return nil

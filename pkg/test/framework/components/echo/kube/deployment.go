@@ -272,7 +272,7 @@ func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost
 	return
 }
 
-func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]interface{}, error) {
+func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]any, error) {
 	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 	imagePullSecretName, err := settings.Image.PullSecretName()
 	if err != nil {
@@ -280,7 +280,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	}
 
 	containerPorts := getContainerPorts(cfg)
-	appContainers := []map[string]interface{}{{
+	appContainers := []map[string]any{{
 		"Name":           appContainerName,
 		"ImageFullPath":  settings.EchoImage, // This overrides image hub/tag if it's not empty.
 		"ContainerPorts": getContainerPorts(cfg),
@@ -304,7 +304,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 			Port:     grpcFallbackPort,
 		})
 		appContainers[0]["ContainerPorts"] = otherPorts
-		appContainers = append(appContainers, map[string]interface{}{
+		appContainers = append(appContainers, map[string]any{
 			"Name":           "custom-grpc-" + appContainerName,
 			"ImageFullPath":  settings.CustomGRPCEchoImage, // This overrides image hub/tag if it's not empty.
 			"ContainerPorts": grpcPorts,
@@ -312,7 +312,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		})
 	}
 
-	params := map[string]interface{}{
+	params := map[string]any{
 		"ImageHub":            settings.Image.Hub,
 		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
 		"ImagePullPolicy":     settings.Image.PullPolicy,
@@ -353,7 +353,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 
 		vmIstioHost, vmIstioIP = getVMOverrideForIstiodDNS(ctx, cfg)
 
-		params["VM"] = map[string]interface{}{
+		params["VM"] = map[string]any{
 			"Image":     vmImage,
 			"IstioHost": vmIstioHost,
 			"IstioIP":   vmIstioIP,
@@ -363,8 +363,8 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	return params, nil
 }
 
-func serviceParams(cfg echo.Config) map[string]interface{} {
-	return map[string]interface{}{
+func serviceParams(cfg echo.Config) map[string]any {
+	return map[string]any{
 		"Service":            cfg.Service,
 		"Headless":           cfg.Headless,
 		"ServiceAccount":     cfg.ServiceAccount,

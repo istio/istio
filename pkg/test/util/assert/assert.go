@@ -25,7 +25,7 @@ import (
 )
 
 // Equal
-func Equal(t test.Failer, a, b interface{}, context ...string) {
+func Equal(t test.Failer, a, b any, context ...string) {
 	t.Helper()
 	if !cmp.Equal(a, b, protocmp.Transform(), cmpopts.EquateEmpty()) {
 		cs := ""

@@ -969,7 +969,7 @@ func TestQuantityConversion(t *testing.T) {
 }
 
 func TestProxyImage(t *testing.T) {
-	val := func(hub string, tag interface{}) *opconfig.Values {
+	val := func(hub string, tag any) *opconfig.Values {
 		t, _ := structpb.NewValue(tag)
 		return &opconfig.Values{
 			Global: &opconfig.GlobalConfig{

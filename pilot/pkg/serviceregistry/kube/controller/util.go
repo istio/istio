@@ -215,7 +215,7 @@ func podKeyByProxy(proxy *model.Proxy) string {
 	return ""
 }
 
-func extractService(obj interface{}) (*v1.Service, error) {
+func extractService(obj any) (*v1.Service, error) {
 	cm, ok := obj.(*v1.Service)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)

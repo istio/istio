@@ -29,7 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -170,7 +170,7 @@ func TestWasmConvert(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			resources := make([]*any.Any, 0, len(c.input))
+			resources := make([]*anypb.Any, 0, len(c.input))
 			for _, i := range c.input {
 				resources = append(resources, protoconv.MessageToAny(i))
 			}

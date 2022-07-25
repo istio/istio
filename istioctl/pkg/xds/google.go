@@ -87,7 +87,7 @@ func getHubMembership(ctx context.Context, exClient kube.ExtendedClient) (*hubMe
 	if err != nil {
 		return nil, err
 	}
-	spec, ok := u.Object["spec"].(map[string]interface{})
+	spec, ok := u.Object["spec"].(map[string]any)
 	if !ok {
 		return nil, errors.New(`field "spec" is not a map`)
 	}

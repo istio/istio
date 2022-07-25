@@ -27,7 +27,7 @@ import (
 var scope = log.RegisterScope("shell", "Shell execution scope", 0)
 
 // Execute the given command.
-func Execute(combinedOutput bool, format string, args ...interface{}) (string, error) {
+func Execute(combinedOutput bool, format string, args ...any) (string, error) {
 	s := fmt.Sprintf(format, args...)
 
 	parts, err := shlex.Split(s)

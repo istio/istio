@@ -141,7 +141,7 @@ func TestValidation(t *testing.T) {
 			{Kind: cluster.Fake, Name: "no-primary", ConfigClusterName: "does-not-exist"},
 		},
 		"vm without kube primary": {
-			{Kind: cluster.StaticVM, Name: "vm", Meta: config.Map{"deployments": []interface{}{
+			{Kind: cluster.StaticVM, Name: "vm", Meta: config.Map{"deployments": []any{
 				config.Map{
 					"service": "vm", "namespace": "echo", "instances": []config.Map{{"ip": "1.2.3.4"}},
 				},

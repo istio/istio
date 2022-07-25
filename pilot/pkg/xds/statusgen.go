@@ -21,7 +21,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -203,7 +203,7 @@ func (sg *StatusGen) pushStatusEvent(typeURL string, data []proto.Message) {
 		return
 	}
 
-	resources := make([]*any.Any, 0, len(data))
+	resources := make([]*anypb.Any, 0, len(data))
 	for _, v := range data {
 		resources = append(resources, protoconv.MessageToAny(v))
 	}

@@ -495,10 +495,10 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	}
 
 	u := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": collections.IstioNetworkingV1Alpha3Serviceentries.Resource().APIVersion(),
 			"kind":       collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"namespace": opts.Namespace,
 				"name":      resourceName(opts.Name),
 			},
@@ -579,12 +579,12 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 // Because we are placing into an Unstructured, place as a map instead
 // of structured Istio types.  (The go-client can handle the structured data, but the
 // fake go-client used for mocking cannot.)
-func unstructureIstioType(spec interface{}) (map[string]interface{}, error) {
+func unstructureIstioType(spec any) (map[string]any, error) {
 	b, err := yaml.Marshal(spec)
 	if err != nil {
 		return nil, err
 	}
-	iSpec := map[string]interface{}{}
+	iSpec := map[string]any{}
 	err = yaml.Unmarshal(b, &iSpec)
 	if err != nil {
 		return nil, err

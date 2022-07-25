@@ -35,7 +35,7 @@ func Namespace(iops *v1alpha1.IstioOperatorSpec) string {
 	if v[globalKey] == nil {
 		return ""
 	}
-	vg := v[globalKey].(map[string]interface{})
+	vg := v[globalKey].(map[string]any)
 	n := vg[istioNamespaceKey]
 	if n == nil {
 		return ""

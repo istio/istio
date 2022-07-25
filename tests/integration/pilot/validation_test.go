@@ -197,7 +197,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 						t.Fatalf("error loading test data: %v", err)
 					}
 
-					m := make(map[string]interface{})
+					m := make(map[string]any)
 					by, er := yaml.YAMLToJSON([]byte(yamlPart))
 					if er != nil {
 						t.Fatalf("error loading test data: %v", er)

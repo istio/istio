@@ -138,7 +138,7 @@ g:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			rnode := make(map[string]interface{})
+			rnode := make(map[string]any)
 			if err := yaml.Unmarshal([]byte(tt.nodeYAML), &rnode); err != nil {
 				t.Fatal(err)
 			}

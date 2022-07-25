@@ -30,7 +30,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -61,7 +61,7 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 }
 
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
-func ExtractSecretResources(t test.Failer, rs []*any.Any) []string {
+func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
 	resourceNames := sets.New()
 	for _, r := range rs {
 		switch r.TypeUrl {
@@ -317,7 +317,7 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 	return res
 }
 
-func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret {
+func ExtractTLSSecrets(t test.Failer, secrets []*anypb.Any) map[string]*tls.Secret {
 	res := map[string]*tls.Secret{}
 	for _, a := range secrets {
 		scrt := &tls.Secret{}
@@ -329,7 +329,7 @@ func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret
 	return res
 }
 
-func UnmarshalRouteConfiguration(t test.Failer, resp []*any.Any) []*route.RouteConfiguration {
+func UnmarshalRouteConfiguration(t test.Failer, resp []*anypb.Any) []*route.RouteConfiguration {
 	un := make([]*route.RouteConfiguration, 0, len(resp))
 	for _, r := range resp {
 		u := &route.RouteConfiguration{}
@@ -341,7 +341,7 @@ func UnmarshalRouteConfiguration(t test.Failer, resp []*any.Any) []*route.RouteC
 	return un
 }
 
-func UnmarshalClusterLoadAssignment(t test.Failer, resp []*any.Any) []*endpoint.ClusterLoadAssignment {
+func UnmarshalClusterLoadAssignment(t test.Failer, resp []*anypb.Any) []*endpoint.ClusterLoadAssignment {
 	un := make([]*endpoint.ClusterLoadAssignment, 0, len(resp))
 	for _, r := range resp {
 		u := &endpoint.ClusterLoadAssignment{}
@@ -363,12 +363,12 @@ func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*c
 	return res
 }
 
-func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
+func ToDiscoveryResponse(p any) *discovery.DiscoveryResponse {
 	slice := InterfaceSlice(p)
 	if len(slice) == 0 {
 		return &discovery.DiscoveryResponse{}
 	}
-	resources := make([]*any.Any, 0, len(slice))
+	resources := make([]*anypb.Any, 0, len(slice))
 	for _, v := range slice {
 		resources = append(resources, protoconv.MessageToAny(v.(proto.Message)))
 	}
@@ -378,13 +378,13 @@ func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
 	}
 }
 
-func InterfaceSlice(slice interface{}) []interface{} {
+func InterfaceSlice(slice any) []any {
 	s := reflect.ValueOf(slice)
 	if s.Kind() != reflect.Slice {
 		panic("InterfaceSlice() given a non-slice type")
 	}
 
-	ret := make([]interface{}, s.Len())
+	ret := make([]any, s.Len())
 
 	for i := 0; i < s.Len(); i++ {
 		ret[i] = s.Index(i).Interface()
@@ -394,7 +394,7 @@ func InterfaceSlice(slice interface{}) []interface{} {
 }
 
 // DumpList will dump a list of protos. To workaround go type issues, call DumpList(t, InterfaceSlice([]proto.Message))
-func DumpList(t test.Failer, protoList []interface{}) []string {
+func DumpList(t test.Failer, protoList []any) []string {
 	res := []string{}
 	for _, i := range protoList {
 		p, ok := i.(proto.Message)
@@ -418,7 +418,7 @@ func Dump(t test.Failer, p proto.Message) string {
 	return s
 }
 
-func MapKeys(mp interface{}) []string {
+func MapKeys(mp any) []string {
 	keys := reflect.ValueOf(mp).MapKeys()
 	res := []string{}
 	for _, k := range keys {

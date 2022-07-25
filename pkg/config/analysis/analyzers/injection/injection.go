@@ -158,11 +158,11 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 // GetInjectedConfigMapValuesStruct retrieves value of sidecarInjectorWebhook.enableNamespacesByDefault
 // defined in the sidecar injector configuration.
 func GetEnableNamespacesByDefaultFromInjectedConfigMap(cm *v1.ConfigMap) bool {
-	var injectedCMValues map[string]interface{}
+	var injectedCMValues map[string]any
 	if err := json.Unmarshal([]byte(cm.Data[util.InjectionConfigMapValue]), &injectedCMValues); err != nil {
 		return false
 	}
 
-	injectionEnable := injectedCMValues[util.InjectorWebhookConfigKey].(map[string]interface{})[util.InjectorWebhookConfigValue]
+	injectionEnable := injectedCMValues[util.InjectorWebhookConfigKey].(map[string]any)[util.InjectorWebhookConfigValue]
 	return injectionEnable.(bool)
 }

@@ -121,7 +121,7 @@ func ObjectInRevision(o *Config, rev string) bool {
 // * golang/protobuf Message
 // * gogo/protobuf Message
 // * Able to marshal/unmarshal using json
-type Spec interface{}
+type Spec any
 
 func ToProto(s Spec) (*anypb.Any, error) {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
@@ -154,14 +154,14 @@ func ToProto(s Spec) (*anypb.Any, error) {
 	return anypb.New(pbs)
 }
 
-func ToMap(s Spec) (map[string]interface{}, error) {
+func ToMap(s Spec) (map[string]any, error) {
 	js, err := ToJSON(s)
 	if err != nil {
 		return nil, err
 	}
 
 	// Unmarshal from json bytes to go map
-	var data map[string]interface{}
+	var data map[string]any
 	err = json.Unmarshal(js, &data)
 	if err != nil {
 		return nil, err
@@ -202,7 +202,7 @@ func toJSON(s Spec, pretty bool) ([]byte, error) {
 }
 
 type deepCopier interface {
-	DeepCopyInterface() interface{}
+	DeepCopyInterface() any
 }
 
 func ApplyYAML(s Spec, yml string) error {
@@ -255,7 +255,7 @@ func ApplyJSON(s Spec, js string) error {
 	return json.Unmarshal([]byte(js), &s)
 }
 
-func DeepCopy(s interface{}) interface{} {
+func DeepCopy(s any) any {
 	if s == nil {
 		return nil
 	}
@@ -293,7 +293,7 @@ func DeepCopy(s interface{}) interface{} {
 	return data
 }
 
-type Status interface{}
+type Status any
 
 // Key function for the configuration objects
 func Key(grp, ver, typ, name, namespace string) string {

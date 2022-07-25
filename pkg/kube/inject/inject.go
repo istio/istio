@@ -102,7 +102,7 @@ type SidecarTemplateData struct {
 	Spec                 corev1.PodSpec
 	ProxyConfig          *meshconfig.ProxyConfig
 	MeshConfig           *meshconfig.MeshConfig
-	Values               map[string]interface{}
+	Values               map[string]any
 	Revision             string
 	EstimatedConcurrency int
 	ProxyImage           string
@@ -514,7 +514,7 @@ func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	return &iStatus
 }
 
-func parseDryTemplate(tmplStr string, funcMap map[string]interface{}) (*template.Template, error) {
+func parseDryTemplate(tmplStr string, funcMap map[string]any) (*template.Template, error) {
 	temp := template.New("inject")
 	t, err := temp.Funcs(sprig.TxtFuncMap()).Funcs(funcMap).Parse(tmplStr)
 	if err != nil {
@@ -602,7 +602,7 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 // nolint: lll
 func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig ValuesConfig,
 	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string),
-) (interface{}, error) {
+) (any, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata metav1.ObjectMeta

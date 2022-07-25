@@ -50,7 +50,7 @@ func TestResourceLock_Lock(t *testing.T) {
 	x := make(chan struct{})
 	y := make(chan struct{})
 	mgr := NewManager(nil)
-	fakefunc := func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
+	fakefunc := func(status *v1alpha1.IstioStatus, context any) *v1alpha1.IstioStatus {
 		x <- struct{}{}
 		atomic.AddInt32(&runCount, 1)
 		y <- struct{}{}
@@ -58,7 +58,7 @@ func TestResourceLock_Lock(t *testing.T) {
 	}
 	c1 := mgr.CreateIstioStatusController(fakefunc)
 	c2 := mgr.CreateIstioStatusController(fakefunc)
-	workers := NewWorkerPool(func(_ *config.Config, _ interface{}) {
+	workers := NewWorkerPool(func(_ *config.Config, _ any) {
 	}, func(resource Resource) *config.Config {
 		return &config.Config{
 			Meta: config.Meta{Generation: 11},

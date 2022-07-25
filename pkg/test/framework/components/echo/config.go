@@ -447,7 +447,7 @@ func (c *Config) addPortIfMissing(protocol protocol.Instance) {
 	}
 }
 
-func copyInternal(v interface{}) interface{} {
+func copyInternal(v any) any {
 	copied, err := copystructure.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
@@ -463,7 +463,7 @@ func copyInternal(v interface{}) interface{} {
 // than attempting to Claim the configured namespace.
 func ParseConfigs(bytes []byte) ([]Config, error) {
 	// parse into flexible type, so we can remove Namespace and parse that ourselves
-	raw := make([]map[string]interface{}, 0)
+	raw := make([]map[string]any, 0)
 	if err := yaml.Unmarshal(bytes, &raw); err != nil {
 		return nil, err
 	}

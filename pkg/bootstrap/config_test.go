@@ -120,13 +120,13 @@ func TestConvertNodeMetadata(t *testing.T) {
 			},
 			Owner: "real-owner",
 		},
-		RawMetadata: map[string]interface{}{},
+		RawMetadata: map[string]any{},
 	}
 	node.Metadata.Owner = "real-owner"
 	node.RawMetadata["OWNER"] = "fake-owner"
 	node.RawMetadata["UNKNOWN"] = "new-field"
 	node.RawMetadata["A"] = 1
-	node.RawMetadata["B"] = map[string]interface{}{"b": 1}
+	node.RawMetadata["B"] = map[string]any{"b": 1}
 
 	out := ConvertNodeToXDSNode(node)
 	{

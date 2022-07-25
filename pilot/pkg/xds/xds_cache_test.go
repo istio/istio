@@ -23,7 +23,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"go.uber.org/atomic"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -32,8 +32,8 @@ import (
 )
 
 var (
-	any1 = &discovery.Resource{Resource: &any.Any{TypeUrl: "foo"}}
-	any2 = &discovery.Resource{Resource: &any.Any{TypeUrl: "bar"}}
+	any1 = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "foo"}}
+	any2 = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "bar"}}
 )
 
 // TestXdsCacheToken is a regression test to ensure that we do not write
@@ -41,7 +41,7 @@ func TestXdsCacheToken(t *testing.T) {
 	c := model.NewXdsCache()
 	n := atomic.NewInt32(0)
 	mkv := func(n int32) *discovery.Resource {
-		return &discovery.Resource{Resource: &any.Any{TypeUrl: fmt.Sprint(n)}}
+		return &discovery.Resource{Resource: &anypb.Any{TypeUrl: fmt.Sprint(n)}}
 	}
 	k := EndpointBuilder{clusterName: "key", service: &model.Service{
 		Hostname: "foo.com",

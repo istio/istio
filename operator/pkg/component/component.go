@@ -83,7 +83,7 @@ type CommonComponentFields struct {
 	// index is the index of the component (only used for components with multiple instances like gateways).
 	index int
 	// componentSpec for the actual component e.g. GatewaySpec, ComponentSpec.
-	componentSpec interface{}
+	componentSpec any
 	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer
