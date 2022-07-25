@@ -234,7 +234,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 
 	// Check if chain exists, if it exists flush.. otherwise initialize
 	// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L28
-	err = execute("iptables", "-t", "mangle", "-C", "output", "-j", constants.ChainUproxyOutput)
+	err = execute(IptablesCmd, "-t", "mangle", "-C", "output", "-j", constants.ChainUproxyOutput)
 	if err == nil {
 		log.Debugf("Chain %s already exists, flushing", constants.ChainOutput)
 		s.flushLists()

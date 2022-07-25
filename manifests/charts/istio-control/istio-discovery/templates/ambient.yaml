@@ -187,32 +187,50 @@ spec:
             ip route add table 102 $HOST_IP dev eth0 scope link
             ip route add table 102 0.0.0.0/0 via $INBOUND_TUN_IP dev p$INBOUND_TUN
 
-            iptables -t mangle -F PREROUTING
-            iptables -t nat -F OUTPUT
+            set +e
+            num_legacy_lines=$( (iptables-legacy-save || true; ip6tables-legacy-save || true) 2>/dev/null | grep '^-' | wc -l)
+            if [ "${num_legacy_lines}" -ge 10 ]; then
+              mode=legacy
+            else
+              num_nft_lines=$( (timeout 5 sh -c "iptables-nft-save; ip6tables-nft-save" || true) 2>/dev/null | grep '^-' | wc -l)
+              if [ "${num_legacy_lines}" -ge "${num_nft_lines}" ]; then
+                mode=legacy
+              else
+                mode=nft
+              fi
+            fi
+            IPTABLES=iptables-legacy
+            if [ "${mode}" = "nft" ]; then
+              IPTABLES=iptables-nft
+            fi
+            set -e
 
-            iptables-save | grep -v LOG | iptables-restore
-            iptables -t mangle -I PREROUTING -j LOG --log-prefix "mangle pre [$POD_NAME] "
-            iptables -t mangle -I POSTROUTING -j LOG --log-prefix "mangle post [$POD_NAME] "
-            iptables -t mangle -I INPUT -j LOG --log-prefix "mangle inp [$POD_NAME] "
-            iptables -t mangle -I OUTPUT -j LOG --log-prefix "mangle out [$POD_NAME] "
-            iptables -t mangle -I FORWARD -j LOG --log-prefix "mangle fw [$POD_NAME] "
-            iptables -t nat -I POSTROUTING -j LOG --log-prefix "nat post [$POD_NAME] "
-            iptables -t nat -I INPUT -j LOG --log-prefix "nat inp [$POD_NAME] "
-            iptables -t nat -I OUTPUT -j LOG --log-prefix "nat out [$POD_NAME] "
-            iptables -t nat -I PREROUTING -j LOG --log-prefix "nat pre [$POD_NAME] "
-            iptables -t raw -I PREROUTING -j LOG --log-prefix "raw pre [$POD_NAME] "
-            iptables -t raw -I OUTPUT -j LOG --log-prefix "raw out [$POD_NAME] "
-            iptables -t filter -I FORWARD -j LOG --log-prefix "filt fw [$POD_NAME] "
-            iptables -t filter -I OUTPUT -j LOG --log-prefix "filt out [$POD_NAME] "
-            iptables -t filter -I INPUT -j LOG --log-prefix "filt inp [$POD_NAME] "
+            $IPTABLES -t mangle -F PREROUTING
+            $IPTABLES -t nat -F OUTPUT
 
-            iptables -t mangle -A PREROUTING -p tcp -i p$INBOUND_TUN -m tcp --dport=$POD_INBOUND -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND --on-ip 127.0.0.1
-            iptables -t mangle -A PREROUTING -p tcp -i p$OUTBOUND_TUN -j TPROXY --tproxy-mark $MARK --on-port $POD_OUTBOUND --on-ip 127.0.0.1
-            iptables -t mangle -A PREROUTING -p tcp -i p$INBOUND_TUN -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND_PLAINTEXT --on-ip 127.0.0.1
+            $IPTABLES-save | grep -v LOG | $IPTABLES-restore
+            $IPTABLES -t mangle -I PREROUTING -j LOG --log-prefix "mangle pre [$POD_NAME] "
+            $IPTABLES -t mangle -I POSTROUTING -j LOG --log-prefix "mangle post [$POD_NAME] "
+            $IPTABLES -t mangle -I INPUT -j LOG --log-prefix "mangle inp [$POD_NAME] "
+            $IPTABLES -t mangle -I OUTPUT -j LOG --log-prefix "mangle out [$POD_NAME] "
+            $IPTABLES -t mangle -I FORWARD -j LOG --log-prefix "mangle fw [$POD_NAME] "
+            $IPTABLES -t nat -I POSTROUTING -j LOG --log-prefix "nat post [$POD_NAME] "
+            $IPTABLES -t nat -I INPUT -j LOG --log-prefix "nat inp [$POD_NAME] "
+            $IPTABLES -t nat -I OUTPUT -j LOG --log-prefix "nat out [$POD_NAME] "
+            $IPTABLES -t nat -I PREROUTING -j LOG --log-prefix "nat pre [$POD_NAME] "
+            $IPTABLES -t raw -I PREROUTING -j LOG --log-prefix "raw pre [$POD_NAME] "
+            $IPTABLES -t raw -I OUTPUT -j LOG --log-prefix "raw out [$POD_NAME] "
+            $IPTABLES -t filter -I FORWARD -j LOG --log-prefix "filt fw [$POD_NAME] "
+            $IPTABLES -t filter -I OUTPUT -j LOG --log-prefix "filt out [$POD_NAME] "
+            $IPTABLES -t filter -I INPUT -j LOG --log-prefix "filt inp [$POD_NAME] "
 
-            iptables -t mangle -A PREROUTING -p tcp -i eth0 ! --dst $INSTANCE_IP -j MARK --set-mark $ORG_SRC_RET_MARK
+            $IPTABLES -t mangle -A PREROUTING -p tcp -i p$INBOUND_TUN -m tcp --dport=$POD_INBOUND -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND --on-ip 127.0.0.1
+            $IPTABLES -t mangle -A PREROUTING -p tcp -i p$OUTBOUND_TUN -j TPROXY --tproxy-mark $MARK --on-port $POD_OUTBOUND --on-ip 127.0.0.1
+            $IPTABLES -t mangle -A PREROUTING -p tcp -i p$INBOUND_TUN -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND_PLAINTEXT --on-ip 127.0.0.1
 
-            iptables -t nat -A OUTPUT -p tcp --dport 15088 -j REDIRECT --to-port $POD_INBOUND
+            $IPTABLES -t mangle -A PREROUTING -p tcp -i eth0 ! --dst $INSTANCE_IP -j MARK --set-mark $ORG_SRC_RET_MARK
+
+            $IPTABLES -t nat -A OUTPUT -p tcp --dport 15088 -j REDIRECT --to-port $POD_INBOUND
             # END https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L206-L238
 {{- if $iptablesRedirect }}
             # With normal linux routing we need to disable the rp_filter
@@ -223,21 +241,21 @@ spec:
 {{- else }}
             # MTP traffic goes to MTP port...
             # HBONE traffic goes to HBONE port...
-            iptables -t nat -A PREROUTING -p tcp --dport 15008 ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn 15008] "
-            iptables -t nat -A PREROUTING -p tcp --dport 15008 ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j REDIRECT --to-ports 15008
+            $IPTABLES -t nat -A PREROUTING -p tcp --dport 15008 ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn 15008] "
+            $IPTABLES -t nat -A PREROUTING -p tcp --dport 15008 ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j REDIRECT --to-ports 15008
             # Special logic to handle the case where we have a remote proxy (no interception) and server (interception) on the node
             # Without this, packets from remote proxy -> server would not go through uProxy, but the response would, causing breakage.
             # This ensures the response does not go through uProxy
-            iptables -t nat -A PREROUTING -m state --state NEW -p tcp --tcp-flags ACK ACK ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn remote] "
-            iptables -t nat -A PREROUTING -m state --state NEW -p tcp --tcp-flags ACK ACK ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j ACCEPT
+            $IPTABLES -t nat -A PREROUTING -m state --state NEW -p tcp --tcp-flags ACK ACK ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn remote] "
+            $IPTABLES -t nat -A PREROUTING -m state --state NEW -p tcp --tcp-flags ACK ACK ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j ACCEPT
             # Send everything else through the "outbound" port. For now, DPv2 cannot distinguish inbound vs outbound, so we
             # do some (semi-reliable) heuristics on the outbound port to treat it as inbound, when needed. Typically inbound is
             # HBONE though.
-            iptables -t nat -A PREROUTING -p tcp ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn outbound] "
-            iptables -t nat -A PREROUTING -p tcp ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j REDIRECT --to-ports 15001
+            $IPTABLES -t nat -A PREROUTING -p tcp ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j LOG --log-prefix="[howardjohn outbound] "
+            $IPTABLES -t nat -A PREROUTING -p tcp ! -s $INSTANCE_IP ! -d $INSTANCE_IP  -j REDIRECT --to-ports 15001
 
-            iptables -t nat -I OUTPUT 1 -p tcp --dport 15088 -j LOG --log-prefix="[howardjohn local] "
-            iptables -t nat -I OUTPUT 1 -p tcp --dport 15088 -j REDIRECT --to-port 15008
+            $IPTABLES -t nat -I OUTPUT 1 -p tcp --dport 15088 -j LOG --log-prefix="[howardjohn local] "
+            $IPTABLES -t nat -I OUTPUT 1 -p tcp --dport 15088 -j REDIRECT --to-port 15008
 {{- end }}
         env:
         - name: INSTANCE_IP
