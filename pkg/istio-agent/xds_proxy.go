@@ -266,9 +266,9 @@ type ProxyConnection struct {
 	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
 	stopChan           chan struct{}
 	downstream         adsStream
-	upstream           discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	downstreamDeltas   discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
-	upstreamDeltas     discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	upstream           xds.DiscoveryClient
+	downstreamDeltas   xds.DeltaDiscoveryStream
+	upstreamDeltas     xds.DeltaDiscoveryClient
 }
 
 // sendRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
@@ -296,7 +296,7 @@ type adsStream interface {
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
-func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (p *XdsProxy) StreamAggregatedResources(downstream xds.DiscoveryStream) error {
 	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
 	return p.handleStream(downstream)
 }
