@@ -409,7 +409,7 @@ var (
 	trustedGatewayCIDR = env.RegisterStringVar(
 		"TRUSTED_GATEWAY_CIDR",
 		"",
-		"If set, any connections from gateway to Istiod with this CIDR range are treated as trusted for using authenication mechanisms like XFCC."+
+		"If set, any connections from gateway to Istiod with this CIDR range are treated as trusted for using authentication mechanisms like XFCC."+
 			" This can only be used when the network where Istiod and the authenticating gateways are running in a trusted/secure network",
 	)
 
