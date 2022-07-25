@@ -226,9 +226,9 @@ func (s *serverImpl) Providers() []Provider {
 	return append([]Provider{}, s.providers...)
 }
 
-func (s *serverImpl) templateArgs() map[string]interface{} {
+func (s *serverImpl) templateArgs() map[string]any {
 	fqdn := fmt.Sprintf("ext-authz.%s.svc.cluster.local", s.ns.Name())
-	return map[string]interface{}{
+	return map[string]any{
 		"fqdn":     fqdn,
 		"httpName": httpName,
 		"grpcName": grpcName,

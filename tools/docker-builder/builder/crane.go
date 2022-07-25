@@ -121,7 +121,7 @@ func ByteCount(b int64) string {
 func Build(b BuildSpec) error {
 	t0 := time.Now()
 	lt := t0
-	trace := func(d ...interface{}) {
+	trace := func(d ...any) {
 		log.WithLabels("image", b.Name, "total", time.Since(t0), "step", time.Since(lt)).Infof(d...)
 		lt = time.Now()
 	}

@@ -305,7 +305,7 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	}
 }
 
-func (c *Controller) unregisterWorkload(item interface{}) error {
+func (c *Controller) unregisterWorkload(item any) error {
 	workItem, ok := item.(*workItem)
 	if !ok {
 		return nil
@@ -382,7 +382,7 @@ func (c *Controller) QueueWorkloadEntryHealth(proxy *model.Proxy, event HealthEv
 
 // updateWorkloadEntryHealth updates the associated WorkloadEntries health status
 // based on the corresponding health check performed by istio-agent.
-func (c *Controller) updateWorkloadEntryHealth(obj interface{}) error {
+func (c *Controller) updateWorkloadEntryHealth(obj any) error {
 	condition := obj.(HealthCondition)
 	// get previous status
 	cfg := c.store.Get(gvk.WorkloadEntry, condition.entryName, condition.proxy.Metadata.Namespace)

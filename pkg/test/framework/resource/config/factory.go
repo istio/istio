@@ -26,8 +26,8 @@ type Factory interface {
 	File(ns string, paths ...string) Plan
 
 	// Eval the same as YAML, but it evaluates the template parameters.
-	Eval(ns string, args interface{}, yamlText ...string) Plan
+	Eval(ns string, args any, yamlText ...string) Plan
 
 	// EvalFile the same as File, but it evaluates the template parameters.
-	EvalFile(ns string, args interface{}, paths ...string) Plan
+	EvalFile(ns string, args any, paths ...string) Plan
 }

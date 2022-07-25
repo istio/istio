@@ -449,7 +449,7 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 		panic(err)
 	}
 	if spec, ok := obj.UnstructuredContent()["spec"]; ok {
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(spec.(map[string]interface{}), mv2)
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(spec.(map[string]any), mv2)
 	} else {
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), mv2)
 	}

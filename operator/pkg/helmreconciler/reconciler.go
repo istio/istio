@@ -614,7 +614,7 @@ func (h *HelmReconciler) networkName() string {
 		return ""
 	}
 	globalI := h.iop.Spec.Values.AsMap()["global"]
-	global, ok := globalI.(map[string]interface{})
+	global, ok := globalI.(map[string]any)
 	if !ok {
 		return ""
 	}

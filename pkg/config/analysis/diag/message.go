@@ -52,7 +52,7 @@ type Message struct {
 	Type *MessageType
 
 	// The Parameters to the message
-	Parameters []interface{}
+	Parameters []any
 
 	// Resource is the underlying resource instance associated with the
 	// message, or nil if no resource is associated with it.
@@ -66,8 +66,8 @@ type Message struct {
 }
 
 // Unstructured returns this message as a JSON-style unstructured map
-func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
-	result := make(map[string]interface{})
+func (m *Message) Unstructured(includeOrigin bool) map[string]any {
+	result := make(map[string]any)
 
 	result["code"] = m.Type.Code()
 	result["level"] = m.Type.Level().String()
@@ -110,10 +110,10 @@ func (m *Message) AnalysisMessageBase() *v1alpha1.AnalysisMessageBase {
 
 // UnstructuredAnalysisMessageBase returns this message as a JSON-style unstructured map in AnalaysisMessageBase
 // TODO(jasonwzm): Remove once message implements AnalysisMessageBase
-func (m *Message) UnstructuredAnalysisMessageBase() map[string]interface{} {
+func (m *Message) UnstructuredAnalysisMessageBase() map[string]any {
 	mb := m.AnalysisMessageBase()
 
-	var r map[string]interface{}
+	var r map[string]any
 
 	j, err := json.Marshal(mb)
 	if err != nil {
@@ -162,7 +162,7 @@ func NewMessageType(level Level, code, template string) *MessageType {
 }
 
 // NewMessage returns a new Message instance from an existing type.
-func NewMessage(mt *MessageType, r *resource.Instance, p ...interface{}) Message {
+func NewMessage(mt *MessageType, r *resource.Instance, p ...any) Message {
 	return Message{
 		Type:       mt,
 		Resource:   r,

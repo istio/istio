@@ -229,7 +229,7 @@ func (d *DeploymentController) ApplyTemplate(template string, input metav1.Objec
 	if err := d.templates.ExecuteTemplate(&buf, template, input); err != nil {
 		return err
 	}
-	data := map[string]interface{}{}
+	data := map[string]any{}
 	err := yaml.Unmarshal(buf.Bytes(), &data)
 	if err != nil {
 		return err

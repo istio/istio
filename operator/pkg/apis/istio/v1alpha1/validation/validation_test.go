@@ -50,8 +50,8 @@ func TestValidateConfig(t *testing.T) {
 						Enabled: &wrappers.BoolValue{Value: true},
 					},
 				},
-				Values: util.MustStruct(map[string]interface{}{
-					"grafana": map[string]interface{}{
+				Values: util.MustStruct(map[string]any{
+					"grafana": map[string]any{
 						"enabled": true,
 					},
 				}),
@@ -63,9 +63,9 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "global",
 			value: &v1alpha12.IstioOperatorSpec{
-				Values: util.MustStruct(map[string]interface{}{
-					"global": map[string]interface{}{
-						"localityLbSetting": map[string]interface{}{"foo": "bar"},
+				Values: util.MustStruct(map[string]any{
+					"global": map[string]any{
+						"localityLbSetting": map[string]any{"foo": "bar"},
 					},
 				}),
 			},

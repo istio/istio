@@ -89,23 +89,23 @@ type gatewaysConfig struct {
 
 // Configuration for an ingress gateway.
 type ingressGatewayConfig struct {
-	Env                              map[string]interface{}                `json:"env" patchStrategy:"merge"`
+	Env                              map[string]any                        `json:"env" patchStrategy:"merge"`
 	Labels                           map[string]string                     `json:"labels" patchStrategy:"merge"`
 	CPU                              *v1alpha12.CPUTargetUtilizationConfig `json:"cpu" patchStrategy:"replace"`
 	LoadBalancerSourceRanges         []string                              `json:"loadBalancerSourceRanges" patchStrategy:"replace"`
-	NodeSelector                     map[string]interface{}                `json:"nodeSelector" patchStrategy:"merge"`
-	PodAntiAffinityLabelSelector     []map[string]interface{}              `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
-	PodAntiAffinityTermLabelSelector []map[string]interface{}              `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
-	PodAnnotations                   map[string]interface{}                `json:"podAnnotations" patchStrategy:"merge"`
+	NodeSelector                     map[string]any                        `json:"nodeSelector" patchStrategy:"merge"`
+	PodAntiAffinityLabelSelector     []map[string]any                      `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]any                      `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	PodAnnotations                   map[string]any                        `json:"podAnnotations" patchStrategy:"merge"`
 	MeshExpansionPorts               []*v1alpha12.PortsConfig              `json:"meshExpansionPorts" patchStrategy:"merge" patchMergeKey:"name"`
 	Ports                            []*v1alpha12.PortsConfig              `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
 	Resources                        *resources                            `json:"resources" patchStrategy:"merge"`
 	SecretVolumes                    []*v1alpha12.SecretVolume             `json:"secretVolumes" patchStrategy:"merge" patchMergeKey:"name"`
-	ServiceAnnotations               map[string]interface{}                `json:"serviceAnnotations" patchStrategy:"merge"`
-	Tolerations                      []map[string]interface{}              `json:"tolerations" patchStrategy:"replace"`
-	IngressPorts                     []map[string]interface{}              `json:"ingressPorts" patchStrategy:"replace"`
-	AdditionalContainers             []map[string]interface{}              `json:"additionalContainers" patchStrategy:"replace"`
-	ConfigVolumes                    []map[string]interface{}              `json:"configVolumes" patchStrategy:"replace"`
+	ServiceAnnotations               map[string]any                        `json:"serviceAnnotations" patchStrategy:"merge"`
+	Tolerations                      []map[string]any                      `json:"tolerations" patchStrategy:"replace"`
+	IngressPorts                     []map[string]any                      `json:"ingressPorts" patchStrategy:"replace"`
+	AdditionalContainers             []map[string]any                      `json:"additionalContainers" patchStrategy:"replace"`
+	ConfigVolumes                    []map[string]any                      `json:"configVolumes" patchStrategy:"replace"`
 	Zvpn                             *v1alpha12.IngressGatewayZvpnConfig   `json:"zvpn" patchStrategy:"merge"`
 }
 
@@ -115,18 +115,18 @@ type resources struct {
 }
 
 type egressGatewayConfig struct {
-	Env                              map[string]interface{}    `json:"env" patchStrategy:"merge"`
+	Env                              map[string]any            `json:"env" patchStrategy:"merge"`
 	Labels                           map[string]string         `json:"labels" patchStrategy:"merge"`
-	NodeSelector                     map[string]interface{}    `json:"nodeSelector" patchStrategy:"merge"`
-	PodAntiAffinityLabelSelector     []map[string]interface{}  `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
-	PodAntiAffinityTermLabelSelector []map[string]interface{}  `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
-	PodAnnotations                   map[string]interface{}    `json:"podAnnotations" patchStrategy:"merge"`
+	NodeSelector                     map[string]any            `json:"nodeSelector" patchStrategy:"merge"`
+	PodAntiAffinityLabelSelector     []map[string]any          `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]any          `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	PodAnnotations                   map[string]any            `json:"podAnnotations" patchStrategy:"merge"`
 	Ports                            []*v1alpha12.PortsConfig  `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
 	Resources                        *resources                `json:"resources" patchStrategy:"merge"`
 	SecretVolumes                    []*v1alpha12.SecretVolume `json:"secretVolumes" patchStrategy:"merge" patchMergeKey:"name"`
-	Tolerations                      []map[string]interface{}  `json:"tolerations" patchStrategy:"replace"`
-	ConfigVolumes                    []map[string]interface{}  `json:"configVolumes" patchStrategy:"replace"`
-	AdditionalContainers             []map[string]interface{}  `json:"additionalContainers" patchStrategy:"replace"`
+	Tolerations                      []map[string]any          `json:"tolerations" patchStrategy:"replace"`
+	ConfigVolumes                    []map[string]any          `json:"configVolumes" patchStrategy:"replace"`
+	AdditionalContainers             []map[string]any          `json:"additionalContainers" patchStrategy:"replace"`
 	Zvpn                             *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"replace"`
 }
 

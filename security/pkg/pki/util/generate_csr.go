@@ -40,7 +40,7 @@ const minimumRsaKeySize = 2048
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
 func GenCSR(options CertOptions) ([]byte, []byte, error) {
-	var priv interface{}
+	var priv any
 	var err error
 	if options.ECSigAlg != "" {
 		switch options.ECSigAlg {

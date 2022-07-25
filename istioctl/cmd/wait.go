@@ -147,7 +147,7 @@ func waitCmd() *cobra.Command {
 	return cmd
 }
 
-func printVerbosef(cmd *cobra.Command, template string, args ...interface{}) {
+func printVerbosef(cmd *cobra.Command, template string, args ...any) {
 	if verbose {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), template+"\n", args...)
 	}

@@ -1230,11 +1230,11 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	}
 }
 
-func compare(t testing.TB, actual, expected interface{}) error {
+func compare(t testing.TB, actual, expected any) error {
 	return util.Compare(jsonBytes(t, actual), jsonBytes(t, expected))
 }
 
-func jsonBytes(t testing.TB, v interface{}) []byte {
+func jsonBytes(t testing.TB, v any) []byte {
 	data, err := json.MarshalIndent(v, "", " ")
 	if err != nil {
 		t.Fatal(t)

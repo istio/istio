@@ -832,7 +832,7 @@ func (s *Server) handleNdsz(w http.ResponseWriter, r *http.Request) {
 }
 
 // writeJSONProto writes a protobuf to a json payload, handling content type, marshaling, and errors
-func writeJSONProto(w http.ResponseWriter, obj interface{}) {
+func writeJSONProto(w http.ResponseWriter, obj any) {
 	w.Header().Set("Content-Type", "application/json")
 	b, err := config.ToJSON(obj)
 	if err != nil {

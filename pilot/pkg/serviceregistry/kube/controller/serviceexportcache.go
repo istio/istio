@@ -112,7 +112,7 @@ type serviceExportCacheImpl struct {
 	clusterSetLocalPolicySelector discoverabilityPolicySelector
 }
 
-func (ec *serviceExportCacheImpl) onServiceExportEvent(obj interface{}, event model.Event) error {
+func (ec *serviceExportCacheImpl) onServiceExportEvent(obj any, event model.Event) error {
 	se, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)

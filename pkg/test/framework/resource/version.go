@@ -29,7 +29,7 @@ var _ config.Value = &RevVerMap{}
 // RevVerMap maps installed revisions to their Istio versions.
 type RevVerMap map[string]IstioVersion
 
-func (rv *RevVerMap) SetConfig(mi interface{}) error {
+func (rv *RevVerMap) SetConfig(mi any) error {
 	m, ok := mi.(config.Map)
 	if !ok {
 		return fmt.Errorf("revisions map: expected map but got slice")

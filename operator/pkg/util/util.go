@@ -87,8 +87,8 @@ func FindFiles(path string, filter FileFilter) ([]string, error) {
 }
 
 // ParseValue parses string into a value
-func ParseValue(valueStr string) interface{} {
-	var value interface{}
+func ParseValue(valueStr string) any {
+	var value any
 	if v, err := strconv.Atoi(valueStr); err == nil {
 		value = v
 	} else if v, err := strconv.ParseFloat(valueStr, 64); err == nil {
@@ -129,7 +129,7 @@ func ConsolidateLog(logMessage string) string {
 }
 
 // RenderTemplate is a helper method to render a template with the given values.
-func RenderTemplate(tmpl string, ts interface{}) (string, error) {
+func RenderTemplate(tmpl string, ts any) (string, error) {
 	t, err := template.New("").Parse(tmpl)
 	if err != nil {
 		return "", err
@@ -153,7 +153,7 @@ func ValueString(v *structpb.Value) string {
 	}
 }
 
-func MustStruct(m map[string]interface{}) *structpb.Struct {
+func MustStruct(m map[string]any) *structpb.Struct {
 	s, _ := structpb.NewStruct(m)
 	return s
 }

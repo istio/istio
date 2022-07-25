@@ -74,7 +74,7 @@ func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg
 
 func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, label, svcName string,
 	port int,
-) (interface{}, bool, error) {
+) (any, bool, error) {
 	if !s.LoadBalancerSupported {
 		pods, err := cluster.PodsForSelector(context.TODO(), ns, label)
 		if err != nil {

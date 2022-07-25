@@ -1832,7 +1832,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		ConfigNamespace: "not-default",
 		Metadata: &model.NodeMetadata{
 			IstioVersion: "1.2.2",
-			Raw: map[string]interface{}{
+			Raw: map[string]any{
 				"foo": "sidecar",
 				"bar": "proxy",
 			},
@@ -1844,7 +1844,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		ConfigNamespace: "not-default",
 		Metadata: &model.NodeMetadata{
 			IstioVersion: "1.2.2",
-			Raw: map[string]interface{}{
+			Raw: map[string]any{
 				"foo": "sidecar",
 				"bar": "proxy",
 			},
@@ -1986,7 +1986,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 		ConfigNamespace: "not-default",
 		Metadata: &model.NodeMetadata{
 			IstioVersion: "1.2.2",
-			Raw: map[string]interface{}{
+			Raw: map[string]any{
 				"foo": "sidecar",
 				"bar": "proxy",
 			},
@@ -1997,7 +1997,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
 
-	var got interface{}
+	var got any
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		copied := proto.Clone(l)

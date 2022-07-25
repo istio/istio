@@ -134,7 +134,7 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 	return genCert(options, rsaPriv, &rsaPriv.PublicKey)
 }
 
-func genCert(options CertOptions, priv interface{}, key interface{}) ([]byte, []byte, error) {
+func genCert(options CertOptions, priv any, key any) ([]byte, []byte, error) {
 	template, err := genCertTemplateFromOptions(options)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cert generation fails at cert template creation (%v)", err)
@@ -152,7 +152,7 @@ func genCert(options CertOptions, priv interface{}, key interface{}) ([]byte, []
 	return pemCert, pemKey, err
 }
 
-func publicKey(priv interface{}) interface{} {
+func publicKey(priv any) any {
 	switch k := priv.(type) {
 	case *rsa.PrivateKey:
 		return &k.PublicKey
@@ -220,7 +220,7 @@ func MergeCertOptions(defaultOpts, deltaOpts CertOptions) CertOptions {
 }
 
 // GenCertFromCSR generates a X.509 certificate with the given CSR.
-func GenCertFromCSR(csr *x509.CertificateRequest, signingCert *x509.Certificate, publicKey interface{},
+func GenCertFromCSR(csr *x509.CertificateRequest, signingCert *x509.Certificate, publicKey any,
 	signingKey crypto.PrivateKey, subjectIDs []string, ttl time.Duration, isCA bool,
 ) (cert []byte, err error) {
 	tmpl, err := genCertTemplateFromCSR(csr, subjectIDs, ttl, isCA)
@@ -399,7 +399,7 @@ func genSerialNum() (*big.Int, error) {
 	return serialNum, nil
 }
 
-func encodePem(isCSR bool, csrOrCert []byte, priv interface{}, pkcs8 bool) (
+func encodePem(isCSR bool, csrOrCert []byte, priv any, pkcs8 bool) (
 	csrOrCertPem []byte, privPem []byte, err error,
 ) {
 	encodeMsg := "CERTIFICATE"

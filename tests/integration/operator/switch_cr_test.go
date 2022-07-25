@@ -201,7 +201,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 
 			return fmt.Errorf("status not found from the istioOperator resource")
 		}
-		usIOPStatus = usIOPStatus.(map[string]interface{})
+		usIOPStatus = usIOPStatus.(map[string]any)
 		iopStatusString, err := json.Marshal(usIOPStatus)
 		if err != nil {
 			return fmt.Errorf("failed to marshal istioOperator status: %v", err)

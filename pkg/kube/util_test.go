@@ -303,8 +303,8 @@ func podForDeploymentConfig(deployConfigName string, hasDeployConfigLabel bool) 
 func TestStripUnusedFields(t *testing.T) {
 	tests := []struct {
 		name string
-		obj  interface{}
-		want interface{}
+		obj  any
+		want any
 	}{
 		{
 			name: "transform pods",

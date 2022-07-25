@@ -72,7 +72,7 @@ func callInternal(srcName string, from echo.Caller, opts echo.CallOptions, send 
 	// Retry the call until it succeeds or times out.
 	var result echo.CallResult
 	var err error
-	_, _ = retry.UntilComplete(func() (interface{}, bool, error) {
+	_, _ = retry.UntilComplete(func() (any, bool, error) {
 		result, err = sendAndValidate()
 		if err != nil {
 			return nil, false, err

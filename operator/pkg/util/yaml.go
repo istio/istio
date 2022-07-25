@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-func ToYAMLGeneric(root interface{}) ([]byte, error) {
+func ToYAMLGeneric(root any) ([]byte, error) {
 	var vs []byte
 	if proto, ok := root.(proto.Message); ok {
 		v, err := protomarshal.ToYAML(proto)
@@ -51,7 +51,7 @@ func ToYAMLGeneric(root interface{}) ([]byte, error) {
 	return vs, nil
 }
 
-func MustToYAMLGeneric(root interface{}) string {
+func MustToYAMLGeneric(root any) string {
 	var vs []byte
 	if proto, ok := root.(proto.Message); ok {
 		v, err := protomarshal.ToYAML(proto)
@@ -70,7 +70,7 @@ func MustToYAMLGeneric(root interface{}) string {
 }
 
 // ToYAML returns a YAML string representation of val, or the error string if an error occurs.
-func ToYAML(val interface{}) string {
+func ToYAML(val any) string {
 	y, err := yaml.Marshal(val)
 	if err != nil {
 		return err.Error()
@@ -120,7 +120,7 @@ func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) er
 }
 
 // OverlayTrees performs a sequential JSON strategic of overlays over base.
-func OverlayTrees(base map[string]interface{}, overlays ...map[string]interface{}) (map[string]interface{}, error) {
+func OverlayTrees(base map[string]any, overlays ...map[string]any) (map[string]any, error) {
 	needsOverlay := false
 	for _, o := range overlays {
 		if len(o) > 0 {
@@ -150,7 +150,7 @@ func OverlayTrees(base map[string]interface{}, overlays ...map[string]interface{
 		}
 	}
 
-	out := make(map[string]interface{})
+	out := make(map[string]any)
 	err = yaml.Unmarshal([]byte(by), &out)
 	if err != nil {
 		return nil, err
@@ -196,7 +196,7 @@ func OverlayYAML(base, overlay string) (string, error) {
 
 // yamlDiff compares single YAML file
 func yamlDiff(a, b string) string {
-	ao, bo := make(map[string]interface{}), make(map[string]interface{})
+	ao, bo := make(map[string]any), make(map[string]any)
 	if err := yaml.Unmarshal([]byte(a), &ao); err != nil {
 		return err.Error()
 	}

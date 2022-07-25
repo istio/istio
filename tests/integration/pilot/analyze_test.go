@@ -425,7 +425,7 @@ func expectNoMessages(t test.Failer, g *GomegaWithT, output []string) {
 func expectJSONMessages(t test.Failer, g *GomegaWithT, output string, expected ...*diag.MessageType) {
 	t.Helper()
 
-	var j []map[string]interface{}
+	var j []map[string]any
 	if err := json.Unmarshal([]byte(output), &j); err != nil {
 		t.Fatal(err)
 	}

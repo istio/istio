@@ -76,7 +76,7 @@ func (i *instance) WriteTo(templateFile string, w io.Writer) error {
 	return t.Execute(w, templateParams)
 }
 
-func toJSON(i interface{}) string {
+func toJSON(i any) string {
 	if i == nil {
 		return "{}"
 	}

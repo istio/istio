@@ -192,7 +192,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 }
 
 // Validate we are ready to handle events. Until the informers are synced, we will block the queue
-func (cl *Client) checkReadyForEvents(curr interface{}) error {
+func (cl *Client) checkReadyForEvents(curr any) error {
 	if !cl.informerSynced() {
 		return errors.New("waiting till full synchronization")
 	}
@@ -231,7 +231,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
 
 	cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+		AddFunc: func(obj any) {
 			crd, ok := obj.(*metav1.PartialObjectMetadata)
 			if !ok {
 				// Shouldn't happen

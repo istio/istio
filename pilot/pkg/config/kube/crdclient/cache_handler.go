@@ -36,7 +36,7 @@ type cacheHandler struct {
 	lister   func(namespace string) cache.GenericNamespaceLister
 }
 
-func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Event) error {
+func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 	if err := h.client.checkReadyForEvents(curr); err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 	}
 	kind := schema.Resource().Kind()
 	i.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+		AddFunc: func(obj any) {
 			incrementEvent(kind, "add")
 			if !cl.beginSync.Load() {
 				return
@@ -101,7 +101,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 				return h.onEvent(nil, obj, model.EventAdd)
 			})
 		},
-		UpdateFunc: func(old, cur interface{}) {
+		UpdateFunc: func(old, cur any) {
 			incrementEvent(kind, "update")
 			if !cl.beginSync.Load() {
 				return
@@ -110,7 +110,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 				return h.onEvent(old, cur, model.EventUpdate)
 			})
 		},
-		DeleteFunc: func(obj interface{}) {
+		DeleteFunc: func(obj any) {
 			incrementEvent(kind, "delete")
 			if !cl.beginSync.Load() {
 				return

@@ -73,7 +73,7 @@ func (c *configs) Set(path string) error {
 	return nil
 }
 
-func (c *configs) SetConfig(m interface{}) error {
+func (c *configs) SetConfig(m any) error {
 	yml, err := yaml.Marshal(m)
 	if err != nil {
 		return err
