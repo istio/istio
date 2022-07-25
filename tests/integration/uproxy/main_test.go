@@ -20,6 +20,7 @@ package uproxy
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,6 +61,8 @@ type EchoDeployments struct {
 	SidecarCaptured   echo.Instances
 	SidecarUncaptured echo.Instances
 	All               echo.Instances
+	Mesh              echo.Instances
+	MeshExternal      echo.Instances
 }
 
 var ControlPlaneValues = `
@@ -101,6 +104,16 @@ const (
 	SidecarCaptured   = "sidecar-captured"
 	SidecarUncaptured = "sidecar-uncaptured"
 )
+
+var inMesh = match.Matcher(func(instance echo.Instance) bool {
+	names := []string{"remote", "captured", "sidecar"}
+	for _, name := range names {
+		if strings.Contains(instance.Config().Service, name) {
+			return true
+		}
+	}
+	return false
+})
 
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
 	var err error
@@ -321,6 +334,8 @@ spec:
 	apps.SidecarRemote = match.ServiceName(echo.NamespacedName{Name: SidecarRemote, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.SidecarUncaptured = match.ServiceName(echo.NamespacedName{Name: SidecarUncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.SidecarCaptured = match.ServiceName(echo.NamespacedName{Name: SidecarCaptured, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Mesh = inMesh.GetMatches(echos)
+	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
 
 	remoteErr := retry.UntilSuccess(func() error {
 		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), "istio.io/gateway-name=remote")); err != nil {

@@ -88,6 +88,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -166,7 +167,10 @@ func (g *UProxyConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.Pu
 	for sa := range workloads.ByIdentity {
 		for _, svc := range services {
 			for _, port := range svc.Ports {
-				c := remoteOutboundCluster(sa, svc, port.Name)
+				c := g.remoteOutboundCluster(proxy, push, sa, svc, port.Name)
+				if c == nil {
+					continue
+				}
 				out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
 			}
 		}
@@ -337,19 +341,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 			sourceAndDestMatch.Map[vip] = match.ToMatcher(portMatch.Matcher)
 			for _, port := range svc.Ports {
 				var chain *listener.FilterChain
-				// Need to decide if there is a server PEP. This is somewhat problematic because a Service may span PEP and non-PEP.
-				// If any workload behind the service has a PEP, we will use the PEP. In 99% of cases this is homogenous.
-				var serverPepChain *listener.FilterChain
-				for _, wl := range push.SidecarlessIndex.Workloads.All() {
-					if wl.Namespace != svc.Attributes.Namespace {
-						continue
-					}
-					if !labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.Labels) {
-						continue
-					}
-					serverPepChain = buildPepChain(sourceWl, push.SidecarlessIndex.PEPs.ByIdentity[wl.Identity()], "server")
-					break
-				}
+				serverPepChain := g.maybeBuildServerPepChain(push, sourceWl, svc)
 				if serverPepChain != nil {
 					// Has server PEP, send traffic there
 					chain = serverPepChain
@@ -471,6 +463,59 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 	}
 }
 
+// Need to decide if there is a server PEP. This is somewhat problematic because a Service may span PEP and non-PEP.
+// If any workload behind the service has a PEP, we will use the PEP. In 99% of cases this is homogenous.
+func (g *UProxyConfigGenerator) maybeBuildServerPepChain(push *model.PushContext,
+	sourceWl ambient.Workload, svc *model.Service,
+) *listener.FilterChain {
+	var serviceWorkloads []ambient.Workload
+	if svc.Attributes.ServiceRegistry == provider.External &&
+		svc.Attributes.LabelSelectors == nil {
+		// there are a small number of workloads specified directly by the service, check those
+		shards, _ := g.EndpointIndex.ShardsForService(svc.Hostname.String(), svc.Attributes.Namespace)
+		serviceWorkloads = workloadsForShards(push.SidecarlessIndex, shards)
+	} else {
+		// find PEPs based on label selectors for any workload
+		// TODO optimize this so we don't do full service selection for every service on every gen
+		for _, wl := range push.SidecarlessIndex.Workloads.All() {
+			if wl.Namespace != svc.Attributes.Namespace {
+				continue
+			}
+			if !labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.Labels) {
+				continue
+			}
+			serviceWorkloads = append(serviceWorkloads, wl)
+		}
+	}
+
+	// if any workload in the service has a PEP, all traffic to the service must go through it
+	// TODO what happens if workloads specify multiple SAs that have PEPs?
+	for _, wl := range serviceWorkloads {
+		if peps := push.SidecarlessIndex.PEPs.ByIdentity[wl.Identity()]; len(peps) > 0 {
+			return buildPepChain(sourceWl, peps, "server")
+		}
+	}
+
+	return nil
+}
+
+func workloadsForShards(workloads ambient.Indexes, shards *model.EndpointShards) (out []ambient.Workload) {
+	if shards == nil {
+		return
+	}
+	shards.RLock()
+	defer shards.RUnlock()
+
+	for _, endpoints := range shards.Shards {
+		for _, istioEndpoint := range endpoints {
+			if w, ok := workloads.Workloads.ByIP[istioEndpoint.Address]; ok {
+				out = append(out, w)
+			}
+		}
+	}
+	return out
+}
+
 func blackholeFilterChain(t string) *listener.FilterChain {
 	return &listener.FilterChain{
 		Name: "blackhole " + t,
@@ -538,11 +583,39 @@ func passthroughFilterChain() *listener.FilterChain {
 	}
 }
 
-func remoteOutboundCluster(sa string, svc *model.Service, port string) *cluster.Cluster {
-	return &cluster.Cluster{
+func (g *UProxyConfigGenerator) remoteOutboundCluster(
+	proxy *model.Proxy, push *model.PushContext, sa string, svc *model.Service, port string,
+) *cluster.Cluster {
+	discoveryType := convertResolution(proxy.Type, svc)
+	c := &cluster.Cluster{
 		Name:                 remoteOutboundClusterName(sa, port, svc.Hostname.String()),
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
-		EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
+
+		TransportSocketMatches: v1alpha3.InternalUpstreamSocketMatch,
+	}
+	switch discoveryType {
+	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
+		if proxy.SupportsIPv4() {
+			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
+		} else {
+			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
+		}
+		dnsRate := push.Mesh.DnsRefreshRate
+		c.DnsRefreshRate = dnsRate
+		c.RespectDnsTtl = true
+		fallthrough
+	case cluster.Cluster_STATIC:
+		localityLbEndpoints := g.upstreamLbEndpointsFromShards(proxy, push, sa, svc, port)
+		if len(localityLbEndpoints) == 0 {
+			log.Warnf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), c.Name)
+			return nil
+		}
+		c.LoadAssignment = &endpoint.ClusterLoadAssignment{
+			ClusterName: c.Name,
+			Endpoints:   localityLbEndpoints,
+		}
+	case cluster.Cluster_EDS:
+		c.EdsClusterConfig = &cluster.Cluster_EdsClusterConfig{
 			EdsConfig: &core.ConfigSource{
 				ConfigSourceSpecifier: &core.ConfigSource_Ads{
 					Ads: &core.AggregatedConfigSource{},
@@ -550,9 +623,9 @@ func remoteOutboundCluster(sa string, svc *model.Service, port string) *cluster.
 				InitialFetchTimeout: durationpb.New(0),
 				ResourceApiVersion:  core.ApiVersion_V3,
 			},
-		},
-		TransportSocketMatches: v1alpha3.InternalUpstreamSocketMatch,
+		}
 	}
+	return c
 }
 
 func remoteOutboundClusterName(sa, port string, hostname string) string {
@@ -673,7 +746,7 @@ func (g *UProxyConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.P
 			Name: clusterName,
 			Resource: util.MessageToAny(&endpoint.ClusterLoadAssignment{
 				ClusterName: clusterName,
-				Endpoints:   g.upstreamLbEndpointsFromShards(proxy, sa, svc, port),
+				Endpoints:   g.upstreamLbEndpointsFromShards(proxy, push, sa, svc, port),
 			}),
 		})
 	}
@@ -694,10 +767,37 @@ func (g *UProxyConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.P
 	return out
 }
 
-func (g *UProxyConfigGenerator) upstreamLbEndpointsFromShards(proxy *model.Proxy, sa string, svc *model.Service, port string) []*endpoint.LocalityLbEndpoints {
+func (g *UProxyConfigGenerator) upstreamLbEndpointsFromShards(
+	proxy *model.Proxy, push *model.PushContext, sa string, svc *model.Service, portName string,
+) []*endpoint.LocalityLbEndpoints {
 	if svc == nil {
 		return nil
 	}
+	port, ok := svc.Ports.Get(portName)
+	if !ok {
+		return nil
+	}
+
+	var istioEndpoints []*model.IstioEndpoint
+	switch svc.Resolution {
+	case model.DNSLB, model.DNSRoundRobinLB:
+		instances := push.ServiceInstancesByPort(svc, port.Port, nil)
+		for _, instance := range instances {
+			istioEndpoints = append(istioEndpoints, instance.Endpoint)
+		}
+	case model.ClientSideLB:
+		shards, ok := g.EndpointIndex.ShardsForService(svc.Hostname.String(), svc.Attributes.Namespace)
+		if !ok || shards == nil {
+			log.Warnf("no endpoint shards for %s/%s", svc.Attributes.Namespace, svc.Attributes.Name)
+			return nil
+		}
+		shards.RLock()
+		for _, shard := range shards.Shards {
+			istioEndpoints = append(istioEndpoints, shard...)
+		}
+		shards.RUnlock()
+	}
+
 	shards, ok := g.EndpointIndex.ShardsForService(svc.Hostname.String(), svc.Attributes.Namespace)
 	if !ok || shards == nil {
 		log.Warnf("no endpoint shards for %s/%s", svc.Attributes.Namespace, svc.Attributes.Name)
@@ -706,67 +806,65 @@ func (g *UProxyConfigGenerator) upstreamLbEndpointsFromShards(proxy *model.Proxy
 	eps := &endpoint.LocalityLbEndpoints{
 		LbEndpoints: nil,
 	}
-	for _, shard := range shards.Shards {
-		for _, istioEndpoint := range shard {
-			if port != istioEndpoint.ServicePortName {
-				continue
-			}
-			lbe := &endpoint.LbEndpoint{
-				HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-					Address: &core.Address{
-						Address: &core.Address_SocketAddress{
-							SocketAddress: &core.SocketAddress{
-								Address:       istioEndpoint.Address,
-								PortSpecifier: &core.SocketAddress_PortValue{PortValue: istioEndpoint.EndpointPort},
-							},
+	for _, istioEndpoint := range istioEndpoints {
+		if portName != istioEndpoint.ServicePortName {
+			continue
+		}
+		lbe := &endpoint.LbEndpoint{
+			HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
+				Address: &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{
+							Address:       istioEndpoint.Address,
+							PortSpecifier: &core.SocketAddress_PortValue{PortValue: istioEndpoint.EndpointPort},
 						},
 					},
-				}},
-				LoadBalancingWeight: wrappers.UInt32(1),
-			}
-
-			capturePort := UproxyInboundCapturePort
-			// TODO passthrough for node-local upstreams without PEPs
-			if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantIptables {
-				capturePort = UproxyInboundNodeLocalCapturePort
-			}
-			supportsTunnel := false
-			if al := istioEndpoint.Labels[ambient.LabelType]; al == ambient.TypePEP || al == ambient.TypeWorkload {
-				// PEPs and in-meshed workloads can do a tunnel
-				supportsTunnel = true
-			}
-			if al := istioEndpoint.Labels[model.TunnelLabel]; al == model.TunnelH2 && istioEndpoint.EndpointPort == UproxyInboundCapturePort {
-				// Even if it is in the mesh, if it supports tunnel directly then we should pass through the traffic if its already tunneled
-				supportsTunnel = false
-			}
-			// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
-			// Instead, just go direct
-			if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
-				supportsTunnel = false
-			}
-			if supportsTunnel {
-				// TODO re-use some eds code; stable eds ordering, support multi-cluster cluster local rules, and multi-network stuff
-				metadata, err := structpb.NewStruct(map[string]interface{}{
-					"target":           outboundTunnelListenerName(sa),
-					"tunnel_address":   net.JoinHostPort(istioEndpoint.Address, strconv.Itoa(int(capturePort))), // TODO tunnel address changes if we have a Server PEP
-					"detunnel_address": net.JoinHostPort(istioEndpoint.Address, strconv.Itoa(int(istioEndpoint.EndpointPort))),
-					"detunnel_ip":      istioEndpoint.Address,
-					"detunnel_port":    strconv.Itoa(int(istioEndpoint.EndpointPort)),
-				})
-				if err != nil {
-					log.Warnf("error building metadata for %s: %v", err)
-				}
-				lbe.Metadata = &core.Metadata{FilterMetadata: map[string]*structpb.Struct{
-					"tunnel": metadata,
-				}}
-				lbe.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
-					},
-				}
-			}
-			eps.LbEndpoints = append(eps.LbEndpoints, lbe)
+				},
+			}},
+			LoadBalancingWeight: wrappers.UInt32(1),
 		}
+
+		capturePort := UproxyInboundCapturePort
+		// TODO passthrough for node-local upstreams without PEPs
+		if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantIptables {
+			capturePort = UproxyInboundNodeLocalCapturePort
+		}
+		supportsTunnel := false
+		if al := istioEndpoint.Labels[ambient.LabelType]; al == ambient.TypePEP || al == ambient.TypeWorkload {
+			// PEPs and in-meshed workloads can do a tunnel
+			supportsTunnel = true
+		}
+		if al := istioEndpoint.Labels[model.TunnelLabel]; al == model.TunnelH2 && istioEndpoint.EndpointPort == UproxyInboundCapturePort {
+			// Even if it is in the mesh, if it supports tunnel directly then we should pass through the traffic if its already tunneled
+			supportsTunnel = false
+		}
+		// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
+		// Instead, just go direct
+		if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
+			supportsTunnel = false
+		}
+		if supportsTunnel {
+			// TODO re-use some eds code; stable eds ordering, support multi-cluster cluster local rules, and multi-network stuff
+			metadata, err := structpb.NewStruct(map[string]interface{}{
+				"target":           outboundTunnelListenerName(sa),
+				"tunnel_address":   net.JoinHostPort(istioEndpoint.Address, strconv.Itoa(int(capturePort))), // TODO tunnel address changes if we have a Server PEP
+				"detunnel_address": net.JoinHostPort(istioEndpoint.Address, strconv.Itoa(int(istioEndpoint.EndpointPort))),
+				"detunnel_ip":      istioEndpoint.Address,
+				"detunnel_port":    strconv.Itoa(int(istioEndpoint.EndpointPort)),
+			})
+			if err != nil {
+				log.Warnf("error building metadata for %s: %v", err)
+			}
+			lbe.Metadata = &core.Metadata{FilterMetadata: map[string]*structpb.Struct{
+				"tunnel": metadata,
+			}}
+			lbe.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
+				},
+			}
+		}
+		eps.LbEndpoints = append(eps.LbEndpoints, lbe)
 	}
 	return []*endpoint.LocalityLbEndpoints{eps}
 }
@@ -1234,4 +1332,29 @@ func ipPortAddress(ip string, port uint32) *core.Address {
 			},
 		},
 	}}
+}
+
+// TODO re-use from v1alpha3/cluster.go
+
+func convertResolution(proxyType model.NodeType, service *model.Service) cluster.Cluster_DiscoveryType {
+	switch service.Resolution {
+	case model.ClientSideLB:
+		return cluster.Cluster_EDS
+	case model.DNSLB:
+		return cluster.Cluster_STRICT_DNS
+	case model.DNSRoundRobinLB:
+		return cluster.Cluster_LOGICAL_DNS
+	case model.Passthrough:
+		// Gateways cannot use passthrough clusters. So fallback to EDS
+		if proxyType == model.SidecarProxy {
+			if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
+				return cluster.Cluster_EDS
+			}
+
+			return cluster.Cluster_ORIGINAL_DST
+		}
+		return cluster.Cluster_EDS
+	default:
+		return cluster.Cluster_EDS
+	}
 }

@@ -25,12 +25,16 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/api/networking/v1alpha3"
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/test/framework/components/echo/config"
+	"istio.io/istio/pkg/test/framework/components/echo/config/param"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -552,6 +556,79 @@ func TestMTLS(t *testing.T) {
 				},
 			}
 			RunReachability(testCases, t)
+		})
+}
+
+func TestServiceEntry(t *testing.T) {
+	framework.NewTest(t).
+		Features("traffic.ambient").
+		Run(func(t framework.TestContext) {
+			testCases := []struct {
+				location   v1alpha3.ServiceEntry_Location
+				resolution v1alpha3.ServiceEntry_Resolution
+				to         echo.Instances
+			}{
+				{
+					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
+					resolution: v1alpha3.ServiceEntry_STATIC,
+					to:         apps.Mesh,
+				},
+				{
+					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
+					resolution: v1alpha3.ServiceEntry_STATIC,
+					to:         apps.MeshExternal,
+				},
+				// TODO dns cases
+			}
+
+			cfg := config.YAML(`
+{{ $to := .To }}
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: test-se
+spec:
+  hosts:
+  - serviceentry.istio.io # not used
+  addresses:
+  - 111.111.222.222
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: {{.Resolution}}
+  location: {{.Location}}
+  endpoints:
+  # we send directly to a Pod IP here. This is essentially headless
+  - address: {{ (index .To.MustWorkloads 0).Address }} # TODO won't work with DNS resolution tests
+    ports:
+      http: {{ (.To.PortForName "http").WorkloadPort }}`).
+				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
+
+			for _, tc := range testCases {
+				tc := tc
+				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
+					echotest.
+						New(t, apps.All).
+						// TODO eventually we can do this for uncaptured -> l7
+						FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+							Name:      "uncaptured",
+							Namespace: apps.Namespace,
+						}))).
+						To(echotest.In(tc.to)).
+						Config(cfg.WithParams(param.Params{
+							"Resolution": tc.resolution.String(),
+							"Location":   tc.location.String(),
+						})).
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+							from.CallOrFail(t, echo.CallOptions{
+								Address: "111.111.222.222",
+								Port:    to.PortForName("http"),
+							})
+						})
+				})
+			}
 		})
 }
 

@@ -154,6 +154,19 @@ func FilterMatch(matcher match.Matcher) Filter {
 	}
 }
 
+// In filters down the active apps to ones that are in the given set.
+func In(want echo.Instances) Filter {
+	return func(have echo.Instances) echo.Instances {
+		var got echo.Instances
+		for _, instance := range have {
+			if want.Contains(instance) {
+				got = append(got, instance)
+			}
+		}
+		return got
+	}
+}
+
 // ReachableDestinations filters out known-unreachable destinations given a source.
 // - from a naked pod, we can't reach cross-network endpoints or VMs
 // - we can't reach cross-cluster headless endpoints
