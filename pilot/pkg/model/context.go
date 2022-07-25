@@ -1122,6 +1122,13 @@ func (node *Proxy) IsProxylessGrpc() bool {
 	return node.Metadata != nil && node.Metadata.Generator == "grpc"
 }
 
+func (node *Proxy) FuzzValidate() bool {
+	if node.Metadata == nil {
+		return false
+	}
+	return len(node.IPAddresses) != 0
+}
+
 type GatewayController interface {
 	ConfigStoreController
 	// Recompute updates the internal state of the gateway controller for a given input. This should be

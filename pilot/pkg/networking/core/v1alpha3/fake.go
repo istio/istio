@@ -85,6 +85,20 @@ type TestOptions struct {
 	ClusterID cluster2.ID
 }
 
+func (to TestOptions) FuzzValidate() bool {
+	for _, csc := range to.ConfigStoreCaches {
+		if csc == nil {
+			return false
+		}
+	}
+	for _, sr := range to.ServiceRegistries {
+		if sr == nil {
+			return false
+		}
+	}
+	return true
+}
+
 type ConfigGenTest struct {
 	t                    test.Failer
 	pushContextLock      *sync.RWMutex
