@@ -8,13 +8,11 @@ spec:
   - name: external-svc-tcp
     trafficPolicy:
       tunnel:
-        protocol: CONNECT
         targetHost: external.{{ .externalNamespace }}
         targetPort: {{ .externalSvcTcpPort }}
   - name: external-svc-tls
     trafficPolicy:
       tunnel:
-        protocol: CONNECT
         targetHost: external.{{ .externalNamespace }}
         targetPort: {{ .externalSvcTlsPort }}
 ---

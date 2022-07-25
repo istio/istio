@@ -2290,7 +2290,16 @@ func TestValidateDestinationWithInheritance(t *testing.T) {
 				},
 			},
 		}, valid: true},
-		{name: "global tunnel settings with connect protocol", in: &networking.DestinationRule{
+		{name: "global tunnel settings without protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					TargetHost: "example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: true},
+		{name: "global tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
 			Host: "tunnel-proxy.com",
 			TrafficPolicy: &networking.TrafficPolicy{
 				Tunnel: &networking.TrafficPolicy_TunnelSettings{
@@ -2300,7 +2309,7 @@ func TestValidateDestinationWithInheritance(t *testing.T) {
 				},
 			},
 		}, valid: true},
-		{name: "global tunnel settings with post protocol", in: &networking.DestinationRule{
+		{name: "global tunnel settings with POST protocol", in: &networking.DestinationRule{
 			Host: "tunnel-proxy.com",
 			TrafficPolicy: &networking.TrafficPolicy{
 				Tunnel: &networking.TrafficPolicy_TunnelSettings{
@@ -2310,7 +2319,21 @@ func TestValidateDestinationWithInheritance(t *testing.T) {
 				},
 			},
 		}, valid: true},
-		{name: "subset tunnel settings with connect protocol", in: &networking.DestinationRule{
+		{name: "subset tunnel settings without protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			Subsets: []*networking.Subset{
+				{
+					Name: "reviews-80",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tunnel: &networking.TrafficPolicy_TunnelSettings{
+							TargetHost: "example.com",
+							TargetPort: 80,
+						},
+					},
+				},
+			},
+		}, valid: true},
+		{name: "subset tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
 			Host: "tunnel-proxy.com",
 			Subsets: []*networking.Subset{
 				{
@@ -2325,7 +2348,7 @@ func TestValidateDestinationWithInheritance(t *testing.T) {
 				},
 			},
 		}, valid: true},
-		{name: "subset tunnel settings with post protocol", in: &networking.DestinationRule{
+		{name: "subset tunnel settings with POST protocol", in: &networking.DestinationRule{
 			Host: "tunnel-proxy.com",
 			Subsets: []*networking.Subset{
 				{
@@ -2446,15 +2469,6 @@ func TestValidateDestinationWithInheritance(t *testing.T) {
 					Protocol:   "CONNECT",
 					TargetHost: "example.com",
 					TargetPort: 0,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings without required protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					TargetHost: "example.com",
-					TargetPort: 80,
 				},
 			},
 		}, valid: false},
