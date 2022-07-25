@@ -31,6 +31,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1439,10 +1440,15 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if !f {
 				continue
 			}
-			s.RLock()
-			sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
-			s.RUnlock()
-			ps.ServiceAccounts[svc.Hostname][port.Port] = sa
+			if svc.Attributes.ServiceRegistry == provider.Kubernetes {
+				s.RLock()
+				sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
+				s.RUnlock()
+				ps.ServiceAccounts[svc.Hostname][port.Port] = sa
+			} else {
+				ps.ServiceAccounts[svc.Hostname][port.Port] = s.ServiceAccounts.SortedList()
+			}
+
 		}
 	}
 }
