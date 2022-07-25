@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemtry
+
+releaseNotes:
+  - |
+    **Fixed** an issue where updating secret cause `missing pulling secret`.
