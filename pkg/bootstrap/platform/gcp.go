@@ -107,8 +107,12 @@ var (
 )
 
 type (
-	shouldFillFn func() bool
-	metadataFn   func() (string, error)
+	shouldFillFn     func() bool
+	metadataFn       func() (string, error)
+	metadataSupplier struct {
+		Property string
+		Fn       func() (string, error)
+	}
 )
 
 type gcpEnv struct {
@@ -148,26 +152,39 @@ func (e *gcpEnv) Metadata() map[string]string {
 	if e.metadata != nil {
 		return e.metadata
 	}
-	envPid, envNPid, envCN, envLoc := parseGCPMetadata()
-	if envPid != "" {
+	envPid, envNPid, envCN, envLoc, err := parseGCPMetadata()
+
+	// If no error is returned, then we have a valid GCP environment.
+	// Else we query the API to discover the needed information
+	if err == nil {
 		md[GCPProject] = envPid
-	} else if pid, err := projectIDFn(); err == nil {
-		md[GCPProject] = pid
-	}
-	if envNPid != "" {
 		md[GCPProjectNumber] = envNPid
-	} else if npid, err := numericProjectIDFn(); err == nil {
-		md[GCPProjectNumber] = npid
-	}
-	if envLoc != "" {
 		md[GCPLocation] = envLoc
-	} else if l, err := clusterLocationFn(); err == nil {
-		md[GCPLocation] = l
-	}
-	if envCN != "" {
 		md[GCPCluster] = envCN
-	} else if cn, err := clusterNameFn(); err == nil {
-		md[GCPCluster] = cn
+	} else {
+		wg := sync.WaitGroup{}
+
+		suppliers := []metadataSupplier{
+			createMetadataSupplier(GCPProject, projectIDFn),
+			createMetadataSupplier(GCPProjectNumber, numericProjectIDFn),
+			createMetadataSupplier(GCPCluster, clusterNameFn),
+			createMetadataSupplier(GCPLocation, clusterLocationFn),
+		}
+
+		for _, mdSupplier := range suppliers {
+			wg.Add(1)
+			property, supplierFunction := mdSupplier.Property, mdSupplier.Fn
+			go func() {
+				defer wg.Done()
+				if result, err := supplierFunction(); err == nil {
+					md[property] = result
+				} else {
+					log.Warnf("Error fetching GCP Metadata property %s: %v", property, err)
+				}
+			}()
+		}
+
+		wg.Wait()
 	}
 	if GCPQuotaProjectVar != "" {
 		md[GCPQuotaProject] = GCPQuotaProjectVar
@@ -177,18 +194,31 @@ func (e *gcpEnv) Metadata() map[string]string {
 		e.metadata = md
 		return md
 	}
-	if in, err := instanceNameFn(); err == nil {
-		md[GCEInstance] = in
+
+	wg := sync.WaitGroup{}
+
+	suppliers := []metadataSupplier{
+		createMetadataSupplier(GCEInstance, instanceNameFn),
+		createMetadataSupplier(GCEInstanceID, instanceIDFn),
+		createMetadataSupplier(GCEInstanceTemplate, instanceTemplateFn),
+		createMetadataSupplier(GCEInstanceCreatedBy, createdByFn),
 	}
-	if id, err := instanceIDFn(); err == nil {
-		md[GCEInstanceID] = id
+
+	for _, mdSupplier := range suppliers {
+		wg.Add(1)
+		property, supplierFunction := mdSupplier.Property, mdSupplier.Fn
+		go func() {
+			defer wg.Done()
+			if result, err := supplierFunction(); err == nil {
+				md[property] = result
+			} else {
+				log.Warnf("Error fetching GCP Metadata '%s' property, %v", property, err)
+			}
+		}()
 	}
-	if it, err := instanceTemplateFn(); err == nil {
-		md[GCEInstanceTemplate] = it
-	}
-	if cb, err := createdByFn(); err == nil {
-		md[GCEInstanceCreatedBy] = cb
-	}
+
+	wg.Wait()
+
 	if clusterURL, err := constructGKEClusterURL(md); err == nil {
 		md[GCPClusterURL] = clusterURL
 	}
@@ -204,7 +234,7 @@ var (
 	envLocation string
 )
 
-func parseGCPMetadata() (pid, npid, cluster, location string) {
+func parseGCPMetadata() (pid, npid, cluster, location string, err error) {
 	envOnce.Do(func() {
 		gcpmd := GCPMetadata
 		if len(gcpmd) > 0 {
@@ -218,7 +248,12 @@ func parseGCPMetadata() (pid, npid, cluster, location string) {
 			}
 		}
 	})
-	return envPid, envNpid, envCluster, envLocation
+
+	if envPid == "" || envNpid == "" || envCluster == "" || envLocation == "" {
+		return "", "", "", "", fmt.Errorf("error parsing GCP Metadata: %v", GCPMetadata)
+	}
+
+	return envPid, envNpid, envCluster, envLocation, nil
 }
 
 // Converts a GCP zone into a region.
@@ -313,4 +348,11 @@ func (e *gcpEnv) IsKubernetes() bool {
 	md := e.Metadata()
 	_, onKubernetes := os.LookupEnv(KubernetesServiceHost)
 	return md[GCPCluster] != "" || onKubernetes
+}
+
+func createMetadataSupplier(property string, fn func() (string, error)) metadataSupplier {
+	return metadataSupplier{
+		Property: property,
+		Fn:       fn,
+	}
 }
