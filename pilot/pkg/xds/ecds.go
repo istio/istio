@@ -66,12 +66,11 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	}
 
 	secretResources := referencedSecrets(proxy, req.Push, w.ResourceNames)
-	var updatedSecrets map[model.ConfigKey]struct{}
 	// Check if the secret updates is relevant to Wasm image pull. If not relevant, skip pushing ECDS.
 	if !model.ConfigsHaveKind(req.ConfigsUpdated, kind.WasmPlugin) && !model.ConfigsHaveKind(req.ConfigsUpdated, kind.EnvoyFilter) &&
 		model.ConfigsHaveKind(req.ConfigsUpdated, kind.Secret) {
 		// Get the updated secrets
-		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
+		updatedSecrets := model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
 		needsPush := false
 		for _, sr := range secretResources {
 			if _, found := updatedSecrets[model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
@@ -98,7 +97,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 		}
 		// Inserts Wasm pull secrets in ECDS response, which will be used at xds proxy for image pull.
 		// Before forwarding to Envoy, xds proxy will remove the secret from ECDS response.
-		secrets = e.GeneratePullSecrets(proxy, updatedSecrets, secretResources, secretController, req)
+		secrets = e.GeneratePullSecrets(proxy, secretResources, secretController)
 	}
 
 	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames, secrets)
@@ -118,8 +117,8 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	return resources, model.DefaultXdsLogDetails, nil
 }
 
-func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets map[model.ConfigKey]struct{}, secretResources []SecretResource,
-	secretController credscontroller.Controller, req *model.PushRequest,
+func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, secretResources []SecretResource,
+	secretController credscontroller.Controller,
 ) map[string][]byte {
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %s is not authorized to receive secret. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
@@ -128,13 +127,6 @@ func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets m
 
 	results := make(map[string][]byte)
 	for _, sr := range secretResources {
-		if updatedSecrets != nil {
-			if _, found := updatedSecrets[model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}]; !found {
-				// This is an incremental update, filter out credscontroller that are not updated.
-				continue
-			}
-		}
-
 		cred, err := secretController.GetDockerCredential(sr.Name, sr.Namespace)
 		if err != nil {
 			log.Warnf("Failed to fetch docker credential %s: %v", sr.ResourceName, err)
