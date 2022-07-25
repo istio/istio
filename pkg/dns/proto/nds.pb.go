@@ -217,7 +217,7 @@ func file_dns_proto_nds_proto_rawDescGZIP() []byte {
 }
 
 var file_dns_proto_nds_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_dns_proto_nds_proto_goTypes = []any{
+var file_dns_proto_nds_proto_goTypes = []interface{}{
 	(*NameTable)(nil),          // 0: istio.networking.nds.v1.NameTable
 	(*NameTable_NameInfo)(nil), // 1: istio.networking.nds.v1.NameTable.NameInfo
 	nil,                        // 2: istio.networking.nds.v1.NameTable.TableEntry
@@ -238,7 +238,7 @@ func file_dns_proto_nds_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_dns_proto_nds_proto_msgTypes[0].Exporter = func(v any, i int) any {
+		file_dns_proto_nds_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*NameTable); i {
 			case 0:
 				return &v.state
@@ -250,7 +250,7 @@ func file_dns_proto_nds_proto_init() {
 				return nil
 			}
 		}
-		file_dns_proto_nds_proto_msgTypes[1].Exporter = func(v any, i int) any {
+		file_dns_proto_nds_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*NameTable_NameInfo); i {
 			case 0:
 				return &v.state

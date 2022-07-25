@@ -6171,7 +6171,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP() []byte {
 
 var file_pkg_apis_istio_v1alpha1_values_types_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
-var file_pkg_apis_istio_v1alpha1_values_types_proto_goTypes = []any{
+var file_pkg_apis_istio_v1alpha1_values_types_proto_goTypes = []interface{}{
 	(IngressControllerMode)(0),                         // 0: v1alpha1.ingressControllerMode
 	(Tracer)(0),                                        // 1: v1alpha1.tracer
 	(OutboundTrafficPolicyConfig_Mode)(0),              // 2: v1alpha1.OutboundTrafficPolicyConfig.Mode
@@ -6428,7 +6428,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[0].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ArchConfig); i {
 			case 0:
 				return &v.state
@@ -6440,7 +6440,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[1].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CNIConfig); i {
 			case 0:
 				return &v.state
@@ -6452,7 +6452,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[2].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CNITaintConfig); i {
 			case 0:
 				return &v.state
@@ -6464,7 +6464,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[3].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CNIRepairConfig); i {
 			case 0:
 				return &v.state
@@ -6476,7 +6476,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[4].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ResourceQuotas); i {
 			case 0:
 				return &v.state
@@ -6488,7 +6488,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[5].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CPUTargetUtilizationConfig); i {
 			case 0:
 				return &v.state
@@ -6500,7 +6500,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[6].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Resources); i {
 			case 0:
 				return &v.state
@@ -6512,7 +6512,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[7].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ServiceAccount); i {
 			case 0:
 				return &v.state
@@ -6524,7 +6524,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[8].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DefaultPodDisruptionBudgetConfig); i {
 			case 0:
 				return &v.state
@@ -6536,7 +6536,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[9].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DefaultResourcesConfig); i {
 			case 0:
 				return &v.state
@@ -6548,7 +6548,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[10].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*EgressGatewayConfig); i {
 			case 0:
 				return &v.state
@@ -6560,7 +6560,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[11].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GatewaysConfig); i {
 			case 0:
 				return &v.state
@@ -6572,7 +6572,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[12].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GlobalConfig); i {
 			case 0:
 				return &v.state
@@ -6584,7 +6584,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[13].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*STSConfig); i {
 			case 0:
 				return &v.state
@@ -6596,7 +6596,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[14].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*IstiodConfig); i {
 			case 0:
 				return &v.state
@@ -6608,7 +6608,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[15].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GlobalLoggingConfig); i {
 			case 0:
 				return &v.state
@@ -6620,7 +6620,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[16].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*IngressGatewayConfig); i {
 			case 0:
 				return &v.state
@@ -6632,7 +6632,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[17].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*IngressGatewayZvpnConfig); i {
 			case 0:
 				return &v.state
@@ -6644,7 +6644,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[18].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MultiClusterConfig); i {
 			case 0:
 				return &v.state
@@ -6656,7 +6656,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[19].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*OutboundTrafficPolicyConfig); i {
 			case 0:
 				return &v.state
@@ -6668,7 +6668,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[20].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*PilotConfig); i {
 			case 0:
 				return &v.state
@@ -6680,7 +6680,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[21].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*PilotIngressConfig); i {
 			case 0:
 				return &v.state
@@ -6692,7 +6692,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[22].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*PilotPolicyConfig); i {
 			case 0:
 				return &v.state
@@ -6704,7 +6704,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[23].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TelemetryConfig); i {
 			case 0:
 				return &v.state
@@ -6716,7 +6716,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[24].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TelemetryV2Config); i {
 			case 0:
 				return &v.state
@@ -6728,7 +6728,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[25].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TelemetryV2MetadataExchangeConfig); i {
 			case 0:
 				return &v.state
@@ -6740,7 +6740,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[26].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TelemetryV2PrometheusConfig); i {
 			case 0:
 				return &v.state
@@ -6752,7 +6752,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[27].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TelemetryV2StackDriverConfig); i {
 			case 0:
 				return &v.state
@@ -6764,7 +6764,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[28].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TelemetryV2AccessLogPolicyFilterConfig); i {
 			case 0:
 				return &v.state
@@ -6776,7 +6776,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[29].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*PilotConfigSource); i {
 			case 0:
 				return &v.state
@@ -6788,7 +6788,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[30].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*PortsConfig); i {
 			case 0:
 				return &v.state
@@ -6800,7 +6800,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[31].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ProxyConfig); i {
 			case 0:
 				return &v.state
@@ -6812,7 +6812,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[32].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ProxyInitConfig); i {
 			case 0:
 				return &v.state
@@ -6824,7 +6824,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[33].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ResourcesRequestsConfig); i {
 			case 0:
 				return &v.state
@@ -6836,7 +6836,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[34].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SDSConfig); i {
 			case 0:
 				return &v.state
@@ -6848,7 +6848,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[35].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[35].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SecretVolume); i {
 			case 0:
 				return &v.state
@@ -6860,7 +6860,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[36].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[36].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ServiceConfig); i {
 			case 0:
 				return &v.state
@@ -6872,7 +6872,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[37].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[37].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SidecarInjectorConfig); i {
 			case 0:
 				return &v.state
@@ -6884,7 +6884,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[38].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TracerConfig); i {
 			case 0:
 				return &v.state
@@ -6896,7 +6896,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[39].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[39].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TracerDatadogConfig); i {
 			case 0:
 				return &v.state
@@ -6908,7 +6908,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[40].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[40].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TracerLightStepConfig); i {
 			case 0:
 				return &v.state
@@ -6920,7 +6920,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[41].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[41].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TracerZipkinConfig); i {
 			case 0:
 				return &v.state
@@ -6932,7 +6932,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[42].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[42].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TracerStackdriverConfig); i {
 			case 0:
 				return &v.state
@@ -6944,7 +6944,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[43].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[43].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BaseConfig); i {
 			case 0:
 				return &v.state
@@ -6956,7 +6956,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[44].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[44].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*IstiodRemoteConfig); i {
 			case 0:
 				return &v.state
@@ -6968,7 +6968,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[45].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[45].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Values); i {
 			case 0:
 				return &v.state
@@ -6980,7 +6980,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[46].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[46].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ZeroVPNConfig); i {
 			case 0:
 				return &v.state
@@ -6992,7 +6992,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[47].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[47].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*IntOrString); i {
 			case 0:
 				return &v.state
@@ -7004,7 +7004,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[52].Exporter = func(v any, i int) any {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[52].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TelemetryV2PrometheusConfig_ConfigOverride); i {
 			case 0:
 				return &v.state
