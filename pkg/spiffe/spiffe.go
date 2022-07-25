@@ -66,14 +66,14 @@ type Identity struct {
 
 func ParseIdentity(s string) (Identity, error) {
 	if !strings.HasPrefix(s, URIPrefix) {
-		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
+		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
 	split := strings.Split(s[URIPrefixLen:], "/")
 	if len(split) != 5 {
-		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
+		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
 	if split[1] != NamespaceSegment || split[3] != ServiceAccountSegment {
-		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
+		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
 	return Identity{
 		TrustDomain:    split[0],
