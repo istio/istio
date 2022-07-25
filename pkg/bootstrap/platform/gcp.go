@@ -18,10 +18,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -53,7 +55,9 @@ var (
 )
 
 var (
-	shouldFillMetadata = metadata.OnGCE
+	shouldFillMetadata = func() bool {
+		return metadata.OnGCE() && IsMetadataEndpointAccessible()
+	}
 	projectIDFn        = metadata.ProjectID
 	numericProjectIDFn = metadata.NumericProjectID
 	instanceNameFn     = metadata.InstanceName
@@ -105,6 +109,8 @@ var (
 			projectID, clusterLocation, clusterName), nil
 	}
 )
+
+var isMetadataEndpointAccessible bool
 
 type (
 	shouldFillFn     func() bool
@@ -161,7 +167,7 @@ func (e *gcpEnv) Metadata() map[string]string {
 		md[GCPProjectNumber] = envNPid
 		md[GCPLocation] = envLoc
 		md[GCPCluster] = envCN
-	} else {
+	} else if IsMetadataEndpointAccessible() {
 		wg := sync.WaitGroup{}
 
 		suppliers := []metadataSupplier{
@@ -270,7 +276,7 @@ func zoneToRegion(z string) (string, error) {
 // Locality returns the GCP-specific region and zone.
 func (e *gcpEnv) Locality() *core.Locality {
 	var l core.Locality
-	if metadata.OnGCE() {
+	if metadata.OnGCE() && IsMetadataEndpointAccessible() {
 		z, zerr := metadata.Zone()
 		if zerr != nil {
 			log.Warnf("Error fetching GCP zone: %v", zerr)
@@ -348,6 +354,19 @@ func (e *gcpEnv) IsKubernetes() bool {
 	md := e.Metadata()
 	_, onKubernetes := os.LookupEnv(KubernetesServiceHost)
 	return md[GCPCluster] != "" || onKubernetes
+}
+
+func IsMetadataEndpointAccessible() bool {
+	envOnce.Do(func() {
+		_, err := net.DialTimeout("tcp", "metadata.google.internal:80", 10*time.Second)
+		if err != nil {
+			log.Warnf("cannot reach the Google Instance metadata endpoint %v", err)
+			isMetadataEndpointAccessible = false
+		} else {
+			isMetadataEndpointAccessible = true
+		}
+	})
+	return isMetadataEndpointAccessible
 }
 
 func createMetadataSupplier(property string, fn func() (string, error)) metadataSupplier {
