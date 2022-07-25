@@ -249,8 +249,6 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		if labels.Instance(oldWle.Labels).Equals(curr.Labels) {
 			oldSes = currSes
 		} else {
-			// labels update should trigger proxy update
-			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address)
 			oldSes = getWorkloadServiceEntries(cfgs, oldWle)
 		}
 	}

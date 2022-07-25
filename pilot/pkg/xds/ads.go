@@ -227,7 +227,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	// but proxy's SidecarScope has been updated(s.updateProxy) due to optimizations that skip sidecar scope
 	// computation.
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
-		s.computeProxyState(con.proxy, request, true)
+		s.computeProxyState(con.proxy, request)
 	}
 	return s.pushXds(con, con.Watched(req.TypeUrl), request)
 }
@@ -554,7 +554,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	defer close(con.initialized)
 
 	// Complete full initialization of the proxy
-	if err := s.initializeProxy(con); err != nil {
+	if err := s.initializeProxy(node, con); err != nil {
 		s.closeConnection(con)
 		return err
 	}
@@ -602,47 +602,38 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	return proxy, nil
 }
 
-// setTopologyLabels sets locality, cluster, network label
-// must be called after `SetWorkloadLabels` and `SetServiceInstances`.
-func setTopologyLabels(proxy *model.Proxy) {
-	var localityStr string
-	// Get the locality from the proxy's service instances.
-	// We expect all instances to have the same IP and therefore the same locality.
-	// So its enough to look at the first instance.
-	if len(proxy.ServiceInstances) > 0 {
-		localityStr = proxy.ServiceInstances[0].Endpoint.Locality.Label
-	} else {
-		// If no service instances(this maybe common for a pure client), respect LocalityLabel
-		localityStr = proxy.Metadata.Labels[model.LocalityLabel]
-	}
-	if localityStr != "" {
-		proxy.Locality = util.ConvertLocality(localityStr)
-	} else {
-		// If there is no locality in the registry then use the one sent as part of the discovery request.
-		// This is not preferable as only the connected Pilot is aware of this proxies location, but it
-		// can still help provide some client-side Envoy context when load balancing based on location.
-		proxy.Locality = &core.Locality{
-			Region:  proxy.XdsNode.Locality.GetRegion(),
-			Zone:    proxy.XdsNode.Locality.GetZone(),
-			SubZone: proxy.XdsNode.Locality.GetSubZone(),
-		}
-	}
-
-	locality := util.LocalityToString(proxy.Locality)
-	// add topology labels to proxy metadata labels
-	proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
-}
-
 // initializeProxy completes the initialization of a proxy. It is expected to be called only after
 // initProxyMetadata.
-func (s *DiscoveryServer) initializeProxy(con *Connection) error {
+func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) error {
 	proxy := con.proxy
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
 	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.connectedAt); err != nil {
 		return err
 	}
-	s.computeProxyState(proxy, nil, false)
+	s.computeProxyState(proxy, nil)
+
+	// Get the locality from the proxy's service instances.
+	// We expect all instances to have the same IP and therefore the same locality.
+	// So its enough to look at the first instance.
+	if len(proxy.ServiceInstances) > 0 {
+		proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
+	}
+
+	// If there is no locality in the registry then use the one sent as part of the discovery request.
+	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
+	// can still help provide some client-side Envoy context when load balancing based on location.
+	if util.IsLocalityEmpty(proxy.Locality) {
+		proxy.Locality = &core.Locality{
+			Region:  node.Locality.GetRegion(),
+			Zone:    node.Locality.GetZone(),
+			SubZone: node.Locality.GetSubZone(),
+		}
+	}
+
+	locality := util.LocalityToString(proxy.Locality)
+	// add topology labels to proxy metadata labels
+	proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
 	proxy.DiscoverIPMode()
 
@@ -655,12 +646,24 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 	return nil
 }
 
-func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest, skipLabels bool) {
-	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
-	if !skipLabels {
-		proxy.SetWorkloadLabels(s.Env)
-		setTopologyLabels(proxy)
+func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushRequest) {
+	s.computeProxyState(proxy, request)
+	if util.IsLocalityEmpty(proxy.Locality) {
+		// Get the locality from the proxy's service instances.
+		// We expect all instances to have the same locality.
+		// So its enough to look at the first instance.
+		if len(proxy.ServiceInstances) > 0 {
+			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
+			locality := proxy.ServiceInstances[0].Endpoint.Locality.Label
+			// add topology labels to proxy metadata labels
+			proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
+		}
 	}
+}
+
+func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
+	proxy.SetWorkloadLabels(s.Env)
+	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
@@ -733,9 +736,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
 	if pushRequest.Full {
-		skipLabel := !pushRequest.IsProxyUpdate()
 		// Update Proxy with current information.
-		s.computeProxyState(con.proxy, pushRequest, skipLabel)
+		s.updateProxy(con.proxy, pushRequest)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
