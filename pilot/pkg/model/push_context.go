@@ -474,15 +474,6 @@ func (pr *PushRequest) IsRequest() bool {
 	return len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest
 }
 
-func (pr *PushRequest) IsProxyUpdate() bool {
-	for _, r := range pr.Reason {
-		if r == ProxyUpdate {
-			return true
-		}
-	}
-	return false
-}
-
 func (pr *PushRequest) PushReason() string {
 	if pr.IsRequest() {
 		return " request"
