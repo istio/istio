@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 )
 
@@ -2586,4 +2587,45 @@ func TestBuildDeltaClusters(t *testing.T) {
 			g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal(tc.expectedClusters))
 		})
 	}
+}
+
+func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
+	g := NewWithT(t)
+
+	service := &model.Service{
+		Hostname: host.Name("static.test"),
+		Ports: []*model.Port{
+			{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution:   model.DNSLB,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{service},
+	})
+	proxy := cg.SetupProxy(nil)
+	proxy.Metadata.Raw = map[string]interface{}{
+		security.CredentialMetaDataName: "true",
+	}
+	// Expect sds_external cluster be added if credentialSocket exists
+	clusters := cg.Clusters(proxy)
+	xdstest.ValidateClusters(t, clusters)
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
+		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", security.SDSExternalClusterName,
+	}))
+
+	// Expect no sds_external cluster be added if if credentialSocket does NOT exists
+	proxy = cg.SetupProxy(nil)
+	clusters = cg.Clusters(proxy)
+	xdstest.ValidateClusters(t, clusters)
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
+		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+	}))
 }

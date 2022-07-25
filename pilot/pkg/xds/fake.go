@@ -534,6 +534,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 }
 
 func (fx *FakeXdsUpdater) ProxyUpdate(c cluster.ID, p string) {
+	fx.Events <- FakeXdsEvent{Kind: "proxy update"}
 	if fx.Delegate != nil {
 		fx.Delegate.ProxyUpdate(c, p)
 	}

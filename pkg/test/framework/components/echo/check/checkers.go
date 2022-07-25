@@ -431,9 +431,19 @@ func ReachedTargetClusters(t framework.TestContext) echo.Checker {
 // For multi-network configurations, verifies the current (limited) Istio load balancing behavior when going through
 // a gateway. Ensures that all expected networks were reached, and that all clusters on the same network as the
 // client were reached.
-func ReachedClusters(allClusters cluster.Clusters, expectedClusters cluster.Clusters) echo.Checker {
+func ReachedClusters(t framework.TestContext, allClusters cluster.Clusters, expectedClusters cluster.Clusters) echo.Checker {
 	expectedByNetwork := expectedClusters.ByNetwork()
 	return func(result echo.CallResult, err error) error {
+		dnsCaptureEnabled := isDNSCaptureEnabled(t)
+		to := result.Opts.To
+		if !dnsCaptureEnabled && to.Config().IsHeadless() {
+			// Headless services rely on DNS resolution. If DNS capture is
+			// enabled, DNS will return all endpoints in the mesh, which will
+			// allow requests to go cross-cluster. Otherwise, k8s DNS will
+			// only return the endpoints within the same cluster as the source
+			// pod.
+			return checkReachedSourceClusterOnly(result, allClusters)
+		}
 		return checkReachedClusters(result, allClusters, expectedByNetwork)
 	}
 }

@@ -277,6 +277,15 @@ func (con *ProxyConnection) sendRequest(req *discovery.DiscoveryRequest) {
 	con.requestsChan.Put(req)
 }
 
+func (con *ProxyConnection) isClosed() bool {
+	select {
+	case <-con.stopChan:
+		return true
+	default:
+		return false
+	}
+}
+
 type adsStream interface {
 	Send(*discovery.DiscoveryResponse) error
 	Recv() (*discovery.DiscoveryRequest, error)
@@ -584,6 +593,10 @@ func (p *XdsProxy) forwardToTap(resp *discovery.DiscoveryResponse) {
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 	if !v3.IsEnvoyType(resp.TypeUrl) {
 		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
+		return
+	}
+	if con.isClosed() {
+		proxyLog.Errorf("downstream [%d] dropped xds push to Envoy, connection already closed", con.conID)
 		return
 	}
 	if err := sendDownstream(con.downstream, resp); err != nil {

@@ -1896,5 +1896,72 @@ spec:
 					},
 				},
 			},
-		})
+		},
+		simulationTest{
+			name:           "overlapping SNI match",
+			skipValidation: true, // TODO: https://github.com/istio/istio/issues/39921
+			config: `apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: gw
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - example.com
+    port:
+      name: example
+      number: 443
+      protocol: TLS
+    tls:
+      mode: PASSTHROUGH
+  - hosts:
+    - '*'
+    port:
+      name: wildcard-tls
+      number: 443
+      protocol: HTTPS
+    tls:
+      mode: PASSTHROUGH
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: example
+  namespace: istio-system
+spec:
+  gateways:
+  - gw
+  hosts:
+  - example.com
+  tls:
+  - match:
+    - sniHosts:
+      - example.com
+    route:
+    - destination:
+        host: example
+` + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance
+  namespace: istio-system
+spec:
+  hosts: ["istio-ingressgateway.istio-system.svc.cluster.local"]
+  ports:
+  - number: 443
+    targetPort: 443
+    name: https
+    protocol: HTTPS
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1`,
+			calls: []simulation.Expect{},
+		},
+	)
 }

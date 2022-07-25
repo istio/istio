@@ -2231,7 +2231,8 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 				errs = appendValidation(errs, errors.New("http route may not be null"))
 				continue
 			}
-			errs = appendValidation(errs, validateHTTPRoute(httpRoute, len(virtualService.Hosts) == 0))
+			gatewaySemantics := cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
+			errs = appendValidation(errs, validateHTTPRoute(httpRoute, len(virtualService.Hosts) == 0, gatewaySemantics))
 		}
 		for _, tlsRoute := range virtualService.Tls {
 			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService))
@@ -2751,7 +2752,7 @@ func validateGatewayNames(gatewayNames []string) (errs Validation) {
 	return
 }
 
-func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (errs error) {
+func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination, gatewaySemantics bool) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
 		if weight == nil {
@@ -2786,7 +2787,9 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 		}
 
-		errs = appendErrors(errs, validateDestination(weight.Destination))
+		if !gatewaySemantics {
+			errs = appendErrors(errs, validateDestination(weight.Destination))
+		}
 		errs = appendErrors(errs, validateWeight(weight.Weight))
 		totalWeight += weight.Weight
 	}

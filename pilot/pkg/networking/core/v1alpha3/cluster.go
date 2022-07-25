@@ -39,9 +39,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -179,9 +181,12 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
-
+	// if credential socket exists, create a cluster for it
+	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
+		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
+	}
 	for _, c := range clusters {
-		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
 	resources = cb.normalizeClusters(resources)
 
@@ -276,7 +281,7 @@ func (p clusterPatcher) patch(hosts []host.Name, c *cluster.Cluster) *discovery.
 	if cluster == nil {
 		return nil
 	}
-	return &discovery.Resource{Name: cluster.Name, Resource: util.MessageToAny(cluster)}
+	return &discovery.Resource{Name: cluster.Name, Resource: protoconv.MessageToAny(cluster)}
 }
 
 func (p clusterPatcher) doPatch(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {

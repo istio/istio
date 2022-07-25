@@ -42,7 +42,7 @@ func getHTTPRouteType(http *networking.HTTPRoute, isDelegate bool) HTTPRouteType
 	return IndependentRoute
 }
 
-func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validation) {
+func validateHTTPRoute(http *networking.HTTPRoute, delegate, gatewaySemantics bool) (errs Validation) {
 	routeType := getHTTPRouteType(http, delegate)
 	// check for conflicts
 	errs = WrapError(validateHTTPRouteConflict(http, routeType))
@@ -101,7 +101,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validati
 	errs = appendValidation(errs, validateHTTPRetry(http.Retries))
 	errs = appendValidation(errs, validateHTTPRewrite(http.Rewrite))
 	errs = appendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
-	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route))
+	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route, gatewaySemantics))
 	if http.Timeout != nil {
 		errs = appendValidation(errs, ValidateDuration(http.Timeout))
 	}

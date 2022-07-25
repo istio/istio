@@ -48,6 +48,18 @@ const (
 	// WorkloadIdentitySocketPath is the well-known path to the Unix Domain Socket for SDS.
 	WorkloadIdentitySocketPath = "./var/run/secrets/workload-spiffe-uds/socket"
 
+	// CredentialNameSocketPath is the well-known path to the Unix Domain Socket for Credential Name.
+	CredentialNameSocketPath = "./var/run/secrets/credential-uds/socket"
+
+	// CredentialMetaDataName is the name in node meta data.
+	CredentialMetaDataName = "credential"
+
+	// SDSExternalClusterName is the name of the cluster for external SDS connections which is defined via CredentialNameSocketPath
+	SDSExternalClusterName = "sds-external"
+
+	// SDSExternalCredentialPrefix is the prefix for the credentialName which will utilize external SDS connections defined via CredentialNameSocketPath
+	SDSExternalCredentialPrefix = "sds://"
+
 	// WorkloadIdentityCredentialsPath is the well-known path to a folder with workload certificate files.
 	WorkloadIdentityCredentialsPath = "./var/run/secrets/workload-spiffe-credentials"
 
@@ -348,6 +360,13 @@ const (
 	authorizationMeta = "authorization"
 )
 
+type AuthContext struct {
+	// grpc context
+	GrpcContext context.Context
+	// http request
+	Request *http.Request
+}
+
 // Caller carries the identity and authentication source of a caller.
 type Caller struct {
 	AuthSource AuthSource
@@ -356,9 +375,8 @@ type Caller struct {
 
 // Authenticator determines the caller identity based on request context.
 type Authenticator interface {
-	Authenticate(ctx context.Context) (*Caller, error)
+	Authenticate(ctx AuthContext) (*Caller, error)
 	AuthenticatorType() string
-	AuthenticateRequest(req *http.Request) (*Caller, error)
 }
 
 // AuthenticationManager orchestrates all authenticators to perform authentication.
@@ -370,8 +388,9 @@ type AuthenticationManager struct {
 
 // Authenticate loops through all the configured Authenticators and returns if one of the authenticator succeeds.
 func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
+	req := AuthContext{GrpcContext: ctx}
 	for _, authn := range am.Authenticators {
-		u, err := authn.Authenticate(ctx)
+		u, err := authn.Authenticate(req)
 		if u != nil && len(u.Identities) > 0 && err == nil {
 			securityLog.Debugf("Authentication successful through auth source %v", u.AuthSource)
 			return u

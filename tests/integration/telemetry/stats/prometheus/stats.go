@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 )
@@ -223,6 +224,28 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-dest-rule.yaml")).ApplyOrFail(t)
 			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-gateway.yaml")).ApplyOrFail(t)
 			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-vs.yaml")).ApplyOrFail(t)
+
+			// The main SE is available only to app namespace, make one the egress can access.
+			t.ConfigIstio().Eval(ist.Settings().SystemNamespace, map[string]interface{}{
+				"Namespace": apps.External.Namespace.Name(),
+				"Hostname":  cdeployment.ExternalHostname,
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-service
+spec:
+  exportTo: [.]
+  hosts:
+  - {{.Hostname}}
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: external.{{.Namespace}}.svc.cluster.local
+  ports:
+  - name: https
+    number: 443
+    protocol: HTTPS
+`).ApplyOrFail(t, apply.NoCleanup)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
 				cltInstance := cltInstance

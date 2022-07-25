@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -173,7 +174,11 @@ func getXdsAddressFromWebhooks(client kube.ExtendedClient) (*xdsAddr, error) {
 				if isMCPAddr(u) {
 					return parseMCPAddr(u)
 				}
-				return &xdsAddr{host: u.Host}, nil
+				port := u.Port()
+				if port == "" {
+					port = "443" // default from Kubernetes
+				}
+				return &xdsAddr{host: net.JoinHostPort(u.Hostname(), port)}, nil
 			}
 		}
 	}

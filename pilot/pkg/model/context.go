@@ -341,10 +341,6 @@ type WatchedResource struct {
 	// For Delta Xds, all resources of the TypeUrl that a client has subscribed to.
 	ResourceNames []string
 
-	// VersionSent is the version of the resource included in the last sent response.
-	// It corresponds to the [Cluster/Route/Listener]VersionSent in the XDS package.
-	VersionSent string
-
 	// NonceSent is the nonce sent in the last sent response. If it is equal with NonceAcked, the
 	// last message has been processed. If empty: we never sent a message of this type.
 	NonceSent string
@@ -352,16 +348,12 @@ type WatchedResource struct {
 	// NonceAcked is the last acked message.
 	NonceAcked string
 
-	// NonceNacked is the last nacked message. This is reset following a successful ACK
-	NonceNacked string
-
 	// AlwaysRespond, if true, will ensure that even when a request would otherwise be treated as an
-	// ACK, it will be responded to. Typically, this should be set to 'false' after response; keeping it
-	// true would likely result in an endless loop.
+	// ACK, it will be responded to. This typically happens when a proxy reconnects to another instance of
+	// Istiod. In that case, Envoy expects us to respond to EDS/RDS/SDS requests to finish warming of
+	// clusters/listeners.
+	// Typically, this should be set to 'false' after response; keeping it true would likely result in an endless loop.
 	AlwaysRespond bool
-
-	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
-	LastSent time.Time
 
 	// LastResources tracks the contents of the last push.
 	// This field is extremely expensive to maintain and is typically disabled
@@ -541,10 +533,15 @@ type NodeMetadata struct {
 	// Mostly used when istiod requests the upstream.
 	IstioRevision string `json:"ISTIO_REVISION,omitempty"`
 
-	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
+	// IstioMetaLabels contains the labels specified by ISTIO_METAJSON_LABELS and platform instance,
+	// so we can tell the difference between user specified labels and istio labels.
+	IstioMetaLabels map[string]string `json:"ISTIO_META_LABELS,omitempty"`
+
+	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node. Labels is a
+	// superset of IstioMetaLabels.
 	Labels map[string]string `json:"LABELS,omitempty"`
 
-	// Labels specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
+	// Annotations specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
 	Annotations map[string]string `json:"ANNOTATIONS,omitempty"`
 
 	// InstanceIPs is the set of IPs attached to this proxy
@@ -857,14 +854,23 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 	node.ServiceInstances = instances
 }
 
-// SetWorkloadLabels will set the node.Metadata.Labels only when it is nil.
+// SetWorkloadLabels will set the node.Metadata.Labels.
+// It merges both node meta labels and workload labels and give preference to workload labels.
+// Note: must be called after `SetServiceInstances`.
 func (node *Proxy) SetWorkloadLabels(env *Environment) {
-	// First get the workload labels from node meta
-	if len(node.Metadata.Labels) > 0 {
-		return
+	labels := env.GetProxyWorkloadLabels(node)
+	if len(labels) > 0 {
+		node.Metadata.Labels = make(map[string]string, len(labels)+len(node.Metadata.IstioMetaLabels))
+		// we can't just equate proxy workload labels to node meta labels as it may be customized by user
+		// with `ISTIO_METAJSON_LABELS` env (pkg/bootstrap/config.go extractAttributesMetadata).
+		// so, we fill the `ISTIO_METAJSON_LABELS` as well.
+		for k, v := range labels {
+			node.Metadata.Labels[k] = v
+		}
+		for k, v := range node.Metadata.IstioMetaLabels {
+			node.Metadata.Labels[k] = v
+		}
 	}
-	// Fallback to calling GetProxyWorkloadLabels
-	node.Metadata.Labels = env.GetProxyWorkloadLabels(node)
 }
 
 // DiscoverIPMode discovers the IP Versions supported by Proxy based on its IP addresses.
@@ -1120,7 +1126,7 @@ type GatewayController interface {
 	ConfigStoreController
 	// Recompute updates the internal state of the gateway controller for a given input. This should be
 	// called before any List/Get calls if the state has changed
-	Recompute(GatewayContext) error
+	Recompute(ctx *PushContext) error
 	// SecretAllowed determines if a SDS credential is accessible to a given namespace.
 	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
 	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.

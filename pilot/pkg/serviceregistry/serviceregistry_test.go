@@ -210,6 +210,18 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
+	t.Run("Kubernetes pod labels update", func(t *testing.T) {
+		_, _, _, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, service)
+		xdsUpdater.WaitOrFail(t, "svcupdate")
+		makePod(t, kube, pod)
+		xdsUpdater.WaitOrFail(t, "proxy update")
+		newPod := pod.DeepCopy()
+		newPod.Labels["newlabel"] = "new"
+		makePod(t, kube, newPod)
+		xdsUpdater.WaitOrFail(t, "proxy update")
+	})
+
 	t.Run("Kubernetes only: headless service", func(t *testing.T) {
 		kc, _, _, kube, xdsUpdater := setupTest(t)
 		makeService(t, kube, headlessService)
@@ -448,8 +460,8 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("Service selects WorkloadEntry: wle occur earlier", func(t *testing.T) {
 		kc, _, store, kube, xdsUpdater := setupTest(t)
 		makeIstioObject(t, store, workloadEntry)
-
-		// Wait no event pushed when workload entry created as no service entry
+		// 	Other than proxy update, no event pushed when workload entry created as no service entry
+		xdsUpdater.WaitOrFail(t, "proxy update")
 		select {
 		case ev := <-xdsUpdater.Events:
 			t.Fatalf("Got %s event, expect none", ev.Kind)
@@ -504,7 +516,8 @@ func TestWorkloadInstances(t *testing.T) {
 		kc, _, store, kube, xdsUpdater := setupTest(t)
 		makeIstioObject(t, store, workloadEntry)
 
-		// Wait no event pushed when workload entry created as no service entry
+		// 	Other than proxy update, no event pushed when workload entry created as no service entry
+		xdsUpdater.WaitOrFail(t, "proxy update")
 		select {
 		case ev := <-xdsUpdater.Events:
 			t.Fatalf("Got %s event, expect none", ev.Kind)

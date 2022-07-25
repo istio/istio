@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -2709,7 +2710,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	tcpProxyFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpProxy)},
 	}
 
 	tcpProxy = &tcp.TcpProxy{
@@ -2719,7 +2720,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	tcpProxyFilter2 := &listener.Filter{
 		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpProxy)},
 	}
 
 	svcPort := &model.Port{

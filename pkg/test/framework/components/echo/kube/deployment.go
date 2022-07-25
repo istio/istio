@@ -31,16 +31,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pkg/test/util/file"
-
-	"istio.io/istio/pkg/test/env"
-
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istioctlcmd "istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -50,6 +47,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"

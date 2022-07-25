@@ -16,7 +16,7 @@ package jwt
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -81,7 +81,7 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 func readDeploymentYAML() (string, error) {
 	// Read the samples file.
 	filePath := filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err
 	}
@@ -98,11 +98,18 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 
 	image := ctx.Settings().Image
 	if image.PullSecret != "" {
-		yamlText, err = addPullSecret(yamlText, image.PullSecret)
+		var imageSpec resource.ImageSettings
+		imageSpec.PullSecret = image.PullSecret
+		secretName, err := imageSpec.PullSecretName()
+		if err != nil {
+			return err
+		}
+		yamlText, err = addPullSecret(yamlText, secretName)
 		if err != nil {
 			return err
 		}
 	}
+
 	if err := ctx.ConfigKube(ctx.Clusters()...).
 		YAML(s.ns.Name(), yamlText).
 		Apply(apply.CleanupConditionally); err != nil {

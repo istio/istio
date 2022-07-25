@@ -154,8 +154,9 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	pushRequest := pushEv.pushRequest
 
 	if pushRequest.Full {
+		skipLabel := !pushRequest.IsProxyUpdate()
 		// Update Proxy with current information.
-		s.updateProxy(con.proxy, pushRequest)
+		s.computeProxyState(con.proxy, pushRequest, skipLabel)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
@@ -250,8 +251,6 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
-			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
 			if features.EnableUnsafeDeltaTest {
 				conn.proxy.WatchedResources[res.TypeUrl].LastResources = applyDelta(conn.proxy.WatchedResources[res.TypeUrl].LastResources, res)
 			}
@@ -303,7 +302,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but before proxy's SidecarScope has been updated(s.updateProxy).
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
-		s.computeProxyState(con.proxy, request)
+		s.computeProxyState(con.proxy, request, true)
 	}
 	return s.pushDeltaXds(con, con.Watched(req.TypeUrl), request)
 }
@@ -323,11 +322,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		if s.StatusGen != nil {
 			s.StatusGen.OnNack(con.proxy, deltaToSotwRequest(request))
 		}
-		con.proxy.Lock()
-		if w, f := con.proxy.WatchedResources[request.TypeUrl]; f {
-			w.NonceNacked = request.ResponseNonce
-		}
-		con.proxy.Unlock()
 		return false
 	}
 
@@ -349,6 +343,21 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			TypeUrl:       request.TypeUrl,
 			ResourceNames: deltaWatchedResources(nil, request),
 		}
+		// For all EDS requests that we have already responded with in the same stream let us
+		// force the response. It is important to respond to those requests for Envoy to finish
+		// warming of those resources(Clusters).
+		// This can happen with the following sequence
+		// 1. Envoy disconnects and reconnects to Istiod.
+		// 2. Envoy sends EDS request and we respond with it.
+		// 3. Envoy sends CDS request and we respond with clusters.
+		// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
+		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
+		// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
+		for _, dependent := range warmingDependencies(request.TypeUrl) {
+			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
+				dwr.AlwaysRespond = true
+			}
+		}
 		con.proxy.Unlock()
 		return true
 	}
@@ -360,9 +369,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		deltaLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
-		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
-		con.proxy.Unlock()
 		return false
 	}
 
@@ -372,8 +378,9 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
 	deltaResources := deltaWatchedResources(previousResources, request)
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
-	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaResources
+	alwaysRespond := previousInfo.AlwaysRespond
+	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
 	oldAck := listEqualUnordered(previousResources, deltaResources)
@@ -391,6 +398,13 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if oldAck {
+		// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
+		// even though Nonce match and it looks like an ACK.
+		if alwaysRespond {
+			log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
+			return true
+		}
+
 		deltaLog.Debugf("ADS:%s: ACK  %s %s", stype, con.conID, request.ResponseNonce)
 		return false
 	}

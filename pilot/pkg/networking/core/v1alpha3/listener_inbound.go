@@ -34,10 +34,11 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -232,7 +233,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, address *core.Addre
 }
 
 // inboundChainForOpts builds a set of filter chains
-func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls plugin.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
+func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
 	chains := make([]*listener.FilterChain, 0, len(opts))
 	for _, opt := range opts {
 		switch opt.Protocol {
@@ -619,7 +620,7 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, &listener.Filter{
 		Name: wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 			StatPrefix:       util.BlackHoleCluster,
 			ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 		})},
@@ -677,7 +678,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	hcm := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 	})
 	return filters
 }

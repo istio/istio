@@ -409,7 +409,7 @@ var (
 	trustedGatewayCIDR = env.RegisterStringVar(
 		"TRUSTED_GATEWAY_CIDR",
 		"",
-		"If set, any connections from gateway to Istiod with this CIDR range are treated as trusted for using authenication mechanisms like XFCC."+
+		"If set, any connections from gateway to Istiod with this CIDR range are treated as trusted for using authentication mechanisms like XFCC."+
 			" This can only be used when the network where Istiod and the authenticating gateways are running in a trusted/secure network",
 	)
 
@@ -557,10 +557,6 @@ var (
 	PartialFullPushes = env.RegisterBoolVar("PILOT_PARTIAL_FULL_PUSHES", true,
 		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
 			"This occurs for EDS in many cases regardless of this setting.").Get()
-
-	// PushOnRepeatNonce is feature flag only, can be cleaned up once stabilized.
-	PushOnRepeatNonce = env.RegisterBoolVar("PILOT_PUSH_REPEATED_NONCES", true,
-		"If enabled, pilot will send responses to XDS requests that have an already requested nonce.").Get()
 
 	EnableLegacyIstioMutualCredentialName = env.RegisterBoolVar("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,
