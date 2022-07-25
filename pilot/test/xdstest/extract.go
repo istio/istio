@@ -115,9 +115,7 @@ func ExtractListenerNames(ll []*listener.Listener) []string {
 
 func SilentlyUnmarshalAny[T proto.Message](a *anypb.Any) T {
 	dst := *new(T)
-	if err := a.UnmarshalTo(dst); err != nil {
-		return nil
-	}
+	_ = a.UnmarshalTo(dst)
 	return dst
 }
 
