@@ -946,6 +946,134 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 	})
 }
 
+func TestWorkloadInstanceFullPush(t *testing.T) {
+	store, sd, events := initServiceDiscovery(t)
+
+	// Setup a WorkloadEntry with selector the same as ServiceEntry
+	wle := createWorkloadEntry("wl", selectorDNS.Name,
+		&networking.WorkloadEntry{
+			Address:        "postman-echo.com",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
+
+	fi1 := &model.WorkloadInstance{
+		Name:      "additional-name",
+		Namespace: selectorDNS.Name,
+		Endpoint: &model.IstioEndpoint{
+			Address:        "4.4.4.4",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: spiffe.MustGenSpiffeURI(selectorDNS.Name, "default"),
+			TLSMode:        model.IstioMutualTLSModeLabel,
+		},
+	}
+
+	fi2 := &model.WorkloadInstance{
+		Name:      "another-name",
+		Namespace: selectorDNS.Namespace,
+		Endpoint: &model.IstioEndpoint{
+			Address:        "2.2.2.2",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: spiffe.MustGenSpiffeURI(selectorDNS.Name, "default"),
+			TLSMode:        model.IstioMutualTLSModeLabel,
+		},
+	}
+
+	t.Run("service entry", func(t *testing.T) {
+		// Add just the ServiceEntry with selector. We should see no instances
+		createConfigs([]*config.Config{selectorDNS}, store, t)
+		instances := []*model.ServiceInstance{}
+		expectProxyInstances(t, sd, instances, "4.4.4.4")
+		expectServiceInstances(t, sd, selectorDNS, 0, instances)
+		expectEvents(t, events,
+			Event{kind: "svcupdate", host: "selector.com", namespace: selectorDNS.Namespace},
+			Event{kind: "xds"})
+	})
+
+	t.Run("add workload", func(t *testing.T) {
+		// Add a WLE, we expect this to update
+		createConfigs([]*config.Config{wle}, store, t)
+
+		instances := []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(selectorDNS, "postman-echo.com", 444,
+				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0],
+				map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selectorDNS, "postman-echo.com", 445,
+				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1],
+				map[string]string{"app": "wle"}, "default"),
+		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selectorDNS.Name
+		}
+		expectProxyInstances(t, sd, instances, "postman-echo.com")
+		expectServiceInstances(t, sd, selectorDNS, 0, instances)
+		expectEvents(t, events,
+			Event{kind: "xds"},
+		)
+	})
+
+	t.Run("full push for new instance", func(t *testing.T) {
+		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventAdd, t)
+		instances := []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(selectorDNS, "4.4.4.4", 444,
+				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selectorDNS, "4.4.4.4", 445,
+				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selectorDNS, "postman-echo.com", 444,
+				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selectorDNS, "postman-echo.com", 445,
+				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+		}
+
+		for _, i := range instances[2:] {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selectorDNS.Name
+		}
+
+		expectProxyInstances(t, sd, instances[:2], "4.4.4.4")
+		expectProxyInstances(t, sd, instances[2:], "postman-echo.com")
+		expectServiceInstances(t, sd, selectorDNS, 0, instances)
+		expectEvents(t, events,
+			Event{kind: "eds", host: "selector.com", namespace: selectorDNS.Namespace, endpoints: len(instances)},
+			Event{kind: "xds"})
+	})
+
+	t.Run("full push for another new workload instance", func(t *testing.T) {
+		callInstanceHandlers([]*model.WorkloadInstance{fi2}, sd, model.EventAdd, t)
+		expectEvents(t, events,
+			Event{kind: "eds", host: "selector.com", namespace: selectorDNS.Namespace, endpoints: 6},
+			Event{kind: "xds"})
+	})
+
+	t.Run("full push on delete workload instance", func(t *testing.T) {
+		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventDelete, t)
+		instances := []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(selectorDNS, "2.2.2.2", 444,
+				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selectorDNS, "2.2.2.2", 445,
+				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selectorDNS, "postman-echo.com", 444,
+				selectorDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selectorDNS, "postman-echo.com", 445,
+				selectorDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+		}
+
+		for _, i := range instances[2:] {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selectorDNS.Name
+		}
+
+		expectProxyInstances(t, sd, instances[:2], "2.2.2.2")
+		expectProxyInstances(t, sd, instances[2:], "postman-echo.com")
+		expectServiceInstances(t, sd, selectorDNS, 0, instances)
+
+		expectEvents(t, events,
+			Event{kind: "eds", host: "selector.com", namespace: selectorDNS.Namespace, endpoints: len(instances)},
+			Event{kind: "xds"})
+	})
+}
+
 func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 	store, sd, events := initServiceDiscovery(t)
 
