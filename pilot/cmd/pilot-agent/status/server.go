@@ -539,10 +539,6 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 	return expfmt.FmtText
 }
 
-func processMetrics(metrics []byte) []byte {
-	return bytes.ReplaceAll(metrics, []byte("\n\n"), []byte("\n"))
-}
-
 func scrapeAgentMetrics(buf *bytes.Buffer) error {
 	mfs, err := promRegistry.Gather()
 	enc := expfmt.NewEncoder(buf, expfmt.FmtText)
