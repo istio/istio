@@ -531,7 +531,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", string(format))
 
 	// Write out the metrics
-	if _, err := w.Write(agentStatsBuffer.Next()); err != nil {
+	if _, err := w.Write(agentStatsBuffer.Bytes()); err != nil {
 		log.Errorf("failed to write agent metrics: %v", err)
 		metrics.AgentScrapeErrors.Increment()
 	}
