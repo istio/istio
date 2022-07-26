@@ -554,7 +554,6 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			metrics.AppScrapeErrors.Increment()
 		}
 	}
-
 }
 
 func negotiateMetricsFormat(contentType string) expfmt.Format {
