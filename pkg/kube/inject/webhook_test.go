@@ -1223,6 +1223,11 @@ func TestParseInjectEnvs(t *testing.T) {
 			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1", "ISTIO_META_NETWORK": "network1"},
 		},
 		{
+			name: "kv-with-slashes",
+			in:   "/inject/cluster/cluster--slash--1/net/network--slash--1",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster/1", "ISTIO_META_NETWORK": "network/1"},
+		},
+		{
 			name: "not-predefined-kv",
 			in:   "/inject/cluster/cluster1/custom_env/foo",
 			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1", "CUSTOM_ENV": "foo"},
