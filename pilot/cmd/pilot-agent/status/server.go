@@ -530,34 +530,27 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		metrics.AgentScrapeErrors.Increment()
 	}
 
+	buf := make([]byte, 32*1024)
+
 	if envoy != nil {
+		var eerr error
 		if format == expfmt.FmtOpenMetrics {
-			envoyStatsBuffer := &bytes.Buffer{}
-			_, err = envoyStatsBuffer.ReadFrom(envoy)
-			if err != nil {
-				log.Errorf("failed scraping envoy metrics: %v", err)
-				metrics.EnvoyScrapeErrors.Increment()
-			}
-			standardBytes := processMetrics(envoyStatsBuffer.Bytes())
-			if _, err := w.Write(standardBytes); err != nil {
-				log.Errorf("failed to write envoy metrics: %v", err)
-				metrics.EnvoyScrapeErrors.Increment()
-			}
+			_, eerr = copyAndProcessMetrics(w, envoy, buf)
 		} else {
-			_, err = io.Copy(w, envoy)
-			if err != nil {
-				log.Errorf("failed to write envoy metrics: %v", err)
-				metrics.EnvoyScrapeErrors.Increment()
-			}
+			_, eerr = io.CopyBuffer(w, envoy, buf)
+		}
+		if eerr != nil {
+			log.Errorf("failed to scraping and writing envoy metrics: %v", err)
+			metrics.EnvoyScrapeErrors.Increment()
 		}
 	}
 
 	// App metrics must go last because if they are FmtOpenMetrics,
 	// they will have a trailing "# EOF" which terminates the full exposition
 	if application != nil {
-		_, err = io.Copy(w, application)
+		_, err = io.CopyBuffer(w, application, buf)
 		if err != nil {
-			log.Errorf("failed to write application metrics: %v", err)
+			log.Errorf("failed to scraping and writing application metrics: %v", err)
 			metrics.AppScrapeErrors.Increment()
 		}
 	}
@@ -569,6 +562,49 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 		return expfmt.FmtOpenMetrics
 	}
 	return expfmt.FmtText
+}
+
+func copyAndProcessMetrics(dst io.Writer, src io.Reader, buf []byte) (written int64, err error) {
+	var sideBreak bool
+	for {
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			rbuf := bytes.ReplaceAll(buf[0:nr], []byte("\n\n"), []byte("\n"))
+			if rbuf[0] == '\n' && sideBreak {
+				rbuf = rbuf[1:]
+			}
+			lr := len(rbuf)
+			if rbuf[lr-1] == '\n' {
+				sideBreak = true
+			}
+			nw, ew := dst.Write(rbuf)
+			if nw < 0 || lr < nw {
+				nw = 0
+				if ew == nil {
+					ew = errors.New("invalid write result")
+				}
+			}
+			written += int64(nw)
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if nr <= 0 {
+			break
+		}
+		if er != nil {
+			if er != io.EOF {
+				err = er
+			}
+			break
+		}
+	}
+	return written, err
 }
 
 func processMetrics(metrics []byte) []byte {
