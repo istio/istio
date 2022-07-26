@@ -785,7 +785,6 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 }
 
 // add services from MeshConfig.ExtensionProviders
-// TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
 func getHostsFromMeshConfig(ps *PushContext) sets.Set {
 	hostsFromMeshConfig := sets.New()
 
