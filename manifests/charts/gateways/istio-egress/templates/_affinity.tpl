@@ -9,23 +9,25 @@ nodeAffinity:
 {{- end }}
 
 {{- define "nodeAffinityRequiredDuringScheduling" }}
+  {{- $nodeSelector := default .global.defaultNodeSelector .nodeSelector -}}
+  {{- if or .global.arch $nodeSelector }}
       nodeSelectorTerms:
       - matchExpressions:
+        {{- range $key, $val := .global.arch }}
         - key: kubernetes.io/arch
           operator: In
           values:
-        {{- range $key, $val := .global.arch }}
           {{- if gt ($val | int) 0 }}
           - {{ $key | quote }}
           {{- end }}
         {{- end }}
-        {{- $nodeSelector := default .global.defaultNodeSelector .nodeSelector -}}
         {{- range $key, $val := $nodeSelector }}
         - key: {{ $key }}
           operator: In
           values:
           - {{ $val | quote }}
         {{- end }}
+  {{- end }}
 {{- end }}
 
 {{- define "nodeAffinityPreferredDuringScheduling" }}
