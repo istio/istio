@@ -491,12 +491,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 	// Gather all the metrics we will merge
 	if !s.config.NoEnvoy {
-  	if _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header, globalStatsBuffer); err != nil {
+		if _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header, globalStatsBuffer); err != nil {
 			log.Errorf("failed scraping envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
 	}
-  
+
 	// Scrape app metrics if defined and capture their format
 	var format expfmt.Format
 	if s.prometheus != nil {
@@ -522,13 +522,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// Write out the metrics
 	if _, err := w.Write(globalStatsBuffer.Bytes()); err != nil {
 		log.Errorf("failed to write all metrics: %v", err)
-		metrics.AgentScrapeErrors.Increment()
 	}
 
 	// truncate the stats buffer if cap > len
 	if globalStatsBuffer.Len() < globalStatsBuffer.Cap() {
 		globalStatsBuffer.Truncate(globalStatsBuffer.Len())
-  }
+	}
 
 }
 
