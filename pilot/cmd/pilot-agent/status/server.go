@@ -76,7 +76,9 @@ const (
 
 var (
 	statsQueryMutex          = sync.Mutex{}
-	globalStatsBuffer        = bytes.NewBuffer(make([]byte, 0, 1024))
+	appStatsBuffer           = &bytes.Buffer{}
+	envoyStatsBuffer         = &bytes.Buffer{}
+	agentStatsBuffer         = &bytes.Buffer{}
 	UpstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
 	UpstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("::6")}
 )
@@ -487,21 +489,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 	statsQueryMutex.Lock()
 	defer statsQueryMutex.Unlock()
-	globalStatsBuffer.Reset()
-
-	if err = scrapeAgentMetrics(globalStatsBuffer); err != nil {
-		log.Errorf("failed scraping agent metrics: %v", err)
-		metrics.AgentScrapeErrors.Increment()
-	}
+	appStatsBuffer.Reset()
+	agentStatsBuffer.Reset()
+	envoyStatsBuffer.Reset()
 
 	// Gather all the metrics we will merge
 	if !s.config.NoEnvoy {
-		if _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header, globalStatsBuffer); err != nil {
+		if _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header, envoyStatsBuffer); err != nil {
 			log.Errorf("failed scraping envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
-		// Process envoy's metrics to make them compatible with FmtOpenMetrics
-		processMetrics(globalStatsBuffer.Bytes())
 	}
 
 	// Scrape app metrics if defined and capture their format
@@ -511,7 +508,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if s.prometheus != nil {
 		var contentType string
 		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
-		if contentType, err = s.scrape(url, r.Header, globalStatsBuffer); err != nil {
+		if contentType, err = s.scrape(url, r.Header, appStatsBuffer); err != nil {
 			log.Errorf("failed scraping application metrics: %v", err)
 			metrics.AppScrapeErrors.Increment()
 		}
@@ -521,26 +518,34 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		format = expfmt.FmtText
 	}
 
+	if err = scrapeAgentMetrics(agentStatsBuffer); err != nil {
+		log.Errorf("failed scraping agent metrics: %v", err)
+		metrics.AgentScrapeErrors.Increment()
+	}
+
+	if format == expfmt.FmtOpenMetrics {
+		standardBytes := processMetrics(envoyStatsBuffer.Bytes())
+		envoyStatsBuffer = bytes.NewBuffer(standardBytes)
+	}
+
 	w.Header().Set("Content-Type", string(format))
 
 	// Write out the metrics
-	if _, err := w.Write(globalStatsBuffer.Bytes()); err != nil {
-		log.Errorf("failed to write all metrics: %v", err)
+	if _, err := w.Write(agentStatsBuffer.Next()); err != nil {
+		log.Errorf("failed to write agent metrics: %v", err)
+		metrics.AgentScrapeErrors.Increment()
+	}
+	if _, err := w.Write(envoyStatsBuffer.Bytes()); err != nil {
+		log.Errorf("failed to write envoy metrics: %v", err)
+		metrics.EnvoyScrapeErrors.Increment()
+	}
+	// App metrics must go last because if they are FmtOpenMetrics,
+	// they will have a trailing "# EOF" which terminates the full exposition
+	if _, err := w.Write(appStatsBuffer.Bytes()); err != nil {
+		log.Errorf("failed to write application metrics: %v", err)
+		metrics.AppScrapeErrors.Increment()
 	}
 
-	// truncate the stats buffer if cap > len
-	if globalStatsBuffer.Len() < globalStatsBuffer.Cap() {
-		globalStatsBuffer.Truncate(globalStatsBuffer.Len())
-	}
-
-}
-
-func processMetrics(metrics []byte) {
-	for i := 0; i < len(metrics)-1; i++ {
-		if metrics[i] == '\n' && metrics[i+1] == '\n' {
-			metrics[i] = '#'
-		}
-	}
 }
 
 func negotiateMetricsFormat(contentType string) expfmt.Format {
@@ -549,6 +554,10 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 		return expfmt.FmtOpenMetrics
 	}
 	return expfmt.FmtText
+}
+
+func processMetrics(metrics []byte) []byte {
+	return bytes.ReplaceAll(metrics, []byte("\n\n"), []byte("\n"))
 }
 
 func scrapeAgentMetrics(buf *bytes.Buffer) error {
