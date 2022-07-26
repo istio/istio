@@ -524,7 +524,6 @@ func TestStatsError(t *testing.T) {
 }
 
 func initServerWithStats(t *testing.B) *Server {
-
 	appOpenMetrics := `# TYPE jvm info
 # HELP jvm VM version info
 jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9"} 1.0
