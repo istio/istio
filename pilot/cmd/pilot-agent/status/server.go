@@ -502,8 +502,6 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Scrape app metrics if defined and capture their format
-	// App metrics must go last because if they are FmtOpenMetrics,
-	// they will have a trailing "# EOF" which terminates the full exposition
 	var format expfmt.Format
 	if s.prometheus != nil {
 		var contentType string
