@@ -500,6 +500,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			log.Errorf("failed scraping envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
+		// Process envoy's metrics to make them compatible with FmtOpenMetrics
+		processMetrics(globalStatsBuffer.Bytes())
 	}
 
 	// Scrape app metrics if defined and capture their format
@@ -531,6 +533,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		globalStatsBuffer.Truncate(globalStatsBuffer.Len())
 	}
 
+}
+
+func processMetrics(metrics []byte) {
+	for i := 0; i < len(metrics)-1; i++ {
+		if metrics[i] == '\n' && metrics[i+1] == '\n' {
+			metrics[i] = ' '
+		}
+	}
 }
 
 func negotiateMetricsFormat(contentType string) expfmt.Format {
