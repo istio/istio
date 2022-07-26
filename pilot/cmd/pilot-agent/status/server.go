@@ -540,7 +540,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			_, err = io.Copy(w, envoy)
 			if err != nil {
 				log.Errorf("failed to write envoy metrics: %v", err)
-				metrics.AppScrapeErrors.Increment()
+				metrics.EnvoyScrapeErrors.Increment()
 			}
 		}
 	}
