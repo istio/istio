@@ -538,7 +538,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 func processMetrics(metrics []byte) {
 	for i := 0; i < len(metrics)-1; i++ {
 		if metrics[i] == '\n' && metrics[i+1] == '\n' {
-			metrics[i] = ' '
+			metrics[i] = '#'
 		}
 	}
 }
