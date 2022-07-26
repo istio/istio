@@ -594,21 +594,17 @@ func copyAndProcessMetrics(dst io.Writer, src io.Reader, buf []byte) (written in
 				break
 			}
 		}
-		if nr <= 0 {
-			break
-		}
 		if er != nil {
 			if er != io.EOF {
 				err = er
 			}
 			break
 		}
+		if nr <= 0 {
+			break
+		}
 	}
 	return written, err
-}
-
-func processMetrics(metrics []byte) []byte {
-	return bytes.ReplaceAll(metrics, []byte("\n\n"), []byte("\n"))
 }
 
 func scrapeAndWriteAgentMetrics(w io.Writer) error {
