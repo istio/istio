@@ -489,17 +489,17 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	defer statsQueryMutex.Unlock()
 	globalStatsBuffer.Reset()
 
+	if err = scrapeAgentMetrics(globalStatsBuffer); err != nil {
+		log.Errorf("failed scraping agent metrics: %v", err)
+		metrics.AgentScrapeErrors.Increment()
+	}
+
 	// Gather all the metrics we will merge
 	if !s.config.NoEnvoy {
 		if _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header, globalStatsBuffer); err != nil {
 			log.Errorf("failed scraping envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
-	}
-
-	if err = scrapeAgentMetrics(globalStatsBuffer); err != nil {
-		log.Errorf("failed scraping agent metrics: %v", err)
-		metrics.AgentScrapeErrors.Increment()
 	}
 
 	// Scrape app metrics if defined and capture their format
