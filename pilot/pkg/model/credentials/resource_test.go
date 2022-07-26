@@ -105,3 +105,42 @@ func TestParseResourceName(t *testing.T) {
 		})
 	}
 }
+
+func TestToResourceName(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"foo", "kubernetes://foo"},
+		{"kubernetes://bar", "kubernetes://bar"},
+		{"kubernetes-gateway://bar", "kubernetes-gateway://bar"},
+		{"builtin://", "default"},
+		{"builtin://extra", "default"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToResourceName(tt.name); got != tt.want {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestToKubernetesGatewayResource(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		want      string
+	}{
+		{"foo", "ns", "kubernetes-gateway://ns/foo"},
+		{"builtin://", "anything", "builtin://"},
+		{"builtin://extra", "anything", "builtin://"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToKubernetesGatewayResource(tt.namespace, tt.name); got != tt.want {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

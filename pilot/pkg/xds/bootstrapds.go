@@ -26,7 +26,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -40,8 +40,7 @@ type BootstrapGenerator struct {
 var _ model.XdsResourceGenerator = &BootstrapGenerator{}
 
 // Generate returns a bootstrap discovery response.
-func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (e *BootstrapGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	// The model.Proxy information is incomplete, re-parse the discovery request.
 	node := bootstrap.ConvertXDSNodeToNode(proxy.XdsNode)
 
@@ -58,10 +57,10 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContex
 	if err = protomarshal.Unmarshal(buf.Bytes(), bs); err != nil {
 		log.Warnf("failed to unmarshal bootstrap from JSON %q: %v", buf.String(), err)
 	}
-	bs = e.applyPatches(bs, proxy, push)
+	bs = e.applyPatches(bs, proxy, req.Push)
 	return model.Resources{
 		&discovery.Resource{
-			Resource: util.MessageToAny(bs),
+			Resource: protoconv.MessageToAny(bs),
 		},
 	}, model.DefaultXdsLogDetails, nil
 }
@@ -71,7 +70,7 @@ func (e *BootstrapGenerator) applyPatches(bs *bootstrapv3.Bootstrap, proxy *mode
 	if patches == nil {
 		return bs
 	}
-	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		envoyfilter.IncrementEnvoyFilterErrorMetric(envoyfilter.Bootstrap)
 		log.Errorf("bootstrap patch caused panic, so the patches did not take effect")
 	})

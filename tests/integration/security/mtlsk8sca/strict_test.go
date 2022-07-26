@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
@@ -43,29 +44,29 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 				{
 					ConfigFile: "global-mtls-on-no-dr.yaml",
 					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+					Include: func(_ echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless service.
 						// Auto mtls does not apply to headless service, because for headless service
 						// the cluster discovery type is ORIGINAL_DST, and it will not apply upstream tls setting
-						return !apps.IsHeadless(opts.Target)
+						return !opts.To.Config().IsHeadless()
 					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
 						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
 						// be the same as having global DR rule.
-						if apps.Naked.Contains(opts.Target) {
+						if opts.To.Config().IsNaked() {
 							// calls to naked should always succeed.
 							return true
 						}
 
 						// If source is naked, and destination is not, expect failure.
-						return !(apps.IsNaked(src) && !apps.IsNaked(opts.Target))
+						return !(from.Config().IsNaked() && !opts.To.Config().IsNaked())
 					},
-					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
-						if apps.IsNaked(src) || apps.IsNaked(opts.Target) {
+					ExpectMTLS: func(from echo.Instance, opts echo.CallOptions) bool {
+						if from.Config().IsNaked() || opts.To.Config().IsNaked() {
 							// If one of the two endpoints is naked, we don't send mTLS
 							return false
 						}
-						if apps.IsHeadless(opts.Target) && opts.Target == src {
+						if opts.To.Config().IsHeadless() && opts.To == from {
 							// pod calling its own pod IP will not be intercepted
 							return false
 						}
@@ -75,21 +76,21 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 				{
 					ConfigFile: "global-plaintext.yaml",
 					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+					Include: func(_ echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
-						if apps.Headless.Contains(opts.Target) && opts.PortName == "tcp" {
+						if apps.Headless.ContainsTarget(opts.To) && opts.Port.Name == "tcp" {
 							return false
 						}
 
 						return true
 					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
 						// When mTLS is disabled, all traffic should work.
 						return true
 					},
-					ExpectDestinations: func(src echo.Instance, dest echo.Instances) echo.Instances {
+					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
 						// Without TLS we can't perform SNI routing required for multi-network
-						return dest.Match(echo.InNetwork(src.Config().Cluster.NetworkName()))
+						return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
 					},
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
 						return false

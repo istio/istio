@@ -16,7 +16,6 @@ package install
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -36,6 +35,7 @@ func TestCheckInstall(t *testing.T) {
 		cniConfigFilename string
 		cniConfName       string
 		chainedCNIPlugin  bool
+		skipInstall       bool
 		existingConfFiles map[string]string // {srcFilename: targetFilename, ...}
 	}{
 		{
@@ -66,6 +66,12 @@ func TestCheckInstall(t *testing.T) {
 			cniConfigFilename: "file-removed.conflist",
 		},
 		{
+			name:              "CNI config file non-existent but install skipped",
+			expectedFailure:   false,
+			skipInstall:       true,
+			cniConfigFilename: "file-removed.conflist",
+		},
+		{
 			name:              "istio-cni config removed from CNI config file",
 			expectedFailure:   true,
 			cniConfigFilename: "list.conflist",
@@ -91,18 +97,10 @@ func TestCheckInstall(t *testing.T) {
 		},
 	}
 
-	for i, c := range cases {
+	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// Create temp directory for files
-			tempDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-", i))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() {
-				if err := os.RemoveAll(tempDir); err != nil {
-					t.Fatal(err)
-				}
-			}()
+			tempDir := t.TempDir()
 
 			// Create existing config files if specified in test case
 			for srcFilename, targetFilename := range c.existingConfFiles {
@@ -115,8 +113,9 @@ func TestCheckInstall(t *testing.T) {
 				MountedCNINetDir: tempDir,
 				CNIConfName:      c.cniConfName,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
+				CNIEnableInstall: !c.skipInstall,
 			}
-			err = checkInstall(cfg, filepath.Join(tempDir, c.cniConfigFilename))
+			err := checkInstall(cfg, filepath.Join(tempDir, c.cniConfigFilename))
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
 				t.Fatalf("expected failure: %t, got %v", c.expectedFailure, err)
 			}
@@ -131,6 +130,8 @@ func TestSleepCheckInstall(t *testing.T) {
 		cniConfigFilename     string
 		invalidConfigFilename string
 		validConfigFilename   string
+		saFilename            string
+		saNewFilename         string
 	}{
 		{
 			name:                  "chained CNI plugin",
@@ -138,26 +139,21 @@ func TestSleepCheckInstall(t *testing.T) {
 			cniConfigFilename:     "plugins.conflist",
 			invalidConfigFilename: "list.conflist",
 			validConfigFilename:   "list.conflist.golden",
+			saFilename:            "token-foo",
 		},
 		{
 			name:                "standalone CNI plugin",
 			cniConfigFilename:   "istio-cni.conf",
 			validConfigFilename: "istio-cni.conf",
+			saFilename:          "token-foo",
+			saNewFilename:       "token-bar",
 		},
 	}
 
-	for i, c := range cases {
+	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// Create temp directory for files
-			tempDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-", i))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() {
-				if err := os.RemoveAll(tempDir); err != nil {
-					t.Fatal(err)
-				}
-			}()
+			tempDir := t.TempDir()
 
 			// Initialize parameters
 			ctx, cancel := context.WithCancel(context.Background())
@@ -165,32 +161,41 @@ func TestSleepCheckInstall(t *testing.T) {
 			cfg := &config.InstallConfig{
 				MountedCNINetDir: tempDir,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
+				CNIEnableInstall: true,
 			}
 			cniConfigFilepath := filepath.Join(tempDir, c.cniConfigFilename)
 			isReady := &atomic.Value{}
 			SetNotReady(isReady)
+			in := NewInstaller(cfg, isReady)
+			in.cniConfigFilepath = cniConfigFilepath
+
+			in.saToken = "foo"
+			in.saTokenFilepath = filepath.Join(tempDir, c.saFilename)
+			if err := file.AtomicCopy(filepath.Join("testdata", c.saFilename), tempDir, c.saFilename); err != nil {
+				t.Fatal(err)
+			}
 
 			if len(c.invalidConfigFilename) > 0 {
 				// Copy an invalid config file into tempDir
-				if err = file.AtomicCopy(filepath.Join("testdata", c.invalidConfigFilename), tempDir, c.cniConfigFilename); err != nil {
+				if err := file.AtomicCopy(filepath.Join("testdata", c.invalidConfigFilename), tempDir, c.cniConfigFilename); err != nil {
 					t.Fatal(err)
 				}
 			}
 
 			t.Log("Expecting an invalid configuration log:")
-			if err = sleepCheckInstall(ctx, cfg, cniConfigFilepath, isReady); err != nil {
+			if err := in.sleepCheckInstall(ctx); err != nil {
 				t.Fatalf("error should be nil due to invalid config, got: %v", err)
 			}
 			assert.Equal(t, isReady.Load(), false)
 
 			if len(c.invalidConfigFilename) > 0 {
-				if err = os.Remove(cniConfigFilepath); err != nil {
+				if err := os.Remove(cniConfigFilepath); err != nil {
 					t.Fatal(err)
 				}
 			}
 
 			// Copy a valid config file into tempDir
-			if err = file.AtomicCopy(filepath.Join("testdata", c.validConfigFilename), tempDir, c.cniConfigFilename); err != nil {
+			if err := file.AtomicCopy(filepath.Join("testdata", c.validConfigFilename), tempDir, c.cniConfigFilename); err != nil {
 				t.Fatal(err)
 			}
 
@@ -214,14 +219,14 @@ func TestSleepCheckInstall(t *testing.T) {
 			// Listen to sleepCheckInstall return value
 			// Should detect a valid configuration and wait indefinitely for a file modification
 			errChan := make(chan error)
-			go func(ctx context.Context, cfg *config.InstallConfig, cniConfigFilepath string, isReady *atomic.Value) {
-				errChan <- sleepCheckInstall(ctx, cfg, cniConfigFilepath, isReady)
-			}(ctx, cfg, cniConfigFilepath, isReady)
+			go func(ctx context.Context) {
+				errChan <- in.sleepCheckInstall(ctx)
+			}(ctx)
 
 			select {
 			case <-readyChan:
 				assert.Equal(t, isReady.Load(), true)
-			case err = <-errChan:
+			case err := <-errChan:
 				if err == nil {
 					t.Fatal("invalid configuration detected")
 				}
@@ -230,20 +235,49 @@ func TestSleepCheckInstall(t *testing.T) {
 				t.Fatal("timed out waiting for isReady to be set to true")
 			}
 
+			// Change SA token
+			if len(c.saNewFilename) > 0 {
+				t.Log("Expecting detect changes to the SA token")
+				if err := file.AtomicCopy(filepath.Join("testdata", c.saNewFilename), tempDir, c.saFilename); err != nil {
+					t.Fatal(err)
+				}
+
+				select {
+				case err := <-errChan:
+					if err != nil {
+						// A change in SA token should return nil
+						t.Fatal(err)
+					}
+					assert.Equal(t, isReady.Load(), false)
+				case <-time.After(5 * time.Second):
+					t.Fatal("timed out waiting for invalid configuration to be detected")
+				}
+
+				// Revert valid SA
+				if err := file.AtomicCopy(filepath.Join("testdata", c.saFilename), tempDir, c.saFilename); err != nil {
+					t.Fatal(err)
+				}
+
+				// Run sleepCheckInstall
+				go func(ctx context.Context, in *Installer) {
+					errChan <- in.sleepCheckInstall(ctx)
+				}(ctx, in)
+			}
+
 			// Remove Istio CNI's config
 			t.Log("Expecting an invalid configuration log:")
 			if len(c.invalidConfigFilename) > 0 {
-				if err = file.AtomicCopy(filepath.Join("testdata", c.invalidConfigFilename), tempDir, c.cniConfigFilename); err != nil {
+				if err := file.AtomicCopy(filepath.Join("testdata", c.invalidConfigFilename), tempDir, c.cniConfigFilename); err != nil {
 					t.Fatal(err)
 				}
 			} else {
-				if err = os.Remove(cniConfigFilepath); err != nil {
+				if err := os.Remove(cniConfigFilepath); err != nil {
 					t.Fatal(err)
 				}
 			}
 
 			select {
-			case err = <-errChan:
+			case err := <-errChan:
 				if err != nil {
 					// An invalid configuration should return nil
 					// Either an invalid config did not return nil (which is an issue) or an unexpected error occurred
@@ -280,26 +314,11 @@ func TestCleanup(t *testing.T) {
 		},
 	}
 
-	for i, c := range cases {
+	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// Create temp directory for files
-			cniNetDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-cni-net", i))
-			if err != nil {
-				t.Fatal(err)
-			}
-			cniBinDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-cni-bin", i))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() {
-				err1 := os.RemoveAll(cniNetDir)
-				err2 := os.RemoveAll(cniBinDir)
-				if err1 != nil {
-					t.Fatal(err1)
-				} else if err2 != nil {
-					t.Fatal(err1)
-				}
-			}()
+			cniNetDir := t.TempDir()
+			cniBinDir := t.TempDir()
 
 			// Create existing config file if specified in test case
 			cniConfigFilePath := filepath.Join(cniNetDir, c.configFilename)
@@ -329,7 +348,7 @@ func TestCleanup(t *testing.T) {
 			installer := NewInstaller(cfg, isReady)
 			installer.cniConfigFilepath = cniConfigFilePath
 			installer.kubeconfigFilepath = kubeConfigFilePath
-			err = installer.Cleanup()
+			err := installer.Cleanup()
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
 				t.Fatalf("expected failure: %t, got %v", c.expectedFailure, err)
 			}

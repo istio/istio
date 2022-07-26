@@ -60,9 +60,6 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	}
 
 	s := settingsFromCommandLine.clone()
-	if s.minikube {
-		return nil, fmt.Errorf("istio.test.kube.minikube is deprecated; set --istio.test.kube.loadbalancer=false instead")
-	}
 
 	// Process the kube clusterConfigs.
 	var err error
@@ -106,7 +103,7 @@ func getKubeConfigsFromEnvironment() ([]string, error) {
 		return nil, err
 	}
 	if len(out) == 0 {
-		scopes.Framework.Info("Environment variable KUBECONFIG unspecified, defaultiing to ~/.kube/config.")
+		scopes.Framework.Info("Environment variable KUBECONFIG unspecified, defaulting to ~/.kube/config.")
 		normalizedDefaultKubeConfig, err := file.NormalizePath(defaultKubeConfig)
 		if err != nil {
 			return nil, fmt.Errorf("error normalizing default kube config file %s: %v",
@@ -244,7 +241,7 @@ func (c *configsVal) Set(s string) error {
 	return nil
 }
 
-func (c *configsVal) SetConfig(m interface{}) error {
+func (c *configsVal) SetConfig(m any) error {
 	bytes, err := yaml.Marshal(m)
 	if err != nil {
 		return err
@@ -264,11 +261,9 @@ var _ config.Value = &configsVal{}
 func init() {
 	flag.StringVar(&kubeConfigs, "istio.test.kube.config", "",
 		"A comma-separated list of paths to kube config files for cluster environments.")
-	flag.BoolVar(&settingsFromCommandLine.minikube, "istio.test.kube.minikube", settingsFromCommandLine.minikube,
-		"Deprecated. See istio.test.kube.loadbalancer. Setting this flag will fail tests.")
 	flag.BoolVar(&settingsFromCommandLine.LoadBalancerSupported, "istio.test.kube.loadbalancer", settingsFromCommandLine.LoadBalancerSupported,
 		"Indicates whether or not clusters in the environment support external IPs for LoadBalaner services. Used "+
-			"to obtain the right IP address for the Ingress Gateway. Set --istio.test.kube.loadbalancer=false for local KinD/minikube tests."+
+			"to obtain the right IP address for the Ingress Gateway. Set --istio.test.kube.loadbalancer=false for local KinD tests."+
 			"without MetalLB installed.")
 	flag.StringVar(&controlPlaneTopology, "istio.test.kube.controlPlaneTopology",
 		"", "Specifies the mapping for each cluster to the cluster hosting its control plane. The value is a "+

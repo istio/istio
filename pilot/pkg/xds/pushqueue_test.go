@@ -24,8 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/tests/util/leak"
 )
 
@@ -78,7 +77,7 @@ func ExpectDequeue(t *testing.T, p *PushQueue, expected *Connection) {
 func TestProxyQueue(t *testing.T) {
 	proxies := make([]*Connection, 0, 100)
 	for p := 0; p < 100; p++ {
-		proxies = append(proxies, &Connection{ConID: fmt.Sprintf("proxy-%d", p)})
+		proxies = append(proxies, &Connection{conID: fmt.Sprintf("proxy-%d", p)})
 	}
 
 	t.Run("simple add and remove", func(t *testing.T) {
@@ -170,7 +169,7 @@ func TestProxyQueue(t *testing.T) {
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind: gvk.ServiceEntry,
+				Kind: kind.ServiceEntry,
 				Name: "foo",
 			}: {}},
 			Start: firstTime,
@@ -179,7 +178,7 @@ func TestProxyQueue(t *testing.T) {
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      "bar",
 				Namespace: "ns1",
 			}: {}},
@@ -191,18 +190,18 @@ func TestProxyQueue(t *testing.T) {
 			t.Errorf("Expected start time to be %v, got %v", firstTime, info.Start)
 		}
 		expectedEds := map[model.ConfigKey]struct{}{{
-			Kind:      gvk.ServiceEntry,
+			Kind:      kind.ServiceEntry,
 			Name:      "foo",
 			Namespace: "",
 		}: {}, {
-			Kind:      gvk.ServiceEntry,
+			Kind:      kind.ServiceEntry,
 			Name:      "bar",
 			Namespace: "ns1",
 		}: {}}
-		if !reflect.DeepEqual(model.ConfigsOfKind(info.ConfigsUpdated, gvk.ServiceEntry), expectedEds) {
-			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, model.ConfigsOfKind(info.ConfigsUpdated, gvk.ServiceEntry))
+		if !reflect.DeepEqual(model.ConfigsOfKind(info.ConfigsUpdated, kind.ServiceEntry), expectedEds) {
+			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, model.ConfigsOfKind(info.ConfigsUpdated, kind.ServiceEntry))
 		}
-		if info.Full != false {
+		if info.Full {
 			t.Errorf("Expected full to be false, got true")
 		}
 	})
@@ -244,7 +243,7 @@ func TestProxyQueue(t *testing.T) {
 		p := NewPushQueue()
 		defer p.ShutDown()
 
-		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.ConID, eds) }
+		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.conID, eds) }
 
 		// We will trigger many pushes for eds services to each proxy. In the end we will expect
 		// all of these to be dequeue, but order is not deterministic.
@@ -259,7 +258,7 @@ func TestProxyQueue(t *testing.T) {
 				for _, pr := range proxies {
 					p.Enqueue(pr, &model.PushRequest{
 						ConfigsUpdated: map[model.ConfigKey]struct{}{{
-							Kind: gvk.ServiceEntry,
+							Kind: kind.ServiceEntry,
 							Name: fmt.Sprintf("%d", eds),
 						}: {}},
 					})
@@ -275,7 +274,7 @@ func TestProxyQueue(t *testing.T) {
 				if shuttingdown {
 					return
 				}
-				for eds := range model.ConfigNamesOfKind(info.ConfigsUpdated, gvk.ServiceEntry) {
+				for eds := range model.ConfigNamesOfKind(info.ConfigsUpdated, kind.ServiceEntry) {
 					mu.Lock()
 					delete(expected, key(con, eds))
 					mu.Unlock()
@@ -300,7 +299,7 @@ func TestProxyQueue(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
 		defer p.ShutDown()
-		con := &Connection{ConID: "proxy-test"}
+		con := &Connection{conID: "proxy-test"}
 
 		// We will trigger many pushes for eds services to the proxy. In the end we will expect
 		// all of these to be dequeue, but order is deterministic.
@@ -313,7 +312,7 @@ func TestProxyQueue(t *testing.T) {
 			for eds := 0; eds < 100; eds++ {
 				p.Enqueue(con, &model.PushRequest{
 					ConfigsUpdated: map[model.ConfigKey]struct{}{{
-						Kind: config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: fmt.Sprintf("%d", eds)},
+						Kind: kind.Kind(eds),
 						Name: fmt.Sprintf("%d", eds),
 					}: {}},
 				})
@@ -344,7 +343,7 @@ func TestProxyQueue(t *testing.T) {
 				}
 				updated := make([]string, 0, len(request.ConfigsUpdated))
 				for configkey := range request.ConfigsUpdated {
-					updated = append(updated, configkey.Kind.Kind)
+					updated = append(updated, fmt.Sprintf("%d", configkey.Kind))
 				}
 				sort.Slice(updated, func(i, j int) bool {
 					l, _ := strconv.Atoi(updated[i])

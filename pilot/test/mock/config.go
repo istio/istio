@@ -323,7 +323,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 }
 
 // CheckCacheEvents validates operational invariants of a cache
-func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, namespace string, n int, t *testing.T) {
+func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreController, namespace string, n int, t *testing.T) {
 	n64 := int64(n)
 	stop := make(chan struct{})
 	defer close(stop)
@@ -355,7 +355,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 }
 
 // CheckCacheFreshness validates operational invariants of a cache
-func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *testing.T) {
+func CheckCacheFreshness(cache model.ConfigStoreController, namespace string, t *testing.T) {
 	stop := make(chan struct{})
 	done := make(chan bool)
 	o := Make(namespace, 0)
@@ -425,7 +425,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 
 // CheckCacheSync validates operational invariants of a cache against the
 // non-cached client.
-func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, namespace string, n int, t *testing.T) {
+func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreController, namespace string, n int, t *testing.T) {
 	keys := make(map[int]config2.Config)
 	// add elements directly through client
 	for i := 0; i < n; i++ {

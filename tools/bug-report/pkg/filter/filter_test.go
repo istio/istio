@@ -88,7 +88,7 @@ ns1/p4:
 	ns1 = append(d1, d2...)
 
 	testClusterResources = &cluster2.Resources{
-		Root:        make(map[string]interface{}),
+		Root:        make(map[string]any),
 		Labels:      make(map[string]map[string]string),
 		Annotations: make(map[string]map[string]string),
 	}

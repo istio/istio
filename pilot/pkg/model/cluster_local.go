@@ -15,7 +15,6 @@
 package model
 
 import (
-	"sort"
 	"strings"
 	"sync"
 
@@ -27,14 +26,14 @@ var (
 	defaultClusterLocalServices   = []string{"kubernetes.default.svc"}
 )
 
-// ClusterLocalHosts is a list of host names or wildcard patterns which should only
+// ClusterLocalHosts is a map of host names or wildcard patterns which should only
 // be made accessible from within the same cluster.
-type ClusterLocalHosts host.Names
+type ClusterLocalHosts map[host.Name]struct{}
 
 // IsClusterLocal indicates whether the given host should be treated as a
 // cluster-local destination.
 func (c ClusterLocalHosts) IsClusterLocal(h host.Name) bool {
-	_, ok := MostSpecificHostMatch(h, nil, c)
+	_, ok := MostSpecificHostMatch2(h, c)
 	return ok
 }
 
@@ -98,7 +97,7 @@ func (c *clusterLocalProvider) onMeshUpdated(e *Environment) {
 	for _, serviceSettings := range e.Mesh().ServiceSettings {
 		if serviceSettings.Settings.ClusterLocal {
 			for _, h := range serviceSettings.Hosts {
-				hosts = append(hosts, host.Name(h))
+				hosts[host.Name(h)] = struct{}{}
 			}
 		} else {
 			// Remove defaults if specified to be non-cluster-local.
@@ -120,11 +119,9 @@ func (c *clusterLocalProvider) onMeshUpdated(e *Environment) {
 	// Add any remaining defaults to the end of the list.
 	for _, defaultClusterLocalHost := range defaultClusterLocalHosts {
 		if len(defaultClusterLocalHost) > 0 {
-			hosts = append(hosts, defaultClusterLocalHost)
+			hosts[defaultClusterLocalHost] = struct{}{}
 		}
 	}
-
-	sort.Sort(host.Names(hosts))
 
 	c.mutex.Lock()
 	c.hosts = hosts

@@ -61,7 +61,7 @@ func ParseSelector(s string) (Selector, error) {
 			p = p[1:]
 		}
 
-		if !userLabelRegex.Match([]byte(p)) {
+		if !userLabelRegex.MatchString(p) {
 			return Selector{}, fmt.Errorf("invalid label name: %q", p)
 		}
 

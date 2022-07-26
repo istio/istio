@@ -28,7 +28,6 @@ import (
 	"github.com/Masterminds/sprig/v3"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/scopes"
@@ -106,15 +105,16 @@ distribute:
     region: 20`
 
 func TestLocality(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		Features("traffic.locality").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			destA := apps.PodB[0]
-			destB := apps.PodC[0]
+			destA := apps.B[0]
+			destB := apps.C[0]
 			destC := apps.Naked[0]
-			if !t.Settings().SkipVM {
+			if !t.Settings().Skip(echo.VM) {
 				// TODO do we even need this to be a VM
 				destC = apps.VM[0]
 			}
@@ -210,8 +210,9 @@ func TestLocality(t *testing.T) {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
 					tt.input.Host = hostname
-					t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), runTemplate(t, localityTemplate, tt.input))
-					sendTrafficOrFail(t, apps.PodA[0], hostname, tt.expected)
+					t.ConfigIstio().YAML(apps.Namespace.Name(), runTemplate(t, localityTemplate, tt.input)).
+						ApplyOrFail(t)
+					sendTrafficOrFail(t, apps.A[0], hostname, tt.expected)
 				})
 			}
 		})
@@ -227,12 +228,12 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 	t.Helper()
 	headers := http.Header{}
 	headers.Add("Host", host)
-	validator := echo.ValidatorFunc(func(resp client.ParsedResponses, inErr error) error {
+	checker := func(result echo.CallResult, inErr error) error {
 		if inErr != nil {
 			return inErr
 		}
 		got := map[string]int{}
-		for _, r := range resp {
+		for _, r := range result.Responses {
 			// Hostname will take form of svc-v1-random. We want to extract just 'svc'
 			parts := strings.SplitN(r.Hostname, "-", 2)
 			if len(parts) < 2 {
@@ -249,19 +250,23 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 			}
 		}
 		return nil
-	})
+	}
 	// This is a hack to remain infrastructure agnostic when running these tests
 	// We actually call the host set above not the endpoint we pass
-	_ = from.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:    from,
-		PortName:  "http",
-		Headers:   headers,
-		Count:     sendCount,
-		Validator: validator,
+	_ = from.CallOrFail(t, echo.CallOptions{
+		To: from,
+		Port: echo.Port{
+			Name: "http",
+		},
+		HTTP: echo.HTTP{
+			Headers: headers,
+		},
+		Count: sendCount,
+		Check: checker,
 	})
 }
 
-func runTemplate(t test.Failer, tmpl string, input interface{}) string {
+func runTemplate(t test.Failer, tmpl string, input any) string {
 	tt, err := template.New("").Funcs(sprig.TxtFuncMap()).Parse(tmpl)
 	if err != nil {
 		t.Fatal(err)

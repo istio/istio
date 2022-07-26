@@ -142,7 +142,7 @@ global:
 			wantErrs: makeErrors([]string{`unknown field "foo" in v1alpha1.ProxyConfig`}),
 		},
 		{
-			desc: "unknown field",
+			desc: "unknown cni field",
 			yamlStr: `
 cni:
   foo: "bar"
@@ -153,12 +153,12 @@ cni:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			root := make(map[string]interface{})
+			root := make(map[string]any)
 			err := yaml.Unmarshal([]byte(tt.yamlStr), &root)
 			if err != nil {
 				t.Fatalf("yaml.Unmarshal(%s): got error %s", tt.desc, err)
 			}
-			errs := CheckValues(root)
+			errs := CheckValues(util.MustStruct(root))
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.yamlStr, gotErr, wantErr)
 			}
@@ -168,7 +168,6 @@ cni:
 
 func TestValidateValuesFromProfile(t *testing.T) {
 	tests := []struct {
-		desc     string
 		profile  string
 		wantErrs util.Errors
 	}{
@@ -183,7 +182,7 @@ func TestValidateValuesFromProfile(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
+		t.Run(tt.profile, func(t *testing.T) {
 			pf, err := helm.ReadProfileYAML(tt.profile, filepath.Join(env.IstioSrc, "manifests"))
 			if err != nil {
 				t.Fatalf("fail to read profile: %s", tt.profile)
@@ -221,11 +220,11 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		valuesTree := make(map[string]interface{})
+		valuesTree := make(map[string]any)
 		if err := yaml.Unmarshal([]byte(valuesYAML), &valuesTree); err != nil {
 			t.Fatal(err.Error())
 		}
-		if err := CheckValues(valuesTree); err != nil {
+		if err := CheckValues(util.MustStruct(valuesTree)); err != nil {
 			t.Fatalf("file %s failed validation with: %s", f, err)
 		}
 	}

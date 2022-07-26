@@ -154,21 +154,24 @@ func TestClosed(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	t.Run("close after tasks", func(t *testing.T) {
+	t.Run("no tasks after close", func(t *testing.T) {
 		stop := make(chan struct{})
 		q := NewQueue(0)
 		taskComplete := atomic.NewBool(false)
 		q.Push(func() error {
-			taskComplete.Store(true)
+			close(stop)
 			return nil
 		})
 		go q.Run(stop)
-		close(stop)
 		if err := WaitForClose(q, 10*time.Second); err != nil {
-			t.Error(err)
+			t.Error()
 		}
-		if !taskComplete.Load() {
-			t.Error("task did not complete")
+		q.Push(func() error {
+			taskComplete.Store(true)
+			return nil
+		})
+		if taskComplete.Load() {
+			t.Error("task ran on closed queue")
 		}
 	})
 }

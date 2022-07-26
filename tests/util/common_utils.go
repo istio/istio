@@ -13,20 +13,3 @@
 // limitations under the License.
 
 package util
-
-import (
-	"math/rand"
-	"time"
-)
-
-const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-// RandomString returns a random string of size n (letters only)
-func RandomString(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[rand.Int63()%int64(len(letters))]
-	}
-	return string(b)
-}

@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -36,6 +37,7 @@ import (
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 type revisionCount struct {
@@ -84,6 +86,7 @@ func injectorListCommand() *cobra.Command {
 			ctx := context.Background()
 
 			nslist, err := getNamespaces(ctx, client)
+			nslist = filterSystemNamespaces(nslist)
 			if err != nil {
 				return err
 			}
@@ -119,8 +122,19 @@ func injectorListCommand() *cobra.Command {
 	return cmd
 }
 
+func filterSystemNamespaces(nss []v1.Namespace) []v1.Namespace {
+	filtered := make([]v1.Namespace, 0)
+	for _, ns := range nss {
+		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) || ns.Name == istioNamespace {
+			continue
+		}
+		filtered = append(filtered, ns)
+	}
+	return filtered
+}
+
 func getNamespaces(ctx context.Context, client kube.ExtendedClient) ([]v1.Namespace, error) {
-	nslist, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	nslist, err := client.Kube().CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return []v1.Namespace{}, err
 	}
@@ -128,7 +142,8 @@ func getNamespaces(ctx context.Context, client kube.ExtendedClient) ([]v1.Namesp
 }
 
 func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.MutatingWebhookConfiguration,
-	allPods map[resource.Namespace][]v1.Pod) error {
+	allPods map[resource.Namespace][]v1.Pod,
+) error {
 	outputCount := 0
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
@@ -162,7 +177,7 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 }
 
 func getWebhooks(ctx context.Context, client kube.ExtendedClient) ([]admit_v1.MutatingWebhookConfiguration, error) {
-	hooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{})
+	hooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return []admit_v1.MutatingWebhookConfiguration{}, err
 	}
@@ -244,7 +259,7 @@ func getMatchingNamespaces(hook *admit_v1.MutatingWebhookConfiguration, namespac
 func getPods(ctx context.Context, client kube.ExtendedClient) (map[resource.Namespace][]v1.Pod, error) {
 	retval := map[resource.Namespace][]v1.Pod{}
 	// All pods in all namespaces
-	pods, err := client.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	pods, err := client.Kube().CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return retval, err
 	}
@@ -264,7 +279,7 @@ func getInjectedImages(ctx context.Context, client kube.ExtendedClient) (map[str
 	retval := map[string]string{}
 
 	// All configs in all namespaces that are Istio revisioned
-	configMaps, err := client.CoreV1().ConfigMaps("").List(ctx, metav1.ListOptions{LabelSelector: label.IoIstioRev.Name})
+	configMaps, err := client.Kube().CoreV1().ConfigMaps("").List(ctx, metav1.ListOptions{LabelSelector: label.IoIstioRev.Name})
 	if err != nil {
 		return retval, err
 	}
@@ -283,7 +298,7 @@ func getInjectedImages(ctx context.Context, client kube.ExtendedClient) (map[str
 func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revisionCount {
 	retval := map[string]revisionCount{}
 	for _, pod := range pods {
-		revision := pod.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
+		revision := extractRevisionFromPod(&pod)
 		revisionLabel := revision
 		if revision == "" {
 			revisionLabel = "<non-Istio>"
@@ -300,12 +315,27 @@ func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revis
 	return retval
 }
 
+func extractRevisionFromPod(pod *v1.Pod) string {
+	statusAnno, ok := pod.GetAnnotations()[annotation.SidecarStatus.Name]
+	if !ok {
+		return ""
+	}
+	var sidecarinjection inject.SidecarInjectionStatus
+	if err := json.Unmarshal([]byte(statusAnno), &sidecarinjection); err != nil {
+		return ""
+	}
+	return sidecarinjection.Revision
+}
+
 func hideFromOutput(ns resource.Namespace) bool {
 	return (analyzer_util.IsSystemNamespace(ns) || ns == resource.Namespace(istioNamespace))
 }
 
 func injectionDisabled(pod *v1.Pod) bool {
 	inject := pod.ObjectMeta.GetAnnotations()[annotation.SidecarInject.Name]
+	if lbl, labelPresent := pod.ObjectMeta.GetLabels()[annotation.SidecarInject.Name]; labelPresent {
+		inject = lbl
+	}
 	return strings.EqualFold(inject, "false")
 }
 

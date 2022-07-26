@@ -1,0 +1,128 @@
+# If the patch operation is ADD and the applyTo is set to ROUTE_CONFIGURATION or HTTP_ROUTE, then an error will occur 
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-auth-1
+  namespace: bookinfo
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: ADD
+      filterClass: AUTHZ # This filter will run *after* the Istio authz filter.
+      value:
+        name: envoy.filters.http.ext_authz
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+          grpc_service:
+            envoy_grpc:
+              cluster_name: acme-ext-authz
+            initial_metadata:
+            - key: foo
+              value: myauth.acme # required by local ext auth server.
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-auth-2
+  namespace: bookinfo
+spec:
+  configPatches:
+  - applyTo: ROUTE_CONFIGURATION
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: ADD
+      filterClass: AUTHZ # This filter will run *after* the Istio authz filter.
+      value:
+        name: envoy.filters.http.ext_authz
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+          grpc_service:
+            envoy_grpc:
+              cluster_name: acme-ext-authz
+            initial_metadata:
+            - key: foo
+              value: myauth.acme # required by local ext auth server.
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-auth-3
+  namespace: bookinfo
+spec:
+  configPatches:
+  - applyTo: HTTP_ROUTE
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: ADD
+      filterClass: AUTHZ # This filter will run *after* the Istio authz filter.
+      value:
+        name: envoy.filters.http.ext_authz
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+          grpc_service:
+            envoy_grpc:
+              cluster_name: acme-ext-authz
+            initial_metadata:
+            - key: foo
+              value: myauth.acme # required by local ext auth server.
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-auth-4
+  namespace: bookinfo
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      proxy:
+        proxyVersion: '^1\.11.*'
+      app: add4
+    patch:
+      operation: ADD
+      filterClass: AUTHZ # This filter will run *after* the Istio authz filter.
+      value:
+        name: envoy.filters.http.ext_authz
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+          grpc_service:
+            envoy_grpc:
+              cluster_name: acme-ext-authz
+            initial_metadata:
+            - key: foo
+              value: myauth.acme # required by local ext auth server.
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-auth-5
+  namespace: bookinfo
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      app: add5
+    patch:
+      operation: ADD
+      filterClass: AUTHZ # This filter will run *after* the Istio authz filter.
+      value:
+        name: envoy.filters.http.ext_authz
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+          grpc_service:
+            envoy_grpc:
+              cluster_name: acme-ext-authz
+            initial_metadata:
+            - key: foo
+              value: myauth.acme # required by local ext auth server.              

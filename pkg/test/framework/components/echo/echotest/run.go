@@ -26,15 +26,15 @@ import (
 )
 
 type (
-	perDeploymentTest  func(t framework.TestContext, instances echo.Instances)
+	perDeploymentTest  func(t framework.TestContext, deployments echo.Instances)
 	perNDeploymentTest func(t framework.TestContext, deployments echo.Services)
 	perInstanceTest    func(t framework.TestContext, inst echo.Instance)
 	perClusterTest     func(t framework.TestContext, c cluster.Cluster)
 
-	oneToOneTest      func(t framework.TestContext, src echo.Instance, dst echo.Instances)
-	oneToNTest        func(t framework.TestContext, src echo.Instance, dsts echo.Services)
-	oneClusterOneTest func(t framework.TestContext, src cluster.Cluster, dst echo.Instances)
-	ingressTest       func(t framework.TestContext, src ingress.Instance, dst echo.Instances)
+	oneToOneTest      func(t framework.TestContext, from echo.Instance, to echo.Target)
+	oneToNTest        func(t framework.TestContext, from echo.Instance, dsts echo.Services)
+	oneClusterOneTest func(t framework.TestContext, from cluster.Cluster, to echo.Target)
+	ingressTest       func(t framework.TestContext, from ingress.Instance, to echo.Target)
 )
 
 // Run will generate and run one subtest to send traffic between each combination
@@ -50,19 +50,36 @@ type (
 // cluster, as we expect most tests will cause load-balancing across all possible
 // clusters.
 func (t *T) Run(testFn oneToOneTest) {
-	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v", t.sources.Services().Services(), t.destinations.Services().Services())
-	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
-		t.setup(ctx, srcInstances.Callers())
-		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
-			t.setupPair(ctx, srcInstances.Callers(), echo.Services{dstInstances})
-			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
-				filteredDst := t.applyCombinationFilters(src, dstInstances)
+	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v",
+		t.sources.Services().NamespacedNames().NamesWithNamespacePrefix(),
+		t.destinations.Services().NamespacedNames().NamesWithNamespacePrefix())
+
+	// Build and apply any completed configuration that does not require to/from params.
+	t.cfg.BuildCompleteSources().Apply()
+
+	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, from echo.Instances) {
+		// Build and apply per-source configuration.
+		// TODO(nmittler): Consider merging this with t.setup below.
+		callers := from.Callers()
+		firstCaller := echo.Callers{callers[0]}
+		t.cfg.Context(ctx).BuildFrom(firstCaller...).Apply()
+
+		// Run setup functions for the callers.
+		t.setup(ctx, from.Callers())
+
+		t.toEachDeployment(ctx, func(ctx framework.TestContext, to echo.Instances) {
+			// Build and apply per-destination config
+			t.cfg.Context(ctx).BuildFromAndTo(firstCaller, to.Services()).Apply()
+
+			t.setupPair(ctx, callers, echo.Services{to})
+			t.fromEachWorkloadCluster(ctx, from, func(ctx framework.TestContext, from echo.Instance) {
+				filteredDst := t.applyCombinationFilters(from, to)
 				if len(filteredDst) == 0 {
 					// this only happens due to conditional filters and when an entire deployment is filtered we should be noisy
 					ctx.Skipf("cases from %s in %s with %s as destination are removed by filters ",
-						src.Config().Service, src.Config().Cluster.StableName(), dstInstances[0].Config().Service)
+						from.Config().Service, from.Config().Cluster.StableName(), to[0].Config().Service)
 				}
-				testFn(ctx, src, filteredDst)
+				testFn(ctx, from, filteredDst)
 			})
 		})
 	})
@@ -92,10 +109,10 @@ func (t *T) RunFromClusters(testFn oneClusterOneTest) {
 
 // fromEachCluster runs test from each cluster without requiring source deployment.
 func (t *T) fromEachCluster(ctx framework.TestContext, testFn perClusterTest) {
-	for _, srcCluster := range t.sources.Clusters() {
-		srcCluster := srcCluster
-		ctx.NewSubTestf("from %s", srcCluster.StableName()).Run(func(ctx framework.TestContext) {
-			testFn(ctx, srcCluster)
+	for _, fromCluster := range t.sources.Clusters() {
+		fromCluster := fromCluster
+		ctx.NewSubTestf("from %s", fromCluster.StableName()).Run(func(ctx framework.TestContext) {
+			testFn(ctx, fromCluster)
 		})
 	}
 }
@@ -111,28 +128,35 @@ func (t *T) fromEachCluster(ctx framework.TestContext, testFn perClusterTest) {
 //     a/to_b_c_d/from_cluster_2:
 //
 func (t *T) RunToN(n int, testFn oneToNTest) {
-	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
-		t.setup(ctx, srcInstances.Callers())
-		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments echo.Services) {
-			t.setupPair(ctx, srcInstances.Callers(), destDeployments)
-			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
+	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, from echo.Instances) {
+		t.setup(ctx, from.Callers())
+		t.toNDeployments(ctx, n, from, func(ctx framework.TestContext, toServices echo.Services) {
+			t.setupPair(ctx, from.Callers(), toServices)
+			t.fromEachWorkloadCluster(ctx, from, func(ctx framework.TestContext, fromInstance echo.Instance) {
 				// reapply destination filters to only get the reachable instances for this cluster
 				// this can be done safely since toNDeployments asserts the Services won't change
-				destDeployments := t.applyCombinationFilters(src, destDeployments.Instances()).Services()
-				testFn(ctx, src, destDeployments)
+				destDeployments := t.applyCombinationFilters(fromInstance, toServices.Instances()).Services()
+				testFn(ctx, fromInstance, destDeployments)
 			})
 		})
 	})
 }
 
 func (t *T) RunViaIngress(testFn ingressTest) {
-	i := istio.GetOrFail(t.rootCtx, t.rootCtx)
+	// Build and apply any completed configuration that does not require to/from params.
+	t.cfg.BuildCompleteSources().Apply()
+
+	istioInstance := istio.GetOrFail(t.rootCtx, t.rootCtx)
 	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
-		t.setupPair(ctx, i.Ingresses().Callers(), echo.Services{dstInstances})
-		doTest := func(ctx framework.TestContext, src cluster.Cluster, dst echo.Instances) {
-			ingr := i.IngressFor(src)
+		// Build and apply per-destination config
+		callers := istioInstance.Ingresses().Callers()
+		t.cfg.Context(ctx).BuildFromAndTo(callers, dstInstances.Services()).Apply()
+
+		t.setupPair(ctx, callers, echo.Services{dstInstances})
+		doTest := func(ctx framework.TestContext, fromCluster cluster.Cluster, dst echo.Instances) {
+			ingr := istioInstance.IngressFor(fromCluster)
 			if ingr == nil {
-				ctx.Skipf("no ingress for %s", src.StableName())
+				ctx.Skipf("no ingress for %s", fromCluster.StableName())
 			}
 			testFn(ctx, ingr, dst)
 		}
@@ -146,79 +170,101 @@ func (t *T) RunViaIngress(testFn ingressTest) {
 	})
 }
 
+func (t *T) isMultipleNamespaces() bool {
+	namespaces := map[string]struct{}{}
+	for _, instances := range []echo.Instances{t.sources, t.destinations} {
+		for _, i := range instances {
+			namespaces[i.Config().Namespace.Name()] = struct{}{}
+			if len(namespaces) > 1 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // fromEachDeployment enumerates subtests for deployment with the structure <src>
 // Intended to be used in combination with other helpers to enumerate subtests for destinations.
 func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTest) {
-	duplicateShortnames := false
-	shortnames := map[string]struct{}{}
-	for _, src := range t.sources.Services() {
-		svc := src[0].Config().Service
-		if _, ok := shortnames[svc]; ok {
-			duplicateShortnames = true
-			break
-		}
-		shortnames[svc] = struct{}{}
-	}
+	includeNS := t.isMultipleNamespaces()
 
-	for _, src := range t.sources.Services() {
-		src := src
-		subtestName := src[0].Config().Service
-		if duplicateShortnames {
-			subtestName += "." + src[0].Config().Namespace.Prefix()
+	for _, from := range t.sources.Services() {
+		from := from
+		subtestName := from.Config().Service
+		if includeNS {
+			subtestName += "." + from.Config().Namespace.Prefix()
 		}
 		ctx.NewSubTest(subtestName).Run(func(ctx framework.TestContext) {
-			testFn(ctx, src)
+			testFn(ctx, from)
 		})
 	}
 }
 
 // toEachDeployment enumerates subtests for every deployment as a destination, adding /to_<dst> to the parent test.
-// Intended to be used in combination with other helpers which enumerates the subtests and chooses the srcInstnace.
+// Intended to be used in combination with other helpers which enumerates the subtests and chooses the source instances.
 func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest) {
-	for _, dst := range t.destinations.Services() {
-		dst := dst
-		ctx.NewSubTestf("to %s", dst[0].Config().Service).Run(func(ctx framework.TestContext) {
-			testFn(ctx, dst)
+	includeNS := t.isMultipleNamespaces()
+
+	for _, to := range t.destinations.Services() {
+		to := to
+		subtestName := to.Config().Service
+		if includeNS {
+			subtestName += "." + to.Config().Namespace.Prefix()
+		}
+		ctx.NewSubTestf("to %s", subtestName).Run(func(ctx framework.TestContext) {
+			testFn(ctx, to)
 		})
 	}
 }
 
-func (t *T) fromEachWorkloadCluster(ctx framework.TestContext, src echo.Instances, testFn perInstanceTest) {
-	for _, srcInstance := range src {
-		srcInstance := srcInstance
-		if len(ctx.Clusters()) == 1 && len(src) == 1 {
-			testFn(ctx, srcInstance)
+func (t *T) fromEachWorkloadCluster(ctx framework.TestContext, from echo.Instances, testFn perInstanceTest) {
+	for _, fromInstance := range from {
+		fromInstance := fromInstance
+		if len(ctx.Clusters()) == 1 && len(from) == 1 {
+			testFn(ctx, fromInstance)
 		} else {
-			ctx.NewSubTestf("from %s", srcInstance.Config().Cluster.StableName()).Run(func(ctx framework.TestContext) {
+			ctx.NewSubTestf("from %s", fromInstance.Config().Cluster.StableName()).Run(func(ctx framework.TestContext) {
 				// assumes we don't change config from cluster to cluster
 				ctx.SkipDumping()
-				testFn(ctx, srcInstance)
+				testFn(ctx, fromInstance)
 			})
 		}
 	}
 }
 
-func (t *T) toNDeployments(ctx framework.TestContext, n int, srcs echo.Instances, testFn perNDeploymentTest) {
+func (t *T) toNDeployments(ctx framework.TestContext, n int, from echo.Instances, testFn perNDeploymentTest) {
+	includeNS := t.isMultipleNamespaces()
+
 	// every eligible target instance from any cluster (map to dedupe)
 	var commonTargets []string
-	for _, src := range srcs {
-		// eligible target instnaces from the src cluster
-		filteredForSource := t.applyCombinationFilters(src, t.destinations)
-		// make sure this src targets the same deployments (not necessarily the same instances) as other srcs
+	for _, fromInstance := range from {
+		// eligible target instances from the source cluster
+		filteredForSource := t.applyCombinationFilters(fromInstance, t.destinations)
+		// make sure this targets the same deployments (not necessarily the same instances)
 		targetNames := filteredForSource.Services().FQDNs()
 		if len(commonTargets) == 0 {
 			commonTargets = targetNames
 		} else if !util.StringSliceEqual(targetNames, commonTargets) {
-			ctx.Fatalf("%s in each cluster each cluster would not target the same set of deploments", src.Config().Service)
+			ctx.Fatalf("%s in each cluster each cluster would not target the same set of deploments", fromInstance.Config().Service)
 		}
 	}
+
 	// we take all instances that match the deployments
 	// combination filters should be run again for individual sources
 	filteredTargets := t.destinations.Services().MatchFQDNs(commonTargets...)
-	for _, set := range nDestinations(ctx, n, filteredTargets) {
-		set := set
-		ctx.NewSubTestf("to %s", strings.Join(set.Services(), " ")).Run(func(ctx framework.TestContext) {
-			testFn(ctx, set)
+	for _, svc := range nDestinations(ctx, n, filteredTargets) {
+		svc := svc
+
+		namespacedNames := svc.NamespacedNames()
+		var toNames []string
+		if includeNS {
+			toNames = namespacedNames.NamesWithNamespacePrefix()
+		} else {
+			toNames = namespacedNames.Names()
+		}
+
+		ctx.NewSubTestf("to %s", strings.Join(toNames, " ")).Run(func(ctx framework.TestContext) {
+			testFn(ctx, svc)
 		})
 	}
 }

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    {{ toYamlMap .Annotations | nindent 4 }}
+    {{ toYamlMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration") | nindent 4 }}
   labels:
     {{ toYamlMap .Labels
       (strdict "gateway.istio.io/managed" "istio.io-gateway-controller")
@@ -23,7 +23,7 @@ spec:
       annotations:
         {{ toYamlMap
           (strdict "inject.istio.io/templates" "gateway")
-          .Annotations
+          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration")
           | nindent 8}}
       labels:
         {{ toYamlMap

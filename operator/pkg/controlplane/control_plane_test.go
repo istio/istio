@@ -115,7 +115,7 @@ func TestNewIstioOperator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			gotOperator, err := NewIstioControlPlane(tt.inInstallSpec, tt.inTranslator)
+			gotOperator, err := NewIstioControlPlane(tt.inInstallSpec, tt.inTranslator, nil, nil)
 			if ((err != nil && tt.wantErr == nil) || (err == nil && tt.wantErr != nil)) || !gotOperator.componentsEqual(tt.wantIstioOperator.components) {
 				t.Errorf("%s: wanted components & err %+v %v, got components & err %+v %v",
 					tt.desc, tt.wantIstioOperator.components, tt.wantErr, gotOperator.components, err)
@@ -165,7 +165,7 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 				started: true,
 			},
 			wantManifests: map[name.ComponentName][]string{},
-			wantErrs: []error{
+			wantErrs: util.Errors{
 				fmt.Errorf("component Base not started in RenderManifest"),
 				fmt.Errorf("component Pilot not started in RenderManifest"),
 				fmt.Errorf("component Cni not started in RenderManifest"),
@@ -201,7 +201,7 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 				started: false,
 			},
 			wantManifests: map[name.ComponentName][]string{},
-			wantErrs: []error{
+			wantErrs: util.Errors{
 				fmt.Errorf("istioControlPlane must be Run before calling RenderManifest"),
 			},
 		},
@@ -209,7 +209,7 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			gotManifests, gotErrs := tt.testOperator.RenderManifest()
-			if !reflect.DeepEqual(gotManifests, tt.wantManifests) || !reflect.DeepEqual(gotErrs, tt.wantErrs) {
+			if !reflect.DeepEqual(gotManifests, tt.wantManifests) || !util.EqualErrors(gotErrs, tt.wantErrs) {
 				// reflect.DeepEqual returns false on size 0 maps
 				if !(len(gotManifests) == 0) && (len(tt.wantManifests) == 0) {
 					t.Errorf("%s: expected manifest map %+v errs %+v, got manifest map %+v errs %+v",

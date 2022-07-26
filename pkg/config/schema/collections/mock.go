@@ -35,7 +35,7 @@ var (
 			Plural:        "mockconfigs",
 			Group:         "test.istio.io",
 			Version:       "v1",
-			Proto:         "test.MockConfig",
+			Proto:         "config.MockConfig",
 			ProtoPackage:  "istio.io/istio/pkg/test/config",
 			ValidateProto: func(cfg config.Config) (validation.Warning, error) {
 				if cfg.Spec.(*testconfig.MockConfig).Key == "" {

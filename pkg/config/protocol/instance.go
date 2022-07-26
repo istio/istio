@@ -19,6 +19,10 @@ import "strings"
 // Instance defines network protocols for ports
 type Instance string
 
+func (i Instance) String() string {
+	return string(i)
+}
+
 const (
 	// GRPC declares that the port carries gRPC traffic.
 	GRPC Instance = "GRPC"
@@ -35,9 +39,7 @@ const (
 	HTTP2 Instance = "HTTP2"
 	// HTTPS declares that the port carries HTTPS traffic.
 	HTTPS Instance = "HTTPS"
-	// Thrift declares that the port carries Thrift traffic.
-	Thrift Instance = "Thrift"
-	// TCP declares the the port uses TCP.
+	// TCP declares the port uses TCP.
 	// This is the default protocol for a service port.
 	TCP Instance = "TCP"
 	// TLS declares that the port carries TLS traffic.
@@ -52,6 +54,9 @@ const (
 	Redis Instance = "Redis"
 	// MySQL declares that the port carries MySQL traffic.
 	MySQL Instance = "MySQL"
+	// HBONE declares that the port carries HBONE traffic.
+	// This cannot be declared by Services, but is used for some internal code that uses Protocol
+	HBONE Instance = "HBONE"
 	// Unsupported - value to signify that the protocol is unsupported.
 	Unsupported Instance = "UnsupportedProtocol"
 )
@@ -75,8 +80,6 @@ func Parse(s string) Instance {
 		return HTTP2
 	case "https":
 		return HTTPS
-	case "thrift":
-		return Thrift
 	case "tls":
 		return TLS
 	case "mongo":
@@ -110,20 +113,10 @@ func (i Instance) IsHTTP() bool {
 	}
 }
 
-// IsThrift is true for protocols that use Thrift as transport protocol
-func (i Instance) IsThrift() bool {
-	switch i {
-	case Thrift:
-		return true
-	default:
-		return false
-	}
-}
-
 // IsTCP is true for protocols that use TCP as transport protocol
 func (i Instance) IsTCP() bool {
 	switch i {
-	case TCP, HTTPS, TLS, Mongo, Redis, MySQL, Thrift:
+	case TCP, HTTPS, TLS, Mongo, Redis, MySQL:
 		return true
 	default:
 		return false
@@ -162,4 +155,16 @@ func (i Instance) IsGRPC() bool {
 
 func (i Instance) IsUnsupported() bool {
 	return i == Unsupported
+}
+
+// AfterTLSTermination returns the protocol that will be used if TLS is terminated on the current protocol.
+func (i Instance) AfterTLSTermination() Instance {
+	switch i {
+	case HTTPS:
+		return HTTP
+	case TLS:
+		return TCP
+	default:
+		return i
+	}
 }

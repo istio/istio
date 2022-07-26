@@ -25,8 +25,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
@@ -83,11 +83,21 @@ func NewFakeAuthenticator(name string) *FakeAuthenticator {
 	}
 }
 
-func (f *FakeAuthenticator) AuthenticateRequest(req *http.Request) (*Caller, error) {
+func (f *FakeAuthenticator) Authenticate(authCtx AuthContext) (*Caller, error) {
+	if authCtx.GrpcContext != nil {
+		return f.authenticateGrpc(authCtx.GrpcContext)
+	}
+	if authCtx.Request != nil {
+		return f.authenticateHTTP(authCtx.Request)
+	}
+	return nil, nil
+}
+
+func (f *FakeAuthenticator) authenticateHTTP(req *http.Request) (*Caller, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (f *FakeAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
+func (f *FakeAuthenticator) authenticateGrpc(ctx context.Context) (*Caller, error) {
 	f.mu.Lock()
 	at := f.AllowedToken
 	ac := f.AllowedCert
@@ -170,7 +180,7 @@ func checkCert(ctx context.Context, expected string) error {
 	if err != nil {
 		return fmt.Errorf("failed to extract IDs")
 	}
-	if !sets.NewSet(ids...).Contains(expected) {
+	if !sets.New(ids...).Contains(expected) {
 		return fmt.Errorf("expected identity %q, got %v", expected, ids)
 	}
 

@@ -73,7 +73,7 @@ func NewStatusSyncer(meshHolder mesh.Holder, client kubelib.Client) *StatusSynce
 
 	return &StatusSyncer{
 		meshHolder:         meshHolder,
-		client:             client,
+		client:             client.Kube(),
 		ingressLister:      client.KubeInformer().Networking().V1beta1().Ingresses().Lister(),
 		podLister:          client.KubeInformer().Core().V1().Pods().Lister(),
 		serviceLister:      client.KubeInformer().Core().V1().Services().Lister(),
@@ -124,6 +124,13 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 	if err != nil {
 		return err
 	}
+
+	if len(l) == 0 {
+		return nil
+	}
+
+	sort.SliceStable(status, lessLoadBalancerIngress(status))
+
 	for _, currIng := range l {
 		shouldTarget, err := s.shouldTargetIngress(currIng)
 		if err != nil {
@@ -135,7 +142,6 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 		}
 
 		curIPs := currIng.Status.LoadBalancer.Ingress
-		sort.SliceStable(status, lessLoadBalancerIngress(status))
 		sort.SliceStable(curIPs, lessLoadBalancerIngress(curIPs))
 
 		if ingressSliceEqual(status, curIPs) {

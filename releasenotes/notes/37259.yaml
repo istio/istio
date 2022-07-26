@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 37260
+
+releaseNotes:
+- |
+  **Fixed** unknow field "customService" in v1alpha1.EgressGatewayConfig.

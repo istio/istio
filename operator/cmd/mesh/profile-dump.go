@@ -64,7 +64,7 @@ func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
-func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs, logOpts *log.Options) *cobra.Command {
+func profileDumpCmd(rootArgs *RootArgs, pdArgs *profileDumpArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "dump [<profile>]",
 		Short: "Dumps an Istio configuration profile",
@@ -103,7 +103,12 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var decoded map[string]interface{}
+	var decoded any
+	if uglyJSON[0] == '[' {
+		decoded = make([]any, 0)
+	} else {
+		decoded = map[string]any{}
+	}
 	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
 		return "", err
 	}
@@ -114,7 +119,7 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	return string(prettyJSON), nil
 }
 
-func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l clog.Logger, logOpts *log.Options) error {
+func profileDump(args []string, rootArgs *RootArgs, pdArgs *profileDumpArgs, l clog.Logger, logOpts *log.Options) error {
 	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilenames != nil {
@@ -202,17 +207,23 @@ func yamlToFlags(yml string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	var decoded map[string]interface{}
+	var decoded any
+	if uglyJSON[0] == '[' {
+		decoded = make([]any, 0)
+	} else {
+		decoded = map[string]any{}
+	}
 	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
 		return []string{}, err
 	}
-	spec, ok := decoded["spec"]
-	if !ok {
-		// Fall back to showing the entire spec.
-		// (When --config-path is used there will be no spec to remove)
-		spec = decoded
+	if d, ok := decoded.(map[string]any); ok {
+		if v, ok := d["spec"]; ok {
+			// Fall back to showing the entire spec.
+			// (When --config-path is used there will be no spec to remove)
+			decoded = v
+		}
 	}
-	setflags, err := walk("", "", spec)
+	setflags, err := walk("", "", decoded)
 	if err != nil {
 		return []string{}, err
 	}
@@ -220,9 +231,9 @@ func yamlToFlags(yml string) ([]string, error) {
 	return setflags, nil
 }
 
-func walk(path, separator string, obj interface{}) ([]string, error) {
+func walk(path, separator string, obj any) ([]string, error) {
 	switch v := obj.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		accum := make([]string, 0)
 		for key, vv := range v {
 			childwalk, err := walk(fmt.Sprintf("%s%s%s", path, separator, pathComponent(key)), ".", vv)
@@ -232,7 +243,7 @@ func walk(path, separator string, obj interface{}) ([]string, error) {
 			accum = append(accum, childwalk...)
 		}
 		return accum, nil
-	case []interface{}:
+	case []any:
 		accum := make([]string, 0)
 		for idx, vv := range v {
 			indexwalk, err := walk(fmt.Sprintf("%s[%d]", path, idx), ".", vv)

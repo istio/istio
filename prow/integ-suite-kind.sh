@@ -37,9 +37,12 @@ setup_and_export_git_sha
 source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
-NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.23.0"
+NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.24.0-0.13.0"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
+
+export FAST_VM_BUILDS=true
+export ISTIO_DOCKER_BUILDER=crane
 
 PARAMS=()
 
@@ -101,6 +104,11 @@ while (( "$#" )); do
   esac
 done
 
+if [ -f /proc/cpuinfo ]; then
+  echo "Checking CPU..."
+  grep 'model' /proc/cpuinfo
+fi
+
 # Default IP family of the cluster is IPv4
 export IP_FAMILY="${IP_FAMILY:-ipv4}"
 
@@ -137,7 +145,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    trace "setup kind cluster" setup_kind_cluster "istio-testing" "${NODE_IMAGE}" "${KIND_CONFIG}"
+    trace "setup kind cluster" setup_kind_cluster_retry "istio-testing" "${NODE_IMAGE}" "${KIND_CONFIG}"
   else
     trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
     trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"

@@ -16,8 +16,6 @@ package options
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -40,13 +38,13 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		PilotCertProvider:              features.PilotCertProvider,
 		OutputKeyCertToDir:             outputKeyCertToDir,
 		ProvCert:                       provCert,
-		WorkloadUDSPath:                filepath.Join(proxyConfig.ConfigPath, "SDS"),
 		ClusterID:                      clusterIDVar.Get(),
 		FileMountedCerts:               fileMountedCertsEnv,
 		WorkloadNamespace:              PodNamespaceVar.Get(),
 		ServiceAccount:                 serviceAccountVar.Get(),
 		XdsAuthProvider:                xdsAuthProvider.Get(),
 		TrustDomain:                    trustDomainEnv,
+		WorkloadRSAKeySize:             workloadRSAKeySizeEnv,
 		Pkcs8Keys:                      pkcs8KeysEnv,
 		ECCSigAlg:                      eccSigAlgEnv,
 		SecretTTL:                      secretTTLEnv,
@@ -78,7 +76,8 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 }
 
 func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.Options, jwtPolicy,
-	credFetcherTypeEnv, credIdentityProvider string) (*security.Options, error) {
+	credFetcherTypeEnv, credIdentityProvider string,
+) (*security.Options, error) {
 	var jwtPath string
 	switch jwtPolicy {
 	case jwt.PolicyThirdParty:
@@ -92,7 +91,6 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	}
 
 	o := secOpt
-	o.JWTPath = jwtPath
 
 	// If not set explicitly, default to the discovery address.
 	if o.CAEndpoint == "" {
@@ -100,20 +98,16 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		o.CAEndpointSAN = istiodSAN.Get()
 	}
 
-	// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
-	// GCE is the only supported plugin at the moment.
-	if credFetcherTypeEnv == security.GCE {
-		o.CredIdentityProvider = credIdentityProvider
-		credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create credential fetcher: %v", err)
-		}
-		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
-		o.CredFetcher = credFetcher
+	o.CredIdentityProvider = credIdentityProvider
+	credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create credential fetcher: %v", err)
 	}
+	log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
+	o.CredFetcher = credFetcher
 
 	if o.CAProviderName == security.GkeWorkloadCertificateProvider {
-		if !CheckGkeWorkloadCertificate(security.GkeWorkloadCertChainFilePath,
+		if !security.CheckWorkloadCertificate(security.GkeWorkloadCertChainFilePath,
 			security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath) {
 			return nil, fmt.Errorf("GKE workload certificate files (%v, %v, %v) not present",
 				security.GkeWorkloadCertChainFilePath, security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath)
@@ -146,19 +140,4 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		return nil, fmt.Errorf("invalid options: PROV_CERT and FILE_MOUNTED_CERTS are mutually exclusive")
 	}
 	return o, nil
-}
-
-// CheckGkeWorkloadCertificate returns true when the GKE workload certificate
-// files are present under the path for GKE workload certificate. Otherwise, return false.
-func CheckGkeWorkloadCertificate(certChainFilePath, keyFilePath, rootCertFilePath string) bool {
-	if _, err := os.Stat(certChainFilePath); err != nil {
-		return false
-	}
-	if _, err := os.Stat(keyFilePath); err != nil {
-		return false
-	}
-	if _, err := os.Stat(rootCertFilePath); err != nil {
-		return false
-	}
-	return true
 }

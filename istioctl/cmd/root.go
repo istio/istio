@@ -224,7 +224,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(AuthZ())
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(uninjectCommand())
-	experimentalCmd.AddCommand(metricsCmd)
+	experimentalCmd.AddCommand(metricsCmd())
 	experimentalCmd.AddCommand(describe())
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
@@ -235,6 +235,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(revisionCommand())
 	experimentalCmd.AddCommand(debugCommand())
 	experimentalCmd.AddCommand(preCheck())
+	experimentalCmd.AddCommand(statsConfigCmd())
 
 	analyzeCmd := Analyze()
 	hideInheritedFlags(analyzeCmd, FlagIstioNamespace)
@@ -292,7 +293,7 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(optionsCommand(rootCmd))
 
-	// BFS apply the flag error function to all subcommands
+	// BFS applies the flag error function to all subcommands
 	seenCommands := make(map[*cobra.Command]bool)
 	var commandStack []*cobra.Command
 
@@ -367,7 +368,7 @@ func getDefaultNamespace(kubeconfig string) string {
 	return context.Namespace
 }
 
-// seeExperimentalCmd is used for commands that have been around for a release but not graduated
+// seeExperimentalCmd is used for commands that have been around for a release but not graduated from
 // Other alternative
 // for graduatedCmd see https://github.com/istio/istio/pull/26408
 // for softGraduatedCmd see https://github.com/istio/istio/pull/26563

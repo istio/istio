@@ -25,9 +25,9 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	corexds "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // BuildClusters handles a gRPC CDS request, used with the 'ApiListener' style of requests.
@@ -48,7 +48,7 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 	for _, c := range clusters {
 		resp = append(resp, &discovery.Resource{
 			Name:     c.Name,
-			Resource: util.MessageToAny(c),
+			Resource: protoconv.MessageToAny(c),
 		})
 	}
 	if len(resp) == 0 && len(names) == 0 {
@@ -66,7 +66,7 @@ func newClusterFilter(names []string) map[string]sets.Set {
 		dir, _, hn, p := model.ParseSubsetKey(name)
 		defaultKey := model.BuildSubsetKey(dir, "", hn, p)
 		if _, ok := filter[defaultKey]; !ok {
-			filter[defaultKey] = sets.NewSet()
+			filter[defaultKey] = sets.New()
 		}
 		filter[defaultKey].Insert(name)
 	}
@@ -176,7 +176,8 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 	}
 
 	// resolve policy from context
-	destinationRule := corexds.CastDestinationRule(b.push.DestinationRule(b.node, b.svc))
+	destinationRule := corexds.CastDestinationRule(b.node.SidecarScope.DestinationRule(
+		model.TrafficDirectionOutbound, b.node, b.svc.Hostname).GetRule())
 	trafficPolicy := corexds.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
 
 	// setup default cluster
@@ -213,7 +214,7 @@ func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *n
 
 func (b *clusterBuilder) applyLoadBalancing(c *cluster.Cluster, policy *networking.TrafficPolicy) {
 	switch policy.GetLoadBalancer().GetSimple() {
-	case networking.LoadBalancerSettings_ROUND_ROBIN:
+	case networking.LoadBalancerSettings_ROUND_ROBIN, networking.LoadBalancerSettings_UNSPECIFIED:
 	// ok
 	default:
 		log.Warnf("cannot apply LbPolicy %s to %s", policy.LoadBalancer.GetSimple(), b.node.ID)
@@ -238,7 +239,7 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 		tlsCtx := buildUpstreamTLSContext(b.push.ServiceAccounts[b.hostname][b.portNum])
 		c.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsCtx)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsCtx)},
 		}
 	}
 }

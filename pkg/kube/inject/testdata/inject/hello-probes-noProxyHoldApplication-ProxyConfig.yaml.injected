@@ -14,11 +14,13 @@ spec:
   template:
     metadata:
       annotations:
+        kubectl.kubernetes.io/default-container: hello
+        kubectl.kubernetes.io/default-logs-container: hello
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": false }'
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
         app: hello
@@ -129,6 +131,12 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
+        - mountPath: /var/run/secrets/workload-spiffe-uds
+          name: workload-socket
+        - mountPath: /var/run/secrets/credential-uds
+          name: credential-socket
+        - mountPath: /var/run/secrets/workload-spiffe-credentials
+          name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
@@ -187,6 +195,7 @@ spec:
         - '*'
         - -d
         - 15090,15021,15020
+        - --log_output_level=default:info
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-init
         resources:
@@ -212,6 +221,9 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
+      - name: workload-socket
+      - name: credential-socket
+      - name: workload-certs
       - emptyDir:
           medium: Memory
         name: istio-envoy

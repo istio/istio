@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -42,7 +42,6 @@ func TestMtlsHealthCheck(t *testing.T) {
 				name    string
 				rewrite bool
 			}{
-				{name: "norewrite-fail", rewrite: false},
 				{name: "rewrite-success", rewrite: true},
 			} {
 				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
@@ -53,7 +52,8 @@ func TestMtlsHealthCheck(t *testing.T) {
 }
 
 func runHealthCheckDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
-	name string, rewrite bool) {
+	name string, rewrite bool,
+) {
 	ctx.Helper()
 	wantSuccess := rewrite
 	policyYAML := fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
@@ -67,7 +67,7 @@ spec:
   mtls:
     mode: STRICT
 `, name, name)
-	ctx.ConfigIstio().ApplyYAMLOrFail(ctx, ns.Name(), policyYAML)
+	ctx.ConfigIstio().YAML(ns.Name(), policyYAML).ApplyOrFail(ctx)
 
 	var healthcheck echo.Instance
 	cfg := echo.Config{
@@ -77,7 +77,7 @@ spec:
 			Name:         "http-8080",
 			Protocol:     protocol.HTTP,
 			ServicePort:  8080,
-			InstancePort: 8080,
+			WorkloadPort: 8080,
 		}},
 		Subsets: []echo.SubsetConfig{
 			{
@@ -89,7 +89,7 @@ spec:
 	if !rewrite {
 		cfg.ReadinessTimeout = time.Second * 15
 	}
-	_, err := echoboot.NewBuilder(ctx).
+	_, err := deployment.New(ctx).
 		With(&healthcheck, cfg).
 		Build()
 	gotSuccess := err == nil

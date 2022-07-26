@@ -69,7 +69,10 @@ func (c Config) String() string {
 	return b.String()
 }
 
-var _ io.Closer = &Instance{}
+var (
+	serverLog           = log.RegisterScope("server", "echo server", 0)
+	_         io.Closer = &Instance{}
+)
 
 // Instance of the Echo server.
 type Instance struct {
@@ -133,7 +136,7 @@ func (s *Instance) Start() (err error) {
 }
 
 func getBindAddresses(ip string) []string {
-	if ip != "localhost" {
+	if ip != "" && ip != "localhost" {
 		return []string{ip}
 	}
 	// Binding to "localhost" will only bind to a single address (v4 or v6). We want both, so we need
@@ -158,10 +161,18 @@ func getBindAddresses(ip string) []string {
 	}
 	addrs := []string{}
 	if v4 {
-		addrs = append(addrs, "127.0.0.1")
+		if ip == "localhost" {
+			addrs = append(addrs, "127.0.0.1")
+		} else {
+			addrs = append(addrs, "0.0.0.0")
+		}
 	}
 	if v6 {
-		addrs = append(addrs, "::1")
+		if ip == "localhost" {
+			addrs = append(addrs, "::1")
+		} else {
+			addrs = append(addrs, "::")
+		}
 	}
 	return addrs
 }
@@ -247,6 +258,7 @@ func (s *Instance) validate() error {
 		case protocol.HTTPS:
 		case protocol.HTTP2:
 		case protocol.GRPC:
+		case protocol.HBONE:
 		default:
 			return fmt.Errorf("protocol %v not currently supported", port.Protocol)
 		}
@@ -263,11 +275,22 @@ func (s *Instance) startMetricsServer() {
 		return
 	}
 	view.RegisterExporter(exporter)
-	mux.Handle("/metrics", exporter)
+	mux.Handle("/metrics", LogRequests(exporter))
 	s.metricsServer = &http.Server{
 		Handler: mux,
 	}
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", s.Metrics), mux); err != nil {
 		log.Errorf("metrics terminated with err: %v", err)
 	}
+}
+
+func LogRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			serverLog.WithLabels(
+				"remoteAddr", r.RemoteAddr, "method", r.Method, "url", r.URL, "host", r.Host, "headers", r.Header,
+			).Infof("Metrics Request")
+			next.ServeHTTP(w, r)
+		},
+	)
 }

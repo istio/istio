@@ -24,8 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -35,11 +37,12 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output
@@ -54,8 +57,7 @@ func TestInjection(t *testing.T) {
 		skipWebhook   bool
 		expectedError string
 		expectedLog   string
-		setup         func()
-		teardown      func()
+		setup         func(t test.Failer)
 	}
 	cases := []testCase{
 		// verify cni
@@ -101,8 +103,8 @@ func TestInjection(t *testing.T) {
 			in:   "format-duration.yaml",
 			want: "format-duration.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
-				m.DefaultConfig.DrainDuration = types.DurationProto(time.Second * 23)
-				m.DefaultConfig.ParentShutdownDuration = types.DurationProto(time.Second * 42)
+				m.DefaultConfig.DrainDuration = durationpb.New(time.Second * 23)
+				m.DefaultConfig.ParentShutdownDuration = durationpb.New(time.Second * 42)
 			},
 		},
 		{
@@ -254,19 +256,18 @@ func TestInjection(t *testing.T) {
 		{
 			in:   "hello.yaml",
 			want: "hello-no-seccontext.yaml.injected",
-			setup: func() {
-				features.EnableLegacyFSGroupInjection = false
-				os.Setenv("ENABLE_LEGACY_FSGROUP_INJECTION", "false")
-			},
-			teardown: func() {
-				features.EnableLegacyFSGroupInjection = true
-				os.Setenv("ENABLE_LEGACY_FSGROUP_INJECTION", "true")
+			setup: func(t test.Failer) {
+				test.SetBoolForTest(t, &features.EnableLegacyFSGroupInjection, false)
+				test.SetEnvForTest(t, "ENABLE_LEGACY_FSGROUP_INJECTION", "false")
 			},
 		},
 		{
 			in:   "traffic-annotations.yaml",
 			want: "traffic-annotations.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
+				if m.DefaultConfig.ProxyMetadata == nil {
+					m.DefaultConfig.ProxyMetadata = map[string]string{}
+				}
 				m.DefaultConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_KEY"] = "/etc/identity/client/keys/client-key.pem"
 			},
 		},
@@ -298,11 +299,8 @@ func TestInjection(t *testing.T) {
 		{
 			in:   "tcp-probes.yaml",
 			want: "tcp-probes-disabled.yaml.injected",
-			setup: func() {
-				features.RewriteTCPProbes = false
-			},
-			teardown: func() {
-				features.RewriteTCPProbes = true
+			setup: func(t test.Failer) {
+				test.SetBoolForTest(t, &features.RewriteTCPProbes, false)
 			},
 		},
 		{
@@ -313,7 +311,7 @@ func TestInjection(t *testing.T) {
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
-	alreadyTested := sets.NewSet()
+	alreadyTested := sets.New()
 	for _, t := range cases {
 		if t.want != "" {
 			alreadyTested.Insert(t.want)
@@ -331,7 +329,7 @@ func TestInjection(t *testing.T) {
 	// Automatically add any other test files in the folder. This ensures we don't
 	// forget to add to this list, that we don't have duplicates, etc
 	// Keep track of all golden files so we can ensure we don't have unused ones later
-	allOutputFiles := sets.NewSet()
+	allOutputFiles := sets.New()
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), ".injected") {
 			allOutputFiles.Insert(f.Name())
@@ -349,23 +347,30 @@ func TestInjection(t *testing.T) {
 		cases = append(cases, testCase{in: f.Name(), want: want})
 	}
 
+	// Precompute injection settings. This may seem like a premature optimization, but due to the size of
+	// YAMLs, with -race this was taking >10min in some cases to generate!
+	if util.Refresh() {
+		writeInjectionSettings(t, "default", nil, "")
+		for i, c := range cases {
+			if c.setFlags != nil || c.inFilePath != "" {
+				writeInjectionSettings(t, fmt.Sprintf("%s.%d", c.in, i), c.setFlags, c.inFilePath)
+			}
+		}
+	}
 	// Preload default settings. Computation here is expensive, so this speeds the tests up substantially
-	defaultTemplate, defaultValues, defaultMesh := loadInjectionSettings(t, nil, "")
+	defaultTemplate, defaultValues, defaultMesh := readInjectionSettings(t, "default")
 	for i, c := range cases {
-		c := c
+		i, c := i, c
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		if c.expectedError != "" {
 			testName = fmt.Sprintf("[%02d] %s", i, c.in)
 		}
 		t.Run(testName, func(t *testing.T) {
 			if c.setup != nil {
-				c.setup()
+				c.setup(t)
 			} else {
 				// Tests with custom setup modify global state and cannot run in parallel
 				t.Parallel()
-			}
-			if c.teardown != nil {
-				t.Cleanup(c.teardown)
 			}
 
 			mc, err := mesh.DeepCopyMeshConfig(defaultMesh)
@@ -374,7 +379,7 @@ func TestInjection(t *testing.T) {
 			}
 			sidecarTemplate, valuesConfig := defaultTemplate, defaultValues
 			if c.setFlags != nil || c.inFilePath != "" {
-				sidecarTemplate, valuesConfig, mc = loadInjectionSettings(t, c.setFlags, c.inFilePath)
+				sidecarTemplate, valuesConfig, mc = readInjectionSettings(t, fmt.Sprintf("%s.%d", c.in, i))
 			}
 			if c.mesh != nil {
 				c.mesh(mc)
@@ -457,10 +462,7 @@ func TestInjection(t *testing.T) {
 				wantYAMLs := splitYamlFile(wantFilePath, t)
 				for i := 0; i < len(inputYAMLs); i++ {
 					t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
-						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i], false)
-						t.Run("idempotency", func(t *testing.T) {
-							runWebhook(t, webhook, wantYAMLs[i], wantYAMLs[i], true)
-						})
+						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i], true)
 					})
 				}
 			})
@@ -478,9 +480,13 @@ func TestInjection(t *testing.T) {
 
 func testInjectionTemplate(t *testing.T, template, input, expected string) {
 	t.Helper()
+	tmpl, err := ParseTemplates(map[string]string{SidecarTemplateName: template})
+	if err != nil {
+		t.Fatal(err)
+	}
 	webhook := &Webhook{
 		Config: &Config{
-			Templates:        map[string]string{SidecarTemplateName: template},
+			Templates:        tmpl,
 			Policy:           InjectionPolicyEnabled,
 			DefaultTemplates: []string{SidecarTemplateName},
 		},
@@ -494,24 +500,28 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 }
 
 func TestMultipleInjectionTemplates(t *testing.T) {
-	webhook := &Webhook{
-		Config: &Config{
-			Templates: map[string]string{
-				"sidecar": `
+	p, err := ParseTemplates(map[string]string{
+		"sidecar": `
 spec:
   containers:
   - name: istio-proxy
     image: proxy
 `,
-				"init": `
+		"init": `
 spec:
  initContainers:
  - name: istio-init
    image: proxy
 `,
-			},
-			Aliases: map[string][]string{"both": {"sidecar", "init"}},
-			Policy:  InjectionPolicyEnabled,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	webhook := &Webhook{
+		Config: &Config{
+			Templates: p,
+			Aliases:   map[string][]string{"both": {"sidecar", "init"}},
+			Policy:    InjectionPolicyEnabled,
 		},
 		env: &model.Environment{
 			PushContext: &model.PushContext{
@@ -619,7 +629,7 @@ spec:
 `)
 }
 
-func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byte, ignoreIstioMetaJSONAnnotationsEnv bool) {
+func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byte, idempotencyCheck bool) {
 	// Convert the input YAML to a deployment.
 	inputRaw, err := FromRawToObject(inputYAML)
 	if err != nil {
@@ -660,8 +670,15 @@ func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byt
 		gotPod = inputPod
 	}
 
-	if err := normalizeAndCompareDeployments(gotPod, wantPod, ignoreIstioMetaJSONAnnotationsEnv, t); err != nil {
+	if err := normalizeAndCompareDeployments(gotPod, wantPod, false, t); err != nil {
 		t.Fatal(err)
+	}
+	if idempotencyCheck {
+		t.Run("idempotency", func(t *testing.T) {
+			if err := normalizeAndCompareDeployments(gotPod, wantPod, true, t); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 
@@ -735,11 +752,11 @@ func TestSkipUDPPorts(t *testing.T) {
 		expectPorts := cases[i].ports
 		ports := getPortsForContainer(cases[i].c)
 		if len(ports) != len(expectPorts) {
-			t.Fatalf("unexpect ports result for case %d", i)
+			t.Fatalf("unexpected ports result for case %d", i)
 		}
 		for j := 0; j < len(ports); j++ {
 			if ports[j] != expectPorts[j] {
-				t.Fatalf("unexpect ports result for case %d: expect %v, got %v", i, expectPorts, ports)
+				t.Fatalf("unexpected ports result for case %d: expect %v, got %v", i, expectPorts, ports)
 			}
 		}
 	}
@@ -748,16 +765,16 @@ func TestSkipUDPPorts(t *testing.T) {
 func TestCleanProxyConfig(t *testing.T) {
 	overrides := mesh.DefaultProxyConfig()
 	overrides.ConfigPath = "/foo/bar"
-	overrides.DrainDuration = types.DurationProto(7 * time.Second)
+	overrides.DrainDuration = durationpb.New(7 * time.Second)
 	overrides.ProxyMetadata = map[string]string{
 		"foo": "barr",
 	}
 	explicit := mesh.DefaultProxyConfig()
 	explicit.ConfigPath = constants.ConfigPathDir
-	explicit.DrainDuration = types.DurationProto(45 * time.Second)
+	explicit.DrainDuration = durationpb.New(45 * time.Second)
 	cases := []struct {
 		name   string
-		proxy  meshapi.ProxyConfig
+		proxy  *meshapi.ProxyConfig
 		expect string
 	}{
 		{
@@ -778,7 +795,7 @@ func TestCleanProxyConfig(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := protoToJSON(&tt.proxy)
+			got := protoToJSON(tt.proxy)
 			if got != tt.expect {
 				t.Fatalf("incorrect output: got %v, expected %v", got, tt.expect)
 			}
@@ -786,7 +803,7 @@ func TestCleanProxyConfig(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !cmp.Equal(*roundTrip.GetDefaultConfig(), tt.proxy) {
+			if !cmp.Equal(roundTrip.GetDefaultConfig(), tt.proxy, protocmp.Transform()) {
 				t.Fatalf("round trip is not identical: got \n%+v, expected \n%+v", *roundTrip.GetDefaultConfig(), tt.proxy)
 			}
 		})
@@ -952,11 +969,12 @@ func TestQuantityConversion(t *testing.T) {
 }
 
 func TestProxyImage(t *testing.T) {
-	val := func(hub string, tag interface{}) *opconfig.Values {
+	val := func(hub string, tag any) *opconfig.Values {
+		t, _ := structpb.NewValue(tag)
 		return &opconfig.Values{
 			Global: &opconfig.GlobalConfig{
 				Hub: hub,
-				Tag: tag,
+				Tag: t,
 			},
 		}
 	}

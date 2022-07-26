@@ -45,17 +45,18 @@ type Collection struct {
 
 // Resource metadata for resources contained within a collection.
 type Resource struct {
-	Group              string `json:"group"`
-	Version            string `json:"version"`
-	Kind               string `json:"kind"`
-	Plural             string `json:"plural"`
-	ClusterScoped      bool   `json:"clusterScoped"`
-	Proto              string `json:"proto"`
-	ProtoPackage       string `json:"protoPackage"`
-	StatusProto        string `json:"statusProto"`
-	StatusProtoPackage string `json:"statusProtoPackage"`
-	Validate           string `json:"validate"`
-	Description        string `json:"description"`
+	Group              string   `json:"group"`
+	Version            string   `json:"version"`
+	VersionAliases     []string `json:"versionAliases"`
+	Kind               string   `json:"kind"`
+	Plural             string   `json:"plural"`
+	ClusterScoped      bool     `json:"clusterScoped"`
+	Proto              string   `json:"proto"`
+	ProtoPackage       string   `json:"protoPackage"`
+	StatusProto        string   `json:"statusProto"`
+	StatusProtoPackage string   `json:"statusProtoPackage"`
+	Validate           string   `json:"validate"`
+	Description        string   `json:"description"`
 }
 
 // FindResourceForGroupKind looks up a resource with the given group and kind. Returns nil if not found.

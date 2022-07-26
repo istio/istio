@@ -28,14 +28,13 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/telemetry"
 )
 
@@ -50,15 +49,14 @@ const (
 func TestStackdriverHTTPAuditLogging(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 
 			ns := EchoNsInst.Name()
 			args := map[string]string{
 				"Namespace": ns,
 			}
-			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filepath.Join(env.IstioSrc, auditPolicyForLogEntry)))
-			ctx.ConfigIstio().ApplyYAMLOrFail(t, ns, policies...)
+			t.ConfigIstio().EvalFile(ns, args, filepath.Join(env.IstioSrc, auditPolicyForLogEntry)).ApplyOrFail(t)
 			t.Logf("Audit policy deployed to namespace %v", ns)
 
 			for _, cltInstance := range Clt {
@@ -98,7 +96,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 							errs = append(errs, errAuditAll.Error())
 						}
 
-						entries, err := SDInst.ListLogEntries(stackdriver.ServerAuditLog, EchoNsInst.Name())
+						entries, err := SDInst.ListLogEntries(stackdriver.ServerAuditLog, EchoNsInst.Name(), "")
 						if err != nil {
 							errs = append(errs, err.Error())
 						} else {
@@ -114,7 +112,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 						}
 
 						return fmt.Errorf(strings.Join(errs, "\n"))
-					}, retry.Delay(5*time.Second), retry.Timeout(80*time.Second))
+					}, retry.Delay(5*time.Second), retry.Timeout(20*time.Second))
 					if err != nil {
 						return err
 					}
@@ -128,16 +126,22 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 }
 
 // send http requests with different header and path
-func sendTrafficForAudit(t *testing.T, cltInstance echo.Instance) error {
+func sendTrafficForAudit(t test.Failer, cltInstance echo.Instance) error {
 	t.Helper()
 
 	newOptions := func(headers http.Header, path string) echo.CallOptions {
 		return echo.CallOptions{
-			Target:   Srv[0],
-			PortName: "http",
-			Headers:  headers,
-			Path:     path,
-			Count:    telemetry.RequestCountMultipler,
+			To: Srv,
+			Port: echo.Port{
+				Name: "http",
+			},
+			HTTP: echo.HTTP{
+				Headers: headers,
+				Path:    path,
+			},
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		}
 	}
 

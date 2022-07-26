@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - https://github.com/istio/api/issues/2285
+releaseNotes:
+  - |
+    **Added** support for TLS configuration API for workloads.

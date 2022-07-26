@@ -21,7 +21,6 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
@@ -29,9 +28,9 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 func mustReadFile(t framework.TestContext, f string) string {
@@ -55,7 +54,7 @@ func TestDestinationRuleTls(t *testing.T) {
 			})
 
 			// Setup our destination rule, enforcing TLS to "server". These certs will be created/mounted below.
-			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -69,10 +68,10 @@ spec:
       clientCertificate: /etc/certs/custom/cert-chain.pem
       privateKey: /etc/certs/custom/key.pem
       caCertificates: /etc/certs/custom/root-cert.pem
-`)
+`).ApplyOrFail(t)
 
 			var client, server echo.Instance
-			echoboot.NewBuilder(t).
+			deployment.New(t).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: ns,
@@ -95,19 +94,19 @@ spec:
 						{
 							Name:         "grpc",
 							Protocol:     protocol.GRPC,
-							InstancePort: 8090,
+							WorkloadPort: 8090,
 							TLS:          true,
 						},
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8091,
+							WorkloadPort: 8091,
 							TLS:          true,
 						},
 						{
 							Name:         "tcp",
 							Protocol:     protocol.TCP,
-							InstancePort: 8092,
+							WorkloadPort: 8092,
 							TLS:          true,
 						},
 					},
@@ -128,22 +127,21 @@ spec:
 				}).
 				BuildOrFail(t)
 
-			for _, tt := range []string{"grpc", "http", "tcp"} {
-				t.NewSubTest(tt).Run(func(t framework.TestContext) {
-					retry.UntilSuccessOrFail(t, func() error {
-						opts := echo.CallOptions{
-							Target:   server,
-							PortName: tt,
-						}
-						if tt == "tcp" {
-							opts.Scheme = scheme.TCP
-						}
-						resp, err := client.Call(opts)
-						if err != nil {
-							return err
-						}
-						return resp.CheckOK()
-					}, retry.Delay(time.Millisecond*100))
+			for _, portName := range []string{"grpc", "http", "tcp"} {
+				portName := portName
+				t.NewSubTest(portName).Run(func(t framework.TestContext) {
+					opts := echo.CallOptions{
+						To:    server,
+						Count: 1,
+						Port: echo.Port{
+							Name: portName,
+						},
+						Check: check.OK(),
+					}
+					if portName == "tcp" {
+						opts.Scheme = scheme.TCP
+					}
+					client.CallOrFail(t, opts)
 				})
 			}
 		})

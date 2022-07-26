@@ -15,6 +15,11 @@
 package wasm
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,45 +28,76 @@ import (
 	"github.com/cenkalti/backoff/v4"
 )
 
+var (
+	// Referred to https://en.wikipedia.org/wiki/Tar_(computing)#UStar_format
+	tarMagicNumber = []byte{0x75, 0x73, 0x74, 0x61, 0x72}
+	// Referred to https://en.wikipedia.org/wiki/Gzip#File_format
+	gzMagicNumber = []byte{0x1f, 0x8b}
+)
+
 // HTTPFetcher fetches remote wasm module with HTTP get.
 type HTTPFetcher struct {
-	defaultClient *http.Client
+	client          *http.Client
+	insecureClient  *http.Client
+	initialBackoff  time.Duration
+	requestMaxRetry int
 }
 
 // NewHTTPFetcher create a new HTTP remote wasm module fetcher.
-func NewHTTPFetcher() *HTTPFetcher {
+// requestTimeout is a timeout for each HTTP/HTTPS request.
+// requestMaxRetry is # of maximum retries of HTTP/HTTPS requests.
+func NewHTTPFetcher(requestTimeout time.Duration, requestMaxRetry int) *HTTPFetcher {
+	if requestTimeout == 0 {
+		requestTimeout = 5 * time.Second
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	return &HTTPFetcher{
-		defaultClient: &http.Client{
-			Timeout: 5 * time.Second,
+		client: &http.Client{
+			Timeout: requestTimeout,
 		},
+		insecureClient: &http.Client{
+			Timeout:   requestTimeout,
+			Transport: transport,
+		},
+		initialBackoff:  time.Millisecond * 500,
+		requestMaxRetry: requestMaxRetry,
 	}
 }
 
 // Fetch downloads a wasm module with HTTP get.
-func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
-	c := f.defaultClient
-	if timeout != 0 {
-		c = &http.Client{
-			Timeout: timeout,
-		}
+func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool) ([]byte, error) {
+	c := f.client
+	if allowInsecure {
+		c = f.insecureClient
 	}
 	attempts := 0
-
 	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = f.initialBackoff
+	b.Reset()
 	var lastError error
-	for attempts < 5 {
+	for attempts < f.requestMaxRetry {
 		attempts++
-		resp, err := c.Get(url)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			wasmLog.Debugf("wasm module download request failed: %v", err)
+			return nil, err
+		}
+		resp, err := c.Do(req)
 		if err != nil {
 			lastError = err
 			wasmLog.Debugf("wasm module download request failed: %v", err)
+			if ctx.Err() != nil {
+				// If there is context timeout, exit this loop.
+				return nil, fmt.Errorf("wasm module download failed after %v attempts, last error: %v", attempts, lastError)
+			}
 			time.Sleep(b.NextBackOff())
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
 			body, err := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return body, err
+			return unboxIfPossible(body), err
 		}
 		lastError = fmt.Errorf("wasm module download request failed: status code %v", resp.StatusCode)
 		if retryable(resp.StatusCode) {
@@ -74,7 +110,7 @@ func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 		resp.Body.Close()
 		break
 	}
-	return nil, fmt.Errorf("wasm module download failed, last error: %v", lastError)
+	return nil, fmt.Errorf("wasm module download failed after %v attempts, last error: %v", attempts, lastError)
 }
 
 func retryable(code int) bool {
@@ -82,4 +118,68 @@ func retryable(code int) bool {
 		!(code == http.StatusNotImplemented ||
 			code == http.StatusHTTPVersionNotSupported ||
 			code == http.StatusNetworkAuthenticationRequired)
+}
+
+func isPosixTar(b []byte) bool {
+	return len(b) > 262 && bytes.Equal(b[257:262], tarMagicNumber)
+}
+
+// wasm plugin should be the only file in the tarball.
+func getFirstFileFromTar(b []byte) []byte {
+	buf := bytes.NewBuffer(b)
+
+	tr := tar.NewReader(buf)
+
+	h, err := tr.Next()
+	if err != nil {
+		return nil
+	}
+
+	ret := make([]byte, h.Size)
+	_, err = io.ReadFull(tr, ret)
+	if err != nil {
+		return nil
+	}
+	return ret
+}
+
+func isGZ(b []byte) bool {
+	return len(b) > 2 && bytes.Equal(b[:2], gzMagicNumber)
+}
+
+func getFileFromGZ(b []byte) []byte {
+	buf := bytes.NewBuffer(b)
+
+	zr, err := gzip.NewReader(buf)
+	if err != nil {
+		return nil
+	}
+
+	ret, err := io.ReadAll(zr)
+	if err != nil {
+		return nil
+	}
+	return ret
+}
+
+// Just do the best effort.
+// If an error is encountered, just return the original bytes.
+// Errors will be handled upper layers.
+func unboxIfPossible(origin []byte) []byte {
+	b := origin
+	for {
+		if isValidWasmBinary(b) {
+			return b
+		} else if isGZ(b) {
+			if b = getFileFromGZ(b); b == nil {
+				return origin
+			}
+		} else if isPosixTar(b) {
+			if b = getFirstFileFromTar(b); b == nil {
+				return origin
+			}
+		} else {
+			return origin
+		}
+	}
 }

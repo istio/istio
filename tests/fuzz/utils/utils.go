@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package utils
 
 import (
@@ -27,13 +26,13 @@ func (n NopTester) Fail() {}
 
 func (n NopTester) FailNow() {}
 
-func (n NopTester) Fatal(args ...interface{}) {}
+func (n NopTester) Fatal(args ...any) {}
 
-func (n NopTester) Fatalf(format string, args ...interface{}) {}
+func (n NopTester) Fatalf(format string, args ...any) {}
 
-func (n NopTester) Log(args ...interface{}) {}
+func (n NopTester) Log(args ...any) {}
 
-func (n NopTester) Logf(format string, args ...interface{}) {}
+func (n NopTester) Logf(format string, args ...any) {}
 
 func (n NopTester) TempDir() string {
 	tempDir, _ := os.MkdirTemp("", "test")

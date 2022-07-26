@@ -24,59 +24,58 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/tests/integration/security/util/connection"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 )
 
 func TestMultiRootSetup(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.multiple-root").
 		Run(func(t framework.TestContext) {
-			testNS := apps.Namespace
+			testNS := apps.EchoNamespace.Namespace
 
-			t.ConfigIstio().ApplyYAMLOrFail(t, testNS.Name(), POLICY)
+			t.ConfigIstio().YAML(testNS.Name(), POLICY).ApplyOrFail(t)
 
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					verify := func(ctx framework.TestContext, src echo.Instance, dest echo.Instance, s scheme.Instance, success bool) {
+					verify := func(ctx framework.TestContext, from echo.Instance, to echo.Instances, s scheme.Instance, success bool) {
 						want := "success"
 						if !success {
 							want = "fail"
 						}
-						name := fmt.Sprintf("server:%s[%s]", dest.Config().Service, want)
+						name := fmt.Sprintf("server:%s[%s]", to[0].Config().Service, want)
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
-							opt := echo.CallOptions{
-								Target:   dest,
-								PortName: HTTPS,
-								Address:  dest.Config().Service,
-								Scheme:   s,
+							opts := echo.CallOptions{
+								To:    to,
+								Count: 1,
+								Port: echo.Port{
+									Name: "https",
+								},
+								Address: to.Config().Service,
+								Scheme:  s,
 							}
-							checker := connection.Checker{
-								From:          src,
-								Options:       opt,
-								ExpectSuccess: success,
-								DestClusters:  t.Clusters(),
-							}
-							checker.CheckOrFail(t)
+							opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
+
+							from.CallOrFail(t, opts)
 						})
 					}
 
-					client := apps.Client.GetOrFail(t, echo.InCluster(cluster))
-					serverNakedFooAlt := apps.ServerNakedFooAlt.GetOrFail(t, echo.InCluster(cluster))
+					client := match.Cluster(cluster).FirstOrFail(t, client)
 					cases := []struct {
-						src    echo.Instance
-						dest   echo.Instance
+						from   echo.Instance
+						to     echo.Instances
 						expect bool
 					}{
 						{
-							src:    client,
-							dest:   serverNakedFooAlt,
+							from:   client,
+							to:     serverNakedFooAlt,
 							expect: true,
 						},
 					}
 
 					for _, tc := range cases {
-						verify(t, tc.src, tc.dest, scheme.HTTP, tc.expect)
+						verify(t, tc.from, tc.to, scheme.HTTP, tc.expect)
 					}
 				})
 			}

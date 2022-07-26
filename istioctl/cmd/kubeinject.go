@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -70,7 +71,7 @@ type ExternalInjector struct {
 	injectorAddress string
 }
 
-func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
+func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, error) {
 	cc := e.clientConfig
 	if cc == nil {
 		return nil, nil
@@ -91,8 +92,14 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 		}
 	}
 	tlsClientConfig := &tls.Config{RootCAs: certPool}
+	client := http.Client{
+		Timeout: time.Second * 5,
+		Transport: &http.Transport{
+			TLSClientConfig: tlsClientConfig,
+		},
+	}
 	if cc.Service != nil {
-		svc, err := e.client.CoreV1().Services(cc.Service.Namespace).Get(context.Background(), cc.Service.Name, metav1.GetOptions{})
+		svc, err := e.client.Kube().CoreV1().Services(cc.Service.Namespace).Get(context.Background(), cc.Service.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +110,7 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 			}
 			address = fmt.Sprintf("https://%s:%d%s", e.injectorAddress, *cc.Service.Port, *cc.Service.Path)
 		} else {
-			pod, err := GetFirstPod(e.client.CoreV1(), namespace, selector.String())
+			pod, err := GetFirstPod(e.client.Kube().CoreV1(), namespace, selector.String())
 			if err != nil {
 				return nil, err
 			}
@@ -129,14 +136,17 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 			}()
 		}
 		tlsClientConfig.ServerName = fmt.Sprintf("%s.%s.%s", cc.Service.Name, cc.Service.Namespace, "svc")
-	}
-	client := http.Client{
-		Timeout: time.Second * 5,
-		Transport: &http.Transport{
-			TLSClientConfig: tlsClientConfig,
-		},
+	} else if isMCPAddr(address) {
+		var err error
+		client.Transport, err = mcpTransport(context.TODO(), client.Transport)
+		if err != nil {
+			return nil, err
+		}
 	}
 	podBytes, err := json.Marshal(pod)
+	if pod.Namespace != "" {
+		deploymentNS = pod.Namespace
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +168,7 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 			RequestResource:    nil,
 			RequestSubResource: "",
 			Name:               pod.Name,
-			Namespace:          pod.Namespace,
+			Namespace:          deploymentNS,
 		},
 		Response: nil,
 	}
@@ -287,10 +297,10 @@ func getValuesFromConfigMap(kubeconfig, revision string) (string, error) {
 	return valuesData, nil
 }
 
-func readInjectConfigFile(f []byte) (inject.Templates, error) {
+func readInjectConfigFile(f []byte) (inject.RawTemplates, error) {
 	var injectConfig inject.Config
 	err := yaml.Unmarshal(f, &injectConfig)
-	if err != nil || len(injectConfig.Templates) == 0 {
+	if err != nil || len(injectConfig.RawTemplates) == 0 {
 		// This must be a direct template, instead of an inject.Config. We support both formats
 		return map[string]string{inject.SidecarTemplateName: string(f)}, nil
 	}
@@ -298,10 +308,10 @@ func readInjectConfigFile(f []byte) (inject.Templates, error) {
 	if err != nil {
 		return nil, err
 	}
-	return cfg.Templates, err
+	return cfg.RawTemplates, err
 }
 
-func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.Templates, error) {
+func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTemplates, error) {
 	client, err := createInterface(kubeconfig)
 	if err != nil {
 		return nil, err
@@ -313,7 +323,7 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.Templates
 	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
-			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-sidecar-injector configmap exists",
+			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace>` and ensure istio-sidecar-injector configmap exists",
 			injectConfigMapName, istioNamespace, err)
 	}
 	// values in the data are strings, while proto might use a
@@ -330,7 +340,7 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.Templates
 			injectConfigMapName, err)
 	}
 	log.Debugf("using inject template from configmap %q", injectConfigMapName)
-	return injectConfig.Templates, nil
+	return injectConfig.RawTemplates, nil
 }
 
 func setUpExternalInjector(kubeconfig, revision, injectorAddress string) (*ExternalInjector, error) {
@@ -342,7 +352,7 @@ func setUpExternalInjector(kubeconfig, revision, injectorAddress string) (*Exter
 	if revision == "" {
 		revision = "default"
 	}
-	whcList, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(),
+	whcList, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(),
 		metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)})
 	if err != nil {
 		return e, fmt.Errorf("could not find valid mutatingWebhookConfiguration %q from cluster %v",
@@ -370,8 +380,9 @@ func validateFlags() error {
 	return err
 }
 
-func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *string,
-	revision, injectorAddress string) (*ExternalInjector, *meshconfig.MeshConfig, error) {
+func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string,
+	revision, injectorAddress string,
+) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
 	injector := &ExternalInjector{}
 	if injectConfigFile != "" {
@@ -451,18 +462,18 @@ func getIOPConfigs() (string, *meshconfig.MeshConfig, error) {
 			return "", nil, err
 		}
 		if iop.Spec.Values != nil {
-			values, err := json.Marshal(iop.Spec.Values)
+			values, err := protomarshal.ToJSON(iop.Spec.Values)
 			if err != nil {
 				return "", nil, err
 			}
-			valuesConfig = string(values)
+			valuesConfig = values
 		}
 		if iop.Spec.MeshConfig != nil {
-			meshConfigYaml, err := yaml.Marshal(iop.Spec.MeshConfig)
+			meshConfigYaml, err := protomarshal.ToYAML(iop.Spec.MeshConfig)
 			if err != nil {
 				return "", nil, err
 			}
-			meshConfig, err = mesh.ApplyMeshConfigDefaults(string(meshConfigYaml))
+			meshConfig, err = mesh.ApplyMeshConfigDefaults(meshConfigYaml)
 			if err != nil {
 				return "", nil, err
 			}
@@ -574,7 +585,7 @@ It's best to do kube-inject when the resource is initially created.
 				}()
 			}
 			var valuesConfig string
-			var sidecarTemplate inject.Templates
+			var sidecarTemplate inject.RawTemplates
 			var meshConfig *meshconfig.MeshConfig
 			rev := opts.Revision
 			// if the revision is "default", render templates with an empty revision
@@ -590,8 +601,22 @@ It's best to do kube-inject when the resource is initially created.
 			if err != nil {
 				return err
 			}
+			if injector.client == nil && meshConfig == nil {
+				return fmt.Errorf(
+					"failed to get injection config from mutatingWebhookConfigurations and injection configmap - " +
+						"check injection configmap or pass --revision flag",
+				)
+			}
 			var warnings []string
-			retval := inject.IntoResourceFile(injector, sidecarTemplate, valuesConfig, rev, meshConfig,
+			templs, err := inject.ParseTemplates(sidecarTemplate)
+			if err != nil {
+				return err
+			}
+			vc, err := inject.NewValuesConfig(valuesConfig)
+			if err != nil {
+				return err
+			}
+			retval := inject.IntoResourceFile(injector, templs, vc, rev, meshConfig,
 				reader, writer, func(warning string) {
 					warnings = append(warnings, warning)
 				})

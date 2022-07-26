@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
+// nolint: revive
 package fuzz
 
 import (
@@ -86,6 +86,9 @@ func runAddRegistry(f *fuzz.ConsumeFuzzer, c *aggregate.Controller) error {
 	err := f.GenerateStruct(&registry)
 	if err != nil {
 		return err
+	}
+	if registry.ServiceDiscovery == nil {
+		return fmt.Errorf("registry required")
 	}
 	c.AddRegistry(registry)
 	return nil

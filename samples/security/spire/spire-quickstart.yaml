@@ -1,0 +1,605 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spire
+---
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: "csi.spiffe.io"
+spec:
+  # Only ephemeral, inline volumes are supported. There is no need for a
+  # controller to provision and attach volumes.
+  attachRequired: false
+
+  # Request the pod information which the CSI driver uses to verify that an
+  # ephemeral mount was requested.
+  podInfoOnMount: true
+
+  # Don't change ownership on the contents of the mount since the Workload API
+  # Unix Domain Socket is typically open to all (i.e. 0777).
+  fsGroupPolicy: None
+
+  # Declare support for ephemeral volumes only.
+  volumeLifecycleModes:
+    - Ephemeral
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.4
+  name: spiffeids.spiffeid.spiffe.io
+spec:
+  group: spiffeid.spiffe.io
+  names:
+    kind: SpiffeID
+    listKind: SpiffeIDList
+    plural: spiffeids
+    singular: spiffeid
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+    subresources:
+      status: {}
+    schema:
+      openAPIV3Schema:
+        description: SpiffeID is the Schema for the spiffeid API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SpiffeIDSpec defines the desired state of SpiffeID
+            properties:
+              dnsNames:
+                items:
+                  type: string
+                type: array
+              federatesWith:
+                items:
+                  type: string
+                type: array
+              parentId:
+                type: string
+              downstream:
+                type: boolean
+              selector:
+                properties:
+                  arbitrary:
+                    description: Arbitrary selectors
+                    items:
+                      type: string
+                    type: array
+                  containerImage:
+                    description: Container image to match for this spiffe ID
+                    type: string
+                  containerName:
+                    description: Container name to match for this spiffe ID
+                    type: string
+                  namespace:
+                    description: Namespace to match for this spiffe ID
+                    type: string
+                  nodeName:
+                    description: Node name to match for this spiffe ID
+                    type: string
+                  podLabel:
+                    additionalProperties:
+                      type: string
+                    description: Pod label name/value to match for this spiffe ID
+                    type: object
+                  podName:
+                    description: Pod name to match for this spiffe ID
+                    type: string
+                  podUid:
+                    description: Pod UID to match for this spiffe ID
+                    type: string
+                  serviceAccount:
+                    description: ServiceAccount to match for this spiffe ID
+                    type: string
+                  cluster:
+                    description: The k8s_psat cluster name
+                    type: string
+                  agent_node_uid:
+                    description: UID of the node
+                    type: string
+                type: object
+              spiffeId:
+                type: string
+            required:
+            - parentId
+            - selector
+            - spiffeId
+            type: object
+          status:
+            description: SpiffeIDStatus defines the observed state of SpiffeID
+            properties:
+              entryId:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: string
+            type: object
+        type: object
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-workload-registrar-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: k8s-workload-registrar-role
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-workload-registrar-role
+rules:
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["tokenreviews"]
+  verbs: ["get", "create"]
+- apiGroups: [""]
+  resources: ["endpoints", "nodes", "pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["spiffeid.spiffe.io"]
+  resources: ["spiffeids"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["spiffeid.spiffe.io"]
+  resources: ["spiffeids/status"]
+  verbs: ["get", "patch", "update"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["validatingwebhookconfigurations"]
+  verbs: ["get", "list", "update", "watch"]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-workload-registrar
+  namespace: spire
+data:
+  k8s-workload-registrar.conf: |
+    trust_domain = "example.org"
+    server_socket_path = "/run/spire/sockets/server.sock"
+    cluster = "demo-cluster"
+    mode = "crd"
+    metrics_bind_addr = "0"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-server
+  namespace: spire
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trust-bundle
+  namespace: spire
+---
+# ClusterRole to allow spire-server node attestor to query Token Review API
+# and to be able to push certificate bundles to a configmap
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-server-trust-role
+rules:
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["tokenreviews"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["patch", "get", "list"]
+
+---
+# Binds above cluster role to spire-server service account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-server-trust-role-binding
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire
+roleRef:
+  kind: ClusterRole
+  name: spire-server-trust-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-server
+  namespace: spire
+data:
+  server.conf: |
+    server {
+      bind_address = "0.0.0.0"
+      bind_port = "8081"
+      socket_path = "/run/spire/sockets/server.sock"
+      trust_domain = "example.org"
+      data_dir = "/run/spire/data"
+      log_level = "DEBUG"
+      ca_key_type = "rsa-2048"
+      default_svid_ttl = "1h"
+      ca_subject = {
+        country = ["US"],
+        organization = ["SPIFFE"],
+        common_name = "",
+      }
+    }
+    plugins {
+      DataStore "sql" {
+        plugin_data {
+          database_type = "sqlite3"
+          connection_string = "/run/spire/data/datastore.sqlite3"
+        }
+      }
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          clusters = {
+            # NOTE: Change this to your cluster name
+            "demo-cluster" = {
+              use_token_review_api_validation = true
+              service_account_allow_list = ["spire:spire-agent"]
+            }
+          }
+        }
+      }
+      KeyManager "disk" {
+        plugin_data {
+          keys_path = "/run/spire/data/keys.json"
+        }
+      }
+      Notifier "k8sbundle" {
+        plugin_data {
+          namespace = "spire"
+          config_map = "trust-bundle"
+          config_map_key = "root-cert.pem"
+        }
+      }
+    }
+    health_checks {
+      listener_enabled = true
+      bind_address = "0.0.0.0"
+      bind_port = "8080"
+      live_path = "/live"
+      ready_path = "/ready"
+    }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: spire-server
+  namespace: spire
+  labels:
+    app: spire-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spire-server
+  serviceName: spire-server
+  template:
+    metadata:
+      namespace: spire
+      labels:
+        app: spire-server
+    spec:
+      serviceAccountName: spire-server
+      shareProcessNamespace: true
+      containers:
+        - name: spire-server
+          image: gcr.io/spiffe-io/spire-server:1.2.0
+          args:
+            - -config
+            - /run/spire/config/server.conf
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8080
+            failureThreshold: 2
+            initialDelaySeconds: 15
+            periodSeconds: 60
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          ports:
+            - containerPort: 8081
+          volumeMounts:
+            - name: spire-config
+              mountPath: /run/spire/config
+              readOnly: true
+            - name: spire-data
+              mountPath: /run/spire/data
+              readOnly: false
+            - name: spire-registration-socket
+              mountPath: /run/spire/sockets
+              readOnly: false
+        - name: k8s-workload-registrar
+          image: gcr.io/spiffe-io/k8s-workload-registrar:1.2.0
+          args:
+            - -config
+            - /run/spire/config/k8s-workload-registrar.conf
+          ports:
+            - containerPort: 9443
+              name: webhook
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /run/spire/config
+              name: k8s-workload-registrar-config
+              readOnly: true
+            - name: spire-registration-socket
+              mountPath: /run/spire/sockets
+              readOnly: true
+      volumes:
+        - name: spire-config
+          configMap:
+            name: spire-server
+        - name: k8s-workload-registrar-config
+          configMap:
+            name: k8s-workload-registrar
+        - name: spire-registration-socket
+          hostPath:
+            path: /run/spire/server-sockets
+            type: DirectoryOrCreate
+  volumeClaimTemplates:
+    - metadata:
+        name: spire-data
+        namespace: spire
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-server
+  namespace: spire
+spec:
+  type: NodePort
+  ports:
+    - name: grpc
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+  selector:
+    app: spire-server
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-agent
+  namespace: spire
+---
+# Required cluster role to allow spire-agent to query k8s API server
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-agent-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["pods","nodes","nodes/proxy"]
+  verbs: ["get"]
+
+---
+# Binds above cluster role to spire-agent service account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-agent-cluster-role-binding
+subjects:
+- kind: ServiceAccount
+  name: spire-agent
+  namespace: spire
+roleRef:
+  kind: ClusterRole
+  name: spire-agent-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-agent
+  namespace: spire
+data:
+  agent.conf: |
+    agent {
+      data_dir = "/run/spire"
+      log_level = "DEBUG"
+      server_address = "spire-server"
+      server_port = "8081"
+      socket_path = "/run/secrets/workload-spiffe-uds/socket"
+      trust_bundle_path = "/run/spire/bundle/root-cert.pem"
+      trust_domain = "example.org"
+    }
+    plugins {
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          # NOTE: Change this to your cluster name
+          cluster = "demo-cluster"
+        }
+      }
+      KeyManager "memory" {
+        plugin_data {
+        }
+      }
+      WorkloadAttestor "k8s" {
+        plugin_data {
+          # Defaults to the secure kubelet port by default.
+          # Minikube does not have a cert in the cluster CA bundle that
+          # can authenticate the kubelet cert, so skip validation.
+          skip_kubelet_verification = true
+        }
+      }
+      WorkloadAttestor "unix" {
+          plugin_data {
+          }
+      }
+    }
+    health_checks {
+      listener_enabled = true
+      bind_address = "0.0.0.0"
+      bind_port = "8080"
+      live_path = "/live"
+      ready_path = "/ready"
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: spire-agent
+  namespace: spire
+  labels:
+    app: spire-agent
+spec:
+  selector:
+    matchLabels:
+      app: spire-agent
+  template:
+    metadata:
+      namespace: spire
+      labels:
+        app: spire-agent
+    spec:
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      serviceAccountName: spire-agent
+      initContainers:
+        - name: init
+          # This is a small image with wait-for-it, choose whatever image
+          # you prefer that waits for a service to be up. This image is built
+          # from https://github.com/lqhl/wait-for-it
+          image: gcr.io/spiffe-io/wait-for-it
+          args: ["-t", "30", "spire-server:8081"]
+      containers:
+        - name: spire-agent
+          image: gcr.io/spiffe-io/spire-agent:1.2.0
+          args: ["-config", "/run/spire/config/agent.conf"]
+          volumeMounts:
+            - name: spire-config
+              mountPath: /run/spire/config
+              readOnly: true
+            - name: spire-bundle
+              mountPath: /run/spire/bundle
+            - name: spire-agent-socket-dir
+              mountPath: /run/secrets/workload-spiffe-uds
+            - name: spire-token
+              mountPath: /var/run/secrets/tokens
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8080
+            failureThreshold: 2
+            initialDelaySeconds: 15
+            periodSeconds: 60
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+        # This is the container which runs the SPIFFE CSI driver.
+        - name: spiffe-csi-driver
+          image: ghcr.io/spiffe/spiffe-csi-driver:0.1.0
+          imagePullPolicy: IfNotPresent
+          args: [
+              "-node-id", "CSI_NODE",
+              "-workload-api-socket-dir", "/spire-agent-socket",
+              "-csi-socket-path", "/spiffe-csi/csi.sock",
+          ]
+          volumeMounts:
+            # The volume containing the SPIRE agent socket. The SPIFFE CSI
+            # driver will mount this directory into containers.
+            - mountPath: /spire-agent-socket
+              name: spire-agent-socket-dir
+              readOnly: true
+            # The volume that will contain the CSI driver socket shared
+            # with the kubelet and the driver registrar.
+            - mountPath: /spiffe-csi
+              name: spiffe-csi-socket-dir
+            # The volume containing mount points for containers.
+            - mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+          securityContext:
+            privileged: true
+        # This container runs the CSI Node Driver Registrar which takes care
+        # of all the little details required to register a CSI driver with
+        # the kubelet.
+        - name: node-driver-registrar
+          image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.4.0
+          imagePullPolicy: IfNotPresent
+          args: [
+              "-csi-address", "/spiffe-csi/csi.sock",
+              "-kubelet-registration-path", "/var/lib/kubelet/plugins/csi.spiffe.io/csi.sock",
+          ]
+          volumeMounts:
+            # The registrar needs access to the SPIFFE CSI driver socket
+            - mountPath: /spiffe-csi
+              name: spiffe-csi-socket-dir
+            # The registrar needs access to the Kubelet plugin registration
+            # directory
+            - name: kubelet-plugin-registration-dir
+              mountPath: /registration
+      volumes:
+        - name: spire-config
+          configMap:
+            name: spire-agent
+        - name: spire-bundle
+          configMap:
+            name: trust-bundle
+        - name: spire-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: spire-agent
+                  expirationSeconds: 7200
+                  audience: spire-server
+        # This volume is used to share the workload api socket between the
+        # CSI driver and SPIRE agent
+        - name: spire-agent-socket-dir
+          hostPath:
+            path: /run/spire/socket-dir
+            type: DirectoryOrCreate
+        # This volume is where the socket for kubelet->driver communication lives
+        - name: spiffe-csi-socket-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/csi.spiffe.io
+            type: DirectoryOrCreate
+        # This volume is where the SPIFFE CSI driver mounts volumes
+        - name: mountpoint-dir
+          hostPath:
+            path: /var/lib/kubelet/pods
+            type: Directory
+        # This volume is where the node-driver-registrar registers the plugin
+        # with kubelet
+        - name: kubelet-plugin-registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: Directory

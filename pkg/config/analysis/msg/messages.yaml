@@ -49,9 +49,11 @@ messages:
     code: IST0103
     level: Warning
     description: "A pod is missing the Istio proxy."
-    template: "The pod is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload."
+    template: "The pod %s is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload."
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0103/"
     args:
+      - name: podName
+        type: string
 
   - name: "GatewayPortNotOnWorkload"
     code: IST0104
@@ -554,3 +556,33 @@ messages:
     level: Warning
     description: "Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services."
     template: "Port name for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly"
+
+  - name: "EnvoyFilterUsesRelativeOperation"
+    code: IST0151
+    level: Warning
+    description: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
+    template: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST of ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
+   
+  - name: "EnvoyFilterUsesReplaceOperationIncorrectly"
+    code: IST0152
+    level: Error
+    description: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
+    template: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
+    
+  - name: "EnvoyFilterUsesAddOperationIncorrectly"
+    code: IST0153
+    level: Error
+    description: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+    template: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+  
+  - name: "EnvoyFilterUsesRemoveOperationIncorrectly"
+    code: IST0154
+    level: Error
+    description: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+    template: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+    
+  - name: "EnvoyFilterUsesRelativeOperationWithProxyVersion"
+    code: IST0155
+    level: Warning
+    description: "This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
+    template: "This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."

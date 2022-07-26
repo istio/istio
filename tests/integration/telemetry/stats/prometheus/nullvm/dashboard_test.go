@@ -32,6 +32,7 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -134,17 +135,18 @@ func TestDashboard(t *testing.T) {
 	defer cancel()
 	framework.NewTest(t).
 		Features("observability.telemetry.dashboard").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			p := common.GetPromInstance()
 
-			ctx.ConfigIstio().ApplyYAMLOrFail(ctx, common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name()))
+			t.ConfigIstio().YAML(common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name())).
+				ApplyOrFail(t)
 
 			// Apply just the grafana dashboards
 			cfg, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
 			if err != nil {
-				ctx.Fatal(err)
+				t.Fatal(err)
 			}
-			ctx.ConfigKube().ApplyYAMLOrFail(ctx, "istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"])
+			t.ConfigKube().YAML("istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"]).ApplyOrFail(t)
 
 			// We will send a bunch of requests until the test exits. This ensures we are continuously
 			// getting new metrics ingested. If we just send a bunch at once, Prometheus may scrape them
@@ -152,14 +154,14 @@ func TestDashboard(t *testing.T) {
 			go setupDashboardTest(c.Done())
 			for _, d := range dashboards {
 				d := d
-				ctx.NewSubTest(d.name).Run(func(t framework.TestContext) {
-					for _, cl := range ctx.Clusters() {
+				t.NewSubTest(d.name).Run(func(t framework.TestContext) {
+					for _, cl := range t.Clusters() {
 						if !cl.IsPrimary() && d.requirePrimary {
 							// Skip verification of dashboards that won't be present on non primary(remote) clusters.
 							continue
 						}
 						t.Logf("Verifying %s for cluster %s", d.name, cl.Name())
-						cm, err := cl.CoreV1().ConfigMaps((*common.GetIstioInstance()).Settings().TelemetryNamespace).Get(
+						cm, err := cl.Kube().CoreV1().ConfigMaps((*common.GetIstioInstance()).Settings().TelemetryNamespace).Get(
 							context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
 						if err != nil {
 							t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
@@ -279,7 +281,7 @@ spec:
         exact: /echo-%s
     route:
     - destination:
-        host: server
+        host: b
         port:
           number: 80
   tcp:
@@ -287,9 +289,9 @@ spec:
     - port: 31400
     route:
     - destination:
-        host: server
+        host: b
         port:
-          number: 9000
+          number: 9090
 `
 
 func setupDashboardTest(done <-chan struct{}) {
@@ -305,13 +307,16 @@ func setupDashboardTest(done <-chan struct{}) {
 			for _, ing := range common.GetIngressInstance() {
 				host, port := ing.TCPAddress()
 				_, err := ing.Call(echo.CallOptions{
-					Port: &echo.Port{
+					Port: echo.Port{
 						Protocol: protocol.HTTP,
 					},
 					Count: 10,
-					Path:  fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
-					Headers: map[string][]string{
-						"Host": {"server"},
+					HTTP: echo.HTTP{
+						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
+						Headers: headers.New().WithHost("server").Build(),
+					},
+					Retry: echo.Retry{
+						NoRetry: true,
 					},
 				})
 				if err != nil {
@@ -320,14 +325,17 @@ func setupDashboardTest(done <-chan struct{}) {
 					log.Warnf("requests failed: %v", err)
 				}
 				_, err = ing.Call(echo.CallOptions{
-					Port: &echo.Port{
+					Port: echo.Port{
 						Protocol:    protocol.TCP,
 						ServicePort: port,
 					},
 					Address: host,
-					Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
-					Headers: map[string][]string{
-						"Host": {"server"},
+					HTTP: echo.HTTP{
+						Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
+						Headers: headers.New().WithHost("server").Build(),
+					},
+					Retry: echo.Retry{
+						NoRetry: true,
 					},
 				})
 				if err != nil {
@@ -348,7 +356,7 @@ func setupDashboardTest(done <-chan struct{}) {
 // Equivalent to jq command: '.panels[].targets[]?.expr'
 func extractQueries(dash string) ([]string, error) {
 	var queries []string
-	js := map[string]interface{}{}
+	js := map[string]any{}
 	if err := json.Unmarshal([]byte(dash), &js); err != nil {
 		return nil, err
 	}
@@ -356,22 +364,22 @@ func extractQueries(dash string) ([]string, error) {
 	if !f {
 		return nil, fmt.Errorf("failed to find panels in %v", dash)
 	}
-	panelsList, f := panels.([]interface{})
+	panelsList, f := panels.([]any)
 	if !f {
 		return nil, fmt.Errorf("failed to find panelsList in type %T: %v", panels, panels)
 	}
 	for _, p := range panelsList {
-		pm := p.(map[string]interface{})
+		pm := p.(map[string]any)
 		targets, f := pm["targets"]
 		if !f {
 			continue
 		}
-		targetsList, f := targets.([]interface{})
+		targetsList, f := targets.([]any)
 		if !f {
 			return nil, fmt.Errorf("failed to find targetsList in type %T: %v", targets, targets)
 		}
 		for _, t := range targetsList {
-			tm := t.(map[string]interface{})
+			tm := t.(map[string]any)
 			expr, f := tm["expr"]
 			if !f {
 				return nil, fmt.Errorf("failed to find expr in %v", t)

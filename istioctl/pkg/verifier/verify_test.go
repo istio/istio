@@ -156,7 +156,7 @@ func TestGetDeploymentCondition(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] ", i), func(tt *testing.T) {
 			dc := getDeploymentCondition(c.status, c.condType)
-			if c.shouldFind == false {
+			if !c.shouldFind {
 				if dc != nil {
 					tt.Fatalf("unexpected condition: got %v want nil", dc)
 				}

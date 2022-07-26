@@ -23,7 +23,6 @@
 PROJECT=${PROJECT:-$(gcloud config list --format 'value(core.project)' 2>/dev/null)}
 ZONE=${ZONE:-us-central1-f}
 CLUSTER_NAME=${CLUSTER_NAME:-istio-e2e}
-CLUSTER_VERSION=${CLUSTER_VERSION}
 MACHINE_TYPE=${MACHINE_TYPE:-n1-standard-4}
 NUM_NODES=${NUM_NODES:-3}
 # Store the previous value (which may have been unset) so we can restore it on cleanup

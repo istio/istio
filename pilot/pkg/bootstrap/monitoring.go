@@ -44,11 +44,14 @@ var (
 	uptime = monitoring.NewDerivedGauge( // nolint: deadcode, varcheck
 		"istiod_uptime_seconds",
 		"Current istiod server uptime in seconds",
-		func() float64 {
-			return time.Since(serverStart).Seconds()
-		},
 	)
 )
+
+func init() {
+	uptime.ValueFrom(func() float64 {
+		return time.Since(serverStart).Seconds()
+	})
+}
 
 func addMonitor(mux *http.ServeMux) error {
 	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})

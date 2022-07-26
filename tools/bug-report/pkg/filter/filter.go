@@ -16,8 +16,8 @@ package filter
 
 import (
 	"fmt"
-	"sort"
 
+	"istio.io/istio/pkg/util/sets"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/util/match"
@@ -32,42 +32,25 @@ func GetMatchingPaths(config *config.BugReportConfig, cluster *cluster2.Resource
 	if err != nil {
 		return nil, err
 	}
-	var out []string
-	for p := range paths {
-		out = append(out, p)
-	}
-	sort.Strings(out)
-
-	return out, nil
+	return paths.SortedList(), nil
 }
 
-func mergeMaps(a, b map[string]struct{}) map[string]struct{} {
-	out := make(map[string]struct{})
-	for k := range a {
-		out[k] = struct{}{}
-	}
-	for k := range b {
-		out[k] = struct{}{}
-	}
-	return out
+func getMatchingPathsForSpec(config *config.BugReportConfig, cluster *cluster2.Resources) (sets.Set, error) {
+	return getMatchingPathsForSpecImpl(config, cluster, cluster.Root, nil, sets.New())
 }
 
-func getMatchingPathsForSpec(config *config.BugReportConfig, cluster *cluster2.Resources) (map[string]struct{}, error) {
-	paths := make(map[string]struct{})
-	return getMatchingPathsForSpecImpl(config, cluster, cluster.Root, nil, paths)
-}
-
-func getMatchingPathsForSpecImpl(config *config.BugReportConfig, cluster *cluster2.Resources, node map[string]interface{},
-	path path.Path, matchingPaths map[string]struct{}) (map[string]struct{}, error) {
+func getMatchingPathsForSpecImpl(config *config.BugReportConfig, cluster *cluster2.Resources, node map[string]any,
+	path path.Path, matchingPaths sets.Set,
+) (sets.Set, error) {
 	for pe, n := range node {
 		np := append(path, pe)
-		if nn, ok := n.(map[string]interface{}); ok {
+		if nn, ok := n.(map[string]any); ok {
 			// non-leaf node
 			mp, err := getMatchingPathsForSpecImpl(config, cluster, nn, np, matchingPaths)
 			if err != nil {
 				return nil, err
 			}
-			matchingPaths = mergeMaps(matchingPaths, mp)
+			matchingPaths = matchingPaths.Union(mp)
 			continue
 		}
 		// container name leaf

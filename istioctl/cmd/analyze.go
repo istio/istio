@@ -134,7 +134,7 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				_, err = client.CoreV1().Namespaces().Get(context.TODO(), namespace, v1.GetOptions{})
+				_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, v1.GetOptions{})
 				if errors.IsNotFound(err) {
 					fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", namespace)
 					return nil
@@ -376,7 +376,7 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		if err != nil {
 			return err
 		}
-		// If we encounter a directory, recurse only if the --recursve option
+		// If we encounter a directory, recurse only if the --recursive option
 		// was provided and the directory is not the same as dir.
 		if info.IsDir() {
 			if !recursive && dir != path {

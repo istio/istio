@@ -23,6 +23,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -74,7 +76,7 @@ func (i *instance) WriteTo(templateFile string, w io.Writer) error {
 	return t.Execute(w, templateParams)
 }
 
-func toJSON(i interface{}) string {
+func toJSON(i any) string {
 	if i == nil {
 		return "{}"
 	}
@@ -147,5 +149,5 @@ func newTemplate(templateFilePath string) (*template.Template, error) {
 	funcMap := template.FuncMap{
 		"toJSON": toJSON,
 	}
-	return template.New("bootstrap").Funcs(funcMap).Parse(string(cfgTmpl))
+	return template.New("bootstrap").Funcs(funcMap).Funcs(sprig.GenericFuncMap()).Parse(string(cfgTmpl))
 }

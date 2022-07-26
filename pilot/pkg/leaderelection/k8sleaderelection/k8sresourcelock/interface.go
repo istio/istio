@@ -59,7 +59,7 @@ type LeaderElectionRecord struct {
 
 // EventRecorder records a change in the ResourceLock.
 type EventRecorder interface {
-	Eventf(obj runtime.Object, eventType, reason, message string, args ...interface{})
+	Eventf(obj runtime.Object, eventType, reason, message string, args ...any)
 }
 
 // ResourceLockConfig common data that exists across different
@@ -96,7 +96,6 @@ type Interface interface {
 
 	// Identity will return the locks Identity
 	Identity() string
-
 	Key() string
 
 	// Describe is used to convert details on current resource lock

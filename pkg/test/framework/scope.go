@@ -69,11 +69,11 @@ func (s *scope) add(r resource.Resource, id *resourceID) {
 	s.resources = append(s.resources, r)
 
 	if c, ok := r.(io.Closer); ok {
-		s.addCloser(c)
+		s.closers = append(s.closers, c)
 	}
 }
 
-func (s *scope) get(ref interface{}) error {
+func (s *scope) get(ref any) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -119,6 +119,8 @@ func (s *scope) get(ref interface{}) error {
 }
 
 func (s *scope) addCloser(c io.Closer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.closers = append(s.closers, c)
 }
 
@@ -189,7 +191,12 @@ func (s *scope) dump(ctx resource.Context, recursive bool) {
 	}
 	st := time.Now()
 	defer func() {
-		scopes.Framework.Debugf("Done dumping scope: %s (%v)", s.id, time.Since(st))
+		l := scopes.Framework.Debugf
+		if time.Since(st) > time.Second*10 {
+			// Log slow dumps at higher level
+			l = scopes.Framework.Infof
+		}
+		l("Done dumping: %s for %s (%v)", s.id, ctx.ID(), time.Since(st))
 	}()
 	s.mu.Lock()
 	defer s.mu.Unlock()

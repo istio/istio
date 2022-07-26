@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 38636
+releaseNotes:
+  - |
+    **Fixed** an issue `istioctl x describe pod` return error `failed to fetch mesh config`.

@@ -37,13 +37,11 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	gogoproto "github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -57,7 +55,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
@@ -199,7 +196,7 @@ type ADSC struct {
 	Mesh *v1alpha1.MeshConfig
 
 	// Retrieved configurations can be stored using the common istio model interface.
-	Store model.IstioConfigStore
+	Store model.ConfigStore
 
 	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
 	Registry *memory.ServiceDiscovery
@@ -296,7 +293,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	adsc.Locality = opts.Locality
 
 	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.%s", opts.NodeType, opts.IP,
-		opts.Workload, opts.Namespace, opts.Namespace, constants.DefaultKubernetesDomain)
+		opts.Workload, opts.Namespace, opts.Namespace, constants.DefaultClusterLocalDomain)
 
 	if err := adsc.Dial(); err != nil {
 		return nil, err
@@ -515,13 +512,13 @@ func (a *ADSC) handleRecv() {
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
-			err = gogoproto.Unmarshal(rsc.Value, m)
+			err = proto.Unmarshal(rsc.Value, m)
 			if err != nil {
 				adscLog.Warn("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
-				strResponse, err := gogoprotomarshal.ToJSONWithIndent(m, "  ")
+				strResponse, err := protomarshal.ToJSONWithIndent(m, "  ")
 				if err != nil {
 					continue
 				}
@@ -625,16 +622,9 @@ func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	c.Namespace = nsn[0]
 	c.Name = nsn[1]
 	var err error
-	c.CreationTimestamp, err = types.TimestampFromProto(m.Metadata.CreateTime)
-	if err != nil {
-		return nil, err
-	}
+	c.CreationTimestamp = m.Metadata.CreateTime.AsTime()
 
-	pb, err := types.EmptyAny(m.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = types.UnmarshalAny(m.Body, pb)
+	pb, err := m.Body.UnmarshalNew()
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +710,7 @@ func (a *ADSC) Save(base string) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	// guarrante the persistence order for each element in tcpListeners
+	// guarantee the persistence order for each element in tcpListeners
 	var sortTCPListeners []string
 	for key := range a.tcpListeners {
 		sortTCPListeners = append(sortTCPListeners, key)
@@ -740,7 +730,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in httpListeners
+	// guarantee the persistence order for each element in httpListeners
 	var sortHTTPListeners []string
 	for key := range a.httpListeners {
 		sortHTTPListeners = append(sortHTTPListeners, key)
@@ -760,7 +750,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in routes
+	// guarantee the persistence order for each element in routes
 	var sortRoutes []string
 	for key := range a.routes {
 		sortRoutes = append(sortRoutes, key)
@@ -780,7 +770,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in edsClusters
+	// guarantee the persistence order for each element in edsClusters
 	var sortEdsClusters []string
 	for key := range a.edsClusters {
 		sortEdsClusters = append(sortEdsClusters, key)
@@ -800,7 +790,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in clusters
+	// guarantee the persistence order for each element in clusters
 	var sortClusters []string
 	for key := range a.clusters {
 		sortClusters = append(sortClusters, key)
@@ -820,7 +810,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in eds
+	// guarantee the persistence order for each element in eds
 	var sortEds []string
 	for key := range a.eds {
 		sortEds = append(sortEds, key)
@@ -1099,14 +1089,6 @@ func (a *ADSC) EndpointsJSON() string {
 	return string(out)
 }
 
-func XdsInitialRequests() []*discovery.DiscoveryRequest {
-	return []*discovery.DiscoveryRequest{
-		{
-			TypeUrl: v3.ClusterType,
-		},
-	}
-}
-
 // Watch will start watching resources, starting with CDS. Based on the CDS response
 // it will start watching RDS and LDS.
 func (a *ADSC) Watch() {
@@ -1229,7 +1211,7 @@ func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
 	return a.eds
 }
 
-func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
+func (a *ADSC) handleMCP(gvk []string, resources []*anypb.Any) {
 	if len(gvk) != 3 {
 		return // Not MCP
 	}
@@ -1248,10 +1230,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	received := make(map[string]*config.Config)
 	for _, rsc := range resources {
 		m := &mcp.Resource{}
-		err := types.UnmarshalAny(&types.Any{
-			TypeUrl: rsc.TypeUrl,
-			Value:   rsc.Value,
-		}, m)
+		err := rsc.UnmarshalTo(m)
 		if err != nil {
 			adscLog.Warnf("Error unmarshalling received MCP config %v", err)
 			continue

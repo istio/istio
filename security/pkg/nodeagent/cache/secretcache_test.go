@@ -51,7 +51,7 @@ func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceN
 	if err != nil {
 		t.Fatal(err)
 	}
-	sc.SetUpdateCallback(notifyCb)
+	sc.RegisterSecretHandler(notifyCb)
 	t.Cleanup(sc.Close)
 	return sc
 }
@@ -69,7 +69,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		opt.TokenExchanger = fakePlugin
 	}
 
-	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{})
+	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{WorkloadRSAKeySize: 2048})
 	gotSecret, err := sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
@@ -135,7 +135,7 @@ func (u *UpdateTracker) Expect(want map[string]int) {
 			return fmt.Errorf("wanted %+v got %+v", want, u.hits)
 		}
 		return nil
-	}, retry.Timeout(time.Second*2), retry.Delay(time.Millisecond))
+	}, retry.Timeout(time.Second*5))
 }
 
 func (u *UpdateTracker) Reset() {
@@ -151,7 +151,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	u := NewUpdateTracker(t)
-	sc := createCache(t, fakeCACli, u.Callback, security.Options{})
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{WorkloadRSAKeySize: 2048})
 
 	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
@@ -373,17 +373,22 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	})
 	// We shouldn't get an pushes; these only happen on changes
 	u.Expect(map[string]int{})
+	u.Reset()
 
 	if err := file.AtomicWrite(sc.existingCertificateFile.CertificatePath, testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
+	if err := file.AtomicWrite(sc.existingCertificateFile.PrivateKeyPath, testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+
 	// Expect update callback
 	u.Expect(map[string]int{workloadResource: 1})
 	// On the next generate call, we should get the new cert
 	checkSecret(t, sc, workloadResource, security.SecretItem{
 		ResourceName:     workloadResource,
 		CertificateChain: testcerts.RotatedCert,
-		PrivateKey:       privateKey,
+		PrivateKey:       testcerts.RotatedKey,
 	})
 
 	if err := file.AtomicWrite(sc.existingCertificateFile.PrivateKeyPath, testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
@@ -391,8 +396,9 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	}
 	// We do NOT expect update callback. We only watch the cert file, since the key and cert must be updated
 	// in tandem.
-	// TODO: what if they update out of sync? We probably shouldn't send an update of just one change
 	u.Expect(map[string]int{workloadResource: 1})
+	u.Reset()
+
 	checkSecret(t, sc, workloadResource, security.SecretItem{
 		ResourceName:     workloadResource,
 		CertificateChain: testcerts.RotatedCert,
@@ -403,7 +409,9 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		t.Fatal(err)
 	}
 	// We expect to get an update notification, and the new root cert to be read
-	u.Expect(map[string]int{workloadResource: 1, rootResource: 1})
+	u.Expect(map[string]int{rootResource: 1})
+	u.Reset()
+
 	checkSecret(t, sc, rootResource, security.SecretItem{
 		ResourceName: rootResource,
 		RootCert:     testcerts.CACert,
@@ -413,11 +421,14 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	if err := os.Remove(sc.existingCertificateFile.CaCertificatePath); err != nil {
 		t.Fatal(err)
 	}
-	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0644)); err != nil {
+
+	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// We expect to get an update notification, and the new root cert to be read
-	u.Expect(map[string]int{workloadResource: 1, rootResource: 2})
+	// We do not expect update callback for REMOVE events.
+	u.Expect(map[string]int{rootResource: 1})
+
 	checkSecret(t, sc, rootResource, security.SecretItem{
 		ResourceName: rootResource,
 		RootCert:     testcerts.CACert,
@@ -552,7 +563,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	}
 	u := NewUpdateTracker(t)
 
-	sc := createCache(t, fakeCACli, u.Callback, security.Options{})
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{WorkloadRSAKeySize: 2048})
 	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
 		t.Errorf("failed to generate certificate for trustAnchor test case")
@@ -666,7 +677,7 @@ func TestOSCACertGenerateSecretEmpty(t *testing.T) {
 	fakePlugin := mock.NewMockTokenExchangeServer(nil)
 	opt.TokenExchanger = fakePlugin
 
-	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{})
+	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{WorkloadRSAKeySize: 2048})
 	certPath := security.GetOSRootFilePath()
 	expected, err := sc.GenerateSecret("file-root:" + certPath)
 	if err != nil {

@@ -92,7 +92,7 @@ components:
     name: istio@ingress-1
     enabled: true
 `,
-			wantErrs: makeErrors([]string{`invalid value Components.IngressGateways[0].Name: istio@ingress-1`}),
+			wantErrs: makeErrors([]string{`invalid value Components.IngressGateways: istio@ingress-1`}),
 		},
 		{
 			desc: "BadValuesIP",
@@ -144,7 +144,7 @@ values:
 meshConfig:
   foo: bar
 `,
-			wantErrs: makeErrors([]string{`failed to unmarshall mesh config: unknown field "foo" in v1alpha1.MeshConfig`}),
+			wantErrs: makeErrors([]string{`failed to unmarshall mesh config: unknown field "foo" in istio.mesh.v1alpha1.MeshConfig`}),
 		},
 		{
 			desc: "Unknown mesh config values",
@@ -153,7 +153,7 @@ values:
   meshConfig:
     foo: bar
 `,
-			wantErrs: makeErrors([]string{`failed to unmarshall mesh config: unknown field "foo" in v1alpha1.MeshConfig`}),
+			wantErrs: makeErrors([]string{`failed to unmarshall mesh config: unknown field "foo" in istio.mesh.v1alpha1.MeshConfig`}),
 		},
 		{
 			desc: "Good mesh config",

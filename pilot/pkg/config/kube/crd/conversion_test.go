@@ -15,17 +15,17 @@
 package crd
 
 import (
-	"reflect"
 	"testing"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestConvert(t *testing.T) {
-	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
+	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]any{"x": 1}}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
 	cfg := config.Config{
@@ -54,9 +54,7 @@ func TestConvert(t *testing.T) {
 	if err != nil {
 		t.Errorf("ConvertObject() => unexpected error %v", err)
 	}
-	if !reflect.DeepEqual(&cfg, got) {
-		t.Errorf("ConvertObject(ConvertConfig(%#v)) => got %#v", cfg, got)
-	}
+	assert.Equal(t, &cfg, got)
 }
 
 func TestParseInputs(t *testing.T) {

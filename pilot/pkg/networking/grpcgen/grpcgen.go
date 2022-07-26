@@ -53,15 +53,14 @@ func subsetClusterKey(subset, hostname string, port int) string {
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, subset, host.Name(hostname), port)
 }
 
-func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
-	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	switch w.TypeUrl {
 	case v3.ListenerType:
-		return g.BuildListeners(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildListeners(proxy, req.Push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	case v3.ClusterType:
-		return g.BuildClusters(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildClusters(proxy, req.Push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	case v3.RouteType:
-		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildHTTPRoutes(proxy, req.Push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	}
 
 	return nil, model.DefaultXdsLogDetails, nil

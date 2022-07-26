@@ -18,12 +18,15 @@ import (
 	"fmt"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/version"
+
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // IstioControlPlane is an installation of an Istio control plane.
@@ -34,11 +37,18 @@ type IstioControlPlane struct {
 }
 
 // NewIstioControlPlane creates a new IstioControlPlane and returns a pointer to it.
-func NewIstioControlPlane(installSpec *v1alpha1.IstioOperatorSpec, translator *translate.Translator) (*IstioControlPlane, error) {
+func NewIstioControlPlane(
+	installSpec *v1alpha1.IstioOperatorSpec,
+	translator *translate.Translator,
+	filter []string,
+	ver *version.Info,
+) (*IstioControlPlane, error) {
 	out := &IstioControlPlane{}
 	opts := &component.Options{
 		InstallSpec: installSpec,
 		Translator:  translator,
+		Filter:      sets.New(filter...),
+		Version:     ver,
 	}
 	for _, c := range name.AllCoreComponentNames {
 		o := *opts

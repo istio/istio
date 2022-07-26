@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,12 +21,9 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"google.golang.org/genproto/googleapis/rpc/status"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -35,7 +32,9 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -95,6 +94,45 @@ func TestAdsReconnectAfterRestart(t *testing.T) {
 		ResourceNames: []string{"fake-cluster"},
 		ResponseNonce: res.Nonce,
 		VersionInfo:   res.VersionInfo,
+	})
+}
+
+// TestAdsReconnectRequests provides a regression test for a case where Envoy sends an EDS request as the first
+// request on a connection.
+func TestAdsReconnectRequests(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+
+	ads := s.ConnectADS()
+	// Send normal CDS and EDS requests
+	_ = ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+	eres := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.EndpointType, ResourceNames: []string{"my-resource"}})
+
+	// A push should get a response for both
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
+	ads.ExpectResponse(t)
+	ads.ExpectResponse(t)
+	// Close the connection and reconnect
+	ads.Cleanup()
+	ads = s.ConnectADS()
+
+	// Send a request for EDS version 1 - we do not explicitly ACK this.
+	ads.Request(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{"my-resource"},
+		ResponseNonce: eres.Nonce,
+	})
+	// We should get a response
+	eres3 := ads.ExpectResponse(t)
+	// Now send our CDS request
+	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.ClusterType,
+		ResponseNonce: eres.Nonce,
+	})
+	// Send another request. This is essentially an ACK of eres3. However, envoy expects a response
+	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{"my-resource"},
+		ResponseNonce: eres3.Nonce,
 	})
 }
 
@@ -183,7 +221,7 @@ func TestAdsPushScoping(t *testing.T) {
 			hostname := host.Name(name)
 			s.Discovery.MemRegistry.RemoveService(hostname)
 			configsUpdated[model.ConfigKey{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
 			}] = struct{}{}
@@ -206,12 +244,12 @@ func TestAdsPushScoping(t *testing.T) {
 		for _, name := range names {
 			hostname := host.Name(name)
 			configsUpdated[model.ConfigKey{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
 			}] = struct{}{}
 
-			s.Discovery.MemRegistry.AddService(hostname, &model.Service{
+			s.Discovery.MemRegistry.AddService(&model.Service{
 				Hostname:       hostname,
 				DefaultAddress: "10.11.0.1",
 				Ports: []*model.Port{
@@ -243,7 +281,7 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 
 		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: gvk.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace}: {},
+			{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace}: {},
 		}})
 	}
 
@@ -427,16 +465,16 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 		cfgs []config.Config
 
-		expectUpdates   []string
-		unexpectUpdates []string
+		expectedUpdates   []string
+		unexpectedUpdates []string
 	}
 	svcCases := []svcCase{
 		{
-			desc:          "Add a scoped service",
-			ev:            model.EventAdd,
-			svcIndexes:    []int{4},
-			ns:            model.IstioDefaultConfigNamespace,
-			expectUpdates: []string{v3.ListenerType},
+			desc:            "Add a scoped service",
+			ev:              model.EventAdd,
+			svcIndexes:      []int{4},
+			ns:              model.IstioDefaultConfigNamespace,
+			expectedUpdates: []string{v3.ListenerType},
 		}, // then: default 1,2,3,4
 		{
 			desc: "Add instances to a scoped service",
@@ -445,8 +483,8 @@ func TestAdsPushScoping(t *testing.T) {
 				name    string
 				indexes []int
 			}{{fmt.Sprintf("svc%d%s", 4, svcSuffix), []int{1, 2}}},
-			ns:            model.IstioDefaultConfigNamespace,
-			expectUpdates: []string{v3.EndpointType},
+			ns:              model.IstioDefaultConfigNamespace,
+			expectedUpdates: []string{v3.EndpointType},
 		}, // then: default 1,2,3,4
 		{
 			desc: "Add virtual service to a scoped service",
@@ -456,7 +494,7 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}, dest: "unknown-svc"}},
-			expectUpdates: []string{v3.ListenerType},
+			expectedUpdates: []string{v3.ListenerType},
 		},
 		{
 			desc: "Delete virtual service of a scoped service",
@@ -466,7 +504,7 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4}},
-			expectUpdates: []string{v3.ListenerType},
+			expectedUpdates: []string{v3.ListenerType},
 		},
 		{
 			desc: "Add destination rule to a scoped service",
@@ -475,7 +513,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				host  string
 			}{{4, fmt.Sprintf("svc%d%s", 4, svcSuffix)}},
-			expectUpdates: []string{v3.ClusterType},
+			expectedUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc: "Delete destination rule of a scoped service",
@@ -484,14 +522,14 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				host  string
 			}{{index: 4}},
-			expectUpdates: []string{v3.ClusterType},
+			expectedUpdates: []string{v3.ClusterType},
 		},
 		{
-			desc:            "Add a unscoped(name not match) service",
-			ev:              model.EventAdd,
-			svcNames:        []string{"foo.com"},
-			ns:              model.IstioDefaultConfigNamespace,
-			unexpectUpdates: []string{v3.ClusterType},
+			desc:              "Add a unscoped(name not match) service",
+			ev:                model.EventAdd,
+			svcNames:          []string{"foo.com"},
+			ns:                model.IstioDefaultConfigNamespace,
+			unexpectedUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3,4, foo.com; ns1: 11
 		{
 			desc: "Add instances to an unscoped service",
@@ -500,15 +538,15 @@ func TestAdsPushScoping(t *testing.T) {
 				name    string
 				indexes []int
 			}{{"foo.com", []int{1, 2}}},
-			ns:              model.IstioDefaultConfigNamespace,
-			unexpectUpdates: []string{v3.EndpointType},
+			ns:                model.IstioDefaultConfigNamespace,
+			unexpectedUpdates: []string{v3.EndpointType},
 		}, // then: default 1,2,3,4
 		{
-			desc:            "Add a unscoped(ns not match) service",
-			ev:              model.EventAdd,
-			svcIndexes:      []int{11},
-			ns:              ns1,
-			unexpectUpdates: []string{v3.ClusterType},
+			desc:              "Add a unscoped(ns not match) service",
+			ev:                model.EventAdd,
+			svcIndexes:        []int{11},
+			ns:                ns1,
+			unexpectedUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3,4, foo.com; ns1: 11
 		{
 			desc: "Add virtual service to an unscoped service",
@@ -518,7 +556,7 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 0, hosts: []string{"foo.com"}, dest: "unknown-service"}},
-			unexpectUpdates: []string{v3.ClusterType},
+			unexpectedUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc: "Delete virtual service of a unscoped service",
@@ -528,7 +566,7 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 0}},
-			unexpectUpdates: []string{v3.ClusterType},
+			unexpectedUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc: "Add destination rule to an unscoped service",
@@ -537,7 +575,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				host  string
 			}{{0, "foo.com"}},
-			unexpectUpdates: []string{v3.ClusterType},
+			unexpectedUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc: "Delete destination rule of a unscoped service",
@@ -546,7 +584,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				host  string
 			}{{index: 0}},
-			unexpectUpdates: []string{v3.ClusterType},
+			unexpectedUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc: "Add virtual service for scoped service with transitively scoped dest svc",
@@ -556,7 +594,7 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}, dest: "foo.com"}},
-			expectUpdates: []string{v3.ClusterType, v3.EndpointType},
+			expectedUpdates: []string{v3.ClusterType, v3.EndpointType},
 		},
 		{
 			desc: "Add instances for transitively scoped svc",
@@ -565,8 +603,8 @@ func TestAdsPushScoping(t *testing.T) {
 				name    string
 				indexes []int
 			}{{"foo.com", []int{1, 2}}},
-			ns:            model.IstioDefaultConfigNamespace,
-			expectUpdates: []string{v3.EndpointType},
+			ns:              model.IstioDefaultConfigNamespace,
+			expectedUpdates: []string{v3.EndpointType},
 		},
 		{
 			desc: "Delete virtual service for scoped service with transitively scoped dest svc",
@@ -576,7 +614,7 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4}},
-			expectUpdates: []string{v3.ClusterType},
+			expectedUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc: "Add delegation virtual service for scoped service with transitively scoped dest svc",
@@ -586,7 +624,7 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}, dest: "foo.com"}},
-			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+			expectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
 		},
 		{
 			desc: "Update delegate virtual service should trigger full push",
@@ -596,7 +634,7 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}, dest: "foo.com"}},
-			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
+			expectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
 		},
 		{
 			desc: "Delete delegate virtual service for scoped service with transitively scoped dest svc",
@@ -606,53 +644,53 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4}},
-			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
+			expectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
 		},
 		{
-			desc:          "Remove a scoped service",
-			ev:            model.EventDelete,
-			svcIndexes:    []int{4},
-			ns:            model.IstioDefaultConfigNamespace,
-			expectUpdates: []string{v3.ListenerType},
+			desc:            "Remove a scoped service",
+			ev:              model.EventDelete,
+			svcIndexes:      []int{4},
+			ns:              model.IstioDefaultConfigNamespace,
+			expectedUpdates: []string{v3.ListenerType},
 		}, // then: default 1,2,3, foo.com; ns: 11
 		{
-			desc:            "Remove a unscoped(name not match) service",
-			ev:              model.EventDelete,
-			svcNames:        []string{"foo.com"},
-			ns:              model.IstioDefaultConfigNamespace,
-			unexpectUpdates: []string{v3.ClusterType},
+			desc:              "Remove a unscoped(name not match) service",
+			ev:                model.EventDelete,
+			svcNames:          []string{"foo.com"},
+			ns:                model.IstioDefaultConfigNamespace,
+			unexpectedUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3; ns1: 11
 		{
-			desc:            "Remove a unscoped(ns not match) service",
-			ev:              model.EventDelete,
-			svcIndexes:      []int{11},
-			ns:              ns1,
-			unexpectUpdates: []string{v3.ClusterType},
+			desc:              "Remove a unscoped(ns not match) service",
+			ev:                model.EventDelete,
+			svcIndexes:        []int{11},
+			ns:                ns1,
+			unexpectedUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3
 		{
-			desc:            "Add an unmatched Sidecar config",
-			ev:              model.EventAdd,
-			cfgs:            []config.Config{notMatchedScc},
-			ns:              model.IstioDefaultConfigNamespace,
-			unexpectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+			desc:              "Add an unmatched Sidecar config",
+			ev:                model.EventAdd,
+			cfgs:              []config.Config{notMatchedScc},
+			ns:                model.IstioDefaultConfigNamespace,
+			unexpectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
 		},
 		{
-			desc:          "Update the Sidecar config",
-			ev:            model.EventUpdate,
-			cfgs:          []config.Config{scc},
-			ns:            model.IstioDefaultConfigNamespace,
-			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+			desc:            "Update the Sidecar config",
+			ev:              model.EventUpdate,
+			cfgs:            []config.Config{scc},
+			ns:              model.IstioDefaultConfigNamespace,
+			expectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
 		},
 	}
 
 	for _, c := range svcCases {
 		t.Run(c.desc, func(t *testing.T) {
 			// Let events from previous tests complete
-			time.Sleep(time.Millisecond * 100)
+			time.Sleep(time.Millisecond * 50)
 			adscConn.WaitClear()
 			var wantUpdates []string
-			wantUpdates = append(wantUpdates, c.expectUpdates...)
-			wantUpdates = append(wantUpdates, c.unexpectUpdates...)
+			wantUpdates = append(wantUpdates, c.expectedUpdates...)
+			wantUpdates = append(wantUpdates, c.unexpectedUpdates...)
 
 			switch c.ev {
 			case model.EventAdd:
@@ -728,14 +766,14 @@ func TestAdsPushScoping(t *testing.T) {
 				t.Fatalf("wrong event for case %v", c)
 			}
 
-			timeout := time.Second
-			upd, _ := adscConn.Wait(timeout, wantUpdates...) // XXX slow for unexpect ...
-			for _, expect := range c.expectUpdates {
+			timeout := time.Millisecond * 200
+			upd, _ := adscConn.Wait(timeout, wantUpdates...)
+			for _, expect := range c.expectedUpdates {
 				if !contains(upd, expect) {
 					t.Fatalf("expected update %s not in updates %v", expect, upd)
 				}
 			}
-			for _, unexpect := range c.unexpectUpdates {
+			for _, unexpect := range c.unexpectedUpdates {
 				if contains(upd, unexpect) {
 					t.Fatalf("expected to not get update %s, but it is in updates %v", unexpect, upd)
 				}
@@ -748,7 +786,7 @@ func TestAdsUpdate(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS()
 
-	s.Discovery.MemRegistry.AddService("adsupdate.default.svc.cluster.local", &model.Service{
+	s.Discovery.MemRegistry.AddService(&model.Service{
 		Hostname:       "adsupdate.default.svc.cluster.local",
 		DefaultAddress: "10.11.0.1",
 		Ports: []*model.Port{
@@ -815,77 +853,6 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	})
 }
 
-func TestBlockedPush(t *testing.T) {
-	original := features.EnableFlowControl
-	t.Cleanup(func() {
-		features.EnableFlowControl = original
-	})
-	t.Run("flow control enabled", func(t *testing.T) {
-		features.EnableFlowControl = true
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		ads := s.ConnectADS().WithType(v3.ClusterType)
-		ads.RequestResponseAck(t, nil)
-		// Send push, get a response but do not ACK it
-		xds.AdsPushAll(s.Discovery)
-		res := ads.ExpectResponse(t)
-
-		// Another push results in no response as we are blocked
-		xds.AdsPushAll(s.Discovery)
-		ads.ExpectNoResponse(t)
-
-		// ACK, unblocking the previous push
-		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
-		res = ads.ExpectResponse(t)
-
-		// ACK again, ensure we do not response
-		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
-		ads.ExpectNoResponse(t)
-
-		// request new resources, expect response
-		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ResourceNames: []string{"foo"}})
-		res = ads.ExpectResponse(t)
-		// request new resources, expect response, even without explicit ACK
-		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ResourceNames: []string{"foo", "bar"}})
-		ads.ExpectResponse(t)
-	})
-	t.Run("flow control enabled NACK", func(t *testing.T) {
-		features.EnableFlowControl = true
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		ads := s.ConnectADS().WithType(v3.ClusterType)
-		ads.RequestResponseAck(t, nil)
-
-		// Send push, get a response and NACK it
-		xds.AdsPushAll(s.Discovery)
-		res := ads.ExpectResponse(t)
-		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ErrorDetail: &status.Status{Message: "Test request NACK"}})
-
-		// Another push results in a response as we are not blocked (NACK unblocks)
-		xds.AdsPushAll(s.Discovery)
-		ads.ExpectResponse(t)
-
-		// ACK should not get push
-		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
-		ads.ExpectNoResponse(t)
-	})
-	t.Run("flow control disabled", func(t *testing.T) {
-		features.EnableFlowControl = false
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		ads := s.ConnectADS().WithType(v3.ClusterType)
-		ads.RequestResponseAck(t, nil)
-		// Send push, get a response but do not ACK it
-		xds.AdsPushAll(s.Discovery)
-		res := ads.ExpectResponse(t)
-
-		// Another push results in response as we do not care that we are blocked
-		xds.AdsPushAll(s.Discovery)
-		ads.ExpectResponse(t)
-
-		// ACK gets no response as we don't have flow control enabled
-		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
-		ads.ExpectNoResponse(t)
-	})
-}
-
 func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	expectRoutes := func(resp *discovery.DiscoveryResponse, expected ...string) {
 		t.Helper()
@@ -939,8 +906,8 @@ func TestEdsCache(t *testing.T) {
 	assertEndpoints := func(a *adsc.ADSC, addr ...string) {
 		t.Helper()
 		retry.UntilSuccessOrFail(t, func() error {
-			got := sets.NewSet(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
-			want := sets.NewSet(addr...)
+			got := sets.New(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
+			want := sets.New(addr...)
 
 			if !got.Equals(want) {
 				return fmt.Errorf("invalid endpoints, got %v want %v", got, addr)

@@ -24,11 +24,11 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/tests/integration/security/util/connection"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 )
 
 const (
-	HTTPS  = "https"
 	POLICY = `
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
@@ -55,7 +55,9 @@ spec:
 //
 // Setup:
 // 1. Setup Istio with custom CA cert. This is because we need to use that root cert to sign customized
-//    certificate for server workloads to give them different trust domains.
+//
+//	certificate for server workloads to give them different trust domains.
+//
 // 2. One client workload with sidecar injected.
 // 3. Two naked server workloads with custom certs whose URI SAN have different SPIFFE trust domains.
 // 4. PeerAuthentication with strict mtls, to enforce the mtls connection.
@@ -69,46 +71,43 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.trust-domain-alias-secure-naming").
 		Run(func(t framework.TestContext) {
-			// TODO: https://github.com/istio/istio/issues/32292
-			if t.AllClusters().IsMulticluster() {
-				t.Skip()
-			}
-			testNS := apps.Namespace
+			testNS := apps.EchoNamespace.Namespace
 
-			t.ConfigIstio().ApplyYAMLOrFail(t, testNS.Name(), POLICY)
+			t.ConfigIstio().YAML(testNS.Name(), POLICY).ApplyOrFail(t)
 
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					verify := func(ctx framework.TestContext, src echo.Instance, dest echo.Instance, s scheme.Instance, success bool) {
+					verify := func(t framework.TestContext, from echo.Instance, to echo.Instances, s scheme.Instance, success bool) {
 						want := "success"
 						if !success {
 							want = "fail"
 						}
-						name := fmt.Sprintf("server:%s[%s]", dest.Config().Service, want)
-						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
+						name := fmt.Sprintf("server:%s[%s]", to[0].Config().Service, want)
+						t.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
-							opt := echo.CallOptions{
-								Target:   dest,
-								PortName: HTTPS,
-								Address:  dest.Config().Service,
-								Scheme:   s,
+							opts := echo.CallOptions{
+								To:    to,
+								Count: 1,
+								Port: echo.Port{
+									Name: "https",
+								},
+								Address: to.Config().Service,
+								Scheme:  s,
 							}
-							checker := connection.Checker{
-								From:          src,
-								Options:       opt,
-								ExpectSuccess: success,
-								DestClusters:  t.Clusters(),
+							if success {
+								opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
+							} else {
+								opts.Check = check.NotOK()
 							}
-							checker.CheckOrFail(t)
+
+							from.CallOrFail(t, opts)
 						})
 					}
 
-					client := apps.Client.GetOrFail(t, echo.InCluster(cluster))
-					serverNakedFoo := apps.ServerNakedFoo.GetOrFail(t, echo.InCluster(cluster))
-					serverNakedBar := apps.ServerNakedBar.GetOrFail(t, echo.InCluster(cluster))
+					client := match.Cluster(cluster).FirstOrFail(t, client)
 					cases := []struct {
 						src    echo.Instance
-						dest   echo.Instance
+						dest   echo.Instances
 						expect bool
 					}{
 						{

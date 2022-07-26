@@ -26,11 +26,12 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
-	"istio.io/istio/tests/integration/security/util/connection"
 )
 
 // TestCase represents reachability test cases.
@@ -46,19 +47,16 @@ type TestCase struct {
 	CallOpts []echo.CallOptions
 
 	// Indicates whether a test should be created for the given configuration.
-	Include func(src echo.Instance, opts echo.CallOptions) bool
-
-	// Handler called when the given test is being run.
-	OnRun func(t framework.TestContext, src echo.Instance, opts echo.CallOptions)
+	Include func(from echo.Instance, opts echo.CallOptions) bool
 
 	// Indicates whether the test should expect a successful response.
-	ExpectSuccess func(src echo.Instance, opts echo.CallOptions) bool
+	ExpectSuccess func(from echo.Instance, opts echo.CallOptions) bool
 
 	// Allows filtering the destinations we expect to reach (optional).
-	ExpectDestinations func(src echo.Instance, dest echo.Instances) echo.Instances
+	ExpectDestinations func(from echo.Instance, to echo.Target) echo.Instances
 
 	// Indicates whether the test should expect a MTLS response.
-	ExpectMTLS func(src echo.Instance, opts echo.CallOptions) bool
+	ExpectMTLS func(from echo.Instance, opts echo.CallOptions) bool
 
 	// Indicates whether a test should be run in the multicluster environment.
 	// This is a temporary flag during the converting tests into multicluster supported.
@@ -70,92 +68,79 @@ type TestCase struct {
 func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeployments) {
 	callOptions := []echo.CallOptions{
 		{
-			PortName: "http",
-			Scheme:   scheme.HTTP,
+			Port: echo.Port{
+				Name: "http",
+			},
+			Scheme: scheme.HTTP,
 		},
 		{
-			PortName: "http",
-			Scheme:   scheme.WebSocket,
+			Port: echo.Port{
+				Name: "http",
+			},
+			Scheme: scheme.WebSocket,
 		},
 		{
-			PortName: "tcp",
-			Scheme:   scheme.TCP,
+			Port: echo.Port{
+				Name: "tcp",
+			},
+			Scheme: scheme.TCP,
 		},
 		{
-			PortName: "grpc",
-			Scheme:   scheme.GRPC,
+			Port: echo.Port{
+				Name: "grpc",
+			},
+			Scheme: scheme.GRPC,
 		},
 		{
-			PortName: "https",
-			Scheme:   scheme.HTTPS,
+			Port: echo.Port{
+				Name: "https",
+			},
+			Scheme: scheme.HTTPS,
 		},
 	}
 
 	for _, c := range testCases {
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
-		if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
-			continue
-		}
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		t.NewSubTest(testName).Run(func(t framework.TestContext) {
 			// Apply the policy.
-			policyYAML := file.AsStringOrFail(t, filepath.Join("./testdata", c.ConfigFile))
+			cfg := t.ConfigIstio().File(c.Namespace.Name(), filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(t, func() error {
 				t.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return t.ConfigIstio().ApplyYAML(c.Namespace.Name(), policyYAML)
+				return cfg.Apply(apply.Wait)
 			})
-			t.NewSubTest("wait for config").Run(func(t framework.TestContext) {
-				util.WaitForConfig(t, c.Namespace, policyYAML)
-			})
-			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
-				for _, client := range clients {
-					client := client
+			for _, clients := range []echo.Instances{apps.A, match.Namespace(apps.Namespace1).GetMatches(apps.B), apps.Headless, apps.Naked, apps.HeadlessNaked} {
+				for _, from := range clients {
+					from := from
 					t.NewSubTest(fmt.Sprintf("%s in %s",
-						client.Config().Service, client.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
+						from.Config().Service, from.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 						destinationSets := []echo.Instances{
 							apps.A,
 							apps.B,
 							// only hit same network headless services
-							apps.Headless.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
+							match.Network(from.Config().Cluster.NetworkName()).GetMatches(apps.Headless),
 							// only hit same cluster multiversion services
-							apps.Multiversion.Match(echo.InCluster(client.Config().Cluster)),
+							match.Cluster(from.Config().Cluster).GetMatches(apps.Multiversion),
 							// only hit same cluster naked services
-							apps.Naked.Match(echo.InCluster(client.Config().Cluster)),
+							match.Cluster(from.Config().Cluster).GetMatches(apps.Naked),
 							apps.VM,
-							// only hit same network headless services
-							apps.Headless.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
 						}
 
-						for _, destinations := range destinationSets {
-							destinations := destinations
+						for _, to := range destinationSets {
+							to := to
 							if c.ExpectDestinations != nil {
-								destinations = c.ExpectDestinations(client, destinations)
+								to = c.ExpectDestinations(from, to)
 							}
-							destClusters := destinations.Clusters()
-							if len(destClusters) == 0 {
+							toClusters := to.Clusters()
+							if len(toClusters) == 0 {
 								continue
 							}
 							// grabbing the 0th assumes all echos in destinations have the same service name
-							destination := destinations[0]
-							// TODO: fix Multiversion related test in multicluster
-							if t.Clusters().IsMulticluster() && apps.Multiversion.Contains(destination) {
-								continue
-							}
-							if (apps.IsNaked(client)) && len(destClusters) > 1 {
-								// TODO use echotest to generate the cases that would work for multi-network + naked
-								t.SkipNow()
-								continue
-							}
-							if isNakedToVM(apps, client, destination) {
+							if isNakedToVM(from, to) {
 								// No need to waste time on these tests which will time out on connection instead of fail-fast
 								continue
-							}
-							callCount := 1
-							if len(destClusters) > 1 {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * len(destClusters)
 							}
 
 							copts := &callOptions
@@ -165,47 +150,55 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 							}
 							for _, opts := range *copts {
 								// Copy the loop variables so they won't change for the subtests.
-								src := client
-								dest := destination
 								opts := opts
-								onPreRun := c.OnRun
 
 								// Set the target on the call options.
-								opts.Target = dest
-								opts.Count = callCount
+								opts.To = to
+								if len(toClusters) == 1 {
+									opts.Count = 1
+								}
 
+								// TODO(https://github.com/istio/istio/issues/37629) go back to converge
+								opts.Retry.Options = []retry.Option{retry.Converge(1)}
+								// TODO(https://github.com/istio/istio/issues/37629) go back to 5s
+								opts.Timeout = time.Second * 10
+
+								expectSuccess := c.ExpectSuccess(from, opts)
+								expectMTLS := c.ExpectMTLS(from, opts)
+								var tpe string
+								if expectSuccess {
+									tpe = "positive"
+									opts.Check = check.And(
+										check.OK(),
+										check.ReachedTargetClusters(t))
+									if expectMTLS {
+										opts.Check = check.And(opts.Check,
+											check.MTLSForHTTP())
+									}
+								} else {
+									tpe = "negative"
+									opts.Check = check.NotOK()
+								}
 								include := c.Include
 								if include == nil {
 									include = func(_ echo.Instance, _ echo.CallOptions) bool { return true }
 								}
-								if include(src, opts) {
-									expectSuccess := c.ExpectSuccess(src, opts)
-									expectMTLS := c.ExpectMTLS(src, opts)
-									tpe := "positive"
-									if !expectSuccess {
-										tpe = "negative"
-									}
+								if include(from, opts) {
 									subTestName := fmt.Sprintf("%s to %s:%s%s %s",
 										opts.Scheme,
-										dest.Config().Service,
-										opts.PortName,
-										opts.Path,
+										to.Config().Service,
+										opts.Port.Name,
+										opts.HTTP.Path,
 										tpe)
 
 									t.NewSubTest(subTestName).
-										RunParallel(func(t framework.TestContext) {
-											if onPreRun != nil {
-												onPreRun(t, src, opts)
+										Run(func(t framework.TestContext) {
+											if (from.Config().IsNaked()) && len(toClusters) > 1 {
+												// TODO use echotest to generate the cases that would work for multi-network + naked
+												t.Skip("https://github.com/istio/istio/issues/37307")
 											}
 
-											checker := connection.Checker{
-												From:          src,
-												DestClusters:  destClusters,
-												Options:       opts,
-												ExpectSuccess: expectSuccess,
-												ExpectMTLS:    expectMTLS,
-											}
-											checker.CheckOrFail(t)
+											from.CallOrFail(t, opts)
 										})
 								}
 							}
@@ -219,6 +212,6 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 
 // Exclude calls from naked->VM since naked has no Envoy
 // However, no endpoint exists for VM in k8s, so calls from naked->VM will fail, regardless of mTLS
-func isNakedToVM(apps *util.EchoDeployments, src, dst echo.Instance) bool {
-	return apps.IsNaked(src) && apps.IsVM(dst)
+func isNakedToVM(from echo.Instance, to echo.Target) bool {
+	return from.Config().IsNaked() && to.Config().IsVM()
 }

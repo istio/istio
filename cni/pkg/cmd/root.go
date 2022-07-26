@@ -31,6 +31,7 @@ import (
 	udsLog "istio.io/istio/cni/pkg/log"
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/repair"
+	"istio.io/istio/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
@@ -48,11 +49,15 @@ var rootCmd = &cobra.Command{
 	Use:          "install-cni",
 	Short:        "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
 	SilenceUsage: true,
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
+	PreRunE: func(c *cobra.Command, args []string) error {
 		if err := log.Configure(logOptions); err != nil {
 			log.Errorf("Failed to configure log %v", err)
 		}
-		ctx := cmd.Context()
+		return nil
+	},
+	RunE: func(c *cobra.Command, args []string) (err error) {
+		cmd.PrintFlags(c.Flags())
+		ctx := c.Context()
 
 		// Start controlz server
 		_, _ = ctrlz.Run(ctrlzOptions, nil)
@@ -125,6 +130,7 @@ func init() {
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
+	registerBooleanParameter(constants.CNIEnableInstall, true, "Whether to install CNI configuration and binary files")
 	registerBooleanParameter(constants.CNIEnableReinstall, true, "Whether to reinstall CNI configuration and binary files")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
@@ -219,6 +225,7 @@ func constructConfig() (*config.Config, error) {
 
 		CNINetworkConfigFile: viper.GetString(constants.CNINetworkConfigFile),
 		CNINetworkConfig:     viper.GetString(constants.CNINetworkConfig),
+		CNIEnableInstall:     viper.GetBool(constants.CNIEnableInstall),
 		CNIEnableReinstall:   viper.GetBool(constants.CNIEnableReinstall),
 
 		LogLevel:           viper.GetString(constants.LogLevel),

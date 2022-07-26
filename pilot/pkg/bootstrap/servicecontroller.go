@@ -17,14 +17,10 @@ package bootstrap
 import (
 	"fmt"
 
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/pkg/log"
 )
 
@@ -36,11 +32,11 @@ func (s *Server) ServiceController() *aggregate.Controller {
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
 
-	s.serviceEntryStore = serviceentry.NewServiceDiscovery(
-		s.configController, s.environment.IstioConfigStore, s.XDSServer,
+	s.serviceEntryController = serviceentry.NewController(
+		s.configController, s.environment.ConfigStore, s.XDSServer,
 		serviceentry.WithClusterID(s.clusterID),
 	)
-	serviceControllers.AddRegistry(s.serviceEntryStore)
+	serviceControllers.AddRegistry(s.serviceEntryController)
 
 	registered := make(map[provider.ID]bool)
 	for _, r := range args.RegistryOptions.Registries {
@@ -56,8 +52,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initKubeRegistry(args); err != nil {
 				return err
 			}
-		case provider.Mock:
-			s.initMockRegistry()
 		default:
 			return fmt.Errorf("service registry %s is not supported", r)
 		}
@@ -83,10 +77,10 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
 
 	s.multiclusterController.AddHandler(kubecontroller.NewMulticluster(args.PodName,
-		s.kubeClient,
+		s.kubeClient.Kube(),
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
-		s.serviceEntryStore,
+		s.serviceEntryController,
 		s.istiodCertBundleWatcher,
 		args.Revision,
 		s.shouldStartNsController(),
@@ -94,17 +88,4 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		s.server))
 
 	return
-}
-
-func (s *Server) initMockRegistry() {
-	// MemServiceDiscovery implementation
-	discovery := mock.NewDiscovery(map[host.Name]*model.Service{}, 2)
-
-	registry := serviceregistry.Simple{
-		ProviderID:       provider.Mock,
-		ServiceDiscovery: discovery,
-		Controller:       &mock.Controller{},
-	}
-
-	s.ServiceController().AddRegistry(registry)
 }

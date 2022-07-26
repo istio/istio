@@ -19,9 +19,7 @@ import (
 
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
-	//  Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" //  Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
@@ -66,13 +64,13 @@ func isControllerInstalled(cs kubernetes.Interface, operatorNamespace string, re
 }
 
 // renderOperatorManifest renders a manifest to install the operator with the given input arguments.
-func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs) (string, string, error) {
+func renderOperatorManifest(_ *RootArgs, ocArgs *operatorCommonArgs) (string, string, error) {
 	// If manifestsPath is a URL, fetch and extract it and continue with the local filesystem path instead.
 	installPackagePath, _, err := manifest.RewriteURLToLocalInstallPath(ocArgs.manifestsPath, "" /*profileOrPath*/, false /*skipValidation */)
 	if err != nil {
 		return "", "", err
 	}
-	r := helm.NewHelmRenderer(installPackagePath, "istio-operator", string(name.IstioOperatorComponentName), ocArgs.operatorNamespace)
+	r := helm.NewHelmRenderer(installPackagePath, "istio-operator", string(name.IstioOperatorComponentName), ocArgs.operatorNamespace, nil)
 
 	if err := r.Run(); err != nil {
 		return "", "", err

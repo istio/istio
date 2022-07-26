@@ -18,8 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strings"
 
 	"google.golang.org/grpc/credentials"
 
@@ -28,7 +26,6 @@ import (
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
-	"istio.io/pkg/log"
 )
 
 // TokenProvider is a grpc PerRPCCredentials that can be used to attach a JWT token to each gRPC call.
@@ -86,83 +83,46 @@ func (t *TokenProvider) RequireTransportSecurity() bool {
 // volatile memory), we can still proceed and allow other authentication methods to potentially
 // handle the request, such as mTLS.
 func (t *TokenProvider) GetToken() (string, error) {
-	if !t.forCA {
-		return t.GetTokenForXDS()
+	if t.opts.CredFetcher == nil {
+		return "", nil
 	}
-	// For CA, we have two modes, using the newer CredentialFetcher or just reading directly from file
-	var token string
-	if t.opts.CredFetcher != nil {
-		var err error
-		token, err = t.opts.CredFetcher.GetPlatformCredential()
-		if err != nil {
-			return "", fmt.Errorf("fetch platform credential: %v", err)
-		}
-	} else {
-		if t.opts.JWTPath == "" {
-			return "", nil
-		}
-		tok, err := os.ReadFile(t.opts.JWTPath)
-		if err != nil {
-			log.Warnf("failed to fetch token from file: %v", err)
-			return "", nil
-		}
-		token = strings.TrimSpace(string(tok))
+	token, err := t.opts.CredFetcher.GetPlatformCredential()
+	if err != nil {
+		return "", fmt.Errorf("fetch platform credential: %v", err)
 	}
 
 	// Regardless of where the token came from, we (optionally) can exchange the token for a different
-	// one using the configured TokenExchanger.
-	return t.exchangeToken(token)
+	if t.forCA {
+		return t.exchangeCAToken(token)
+	}
+	return t.exchangeXDSToken(token)
 }
 
-// GetTokenForXDS gets the token for the XDS flow.
-func (t *TokenProvider) GetTokenForXDS() (string, error) {
-	if t.opts.XdsAuthProvider == google.GCPAuthProvider {
-		return t.getTokenForGCP()
+// exchangeCAToken exchanges the provided token using TokenExchanger, if configured. If not, the
+// original token is returned.
+func (t *TokenProvider) exchangeCAToken(token string) (string, error) {
+	if t.opts.TokenExchanger == nil {
+		return token, nil
 	}
-	// For XDS flow, when no token provider is specified, we only support reading from file.
-	if t.opts.JWTPath == "" {
-		return "", nil
-	}
-	tok, err := os.ReadFile(t.opts.JWTPath)
-	if err != nil {
-		log.Warnf("failed to fetch token from file: %v", err)
-		return "", nil
-	}
-	return strings.TrimSpace(string(tok)), nil
+	return t.opts.TokenExchanger.ExchangeToken(token)
 }
 
-func (t *TokenProvider) getTokenForGCP() (string, error) {
-	var tok string
-	var err error
-	if t.opts.CredFetcher != nil {
-		// When running at a non-k8s platform, use CredFetcher to get credential.
-		tok, err = t.opts.CredFetcher.GetPlatformCredential()
-		if err != nil {
-			return "", fmt.Errorf("failed to fetch platform credential: %v", err)
-		}
-	} else {
-		// When XDS auth provider is GCP, token is always required. We should return
-		// err when failed to get a token.
-		if t.opts.JWTPath == "" {
-			return "", fmt.Errorf("the JWTPath is not set")
-		}
-		tokBytes, err := os.ReadFile(t.opts.JWTPath)
-		if err != nil {
-			return "", fmt.Errorf("failed to fetch token from file: %v", err)
-		}
-		tok = string(tokBytes)
+func (t *TokenProvider) exchangeXDSToken(token string) (string, error) {
+	if t.opts.XdsAuthProvider != google.GCPAuthProvider {
+		return token, nil
 	}
+
 	// For XDS flow, the token exchange is different from that of the CA flow.
 	if t.opts.TokenManager == nil {
 		return "", fmt.Errorf("XDS token exchange is enabled but token manager is nil")
 	}
-	if strings.TrimSpace(tok) == "" {
+	if token == "" {
 		return "", fmt.Errorf("the token for XDS token exchange is empty")
 	}
 	params := security.StsRequestParameters{
 		Scope:            stsclient.Scope,
 		GrantType:        server.TokenExchangeGrantType,
-		SubjectToken:     strings.TrimSpace(tok),
+		SubjectToken:     token,
 		SubjectTokenType: server.SubjectTokenType,
 	}
 	body, err := t.opts.TokenManager.GenerateToken(params)
@@ -174,13 +134,4 @@ func (t *TokenProvider) getTokenForGCP() (string, error) {
 		return "", fmt.Errorf("failed to unmarshal access token response data: %v", err)
 	}
 	return respData.AccessToken, nil
-}
-
-// exchangeToken exchanges the provided token using TokenExchanger, if configured. If not, the
-// original token is returned.
-func (t *TokenProvider) exchangeToken(token string) (string, error) {
-	if t.opts.TokenExchanger == nil {
-		return token, nil
-	}
-	return t.opts.TokenExchanger.ExchangeToken(token)
 }

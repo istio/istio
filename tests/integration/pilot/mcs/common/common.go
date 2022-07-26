@@ -26,11 +26,12 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -78,11 +79,11 @@ func InstallMCSCRDs(t resource.Context) error {
 
 			// Add/Update the CRD in this cluster...
 			if t.Settings().NoCleanup {
-				if err := t.ConfigKube(c).ApplyYAMLNoCleanup("", crdYAML); err != nil {
+				if err := t.ConfigKube(c).YAML("", crdYAML).Apply(apply.NoCleanup); err != nil {
 					return err
 				}
 			} else {
-				if err := t.ConfigKube(c).ApplyYAML("", crdYAML); err != nil {
+				if err := t.ConfigKube(c).YAML("", crdYAML).Apply(); err != nil {
 					return err
 				}
 			}
@@ -106,11 +107,11 @@ func isCRDInstalled(c cluster.Cluster, crdName string, version string) bool {
 }
 
 type EchoDeployment struct {
-	Namespace string
+	Namespace namespace.Instance
 	echo.Instances
 }
 
-func DeployEchosFunc(nsPrefix string, deployment *EchoDeployment) func(t resource.Context) error {
+func DeployEchosFunc(nsPrefix string, d *EchoDeployment) func(t resource.Context) error {
 	return func(t resource.Context) error {
 		// Create a new namespace in each cluster.
 		ns, err := namespace.New(t, namespace.Config{
@@ -120,20 +121,20 @@ func DeployEchosFunc(nsPrefix string, deployment *EchoDeployment) func(t resourc
 		if err != nil {
 			return err
 		}
-		deployment.Namespace = ns.Name()
+		d.Namespace = ns
 
 		// Create echo instances in each cluster.
-		deployment.Instances, err = echoboot.NewBuilder(t).
+		d.Instances, err = deployment.New(t).
 			WithClusters(t.Clusters()...).
 			WithConfig(echo.Config{
 				Service:   ServiceA,
 				Namespace: ns,
-				Ports:     common.EchoPorts,
+				Ports:     ports.All(),
 			}).
 			WithConfig(echo.Config{
 				Service:   ServiceB,
 				Namespace: ns,
-				Ports:     common.EchoPorts,
+				Ports:     ports.All(),
 			}).Build()
 		return err
 	}

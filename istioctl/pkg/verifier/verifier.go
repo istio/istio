@@ -65,30 +65,47 @@ type StatusVerifier struct {
 	client           kube.ExtendedClient
 }
 
+type StatusVerifierOptions func(*StatusVerifier)
+
+func WithLogger(l clog.Logger) StatusVerifierOptions {
+	return func(s *StatusVerifier) {
+		s.logger = l
+	}
+}
+
+func WithIOP(iop *v1alpha1.IstioOperator) StatusVerifierOptions {
+	return func(s *StatusVerifier) {
+		s.iop = iop
+	}
+}
+
 // NewStatusVerifier creates a new instance of post-install verifier
 // which checks the status of various resources from the manifest.
-// TODO(su225): This is doing too many things. Refactor: break it down
 func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string,
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
-	logger clog.Logger, installedIOP *v1alpha1.IstioOperator) (*StatusVerifier, error) {
-	if logger == nil {
-		logger = clog.NewDefaultLogger()
-	}
+	options ...StatusVerifierOptions,
+) (*StatusVerifier, error) {
 	client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, context), "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	return &StatusVerifier{
+
+	verifier := StatusVerifier{
+		logger:           clog.NewDefaultLogger(),
+		successMarker:    "✔",
+		failureMarker:    "✘",
 		istioNamespace:   istioNamespace,
 		manifestsPath:    manifestsPath,
 		filenames:        filenames,
 		controlPlaneOpts: controlPlaneOpts,
-		logger:           logger,
 		client:           client,
-		iop:              installedIOP,
-		successMarker:    "✔",
-		failureMarker:    "✘",
-	}, nil
+	}
+
+	for _, opt := range options {
+		opt(&verifier)
+	}
+
+	return &verifier, nil
 }
 
 func (v *StatusVerifier) Colorize() {
@@ -127,8 +144,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 			// - the user followed our remote control plane instructions
 			// - helm was used
 			// - user did `istioctl manifest generate | kubectl apply ...`
-			// nolint: golint,stylecheck
-			return fmt.Errorf("Istio present but verify-install needs an IstioOperator or manifest for comparison. Supply flag --filename <yaml>")
+			return fmt.Errorf("Istio present but verify-install needs an IstioOperator or manifest for comparison. Supply flag --filename <yaml>") // nolint: stylecheck
 		}
 		return fmt.Errorf("could not load IstioOperator from cluster: %v. Use --filename", err)
 	}
@@ -198,8 +214,11 @@ func (v *StatusVerifier) verifyInstall() error {
 
 func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOperator, filename string) (int, int, error) {
 	t := translate.NewTranslator()
-
-	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t)
+	ver, err := v.client.GetKubernetesVersion()
+	if err != nil {
+		return 0, 0, err
+	}
+	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t, nil, ver)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -208,7 +227,7 @@ func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOpera
 	}
 
 	manifests, errs := cp.RenderManifest()
-	if errs != nil && len(errs) > 0 {
+	if len(errs) > 0 {
 		return 0, 0, errs.ToError()
 	}
 
@@ -367,7 +386,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 
 // Find Istio injector matching revision.  ("" matches any revision.)
 func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.MutatingWebhookConfiguration, error) {
-	hooks, err := v.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), meta_v1.ListOptions{})
+	hooks, err := v.client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +409,7 @@ func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.Mutatin
 		return hookmatch, nil
 	}
 
-	return nil, fmt.Errorf("Istio injector revision %q not found", revision) // nolint: golint,stylecheck
+	return nil, fmt.Errorf("Istio injector revision %q not found", revision) // nolint: stylecheck
 }
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators

@@ -25,13 +25,14 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -50,7 +51,7 @@ type workloadConfig struct {
 }
 
 type workload struct {
-	client *client.Instance
+	client *echoClient.Client
 
 	workloadConfig
 	forwarder  istioKube.PortForwarder
@@ -81,12 +82,12 @@ func (w *workload) IsReady() bool {
 	return ready
 }
 
-func (w *workload) Client() (c *client.Instance, err error) {
+func (w *workload) Client() (c *echoClient.Client, err error) {
 	w.mutex.Lock()
 	c = w.client
 	if c == nil {
-		err = fmt.Errorf("attempt to use disconnected client for echo %s/%s",
-			w.pod.Namespace, w.pod.Name)
+		err = fmt.Errorf("attempt to use disconnected client for echo pod %s/%s (in cluster %s)",
+			w.pod.Namespace, w.pod.Name, w.cluster.Name())
 	}
 	w.mutex.Unlock()
 	return
@@ -102,6 +103,8 @@ func (w *workload) Update(pod kubeCore.Pod) error {
 			return err
 		}
 	} else if !isPodReady(pod) && w.isConnected() {
+		scopes.Framework.Infof("echo pod %s/%s (in cluster %s) transitioned to NOT READY. Pod Status=%v",
+			pod.Namespace, pod.Name, w.cluster.Name(), pod.Status.Phase)
 		w.pod = pod
 		return w.disconnect()
 	}
@@ -135,7 +138,7 @@ func (w *workload) Address() string {
 	return ip
 }
 
-func (w *workload) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+func (w *workload) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequest) (echoClient.Responses, error) {
 	w.mutex.Lock()
 	c := w.client
 	if c == nil {
@@ -152,6 +155,10 @@ func (w *workload) Sidecar() echo.Sidecar {
 	s := w.sidecar
 	w.mutex.Unlock()
 	return s
+}
+
+func (w *workload) Cluster() cluster.Cluster {
+	return w.cluster
 }
 
 func (w *workload) Logs() (string, error) {
@@ -199,17 +206,14 @@ func (w *workload) connect(pod kubeCore.Pod) (err error) {
 	}
 
 	// Create a gRPC client to this workload.
-	w.client, err = client.New(w.forwarder.Address(), w.tls)
+	w.client, err = echoClient.New(w.forwarder.Address(), w.tls)
 	if err != nil {
 		return fmt.Errorf("failed connecting to grpc client to pod %s/%s : %v",
 			pod.Namespace, pod.Name, err)
 	}
 
 	if w.hasSidecar {
-		if w.sidecar, err = newSidecar(pod, w.cluster); err != nil {
-			return fmt.Errorf("failed creating sidecar for pod %s/%s: %v",
-				pod.Namespace, pod.Name, err)
-		}
+		w.sidecar = newSidecar(pod, w.cluster)
 	}
 
 	return nil

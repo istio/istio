@@ -21,36 +21,45 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"strings"
 
+	"istio.io/istio/pkg/hbone"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/echo/proto"
 )
 
 var _ protocol = &tcpProtocol{}
 
 type tcpProtocol struct {
-	// conn returns a new connection. This is not just a shared connection as we will
-	// not re-use the connection for multiple requests with TCP
-	conn func() (net.Conn, error)
+	e *executor
 }
 
-func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
-	conn, err := c.conn()
+func newTCPProtocol(e *executor) protocol {
+	return &tcpProtocol{e: e}
+}
+
+func (c *tcpProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.ForwardEchoResponse, error) {
+	return doForward(ctx, cfg, c.e, c.makeRequest)
+}
+
+func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID int) (string, error) {
+	conn, err := newTCPConnection(cfg)
 	if err != nil {
 		return "", err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	msgBuilder := strings.Builder{}
-	msgBuilder.WriteString(fmt.Sprintf("[%d] Url=%s\n", req.RequestID, req.URL))
+	echo.ForwarderURLField.WriteForRequest(&msgBuilder, requestID, cfg.Request.Url)
 
-	if req.Message != "" {
-		msgBuilder.WriteString(fmt.Sprintf("[%d] Echo=%s\n", req.RequestID, req.Message))
+	if cfg.Request.Message != "" {
+		echo.ForwarderMessageField.WriteForRequest(&msgBuilder, requestID, cfg.Request.Message)
 	}
 
 	// Apply per-request timeout to calculate deadline for reads/writes.
-	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.timeout)
 	defer cancel()
 
 	// Apply the deadline to the connection.
@@ -63,21 +72,21 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 	}
 
 	// For server first protocol, we expect the server to send us the magic string first
-	if req.ServerFirst {
-		bytes, err := bufio.NewReader(conn).ReadBytes('\n')
+	if cfg.Request.ServerFirst {
+		readBytes, err := bufio.NewReader(conn).ReadBytes('\n')
 		if err != nil {
 			fwLog.Warnf("server first TCP read failed: %v", err)
 			return "", err
 		}
-		if string(bytes) != common.ServerFirstMagicString {
-			return "", fmt.Errorf("did not receive magic sting. Want %q, got %q", common.ServerFirstMagicString, string(bytes))
+		if string(readBytes) != common.ServerFirstMagicString {
+			return "", fmt.Errorf("did not receive magic sting. Want %q, got %q", common.ServerFirstMagicString, string(readBytes))
 		}
 	}
 
 	// Make sure the client writes something to the buffer
 	message := "HelloWorld"
-	if req.Message != "" {
-		message = req.Message
+	if cfg.Request.Message != "" {
+		message = cfg.Request.Message
 	}
 
 	if _, err := conn.Write([]byte(message + "\n")); err != nil {
@@ -102,14 +111,14 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 	// format the output for forwarder response
 	for _, line := range strings.Split(resBuffer.String(), "\n") {
 		if line != "" {
-			msgBuilder.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, line))
+			echo.WriteBodyLine(&msgBuilder, requestID, line)
 		}
 	}
 
 	msg := msgBuilder.String()
-	expected := fmt.Sprintf("%s=%s", string(response.StatusCodeField), response.StatusCodeOK)
-	if req.ExpectedResponse != nil {
-		expected = req.ExpectedResponse.GetValue()
+	expected := fmt.Sprintf("%s=%d", string(echo.StatusCodeField), http.StatusOK)
+	if cfg.Request.ExpectedResponse != nil {
+		expected = cfg.Request.ExpectedResponse.GetValue()
 	}
 	if !strings.Contains(msg, expected) {
 		return msg, fmt.Errorf("expect to recv message with %s, got %s. Return EOF", expected, msg)
@@ -119,4 +128,16 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 
 func (c *tcpProtocol) Close() error {
 	return nil
+}
+
+func newTCPConnection(cfg *Config) (net.Conn, error) {
+	address := cfg.Request.Url[len(cfg.scheme+"://"):]
+
+	if cfg.secure {
+		return hbone.TLSDialWithDialer(newDialer(cfg), "tcp", address, cfg.tlsConfig)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+	defer cancel()
+	return newDialer(cfg).DialContext(ctx, "tcp", address)
 }

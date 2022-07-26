@@ -110,7 +110,7 @@ function download_wasm_if_necessary () {
   fi
 }
 
-mkdir -p "${ISTIO_OUT}"
+mkdir -p "${TARGET_OUT}"
 
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
@@ -144,16 +144,16 @@ do
   download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.compiled.wasm
 done
 
-# Copy native envoy binary to ISTIO_OUT
-echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/${SIDECAR}"
-cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/${SIDECAR}"
+# Copy native envoy binary to TARGET_OUT
+echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${TARGET_OUT}/${SIDECAR}"
+cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${TARGET_OUT}/${SIDECAR}"
 
 # Copy CentOS binary
-echo "Copying ${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH} to ${ISTIO_OUT_LINUX}/${SIDECAR}-centos"
-cp -f "${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH}" "${ISTIO_OUT_LINUX}/${SIDECAR}-centos"
+echo "Copying ${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH} to ${TARGET_OUT_LINUX}/${SIDECAR}-centos"
+cp -f "${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH}" "${TARGET_OUT_LINUX}/${SIDECAR}-centos"
 
-# Copy the envoy binary to ISTIO_OUT_LINUX if the local OS is not Linux
+# Copy the envoy binary to TARGET_OUT_LINUX if the local OS is not Linux
 if [[ "$GOOS_LOCAL" != "linux" ]]; then
-   echo "Copying ${ISTIO_ENVOY_LINUX_RELEASE_PATH} to ${ISTIO_OUT_LINUX}/${SIDECAR}"
-  cp -f "${ISTIO_ENVOY_LINUX_RELEASE_PATH}" "${ISTIO_OUT_LINUX}/${SIDECAR}"
+   echo "Copying ${ISTIO_ENVOY_LINUX_RELEASE_PATH} to ${TARGET_OUT_LINUX}/${SIDECAR}"
+  cp -f "${ISTIO_ENVOY_LINUX_RELEASE_PATH}" "${TARGET_OUT_LINUX}/${SIDECAR}"
 fi

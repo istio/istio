@@ -89,7 +89,7 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 
 // UninstallCmd command uninstalls Istio from a cluster
 func UninstallCmd(logOpts *log.Options) *cobra.Command {
-	rootArgs := &rootArgs{}
+	rootArgs := &RootArgs{}
 	uiArgs := &uninstallArgs{}
 	uicmd := &cobra.Command{
 		Use:   "uninstall",
@@ -122,7 +122,7 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 }
 
 // uninstall uninstalls control plane by either pruning by target revision or deleting specified manifests.
-func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, logOpts *log.Options) error {
+func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
@@ -132,7 +132,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		l.LogAndFatal(err)
 	}
 	cache.FlushObjectCaches()
-	opts := &helmreconciler.Options{DryRun: rootArgs.dryRun, Log: l, ProgressLog: progress.NewLog()}
+	opts := &helmreconciler.Options{DryRun: rootArgs.DryRun, Log: l, ProgressLog: progress.NewLog()}
 	var h *helmreconciler.HelmReconciler
 
 	// If the user is performing a purge install but also specified a revision or filename, we should warn
@@ -158,14 +158,14 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		}
 		preCheckWarnings(cmd, uiArgs, uiArgs.revision, objectsList, nil, l)
 
-		if err := h.DeleteObjectsList(objectsList); err != nil {
+		if err := h.DeleteObjectsList(objectsList, ""); err != nil {
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 		}
 		opts.ProgressLog.SetState(progress.StateUninstallComplete)
 		return nil
 	}
 	manifestMap, iop, err := manifest.GenManifests([]string{uiArgs.filename},
-		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, kubeClient, l)
+		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, nil, kubeClient, l)
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,8 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
 func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
-	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger) {
+	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger,
+) {
 	pids, err := proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, rev, uiArgs.istioNamespace)
 	if err != nil {
 		l.LogAndError(err.Error())

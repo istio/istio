@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -37,6 +38,7 @@ import (
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
+	apiannotation "istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
@@ -57,8 +59,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
@@ -69,7 +71,7 @@ type myProtoValue struct {
 }
 
 const (
-	k8sSuffix = ".svc." + constants.DefaultKubernetesDomain
+	k8sSuffix = ".svc." + constants.DefaultClusterLocalDomain
 )
 
 var (
@@ -108,8 +110,10 @@ the configuration objects that affect that pod.`,
 			writer := cmd.OutOrStdout()
 
 			podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
+			annotations := k8s_labels.Set(pod.ObjectMeta.Annotations)
+			opts.Revision = getRevisionFromPodAnnotation(annotations)
 
-			printPod(writer, pod)
+			printPod(writer, pod, opts.Revision)
 
 			svcs, err := client.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
@@ -171,6 +175,16 @@ the configuration objects that affect that pod.`,
 	return cmd
 }
 
+func getRevisionFromPodAnnotation(anno k8s_labels.Set) string {
+	statusString := anno.Get(apiannotation.SidecarStatus.Name)
+	var injectionStatus inject.SidecarInjectionStatus
+	if err := json.Unmarshal([]byte(statusString), &injectionStatus); err != nil {
+		return ""
+	}
+
+	return injectionStatus.Revision
+}
+
 func describe() *cobra.Command {
 	describeCmd := &cobra.Command{
 		Use:     "describe",
@@ -191,14 +205,6 @@ func describe() *cobra.Command {
 	describeCmd.AddCommand(podDescribeCmd())
 	describeCmd.AddCommand(svcDescribeCmd())
 	return describeCmd
-}
-
-func servicePortProtocol(name string) protocol.Instance {
-	i := strings.IndexByte(name, '-')
-	if i >= 0 {
-		name = name[:i]
-	}
-	return protocol.Parse(name)
 }
 
 // Append ".svc.cluster.local" if it isn't already present
@@ -281,7 +287,7 @@ func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule
 }
 
 // httpRouteMatchSvc returns true if it matches and a slice of facts about the match
-func httpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.HTTPRoute, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) (bool, []string) { // nolint: lll
+func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTPRoute, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) (bool, []string) { // nolint: lll
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	facts := []string{}
 	mismatchNotes := []string{}
@@ -343,7 +349,7 @@ func httpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.HTTPR
 	return match, facts
 }
 
-func tcpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.TCPRoute, svc v1.Service) (bool, []string) {
+func tcpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.TCPRoute, svc v1.Service) (bool, []string) {
 	match := false
 	facts := []string{}
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
@@ -413,7 +419,7 @@ func renderMatch(match *v1alpha3.HTTPMatchRequest) string {
 	return strings.TrimSpace(retval)
 }
 
-func printPod(writer io.Writer, pod *v1.Pod) {
+func printPod(writer io.Writer, pod *v1.Pod, revision string) {
 	ports := []string{}
 	UserID := int64(1337)
 	for _, container := range pod.Spec.Containers {
@@ -436,6 +442,7 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 	}
 
 	fmt.Fprintf(writer, "Pod: %s\n", kname(pod.ObjectMeta))
+	fmt.Fprintf(writer, "   Pod Revision: %s\n", revision)
 	if len(ports) > 0 {
 		fmt.Fprintf(writer, "   Pod Ports: %s\n", strings.Join(ports, ", "))
 	} else {
@@ -501,18 +508,22 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
 		// Get port number
 		nport, err := pilotcontroller.FindPort(pod, &port)
 		if err == nil {
-			var protocol string
-			if port.Name == "" {
-				protocol = "auto-detect"
-			} else {
-				protocol = string(servicePortProtocol(port.Name))
-			}
-
+			protocol := findProtocolForPort(&port)
 			fmt.Fprintf(writer, "   Port: %s %d/%s targets pod port %d\n", port.Name, port.Port, protocol, nport)
 		} else {
 			fmt.Fprintf(writer, "   %s\n", err.Error())
 		}
 	}
+}
+
+func findProtocolForPort(port *v1.ServicePort) string {
+	var protocol string
+	if port.Name == "" && port.AppProtocol == nil && port.Protocol != v1.ProtocolUDP {
+		protocol = "auto-detect"
+	} else {
+		protocol = string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
+	}
+	return protocol
 }
 
 func contains(slice []string, s string) bool {
@@ -544,7 +555,7 @@ func (v *myProtoValue) keyAsStruct(key string) *myProtoValue {
 	return &myProtoValue{v.GetStructValue().Fields[key]}
 }
 
-// asMyProtoValue wraps a gogo Struct so we may use it with keyAsStruct and keyAsString
+// asMyProtoValue wraps a protobuf Struct so we may use it with keyAsStruct and keyAsString
 func asMyProtoValue(s *structpb.Struct) *myProtoValue {
 	return &myProtoValue{
 		&structpb.Value{
@@ -671,7 +682,8 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 		if err != nil {
 			return "", err
 		}
-		if routeTyped.Name != sPort && !strings.HasPrefix(routeTyped.Name, "http.") {
+		if routeTyped.Name != sPort && !strings.HasPrefix(routeTyped.Name, "http.") &&
+			!strings.HasPrefix(routeTyped.Name, "https.") {
 			continue
 		}
 
@@ -792,7 +804,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 // TODO simplify this by showing for each matching Destination the negation of the previous HttpMatchRequest
 // and showing the non-matching Destinations.  (The current code is ad-hoc, and usually shows most of that information.)
-func printVirtualService(writer io.Writer, vs clientnetworking.VirtualService, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { // nolint: lll
+func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { // nolint: lll
 	fmt.Fprintf(writer, "VirtualService: %s\n", kname(vs.ObjectMeta))
 
 	// There is no point in checking that 'port' uses HTTP (for HTTP route matches)
@@ -935,7 +947,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 					}
 
 					printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
-					printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+					printVirtualService(writer, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
 				} else {
 					fmt.Fprintf(writer,
 						"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
@@ -971,7 +983,7 @@ func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v
 		_, err := pilotcontroller.FindPort(ingressPod, &port)
 		if err == nil {
 			nport := int(port.Port)
-			protocol := string(servicePortProtocol(port.Name))
+			protocol := string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
 
 			scheme := protocolToScheme[protocol]
 			portSuffix := ""
@@ -1166,7 +1178,7 @@ func describePodServices(writer io.Writer, kubeClient kube.ExtendedClient, confi
 						// If there is more than one port, prefix each DR by the port it applies to
 						fmt.Fprintf(writer, "%d ", port.Port)
 					}
-					printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+					printVirtualService(writer, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
 				} else {
 					fmt.Fprintf(writer,
 						"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
@@ -1225,7 +1237,7 @@ func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient
 	var cfgs []*config.Config
 	for _, pa := range allPAs {
 		pa := pa
-		cfg := crdclient.TranslateObject(&pa, config.GroupVersionKind(pa.GroupVersionKind()), "")
+		cfg := crdclient.TranslateObject(pa, config.GroupVersionKind(pa.GroupVersionKind()), "")
 		cfgs = append(cfgs, &cfg)
 	}
 
@@ -1283,10 +1295,10 @@ func printConfigs(writer io.Writer, configs []*config.Config) {
 }
 
 func printPeerAuthentication(writer io.Writer, pa *v1beta1.PeerAuthentication) {
-	fmt.Fprintf(writer, "Effectve PeerAuthentication:\n")
-	fmt.Fprintf(writer, "   Workload mTLS: %s\n", pa.Mtls.Mode.String())
+	fmt.Fprintf(writer, "Effective PeerAuthentication:\n")
+	fmt.Fprintf(writer, "   Workload mTLS mode: %s\n", pa.Mtls.Mode.String())
 	if len(pa.PortLevelMtls) != 0 {
-		fmt.Fprintf(writer, "   Port Level mTLS:\n")
+		fmt.Fprintf(writer, "   Port Level mTLS mode:\n")
 		for port, mode := range pa.PortLevelMtls {
 			fmt.Fprintf(writer, "      %d: %s\n", port, mode.Mode.String())
 		}
@@ -1302,7 +1314,7 @@ func getMeshConfig(kubeClient kube.ExtendedClient) (*meshconfig.MeshConfig, erro
 		meshConfigMapName = fmt.Sprintf("%s-%s", defaultMeshConfigMapName, rev)
 	}
 
-	meshConfigMap, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := kubeClient.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, istioNamespace, err)
 	}

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** `analyze` has unexpected IST0134 message when `ServiceEntry` address is empty but mesh config `ISTIO_META_DNS_AUTO_ALLOCATE` is enabled.

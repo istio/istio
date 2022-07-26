@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 )
 
 var (
@@ -105,7 +106,7 @@ func setupFake(t *testing.T, client kubelib.Client) {
 func fakeMeshHolder(ingressService string) mesh.Holder {
 	config := mesh.DefaultMeshConfig()
 	config.IngressService = ingressService
-	return mesh.NewFixedWatcher(&config)
+	return mesh.NewFixedWatcher(config)
 }
 
 func makeStatusSyncer(t *testing.T) *StatusSyncer {
@@ -116,11 +117,7 @@ func makeStatusSyncer(t *testing.T) *StatusSyncer {
 	client := kubelib.NewFakeClient()
 	setupFake(t, client)
 	sync := NewStatusSyncer(fakeMeshHolder("istio-ingress"), client)
-	stop := make(chan struct{})
-	client.RunAndWait(stop)
-	t.Cleanup(func() {
-		close(stop)
-	})
+	client.RunAndWait(test.NewStop(t))
 	return sync
 }
 

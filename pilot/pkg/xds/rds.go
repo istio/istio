@@ -16,8 +16,7 @@ package xds
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 type RdsGenerator struct {
@@ -27,14 +26,16 @@ type RdsGenerator struct {
 var _ model.XdsResourceGenerator = &RdsGenerator{}
 
 // Map of all configs that do not impact RDS
-var skippedRdsConfigs = map[config.GroupVersionKind]struct{}{
-	gvk.WorkloadEntry:         {},
-	gvk.WorkloadGroup:         {},
-	gvk.AuthorizationPolicy:   {},
-	gvk.RequestAuthentication: {},
-	gvk.PeerAuthentication:    {},
-	gvk.Secret:                {},
-	gvk.WasmPlugin:            {},
+var skippedRdsConfigs = map[kind.Kind]struct{}{
+	kind.WorkloadEntry:         {},
+	kind.WorkloadGroup:         {},
+	kind.AuthorizationPolicy:   {},
+	kind.RequestAuthentication: {},
+	kind.PeerAuthentication:    {},
+	kind.Secret:                {},
+	kind.WasmPlugin:            {},
+	kind.Telemetry:             {},
+	kind.ProxyConfig:           {},
 }
 
 func rdsNeedsPush(req *model.PushRequest) bool {
@@ -57,8 +58,7 @@ func rdsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !rdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}

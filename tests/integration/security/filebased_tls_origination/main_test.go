@@ -24,26 +24,28 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var inst istio.Instance
 
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
 		Label("CustomSetup").
-		RequireMultiPrimary().
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Run()
 }
 
-func setupConfig(_ resource.Context, cfg *istio.Config) {
+func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.ControlPlaneValues = `
+	cfg.ControlPlaneValues = tmpl.MustEvaluate(`
+{{- if not .isExternalControlPlane }}
 components:
   egressGateways:
   - enabled: true
@@ -55,5 +57,20 @@ values:
          - name: client-custom-certs
            secretName: egress-gw-cacerts
            mountPath: /etc/certs/custom
+{{- end }}
+`, map[string]bool{"isExternalControlPlane": ctx.AllClusters().IsExternalControlPlane()})
+
+	cfg.GatewayValues = `
+components:
+  egressGateways:
+  - enabled: true
+    name: istio-egressgateway
+values:
+  gateways:
+    istio-egressgateway:
+      secretVolumes:
+      - name: client-custom-certs
+        secretName: egress-gw-cacerts
+        mountPath: /etc/certs/custom
 `
 }

@@ -32,7 +32,7 @@ type operatorDumper struct {
 }
 
 func (d *operatorDumper) Dump(ctx resource.Context) {
-	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
+	scopes.Framework.Errorf("=== Dumping Istio Deployment State for %v...", ctx.ID())
 	ns := d.ns
 	if len(ns) < 1 {
 		ns = "istio-operator"

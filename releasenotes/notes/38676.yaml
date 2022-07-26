@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 38676
+releaseNotes:
+  - |
+    **Fixed** change to add priority of -1 to envoyFilters deployed by default by istio to remove warnings from istioctl envoyFilter analyzer on first install

@@ -33,6 +33,14 @@ typedConfig:
           prefix: x-prefix-
         - ignoreCase: true
           suffix: -suffix
+      allowedClientHeadersOnSuccess:
+        patterns:
+        - exact: Set-cookie
+          ignoreCase: true
+        - ignoreCase: true
+          prefix: x-prefix-
+        - ignoreCase: true
+          suffix: -suffix
       allowedUpstreamHeaders:
         patterns:
         - exact: Authorization

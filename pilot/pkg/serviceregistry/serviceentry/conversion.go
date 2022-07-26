@@ -21,6 +21,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -63,7 +65,7 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
 		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
 		//
-		Addresses: []string{svc.GetAddressForProxy(proxy)},
+		Addresses: svc.GetAddresses(proxy),
 
 		// Location:             0,
 
@@ -199,14 +201,19 @@ func convertServices(cfg config.Config) []*model.Service {
 		}
 	}
 
-	return buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
+	return buildServices(hostAddresses, cfg.Name, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
 		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
 }
 
-func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
+func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string) []*model.Service {
+	ctime time.Time, labels map[string]string,
+) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
+	lbls := labels
+	if features.CanonicalServiceForMeshExternalServiceEntry && location == networking.ServiceEntry_MESH_EXTERNAL {
+		lbls = ensureCanonicalServiceLabels(name, labels)
+	}
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
 			CreationTime:   ctime,
@@ -219,7 +226,7 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 				ServiceRegistry: provider.External,
 				Name:            ha.host,
 				Namespace:       namespace,
-				Labels:          labels,
+				Labels:          lbls,
 				ExportTo:        exportTo,
 				LabelSelectors:  selectors,
 			},
@@ -229,8 +236,23 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 	return out
 }
 
-func (s *ServiceEntryStore) convertEndpoint(service *model.Service, servicePort *networking.Port,
-	wle *networking.WorkloadEntry, configKey *configKey, clusterID cluster.ID) *model.ServiceInstance {
+func ensureCanonicalServiceLabels(name string, srcLabels map[string]string) map[string]string {
+	if srcLabels == nil {
+		srcLabels = make(map[string]string)
+	}
+	_, svcLabelFound := srcLabels[model.IstioCanonicalServiceLabelName]
+	_, revLabelFound := srcLabels[model.IstioCanonicalServiceRevisionLabelName]
+	if svcLabelFound && revLabelFound {
+		return srcLabels
+	}
+
+	srcLabels[model.IstioCanonicalServiceLabelName], srcLabels[model.IstioCanonicalServiceRevisionLabelName] = labels.CanonicalService(srcLabels, name)
+	return srcLabels
+}
+
+func (s *Controller) convertEndpoint(service *model.Service, servicePort *networking.Port,
+	wle *networking.WorkloadEntry, configKey *configKey, clusterID cluster.ID,
+) *model.ServiceInstance {
 	var instancePort uint32
 	addr := wle.GetAddress()
 	// priority level: unixAddress > we.ports > se.port.targetPort > se.port.number
@@ -279,8 +301,9 @@ func (s *ServiceEntryStore) convertEndpoint(service *model.Service, servicePort 
 
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
-func (s *ServiceEntryStore) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
-	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID) []*model.ServiceInstance {
+func (s *Controller) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
+	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID,
+) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
@@ -290,7 +313,7 @@ func (s *ServiceEntryStore) convertWorkloadEntryToServiceInstances(wle *networki
 	return out
 }
 
-func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
+func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if serviceEntry == nil {
@@ -348,20 +371,27 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 
 // The workload instance has pointer to the service and its service port.
 // We need to create our own but we can retain the endpoint already created.
-func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpoint, serviceEntryServices []*model.Service,
-	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
+func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadInstance, serviceEntryServices []*model.Service,
+	serviceEntry *networking.ServiceEntry,
+) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range serviceEntryServices {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			ep := *workloadInstance
-			ep.ServicePortName = serviceEntryPort.Name
-			// if target port is set, use the target port else fallback to the service port
-			// TODO: we need a way to get the container port map from k8s
-			if serviceEntryPort.TargetPort > 0 {
-				ep.EndpointPort = serviceEntryPort.TargetPort
+			// note: this is same as workloadentry handler
+			// endpoint port will first use the port defined in wle with same port name,
+			// if not port name not match, use the targetPort specified in ServiceEntry
+			// if both not matched, fallback to ServiceEntry port number.
+			var targetPort uint32
+			if port, ok := workloadInstance.PortMap[serviceEntryPort.Name]; ok && port > 0 {
+				targetPort = port
+			} else if serviceEntryPort.TargetPort > 0 {
+				targetPort = serviceEntryPort.TargetPort
 			} else {
-				ep.EndpointPort = serviceEntryPort.Number
+				targetPort = serviceEntryPort.Number
 			}
+			ep := *workloadInstance.Endpoint
+			ep.ServicePortName = serviceEntryPort.Name
+			ep.EndpointPort = targetPort
 			ep.EnvoyEndpoint = nil
 			out = append(out, &model.ServiceInstance{
 				Endpoint:    &ep,
@@ -375,16 +405,8 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this workload instance when selecting workload entries
-func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
-	we := cfg.Spec.(*networking.WorkloadEntry)
-	// we will merge labels from metadata with spec, with precedence to the metadata
-	labels := map[string]string{}
-	for k, v := range we.Labels {
-		labels[k] = v
-	}
-	for k, v := range cfg.Labels {
-		labels[k] = v
-	}
+func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
+	we := convertWorkloadEntry(cfg)
 	addr := we.GetAddress()
 	dnsServiceEntryOnly := false
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
@@ -401,7 +423,7 @@ func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Co
 		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(we)
-	labels = labelutil.AugmentLabels(labels, clusterID, we.Locality, networkID)
+	labels := labelutil.AugmentLabels(we.Labels, clusterID, we.Locality, networkID)
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,

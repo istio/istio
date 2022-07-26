@@ -26,13 +26,14 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	kubetest "istio.io/istio/pkg/test/kube"
 )
 
 func TestRevisionTags(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		Features("installation.istioctl.revision_tags").
 		RequiresSingleCluster().
@@ -113,7 +114,7 @@ func TestRevisionTags(t *testing.T) {
 							tc.nsLabel, revTagNs.Name(), err)
 					}
 
-					echoboot.NewBuilder(t).WithConfig(echo.Config{
+					deployment.New(t).WithConfig(echo.Config{
 						Service:   "revision-tag",
 						Namespace: revTagNs,
 					}).BuildOrFail(t)

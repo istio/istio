@@ -22,6 +22,7 @@ package component
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -50,6 +52,10 @@ type Options struct {
 	Translator *translate.Translator
 	// Namespace is the namespace for this component.
 	Namespace string
+	// Filter is the filenames to render
+	Filter sets.Set
+	// Version is the Kubernetes version information.
+	Version *version.Info
 }
 
 // IstioComponent defines the interface for a component.
@@ -62,7 +68,7 @@ type IstioComponent interface {
 	Namespace() string
 	// Enabled reports whether the component is enabled.
 	Enabled() bool
-	// Run starts the component. Must me called before the component is used.
+	// Run starts the component. Must be called before the component is used.
 	Run() error
 	// RenderManifest returns a string with the rendered manifest for the component.
 	RenderManifest() (string, error)
@@ -77,7 +83,7 @@ type CommonComponentFields struct {
 	// index is the index of the component (only used for components with multiple instances like gateways).
 	index int
 	// componentSpec for the actual component e.g. GatewaySpec, ComponentSpec.
-	componentSpec interface{}
+	componentSpec any
 	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer
@@ -415,7 +421,9 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 
 	scope.Debugf("Merged values:\n%s\n", mergedYAML)
 
-	my, err := cf.renderer.RenderManifest(mergedYAML)
+	my, err := cf.renderer.RenderManifestFiltered(mergedYAML, func(s string) bool {
+		return len(cf.Filter) == 0 || cf.Filter.Contains(s)
+	})
 	if err != nil {
 		log.Errorf("Error rendering the manifest: %s", err)
 		metrics.CountManifestRenderError(c.ComponentName(), metrics.HelmChartRenderError)
@@ -473,7 +481,7 @@ func createHelmRenderer(c *CommonComponentFields) helm.TemplateRenderer {
 	iop := c.InstallSpec
 	cns := string(c.ComponentName)
 	helmSubdir := c.Translator.ComponentMap(cns).HelmSubdir
-	return helm.NewHelmRenderer(iop.InstallPackagePath, helmSubdir, cns, c.Namespace)
+	return helm.NewHelmRenderer(iop.InstallPackagePath, helmSubdir, cns, c.Namespace, c.Version)
 }
 
 func isCoreComponentEnabled(c *CommonComponentFields) bool {

@@ -3,6 +3,11 @@ kind: IstioOperator
 spec:
   meshConfig:
     accessLogFile: /dev/stdout
+    extensionProviders:
+    - name: otel
+      envoyOtelAls:
+        service: otel-collector.istio-system.svc.cluster.local
+        port: 4317
   components:
     egressGateways:
     - name: istio-egressgateway

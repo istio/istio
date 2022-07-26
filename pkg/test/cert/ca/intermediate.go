@@ -56,7 +56,7 @@ CN = Intermediate CA
 // NewIstioConfig creates an extensions configuration for Istio, using the given system namespace in
 // the DNS SANs.
 func NewIstioConfig(systemNamespace string) (string, error) {
-	return tmpl.Evaluate(istioConfTemplate, map[string]interface{}{
+	return tmpl.Evaluate(istioConfTemplate, map[string]any{
 		"SystemNamespace": systemNamespace,
 	})
 }

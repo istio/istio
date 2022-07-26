@@ -108,8 +108,18 @@ func TestGetTokenReviewResult(t *testing.T) {
 		if !reflect.DeepEqual(result, tc.expectedResult) {
 			t.Errorf("TestGetTokenReviewResult failed: case: %q, actual result is %v, expected is %v", tc.name, result, tc.expectedResult)
 		}
-		if !reflect.DeepEqual(err, tc.expectedError) {
+		if !errEqual(err, tc.expectedError) {
 			t.Errorf("TestGetTokenReviewResult failed: case: %q, actual error is %v, expected is %v", tc.name, err, tc.expectedError)
 		}
+	}
+}
+
+func errEqual(err error, target error) bool {
+	if target == nil {
+		return err == target
+	} else if err == nil {
+		return false
+	} else {
+		return err.Error() == target.Error()
 	}
 }

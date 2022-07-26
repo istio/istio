@@ -39,11 +39,8 @@ metadata:
   name: foo
   namespace: bar
 spec:
-  metadata:
-    annotations: {}
-    labels: {}
+  metadata: {}
   template:
-    ports: {}
     serviceAccount: default
 `
 
@@ -227,6 +224,31 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			}
 
 			checkOutputFiles(t, testdir, checkFiles)
+		})
+	}
+}
+
+func TestWorkloadEntryToPodPortsMeta(t *testing.T) {
+	cases := []struct {
+		description string
+		ports       map[string]uint32
+		want        string
+	}{
+		{
+			description: "test json marshal",
+			ports: map[string]uint32{
+				"HTTP":  80,
+				"HTTPS": 443,
+			},
+			want: `[{"name":"HTTP","containerPort":80,"protocol":""},{"name":"HTTPS","containerPort":443,"protocol":""}]`,
+		},
+	}
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
+			str := marshalWorkloadEntryPodPorts(c.ports)
+			if c.want != str {
+				t.Errorf("want %s, got %s", c.want, str)
+			}
 		})
 	}
 }

@@ -15,13 +15,11 @@
 package ca
 
 import (
-	"fmt"
 	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	pb "istio.io/api/security/v1alpha1"
@@ -47,19 +45,11 @@ type CertificateAuthority interface {
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
 type Server struct {
+	pb.UnimplementedIstioCertificateServiceServer
 	monitoring     monitoringMetrics
 	Authenticators []security.Authenticator
 	ca             CertificateAuthority
 	serverCertTTL  time.Duration
-}
-
-func getConnectionAddress(ctx context.Context) string {
-	peerInfo, ok := peer.FromContext(ctx)
-	peerAddr := "unknown"
-	if ok {
-		peerAddr = peerInfo.Addr.String()
-	}
-	return peerAddr
 }
 
 // CreateCertificate handles an incoming certificate signing request (CSR). It does
@@ -69,9 +59,11 @@ func getConnectionAddress(ctx context.Context) string {
 // the validity duration is the ValidityDuration in request, or default value if the given duration is invalid.
 // it is signed by the CA signing key.
 func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
-	*pb.IstioCertificateResponse, error) {
+	*pb.IstioCertificateResponse, error,
+) {
 	s.monitoring.CSR.Increment()
-	caller := Authenticate(ctx, s.Authenticators)
+	am := security.AuthenticationManager{Authenticators: s.Authenticators}
+	caller := am.Authenticate(ctx)
 	if caller == nil {
 		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
@@ -142,7 +134,8 @@ func (s *Server) Register(grpcServer *grpc.Server) {
 
 // New creates a new instance of `IstioCAServiceServer`
 func New(ca CertificateAuthority, ttl time.Duration,
-	authenticators []security.Authenticator) (*Server, error) {
+	authenticators []security.Authenticator,
+) (*Server, error) {
 	certBundle := ca.GetCAKeyCertBundle()
 	if len(certBundle.GetRootCertPem()) != 0 {
 		recordCertsExpiry(certBundle)
@@ -154,23 +147,4 @@ func New(ca CertificateAuthority, ttl time.Duration,
 		monitoring:     newMonitoringMetrics(),
 	}
 	return server, nil
-}
-
-// authenticate goes through a list of authenticators (provided client cert, k8s jwt, and ID token)
-// and authenticates if one of them is valid.
-func Authenticate(ctx context.Context, auth []security.Authenticator) *security.Caller {
-	// TODO: apply different authenticators in specific order / according to configuration.
-	var errMsg string
-	for id, authn := range auth {
-		u, err := authn.Authenticate(ctx)
-		if err != nil {
-			errMsg += fmt.Sprintf("Authenticator %s at index %d got error: %v. ", authn.AuthenticatorType(), id, err)
-		}
-		if u != nil && err == nil {
-			serverCaLog.Debugf("Authentication successful through auth source %v", u.AuthSource)
-			return u
-		}
-	}
-	serverCaLog.Warnf("Authentication failed for %v: %s", getConnectionAddress(ctx), errMsg)
-	return nil
 }

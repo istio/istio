@@ -17,10 +17,10 @@ package translate
 import (
 	"testing"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/kr/pretty"
+	"github.com/golang/protobuf/jsonpb"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 )
@@ -89,7 +89,9 @@ components:
           metrics:
            - resource:
                name: cpu
-               targetAverageUtilization: 80
+               target:
+                 averageUtilization: 80
+                 type: Utilization
              type: Resource
        nodeSelector:
           kubernetes.io/os: linux
@@ -192,7 +194,6 @@ values:
 			if err != nil {
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}
-			scope.Debugf("value struct: \n%s\n", pretty.Sprint(valueStruct))
 			gotSpec, err := tr.TranslateFromValueToSpec([]byte(tt.valueYAML), false)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Errorf("ValuesToProto(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.valueYAML, gotErr, wantErr)
@@ -291,7 +292,9 @@ spec:
           - type: Resource
             resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -407,7 +410,9 @@ spec:
           - type: Resource
             resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -525,7 +530,9 @@ spec:
           - type: Resource
             resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -576,6 +583,263 @@ spec:
       traceSampling: 1.0
       image: pilot
       env: {}
+`,
+		},
+		{
+			desc: "pilot no env k8s setting with multiple env variables in values",
+			inIOPSpec: `
+spec:
+  components:
+    pilot:
+      k8s:
+        nodeSelector:
+          master: "true"
+  values:
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        PILOT_ENABLE_ISTIO_TAGS: false
+        PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME: false
+        PROXY_XDS_DEBUG_VIA_AGENT: false
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+`,
+			want: `
+spec:
+  components:
+    pilot:
+      k8s:
+        env:
+        - name: PILOT_ENABLE_ISTIO_TAGS
+          value: "false"
+        - name: PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME
+          value: "false"
+        - name: PROXY_XDS_DEBUG_VIA_AGENT
+          value: "false"
+        hpaSpec:
+          minReplicas: 1
+          maxReplicas: 3
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istiod
+          metrics:
+          - resource:
+              name: cpu
+              target:
+                averageUtilization: 80
+                type: Utilization
+            type: Resource
+        nodeSelector:
+          master: "true"
+          kubernetes.io/os: linux
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations:
+        - effect: NoSchedule
+          key: dedicated
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+  values:
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        PILOT_ENABLE_ISTIO_TAGS: false
+        PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME: false
+        PROXY_XDS_DEBUG_VIA_AGENT: false
+`,
+		},
+		{
+			desc: "pilot k8s setting with multiple env variables in values",
+			inIOPSpec: `
+spec:
+  components:
+    pilot:
+      k8s:
+        nodeSelector:
+          master: "true"
+        env:
+        - name: SPIFFE_BUNDLE_ENDPOINTS
+          value: "SPIFFE_BUNDLE_ENDPOINT"
+  values:
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        PILOT_ENABLE_ISTIO_TAGS: false
+        PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME: false
+        PROXY_XDS_DEBUG_VIA_AGENT: false
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+`,
+			want: `
+spec:
+  components:
+    pilot:
+      k8s:
+        env:
+        - name: SPIFFE_BUNDLE_ENDPOINTS
+          value: "SPIFFE_BUNDLE_ENDPOINT"
+        - name: PILOT_ENABLE_ISTIO_TAGS
+          value: "false"
+        - name: PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME
+          value: "false"
+        - name: PROXY_XDS_DEBUG_VIA_AGENT
+          value: "false"
+        hpaSpec:
+          minReplicas: 1
+          maxReplicas: 3
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istiod
+          metrics:
+          - resource:
+              name: cpu
+              target:
+                averageUtilization: 80
+                type: Utilization
+            type: Resource
+        nodeSelector:
+          master: "true"
+          kubernetes.io/os: linux
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations:
+        - effect: NoSchedule
+          key: dedicated
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+  values:
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        PILOT_ENABLE_ISTIO_TAGS: false
+        PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME: false
+        PROXY_XDS_DEBUG_VIA_AGENT: false
 `,
 		},
 		{
@@ -669,10 +933,12 @@ spec:
             kind: Deployment
             name: istiod-canary
           metrics:
-          - type: Resource
-            resource:
+          - resource:
               name: cpu
-              targetAverageUtilization: 80
+              target:
+                averageUtilization: 80
+                type: Utilization
+            type: Resource
   values:
     pilot:
       autoscaleMin: 1
@@ -686,12 +952,10 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			iopStruct := v1alpha1.IstioOperator{}
-			err := util.UnmarshalWithJSONPB(tt.inIOPSpec, &iopStruct, false)
+			_, err := istio.UnmarshalIstioOperator(tt.inIOPSpec, false)
 			if err != nil {
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}
-			scope.Debugf("value struct: \n%s\n", pretty.Sprint(iopStruct))
 			gotSpec, err := tr.TranslateK8SfromValueToIOP(tt.inIOPSpec)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Errorf("ValuesToK8s(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.inIOPSpec, gotErr, wantErr)

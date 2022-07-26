@@ -29,10 +29,17 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
-var testAgentDNSAddr = "127.0.0.1:15053"
+func TestDNSForwardParallel(t *testing.T) {
+	d := initDNS(t, true)
+	testDNS(t, d)
+}
 
 func TestDNS(t *testing.T) {
-	initDNS(t)
+	d := initDNS(t, false)
+	testDNS(t, d)
+}
+
+func testDNS(t *testing.T, d *LocalDNSServer) {
 	testCases := []struct {
 		name                     string
 		host                     string
@@ -175,6 +182,22 @@ func TestDNS(t *testing.T) {
 			expected: a("a.b.wildcard.", []net.IP{net.ParseIP("11.11.11.11").To4()}),
 		},
 		{
+			name:     "success: wild card with domain returns A record correctly",
+			host:     "foo.svc.mesh.company.net.",
+			expected: a("foo.svc.mesh.company.net.", []net.IP{net.ParseIP("10.1.2.3").To4()}),
+		},
+		{
+			name:     "success: wild card with namespace with domain returns A record correctly",
+			host:     "foo.foons.svc.mesh.company.net.",
+			expected: a("foo.foons.svc.mesh.company.net.", []net.IP{net.ParseIP("10.1.2.3").To4()}),
+		},
+		{
+			name: "success: wild card with search domain returns A record correctly",
+			host: "foo.svc.mesh.company.net.ns1.svc.cluster.local.",
+			expected: append(cname("*.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net."),
+				a("foo.svc.mesh.company.net.ns1.svc.cluster.local.", []net.IP{net.ParseIP("10.1.2.3").To4()})...),
+		},
+		{
 			name:      "success: TypeAAAA query returns AAAA records only",
 			host:      "dual.localhost.",
 			queryAAAA: true,
@@ -235,6 +258,10 @@ func TestDNS(t *testing.T) {
 			Net:     "tcp",
 		},
 	}
+	addresses := []string{
+		d.dnsProxies[0].Address(),
+		d.dnsProxies[1].Address(),
+	}
 	currentID := atomic.NewInt32(0)
 	oldID := dns.Id
 	dns.Id = func() uint16 {
@@ -242,6 +269,7 @@ func TestDNS(t *testing.T) {
 	}
 	defer func() { dns.Id = oldID }()
 	for i := range clients {
+		addr := addresses[i]
 		for _, tt := range testCases {
 			// Test is for explicit network
 			if (strings.HasPrefix(tt.name, "udp") || strings.HasPrefix(tt.name, "tcp")) && !strings.HasPrefix(tt.name, clients[i].Net) {
@@ -261,7 +289,7 @@ func TestDNS(t *testing.T) {
 					currentID.Store(int32(tt.id))
 					defer func() { currentID.Store(0) }()
 				}
-				res, _, err := clients[i].Exchange(m, testAgentDNSAddr)
+				res, _, err := clients[i].Exchange(m, addr)
 				if res != nil {
 					t.Log("size: ", len(res.Answer))
 				}
@@ -303,15 +331,15 @@ func TestDNS(t *testing.T) {
 //   docker run -v $PWD:$PWD -w $PWD --network host quay.io/ssro/dnsperf dnsperf -p 15053 -d input -c 100 -l 30
 // where `input` contains dns queries to run, such as `echo.default. A`
 func BenchmarkDNS(t *testing.B) {
-	initDNS(t)
+	s := initDNS(t, false)
 	t.Run("via-agent-cache-miss", func(b *testing.B) {
-		bench(b, testAgentDNSAddr, "www.bing.com.")
+		bench(b, s.dnsProxies[0].Address(), "www.bing.com.")
 	})
 	t.Run("via-agent-cache-hit-fqdn", func(b *testing.B) {
-		bench(b, testAgentDNSAddr, "www.google.com.")
+		bench(b, s.dnsProxies[0].Address(), "www.google.com.")
 	})
 	t.Run("via-agent-cache-hit-cname", func(b *testing.B) {
-		bench(b, testAgentDNSAddr, "www.google.com.ns1.svc.cluster.local.")
+		bench(b, s.dnsProxies[0].Address(), "www.google.com.ns1.svc.cluster.local.")
 	})
 }
 
@@ -412,8 +440,28 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 		}
 	})
 	up := make(chan struct{})
-	server := &dns.Server{
+
+	tcp := &dns.Server{
 		Addr:              "127.0.0.1:0",
+		Net:               "tcp",
+		Handler:           mux,
+		NotifyStartedFunc: func() { close(up) },
+	}
+	go func() {
+		if err := tcp.ListenAndServe(); err != nil {
+			log.Warnf("listen error: %v", err)
+		}
+	}()
+	select {
+	case <-time.After(time.Second * 10):
+		t.Fatalf("setup timeout")
+	case <-up:
+	}
+
+	// Setup UDP server on same port
+	up = make(chan struct{})
+	server := &dns.Server{
+		Addr:              tcp.Listener.Addr().String(),
 		Net:               "udp",
 		Handler:           mux,
 		NotifyStartedFunc: func() { close(up) },
@@ -433,19 +481,6 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 	t.Cleanup(func() { _ = server.Shutdown() })
 	server.Addr = server.PacketConn.LocalAddr().String()
 
-	// Setup TCP server on same port
-	up = make(chan struct{})
-	tcp := &dns.Server{
-		Addr:              server.Addr,
-		Net:               "tcp",
-		Handler:           mux,
-		NotifyStartedFunc: func() { close(up) },
-	}
-	go func() {
-		if err := tcp.ListenAndServe(); err != nil {
-			log.Warnf("listen error: %v", err)
-		}
-	}()
 	select {
 	case <-time.After(time.Second * 10):
 		t.Fatalf("setup timeout")
@@ -457,9 +492,9 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 	return server.Addr
 }
 
-func initDNS(t test.Failer) *LocalDNSServer {
+func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 	srv := makeUpstream(t, map[string]string{"www.bing.com.": "1.1.1.1"})
-	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:15053")
+	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", forwardToUpstreamParallel)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -517,6 +552,10 @@ func initDNS(t test.Failer) *LocalDNSServer {
 			},
 			"*.wildcard": {
 				Ips:      []string{"10.10.10.10"},
+				Registry: "External",
+			},
+			"*.svc.mesh.company.net": {
+				Ips:      []string{"10.1.2.3"},
 				Registry: "External",
 			},
 			"example.localhost.": {

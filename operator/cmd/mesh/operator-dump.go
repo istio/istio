@@ -44,7 +44,7 @@ func addOperatorDumpFlags(cmd *cobra.Command, args *operatorDumpArgs) {
 		"Output format: one of json|yaml")
 }
 
-func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Command {
+func operatorDumpCmd(rootArgs *RootArgs, odArgs *operatorDumpArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "dump",
 		Short: "Dumps the Istio operator controller manifest.",
@@ -58,7 +58,7 @@ func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Comman
 }
 
 // operatorDump dumps the manifest used to install the operator.
-func operatorDump(args *rootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
+func operatorDump(args *RootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
 	if err := validateOperatorOutputFormatFlag(odArgs.common.outputFormat); err != nil {
 		l.LogAndFatal(fmt.Errorf("unknown output format: %v", odArgs.common.outputFormat))
 	}

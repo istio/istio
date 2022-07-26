@@ -40,12 +40,12 @@ import (
 func TestProxyTracing(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.tracing.server").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
 			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
-			for _, cluster := range ctx.Clusters().ByNetwork()[ctx.Clusters().Default().NetworkName()] {
+			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
 				cluster := cluster
-				ctx.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
+				t.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
 						err := tracing.SendTraffic(ctx, nil, cluster)
 						if err != nil {
@@ -76,7 +76,7 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func setupConfig(ctx resource.Context, cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}

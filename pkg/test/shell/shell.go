@@ -19,16 +19,21 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/google/shlex"
+
 	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("shell", "Shell execution scope", 0)
 
 // Execute the given command.
-func Execute(combinedOutput bool, format string, args ...interface{}) (string, error) {
+func Execute(combinedOutput bool, format string, args ...any) (string, error) {
 	s := fmt.Sprintf(format, args...)
-	// TODO: escape handling
-	parts := strings.Split(s, " ")
+
+	parts, err := shlex.Split(s)
+	if err != nil {
+		return "", fmt.Errorf("fail to parse cmd: %q, err: %v", s, err)
+	}
 
 	var p []string
 	for i := 0; i < len(parts); i++ {

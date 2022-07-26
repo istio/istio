@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
 
 	"google.golang.org/grpc"
 
@@ -34,7 +33,8 @@ type CAService struct {
 
 // CreateCertificate is a mocked function for the Google Mesh CA API.
 func (ca *CAService) CreateCertificate(ctx context.Context, in *gcapb.MeshCertificateRequest) (
-	*gcapb.MeshCertificateResponse, error) {
+	*gcapb.MeshCertificateResponse, error,
+) {
 	if ca.Err == nil {
 		return &gcapb.MeshCertificateResponse{CertChain: ca.Certs}, nil
 	}
@@ -62,15 +62,13 @@ func CreateServer(addr string, service *CAService) (*CAServer, error) {
 	s.Address = lis.Addr().String()
 
 	var serveErr error
+	gcapb.RegisterMeshCertificateServiceServer(s.Server, service)
 	go func() {
-		gcapb.RegisterMeshCertificateServiceServer(s.Server, service)
 		if err := s.Server.Serve(lis); err != nil {
 			serveErr = err
 		}
 	}()
 
-	// The goroutine starting the server may not be ready, results in flakiness.
-	time.Sleep(1 * time.Second)
 	if serveErr != nil {
 		return nil, err
 	}

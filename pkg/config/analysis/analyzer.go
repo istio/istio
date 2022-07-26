@@ -15,9 +15,9 @@
 package analysis
 
 import (
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/analysis/scope"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Analyzer is an interface for analyzing configuration.
@@ -68,7 +68,7 @@ func (c *CombinedAnalyzer) Analyze(ctx Context) {
 // should be disabled. Any analyzers that require those output collections will be removed.
 // 2. The analyzer requires a collection not available in the current snapshot(s)
 func (c *CombinedAnalyzer) RemoveSkipped(schemas collection.Schemas) []string {
-	s := sets.NewSet()
+	s := sets.New()
 	for _, sc := range schemas.All() {
 		s.Insert(sc.Name().String())
 	}

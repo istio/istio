@@ -67,12 +67,12 @@ func UnstructuredToGVR(u unstructured.Unstructured) (schema.GroupVersionResource
 // ObjectToGVR extracts the GVR of an unstructured resource. This is useful when using dynamic
 // clients.
 func ObjectToGVR(u Object) (schema.GroupVersionResource, error) {
-	kGvk := u.GetObjectKind().GroupVersionKind()
+	gvk := u.GetObjectKind().GroupVersionKind()
 
 	gk := config.GroupVersionKind{
-		Group:   kGvk.Group,
-		Version: kGvk.Version,
-		Kind:    kGvk.Kind,
+		Group:   gvk.Group,
+		Version: gvk.Version,
+		Kind:    gvk.Kind,
 	}
 	found, ok := collections.All.FindByGroupVersionKind(gk)
 	if !ok {
@@ -97,8 +97,9 @@ func EnqueueForParentHandler(q Queue, kind config.GroupVersionKind) func(obj Obj
 			if refGV == kind.Kubernetes().GroupVersion() {
 				// We found a parent we care about, add it to the queue
 				q.Add(types.NamespacedName{
+					// Reference doesn't have namespace, but its always same-namespace, so use objects
 					Namespace: obj.GetNamespace(),
-					Name:      obj.GetName(),
+					Name:      ref.Name,
 				})
 			}
 		}
@@ -109,7 +110,7 @@ func EnqueueForParentHandler(q Queue, kind config.GroupVersionKind) func(obj Obj
 // ObjectHandler returns a handler that will act on the latest version of an object
 // This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
 func ObjectHandler(handler func(o Object)) cache.ResourceEventHandler {
-	h := func(obj interface{}) {
+	h := func(obj any) {
 		o := extractObject(obj)
 		if o == nil {
 			return
@@ -118,7 +119,7 @@ func ObjectHandler(handler func(o Object)) cache.ResourceEventHandler {
 	}
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: h,
-		UpdateFunc: func(oldObj, newObj interface{}) {
+		UpdateFunc: func(oldObj, newObj any) {
 			h(newObj)
 		},
 		DeleteFunc: h,
@@ -143,7 +144,7 @@ func FilteredObjectSpecHandler(handler func(o Object), filter func(o Object) boo
 }
 
 func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, filter func(o Object) bool) cache.ResourceEventHandler {
-	single := func(obj interface{}) {
+	single := func(obj any) {
 		o := extractObject(obj)
 		if o == nil {
 			return
@@ -155,12 +156,12 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	}
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: single,
-		UpdateFunc: func(oldInterface, newInterace interface{}) {
+		UpdateFunc: func(oldInterface, newInterface any) {
 			oldObj := extractObject(oldInterface)
 			if oldObj == nil {
 				return
 			}
-			newObj := extractObject(newInterace)
+			newObj := extractObject(newInterface)
 			if newObj == nil {
 				return
 			}
@@ -178,7 +179,7 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	}
 }
 
-func extractObject(obj interface{}) Object {
+func extractObject(obj any) Object {
 	o, ok := obj.(Object)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)

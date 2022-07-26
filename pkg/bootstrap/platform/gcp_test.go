@@ -241,9 +241,9 @@ func TestGCPMetadata(t *testing.T) {
 					GCPMetadata = v
 				}
 			}
-			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn, instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn =
-				tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn,
-				tt.instanceTemplateFn, tt.instanceCreatedByFn
+			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn,
+				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn,
+				tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn, tt.instanceCreatedByFn
 			e := NewGCP()
 			got := e.Metadata()
 			if !reflect.DeepEqual(got, tt.want) {
@@ -345,9 +345,9 @@ func TestMetadataCache(t *testing.T) {
 	gcpEnv := NewGCP()
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn, instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn =
-				tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn,
-				tt.instanceTemplateFn, tt.instanceCreatedByFn
+			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn,
+				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn,
+				tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn, tt.instanceCreatedByFn
 			got := gcpEnv.Metadata()
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)

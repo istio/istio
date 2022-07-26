@@ -15,6 +15,7 @@
 package tmpl
 
 import (
+	"fmt"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
@@ -34,6 +35,15 @@ func ParseOrFail(t test.Failer, tpl string) *template.Template {
 	tpl2, err := Parse(tpl)
 	if err != nil {
 		t.Fatalf("tmpl.ParseOrFail: %v", err)
+	}
+	return tpl2
+}
+
+// MustParse calls Parse and panics if it returns error.
+func MustParse(tpl string) *template.Template {
+	tpl2, err := Parse(tpl)
+	if err != nil {
+		panic(fmt.Sprintf("tmpl.MustParse: %v", err))
 	}
 	return tpl2
 }

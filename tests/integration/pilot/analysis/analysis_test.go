@@ -20,10 +20,11 @@ package analysis
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/meta/v1alpha1"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -41,11 +43,13 @@ func TestStatusExistsByDefault(t *testing.T) {
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		Features(features.Usability_Observability_Status).
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
 		RequiresLocalControlPlane().
+		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix:   "default",
@@ -53,7 +57,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 				Revision: "",
 				Labels:   nil,
 			})
-			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: v1
 kind: Service
 metadata:
@@ -67,9 +71,9 @@ spec:
     port: 15014
     protocol: TCP
     targetPort: 15014
-`)
+`).ApplyOrFail(t)
 			// Apply bad config (referencing invalid host)
-			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -82,13 +86,13 @@ spec:
   - route:
     - destination: 
         host: reviews
-`)
+`).ApplyOrFail(t)
 			// Status should report error
 			retry.UntilSuccessOrFail(t, func() error {
 				return expectVirtualServiceStatus(t, ns, true)
 			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
-			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -103,7 +107,7 @@ spec:
       protocol: HTTP
     hosts:
     - "*"
-`)
+`).ApplyOrFail(t)
 			// Status should no longer report error
 			retry.UntilSuccessOrFail(t, func() error {
 				return expectVirtualServiceStatus(t, ns, false)
@@ -123,14 +127,14 @@ func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 			})
 
 			// create WorkloadEntry
-			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadEntry
 metadata:
   name: vm-1
 spec:
   address: 127.0.0.1
-`)
+`).ApplyOrFail(t)
 
 			retry.UntilSuccessOrFail(t, func() error {
 				// we should expect an empty array not nil
@@ -232,7 +236,7 @@ func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, 
 		t.Fatalf("unexpected test failure: can't get virtualservice: %v", err)
 	}
 
-	status := x.Status
+	status := &x.Status
 
 	if hasError {
 		if len(status.ValidationMessages) < 1 {
@@ -289,7 +293,7 @@ func expectWorkloadEntryStatus(t framework.TestContext, ns namespace.Instance, e
 		}
 	}
 
-	if !reflect.DeepEqual(statusConds, expectedConds) {
+	if !cmp.Equal(statusConds, expectedConds, protocmp.Transform()) {
 		return fmt.Errorf("expected conditions %v got %v", expectedConds, statusConds)
 	}
 	return nil

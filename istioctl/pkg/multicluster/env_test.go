@@ -102,7 +102,7 @@ type fakeEnvironment struct {
 	wErr                    bytes.Buffer
 }
 
-func newFakeEnvironmentOrDie(t *testing.T, config *api.Config, objs ...runtime.Object) *fakeEnvironment {
+func newFakeEnvironmentOrDie(t *testing.T, minor string, config *api.Config, objs ...runtime.Object) *fakeEnvironment {
 	t.Helper()
 
 	var wOut, wErr bytes.Buffer
@@ -114,7 +114,7 @@ func newFakeEnvironmentOrDie(t *testing.T, config *api.Config, objs ...runtime.O
 			stderr:     &wErr,
 			kubeconfig: "unused",
 		},
-		client:     kube.NewFakeClient(objs...),
+		client:     kube.NewFakeClientWithVersion(minor, objs...),
 		kubeconfig: "unused",
 		wOut:       wOut,
 		wErr:       wErr,

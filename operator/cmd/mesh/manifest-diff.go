@@ -66,7 +66,7 @@ func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
 			"e.g. Service:*:istiod->Service:*:istio-control - rename istiod service into istio-control")
 }
 
-func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Command {
+func manifestDiffCmd(rootArgs *RootArgs, diffArgs *manifestDiffArgs) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff <file|dir> <file|dir>",
 		Short: "Compare manifests and generate diff",
@@ -110,8 +110,9 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 }
 
 // compareManifestsFromFiles compares two manifest files
-func compareManifestsFromFiles(rootArgs *rootArgs, args []string, verbose bool,
-	renameResources, selectResources, ignoreResources string) (bool, error) {
+func compareManifestsFromFiles(rootArgs *RootArgs, args []string, verbose bool,
+	renameResources, selectResources, ignoreResources string,
+) (bool, error) {
 	initLogsOrExit(rootArgs)
 
 	a, err := os.ReadFile(args[0])
@@ -142,8 +143,9 @@ func yamlFileFilter(path string) bool {
 }
 
 // compareManifestsFromDirs compares manifests from two directories
-func compareManifestsFromDirs(rootArgs *rootArgs, verbose bool, dirName1, dirName2,
-	renameResources, selectResources, ignoreResources string) (bool, error) {
+func compareManifestsFromDirs(rootArgs *RootArgs, verbose bool, dirName1, dirName2,
+	renameResources, selectResources, ignoreResources string,
+) (bool, error) {
 	initLogsOrExit(rootArgs)
 
 	mf1, err := util.ReadFilesWithFilter(dirName1, yamlFileFilter)

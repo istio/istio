@@ -24,15 +24,13 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/pilot/common"
-	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
 
@@ -104,8 +102,8 @@ func TestMirroring(t *testing.T) {
 // mesh because of the Sidecar), then we can inspect "external" logs to verify the requests were properly mirrored.
 func TestMirroringExternalService(t *testing.T) {
 	header := ""
-	if len(apps.External) > 0 {
-		header = apps.External[0].Config().HostHeader()
+	if len(apps.External.All) > 0 {
+		header = apps.External.All.Config().HostHeader()
 	}
 	runMirrorTest(t, mirrorTestOptions{
 		mirrorHost: header,
@@ -115,7 +113,7 @@ func TestMirroringExternalService(t *testing.T) {
 				absent:              true,
 				percentage:          100.0,
 				threshold:           0.0,
-				expectedDestination: apps.External,
+				expectedDestination: apps.External.All,
 			},
 		},
 	})
@@ -130,7 +128,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					mirrorHost := options.mirrorHost
 					if len(mirrorHost) == 0 {
-						mirrorHost = common.PodCSvc
+						mirrorHost = deployment.CSvc
 					}
 					vsc := VirtualServiceMirrorConfig{
 						c.name,
@@ -140,26 +138,25 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 					}
 
 					// we only apply to config clusters
-					deployment := tmpl.EvaluateOrFail(t,
-						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-					t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
+					t.ConfigIstio().EvalFile(apps.Namespace.Name(), vsc, "testdata/traffic-mirroring-template.yaml").
+						ApplyOrFail(t)
 
-					for _, podA := range apps.PodA {
+					for _, podA := range apps.A {
 						podA := podA
 						t.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 							for _, proto := range mirrorProtocols {
 								t.NewSubTest(string(proto)).Run(func(t framework.TestContext) {
 									retry.UntilSuccessOrFail(t, func() error {
-										testID := util.RandomString(16)
-										if err := sendTrafficMirror(podA, apps.PodB[0], proto, testID); err != nil {
+										testID := rand.String(16)
+										if err := sendTrafficMirror(podA, apps.B, proto, testID); err != nil {
 											return err
 										}
 										expected := c.expectedDestination
 										if expected == nil {
-											expected = apps.PodC
+											expected = apps.C
 										}
 
-										return verifyTrafficMirror(apps.PodB, expected, c, testID)
+										return verifyTrafficMirror(apps.B, expected, c, testID)
 									}, echo.DefaultCallRetryOptions()...)
 								})
 							}
@@ -170,15 +167,20 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 		})
 }
 
-func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID string) error {
+func sendTrafficMirror(from echo.Instance, to echo.Target, proto protocol.Instance, testID string) error {
 	options := echo.CallOptions{
-		Target:   to,
-		Count:    100,
-		PortName: strings.ToLower(string(proto)),
+		To:    to,
+		Count: 100,
+		Port: echo.Port{
+			Name: strings.ToLower(proto.String()),
+		},
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	}
 	switch proto {
 	case protocol.HTTP:
-		options.Path = "/" + testID
+		options.HTTP.Path = "/" + testID
 	case protocol.GRPC:
 		options.Message = testID
 	default:

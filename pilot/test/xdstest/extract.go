@@ -30,13 +30,13 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
@@ -47,7 +47,7 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 				if filter.Name == wellknown.HTTPConnectionManager {
 					hcon := &hcm.HttpConnectionManager{}
 					if err := filter.GetTypedConfig().UnmarshalTo(hcon); err != nil {
-						panic(err)
+						continue
 					}
 					switch r := hcon.GetRouteSpecifier().(type) {
 					case *hcm.HttpConnectionManager_Rds:
@@ -61,8 +61,8 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 }
 
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
-func ExtractSecretResources(t test.Failer, rs []*any.Any) []string {
-	resourceNames := sets.NewSet()
+func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
+	resourceNames := sets.New()
 	for _, r := range rs {
 		switch r.TypeUrl {
 		case v3.ClusterType:
@@ -136,6 +136,23 @@ func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
 	return nil
 }
 
+func ExtractVirtualHosts(rc *route.RouteConfiguration) map[string][]string {
+	res := map[string][]string{}
+	for _, vh := range rc.GetVirtualHosts() {
+		var dests []string
+		for _, r := range vh.Routes {
+			if dc := r.GetRoute().GetCluster(); dc != "" {
+				dests = append(dests, dc)
+			}
+		}
+		sort.Strings(dests)
+		for _, d := range vh.Domains {
+			res[d] = dests
+		}
+	}
+	return res
+}
+
 func ExtractRouteConfigurations(rc []*route.RouteConfiguration) map[string]*route.RouteConfiguration {
 	res := map[string]*route.RouteConfiguration{}
 	for _, l := range rc {
@@ -159,6 +176,34 @@ func ExtractFilterChain(name string, l *listener.Listener) *listener.FilterChain
 		}
 	}
 	return nil
+}
+
+func ExtractFilterChainNames(l *listener.Listener) []string {
+	res := []string{}
+	for _, f := range l.GetFilterChains() {
+		res = append(res, f.GetName())
+	}
+	return res
+}
+
+func ExtractFilterNames(t test.Failer, fcs *listener.FilterChain) ([]string, []string) {
+	nwFilters := []string{}
+	httpFilters := []string{}
+	for _, fc := range fcs.Filters {
+		if fc.Name == wellknown.HTTPConnectionManager {
+			h := &hcm.HttpConnectionManager{}
+			if fc.GetTypedConfig() != nil {
+				if err := fc.GetTypedConfig().UnmarshalTo(h); err != nil {
+					t.Fatalf("failed to unmarshal hcm: %v", err)
+				}
+			}
+			for _, hf := range h.HttpFilters {
+				httpFilters = append(httpFilters, hf.Name)
+			}
+		}
+		nwFilters = append(nwFilters, fc.Name)
+	}
+	return nwFilters, httpFilters
 }
 
 func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *tcpproxy.TcpProxy {
@@ -202,21 +247,40 @@ func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]
 	return got
 }
 
-func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
+// ExtractHealthEndpoints returns all health and unhealth endpoints
+func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []string) {
 	if cla == nil {
-		return nil
+		return nil, nil
 	}
-	got := []string{}
+	healthy := []string{}
+	unhealthy := []string{}
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
-			if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-				got = append(got, fmt.Sprintf("%s:%d", lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+			if lb.HealthStatus == core.HealthStatus_HEALTHY {
+				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
+					healthy = append(healthy, fmt.Sprintf("%s:%d",
+						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+				} else {
+					healthy = append(healthy, lb.GetEndpoint().Address.GetPipe().Path)
+				}
 			} else {
-				got = append(got, lb.GetEndpoint().Address.GetPipe().Path)
+				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
+					unhealthy = append(unhealthy, fmt.Sprintf("%s:%d",
+						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+				} else {
+					unhealthy = append(unhealthy, lb.GetEndpoint().Address.GetPipe().Path)
+				}
 			}
 		}
 	}
-	return got
+	return healthy, unhealthy
+}
+
+// ExtractEndpoints returns all endpoints in the load assignment (including unhealthy endpoints)
+func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
+	h, uh := ExtractHealthEndpoints(cla)
+	h = append(h, uh...)
+	return h
 }
 
 func ExtractClusters(cc []*cluster.Cluster) map[string]*cluster.Cluster {
@@ -253,7 +317,7 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 	return res
 }
 
-func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret {
+func ExtractTLSSecrets(t test.Failer, secrets []*anypb.Any) map[string]*tls.Secret {
 	res := map[string]*tls.Secret{}
 	for _, a := range secrets {
 		scrt := &tls.Secret{}
@@ -265,7 +329,7 @@ func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret
 	return res
 }
 
-func UnmarshalRouteConfiguration(t test.Failer, resp []*any.Any) []*route.RouteConfiguration {
+func UnmarshalRouteConfiguration(t test.Failer, resp []*anypb.Any) []*route.RouteConfiguration {
 	un := make([]*route.RouteConfiguration, 0, len(resp))
 	for _, r := range resp {
 		u := &route.RouteConfiguration{}
@@ -277,7 +341,7 @@ func UnmarshalRouteConfiguration(t test.Failer, resp []*any.Any) []*route.RouteC
 	return un
 }
 
-func UnmarshalClusterLoadAssignment(t test.Failer, resp []*any.Any) []*endpoint.ClusterLoadAssignment {
+func UnmarshalClusterLoadAssignment(t test.Failer, resp []*anypb.Any) []*endpoint.ClusterLoadAssignment {
 	un := make([]*endpoint.ClusterLoadAssignment, 0, len(resp))
 	for _, r := range resp {
 		u := &endpoint.ClusterLoadAssignment{}
@@ -299,14 +363,14 @@ func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*c
 	return res
 }
 
-func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
+func ToDiscoveryResponse(p any) *discovery.DiscoveryResponse {
 	slice := InterfaceSlice(p)
 	if len(slice) == 0 {
 		return &discovery.DiscoveryResponse{}
 	}
-	resources := make([]*any.Any, 0, len(slice))
+	resources := make([]*anypb.Any, 0, len(slice))
 	for _, v := range slice {
-		resources = append(resources, util.MessageToAny(v.(proto.Message)))
+		resources = append(resources, protoconv.MessageToAny(v.(proto.Message)))
 	}
 	return &discovery.DiscoveryResponse{
 		Resources: resources,
@@ -314,13 +378,13 @@ func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
 	}
 }
 
-func InterfaceSlice(slice interface{}) []interface{} {
+func InterfaceSlice(slice any) []any {
 	s := reflect.ValueOf(slice)
 	if s.Kind() != reflect.Slice {
 		panic("InterfaceSlice() given a non-slice type")
 	}
 
-	ret := make([]interface{}, s.Len())
+	ret := make([]any, s.Len())
 
 	for i := 0; i < s.Len(); i++ {
 		ret[i] = s.Index(i).Interface()
@@ -330,7 +394,7 @@ func InterfaceSlice(slice interface{}) []interface{} {
 }
 
 // DumpList will dump a list of protos. To workaround go type issues, call DumpList(t, InterfaceSlice([]proto.Message))
-func DumpList(t test.Failer, protoList []interface{}) []string {
+func DumpList(t test.Failer, protoList []any) []string {
 	res := []string{}
 	for _, i := range protoList {
 		p, ok := i.(proto.Message)
@@ -354,7 +418,7 @@ func Dump(t test.Failer, p proto.Message) string {
 	return s
 }
 
-func MapKeys(mp interface{}) []string {
+func MapKeys(mp any) []string {
 	keys := reflect.ValueOf(mp).MapKeys()
 	res := []string{}
 	for _, k := range keys {

@@ -36,11 +36,11 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -53,11 +53,6 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 )
-
-func init() {
-	features.WorkloadEntryHealthChecks = true
-	features.WorkloadEntryAutoRegistration = true
-}
 
 // TestXdsLeak is a regression test for https://github.com/istio/istio/issues/34097
 func TestXdsLeak(t *testing.T) {
@@ -183,7 +178,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	}
 
 	// healthcheck before lds will be not sent
-	proxy.PersistRequest(healthy)
+	proxy.sendHealthCheckRequest(healthy)
 	expectCondition("")
 
 	// simulate envoy send xds requests
@@ -193,11 +188,11 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	expectCondition(status.StatusTrue)
 
 	// Flip status back and forth, ensure we update
-	proxy.PersistRequest(healthy)
+	proxy.sendHealthCheckRequest(healthy)
 	expectCondition(status.StatusTrue)
-	proxy.PersistRequest(unhealthy)
+	proxy.sendHealthCheckRequest(unhealthy)
 	expectCondition(status.StatusFalse)
-	proxy.PersistRequest(healthy)
+	proxy.sendHealthCheckRequest(healthy)
 	expectCondition(status.StatusTrue)
 
 	// Completely disconnect
@@ -211,14 +206,14 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	// Old status should remain
 	expectCondition(status.StatusTrue)
 	// And still update when we send new requests
-	proxy.PersistRequest(unhealthy)
+	proxy.sendHealthCheckRequest(unhealthy)
 	expectCondition(status.StatusFalse)
 
 	// Send a new update while we are disconnected
 	conn.Close()
 	downstream.CloseSend()
 	waitDisconnect()
-	proxy.PersistRequest(healthy)
+	proxy.sendHealthCheckRequest(healthy)
 	conn = setupDownstreamConnection(t, proxy)
 	downstream = stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
@@ -227,9 +222,9 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	expectCondition(status.StatusTrue)
 
 	// Confirm more updates are honored
-	proxy.PersistRequest(healthy)
+	proxy.sendHealthCheckRequest(healthy)
 	expectCondition(status.StatusTrue)
-	proxy.PersistRequest(unhealthy)
+	proxy.sendHealthCheckRequest(unhealthy)
 	expectCondition(status.StatusFalse)
 
 	// Disconnect and remove workload entry. This could happen if there is an outage and istiod cleans up
@@ -238,7 +233,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	downstream.CloseSend()
 	waitDisconnect()
 	f.Store().Delete(gvk.WorkloadEntry, "group-1.1.1.1", "default", nil)
-	proxy.PersistRequest(healthy)
+	proxy.sendHealthCheckRequest(healthy)
 	conn = setupDownstreamConnection(t, proxy)
 	downstream = stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
@@ -247,9 +242,9 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	expectCondition(status.StatusTrue)
 
 	// Confirm more updates are honored
-	proxy.PersistRequest(unhealthy)
+	proxy.sendHealthCheckRequest(unhealthy)
 	expectCondition(status.StatusFalse)
-	proxy.PersistRequest(healthy)
+	proxy.sendHealthCheckRequest(healthy)
 	expectCondition(status.StatusTrue)
 }
 
@@ -272,12 +267,12 @@ func setupXdsProxyWithDownstreamOptions(t *testing.T, opts []grpc.ServerOption) 
 		MetadataClientRootCert:  path.Join(env.IstioSrc, "tests/testdata/certs/pilot/root-cert.pem"),
 	}
 	dir := t.TempDir()
-	ia := NewAgent(&proxyConfig, &AgentOptions{
+	ia := NewAgent(proxyConfig, &AgentOptions{
 		XdsUdsPath:            filepath.Join(dir, "XDS"),
 		DownstreamGrpcOptions: opts,
 	}, secOpts, envoy.ProxyConfig{TestOnly: true})
 	t.Cleanup(func() {
-		ia.Close()
+		ia.close()
 	})
 	proxy, err := initXdsProxy(ia)
 	if err != nil {
@@ -449,14 +444,14 @@ func TestXdsProxyReconnects(t *testing.T) {
 
 type fakeAckCache struct{}
 
-func (f *fakeAckCache) Get(string, string, time.Duration) (string, error) {
+func (f *fakeAckCache) Get(string, string, string, string, time.Duration, []byte, extensions.PullPolicy) (string, error) {
 	return "test", nil
 }
 func (f *fakeAckCache) Cleanup() {}
 
 type fakeNackCache struct{}
 
-func (f *fakeNackCache) Get(string, string, time.Duration) (string, error) {
+func (f *fakeNackCache) Get(string, string, string, string, time.Duration, []byte, extensions.PullPolicy) (string, error) {
 	return "", errors.New("errror")
 }
 func (f *fakeNackCache) Cleanup() {}
@@ -465,6 +460,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{
 		Namespace:   "default",
 		InstanceIPs: []string{"1.1.1.1"},
+		ClusterID:   "Kubernetes",
 	}
 	proxy := setupXdsProxy(t)
 
@@ -514,7 +510,6 @@ func TestECDSWasmConversion(t *testing.T) {
 		Config: &wasmv3.PluginConfig{
 			Vm: &wasmv3.PluginConfig_VmConfig{
 				VmConfig: &wasmv3.VmConfig{
-
 					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
 						Local: &core.DataSource{
 							Specifier: &core.DataSource_Filename{
@@ -528,7 +523,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	}
 	wantEcdsConfig := &core.TypedExtensionConfig{
 		Name:        "extension-config",
-		TypedConfig: util.MessageToAny(wasm),
+		TypedConfig: protoconv.MessageToAny(wasm),
 	}
 
 	if !proto.Equal(gotEcdsConfig, wantEcdsConfig) {

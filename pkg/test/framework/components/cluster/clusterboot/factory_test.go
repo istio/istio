@@ -40,6 +40,7 @@ func TestBuild(t *testing.T) {
 					PrimaryClusterName: "auto-fill-primary",
 					ConfigClusterName:  "auto-fill-primary",
 					Network:            "network-0",
+					ConfigMetadata:     config.Map{},
 				},
 			},
 		},
@@ -54,6 +55,7 @@ func TestBuild(t *testing.T) {
 					// The config cluster should match the primary cluster when not specified
 					ConfigClusterName: "auto-fill-primary",
 					Index:             1,
+					ConfigMetadata:    config.Map{},
 				},
 			},
 		},
@@ -67,6 +69,7 @@ func TestBuild(t *testing.T) {
 					PrimaryClusterName: "external-istiod",
 					ConfigClusterName:  "remote-config",
 					Index:              2,
+					ConfigMetadata:     config.Map{},
 				},
 			},
 		},
@@ -86,6 +89,7 @@ func TestBuild(t *testing.T) {
 					PrimaryClusterName: "external-istiod",
 					ConfigClusterName:  "remote-config",
 					Index:              3,
+					ConfigMetadata:     config.Map{},
 				},
 			},
 		},
@@ -137,7 +141,7 @@ func TestValidation(t *testing.T) {
 			{Kind: cluster.Fake, Name: "no-primary", ConfigClusterName: "does-not-exist"},
 		},
 		"vm without kube primary": {
-			{Kind: cluster.StaticVM, Name: "vm", Meta: config.Map{"deployments": []interface{}{
+			{Kind: cluster.StaticVM, Name: "vm", Meta: config.Map{"deployments": []any{
 				config.Map{
 					"service": "vm", "namespace": "echo", "instances": []config.Map{{"ip": "1.2.3.4"}},
 				},

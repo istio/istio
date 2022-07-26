@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
@@ -70,22 +71,8 @@ type NetworkRange struct {
 	HasLoopBackIP bool
 }
 
-func filterEmpty(strs []string) []string {
-	filtered := make([]string, 0, len(strs))
-	for _, s := range strs {
-		if s == "" {
-			continue
-		}
-		filtered = append(filtered, s)
-	}
-	return filtered
-}
-
 func split(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return filterEmpty(strings.Split(s, ","))
+	return config.Split(s)
 }
 
 func (cfg *IptablesConfigurator) separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
@@ -209,7 +196,8 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
 	rangeInclude NetworkRange,
 	appendRule func(command iptableslog.Command, chain string, table string, params ...string) *builder.IptablesBuilder,
-	insert func(command iptableslog.Command, chain string, table string, position int, params ...string) *builder.IptablesBuilder) {
+	insert func(command iptableslog.Command, chain string, table string, position int, params ...string) *builder.IptablesBuilder,
+) {
 	// Apply outbound IP inclusions.
 	if rangeInclude.IsWildcard {
 		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
@@ -283,9 +271,28 @@ func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
 		return nil
 	}
 	if ext != nil && cfg.CNIMode {
-		command := os.Args[0]
-		return ext.Run(command, constants.CommandConfigureRoutes)
+		if cfg.HostNSEnterExec {
+			command := os.Args[0]
+			return ext.Run(command, constants.CommandConfigureRoutes)
+		}
+
+		nsContainer, err := ns.GetNS(cfg.NetworkNamespace)
+		if err != nil {
+			return err
+		}
+		defer nsContainer.Close()
+
+		return nsContainer.Do(func(ns.NetNS) error {
+			if err := configureIPv6Addresses(cfg); err != nil {
+				return err
+			}
+			if err := configureTProxyRoutes(cfg); err != nil {
+				return err
+			}
+			return nil
+		})
 	}
+	// called through 'nsenter -- istio-cni configure-routes'
 	if err := configureIPv6Addresses(cfg); err != nil {
 		return err
 	}
@@ -473,6 +480,10 @@ func (cfg *IptablesConfigurator) Run() {
 		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 	}
 
+	ownerGroupsFilter := config.ParseInterceptFilter(cfg.cfg.OwnerGroupsInclude, cfg.cfg.OwnerGroupsExclude)
+
+	cfg.handleCaptureByOwnerGroup(ownerGroupsFilter)
+
 	if redirectDNS {
 		if cfg.cfg.CaptureAllDNS {
 			// Redirect all TCP dns traffic on port 53 to the agent on port 15053
@@ -534,7 +545,8 @@ func (cfg *IptablesConfigurator) Run() {
 		HandleDNSUDP(
 			AppendOps, cfg.iptables, cfg.ext, "",
 			cfg.cfg.ProxyUID, cfg.cfg.ProxyGID,
-			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS)
+			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS,
+			ownerGroupsFilter)
 	}
 
 	if cfg.cfg.InboundInterceptionMode == constants.TPROXY {
@@ -626,7 +638,9 @@ func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
 // This helps the creation logic of DNS UDP rules in sync with the deletion.
 func HandleDNSUDP(
 	ops Ops, iptables *builder.IptablesBuilder, ext dep.Dependencies,
-	cmd, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool) {
+	cmd, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
+	ownerGroupsFilter config.InterceptFilter,
+) {
 	f := UDPRuleApplier{
 		iptables: iptables,
 		ext:      ext,
@@ -642,6 +656,17 @@ func HandleDNSUDP(
 	}
 	for _, gid := range split(proxyGID) {
 		f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+	}
+
+	if ownerGroupsFilter.Except {
+		for _, group := range ownerGroupsFilter.Values {
+			f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", group, "-j", constants.RETURN)
+		}
+	} else {
+		groupIsNoneOf := CombineMatchers(ownerGroupsFilter.Values, func(group string) []string {
+			return []string{"-m", "owner", "!", "--gid-owner", group}
+		})
+		f.Run(Flatten([]string{"-p", "udp", "--dport", "53"}, groupIsNoneOf, []string{"-j", constants.RETURN})...)
 	}
 
 	if captureAllDNS {
@@ -674,7 +699,8 @@ func HandleDNSUDP(
 // Traffic that goes from istio to DNS servers and vice versa are zone 1 and traffic from
 // DNS client to istio and vice versa goes to zone 2
 func addConntrackZoneDNSUDP(
-	f UDPRuleApplier, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool) {
+	f UDPRuleApplier, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
+) {
 	// TODO: add ip6 as well
 	for _, uid := range split(proxyUID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers
@@ -726,6 +752,21 @@ func (cfg *IptablesConfigurator) handleOutboundPortsInclude() {
 			cfg.iptables.AppendRule(iptableslog.UndefinedCommand,
 				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
 		}
+	}
+}
+
+func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.InterceptFilter) {
+	if filter.Except {
+		for _, group := range filter.Values {
+			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+				"-m", "owner", "--gid-owner", group, "-j", constants.RETURN)
+		}
+	} else {
+		groupIsNoneOf := CombineMatchers(filter.Values, func(group string) []string {
+			return []string{"-m", "owner", "!", "--gid-owner", group}
+		})
+		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+			append(groupIsNoneOf, "-j", constants.RETURN)...)
 	}
 }
 

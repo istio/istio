@@ -20,11 +20,13 @@ import (
 	"strings"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
@@ -36,31 +38,16 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/proxy"
 )
 
-var (
-	// NamespacedResources orders non cluster scope resources types which should be deleted, first to last
-	NamespacedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
-		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
-		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
-		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
-		{Group: "", Version: "v1", Kind: name.ServiceStr},
-		{Group: "", Version: "v1", Kind: name.CMStr},
-		{Group: "", Version: "v1", Kind: name.PVCStr},
-		{Group: "", Version: "v1", Kind: name.PodStr},
-		{Group: "", Version: "v1", Kind: name.SecretStr},
-		{Group: "", Version: "v1", Kind: name.SAStr},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.DestinationRuleStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.EnvoyFilterStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.GatewayStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.VirtualServiceStr},
-		{Group: name.SecurityAPIGroupName, Version: "v1beta1", Kind: name.PeerAuthenticationStr},
-	}
+const (
+	autoscalingV2MinK8SVersion = 23
+	pdbV1MinK8SVersion         = 21
+)
 
+var (
 	// ClusterResources are resource types the operator prunes, ordered by which types should be deleted, first to last.
 	ClusterResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.MutatingWebhookConfigurationStr},
@@ -79,11 +66,52 @@ var (
 	}
 	// AllClusterResources lists all cluster scope resources types which should be deleted in purge case, including CRD.
 	AllClusterResources = append(ClusterResources,
-		schema.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.MutatingWebhookConfigurationStr},
-		schema.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.ValidatingWebhookConfigurationStr},
 		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: name.CRDStr},
 	)
 )
+
+// NamespacedResources gets specific pruning resources based on the k8s version
+func NamespacedResources(version *version.Info) []schema.GroupVersionKind {
+	res := []schema.GroupVersionKind{
+		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
+		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
+		{Group: "", Version: "v1", Kind: name.ServiceStr},
+		{Group: "", Version: "v1", Kind: name.CMStr},
+		{Group: "", Version: "v1", Kind: name.PVCStr},
+		{Group: "", Version: "v1", Kind: name.PodStr},
+		{Group: "", Version: "v1", Kind: name.SecretStr},
+		{Group: "", Version: "v1", Kind: name.SAStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.DestinationRuleStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.EnvoyFilterStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.GatewayStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.VirtualServiceStr},
+		{Group: name.SecurityAPIGroupName, Version: "v1beta1", Kind: name.PeerAuthenticationStr},
+	}
+	// autoscaling v2 API is available on >=1.23
+	if kube.IsKubeAtLeastOrLessThanVersion(version, autoscalingV2MinK8SVersion, true) {
+		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: name.HPAStr})
+	} else {
+		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr})
+	}
+	// policy/v1 is available on >=1.21
+	if kube.IsKubeAtLeastOrLessThanVersion(version, pdbV1MinK8SVersion, true) {
+		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1", Kind: name.PDBStr})
+	} else {
+		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1beta1", Kind: name.PDBStr})
+	}
+	return res
+}
+
+// NamespacedResources gets specific pruning resources based on the k8s version
+func (h *HelmReconciler) NamespacedResources() []schema.GroupVersionKind {
+	clusterVersion, err := h.kubeClient.GetKubernetesVersion()
+	if err != nil {
+		scope.Warnf("Failed to get kubernetes version: %v", err)
+	}
+	return NamespacedResources(clusterVersion)
+}
 
 // Prune removes any resources not specified in manifests generated by HelmReconciler h.
 func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
@@ -114,11 +142,6 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		return errStatus,
 			fmt.Errorf("failed to get enabled components: %v", err)
 	}
-	pids, err := proxy.GetIDsFromProxyInfo("", "", iopSpec.Revision, ns)
-	if err != nil {
-		return errStatus,
-			fmt.Errorf("failed to check proxy infos: %v", err)
-	}
 	pilotEnabled := false
 	// check wherther the istiod is enabled
 	for _, c := range enabledComponents {
@@ -127,70 +150,53 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 			break
 		}
 	}
-
-	// TODO(richardwxn): add warning message together with the status
-	if len(pids) != 0 && pilotEnabled {
-		msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
-			strings.Join(pids, " "))
-		st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
-		return st, nil
+	// If istiod is enabled, check if it has any proxies connected.
+	if pilotEnabled {
+		// TODO(ramaraochavali): Find a better alternative instead of using debug interface
+		// of istiod as it is typically not recommended in production environments.
+		pids, err := proxy.GetIDsFromProxyInfo("", "", iopSpec.Revision, ns)
+		if err != nil {
+			return errStatus,
+				fmt.Errorf("failed to check proxy infos: %v", err)
+		}
+		if len(pids) != 0 {
+			msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
+				strings.Join(pids, " "))
+			st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
+			return st, nil
+		}
 	}
-	var allUslist []*unstructured.UnstructuredList
+
 	for _, c := range enabledComponents {
 		uslist, err := h.GetPrunedResources(iopSpec.Revision, false, c)
 		if err != nil {
 			return errStatus, err
 		}
-		allUslist = append(allUslist, uslist...)
-	}
-	if err := h.DeleteObjectsList(allUslist); err != nil {
-		return errStatus, err
+		err = h.DeleteObjectsList(uslist, c)
+		if err != nil {
+			return errStatus, err
+		}
 	}
 	return &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_HEALTHY}, nil
 }
 
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
-func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList) error {
+func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList, componentName string) error {
 	var errs util.Errors
 	deletedObjects := make(map[string]bool)
-	for _, objects := range objectsList {
-		for _, o := range objects.Items {
+	for _, ul := range objectsList {
+		for _, o := range ul.Items {
 			obj := object.NewK8sObject(&o, nil, nil)
 			oh := obj.Hash()
-			if h.opts.DryRun {
-				h.opts.Log.LogAndPrintf("Not deleting object %s because of dry run.", oh)
-				continue
-			}
+
 			// kube client does not differentiate API version when listing, added this check to deduplicate.
 			if deletedObjects[oh] {
 				continue
 			}
-			if o.GetKind() == name.IstioOperatorStr {
-				o.SetFinalizers([]string{})
-				if err := h.client.Patch(context.TODO(), &o, client.Merge); err != nil {
-					scope.Errorf("failed to patch IstioOperator CR: %s, %v", o.GetName(), err)
-				}
+			if err := h.deleteResource(obj, componentName, oh); err != nil {
+				errs = append(errs, err)
 			}
-			err := h.client.Delete(context.TODO(), &o,
-				client.PropagationPolicy(metav1.DeletePropagationBackground))
-			if err != nil {
-				if !kerrors.IsNotFound(err) {
-					errs = util.AppendErr(errs, err)
-				} else {
-					// do not return error if resources are not found
-					h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists",
-						obj.Hash())
-				}
-			} else {
-				deletedObjects[oh] = true
-				objGvk := o.GroupVersionKind()
-				metrics.ResourceDeletionTotal.
-					With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
-					Increment()
-				h.addPrunedKind(objGvk.GroupKind())
-				metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
-			}
-			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
+			deletedObjects[oh] = true
 		}
 	}
 
@@ -203,7 +209,8 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 // If componentName is not empty, only resources associated with specific components would be returned
 // UnstructuredList of objects and corresponding list of name kind hash of k8sObjects would be returned
 func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResources bool, componentName string) (
-	[]*unstructured.UnstructuredList, error) {
+	[]*unstructured.UnstructuredList, error,
+) {
 	var usList []*unstructured.UnstructuredList
 	labels := make(map[string]string)
 	if revision != "" {
@@ -213,9 +220,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		labels[IstioComponentLabelStr] = componentName
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	gvkList := append(NamespacedResources, ClusterCPResources...)
+	resources := h.NamespacedResources()
+	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
-		gvkList = append(NamespacedResources, AllClusterResources...)
+		gvkList = append(resources, AllClusterResources...)
 		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
 			usList = append(usList, ioplist)
 		}
@@ -252,6 +260,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 				string(name.PilotComponentName),
 				string(name.IngressComponentName), string(name.EgressComponentName),
 				string(name.CNIComponentName), string(name.IstioOperatorComponentName),
+				string(name.IstiodRemoteComponentName),
 			}
 			includeRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.In, includeCN)
 			if err != nil {
@@ -296,7 +305,8 @@ func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
 // DeleteControlPlaneByManifests removed resources by manifests with matching revision label.
 // If purge option is set to true, all manifests would be removed regardless of labels match.
 func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.ManifestMap,
-	revision string, includeClusterResources bool) error {
+	revision string, includeClusterResources bool,
+) error {
 	labels := map[string]string{
 		operatorLabelStr: operatorReconcileStr,
 	}
@@ -354,7 +364,8 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		return err
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	for _, gvk := range append(NamespacedResources, ClusterResources...) {
+	resources := append(h.NamespacedResources(), ClusterResources...)
+	for _, gvk := range resources {
 		// First, we collect all objects for the provided GVK
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
@@ -365,7 +376,9 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		selector = selector.Add(*componentRequirement)
 		if err := h.client.List(context.TODO(), objects, client.MatchingLabelsSelector{Selector: selector}); err != nil {
 			// we only want to retrieve resources clusters
-			scope.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
+			if !(h.opts.DryRun && meta.IsNoMatchError(err)) {
+				scope.Debugf("retrieving resources to prune type %s: %s", gvk.String(), err)
+			}
 			continue
 		}
 		for _, obj := range objects.Items {
@@ -380,7 +393,8 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 // deleteResources delete any resources from the given component that are not in the excluded map. Resource
 // labels are used to identify the resources belonging to the component.
 func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels map[string]string,
-	componentName string, objects *unstructured.UnstructuredList, all bool) error {
+	componentName string, objects *unstructured.UnstructuredList, all bool,
+) error {
 	var errs util.Errors
 	labels := h.addComponentLabels(coreLabels, componentName)
 	selector := klabels.Set(labels).AsSelectorPreValidated()
@@ -397,37 +411,52 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 				continue
 			}
 		}
-		if h.opts.DryRun {
-			h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
-			continue
+		if err := h.deleteResource(obj, componentName, oh); err != nil {
+			errs = append(errs, err)
 		}
-		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
-		scope.Infof("Deleting %s (%s/%v)", obj.Hash(), h.iop.Name, h.iop.Spec.Revision)
-		objGvk := o.GroupVersionKind()
-		if err != nil {
-			if !kerrors.IsNotFound(err) {
-				errs = util.AppendErr(errs, err)
-			} else {
-				// do not return error if resources are not found
-				h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
-				continue
-			}
-		}
-		if !all {
-			h.removeFromObjectCache(componentName, oh)
-		}
-		metrics.ResourceDeletionTotal.
-			With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
-			Increment()
-		h.addPrunedKind(objGvk.GroupKind())
-		metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
-		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	}
 	if all {
 		cache.FlushObjectCaches()
 	}
 
 	return errs.ToError()
+}
+
+func (h *HelmReconciler) deleteResource(obj *object.K8sObject, componentName, oh string) error {
+	if h.opts.DryRun {
+		h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
+		return nil
+	}
+	u := obj.UnstructuredObject()
+	if u.GetKind() == name.IstioOperatorStr {
+		u.SetFinalizers([]string{})
+		if err := h.client.Patch(context.TODO(), u, client.Merge); err != nil {
+			scope.Errorf("failed to patch IstioOperator CR: %s, %v", u.GetName(), err)
+		}
+	}
+	err := h.client.Delete(context.TODO(), u, client.PropagationPolicy(metav1.DeletePropagationBackground))
+	scope.Debugf("Deleting %s (%s/%v)", oh, h.iop.Name, h.iop.Spec.Revision)
+	objGvk := u.GroupVersionKind()
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			return err
+		}
+		// do not return error if resources are not found
+		h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
+		return nil
+	}
+	if componentName != "" {
+		h.removeFromObjectCache(componentName, oh)
+	} else {
+		cache.FlushObjectCaches()
+	}
+	metrics.ResourceDeletionTotal.
+		With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
+		Increment()
+	h.addPrunedKind(objGvk.GroupKind())
+	metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
+	h.opts.Log.LogAndPrintf("  Removed %s.", oh)
+	return nil
 }
 
 // RemoveObject removes object with objHash in componentName from the object cache.

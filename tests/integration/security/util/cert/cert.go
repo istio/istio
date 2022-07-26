@@ -38,18 +38,23 @@ import (
 )
 
 // DumpCertFromSidecar gets the certificates served by the destination.
-func DumpCertFromSidecar(t test.Failer, from, to echo.Instance, port string) []string {
-	resp := from.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:   to,
-		PortName: port,
-		Scheme:   scheme.TLS,
-		Alpn:     []string{"istio"},
+func DumpCertFromSidecar(t test.Failer, from echo.Instance, to echo.Target, port string) []string {
+	result := from.CallOrFail(t, echo.CallOptions{
+		To:    to,
+		Count: 1,
+		Port: echo.Port{
+			Name: port,
+		},
+		Scheme: scheme.TLS,
+		TLS: echo.TLS{
+			Alpn: []string{"istio"},
+		},
 	})
-	if resp.Len() != 1 {
+	if result.Responses.Len() != 1 {
 		t.Fatalf("dump cert failed, no responses")
 	}
-	certs := []string{}
-	for _, rr := range resp[0].ResponseBody() {
+	var certs []string
+	for _, rr := range result.Responses[0].Body() {
 		var s string
 		if err := json.Unmarshal([]byte(rr), &s); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
@@ -81,7 +86,7 @@ func CreateCASecret(ctx resource.Context) error {
 		return err
 	}
 
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.AllClusters() {
 		secret := &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -95,9 +100,9 @@ func CreateCASecret(ctx resource.Context) error {
 			},
 		}
 
-		if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+		if _, err := cluster.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 			if errors.IsAlreadyExists(err) {
-				if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+				if _, err := cluster.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 			} else {
@@ -110,7 +115,7 @@ func CreateCASecret(ctx resource.Context) error {
 		// resources from a previous integration test, but sometimes
 		// the resources from a previous integration test are not deleted.
 		configMapName := "istio-ca-root-cert"
-		err = cluster.CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
+		err = cluster.Kube().CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
 			metav1.DeleteOptions{})
 		if err == nil {
 			log.Infof("configmap %v is deleted", configMapName)
@@ -157,7 +162,6 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 		return err
 	}
 
-	kubeAccessor := ctx.Clusters().Default()
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -170,16 +174,16 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 			"fake-root-cert.pem": fakeRootCert,
 		},
 	}
-
-	_, err = kubeAccessor.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			_, err = kubeAccessor.CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{})
+	for _, cluster := range ctx.Clusters() {
+		_, err = cluster.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
+		if err != nil {
+			if errors.IsAlreadyExists(err) {
+				_, err = cluster.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{})
+				return err
+			}
 			return err
 		}
-		return err
 	}
-
 	return nil
 }
 
@@ -189,4 +193,12 @@ func ReadCustomCertFromFile(f string) ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func LoadCert(filename string) (string, error) {
+	data, err := ReadSampleCertFromFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }

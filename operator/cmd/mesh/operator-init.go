@@ -62,7 +62,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 }
 
-func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Command {
+func operatorInitCmd(rootArgs *RootArgs, oiArgs *operatorInitArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Installs the Istio operator controller in the cluster.",
@@ -82,7 +82,7 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 }
 
 // operatorInit installs the Istio operator controller into the cluster.
-func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
+func operatorInit(args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
 	kubeClient, client, err := kubeClients(oiArgs.kubeConfigPath, oiArgs.context, l)
@@ -90,7 +90,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
-	already, _ := isControllerInstalled(kubeClient, oiArgs.common.operatorNamespace, oiArgs.common.revision)
+	already, _ := isControllerInstalled(kubeClient.Kube(), oiArgs.common.operatorNamespace, oiArgs.common.revision)
 	if already {
 		l.LogAndPrintf("Operator controller is already installed in %s namespace.", oiArgs.common.operatorNamespace)
 		l.LogAndPrintf("Upgrading operator controller in namespace: %s using image: %s/operator:%s",
@@ -111,7 +111,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	installerScope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &applyOptions{
-		DryRun:     args.dryRun,
+		DryRun:     args.DryRun,
 		Kubeconfig: oiArgs.kubeConfigPath,
 		Context:    oiArgs.context,
 	}
@@ -130,7 +130,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		}
 	}
 
-	if err := createNamespace(kubeClient, oiArgs.common.operatorNamespace, "", opts.DryRun); err != nil {
+	if err := createNamespace(kubeClient.Kube(), oiArgs.common.operatorNamespace, "", opts.DryRun); err != nil {
 		l.LogAndFatal(err)
 	}
 
@@ -141,7 +141,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		namespaces = append(namespaces, istioNamespace)
 	}
 	for _, ns := range namespaces {
-		if err := createNamespace(kubeClient, ns, "", opts.DryRun); err != nil {
+		if err := createNamespace(kubeClient.Kube(), ns, "", opts.DryRun); err != nil {
 			l.LogAndFatal(err)
 		}
 	}

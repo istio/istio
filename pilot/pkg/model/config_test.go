@@ -19,12 +19,9 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config"
@@ -32,8 +29,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -308,7 +304,7 @@ func TestMostSpecificHostMatch(t *testing.T) {
 		}
 
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.needle), func(t *testing.T) {
-			actual, found := model.MostSpecificHostMatch(tt.needle, m, tt.in)
+			actual, found := model.MostSpecificHostMatch2(tt.needle, m)
 			if tt.want != "" && !found {
 				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
 			} else if actual != tt.want {
@@ -351,134 +347,58 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 
 		for i := 1; i <= bm.time; i++ {
 			h := host.Name(bm.baseHost + "." + strconv.Itoa(i))
-			bm.hosts = append(bm.hosts, h)
 			bm.hostsMap[h] = struct{}{}
 		}
-
 		b.Run(bm.name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
-				_, _ = model.MostSpecificHostMatch(bm.needle, bm.hostsMap, bm.hosts)
+				_, _ = model.MostSpecificHostMatch2(bm.needle, bm.hostsMap)
 			}
 		})
 	}
 }
 
-func TestAuthorizationPolicies(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+func TestConfigsOnlyHaveKind(t *testing.T) {
 	tests := []struct {
-		namespace  string
-		expectName map[string]bool
+		name    string
+		configs map[model.ConfigKey]struct{}
+		want    bool
 	}{
-		{namespace: "wrong", expectName: nil},
-		{namespace: "default", expectName: map[string]bool{"policy2": true}},
-		{namespace: "istio-system", expectName: map[string]bool{"policy1": true, "policy3": true}},
+		{
+			name: "mix",
+			configs: map[model.ConfigKey]struct{}{
+				{Kind: kind.Deployment}: {},
+				{Kind: kind.Secret}:     {},
+			},
+			want: true,
+		},
+		{
+			name: "no secret",
+			configs: map[model.ConfigKey]struct{}{
+				{Kind: kind.Deployment}: {},
+			},
+			want: false,
+		},
+		{
+			name: "only secret",
+			configs: map[model.ConfigKey]struct{}{
+				{Kind: kind.Secret}: {},
+				{Kind: kind.Secret}: {},
+			},
+			want: true,
+		},
+		{
+			name:    "empty",
+			configs: map[model.ConfigKey]struct{}{},
+			want:    false,
+		},
 	}
 
 	for _, tt := range tests {
-		cfg := store.AuthorizationPolicies(tt.namespace)
-		if tt.expectName != nil {
-			for _, cfg := range cfg {
-				if !tt.expectName[cfg.Name] {
-					t.Errorf("model.AuthorizationPolicy: expecting %v, but got %v", tt.expectName, cfg)
-				}
+		t.Run(tt.name, func(t *testing.T) {
+			got := model.ConfigsHaveKind(tt.configs, kind.Secret)
+			if tt.want != got {
+				t.Errorf("got %v want %v", got, tt.want)
 			}
-		} else if len(cfg) != 0 {
-			t.Errorf("model.AuthorizationPolicy: expecting nil, but got %v", cfg)
-		}
-	}
-}
-
-type fakeStore struct {
-	model.ConfigStore
-	cfg map[config.GroupVersionKind][]config.Config
-	err error
-}
-
-func (l *fakeStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	ret := l.cfg[typ]
-	return ret, l.err
-}
-
-func (l *fakeStore) Schemas() collection.Schemas {
-	return collections.Pilot
-}
-
-func TestIstioConfigStore_ServiceEntries(t *testing.T) {
-	ns := "ns1"
-	l := &fakeStore{
-		cfg: map[config.GroupVersionKind][]config.Config{
-			gvk.ServiceEntry: {
-				{
-					Meta: config.Meta{
-						Name:      "request-count-1",
-						Namespace: ns,
-					},
-					Spec: &networking.ServiceEntry{
-						Hosts: []string{"*.googleapis.com"},
-						Ports: []*networking.Port{
-							{
-								Name:     "https",
-								Number:   443,
-								Protocol: "HTTP",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	ii := model.MakeIstioStore(l)
-	cfgs := ii.ServiceEntries()
-
-	if len(cfgs) != 1 {
-		t.Fatalf("did not find 1 matched ServiceEntry, \n%v", cfgs)
-	}
-}
-
-func TestIstioConfigStore_Gateway(t *testing.T) {
-	workloadLabels := labels.Collection{}
-	now := time.Now()
-	gw1 := config.Config{
-		Meta: config.Meta{
-			Name:              "name1",
-			Namespace:         "zzz",
-			CreationTimestamp: now,
-		},
-		Spec: &networking.Gateway{},
-	}
-	gw2 := config.Config{
-		Meta: config.Meta{
-			Name:              "name1",
-			Namespace:         "aaa",
-			CreationTimestamp: now,
-		},
-		Spec: &networking.Gateway{},
-	}
-	gw3 := config.Config{
-		Meta: config.Meta{
-			Name:              "name1",
-			Namespace:         "ns2",
-			CreationTimestamp: now.Add(time.Second * -1),
-		},
-		Spec: &networking.Gateway{},
-	}
-
-	l := &fakeStore{
-		cfg: map[config.GroupVersionKind][]config.Config{
-			gvk.Gateway: {gw1, gw2, gw3},
-		},
-	}
-	ii := model.MakeIstioStore(l)
-
-	// Gateways should be returned in a stable order
-	expectedConfig := []config.Config{
-		gw3, // first config by timestamp
-		gw2, // timestamp match with gw1, but name comes first
-		gw1, // timestamp match with gw2, but name comes last
-	}
-	cfgs := ii.Gateways(workloadLabels)
-
-	if !reflect.DeepEqual(expectedConfig, cfgs) {
-		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
+		})
 	}
 }

@@ -71,7 +71,7 @@ const (
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
 
 	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
+	localHostIPv6 = "::1"
 )
 
 var (
@@ -142,6 +142,7 @@ type Server struct {
 	envoyStatsPort        int
 	fetchDNS              func() *dnsProto.NameTable
 	upstreamLocalAddress  *net.TCPAddr
+	config                Options
 }
 
 func init() {
@@ -166,6 +167,14 @@ func NewServer(config Options) (*Server, error) {
 	if config.IPv6 {
 		localhost = localHostIPv6
 		upstreamLocalAddress = UpstreamLocalAddressIPv6
+	} else {
+		// if not ipv6-only, it can be ipv4-only or dual-stack
+		// let InstanceIP decide the localhost
+		netIP := net.ParseIP(config.PodIP)
+		if netIP.To4() == nil && netIP.To16() != nil && !netIP.IsLinkLocalUnicast() {
+			localhost = localHostIPv6
+			upstreamLocalAddress = UpstreamLocalAddressIPv6
+		}
 	}
 	probes := make([]ready.Prober, 0)
 	if !config.NoEnvoy {
@@ -185,10 +194,11 @@ func NewServer(config Options) (*Server, error) {
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
-		appProbersDestination: wrapIPv6(config.PodIP),
+		appProbersDestination: config.PodIP,
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
+		config:                config,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -283,7 +293,7 @@ func redirectChecker() func(*http.Request, []*http.Request) error {
 }
 
 func validateAppKubeProber(path string, prober *Prober) error {
-	if !appProberPattern.Match([]byte(path)) {
+	if !appProberPattern.MatchString(path) {
 		return fmt.Errorf(`invalid path, must be in form of regex pattern %v`, appProberPattern)
 	}
 	count := 0
@@ -324,6 +334,10 @@ func (s *Server) Run(ctx context.Context) {
 
 	// Add the handler for ready probes.
 	mux.HandleFunc(readyPath, s.handleReadyProbe)
+	// Default path for prom
+	mux.HandleFunc(`/metrics`, s.handleStats)
+	// Envoy uses something else - and original agent used the same.
+	// Keep for backward compat with configs.
 	mux.HandleFunc(`/stats/prometheus`, s.handleStats)
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
@@ -343,8 +357,8 @@ func (s *Server) Run(ctx context.Context) {
 	}
 	// for testing.
 	if s.statusPort == 0 {
-		addrs := strings.Split(l.Addr().String(), ":")
-		allocatedPort, _ := strconv.Atoi(addrs[len(addrs)-1])
+		_, hostPort, _ := net.SplitHostPort(l.Addr().String())
+		allocatedPort, _ := strconv.Atoi(hostPort)
 		s.mutex.Lock()
 		s.statusPort = uint16(allocatedPort)
 		s.mutex.Unlock()
@@ -476,11 +490,13 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	globalStatsBuffer.Reset()
 
 	// Gather all the metrics we will merge
-	if _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header, globalStatsBuffer); err != nil {
-		log.Errorf("failed scraping envoy metrics: %v", err)
-		metrics.EnvoyScrapeErrors.Increment()
+	if !s.config.NoEnvoy {
+  	if _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header, globalStatsBuffer); err != nil {
+			log.Errorf("failed scraping envoy metrics: %v", err)
+			metrics.EnvoyScrapeErrors.Increment()
+		}
 	}
-
+  
 	// Scrape app metrics if defined and capture their format
 	var format expfmt.Format
 	if s.prometheus != nil {
@@ -512,7 +528,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// truncate the stats buffer if cap > len
 	if globalStatsBuffer.Len() < globalStatsBuffer.Cap() {
 		globalStatsBuffer.Truncate(globalStatsBuffer.Len())
-	}
+  }
 
 }
 
@@ -649,10 +665,12 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 		proberPath = "/" + proberPath
 	}
 	var url string
+
+	hostPort := net.JoinHostPort(s.appProbersDestination, strconv.Itoa(prober.HTTPGet.Port.IntValue()))
 	if prober.HTTPGet.Scheme == apimirror.URISchemeHTTPS {
-		url = fmt.Sprintf("https://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
+		url = fmt.Sprintf("https://%s%s", hostPort, proberPath)
 	} else {
-		url = fmt.Sprintf("http://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
+		url = fmt.Sprintf("http://%s%s", hostPort, proberPath)
 	}
 	appReq, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -711,7 +729,6 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 }
 
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
-	port := prober.TCPSocket.Port.IntValue()
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
 	d := &net.Dialer{
@@ -719,7 +736,7 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		Timeout:   timeout,
 	}
 
-	conn, err := d.Dial("tcp", fmt.Sprintf("%s:%d", s.appProbersDestination, port))
+	conn, err := d.Dial("tcp", net.JoinHostPort(s.appProbersDestination, strconv.Itoa(prober.TCPSocket.Port.IntValue())))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
@@ -753,7 +770,7 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	addr := fmt.Sprintf("%s:%d", s.appProbersDestination, prober.GRPC.Port)
+	addr := net.JoinHostPort(s.appProbersDestination, strconv.Itoa(int(prober.GRPC.Port)))
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
 		log.Errorf("Failed to create grpc connection to probe app: %v", err)
@@ -812,7 +829,7 @@ func (s *Server) handleNdsz(w http.ResponseWriter, r *http.Request) {
 }
 
 // writeJSONProto writes a protobuf to a json payload, handling content type, marshaling, and errors
-func writeJSONProto(w http.ResponseWriter, obj interface{}) {
+func writeJSONProto(w http.ResponseWriter, obj any) {
 	w.Header().Set("Content-Type", "application/json")
 	b, err := config.ToJSON(obj)
 	if err != nil {
@@ -835,16 +852,4 @@ func notifyExit() {
 	if err := p.Signal(syscall.SIGTERM); err != nil {
 		log.Errorf("failed to send SIGTERM to self: %v", err)
 	}
-}
-
-// wrapIPv6 wraps the ip into "[]" in case of ipv6
-func wrapIPv6(ipAddr string) string {
-	addr := net.ParseIP(ipAddr)
-	if addr == nil {
-		return ipAddr
-	}
-	if addr.To4() != nil {
-		return ipAddr
-	}
-	return fmt.Sprintf("[%s]", ipAddr)
 }

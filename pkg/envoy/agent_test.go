@@ -61,7 +61,7 @@ var downstreamCxZeroAcStats = "http.admin.downstream_cx_active: 2 \n" +
 type TestProxy struct {
 	run          func(int, <-chan error) error
 	cleanup      func(int)
-	blockChannel chan interface{}
+	blockChannel chan any
 }
 
 func (tp TestProxy) Run(epoch int, stop <-chan error) error {
@@ -106,7 +106,7 @@ func TestStartExit(t *testing.T) {
 func TestStartDrain(t *testing.T) {
 	wantEpoch := 0
 	proxiesStarted, wantProxiesStarted := 0, 1
-	blockChan := make(chan interface{})
+	blockChan := make(chan any)
 	ctx, cancel := context.WithCancel(context.Background())
 	start := func(currentEpoch int, _ <-chan error) error {
 		proxiesStarted++
@@ -201,7 +201,7 @@ func TestActiveConnections(t *testing.T) {
 			defer server.Close()
 
 			agent := NewAgent(TestProxy{}, 0, 0, "localhost", server.Listener.Addr().(*net.TCPAddr).Port, 15021, 15009, true)
-			if ac := agent.activeProxyConnections(); ac != tt.expected {
+			if ac, _ := agent.activeProxyConnections(); ac != tt.expected {
 				t.Errorf("unexpected active proxy connections. expected: %d got: %d", tt.expected, ac)
 			}
 		})

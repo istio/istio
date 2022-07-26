@@ -48,15 +48,11 @@ func TestFetch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmp, err := os.MkdirTemp("", InstallationDirectory)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer os.RemoveAll(tmp)
+			tmp := t.TempDir()
 			rootDir := tmp + "/testout"
 			fq := NewURLFetcher(server.URL+"/"+tt.installationPackageName, rootDir)
 
-			err = fq.Fetch()
+			err := fq.Fetch()
 			if err != nil {
 				t.Error(err)
 				return

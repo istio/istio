@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"sigs.k8s.io/gateway-api/pkg/client/listers/gateway/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config"
@@ -114,14 +114,16 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		AddEventHandler(handler)
 
 	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
-	client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
+	deployInformer := client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
 		return appsinformersv1.NewFilteredDeploymentInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 			func(options *metav1.ListOptions) {
 				options.LabelSelector = "gateway.istio.io/managed=istio.io-gateway-controller"
 			},
 		)
-	}).AddEventHandler(handler)
+	})
+	_ = deployInformer.SetTransform(kube.StripUnusedFields)
+	deployInformer.AddEventHandler(handler)
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
 	gw.Informer().AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
@@ -148,11 +150,14 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 
 	gw, err := d.gatewayLister.Gateways(req.Namespace).Get(req.Name)
 	if err != nil || gw == nil {
-		log.Errorf("unable to fetch Gateway: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
-		return controllers.IgnoreNotFound(err)
+		if err := controllers.IgnoreNotFound(err); err != nil {
+			log.Errorf("unable to fetch Gateway: %v", err)
+			return err
+		}
+		return nil
 	}
 
 	gc, _ := d.gatewayClassLister.Get(string(gw.Spec.GatewayClassName))
@@ -175,7 +180,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
-	if !isManaged(&gw.Spec) {
+	if !IsManaged(&gw.Spec) {
 		log.Debug("skip unmanaged gateway")
 		return nil
 	}
@@ -224,7 +229,7 @@ func (d *DeploymentController) ApplyTemplate(template string, input metav1.Objec
 	if err := d.templates.ExecuteTemplate(&buf, template, input); err != nil {
 		return err
 	}
-	data := map[string]interface{}{}
+	data := map[string]any{}
 	err := yaml.Unmarshal(buf.Bytes(), &data)
 	if err != nil {
 		return err

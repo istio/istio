@@ -22,14 +22,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -38,7 +39,6 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -72,7 +72,7 @@ var (
 	testClient            client.Client
 	testReconcileOperator *istiocontrolplane.ReconcileIstioOperator
 
-	allNamespacedGVKs = append(helmreconciler.NamespacedResources,
+	allNamespacedGVKs = append(helmreconciler.NamespacedResources(&version.Info{Major: "1", Minor: "25"}),
 		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"})
 	// CRDs are not in the prune list, but must be considered for tests.
 	allClusterGVKs = append(helmreconciler.ClusterResources,
@@ -138,7 +138,7 @@ func recreateSimpleTestEnv() {
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
 // It returns an ObjectSet for each cmd type.
 // nolint: unparam
-func runManifestCommands(inFile, flags string, chartSource chartSourceType) (map[cmdType]*ObjectSet, error) {
+func runManifestCommands(inFile, flags string, chartSource chartSourceType, fileSelect []string) (map[cmdType]*ObjectSet, error) {
 	out := make(map[cmdType]*ObjectSet)
 	for _, cmd := range testedManifestCmds {
 		log.Infof("\nRunning test command using %s\n", cmd)
@@ -157,7 +157,7 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType) (map
 		var err error
 		switch cmd {
 		case cmdGenerate:
-			m, _, err := generateManifest(inFile, flags, chartSource)
+			m, _, err := generateManifest(inFile, flags, chartSource, fileSelect)
 			if err != nil {
 				return nil, err
 			}
@@ -183,7 +183,7 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType) (map
 // fakeApplyManifest runs istioctl install.
 func fakeApplyManifest(inFile, flags string, chartSource chartSourceType) (*ObjectSet, error) {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
-	manifest, err := runManifestCommand("install", []string{inPath}, flags, chartSource)
+	manifest, err := runManifestCommand("install", []string{inPath}, flags, chartSource, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error %s: %s", err, manifest)
 	}
@@ -206,7 +206,7 @@ func fakeApplyExtraResources(inFile string) error {
 }
 
 func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *helmreconciler.Options) (*ObjectSet, error) {
-	c := kube.NewFakeClient()
+	c := kube.NewFakeClientWithVersion("25")
 	l := clog.NewDefaultLogger()
 	_, iop, err := manifest.GenerateConfig(
 		[]string{inFileAbsolutePath(inFile)},
@@ -236,7 +236,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 // fakeInstallOperator installs the operator manifest resources into a cluster using the given reconciler.
 // The installation is for testing with a kubebuilder fake cluster only, since no functional Deployment will be
 // created.
-func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType, iop proto.Message) error {
+func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType, iop *v1alpha1.IstioOperator) error {
 	ocArgs := &operatorCommonArgs{
 		manifestsPath:     string(chartSource),
 		istioNamespace:    istioDefaultNamespace,
@@ -254,11 +254,11 @@ func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource 
 	if err := applyWithReconciler(reconciler, mstr); err != nil {
 		return err
 	}
-	iopStr, err := util.MarshalWithJSONPB(iop)
+	iopStr, err := yaml.Marshal(iop)
 	if err != nil {
 		return err
 	}
-	if err := saveIOPToCluster(reconciler, iopStr); err != nil {
+	if err := saveIOPToCluster(reconciler, string(iopStr)); err != nil {
 		return err
 	}
 
@@ -278,7 +278,7 @@ func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest str
 
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestCommand(command string, filenames []string, flags string, chartSource chartSourceType) (string, error) {
+func runManifestCommand(command string, filenames []string, flags string, chartSource chartSourceType, fileSelect []string) (string, error) {
 	var args string
 	if command == "install" {
 		args = "install"
@@ -290,6 +290,13 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 	}
 	if flags != "" {
 		args += " " + flags
+	}
+	if fileSelect != nil {
+		filters := []string{}
+		filters = append(filters, fileSelect...)
+		// Everything needs these
+		filters = append(filters, "templates/_affinity.tpl")
+		args += " --filter " + strings.Join(filters, ",")
 	}
 	args += " --set installPackagePath=" + string(chartSource)
 	return runCommand(args)

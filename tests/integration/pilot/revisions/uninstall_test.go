@@ -28,6 +28,7 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
@@ -48,6 +49,8 @@ const (
 
 var ManifestPath = filepath.Join(env.IstioSrc, "manifests")
 
+var allGVKs = append(helmreconciler.NamespacedResources(&version.Info{Major: "1", Minor: "24"}), helmreconciler.ClusterCPResources...)
+
 func TestUninstallByRevision(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -65,7 +68,7 @@ func TestUninstallByRevision(t *testing.T) {
 				}
 				cs := t.Clusters().Default()
 				ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
-				checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...), ls, false)
+				checkCPResourcesUninstalled(t, cs, allGVKs, ls, false)
 			})
 		})
 }
@@ -87,7 +90,7 @@ func TestUninstallWithSetFlag(t *testing.T) {
 				}
 				cs := t.Clusters().Default()
 				ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
-				checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...), ls, false)
+				checkCPResourcesUninstalled(t, cs, allGVKs, ls, false)
 			})
 		})
 }
@@ -104,8 +107,7 @@ func TestUninstallPurge(t *testing.T) {
 			}
 			istioCtl.InvokeOrFail(t, uninstallCmd)
 			cs := t.Clusters().Default()
-			checkCPResourcesUninstalled(t, cs, append(helmreconciler.NamespacedResources, helmreconciler.AllClusterResources...),
-				helmreconciler.IstioComponentLabelStr, true)
+			checkCPResourcesUninstalled(t, cs, allGVKs, helmreconciler.IstioComponentLabelStr, true)
 		})
 }
 

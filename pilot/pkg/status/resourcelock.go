@@ -33,7 +33,7 @@ type Task func(entry cacheEntry)
 // the single execution uses the latest value.
 type WorkerQueue interface {
 	// Push a task.
-	Push(target Resource, controller *Controller, context interface{})
+	Push(target Resource, controller *Controller, context any)
 	// Run the loop until a signal on the context
 	Run(ctx context.Context)
 	// Delete a task
@@ -44,7 +44,7 @@ type cacheEntry struct {
 	// the cacheVale represents the latest version of the resource, including ResourceVersion
 	cacheResource Resource
 	// the perControllerStatus represents the latest version of the ResourceStatus
-	perControllerStatus map[*Controller]interface{}
+	perControllerStatus map[*Controller]any
 }
 
 type lockResource struct {
@@ -72,7 +72,7 @@ type WorkQueue struct {
 	OnPush func()
 }
 
-func (wq *WorkQueue) Push(target Resource, ctl *Controller, progress interface{}) {
+func (wq *WorkQueue) Push(target Resource, ctl *Controller, progress any) {
 	wq.lock.Lock()
 	key := convert(target)
 	if item, inqueue := wq.cache[key]; inqueue {
@@ -81,7 +81,7 @@ func (wq *WorkQueue) Push(target Resource, ctl *Controller, progress interface{}
 	} else {
 		wq.cache[key] = cacheEntry{
 			cacheResource:       target,
-			perControllerStatus: map[*Controller]interface{}{ctl: progress},
+			perControllerStatus: map[*Controller]any{ctl: progress},
 		}
 		wq.tasks = append(wq.tasks, key)
 	}
@@ -92,7 +92,7 @@ func (wq *WorkQueue) Push(target Resource, ctl *Controller, progress interface{}
 }
 
 // Pop returns the first item in the queue not in exclusion, along with it's latest progress
-func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target Resource, progress map[*Controller]interface{}) {
+func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target Resource, progress map[*Controller]any) {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
 	for i := 0; i < len(wq.tasks); i++ {
@@ -126,7 +126,7 @@ type WorkerPool struct {
 	// indicates the queue is closing
 	closing bool
 	// the function which will be run for each task in queue
-	write func(*config.Config, interface{})
+	write func(*config.Config, any)
 	// the function to retrieve the initial status
 	get func(Resource) *config.Config
 	// current worker routine count
@@ -137,7 +137,7 @@ type WorkerPool struct {
 	lock             sync.Mutex
 }
 
-func NewWorkerPool(write func(*config.Config, interface{}), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
+func NewWorkerPool(write func(*config.Config, any), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
 	return &WorkerPool{
 		write:            write,
 		get:              get,
@@ -155,7 +155,7 @@ func (wp *WorkerPool) Delete(target Resource) {
 	wp.q.Delete(target)
 }
 
-func (wp *WorkerPool) Push(target Resource, controller *Controller, context interface{}) {
+func (wp *WorkerPool) Push(target Resource, controller *Controller, context any) {
 	wp.q.Push(target, controller, context)
 	wp.maybeAddWorker()
 }
@@ -225,7 +225,7 @@ func (wp *WorkerPool) maybeAddWorker() {
 
 type GenerationProvider interface {
 	SetObservedGeneration(int64)
-	Unwrap() interface{}
+	Unwrap() any
 }
 
 type IstioGenerationProvider struct {
@@ -236,6 +236,6 @@ func (i *IstioGenerationProvider) SetObservedGeneration(in int64) {
 	i.ObservedGeneration = in
 }
 
-func (i *IstioGenerationProvider) Unwrap() interface{} {
+func (i *IstioGenerationProvider) Unwrap() any {
 	return i.IstioStatus
 }

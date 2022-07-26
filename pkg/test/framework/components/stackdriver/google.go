@@ -102,7 +102,15 @@ func newRealStackdriver(_ resource.Context, _ Config) (Instance, error) {
 	return rsd, nil
 }
 
-func (s *realStackdriver) ListTimeSeries(namespace string) ([]*monitoringpb.TimeSeries, error) {
+// fallback to testing project if cluster project not provided
+func (s *realStackdriver) resourceProject(clusterProject string) string {
+	if clusterProject == "" {
+		return s.projectID
+	}
+	return clusterProject
+}
+
+func (s *realStackdriver) ListTimeSeries(namespace, project string) ([]*monitoringpb.TimeSeries, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(queryInterval)
 	ret := &monitoringpb.ListTimeSeriesResponse{
@@ -113,7 +121,7 @@ func (s *realStackdriver) ListTimeSeries(namespace string) ([]*monitoringpb.Time
 		if strings.HasPrefix(q.resourceType, "k8s") {
 			filter = fmt.Sprintf("%s AND resource.labels.namespace_name = %q", filter, namespace)
 		}
-		lr := s.monitoringService.Projects.TimeSeries.List(fmt.Sprintf("projects/%v", s.projectID)).
+		lr := s.monitoringService.Projects.TimeSeries.List(fmt.Sprintf("projects/%v", s.resourceProject(project))).
 			IntervalStartTime(startTime.Format(time.RFC3339)).
 			IntervalEndTime(endTime.Format(time.RFC3339)).
 			AggregationCrossSeriesReducer("REDUCE_NONE").
@@ -121,6 +129,7 @@ func (s *realStackdriver) ListTimeSeries(namespace string) ([]*monitoringpb.Time
 			AggregationPerSeriesAligner("ALIGN_RATE").
 			Filter(filter).
 			Context(context.Background())
+
 		resp, err := lr.Do()
 		if err != nil {
 			return nil, err
@@ -149,10 +158,10 @@ func (s *realStackdriver) ListTimeSeries(namespace string) ([]*monitoringpb.Time
 	return trimMetricLabels(ret), nil
 }
 
-func (s *realStackdriver) ListLogEntries(filter LogType, namespace string) ([]*loggingpb.LogEntry, error) {
+func (s *realStackdriver) ListLogEntries(filter LogType, namespace, project string) ([]*loggingpb.LogEntry, error) {
 	logName := logNameSuffix(filter)
 	resp, err := s.loggingService.Entries.List(&logging.ListLogEntriesRequest{
-		ResourceNames: []string{fmt.Sprintf("projects/%v", s.projectID)},
+		ResourceNames: []string{fmt.Sprintf("projects/%v", s.resourceProject(project))},
 		PageSize:      1000,
 		Filter: fmt.Sprintf("timestamp > %q AND logName:%q AND resource.labels.namespace_name=%q",
 			time.Now().Add(queryInterval).Format(time.RFC3339), logName, namespace),
@@ -188,9 +197,9 @@ func (s *realStackdriver) ListLogEntries(filter LogType, namespace string) ([]*l
 	return trimLogLabels(&resppb, filter), nil
 }
 
-func (s *realStackdriver) ListTraces(namespace string) ([]*cloudtracepb.Trace, error) {
+func (s *realStackdriver) ListTraces(namespace, project string) ([]*cloudtracepb.Trace, error) {
 	startTime := time.Now().Add(queryInterval)
-	listTracesResponse, err := s.traceService.Projects.Traces.List(s.projectID).
+	listTracesResponse, err := s.traceService.Projects.Traces.List(s.resourceProject(project)).
 		StartTime(startTime.Format(time.RFC3339)).
 		View("COMPLETE").
 		Filter(fmt.Sprintf("istio.namespace:%q", namespace)).

@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
@@ -34,7 +33,7 @@ import (
 // proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
 // of metrics, which should be covered by integration test in proxy repo.
 func TestWasmStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.http.wasm"))
+	common.TestStatsFilter(t, "observability.telemetry.stats.prometheus.http.wasm")
 }
 
 func TestMain(m *testing.M) {
@@ -43,6 +42,7 @@ func TestMain(m *testing.M) {
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35915
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).
+		Setup(testSetup).
 		Run()
 }
 

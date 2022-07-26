@@ -23,7 +23,6 @@ import (
 
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -80,7 +79,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := New(tc.rule, true)
+			got, err := New(tc.rule)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -258,7 +257,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			m, err := New(tc.rule, true)
+			m, err := New(tc.rule)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -287,7 +286,7 @@ when:
 func yamlRule(t *testing.T, yaml string) *authzpb.Rule {
 	t.Helper()
 	p := &authzpb.Rule{}
-	if err := gogoprotomarshal.ApplyYAML(yaml, p); err != nil {
+	if err := protomarshal.ApplyYAML(yaml, p); err != nil {
 		t.Fatalf("failed to parse yaml: %s", err)
 	}
 	return p

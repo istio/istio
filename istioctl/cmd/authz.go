@@ -44,7 +44,7 @@ The command also supports reading from a standalone config dump file with flag -
   istioctl x authz check httpbin-88ddbcfdd-nt5jb
 
   # Check AuthorizationPolicy applied to one pod under a deployment
-  istioctl proxy-status deployment/productpage-v1
+  istioctl x authz check deployment/productpage-v1
 
   # Check AuthorizationPolicy from Envoy config dump file:
   istioctl x authz check -f httpbin_config_dump.json`,

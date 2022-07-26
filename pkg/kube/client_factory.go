@@ -15,6 +15,8 @@
 package kube
 
 import (
+	"sync"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
@@ -35,6 +37,13 @@ var _ util.Factory = &clientFactory{}
 type clientFactory struct {
 	clientConfig clientcmd.ClientConfig
 	factory      util.Factory
+
+	mapperOnce sync.Once
+	mapper     meta.RESTMapper
+	expander   meta.RESTMapper
+
+	discoveryOnce   sync.Once
+	discoveryClient discovery.CachedDiscoveryInterface
 }
 
 // newClientFactory creates a new util.Factory from the given clientcmd.ClientConfig.
@@ -56,15 +65,18 @@ func (c *clientFactory) ToRESTConfig() (*rest.Config, error) {
 }
 
 func (c *clientFactory) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
-	restConfig, err := c.ToRESTConfig()
-	if err != nil {
-		return nil, err
-	}
-	d, err := discovery.NewDiscoveryClientForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-	return memory.NewMemCacheClient(d), nil
+	c.discoveryOnce.Do(func() {
+		restConfig, err := c.ToRESTConfig()
+		if err != nil {
+			return
+		}
+		d, err := discovery.NewDiscoveryClientForConfig(restConfig)
+		if err != nil {
+			return
+		}
+		c.discoveryClient = memory.NewMemCacheClient(d)
+	})
+	return c.discoveryClient, nil
 }
 
 func (c *clientFactory) ToRESTMapper() (meta.RESTMapper, error) {
@@ -72,9 +84,11 @@ func (c *clientFactory) ToRESTMapper() (meta.RESTMapper, error) {
 	if err != nil {
 		return nil, err
 	}
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-	expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
-	return expander, nil
+	c.mapperOnce.Do(func() {
+		c.mapper = restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
+		c.expander = restmapper.NewShortcutExpander(c.mapper, discoveryClient)
+	})
+	return c.expander, nil
 }
 
 func (c *clientFactory) ToRawKubeConfigLoader() clientcmd.ClientConfig {
@@ -114,8 +128,8 @@ func (c *clientFactory) UnstructuredClientForMapping(mapping *meta.RESTMapping) 
 	return c.factory.UnstructuredClientForMapping(mapping)
 }
 
-func (c *clientFactory) Validator(validate bool) (validation.Schema, error) {
-	return c.factory.Validator(validate)
+func (c *clientFactory) Validator(validationDirective string, verifier *resource.QueryParamVerifier) (validation.Schema, error) {
+	return c.factory.Validator(validationDirective, verifier)
 }
 
 func (c *clientFactory) OpenAPISchema() (openapi.Resources, error) {

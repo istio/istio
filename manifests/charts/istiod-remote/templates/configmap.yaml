@@ -11,7 +11,7 @@
 
     defaultConfig:
       {{- if .Values.global.meshID }}
-      meshId: {{ .Values.global.meshID }}
+      meshId: "{{ .Values.global.meshID }}"
       {{- end }}
       tracing:
       {{- if eq .Values.global.proxy.tracer "lightstep" }}

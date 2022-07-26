@@ -18,14 +18,13 @@
 package pilot
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -39,15 +38,14 @@ func TestGRPCProbe(t *testing.T) {
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "grpc-probe", Inject: true})
 			// apply strict mtls
-			t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(`
+			t.ConfigKube(t.Clusters().Configs()...).YAML(ns.Name(), `
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: grpc-probe-mtls
-  namespace: %s
 spec:
   mtls:
-    mode: STRICT`, ns.Name()))
+    mode: STRICT`).ApplyOrFail(t)
 
 			for _, testCase := range []struct {
 				name     string
@@ -55,8 +53,6 @@ spec:
 				ready    bool
 				openPort bool
 			}{
-				{name: "norewrite-unready", rewrite: false, ready: false, openPort: true},
-				{name: "rewrite-unready", rewrite: true, ready: false, openPort: false},
 				{name: "rewrite-ready", rewrite: true, ready: true, openPort: true},
 			} {
 				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
@@ -67,7 +63,8 @@ spec:
 }
 
 func runGRPCProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
-	name string, rewrite bool, wantReady bool, openPort bool) {
+	name string, rewrite bool, wantReady bool, openPort bool,
+) {
 	ctx.Helper()
 
 	var grpcProbe echo.Instance
@@ -87,7 +84,7 @@ func runGRPCProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //
 			Name:         "readiness-grpc-port",
 			Protocol:     protocol.GRPC,
 			ServicePort:  1234,
-			InstancePort: 1234,
+			WorkloadPort: 1234,
 		}}
 	}
 
@@ -95,7 +92,7 @@ func runGRPCProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //
 	if !wantReady {
 		cfg.ReadinessTimeout = time.Second * 15
 	}
-	_, err := echoboot.NewBuilder(ctx).
+	_, err := deployment.New(ctx).
 		With(&grpcProbe, cfg).
 		Build()
 	gotReady := err == nil

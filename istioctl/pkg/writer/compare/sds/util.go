@@ -141,7 +141,8 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 
 // GetEnvoySecrets parses the secrets section of the config dump into []SecretItem
 func GetEnvoySecrets(
-	wrapper *configdump.Wrapper) ([]SecretItem, error) {
+	wrapper *configdump.Wrapper,
+) ([]SecretItem, error) {
 	secretConfigDump, err := wrapper.GetSecretConfigDump()
 	if err != nil {
 		return nil, err
@@ -161,6 +162,9 @@ func GetEnvoySecrets(
 		if err != nil {
 			return nil, fmt.Errorf("failed building warming secret %s: %v",
 				activeSecret.Name, err)
+		}
+		if activeSecret.VersionInfo == "uninitialized" {
+			secret.State = "UNINITIALIZED"
 		}
 		proxySecretItems = append(proxySecretItems, secret)
 	}

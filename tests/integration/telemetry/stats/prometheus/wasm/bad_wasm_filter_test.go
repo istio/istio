@@ -18,12 +18,12 @@
 package wasm
 
 import (
-	"os"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
@@ -37,62 +37,46 @@ import (
 func TestBadWasmRemoteLoad(t *testing.T) {
 	framework.NewTest(t).
 		Features("extensibility.wasm.remote-load").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			// Test bad wasm remote load in only one cluster.
-			// There is no need to repeat the same testing logic in several different clusters.
-			cltInstance := common.GetClientInstances().GetOrFail(ctx, echo.InCluster(ctx.Clusters().Default()))
+			// There is no need to repeat the same testing logic in multiple clusters.
+			to := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetClientInstances())
 			// Verify that echo server could return 200
-			retry.UntilSuccessOrFail(t, func() error {
-				if err := common.SendTraffic(cltInstance); err != nil {
-					return err
-				}
-				return nil
-			}, retry.Delay(1*time.Millisecond), retry.Timeout(5*time.Second))
+			common.SendTrafficOrFail(t, to)
 			t.Log("echo server returns OK, apply bad wasm remote load filter.")
 
 			// Apply bad filter config
-			content, err := os.ReadFile("testdata/bad-filter.yaml")
-			if err != nil {
-				t.Fatal(err)
-			}
-			ctx.ConfigIstio().ApplyYAML(common.GetAppNamespace().Name(), string(content))
+			t.ConfigIstio().File(common.GetAppNamespace().Name(), "testdata/bad-filter.yaml").ApplyOrFail(t)
 
 			// Wait until there is agent metrics for wasm download failure
 			retry.UntilSuccessOrFail(t, func() error {
-				q := "istio_agent_wasm_remote_fetch_count{result=\"download_failure\"}"
-				c := cltInstance.Config().Cluster
+				q := prometheus.Query{Metric: "istio_agent_wasm_remote_fetch_count", Labels: map[string]string{"result": "download_failure"}}
+				c := to.Config().Cluster
 				if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_agent_wasm_remote_fetch_count for cluster %v: \n%s",
-						c, util.PromDump(c, common.GetPromInstance(), "istio_agent_wasm_remote_fetch_count"))
+					util.PromDiff(t, common.GetPromInstance(), c, q)
 					return err
 				}
 				return nil
 			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 
-			t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
-
-			if ctx.Clusters().Default().IsPrimary() { // Only check istiod if running locally (i.e., not an external control plane)
+			if t.Clusters().Default().IsPrimary() { // Only check istiod if running locally (i.e., not an external control plane)
 				// Verify that istiod has a stats about rejected ECDS update
 				// pilot_total_xds_rejects{type="type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"}
 				retry.UntilSuccessOrFail(t, func() error {
-					q := "pilot_total_xds_rejects{type=\"ecds\"}"
-					c := cltInstance.Config().Cluster
+					q := prometheus.Query{Metric: "pilot_total_xds_rejects", Labels: map[string]string{"type": "ecds"}}
+					c := to.Config().Cluster
 					if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
-						t.Logf("prometheus values for pilot_total_xds_rejects for cluster %v: \n%s",
-							c, util.PromDump(c, common.GetPromInstance(), "pilot_total_xds_rejects"))
+						util.PromDiff(t, common.GetPromInstance(), c, q)
 						return err
 					}
 					return nil
 				}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 			}
 
+			t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
+
 			// Verify that echo server could still return 200
-			retry.UntilSuccessOrFail(t, func() error {
-				if err := common.SendTraffic(cltInstance); err != nil {
-					return err
-				}
-				return nil
-			}, retry.Delay(1*time.Millisecond), retry.Timeout(10*time.Second))
+			common.SendTrafficOrFail(t, to)
 
 			t.Log("echo server still returns ok after bad wasm filter is applied.")
 		})

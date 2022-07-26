@@ -24,8 +24,10 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -37,6 +39,7 @@ import (
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		RequireMultiPrimary().
@@ -75,7 +78,7 @@ func TestMultiRevision(t *testing.T) {
 				Revision: "canary",
 			})
 
-			echos := echoboot.NewBuilder(t).
+			echos := deployment.New(t).
 				WithClusters(t.Clusters()...).
 				WithConfig(echo.Config{
 					Service:   "client",
@@ -89,7 +92,7 @@ func TestMultiRevision(t *testing.T) {
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8090,
+							WorkloadPort: 8090,
 						},
 					},
 				}).
@@ -103,22 +106,25 @@ func TestMultiRevision(t *testing.T) {
 
 			echotest.New(t, echos).
 				ConditionallyTo(echotest.ReachableDestinations).
-				To(echotest.FilterMatch(echo.Service("server"))).
-				Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
+				ToMatch(match.ServiceName(echo.NamespacedName{Name: "server", Namespace: canary})).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := src.Call(echo.CallOptions{
-							Target:   dst[0],
-							PortName: "http",
-							Count:    len(t.Clusters()) * 3,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ExpectReachedClusters(t.Clusters()),
+						result, err := from.Call(echo.CallOptions{
+							To: to,
+							Port: echo.Port{
+								Name: "http",
+							},
+							Retry: echo.Retry{
+								NoRetry: true,
+							},
+							Check: check.And(
+								check.OK(),
+								check.ReachedTargetClusters(t),
 							),
 						})
-						if err != nil {
-							return err
-						}
-						return resp.CheckOK()
+						return check.And(
+							check.NoError(),
+							check.OK()).Check(result, err)
 					}, retry.Delay(time.Millisecond*100))
 				})
 		})

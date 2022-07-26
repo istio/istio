@@ -19,12 +19,16 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -71,9 +75,9 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 
 	s.l = listener
 	if s.Port.TLS {
-		fmt.Printf("Listening TCP (over TLS) on %v\n", port)
+		epLog.Infof("Listening TCP (over TLS) on %v\n", port)
 	} else {
-		fmt.Printf("Listening TCP on %v\n", port)
+		epLog.Infof("Listening TCP on %v\n", port)
 	}
 
 	// Start serving TCP traffic.
@@ -85,7 +89,25 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 				return
 			}
 
-			go s.echo(conn)
+			id := uuid.New()
+			epLog.WithLabels("remote", conn.RemoteAddr(), "id", id).Infof("TCP Request")
+
+			done := make(chan struct{})
+			go func() {
+				s.echo(id, conn)
+				close(done)
+			}()
+
+			go func() {
+				select {
+				case <-done:
+					return
+				case <-time.After(requestTimeout):
+					epLog.WithLabels("id", id).Warnf("TCP forcing connection closed after request timeout")
+					_ = forceClose(conn)
+					return
+				}
+			}()
 		}
 	}()
 
@@ -96,41 +118,53 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 }
 
 // Handles incoming connection.
-func (s *tcpInstance) echo(conn net.Conn) {
-	defer common.Metrics.TCPRequests.With(common.PortLabel.Value(strconv.Itoa(s.Port.Port))).Increment()
+func (s *tcpInstance) echo(id uuid.UUID, conn net.Conn) {
+	common.Metrics.TCPRequests.With(common.PortLabel.Value(strconv.Itoa(s.Port.Port))).Increment()
+
+	var err error
 	defer func() {
-		_ = conn.Close()
+		if err != nil && err != io.EOF {
+			_ = forceClose(conn)
+		} else {
+			_ = conn.Close()
+		}
 	}()
 
 	// If this is server first, client expects a message from server. Send the magic string.
 	if s.Port.ServerFirst {
-		_, _ = conn.Write([]byte(common.ServerFirstMagicString))
+		if _, err = conn.Write([]byte(common.ServerFirstMagicString)); err != nil {
+			epLog.WithLabels("id", id).Warnf("TCP server-first write failed: %v", err)
+			return
+		}
 	}
 
-	id := uuid.New()
-	epLog.WithLabels("remote", conn.RemoteAddr(), "id", id).Infof("TCP Request")
 	firstReply := true
+	responseFields := ""
 	buf := make([]byte, 4096)
 	for {
-		n, err := conn.Read(buf)
+		var n int
+		n, err = conn.Read(buf)
 
 		// important not to start sending any response until we've started reading the message,
 		// otherwise the response could be read when we expect the magic string
 		if firstReply {
-			s.writeResponse(conn)
+			responseFields = s.getResponseFields(conn)
+			if _, writeErr := conn.Write([]byte(responseFields)); writeErr != nil {
+				epLog.WithLabels("id", id).Warnf("TCP failed writing response fields: %v", writeErr)
+			}
 			firstReply = false
 		}
 
 		if err != nil && err != io.EOF {
-			epLog.Warnf("TCP read failed: %v", err.Error())
+			epLog.WithLabels("id", id).Warnf("TCP read failed: %v", err)
 			break
 		}
 
 		// echo the message from the request
 		if n > 0 {
 			out := buf[:n]
-			if _, err := conn.Write(out); err != nil {
-				epLog.Warnf("TCP write failed, :%v", err)
+			if _, err = conn.Write(out); err != nil {
+				epLog.WithLabels("id", id).Warnf("TCP failed writing echo response: %v", err)
 				break
 			}
 		}
@@ -141,33 +175,37 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		}
 	}
 
-	epLog.WithLabels("id", id).Infof("TCP Response")
+	epLog.WithLabels("id", id).Infof("TCP Response Fields:\n%s", responseFields)
 }
 
-func (s *tcpInstance) writeResponse(conn net.Conn) {
+func (s *tcpInstance) getResponseFields(conn net.Conn) string {
 	ip, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 	// Write non-request fields specific to the instance
-	respFields := map[response.Field]string{
-		response.StatusCodeField:     response.StatusCodeOK,
-		response.ClusterField:        s.Cluster,
-		response.IstioVersionField:   s.IstioVersion,
-		response.ServiceVersionField: s.Version,
-		response.ServicePortField:    strconv.Itoa(s.Port.Port),
-		response.IPField:             ip,
+	respFields := map[echo.Field]string{
+		echo.StatusCodeField:     strconv.Itoa(http.StatusOK),
+		echo.ClusterField:        s.Cluster,
+		echo.IstioVersionField:   s.IstioVersion,
+		echo.ServiceVersionField: s.Version,
+		echo.ServicePortField:    strconv.Itoa(s.Port.Port),
+		echo.IPField:             ip,
+		echo.ProtocolField:       "TCP",
 	}
+
+	if hostname, err := os.Hostname(); err == nil {
+		respFields[echo.HostnameField] = hostname
+	}
+
+	var out strings.Builder
 	for field, val := range respFields {
 		val := fmt.Sprintf("%s=%s\n", string(field), val)
-		_, err := conn.Write([]byte(val))
-		if err != nil {
-			epLog.Warnf("TCP write failed %q: %v", val, err)
-			break
-		}
+		_, _ = out.WriteString(val)
 	}
+	return out.String()
 }
 
 func (s *tcpInstance) Close() error {
 	if s.l != nil {
-		s.l.Close()
+		_ = s.l.Close()
 	}
 	return nil
 }
@@ -180,7 +218,7 @@ func (s *tcpInstance) awaitReady(onReady OnReadyFunc, address string) {
 		if err != nil {
 			return err
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		// Server is up now, we're ready.
 		return nil

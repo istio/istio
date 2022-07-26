@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
+	"istio.io/istio/pkg/config/analysis/analyzers/envoyfilter"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/pkg/config/analysis/analyzers/multicluster"
@@ -59,8 +60,9 @@ func All() []analysis.Analyzer {
 		&virtualservice.JWTClaimRouteAnalyzer{},
 		&virtualservice.RegexAnalyzer{},
 		&destinationrule.CaCertificateAnalyzer{},
-		&serviceentry.ProtocolAdressesAnalyzer{},
+		&serviceentry.ProtocolAddressesAnalyzer{},
 		&webhook.Analyzer{},
+		&envoyfilter.EnvoyPatchAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

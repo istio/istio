@@ -24,9 +24,11 @@ import (
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	gogoproto "github.com/gogo/protobuf/proto"
 	gogotypes "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -119,47 +121,47 @@ func ObjectInRevision(o *Config, rev string) bool {
 // * golang/protobuf Message
 // * gogo/protobuf Message
 // * Able to marshal/unmarshal using json
-type Spec interface{}
+type Spec any
 
-func ToProtoGogo(s Spec) (*gogotypes.Any, error) {
+func ToProto(s Spec) (*anypb.Any, error) {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
 	if pb, ok := s.(protoreflect.ProtoMessage); ok {
-		golangany, err := anypb.New(pb)
-		if err != nil {
-			return nil, err
-		}
-		return &gogotypes.Any{
-			TypeUrl: golangany.TypeUrl,
-			Value:   golangany.Value,
-		}, nil
+		return anypb.New(pb)
 	}
 
 	// gogo protobuf
 	if pb, ok := s.(gogoproto.Message); ok {
-		return gogotypes.MarshalAny(pb)
+		gogoany, err := gogotypes.MarshalAny(pb)
+		if err != nil {
+			return nil, err
+		}
+		return &anypb.Any{
+			TypeUrl: gogoany.TypeUrl,
+			Value:   gogoany.Value,
+		}, nil
 	}
 
 	js, err := json.Marshal(s)
 	if err != nil {
 		return nil, err
 	}
-	pbs := &gogotypes.Struct{}
-	if err := gogojsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
+	pbs := &structpb.Struct{}
+	if err := jsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
 		return nil, err
 	}
-	return gogotypes.MarshalAny(pbs)
+	return anypb.New(pbs)
 }
 
-func ToMap(s Spec) (map[string]interface{}, error) {
+func ToMap(s Spec) (map[string]any, error) {
 	js, err := ToJSON(s)
 	if err != nil {
 		return nil, err
 	}
 
 	// Unmarshal from json bytes to go map
-	var data map[string]interface{}
+	var data map[string]any
 	err = json.Unmarshal(js, &data)
 	if err != nil {
 		return nil, err
@@ -169,6 +171,14 @@ func ToMap(s Spec) (map[string]interface{}, error) {
 }
 
 func ToJSON(s Spec) ([]byte, error) {
+	return toJSON(s, false)
+}
+
+func ToPrettyJSON(s Spec) ([]byte, error) {
+	return toJSON(s, true)
+}
+
+func toJSON(s Spec, pretty bool) ([]byte, error) {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
@@ -185,12 +195,14 @@ func ToJSON(s Spec) ([]byte, error) {
 		err := (&gogojsonpb.Marshaler{}).Marshal(b, pb)
 		return b.Bytes(), err
 	}
-
+	if pretty {
+		return json.MarshalIndent(s, "", "\t")
+	}
 	return json.Marshal(s)
 }
 
 type deepCopier interface {
-	DeepCopyInterface() interface{}
+	DeepCopyInterface() any
 }
 
 func ApplyYAML(s Spec, yml string) error {
@@ -243,7 +255,7 @@ func ApplyJSON(s Spec, js string) error {
 	return json.Unmarshal([]byte(js), &s)
 }
 
-func DeepCopy(s interface{}) interface{} {
+func DeepCopy(s any) any {
 	if s == nil {
 		return nil
 	}
@@ -281,7 +293,7 @@ func DeepCopy(s interface{}) interface{} {
 	return data
 }
 
-type Status interface{}
+type Status any
 
 // Key function for the configuration objects
 func Key(grp, ver, typ, name, namespace string) string {

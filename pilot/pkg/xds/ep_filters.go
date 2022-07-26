@@ -22,7 +22,6 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
@@ -67,6 +66,13 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 
 		// Process all of the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
+			istioEndpoint := ep.istioEndpoints[i]
+
+			// If the proxy can't view the network for this endpoint, exclude it entirely.
+			if !b.proxyView.IsVisible(istioEndpoint) {
+				continue
+			}
+
 			// Copy the endpoint in order to expand the load balancing weight.
 			// When multiplying, be careful to avoid overflow - clipping the
 			// result at the maximum value for uint32.
@@ -78,7 +84,6 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				}
 			}
 
-			istioEndpoint := ep.istioEndpoints[i]
 			epNetwork := istioEndpoint.Network
 			epCluster := istioEndpoint.Locality.ClusterID
 			gateways := b.selectNetworkGateways(epNetwork, epCluster)
@@ -88,12 +93,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			// directly from the local network.
 			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
 				// The endpoint is directly reachable - just add it.
-				lbEndpoints.append(ep.istioEndpoints[i], lbEp, ep.istioEndpoints[i].TunnelAbility)
-				continue
-			}
-
-			// If the proxy can't view the network for this endpoint, exclude it entirely.
-			if !b.canViewNetwork(epNetwork) {
+				lbEndpoints.append(ep.istioEndpoints[i], lbEp)
 				continue
 			}
 
@@ -147,7 +147,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			gwEp.Metadata = util.BuildLbEndpointMetadata(gw.Network, model.IstioMutualTLSModeLabel,
 				"", "", b.clusterID, labels.Instance{})
 			// Currently gateway endpoint does not support tunnel.
-			lbEndpoints.append(gwIstioEp, gwEp, networking.MakeTunnelAbility())
+			lbEndpoints.append(gwIstioEp, gwEp)
 		}
 
 		// Endpoint members could be stripped or aggregated by network. Adjust weight value here.
@@ -221,7 +221,7 @@ func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocLbEndpointsAnd
 				// no mTLS, skip it
 				continue
 			}
-			lbEndpoints.append(ep.istioEndpoints[i], lbEp, ep.istioEndpoints[i].TunnelAbility)
+			lbEndpoints.append(ep.istioEndpoints[i], lbEp)
 		}
 
 		filtered = append(filtered, lbEndpoints)

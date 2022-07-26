@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue: []
+releaseNotes:
+- |
+  **Added** pod name and cluster name to bookinfo's reviews. Cluster is defined by `CLUSTER_NAME` environment variable on the reviews deployments. 

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package fuzz
 
 import (
@@ -31,14 +30,9 @@ func init() {
 }
 
 func ValidateTestOptions(to v1alpha3.TestOptions) error {
-	for _, plugin := range to.Plugins {
-		if plugin == nil {
-			return errors.New("a Plugin was nil")
-		}
-	}
 	for _, csc := range to.ConfigStoreCaches {
 		if csc == nil {
-			return errors.New("a ConfigStoreCache was nil")
+			return errors.New("a ConfigStoreController was nil")
 		}
 	}
 	for _, sr := range to.ServiceRegistries {

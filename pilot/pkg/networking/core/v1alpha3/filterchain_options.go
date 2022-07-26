@@ -17,12 +17,13 @@ package v1alpha3
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
 
@@ -34,12 +35,8 @@ type FilterChainMatchOptions struct {
 	TransportProtocol string
 	// Filter chain protocol. HTTP for HTTP proxy and TCP for TCP proxy
 	Protocol networking.ListenerProtocol
-	// Whether this chain should terminate mTLS or not
-	MTLS bool
-	// Hostnames to match on
-	SNIHosts []string
-	// Has One-way TLS or mTLS configured by the user
-	IsCustomTLS bool
+	// Whether this chain should terminate TLS or not
+	TLS bool
 }
 
 // Set of filter chain match options used for various combinations.
@@ -53,7 +50,7 @@ var (
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          networking.ListenerProtocolHTTP,
-			MTLS:              true,
+			TLS:               true,
 		},
 		{
 			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
@@ -68,7 +65,7 @@ var (
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          networking.ListenerProtocolTCP,
-			MTLS:              true,
+			TLS:               true,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, sent over plaintext
@@ -94,7 +91,7 @@ var (
 			ApplicationProtocols: allIstioMtlsALPNs,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
 			Protocol:             networking.ListenerProtocolHTTP,
-			MTLS:                 true,
+			TLS:                  true,
 		},
 		{
 			// Plaintext HTTP
@@ -109,7 +106,7 @@ var (
 			ApplicationProtocols: allIstioMtlsALPNs,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
 			Protocol:             networking.ListenerProtocolTCP,
-			MTLS:                 true,
+			TLS:                  true,
 		},
 		{
 			// Plain TLS
@@ -130,27 +127,27 @@ var (
 			ApplicationProtocols: mtlsHTTPALPNs,
 			Protocol:             networking.ListenerProtocolHTTP,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
-			MTLS:                 true,
+			TLS:                  true,
 		},
 		{
 			// Could not detect traffic on the client side. Server side has no mTLS.
 			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			MTLS:              true,
+			TLS:               true,
 		},
 	}
 	inboundStrictTCPFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
 			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			MTLS:              true,
+			TLS:               true,
 		},
 	}
 	inboundStrictHTTPFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
 			Protocol:          networking.ListenerProtocolHTTP,
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			MTLS:              true,
+			TLS:               true,
 		},
 	}
 
@@ -182,8 +179,17 @@ var (
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 )
 
+// getTLSFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
+func getTLSFilterChainMatchOptions(protocol networking.ListenerProtocol) []FilterChainMatchOptions {
+	return []FilterChainMatchOptions{{
+		Protocol:          protocol,
+		TransportProtocol: xdsfilters.TLSTransportProtocol,
+		TLS:               true,
+	}}
+}
+
 // getFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
-func getFilterChainMatchOptions(settings plugin.MTLSSettings, protocol networking.ListenerProtocol) []FilterChainMatchOptions {
+func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking.ListenerProtocol) []FilterChainMatchOptions {
 	switch protocol {
 	case networking.ListenerProtocolHTTP:
 		switch settings.Mode {
@@ -220,7 +226,7 @@ type fcOpts struct {
 	fc        networking.FilterChain
 }
 
-func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, matchingIP string) fcOpts {
+func (opt fcOpts) populateFilterChain(mtls authn.MTLSSettings, port uint32, matchingIP string) fcOpts {
 	opt.fc.FilterChainMatch = &listener.FilterChainMatch{}
 	opt.fc.FilterChainMatch.ApplicationProtocols = opt.matchOpts.ApplicationProtocols
 	opt.fc.FilterChainMatch.TransportProtocol = opt.matchOpts.TransportProtocol
@@ -237,4 +243,14 @@ func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, mat
 		opt.fc.TLSContext = mtls.TCP
 	}
 	return opt
+}
+
+func (opt FilterChainMatchOptions) ToTransportSocket(mtls authn.MTLSSettings) *tls.DownstreamTlsContext {
+	if !opt.TLS {
+		return nil
+	}
+	if opt.Protocol == networking.ListenerProtocolHTTP {
+		return mtls.HTTP
+	}
+	return mtls.TCP
 }

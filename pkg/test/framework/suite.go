@@ -27,9 +27,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/config"
@@ -86,24 +88,40 @@ type Suite interface {
 	EnvironmentFactory(fn resource.EnvironmentFactory) Suite
 	// Label all the tests in suite with the given labels
 	Label(labels ...label.Instance) Suite
+	// SkipIf skips the suite if the function returns true
+	SkipIf(reason string, fn resource.ShouldSkipFn) Suite
 	// Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
 	Skip(reason string) Suite
 	// RequireMinClusters ensures that the current environment contains at least the given number of clusters.
 	// Otherwise it stops test execution.
+	//
+	// Deprecated: Tests should not make assumptions about number of clusters.
 	RequireMinClusters(minClusters int) Suite
 	// RequireMaxClusters ensures that the current environment contains at least the given number of clusters.
 	// Otherwise it stops test execution.
+	//
+	// Deprecated: Tests should not make assumptions about number of clusters.
 	RequireMaxClusters(maxClusters int) Suite
 	// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
+	//
+	// Deprecated: All new tests should support multiple clusters.
 	RequireSingleCluster() Suite
 	// RequireMultiPrimary ensures that each cluster is running a control plane.
+	//
+	// Deprecated: All new tests should work for any control plane topology.
 	RequireMultiPrimary() Suite
+	// SkipExternalControlPlaneTopology skips the tests in external plane and config cluster topology
+	SkipExternalControlPlaneTopology() Suite
+	// RequireExternalControlPlaneTopology requires the environment to be external control plane topology
+	RequireExternalControlPlaneTopology() Suite
 	// RequireMinVersion validates the environment meets a minimum version
 	RequireMinVersion(minorVersion uint) Suite
 	// RequireMaxVersion validates the environment meets a maximum version
 	RequireMaxVersion(minorVersion uint) Suite
 	// Setup runs enqueues the given setup function to run before test execution.
 	Setup(fn resource.SetupFn) Suite
+	// SetupParallel runs the given setup functions in parallel before test execution.
+	SetupParallel(fns ...resource.SetupFn) Suite
 	// Run the suite. This method calls os.Exit and does not return.
 	Run()
 }
@@ -112,6 +130,7 @@ type Suite interface {
 type suiteImpl struct {
 	testID      string
 	skipMessage string
+	skipFn      resource.ShouldSkipFn
 	mRun        mRunFn
 	osExit      func(int)
 	labels      label.Set
@@ -191,6 +210,15 @@ func (s *suiteImpl) Label(labels ...label.Instance) Suite {
 
 func (s *suiteImpl) Skip(reason string) Suite {
 	s.skipMessage = reason
+	s.skipFn = func(ctx resource.Context) bool {
+		return true
+	}
+	return s
+}
+
+func (s *suiteImpl) SkipIf(reason string, fn resource.ShouldSkipFn) Suite {
+	s.skipMessage = reason
+	s.skipFn = fn
 	return s
 }
 
@@ -229,6 +257,7 @@ func (s *suiteImpl) RequireMaxClusters(maxClusters int) Suite {
 }
 
 func (s *suiteImpl) RequireSingleCluster() Suite {
+	// nolint: staticcheck
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
@@ -243,6 +272,36 @@ func (s *suiteImpl) RequireMultiPrimary() Suite {
 		return nil
 	}
 
+	s.requireFns = append(s.requireFns, fn)
+	return s
+}
+
+func (s *suiteImpl) SkipExternalControlPlaneTopology() Suite {
+	fn := func(ctx resource.Context) error {
+		for _, c := range ctx.Clusters() {
+			if c.IsConfig() && !c.IsPrimary() {
+				s.Skip(fmt.Sprintf("Cluster %s is a config cluster, we can't run external control plane topology",
+					c.Name()))
+			}
+		}
+		return nil
+	}
+	s.requireFns = append(s.requireFns, fn)
+	return s
+}
+
+func (s *suiteImpl) RequireExternalControlPlaneTopology() Suite {
+	fn := func(ctx resource.Context) error {
+		for _, c := range ctx.Clusters() {
+			if c.IsConfig() && !c.IsPrimary() {
+				// the test environment is an external control plane topology, the test can go on
+				return nil
+			}
+		}
+		// the test environment is not an external control plane topology, skip the test
+		s.Skip("Not an external control plane topology, skip this test")
+		return nil
+	}
 	s.requireFns = append(s.requireFns, fn)
 	return s
 }
@@ -290,6 +349,20 @@ func (s *suiteImpl) Setup(fn resource.SetupFn) Suite {
 	return s
 }
 
+func (s *suiteImpl) SetupParallel(fns ...resource.SetupFn) Suite {
+	s.setupFns = append(s.setupFns, func(ctx resource.Context) error {
+		g := multierror.Group{}
+		for _, fn := range fns {
+			fn := fn
+			g.Go(func() error {
+				return fn(ctx)
+			})
+		}
+		return g.Wait().ErrorOrNil()
+	})
+	return s
+}
+
 func (s *suiteImpl) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error) {
 	defer func() {
 		// Dump if the setup function fails
@@ -305,8 +378,11 @@ func (s *suiteImpl) Run() {
 	s.osExit(s.run())
 }
 
-func (s *suiteImpl) isSkipped() bool {
-	return s.skipMessage != ""
+func (s *suiteImpl) isSkipped(ctx SuiteContext) bool {
+	if s.skipFn != nil && s.skipFn(ctx) {
+		return true
+	}
+	return false
 }
 
 func (s *suiteImpl) doSkip(ctx *suiteContext) int {
@@ -330,9 +406,8 @@ func (s *suiteImpl) run() (errLevel int) {
 	}
 
 	ctx := rt.suiteContext()
-
 	// Skip the test if its explicitly skipped
-	if s.isSkipped() {
+	if s.isSkipped(ctx) {
 		return s.doSkip(ctx)
 	}
 
@@ -369,13 +444,18 @@ func (s *suiteImpl) run() (errLevel int) {
 	}
 
 	// Check if one of the setup functions ended up skipping the suite.
-	if s.isSkipped() {
+	if s.isSkipped(ctx) {
 		return s.doSkip(ctx)
 	}
 
 	defer func() {
 		end := time.Now()
 		scopes.Framework.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
+
+		ctx.RecordTraceEvent("suite-runtime", end.Sub(start).Seconds())
+		ctx.RecordTraceEvent("echo-calls", echo.GlobalEchoRequests.Load())
+		ctx.RecordTraceEvent("yaml-apply", GlobalYAMLWrites.Load())
+		_ = appendToFile(ctx.marshalTraceEvent(), filepath.Join(ctx.Settings().BaseDir, "trace.yaml"))
 	}()
 
 	attempt := 0
@@ -386,12 +466,11 @@ func (s *suiteImpl) run() (errLevel int) {
 		if errLevel == 0 {
 			scopes.Framework.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
 			break
-		} else {
-			scopes.Framework.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
-				ctx.Settings().TestID, errLevel)
-			if attempt <= ctx.settings.Retries {
-				scopes.Framework.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
-			}
+		}
+		scopes.Framework.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
+			ctx.Settings().TestID, errLevel)
+		if attempt <= ctx.settings.Retries {
+			scopes.Framework.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
 		}
 	}
 	s.writeOutput()
@@ -470,7 +549,7 @@ func (s *suiteImpl) runSetupFns(ctx SuiteContext) (err error) {
 			return err
 		}
 
-		if s.isSkipped() {
+		if s.isSkipped(ctx) {
 			return nil
 		}
 	}
@@ -543,4 +622,20 @@ func mustCompileAll(patterns ...string) []*regexp.Regexp {
 	}
 
 	return out
+}
+
+func appendToFile(contents []byte, file string) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = f.Close()
+	}()
+
+	if _, err = f.Write(contents); err != nil {
+		return err
+	}
+	return nil
 }

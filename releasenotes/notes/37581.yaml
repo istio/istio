@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Added** `istioctl analyze` beta API version support for file resources.

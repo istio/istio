@@ -27,15 +27,14 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
-	"istio.io/istio/tests/integration/security/util/connection"
 )
 
 const (
@@ -99,35 +98,28 @@ spec:
 // - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
 // - The plugin CA certs are correctly used in workload mTLS.
 // - The CA certificate in the configmap of each namespace is as expected, which
-//   is used for data plane to control plane TLS authentication.
+//
+//	is used for data plane to control plane TLS authentication.
+//
 // - Secure naming information is respected in the mTLS handshake.
 func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.secure-naming").
 		Run(func(t framework.TestContext) {
-			// TODO https://github.com/istio/istio/issues/32292
-			if t.AllClusters().IsMulticluster() {
-				t.Skip()
-			}
 			istioCfg := istio.DefaultConfigOrFail(t, t)
-			testNamespace := apps.Namespace
+
+			testNamespace := apps.EchoNamespace.Namespace
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 			// Check that the CA certificate in the configmap of each namespace is as expected, which
 			// is used for data plane to control plane TLS authentication.
 			retry.UntilSuccessOrFail(t, func() error {
 				return checkCACert(t, testNamespace)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-
-			callCount := 1
-			if t.Clusters().IsMulticluster() {
-				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(t.Clusters())
-			}
-			bSet := apps.B.Match(echo.Namespace(testNamespace.Name()))
+			to := match.Namespace(testNamespace).GetMatches(apps.EchoNamespace.B)
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
-					b := apps.B.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
+					a := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.EchoNamespace.A)[0]
+					b := match.And(match.Cluster(cluster), match.Namespace(testNamespace)).GetMatches(apps.EchoNamespace.B)[0]
 					t.NewSubTest("mTLS cert validation with plugin CA").
 						Run(func(t framework.TestContext) {
 							// Verify that the certificate issued to the sidecar is as expected.
@@ -135,19 +127,14 @@ func TestSecureNaming(t *testing.T) {
 							verifyCertificatesWithPluginCA(t, out)
 
 							// Verify mTLS works between a and b
-							callOptions := echo.CallOptions{
-								Target:   bSet[0],
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-								Count:    callCount,
+							opts := echo.CallOptions{
+								To: to,
+								Port: echo.Port{
+									Name: "http",
+								},
 							}
-							checker := connection.Checker{
-								From:          a,
-								Options:       callOptions,
-								ExpectSuccess: true,
-								DestClusters:  bSet.Clusters(),
-							}
-							checker.CheckOrFail(t)
+							opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
+							a.CallOrFail(t, opts)
 						})
 
 					secureNamingTestCases := []struct {
@@ -180,24 +167,21 @@ func TestSecureNaming(t *testing.T) {
 						t.NewSubTest(tc.name).
 							Run(func(t framework.TestContext) {
 								dr := strings.ReplaceAll(tc.destinationRule, "NS", testNamespace.Name())
-								t.ConfigIstio().ApplyYAMLOrFail(t, testNamespace.Name(), dr)
+								t.ConfigIstio().YAML(testNamespace.Name(), dr).ApplyOrFail(t)
 								// Verify mTLS works between a and b
-								callOptions := echo.CallOptions{
-									Target:   bSet[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Count:    callCount,
+								opts := echo.CallOptions{
+									To: to,
+									Port: echo.Port{
+										Name: "http",
+									},
 								}
-								checker := connection.Checker{
-									From:          a,
-									Options:       callOptions,
-									ExpectSuccess: tc.expectSuccess,
-									DestClusters:  bSet.Clusters(),
+								if tc.expectSuccess {
+									opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
+								} else {
+									opts.Check = check.NotOK()
 								}
-								if err := retry.UntilSuccess(
-									checker.Check, retry.Delay(time.Second), retry.Timeout(15*time.Second), retry.Converge(5)); err != nil {
-									t.Fatal(err)
-								}
+
+								a.CallOrFail(t, opts)
 							})
 					}
 				})
@@ -229,7 +213,7 @@ func verifyCertificatesWithPluginCA(t framework.TestContext, certs []string) {
 
 func checkCACert(t framework.TestContext, testNamespace namespace.Instance) error {
 	configMapName := "istio-ca-root-cert"
-	cm, err := t.Clusters().Default().CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
+	cm, err := t.Clusters().Default().Kube().CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
 		kubeApiMeta.GetOptions{})
 	if err != nil {
 		return err

@@ -54,7 +54,7 @@ var (
 // have labels name=kittyCat,region=us-east.
 type Instance map[string]string
 
-// SubsetOf is true if the label has identical values for the keys
+// SubsetOf is true if the label has same values for the keys
 func (i Instance) SubsetOf(that Instance) bool {
 	if len(i) == 0 {
 		return true
@@ -72,7 +72,7 @@ func (i Instance) SubsetOf(that Instance) bool {
 	return true
 }
 
-// Equals returns true if the labels are identical
+// Equals returns true if the labels are equal.
 func (i Instance) Equals(that Instance) bool {
 	if i == nil {
 		return that == nil

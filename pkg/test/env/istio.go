@@ -26,58 +26,64 @@ import (
 )
 
 var (
-	// ISTIO_OUT environment variable
-	// nolint: golint, stylecheck
-	ISTIO_OUT Variable = "ISTIO_OUT"
+	// TARGET_OUT environment variable
+	// nolint: revive, stylecheck
+	TARGET_OUT Variable = "TARGET_OUT"
 
 	// LOCAL_OUT environment variable
-	// nolint: golint, stylecheck
+	// nolint: revive, stylecheck
 	LOCAL_OUT Variable = "LOCAL_OUT"
 
 	// REPO_ROOT environment variable
-	// nolint: golint, stylecheck
+	// nolint: revive, stylecheck
 	REPO_ROOT Variable = "REPO_ROOT"
 
 	// HUB is the Docker hub to be used for images.
-	// nolint: golint, stylecheck
+	// nolint: revive, stylecheck
 	HUB Variable = "HUB"
 
 	// TAG is the Docker tag to be used for images.
-	// nolint: golint, stylecheck
+	// nolint: revive, stylecheck
 	TAG Variable = "TAG"
 
 	// PULL_POLICY is the image pull policy to use when rendering templates.
-	// nolint: golint, stylecheck
+	// nolint: revive, stylecheck
 	PULL_POLICY Variable = "PULL_POLICY"
+
+	// ECHO_IMAGE is the image to use when deploying echo services.
+	// nolint: golint, revive, stylecheck
+	ECHO_IMAGE Variable = "ECHO_IMAGE"
+
+	// GRPC_ECHO_IMAGE is the image to use for a separate gRPC-only container in echo Pods.
+	// nolint: golint, revive, stylecheck
+	GRPC_ECHO_IMAGE Variable = "GRPC_ECHO_IMAGE"
 
 	// KUBECONFIG is the list of Kubernetes configuration files. If configuration files are specified on
 	// the command-line, that takes precedence.
-	// nolint: golint, stylecheck
+	// nolint: revive, stylecheck
 	KUBECONFIG Variable = "KUBECONFIG"
 
 	// IstioSrc is the location of istio source ($TOP/src/istio.io/istio
 	IstioSrc = REPO_ROOT.ValueOrDefaultFunc(getDefaultIstioSrc)
 
 	// IstioOut is the location of the output directory ($TOP/out)
-	IstioOut = verifyFile(ISTIO_OUT, ISTIO_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
+	IstioOut = verifyFile(TARGET_OUT, TARGET_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
 
 	// LocalOut is the location of the output directory for the OS we are running in,
 	// not necessarily the OS we are building for
 	LocalOut = verifyFile(LOCAL_OUT, LOCAL_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
 
-	// ServiceAccountFilePath is the helm service account file.
-	ServiceAccountFilePath = path.Join(IstioSrc, getInstallationFile("redis/service_account.yaml"))
-
 	// OtelCollectorInstallFilePath is the OpenTelemetry installation file.
 	OtelCollectorInstallFilePath = path.Join(IstioSrc, getInstallationFile("opentelemetry/opentelemetry-collector.yaml"))
-	// RedisInstallFilePath is the redis installation file.
-	RedisInstallFilePath = path.Join(IstioSrc, getInstallationFile("redis/redis.yaml"))
 
 	// StackdriverInstallFilePath is the stackdriver installation file.
 	StackdriverInstallFilePath = path.Join(IstioSrc, getInstallationFile("stackdriver/stackdriver.yaml"))
 
 	// GCEMetadataServerInstallFilePath is the GCE Metadata Server installation file.
 	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("gcemetadata/gce_metadata_server.yaml"))
+
+	// RegistryRedirectorServerInstallFilePath is the registry redirector installation file.
+	RegistryRedirectorServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("registryredirector/registry_redirector_server.yaml"))
 )
 
 var (

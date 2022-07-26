@@ -21,37 +21,45 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap/platform"
 	istioagent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wasm"
 )
 
 // Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.
 const xdsHeaderPrefix = "XDS_HEADER_"
 
 func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
-	proxy.DiscoverIPVersions()
 	o := &istioagent.AgentOptions{
-		XDSRootCerts:                xdsRootCA,
-		CARootCerts:                 caRootCA,
-		XDSHeaders:                  map[string]string{},
-		XdsUdsPath:                  filepath.Join(cfg.ConfigPath, "XDS"),
-		IsIPv6:                      network.IsIPv6Proxy(proxy.IPAddresses),
-		ProxyType:                   proxy.Type,
-		EnableDynamicProxyConfig:    enableProxyConfigXdsEnv,
-		EnableDynamicBootstrap:      enableBootstrapXdsEnv,
+		XDSRootCerts:             xdsRootCA,
+		CARootCerts:              caRootCA,
+		XDSHeaders:               map[string]string{},
+		XdsUdsPath:               filepath.Join(cfg.ConfigPath, "XDS"),
+		IsIPv6:                   proxy.IsIPv6(),
+		ProxyType:                proxy.Type,
+		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
+		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
+		WASMOptions: wasm.Options{
+			InsecureRegistries:    sets.New(strings.Split(wasmInsecureRegistries, ",")...),
+			ModuleExpiry:          wasmModuleExpiry,
+			PurgeInterval:         wasmPurgeInterval,
+			HTTPRequestTimeout:    wasmHTTPRequestTimeout,
+			HTTPRequestMaxRetries: wasmHTTPRequestMaxRetries,
+		},
 		ProxyIPAddresses:            proxy.IPAddresses,
 		ServiceNode:                 proxy.ServiceNode(),
 		EnvoyStatusPort:             envoyStatusPortEnv,
 		EnvoyPrometheusPort:         envoyPrometheusPortEnv,
 		MinimumDrainDuration:        minimumDrainDurationEnv,
 		ExitOnZeroActiveConnections: exitOnZeroActiveConnectionsEnv,
-		Platform:                    platform.Discover(),
+		Platform:                    platform.Discover(proxy.SupportsIPv6()),
 		GRPCBootstrapPath:           grpcBootstrapEnv,
 		DisableEnvoy:                disableEnvoyEnv,
 		ProxyXDSDebugViaAgent:       proxyXDSDebugViaAgent,
 		ProxyXDSDebugViaAgentPort:   proxyXDSDebugViaAgentPort,
 		DNSCapture:                  DNSCaptureByAgent.Get(),
+		DNSForwardParallel:          DNSForwardParallel.Get(),
 		DNSAddr:                     DNSCaptureAddr.Get(),
 		ProxyNamespace:              PodNamespaceVar.Get(),
 		ProxyDomain:                 proxy.DNSDomain,

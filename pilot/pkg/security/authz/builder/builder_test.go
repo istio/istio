@@ -20,14 +20,13 @@ import (
 
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
@@ -68,7 +67,7 @@ var (
 					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
 						Service:       "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:          9000,
-						Timeout:       &types.Duration{Nanos: 2000 * 1000},
+						Timeout:       &durationpb.Duration{Nanos: 2000 * 1000},
 						FailOpen:      true,
 						StatusOnError: "403",
 						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
@@ -88,7 +87,7 @@ var (
 					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
 						Service:                         "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:                            9000,
-						Timeout:                         &types.Duration{Seconds: 10},
+						Timeout:                         &durationpb.Duration{Seconds: 10},
 						FailOpen:                        true,
 						StatusOnError:                   "403",
 						PathPrefix:                      "/check",
@@ -100,8 +99,9 @@ var (
 							AllowPartialMessage: true,
 							PackAsBytes:         true,
 						},
-						HeadersToUpstreamOnAllow:  []string{"Authorization", "x-prefix-*", "*-suffix"},
-						HeadersToDownstreamOnDeny: []string{"Set-cookie", "x-prefix-*", "*-suffix"},
+						HeadersToUpstreamOnAllow:   []string{"Authorization", "x-prefix-*", "*-suffix"},
+						HeadersToDownstreamOnDeny:  []string{"Set-cookie", "x-prefix-*", "*-suffix"},
+						HeadersToDownstreamOnAllow: []string{"Set-cookie", "x-prefix-*", "*-suffix"},
 					},
 				},
 			},
@@ -142,12 +142,6 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:  "allow-full-rule",
 			input: "allow-full-rule-in.yaml",
 			want:  []string{"allow-full-rule-out.yaml"},
-		},
-		{
-			name:    "allow-host-before-111",
-			version: &model.IstioVersion{Major: 1, Minor: 10, Patch: 3},
-			input:   "allow-host-before-111-in.yaml",
-			want:    []string{"allow-host-before-111-out.yaml"},
 		},
 		{
 			name:  "allow-nil-rule",
@@ -262,9 +256,11 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 				IsCustomBuilder: tc.meshConfig != nil,
 				Logger:          &AuthzLogger{},
 			}
-			in := inputParams(t, baseDir+tc.input, tc.meshConfig, tc.version)
-			defer option.Logger.Report(in)
-			g := New(tc.tdBundle, in, option)
+			push := push(t, baseDir+tc.input, tc.meshConfig)
+			proxy := node(tc.version)
+			defer option.Logger.Report(proxy)
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -328,9 +324,11 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 				IsCustomBuilder: tc.meshConfig != nil,
 				Logger:          &AuthzLogger{},
 			}
-			in := inputParams(t, baseDir+tc.input, tc.meshConfig, nil)
-			defer option.Logger.Report(in)
-			g := New(tc.tdBundle, in, option)
+			push := push(t, baseDir+tc.input, tc.meshConfig)
+			proxy := node(nil)
+			defer option.Logger.Report(proxy)
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -429,7 +427,7 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 	}
 
 	authzPolicies, err := model.GetAuthorizationPolicies(&model.Environment{
-		IstioConfigStore: store,
+		ConfigStore: store,
 	})
 	if err != nil {
 		t.Fatalf("newAuthzPolicies: %v", err)
@@ -437,28 +435,29 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 	return authzPolicies
 }
 
-func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig, version *model.IstioVersion) *plugin.InputParams {
+func push(t *testing.T, input string, mc *meshconfig.MeshConfig) *model.PushContext {
 	t.Helper()
-	ret := &plugin.InputParams{
-		Node: &model.Proxy{
-			ID:              "test-node",
-			ConfigNamespace: "foo",
-			Metadata: &model.NodeMetadata{
-				Labels: httpbin,
-			},
-			IstioVersion: version,
-		},
-		Push: &model.PushContext{
-			AuthzPolicies: yamlPolicy(t, basePath+input),
-			Mesh:          mc,
-		},
+	p := &model.PushContext{
+		AuthzPolicies: yamlPolicy(t, basePath+input),
+		Mesh:          mc,
 	}
-	ret.Push.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+	p.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
 		"my-custom-ext-authz.foo.svc.cluster.local": {
 			"foo": &model.Service{
 				Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
 			},
 		},
 	}
-	return ret
+	return p
+}
+
+func node(version *model.IstioVersion) *model.Proxy {
+	return &model.Proxy{
+		ID:              "test-node",
+		ConfigNamespace: "foo",
+		Metadata: &model.NodeMetadata{
+			Labels: httpbin,
+		},
+		IstioVersion: version,
+	}
 }

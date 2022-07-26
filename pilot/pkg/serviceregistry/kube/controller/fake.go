@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 )
 
 const (
@@ -108,9 +109,21 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, _ string,
 
 func (fx *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
 	select {
-	case fx.Events <- FakeXdsEvent{Type: "removeShard", ID: string(shardKey)}:
+	case fx.Events <- FakeXdsEvent{Type: "removeShard", ID: shardKey.String()}:
 	default:
 	}
+}
+
+func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, et string) *FakeXdsEvent {
+	return fx.WaitForDurationOrFail(t, et, 5*time.Second)
+}
+
+func (fx *FakeXdsUpdater) WaitForDurationOrFail(t test.Failer, et string, d time.Duration) *FakeXdsEvent {
+	ev := fx.WaitForDuration(et, d)
+	if ev == nil {
+		t.Fatalf("Timeout creating %q after %s", et, d)
+	}
+	return ev
 }
 
 func (fx *FakeXdsUpdater) Wait(et string) *FakeXdsEvent {
@@ -155,13 +168,14 @@ type FakeControllerOptions struct {
 	XDSUpdater                model.XDSUpdater
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 	Stop                      chan struct{}
+	SkipRun                   bool
 }
 
 type FakeController struct {
 	*Controller
 }
 
-func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, *FakeXdsUpdater) {
+func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*FakeController, *FakeXdsUpdater) {
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
 		xdsUpdater = NewFakeXDS()
@@ -188,7 +202,6 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		MeshWatcher:               opts.MeshWatcher,
 		EndpointMode:              opts.Mode,
 		ClusterID:                 opts.ClusterID,
-		SyncInterval:              time.Microsecond,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,
 	}
@@ -200,12 +213,18 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	}
 	c.stop = opts.Stop
 	if c.stop == nil {
-		c.stop = make(chan struct{})
+		// If we created the stop, clean it up. Otherwise, caller is responsible
+		c.stop = test.NewStop(t)
 	}
 	opts.Client.RunAndWait(c.stop)
 	var fx *FakeXdsUpdater
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
 		fx = x
+	}
+
+	if !opts.SkipRun {
+		go c.Run(c.stop)
+		kubelib.WaitForCacheSync(c.stop, c.HasSynced)
 	}
 
 	return &FakeController{c}, fx

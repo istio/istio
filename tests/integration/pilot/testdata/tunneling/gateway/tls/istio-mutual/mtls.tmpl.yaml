@@ -1,0 +1,20 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: originate-tls-for-external-svc
+spec:
+  host: istio-egressgateway.istio-system.svc.cluster.local
+  subsets:
+  - name: originate-tls-for-external-svc
+    trafficPolicy:
+      portLevelSettings:
+      - port:
+          number: 80
+        tls:
+          mode: ISTIO_MUTUAL
+          sni: external.{{ .externalNamespace }}.svc.cluster.local
+      - port:
+          number: 443
+        tls:
+          mode: ISTIO_MUTUAL
+          sni: external.{{ .externalNamespace }}.svc.cluster.local

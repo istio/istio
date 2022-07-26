@@ -142,19 +142,21 @@ func NetworkingIngressAvailable(client kube.Client) bool {
 
 // NewController creates a new Kubernetes controller
 func NewController(client kube.Client, meshWatcher mesh.Holder,
-	options kubecontroller.Options) model.ConfigStoreCache {
+	options kubecontroller.Options,
+) model.ConfigStoreController {
 	if ingressNamespace == "" {
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
 	ingressInformer := client.KubeInformer().Networking().V1beta1().Ingresses()
+	_ = ingressInformer.Informer().SetTransform(kube.StripUnusedFields)
 	serviceInformer := client.KubeInformer().Core().V1().Services()
 
 	var classes v1beta1.IngressClassInformer
 	if NetworkingIngressAvailable(client) {
 		classes = client.KubeInformer().Networking().V1beta1().IngressClasses()
 		// Register the informer now, so it will be properly started
-		_ = classes.Informer()
+		_ = classes.Informer().SetTransform(kube.StripUnusedFields)
 	} else {
 		log.Infof("Skipping IngressClass, resource not supported")
 	}
@@ -297,6 +299,11 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 	if err := c.ingressInformer.SetWatchErrorHandler(handler); err != nil {
 		errs = multierror.Append(err, errs)
 	}
+	if c.classes != nil {
+		if err := c.classes.Informer().SetWatchErrorHandler(handler); err != nil {
+			errs = multierror.Append(err, errs)
+		}
+	}
 	return errs
 }
 
@@ -316,7 +323,7 @@ func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 }
 
 // sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortIngressByCreationTime(configs []interface{}) []*ingress.Ingress {
+func sortIngressByCreationTime(configs []any) []*ingress.Ingress {
 	ingr := make([]*ingress.Ingress, 0, len(configs))
 	for _, i := range configs {
 		ingr = append(ingr, i.(*ingress.Ingress))

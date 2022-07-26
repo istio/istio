@@ -37,10 +37,10 @@ var (
 type Failer interface {
 	Fail()
 	FailNow()
-	Fatal(args ...interface{})
-	Fatalf(format string, args ...interface{})
-	Log(args ...interface{})
-	Logf(format string, args ...interface{})
+	Fatal(args ...any)
+	Fatalf(format string, args ...any)
+	Log(args ...any)
+	Logf(format string, args ...any)
 	TempDir() string
 	Helper()
 	Cleanup(func())
@@ -89,7 +89,7 @@ func (e *errorWrapper) FailNow() {
 	e.Fatal("fail now called")
 }
 
-func (e *errorWrapper) Fatal(args ...interface{}) {
+func (e *errorWrapper) Fatal(args ...any) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.failed == nil {
@@ -98,7 +98,7 @@ func (e *errorWrapper) Fatal(args ...interface{}) {
 	runtime.Goexit()
 }
 
-func (e *errorWrapper) Fatalf(format string, args ...interface{}) {
+func (e *errorWrapper) Fatalf(format string, args ...any) {
 	e.Fatal(fmt.Sprintf(format, args...))
 }
 
@@ -119,12 +119,12 @@ func (e *errorWrapper) Cleanup(f func()) {
 	}
 }
 
-func (e *errorWrapper) Log(args ...interface{}) {
+func (e *errorWrapper) Log(args ...any) {
 	log.Info(args...)
 }
 
-func (e *errorWrapper) Logf(format string, args ...interface{}) {
-	ag := []interface{}{format}
+func (e *errorWrapper) Logf(format string, args ...any) {
+	ag := []any{format}
 	ag = append(ag, args...)
 	log.Infof(ag...)
 }

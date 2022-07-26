@@ -24,10 +24,8 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -101,10 +99,9 @@ func Test_ConfigMapWatcher(t *testing.T) {
 	stop := make(chan struct{})
 	c := NewController(client, configMapNamespace, configMapName, callback)
 	go c.Run(stop)
-	cache.WaitForCacheSync(stop, c.HasSynced)
+	kube.WaitForCacheSync(stop, c.HasSynced)
 
 	cms := client.Kube().CoreV1().ConfigMaps(configMapNamespace)
-	log.FindScope("controllers").SetOutputLevel(log.DebugLevel)
 	for i, step := range steps {
 		resetCalled()
 

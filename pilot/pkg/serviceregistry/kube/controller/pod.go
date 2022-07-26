@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -112,7 +112,7 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 }
 
 // onEvent updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
+func (pc *PodCache) onEvent(curr any, ev model.Event) error {
 	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
 	pod, ok := curr.(*v1.Pod)
 	if !ok {
@@ -167,6 +167,10 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 
 // notifyWorkloadHandlers fire workloadInstance handlers for pod
 func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
+	// if no workload handler registered, skip building WorkloadInstance
+	if len(pc.c.handlers.GetWorkloadHandlers()) == 0 {
+		return
+	}
 	// fire instance handles for workload
 	ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable)
 	workloadInstance := &model.WorkloadInstance{
@@ -239,7 +243,7 @@ func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
 	if _, f := pc.needResync[ip]; !f {
-		pc.needResync[ip] = sets.NewSet(key)
+		pc.needResync[ip] = sets.New(key)
 	} else {
 		pc.needResync[ip].Insert(key)
 	}

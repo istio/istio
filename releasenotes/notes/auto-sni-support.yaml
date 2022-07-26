@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+   - |
+     **Added** the ability to configure automatically set SNI when `DestinationRules`
+     do not specify it and `ENABLE_AUTO_SNI` is enabled.
+docs:
+   - https://docs.google.com/document/d/1pTUl-Ng3nXAWJb7UGJtalftznpxQEfID/

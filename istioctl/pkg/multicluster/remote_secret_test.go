@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
@@ -76,10 +77,12 @@ func makeServiceAccount(secrets ...string) *v1.ServiceAccount {
 func makeSecret(name, caData, token string) *v1.Secret {
 	out := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: testNamespace,
+			Name:        name,
+			Namespace:   testNamespace,
+			Annotations: map[string]string{v1.ServiceAccountNameKey: testServiceAccountName},
 		},
 		Data: map[string][]byte{},
+		Type: v1.SecretTypeServiceAccountToken,
 	}
 	if len(caData) > 0 {
 		out.Data[v1.ServiceAccountRootCAKey] = []byte(caData)
@@ -130,14 +133,15 @@ func TestCreateRemoteSecrets(t *testing.T) {
 		badStartingConfig bool
 		outputWriterError error
 
-		want       string
-		wantErrStr string
+		want            string
+		wantErrStr      string
+		k8sMinorVersion string
 	}{
-		{
-			testName:   "fail to get service account secret token",
-			objs:       []runtime.Object{kubeSystemNamespace, sa},
-			wantErrStr: fmt.Sprintf("secrets %q not found", saSecret.Name),
-		},
+		//{
+		//	testName:   "fail to get service account secret token",
+		//	objs:       []runtime.Object{kubeSystemNamespace, sa},
+		//	wantErrStr: "no \"ca.crt\" data found",
+		//},
 		{
 			testName:          "fail to create starting config",
 			objs:              []runtime.Object{kubeSystemNamespace, sa, saSecret},
@@ -229,6 +233,8 @@ func TestCreateRemoteSecrets(t *testing.T) {
 			name:       "cluster-foo",
 			want:       "cal-want",
 			wantErrStr: "wrong number of secrets (2) in serviceaccount",
+			// for k8s 1.24+ we auto-create a secret instead of relying on a reference in service account
+			k8sMinorVersion: "23",
 		},
 		{
 			testName: "success when specific secret name provided",
@@ -262,6 +268,8 @@ func TestCreateRemoteSecrets(t *testing.T) {
 			name:       "cluster-foo",
 			want:       "cal-want",
 			wantErrStr: "provided secret does not exist",
+			// for k8s 1.24+ we auto-create a secret instead of relying on a reference in service account
+			k8sMinorVersion: "23",
 		},
 	}
 
@@ -287,7 +295,7 @@ func TestCreateRemoteSecrets(t *testing.T) {
 				SecretName: c.secretName,
 			}
 
-			env := newFakeEnvironmentOrDie(t, c.config, c.objs...)
+			env := newFakeEnvironmentOrDie(t, c.k8sMinorVersion, c.config, c.objs...)
 
 			got, _, err := CreateRemoteSecret(opts, env) // TODO
 			if c.wantErrStr != "" {
@@ -353,14 +361,16 @@ stringData:
 func TestGetServiceAccountSecretToken(t *testing.T) {
 	secret := makeSecret("secret", "caData", "token")
 
-	cases := []struct {
+	type tc struct {
 		name string
 		opts RemoteSecretOptions
 		objs []runtime.Object
 
 		want       *v1.Secret
 		wantErrStr string
-	}{
+	}
+
+	commonCases := []tc{
 		{
 			name: "missing service account",
 			opts: RemoteSecretOptions{
@@ -372,6 +382,9 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 			},
 			wantErrStr: fmt.Sprintf("serviceaccounts %q not found", testServiceAccountName),
 		},
+	}
+
+	legacyCases := append([]tc{
 		{
 			name: "wrong number of secrets",
 			opts: RemoteSecretOptions{
@@ -417,13 +430,35 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 			},
 			want: secret,
 		},
-	}
+	}, commonCases...)
 
-	for i := range cases {
-		c := &cases[i]
-		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			client := kube.NewFakeClient(c.objs...)
+	cases := append([]tc{
+		{
+			name: "success",
+			opts: RemoteSecretOptions{
+				ServiceAccountName: testServiceAccountName,
+				KubeOptions: KubeOptions{
+					Namespace: testNamespace,
+				},
+				ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+			},
+			objs: []runtime.Object{
+				makeServiceAccount(tokenSecretName(testServiceAccountName)),
+			},
+			want: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        tokenSecretName(testServiceAccountName),
+					Namespace:   testNamespace,
+					Annotations: map[string]string{v1.ServiceAccountNameKey: testServiceAccountName},
+				},
+				Type: v1.SecretTypeServiceAccountToken,
+			},
+		},
+	}, commonCases...)
 
+	doCase := func(t *testing.T, c tc, k8sMinorVer string) {
+		t.Run(fmt.Sprintf("%v", c.name), func(tt *testing.T) {
+			client := kube.NewFakeClientWithVersion(k8sMinorVer, c.objs...)
 			got, err := getServiceAccountSecret(client, c.opts)
 			if c.wantErrStr != "" {
 				if err == nil {
@@ -438,6 +473,17 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("kubernetes created secret (legacy)", func(t *testing.T) {
+		for _, c := range legacyCases {
+			doCase(t, c, "23")
+		}
+	})
+	t.Run("istioctl created secret", func(t *testing.T) {
+		for _, c := range cases {
+			doCase(t, c, "")
+		}
+	})
 }
 
 func TestGenerateServiceAccount(t *testing.T) {
@@ -609,43 +655,66 @@ users:
 `, "{cluster}", fakeClusterName)
 
 	cases := []struct {
-		name        string
-		clusterName string
-		context     string
-		server      string
-		in          *v1.Secret
-		want        *v1.Secret
-		wantErrStr  string
+		name               string
+		clusterName        string
+		context            string
+		server             string
+		haveTokenSecret    *v1.Secret
+		updatedTokenSecret *v1.Secret
+		wantRemoteSecret   *v1.Secret
+		wantErrStr         string
 	}{
 		{
-			name:        "missing caData",
-			in:          makeSecret("", "", "token"),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			wantErrStr:  errMissingRootCAKey.Error(),
+			name:            "missing caData",
+			haveTokenSecret: makeSecret("", "", "token"),
+			context:         "c0",
+			clusterName:     fakeClusterName,
+			wantErrStr:      errMissingRootCAKey.Error(),
 		},
 		{
-			name:        "missing token",
-			in:          makeSecret("", "caData", ""),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			wantErrStr:  errMissingTokenKey.Error(),
+			name:            "missing token",
+			haveTokenSecret: makeSecret("", "caData", ""),
+			context:         "c0",
+			clusterName:     fakeClusterName,
+			wantErrStr:      errMissingTokenKey.Error(),
 		},
 		{
-			name:        "bad server name",
-			in:          makeSecret("", "caData", "token"),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			server:      "",
-			wantErrStr:  "invalid kubeconfig:",
+			name:            "bad server name",
+			haveTokenSecret: makeSecret("", "caData", "token"),
+			context:         "c0",
+			clusterName:     fakeClusterName,
+			server:          "",
+			wantErrStr:      "invalid kubeconfig:",
 		},
 		{
-			name:        "success",
-			in:          makeSecret("", "caData", "token"),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			server:      "https://1.2.3.4",
-			want: &v1.Secret{
+			name:               "success after wait",
+			haveTokenSecret:    makeSecret("", "caData", ""),
+			updatedTokenSecret: makeSecret("", "caData", "token"), // token is populated later
+			context:            "c0",
+			clusterName:        fakeClusterName,
+			server:             "https://1.2.3.4",
+			wantRemoteSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: remoteSecretNameFromClusterName(fakeClusterName),
+					Annotations: map[string]string{
+						clusterNameAnnotationKey: fakeClusterName,
+					},
+					Labels: map[string]string{
+						multicluster.MultiClusterSecretLabel: "true",
+					},
+				},
+				Data: map[string][]byte{
+					fakeClusterName: []byte(kubeconfig),
+				},
+			},
+		},
+		{
+			name:            "success",
+			haveTokenSecret: makeSecret("", "caData", "token"),
+			context:         "c0",
+			clusterName:     fakeClusterName,
+			server:          "https://1.2.3.4",
+			wantRemoteSecret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: remoteSecretNameFromClusterName(fakeClusterName),
 					Annotations: map[string]string{
@@ -661,11 +730,24 @@ users:
 			},
 		},
 	}
+	oldBackoff := tokenWaitBackoff
+	tokenWaitBackoff = time.Millisecond
+	t.Cleanup(func() {
+		tokenWaitBackoff = oldBackoff
+	})
 	for i := range cases {
 		c := &cases[i]
 		secName := remoteSecretNameFromClusterName(c.clusterName)
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemoteSecretFromTokenAndServer(c.in, c.clusterName, c.server, secName)
+			// no updateTokenSecret means re-fetching yields the same result
+			obj := []runtime.Object{c.haveTokenSecret}
+			if c.updatedTokenSecret != nil {
+				// fetching should give a different result than the token secret we pass in
+				obj = []runtime.Object{c.updatedTokenSecret}
+			}
+			client := kube.NewFakeClient(obj...)
+
+			got, err := createRemoteSecretFromTokenAndServer(client, c.haveTokenSecret, c.clusterName, c.server, secName)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)
@@ -674,8 +756,8 @@ users:
 				}
 			} else if c.wantErrStr == "" && err != nil {
 				tt.Fatalf("wanted non-error but got %q", err)
-			} else if diff := cmp.Diff(got, c.want); diff != "" {
-				tt.Fatalf(" got %v\nwant %v\ndiff %v", got, c.want, diff)
+			} else if diff := cmp.Diff(got, c.wantRemoteSecret); diff != "" {
+				tt.Fatalf(" got %v\nwant %v\ndiff %v", got, c.wantRemoteSecret, diff)
 			}
 		})
 	}

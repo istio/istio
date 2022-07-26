@@ -23,7 +23,7 @@ import (
 	"strconv"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -84,10 +84,13 @@ func NewDebugGen(s *DiscoveryServer, systemNamespace string) *DebugGen {
 }
 
 // Generate XDS debug responses according to the incoming debug request
-func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 	var buffer bytes.Buffer
+	if proxy.VerifiedIdentity == nil {
+		log.Warnf("proxy %s is not authorized to receive debug. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		return nil, model.DefaultXdsLogDetails, fmt.Errorf("authentication required")
+	}
 	if w.ResourceNames == nil {
 		return res, model.DefaultXdsLogDetails, fmt.Errorf("debug type is required")
 	}
@@ -108,10 +111,10 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		}
 	}
 	debugURL := "/debug/" + resourceName
-	req, _ := http.NewRequest(http.MethodGet, debugURL, nil)
-	handler, _ := dg.DebugMux.Handler(req)
+	hreq, _ := http.NewRequest(http.MethodGet, debugURL, nil)
+	handler, _ := dg.DebugMux.Handler(hreq)
 	response := NewResponseCapture()
-	handler.ServeHTTP(response, req)
+	handler.ServeHTTP(response, hreq)
 	if response.wroteHeader && len(response.header) >= 1 {
 		header, _ := json.Marshal(response.header)
 		buffer.Write(header)
@@ -119,7 +122,7 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	buffer.Write(response.body.Bytes())
 	res = append(res, &discovery.Resource{
 		Name: resourceName,
-		Resource: &any.Any{
+		Resource: &anypb.Any{
 			TypeUrl: TypeDebug,
 			Value:   buffer.Bytes(),
 		},

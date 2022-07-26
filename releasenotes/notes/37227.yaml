@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue: []
+releaseNotes:
+  - |
+    **Added** environment variable support at Wasm extension via VM configuration in WasmPlugin API.

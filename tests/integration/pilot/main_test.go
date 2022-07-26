@@ -23,10 +23,10 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/pilot/common"
 )
 
 var (
@@ -35,12 +35,13 @@ var (
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
 	// its doing something unique to that specific test.
-	apps = &common.EchoDeployments{}
+	apps = deployment.SingleNamespaceView{}
 )
 
-func supportsCRDv1(t resource.Context) bool {
+// supportsGatewayAPI checks if the gateway API is supported.
+func supportsGatewayAPI(t resource.Context) bool {
 	for _, cluster := range t.Clusters() {
-		if !cluster.MinKubeVersion(16) {
+		if !cluster.MinKubeVersion(19) {
 			return false
 		}
 	}
@@ -54,8 +55,12 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Setup(istio.Setup(&i, nil)).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(t resource.Context) error {
-			return common.SetupApps(t, i, apps)
+			gatewayConformanceInputs.Client = t.Clusters().Default()
+			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
+
+			return nil
 		}).
 		Run()
 }
@@ -69,7 +74,7 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 				Name:     "http",
 				Protocol: protocol.HTTP,
 				// We use a port > 1024 to not require root
-				InstancePort: 8090,
+				WorkloadPort: 8090,
 			},
 		},
 		Subsets: []echo.SubsetConfig{{}},

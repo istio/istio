@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+   - |
+     **Added** Support for WorkloadSelector in DestinationRule.
+docs:
+   - https://docs.google.com/document/d/1UXpT3rZpE2uFeMh5KffAZAPAoZBLNSHc/

@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	xdscreds "google.golang.org/grpc/credentials/xds"
 	"google.golang.org/grpc/health"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
@@ -40,8 +42,8 @@ import (
 	"k8s.io/utils/env"
 
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
 	"istio.io/istio/pkg/test/util/retry"
@@ -60,11 +62,13 @@ type grpcInstance struct {
 	Config
 	server   grpcServer
 	cleanups []func()
+	f        *forwarder.Instance
 }
 
 func newGRPC(config Config) Instance {
 	return &grpcInstance{
 		Config: config,
+		f:      forwarder.New(),
 	}
 }
 
@@ -92,7 +96,11 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	// Store the actual listening port back to the argument.
 	s.Port.Port = p
 
-	var opts []grpc.ServerOption
+	opts := []grpc.ServerOption{
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: idleTimeout,
+		}),
+	}
 	if s.Port.TLS {
 		epLog.Infof("Listening GRPC (over TLS) on %v", p)
 		// Create the TLS credentials
@@ -119,8 +127,9 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	healthServer := health.NewServer()
 	grpcHealth.RegisterHealthServer(s.server, healthServer)
 
-	proto.RegisterEchoTestServiceServer(s.server, &grpcHandler{
-		Config: s.Config,
+	proto.RegisterEchoTestServiceServer(s.server, &EchoGrpcHandler{
+		Config:    s.Config,
+		Forwarder: s.f,
 	})
 	reflection.Register(s.server)
 	if val, _ := env.GetBool("EXPOSE_GRPC_ADMIN", false); val {
@@ -165,18 +174,14 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 			req.CaCertFile = ca
 			req.InsecureSkipVerify = true
 		}
-		f, err := forwarder.New(forwarder.Config{
-			XDSTestBootstrap: s.Port.XDSTestBootstrap,
-			Request:          req,
-		})
-		defer func() {
-			_ = f.Close()
-		}()
 
 		if err != nil {
 			return err
 		}
-		_, err = f.Run(context.Background())
+		_, err = s.f.ForwardEcho(context.Background(), &forwarder.Config{
+			XDSTestBootstrap: s.Port.XDSTestBootstrap,
+			Request:          req,
+		})
 		return err
 	}, retry.Timeout(readyTimeout), retry.Delay(readyInterval))
 	if err != nil {
@@ -221,32 +226,42 @@ func (s *grpcInstance) Close() error {
 	if s.server != nil {
 		s.server.Stop()
 	}
+	if s.f != nil {
+		_ = s.f.Close()
+	}
 	for _, cleanup := range s.cleanups {
 		cleanup()
 	}
 	return nil
 }
 
-type grpcHandler struct {
+type EchoGrpcHandler struct {
 	proto.UnimplementedEchoTestServiceServer
 	Config
+	Forwarder *forwarder.Instance
 }
 
-func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
+func (h *EchoGrpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
 	defer common.Metrics.GrpcRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
 	body := bytes.Buffer{}
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		for key, values := range md {
 			if strings.HasSuffix(key, "-bin") {
+				// Skip binary headers.
 				continue
 			}
-			field := response.Field(key)
+
+			field := key
+
 			if key == ":authority" {
-				field = response.HostField
+				for _, value := range values {
+					echo.HostField.Write(&body, value)
+				}
 			}
+
 			for _, value := range values {
-				writeField(&body, field, value)
+				echo.RequestHeaderField.WriteKeyValue(&body, field, value)
 			}
 		}
 	}
@@ -264,37 +279,30 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 		ip, _, _ = net.SplitHostPort(peerInfo.Addr.String())
 	}
 
-	writeField(&body, response.StatusCodeField, response.StatusCodeOK)
-	writeField(&body, response.ServiceVersionField, h.Version)
-	writeField(&body, response.ServicePortField, strconv.Itoa(portNumber))
-	writeField(&body, response.ClusterField, h.Cluster)
-	writeField(&body, response.IPField, ip)
-	writeField(&body, response.IstioVersionField, h.IstioVersion)
-	writeField(&body, "Echo", req.GetMessage())
+	echo.StatusCodeField.Write(&body, strconv.Itoa(http.StatusOK))
+	echo.ServiceVersionField.Write(&body, h.Version)
+	echo.ServicePortField.Write(&body, strconv.Itoa(portNumber))
+	echo.ClusterField.Write(&body, h.Cluster)
+	echo.IPField.Write(&body, ip)
+	echo.IstioVersionField.Write(&body, h.IstioVersion)
+	echo.ProtocolField.Write(&body, "GRPC")
+	echo.Field("Echo").Write(&body, req.GetMessage())
 
 	if hostname, err := os.Hostname(); err == nil {
-		writeField(&body, response.HostnameField, hostname)
+		echo.HostnameField.Write(&body, hostname)
 	}
 
 	epLog.WithLabels("id", id).Infof("GRPC Response")
 	return &proto.EchoResponse{Message: body.String()}, nil
 }
 
-func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
+func (h *EchoGrpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
 	id := uuid.New()
 	l := epLog.WithLabels("url", req.Url, "id", id)
 	l.Infof("ForwardEcho request")
 	t0 := time.Now()
-	instance, err := forwarder.New(forwarder.Config{
-		Request: req,
-		Dialer:  h.Dialer,
-	})
-	if err != nil {
-		return nil, err
-	}
-	defer instance.Close()
 
-	ret, err := instance.Run(ctx)
+	ret, err := h.Forwarder.ForwardEcho(ctx, &forwarder.Config{Request: req})
 	if err == nil {
 		l.WithLabels("latency", time.Since(t0)).Infof("ForwardEcho response complete: %v", ret.GetOutput())
 	} else {

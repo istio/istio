@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -42,6 +43,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
@@ -61,13 +63,14 @@ func TestAutoExport(t *testing.T) {
 			// Verify that ServiceExport is created automatically for services.
 			ctx.NewSubTest("exported").RunParallel(
 				func(ctx framework.TestContext) {
-					for _, cluster := range echos.Match(echo.Service(common.ServiceB)).Clusters() {
+					serviceB := match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
+					for _, cluster := range serviceB.GetMatches(echos.Instances).Clusters() {
 						cluster := cluster
 						ctx.NewSubTest(cluster.StableName()).RunParallel(func(ctx framework.TestContext) {
 							// Verify that the ServiceExport was created.
 							ctx.NewSubTest("create").Run(func(ctx framework.TestContext) {
 								retry.UntilSuccessOrFail(ctx, func() error {
-									serviceExport, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace).Get(
+									serviceExport, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace.Name()).Get(
 										context.TODO(), common.ServiceB, v1.GetOptions{})
 									if err != nil {
 										return err
@@ -84,14 +87,14 @@ func TestAutoExport(t *testing.T) {
 
 							// Delete the echo Service and verify that the ServiceExport is automatically removed.
 							ctx.NewSubTest("delete").Run(func(ctx framework.TestContext) {
-								err := cluster.CoreV1().Services(echos.Namespace).Delete(
+								err := cluster.Kube().CoreV1().Services(echos.Namespace.Name()).Delete(
 									context.TODO(), common.ServiceB, v1.DeleteOptions{})
 								if err != nil {
 									ctx.Fatalf("failed deleting service %s/%s in cluster %s: %v",
 										echos.Namespace, common.ServiceB, cluster.Name(), err)
 								}
 								retry.UntilSuccessOrFail(t, func() error {
-									_, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace).Get(
+									_, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace.Name()).Get(
 										context.TODO(), common.ServiceB, v1.GetOptions{})
 
 									if err != nil && k8sErrors.IsNotFound(err) {

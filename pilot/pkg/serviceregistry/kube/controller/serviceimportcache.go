@@ -32,7 +32,8 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -68,6 +69,7 @@ type serviceImportCache interface {
 func newServiceImportCache(c *Controller) serviceImportCache {
 	if features.EnableMCSHost {
 		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceImportGVR)
+		_ = dInformer.Informer().SetTransform(kubelib.StripUnusedFields)
 		sic := &serviceImportCacheImpl{
 			Controller: c,
 			informer:   dInformer.Informer(),
@@ -75,7 +77,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 		}
 
 		// Register callbacks for Service events anywhere in the mesh.
-		c.opts.MeshServiceController.AppendServiceHandler(sic.onServiceEvent)
+		c.opts.MeshServiceController.AppendServiceHandlerForCluster(c.Cluster(), sic.onServiceEvent)
 
 		// Register callbacks for ServiceImport events in this cluster only.
 		c.registerHandlers(sic.informer, "ServiceImports", sic.onServiceImportEvent, nil)
@@ -101,35 +103,43 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 		return
 	}
 
-	namespacedName := namespacedNameForService(svc)
+	// This method is called concurrently from each cluster's queue. Process it in `this` cluster's queue
+	// in order to synchronize event processing.
+	ic.queue.Push(func() error {
+		namespacedName := namespacedNameForService(svc)
 
-	// Lookup the previous MCS service if there was one.
-	mcsHost := serviceClusterSetLocalHostname(namespacedName)
-	prevMcsService := ic.GetService(mcsHost)
+		// Lookup the previous MCS service if there was one.
+		mcsHost := serviceClusterSetLocalHostname(namespacedName)
+		prevMcsService := ic.GetService(mcsHost)
 
-	// Get the ClusterSet VIPs for this service in this cluster. Will only be populated if the
-	// service has a ServiceImport in this cluster.
-	vips := ic.getClusterSetIPs(namespacedName)
+		// Get the ClusterSet VIPs for this service in this cluster. Will only be populated if the
+		// service has a ServiceImport in this cluster.
+		vips := ic.getClusterSetIPs(namespacedName)
+		name := namespacedName.Name
+		ns := namespacedName.Namespace
 
-	if event == model.EventDelete || len(vips) == 0 {
-		if prevMcsService != nil {
-			// There are no vips in this cluster. Just delete the MCS service now.
-			ic.deleteService(prevMcsService)
+		if len(vips) == 0 || (event == model.EventDelete &&
+			ic.opts.MeshServiceController.GetService(kube.ServiceHostname(name, ns, ic.opts.DomainSuffix)) == nil) {
+			if prevMcsService != nil {
+				// There are no vips in this cluster. Just delete the MCS service now.
+				ic.deleteService(prevMcsService)
+			}
+			return nil
 		}
-		return
-	}
 
-	if prevMcsService != nil {
-		event = model.EventUpdate
-	} else {
-		event = model.EventAdd
-	}
+		if prevMcsService != nil {
+			event = model.EventUpdate
+		} else {
+			event = model.EventAdd
+		}
 
-	mcsService := ic.genMCSService(svc, mcsHost, vips)
-	ic.addOrUpdateService(nil, mcsService, event, false)
+		mcsService := ic.genMCSService(svc, mcsHost, vips)
+		ic.addOrUpdateService(nil, mcsService, event, false)
+		return nil
+	})
 }
 
-func (ic *serviceImportCacheImpl) onServiceImportEvent(obj interface{}, event model.Event) error {
+func (ic *serviceImportCacheImpl) onServiceImportEvent(obj any, event model.Event) error {
 	si, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -209,7 +219,7 @@ func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
 	pushReq := &model.PushRequest{
 		Full: true,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind:      gvk.ServiceEntry,
+			Kind:      kind.ServiceEntry,
 			Name:      mcsHost.String(),
 			Namespace: ns,
 		}: {}},
@@ -222,8 +232,8 @@ func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
 // Exported for testing only.
 func GetServiceImportIPs(si *unstructured.Unstructured) []string {
 	var ips []string
-	if spec, ok := si.Object["spec"].(map[string]interface{}); ok {
-		if rawIPs, ok := spec["ips"].([]interface{}); ok {
+	if spec, ok := si.Object["spec"].(map[string]any); ok {
+		if rawIPs, ok := spec["ips"].([]any); ok {
 			for _, rawIP := range rawIPs {
 				ip := rawIP.(string)
 				if net.ParseIP(ip) != nil {

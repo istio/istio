@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
@@ -59,7 +60,7 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 
 // MakeWriteableCache creates an aggregate config store cache from several config store caches. An additional
 // `writer` config store is passed, which may or may not be part of `caches`.
-func MakeWriteableCache(caches []model.ConfigStoreCache, writer model.ConfigStore) (model.ConfigStoreCache, error) {
+func MakeWriteableCache(caches []model.ConfigStoreController, writer model.ConfigStore) (model.ConfigStoreController, error) {
 	stores := make([]model.ConfigStore, 0, len(caches))
 	for _, cache := range caches {
 		stores = append(stores, cache)
@@ -76,7 +77,7 @@ func MakeWriteableCache(caches []model.ConfigStoreCache, writer model.ConfigStor
 
 // MakeCache creates an aggregate config store cache from several config store
 // caches.
-func MakeCache(caches []model.ConfigStoreCache) (model.ConfigStoreCache, error) {
+func MakeCache(caches []model.ConfigStoreController) (model.ConfigStoreController, error) {
 	return MakeWriteableCache(caches, nil)
 }
 
@@ -113,20 +114,19 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.C
 	var errs *multierror.Error
 	var configs []config.Config
 	// Used to remove duplicated config
-	configMap := make(map[string]struct{})
+	configMap := sets.New()
 
 	for _, store := range cr.stores[typ] {
 		storeConfigs, err := store.List(typ, namespace)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		for _, config := range storeConfigs {
-			key := config.GroupVersionKind.Kind + config.Namespace + config.Name
-			if _, exist := configMap[key]; exist {
-				continue
+		for _, cfg := range storeConfigs {
+			key := cfg.GroupVersionKind.Kind + cfg.Namespace + cfg.Name
+			if !configMap.Contains(key) {
+				configs = append(configs, cfg)
+				configMap.Insert(key)
 			}
-			configs = append(configs, config)
-			configMap[key] = struct{}{}
 		}
 	}
 	return configs, errs.ErrorOrNil()
@@ -169,7 +169,7 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 
 type storeCache struct {
 	model.ConfigStore
-	caches []model.ConfigStoreCache
+	caches []model.ConfigStoreController
 }
 
 func (cr *storeCache) HasSynced() bool {

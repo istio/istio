@@ -27,6 +27,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -426,6 +428,71 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
+			}
+		})
+	}
+}
+
+func TestConstructSdsSecretConfigForCredential(t *testing.T) {
+	testCases := []struct {
+		credentialSocketExists bool
+		name                   string
+		expected               *auth.SdsSecretConfig
+	}{
+		{
+			credentialSocketExists: true,
+			name:                   "sds://test-credential-uds",
+			expected: &auth.SdsSecretConfig{
+				Name: "sds://test-credential-uds",
+				SdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+						ApiConfigSource: &core.ApiConfigSource{
+							ApiType:                   core.ApiConfigSource_GRPC,
+							SetNodeOnFirstMessageOnly: true,
+							TransportApiVersion:       core.ApiVersion_V3,
+							GrpcServices: []*core.GrpcService{
+								{
+									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: security.SDSExternalClusterName},
+									},
+								},
+							},
+						},
+					},
+					ResourceApiVersion: core.ApiVersion_V3,
+				},
+			},
+		},
+		{
+			credentialSocketExists: false,
+			name:                   "test-credential",
+			expected: &auth.SdsSecretConfig{
+				Name:      credentials.ToResourceName("test-credential"),
+				SdsConfig: SDSAdsConfig,
+			},
+		},
+		{
+			credentialSocketExists: false,
+			name:                   "test-credential-no-prefix-with-socket",
+			expected: &auth.SdsSecretConfig{
+				Name:      credentials.ToResourceName("test-credential-no-prefix-with-socket"),
+				SdsConfig: SDSAdsConfig,
+			},
+		},
+		{
+			credentialSocketExists: true,
+			name:                   "test-credential-no-prefix",
+			expected: &auth.SdsSecretConfig{
+				Name:      credentials.ToResourceName("test-credential-no-prefix"),
+				SdsConfig: SDSAdsConfig,
+			},
+		},
+	}
+
+	for _, c := range testCases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ConstructSdsSecretConfigForCredential(c.name, c.credentialSocketExists); !cmp.Equal(got, c.expected, protocmp.Transform()) {
+				t.Errorf("ConstructSdsSecretConfigForSDSEndpoint: got(%#v), want(%#v)\n", got, c.expected)
 			}
 		})
 	}

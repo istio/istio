@@ -42,11 +42,16 @@ func main() {
 		_ = log.Sync()
 	}()
 
-	// configure-routes allows setting up the iproute2 configuration. This is called standalone because
-	// we cannot change network namespaces safely within a go program (see https://www.weave.works/blog/linux-namespaces-and-go-don-t-mix).
+	// configure-routes allows setting up the iproute2 configuration.
+	// This is an old workaround and kept in place to preserve old behavior.
+	// It is called standalone when HostNSEnterExec=true.
+	// Default behavior is to use go netns, which is not in need for this:
+
+	// Older versions of Go < 1.10 cannot change network namespaces safely within a go program
+	// (see https://www.weave.works/blog/linux-namespaces-and-go-don-t-mix).
 	// As a result, the flow is:
 	// * CNI plugin is called with no args, skipping this section.
-	// * CNI code invokes iptables code with CNIMode=true. This in turn runs nsenter -- istio-cni configure-routes
+	// * CNI code invokes iptables code with CNIMode=true. This in turn runs 'nsenter -- istio-cni configure-routes'
 	if len(os.Args) > 1 && os.Args[1] == constants.CommandConfigureRoutes {
 		if err := cmd.GetRouteCommand().Execute(); err != nil {
 			log.Errorf("failed to configure routes: %v", err)

@@ -81,7 +81,7 @@ func getPrivateIPsIfAvailable() ([]string, bool) {
 			case *net.IPAddr:
 				ip = v.IP
 			}
-			if ip == nil || ip.IsLoopback() {
+			if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 				continue
 			}
 			if ip.IsUnspecified() {
@@ -141,9 +141,9 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	return resolvedAddr, nil
 }
 
-// IsIPv6Proxy check the addresses slice and returns true for all addresses are valid IPv6 address
-// for all other cases it returns false
-func IsIPv6Proxy(ipAddrs []string) bool {
+// AllIPv6 checks the addresses slice and returns true if all addresses
+// are valid IPv6 address, for all other cases it returns false.
+func AllIPv6(ipAddrs []string) bool {
 	for i := 0; i < len(ipAddrs); i++ {
 		addr := net.ParseIP(ipAddrs[i])
 		if addr == nil {
@@ -156,4 +156,37 @@ func IsIPv6Proxy(ipAddrs []string) bool {
 		}
 	}
 	return true
+}
+
+// AllIPv4 checks the addresses slice and returns true if all addresses
+// are valid IPv4 address, for all other cases it returns false.
+func AllIPv4(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() == nil && addr.To16() != nil {
+			return false
+		}
+	}
+	return true
+}
+
+// GlobalUnicastIP returns the first global unicast address in the passed in addresses.
+func GlobalUnicastIP(ipAddrs []string) string {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.IsGlobalUnicast() {
+			return addr.String()
+		}
+	}
+	return ""
 }

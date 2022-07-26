@@ -12,11 +12,7 @@ ifneq ($(CI),)
 	_INTEGRATION_TEST_FLAGS += --istio.test.pullpolicy=IfNotPresent
 endif
 
-ifeq ($(TEST_ENV),minikube)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
-else ifeq ($(TEST_ENV),minikube-none)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
-else ifeq ($(TEST_ENV),kind)
+ifeq ($(TEST_ENV),kind)
     _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
 endif
 
@@ -68,10 +64,12 @@ else
 	_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 endif
 
+RUN_TEST=$(GO) test -p 1 ${T} -tags=integ -vet=off
+
 test.integration.analyze: test.integration...analyze
 
 test.integration.%.analyze: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 ${T} -tags=integ -vet=off ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	$(RUN_TEST) ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} \
 	--istio.test.analyze \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
@@ -83,7 +81,7 @@ check-go-tag:
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 -vet=off ${T} -tags=integ ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	$(RUN_TEST) ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
@@ -105,17 +103,8 @@ test.integration.kube: test.integration.kube.presubmit
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 -vet=off ${T} -tags=integ $(shell go list -tags=integ ./tests/integration/... | grep -v /qualification | grep -v /examples) -timeout 30m \
+	$(RUN_TEST) ./tests/integration/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-# Defines a target to run a minimal reachability testing basic traffic
-# This test suite should be avoided in favor test.integration.kube.environment
-.PHONY: test.integration.kube.reachability
-test.integration.kube.reachability: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 ${T} -tags=integ ./tests/integration/security/ -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	--test.run=TestReachability \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc)
@@ -123,11 +112,11 @@ test.integration.kube.reachability: | $(JUNIT_REPORT) check-go-tag
 .PHONY: test.integration.kube.environment
 test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
 ifeq (${JOB_TYPE},postsubmit)
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} -tags=integ ./tests/integration/... -timeout 30m \
+	$(RUN_TEST) ./tests/integration/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 else
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} -tags=integ ./tests/integration/security/ ./tests/integration/pilot -timeout 30m \
+	$(RUN_TEST) ./tests/integration/security/ ./tests/integration/pilot -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	--test.run="TestReachability|TestTraffic" \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))

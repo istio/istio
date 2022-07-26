@@ -32,10 +32,31 @@ set -x
 ####################################################################
 
 # DEFAULT_KIND_IMAGE is used to set the Kubernetes version for KinD unless overridden in params to setup_kind_cluster(s)
-DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kindest/node:v1.19.1"
+DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.21.1"
 
 # COMMON_SCRIPTS contains the directory this file is in.
 COMMON_SCRIPTS=$(dirname "${BASH_SOURCE:-$0}")
+
+function log() {
+  echo -e "$(date -u '+%Y-%m-%dT%H:%M:%S.%NZ')\t$*"
+}
+
+function retry() {
+  local n=1
+  local max=5
+  local delay=5
+  while true; do
+    "$@" && break
+    if [[ $n -lt $max ]]; then
+      ((n++))
+      log "Command failed. Attempt $n/$max:"
+      sleep $delay;
+    else
+      log "The command has failed after $n attempts."  >&2
+      return 2
+    fi
+  done
+}
 
 # load_cluster_topology function reads cluster configuration topology file and
 # sets up environment variables used by other functions. So this should be called
@@ -53,7 +74,7 @@ function load_cluster_topology() {
   CLUSTER_TOPOLOGY_CONFIG_FILE="${1}"
 
   if [[ ! -f "${CLUSTER_TOPOLOGY_CONFIG_FILE}" ]]; then
-    echo 'cluster topology configuration file is not specified'
+    log 'cluster topology configuration file is not specified'
     exit 1
   fi
 
@@ -115,6 +136,10 @@ function check_default_cluster_yaml() {
   fi
 }
 
+function setup_kind_cluster_retry() {
+  retry setup_kind_cluster "$@"
+}
+
 # setup_kind_cluster creates new KinD cluster with given name, image and configuration
 # 1. NAME: Name of the Kind cluster (optional)
 # 2. IMAGE: Node image used by KinD (optional)
@@ -127,6 +152,7 @@ function setup_kind_cluster() {
   IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
   CONFIG="${3:-}"
   NOMETALBINSTALL="${4:-}"
+  CLEANUP="${5:-true}"
 
   check_default_cluster_yaml
 
@@ -138,37 +164,41 @@ function setup_kind_cluster() {
 
   # explicitly disable shellcheck since we actually want $NAME to expand now
   # shellcheck disable=SC2064
-  trap "cleanup_kind_cluster ${NAME}" EXIT
+  if [[ "${CLEANUP}" == "true" ]]; then
+    trap "cleanup_kind_cluster ${NAME}" EXIT
+  fi
 
     # If config not explicitly set, then use defaults
   if [[ -z "${CONFIG}" ]]; then
     # Kubernetes 1.15+
     CONFIG=${DEFAULT_CLUSTER_YAML}
     # Configure the cluster IP Family only for default configs
-    if [ "${IP_FAMILY}" = "ipv6" ]; then
-      grep 'ipFamily: ipv6' "${CONFIG}" || \
+    if [ "${IP_FAMILY}" != "ipv4" ]; then
+      grep "ipFamily: ${IP_FAMILY}" "${CONFIG}" || \
       cat <<EOF >> "${CONFIG}"
 networking:
-  ipFamily: ipv6
+  ipFamily: ${IP_FAMILY}
 EOF
     fi
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=180s); then
+  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v4 --retain --image "${IMAGE}" --wait=180s); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
-    exit 1
+    return 9
   fi
+  # Workaround kind issue causing taints to not be removed in 1.24
+  kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- || true
 
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
   if [[ -n ${METRICS_SERVER_CONFIG_DIR} ]]; then
-    kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
+    retry kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
   fi
 
   # Install Metallb if not set to install explicitly
   if [[ -z "${NOMETALBINSTALL}" ]]; then
-    install_metallb ""
+    retry install_metallb ""
   fi
 
   # IPv6 clusters need some CoreDNS changes in order to work in CI:
@@ -177,24 +207,24 @@ EOF
   # https://github.com/coredns/coredns/issues/2494#issuecomment-457215452
   # CoreDNS should handle those domains and answer with NXDOMAIN instead of SERVFAIL
   # otherwise pods stops trying to resolve the domain.
-  if [ "${IP_FAMILY}" = "ipv6" ]; then
-      # Get the current config
-      original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
-      echo "Original CoreDNS config:"
-      echo "${original_coredns}"
-      # Patch it
-      fixed_coredns=$(
-        printf '%s' "${original_coredns}" | sed \
-          -e 's/^.*kubernetes cluster\.local/& internal/' \
-          -e '/^.*upstream$/d' \
-          -e '/^.*fallthrough.*$/d' \
-          -e '/^.*forward . \/etc\/resolv.conf$/d' \
-          -e '/^.*loop$/d' \
-      )
-      echo "Patched CoreDNS config:"
-      echo "${fixed_coredns}"
-      printf '%s' "${fixed_coredns}" | kubectl apply -f -
-    fi
+  if [ "${IP_FAMILY}" = "ipv6" ] || [ "${IP_FAMILY}" = "dual" ]; then
+    # Get the current config
+    original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
+    echo "Original CoreDNS config:"
+    echo "${original_coredns}"
+    # Patch it
+    fixed_coredns=$(
+      printf '%s' "${original_coredns}" | sed \
+        -e 's/^.*kubernetes cluster\.local/& internal/' \
+        -e '/^.*upstream$/d' \
+        -e '/^.*fallthrough.*$/d' \
+        -e '/^.*forward . \/etc\/resolv.conf$/d' \
+        -e '/^.*loop$/d' \
+    )
+    echo "Patched CoreDNS config:"
+    echo "${fixed_coredns}"
+    printf '%s' "${fixed_coredns}" | kubectl apply -f -
+  fi
 }
 
 ###############################################################################
@@ -225,7 +255,7 @@ function setup_kind_clusters() {
 
   check_default_cluster_yaml
 
-  # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
+  # Trap replaces any previous trap's, so we need to explicitly cleanup clusters here
   trap cleanup_kind_clusters EXIT
 
   function deploy_kind() {
@@ -246,27 +276,24 @@ EOF
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
     # Create the clusters.
-    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true"
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true" "false"
 
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.
     # To do this, we can replace the server with the IP address of the docker container
     # https://github.com/kubernetes-sigs/kind/issues/1558 tracks this upstream
     CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
-    kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
-      sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
-    if [ ! -s "${CLUSTER_KUBECONFIG}" ]; then
-      # TODO(https://github.com/istio/istio/issues/33096) remove this retry
-      echo "FAIL: unable to get kubeconfig on first try, trying again"
-      sleep 10
-      # Output for debugging
-      kind get kubeconfig --name "${CLUSTER_NAME}" --internal
+    n=0
+    until [ $n -ge 10 ]; do
+      n=$((n+1))
       kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
         sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
-    fi
+      [ -s "${CLUSTER_KUBECONFIG}" ] && break
+      sleep 3
+    done
 
     # Enable core dumps
-    docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
+    retry docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
   }
 
   # Now deploy the specified number of KinD clusters and
@@ -286,7 +313,7 @@ EOF
   for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
     KUBECONFIG_FILE="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
     if [[ ${NUM_CLUSTERS} -gt 1 ]]; then
-      install_metallb "${KUBECONFIG_FILE}"
+      retry install_metallb "${KUBECONFIG_FILE}"
     fi
     KUBECONFIGS+=("${KUBECONFIG_FILE}")
   done
@@ -387,9 +414,17 @@ function cidr_to_ips() {
     # cidr_to_ips returns a list of single IPs from a CIDR. We skip 1000 (since they are likely to be allocated
     # already to other services), then pick the next 100.
     python3 - <<EOF
-from ipaddress import ip_network;
+from ipaddress import ip_network, IPv6Network;
 from itertools import islice;
-[print(str(ip) + "/" + str(ip.max_prefixlen)) for ip in islice(ip_network('$CIDR').hosts(), 1000, 1100)]
+
+net = ip_network('$CIDR')
+net_bits = 128 if type(net) == IPv6Network else 32;
+net_len = pow(2, net_bits - net.prefixlen)
+start, end = int(net_len / 4 * 3), net_len
+if net_len > 2000:
+  start, end = 1000, 2000
+
+[print(str(ip) + "/" + str(ip.max_prefixlen)) for ip in islice(ip_network('$CIDR').hosts(), start, end)]
 EOF
 }
 

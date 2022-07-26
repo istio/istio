@@ -19,18 +19,19 @@ package tracing
 
 import (
 	"fmt"
+	"strings"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/zipkin"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/telemetry"
 )
 
 var (
@@ -70,7 +71,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	builder := echoboot.NewBuilder(ctx)
+	builder := deployment.New(ctx)
 	for _, c := range ctx.Clusters() {
 		clName := c.Name()
 		builder = builder.
@@ -90,13 +91,13 @@ func TestSetup(ctx resource.Context) (err error) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 					},
 					{
 						Name:     "tcp",
 						Protocol: protocol.TCP,
 						// We use a port > 1024 to not require root
-						InstancePort: 9000,
+						WorkloadPort: 9000,
 					},
 				},
 			})
@@ -105,8 +106,14 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	client = echos.Match(echo.ServicePrefix("client"))
-	server = echos.Match(echo.Service("server"))
+
+	servicePrefix := func(prefix string) match.Matcher {
+		return func(i echo.Instance) bool {
+			return strings.HasPrefix(i.Config().Service, prefix)
+		}
+	}
+	client = servicePrefix("client").GetMatches(echos)
+	server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: appNsInst}).GetMatches(echos)
 	ingInst = ist.IngressFor(ctx.Clusters().Default())
 	addr, _ := ingInst.HTTPAddress()
 	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addr})
@@ -117,13 +124,14 @@ func TestSetup(ctx resource.Context) (err error) {
 	return nil
 }
 
-func VerifyEchoTraces(ctx framework.TestContext, namespace, clName string, traces []zipkin.Trace) bool {
+func VerifyEchoTraces(t framework.TestContext, namespace, clName string, traces []zipkin.Trace) bool {
+	t.Helper()
 	wtr := WantTraceRoot(namespace, clName)
 	for _, trace := range traces {
 		// compare each candidate trace with the wanted trace
 		for _, s := range trace.Spans {
 			// find the root span of candidate trace and do recursive comparison
-			if s.ParentSpanID == "" && CompareTrace(ctx, s, wtr) {
+			if s.ParentSpanID == "" && CompareTrace(t, s, wtr) {
 				return true
 			}
 		}
@@ -134,6 +142,7 @@ func VerifyEchoTraces(ctx framework.TestContext, namespace, clName string, trace
 
 // compareTrace recursively compares the two given spans
 func CompareTrace(t framework.TestContext, got, want zipkin.Span) bool {
+	t.Helper()
 	if got.Name != want.Name || got.ServiceName != want.ServiceName {
 		t.Logf("got span %+v, want span %+v", got, want)
 		return false
@@ -171,18 +180,25 @@ func WantTraceRoot(namespace, clName string) (root zipkin.Span) {
 }
 
 // SendTraffic makes a client call to the "server" service on the http port.
-func SendTraffic(ctx framework.TestContext, headers map[string][]string, cl cluster.Cluster) error {
-	ctx.Logf("Sending from %s...", cl.Name())
+func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluster.Cluster) error {
+	t.Helper()
+	t.Logf("Sending from %s...", cl.Name())
 	for _, cltInstance := range client {
 		if cltInstance.Config().Cluster != cl {
 			continue
 		}
 
 		_, err := cltInstance.Call(echo.CallOptions{
-			Target:   server[0],
-			PortName: "http",
-			Count:    telemetry.RequestCountMultipler * len(server),
-			Headers:  headers,
+			To: server,
+			Port: echo.Port{
+				Name: "http",
+			},
+			HTTP: echo.HTTP{
+				Headers: headers,
+			},
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		})
 		if err != nil {
 			return err

@@ -21,7 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"go.uber.org/atomic"
+	"google.golang.org/protobuf/testing/protocmp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -69,8 +72,7 @@ func TestExtraConfigmap(t *testing.T) {
 	setup := func(t test.Failer) (corev1.ConfigMapInterface, mesh.Watcher) {
 		client := kube.NewFakeClient()
 		cms := client.Kube().CoreV1().ConfigMaps(namespace)
-		stop := make(chan struct{})
-		t.Cleanup(func() { close(stop) })
+		stop := test.NewStop(t)
 		w := NewConfigMapWatcher(client, namespace, name, key, true, stop)
 		AddUserMeshConfig(client, w, namespace, key, extraCmName, stop)
 		return cms, w
@@ -120,6 +122,61 @@ func TestExtraConfigmap(t *testing.T) {
 		}
 		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
 	})
+	t.Run("many updates", func(t *testing.T) {
+		cms, w := setup(t)
+		rev := atomic.NewInt32(1)
+		mkMap := func(m, d string) *v1.ConfigMap {
+			mm := makeConfigMapWithName(m, "1", map[string]string{
+				key: fmt.Sprintf(`ingressClass: "%s"`, d),
+			})
+			mm.ResourceVersion = fmt.Sprint(rev.Inc())
+			return mm
+		}
+		if _, err := cms.Create(context.Background(), mkMap(extraCmName, "init"), metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cms.Create(context.Background(), mkMap(name, "init"), metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "init" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+		errCh := make(chan error, 2)
+		for i := 0; i < 100; i++ {
+			t.Log("iter", i)
+			write := fmt.Sprint(i)
+			wg := sync.WaitGroup{}
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				if _, err := cms.Update(context.Background(), mkMap(extraCmName, write), metav1.UpdateOptions{}); err != nil {
+					errCh <- err
+				}
+			}()
+			go func() {
+				defer wg.Done()
+				if _, err := cms.Update(context.Background(), mkMap(name, write), metav1.UpdateOptions{}); err != nil {
+					errCh <- err
+				}
+			}()
+			wg.Wait()
+			retry.UntilOrFail(
+				t,
+				func() bool { return w.Mesh().GetIngressClass() == write },
+				retry.Delay(time.Millisecond),
+				retry.Timeout(time.Second),
+				retry.Message("write failed "+write),
+			)
+			select {
+			case err := <-errCh:
+				t.Fatal(err)
+			default:
+			}
+		}
+		select {
+		case err := <-errCh:
+			t.Fatal(err)
+		default:
+		}
+	})
 }
 
 func TestNewConfigMapWatcher(t *testing.T) {
@@ -141,14 +198,11 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 	client := kube.NewFakeClient()
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
-	stop := make(chan struct{})
-	t.Cleanup(func() { close(stop) })
+	stop := test.NewStop(t)
 	w := NewConfigMapWatcher(client, namespace, name, key, false, stop)
 
-	defaultMesh := mesh.DefaultMeshConfig()
-
 	var mu sync.Mutex
-	newM := &defaultMesh
+	newM := mesh.DefaultMeshConfig()
 	w.AddMeshHandler(func() {
 		mu.Lock()
 		defer mu.Unlock()
@@ -162,7 +216,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 		expect *meshconfig.MeshConfig
 	}{
-		{expect: &defaultMesh},
+		{expect: mesh.DefaultMeshConfig()},
 		{added: cm, expect: m},
 
 		// Handle misconfiguration errors.
@@ -172,8 +226,8 @@ func TestNewConfigMapWatcher(t *testing.T) {
 		{updated: badCM, expect: m},
 		{updated: cm, expect: m},
 
-		{deleted: cm, expect: &defaultMesh},
-		{added: badCM, expect: &defaultMesh},
+		{deleted: cm, expect: mesh.DefaultMeshConfig()},
+		{added: badCM, expect: mesh.DefaultMeshConfig()},
 	}
 
 	for i, step := range steps {
@@ -192,12 +246,12 @@ func TestNewConfigMapWatcher(t *testing.T) {
 					Should(Succeed())
 			}
 
-			g.Eventually(w.Mesh).Should(Equal(step.expect))
-			g.Eventually(func() *meshconfig.MeshConfig {
+			retry.UntilOrFail(t, func() bool { return cmp.Equal(w.Mesh(), step.expect, protocmp.Transform()) })
+			retry.UntilOrFail(t, func() bool {
 				mu.Lock()
 				defer mu.Unlock()
-				return newM
-			}, time.Second).Should(Equal(step.expect))
+				return cmp.Equal(newM, step.expect, protocmp.Transform())
+			})
 		})
 	}
 }

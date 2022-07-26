@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kubeExtInformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
@@ -32,10 +33,11 @@ import (
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/rest/fake"
+	"k8s.io/client-go/tools/cache"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"k8s.io/kubectl/pkg/cmd/util"
-	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
-	serviceapisinformer "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
+	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	serviceapisinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 	mcsapisclient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsapisinformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
@@ -76,6 +78,17 @@ type MockClient struct {
 	IstioVersions     *version.MeshInfo
 	KubernetesVersion uint
 	IstiodVersion     string
+}
+
+func (c MockClient) SetPortManager(manager PortManager) {
+}
+
+func (c MockClient) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+	return WaitForCacheSync(stop, cacheSyncs...)
+}
+
+func (c MockClient) ExtInformer() kubeExtInformers.SharedInformerFactory {
+	panic("not used in mock")
 }
 
 func (c MockClient) Istio() istioclient.Interface {
@@ -146,6 +159,14 @@ func (c MockClient) EnvoyDo(ctx context.Context, podName, podNamespace, method, 
 	return results, nil
 }
 
+func (c MockClient) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
+	results, ok := c.Results[podName]
+	if !ok {
+		return nil, fmt.Errorf("unable to retrieve Pod: pods %q not found", podName)
+	}
+	return results, nil
+}
+
 func (c MockClient) RESTConfig() *rest.Config {
 	return c.ConfigValue
 }
@@ -199,7 +220,8 @@ func (c MockClient) ApplyYAMLFilesDryRun(string, ...string) error {
 
 // CreatePerRPCCredentials -- when implemented -- mocks per-RPC credentials (bearer token)
 func (c MockClient) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
-	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
+	expirationSeconds int64,
+) (credentials.PerRPCCredentials, error) {
 	panic("not implemented by mock")
 }
 

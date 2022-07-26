@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
@@ -35,17 +36,11 @@ var (
 	apps = &util.EchoDeployments{}
 )
 
-func loadCert(filename string) (string, error) {
-	data, err := cert.ReadSampleCertFromFile(filename)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Label(label.CustomSetup).
+		Label("CustomSetup").
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return util.SetupApps(ctx, ist, apps, true)
@@ -58,7 +53,7 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 		return
 	}
 	script := path.Join(env.IstioSrc, "samples/jwt-server/testdata", "ca.crt")
-	rootCaCert, err := loadCert(script)
+	rootCaCert, err := cert.LoadCert(script)
 	if err != nil {
 		return
 	}

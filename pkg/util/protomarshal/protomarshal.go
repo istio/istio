@@ -26,8 +26,9 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/jsonpb"
-	legacyproto "github.com/golang/protobuf/proto"
+	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/pkg/log"
@@ -108,14 +109,14 @@ func ToYAML(msg proto.Message) (string, error) {
 
 // ToJSONMap converts a proto message to a generic map using canonical JSON encoding
 // JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
-func ToJSONMap(msg proto.Message) (map[string]interface{}, error) {
+func ToJSONMap(msg proto.Message) (map[string]any, error) {
 	js, err := ToJSON(msg)
 	if err != nil {
 		return nil, err
 	}
 
 	// Unmarshal from json bytes to go map
-	var data map[string]interface{}
+	var data map[string]any
 	err = json.Unmarshal([]byte(js), &data)
 	if err != nil {
 		return nil, err
@@ -152,4 +153,27 @@ func ApplyYAML(yml string, pb proto.Message) error {
 		return err
 	}
 	return ApplyJSON(string(js), pb)
+}
+
+// ApplyYAMLStrict unmarshals a YAML string into a proto message.
+// Unknown fields are not allowed.
+func ApplyYAMLStrict(yml string, pb proto.Message) error {
+	js, err := yaml.YAMLToJSON([]byte(yml))
+	if err != nil {
+		return err
+	}
+	return ApplyJSONStrict(string(js), pb)
+}
+
+func ShallowCopy(dst, src proto.Message) {
+	dm := dst.ProtoReflect()
+	sm := src.ProtoReflect()
+	if dm.Type() != sm.Type() {
+		panic("mismatching type")
+	}
+	proto.Reset(dst)
+	sm.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		dm.Set(fd, v)
+		return true
+	})
 }
