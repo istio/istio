@@ -497,7 +497,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if err = scrapeAgentMetrics(globalStatsBuffer); err != nil {
+		log.Errorf("failed scraping agent metrics: %v", err)
+		metrics.AgentScrapeErrors.Increment()
+	}
+
 	// Scrape app metrics if defined and capture their format
+	// App metrics must go last because if they are FmtOpenMetrics,
+	// they will have a trailing "# EOF" which terminates the full exposition
 	var format expfmt.Format
 	if s.prometheus != nil {
 		var contentType string
@@ -510,11 +517,6 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Without app metrics format use a default
 		format = expfmt.FmtText
-	}
-
-	if err = scrapeAgentMetrics(globalStatsBuffer); err != nil {
-		log.Errorf("failed scraping agent metrics: %v", err)
-		metrics.AgentScrapeErrors.Increment()
 	}
 
 	w.Header().Set("Content-Type", string(format))
