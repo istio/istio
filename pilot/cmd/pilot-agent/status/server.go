@@ -483,6 +483,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	metrics.ScrapeTotals.Increment()
 	var err error
 	var envoy, application io.ReadCloser
+	var envoyCancel, appCancel context.CancelFunc
 	defer func() {
 		if envoy != nil {
 			envoy.Close()
@@ -490,11 +491,17 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		if application != nil {
 			application.Close()
 		}
+		if envoyCancel != nil {
+			envoyCancel()
+		}
+		if appCancel != nil {
+			appCancel()
+		}
 	}()
 
 	// Gather all the metrics we will merge
 	if !s.config.NoEnvoy {
-		if envoy, _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
+		if envoy, envoyCancel, _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
 			log.Errorf("failed scraping envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
@@ -505,7 +512,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if s.prometheus != nil {
 		var contentType string
 		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
-		if application, contentType, err = s.scrape(url, r.Header); err != nil {
+		if application, appCancel, contentType, err = s.scrape(url, r.Header); err != nil {
 			log.Errorf("failed scraping application metrics: %v", err)
 			metrics.AppScrapeErrors.Increment()
 		}
@@ -606,21 +613,20 @@ func getHeaderTimeout(timeout string) (time.Duration, error) {
 // This will attempt to mimic some of Prometheus functionality by passing some of the headers through
 // such as accept, timeout, and user agent
 // Returns the scraped metrics reader as well as the response's "Content-Type" header to determine the metrics format
-func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, string, error) {
+func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, context.CancelFunc, string, error) {
+	var cancel context.CancelFunc
 	ctx := context.Background()
 	if timeoutString := header.Get("X-Prometheus-Scrape-Timeout-Seconds"); timeoutString != "" {
 		timeout, err := getHeaderTimeout(timeoutString)
 		if err != nil {
 			log.Warnf("Failed to parse timeout header %v: %v", timeoutString, err)
 		} else {
-			c, cancel := context.WithTimeout(ctx, timeout)
-			ctx = c
-			defer cancel()
+			ctx, cancel = context.WithTimeout(ctx, timeout)
 		}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, "", err
+		return nil, cancel, "", err
 	}
 	applyHeaders(req.Header, header, "Accept",
 		"User-Agent",
@@ -629,13 +635,13 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, string, 
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, "", fmt.Errorf("error scraping %s: %v", url, err)
+		return nil, cancel, "", fmt.Errorf("error scraping %s: %v", url, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
+		return nil, cancel, "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
 	}
 	format := resp.Header.Get("Content-Type")
-	return resp.Body, format, nil
+	return resp.Body, cancel, format, nil
 }
 
 func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
