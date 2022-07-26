@@ -75,10 +75,6 @@ const (
 )
 
 var (
-	statsQueryMutex          = sync.Mutex{}
-	appStatsBuffer           = &bytes.Buffer{}
-	envoyStatsBuffer         = &bytes.Buffer{}
-	agentStatsBuffer         = &bytes.Buffer{}
 	UpstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
 	UpstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("::6")}
 )
@@ -486,16 +482,19 @@ type PrometheusScrapeConfiguration struct {
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	metrics.ScrapeTotals.Increment()
 	var err error
-
-	statsQueryMutex.Lock()
-	defer statsQueryMutex.Unlock()
-	appStatsBuffer.Reset()
-	agentStatsBuffer.Reset()
-	envoyStatsBuffer.Reset()
+	var envoy, application io.ReadCloser
+	defer func() {
+		if envoy != nil {
+			envoy.Close()
+		}
+		if application != nil {
+			application.Close()
+		}
+	}()
 
 	// Gather all the metrics we will merge
 	if !s.config.NoEnvoy {
-		if _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header, envoyStatsBuffer); err != nil {
+		if envoy, _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
 			log.Errorf("failed scraping envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
@@ -506,7 +505,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if s.prometheus != nil {
 		var contentType string
 		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
-		if contentType, err = s.scrape(url, r.Header, appStatsBuffer); err != nil {
+		if application, contentType, err = s.scrape(url, r.Header); err != nil {
 			log.Errorf("failed scraping application metrics: %v", err)
 			metrics.AppScrapeErrors.Increment()
 		}
@@ -516,32 +515,44 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		format = expfmt.FmtText
 	}
 
-	if err = scrapeAgentMetrics(agentStatsBuffer); err != nil {
-		log.Errorf("failed scraping agent metrics: %v", err)
-		metrics.AgentScrapeErrors.Increment()
-	}
-
-	if format == expfmt.FmtOpenMetrics {
-		standardBytes := processMetrics(envoyStatsBuffer.Bytes())
-		envoyStatsBuffer = bytes.NewBuffer(standardBytes)
-	}
-
 	w.Header().Set("Content-Type", string(format))
 
 	// Write out the metrics
-	if _, err := w.Write(agentStatsBuffer.Bytes()); err != nil {
-		log.Errorf("failed to write agent metrics: %v", err)
+	if err = scrapeAndWriteAgentMetrics(io.Writer(w)); err != nil {
+		log.Errorf("failed scraping and writing agent metrics: %v", err)
 		metrics.AgentScrapeErrors.Increment()
 	}
-	if _, err := w.Write(envoyStatsBuffer.Bytes()); err != nil {
-		log.Errorf("failed to write envoy metrics: %v", err)
-		metrics.EnvoyScrapeErrors.Increment()
+
+	if envoy != nil {
+		if format == expfmt.FmtOpenMetrics {
+			envoyStatsBuffer := &bytes.Buffer{}
+			_, err = envoyStatsBuffer.ReadFrom(envoy)
+			if err != nil {
+				log.Errorf("failed scraping envoy metrics: %v", err)
+				metrics.EnvoyScrapeErrors.Increment()
+			}
+			standardBytes := processMetrics(envoyStatsBuffer.Bytes())
+			if _, err := w.Write(standardBytes); err != nil {
+				log.Errorf("failed to write envoy metrics: %v", err)
+				metrics.EnvoyScrapeErrors.Increment()
+			}
+		} else {
+			_, err = io.Copy(w, envoy)
+			if err != nil {
+				log.Errorf("failed to write envoy metrics: %v", err)
+				metrics.AppScrapeErrors.Increment()
+			}
+		}
 	}
+
 	// App metrics must go last because if they are FmtOpenMetrics,
 	// they will have a trailing "# EOF" which terminates the full exposition
-	if _, err := w.Write(appStatsBuffer.Bytes()); err != nil {
-		log.Errorf("failed to write application metrics: %v", err)
-		metrics.AppScrapeErrors.Increment()
+	if application != nil {
+		_, err = io.Copy(w, application)
+		if err != nil {
+			log.Errorf("failed to write application metrics: %v", err)
+			metrics.AppScrapeErrors.Increment()
+		}
 	}
 
 }
@@ -558,9 +569,9 @@ func processMetrics(metrics []byte) []byte {
 	return bytes.ReplaceAll(metrics, []byte("\n\n"), []byte("\n"))
 }
 
-func scrapeAgentMetrics(buf *bytes.Buffer) error {
+func scrapeAndWriteAgentMetrics(w io.Writer) error {
 	mfs, err := promRegistry.Gather()
-	enc := expfmt.NewEncoder(buf, expfmt.FmtText)
+	enc := expfmt.NewEncoder(w, expfmt.FmtText)
 	if err != nil {
 		return err
 	}
@@ -595,8 +606,8 @@ func getHeaderTimeout(timeout string) (time.Duration, error) {
 // scrape will send a request to the provided url to scrape metrics from
 // This will attempt to mimic some of Prometheus functionality by passing some of the headers through
 // such as accept, timeout, and user agent
-// Returns the scraped metrics as well as the response's "Content-Type" header to determine the metrics format
-func (s *Server) scrape(url string, header http.Header, buf *bytes.Buffer) (string, error) {
+// Returns the scraped metrics reader as well as the response's "Content-Type" header to determine the metrics format
+func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, string, error) {
 	ctx := context.Background()
 	if timeoutString := header.Get("X-Prometheus-Scrape-Timeout-Seconds"); timeoutString != "" {
 		timeout, err := getHeaderTimeout(timeoutString)
@@ -610,7 +621,7 @@ func (s *Server) scrape(url string, header http.Header, buf *bytes.Buffer) (stri
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	applyHeaders(req.Header, header, "Accept",
 		"User-Agent",
@@ -619,19 +630,13 @@ func (s *Server) scrape(url string, header http.Header, buf *bytes.Buffer) (stri
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("error scraping %s: %v", url, err)
+		return nil, "", fmt.Errorf("error scraping %s: %v", url, err)
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
+		return nil, "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
 	}
-	_, err = buf.ReadFrom(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("error reading %s: %v", url, err)
-	}
-
 	format := resp.Header.Get("Content-Type")
-	return format, nil
+	return resp.Body, format, nil
 }
 
 func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
