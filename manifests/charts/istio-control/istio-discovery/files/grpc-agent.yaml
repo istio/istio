@@ -76,8 +76,6 @@ spec:
           - wait
           - --url=http://localhost:15020/healthz/ready
     env:
-    - name: ISTIO_META_GENERATOR
-      value: grpc
     - name: OUTPUT_CERTS
       value: /var/lib/istio/data
     {{- if eq (env "PILOT_ENABLE_INBOUND_PASSTHROUGH" "true") "false" }}
