@@ -75,6 +75,11 @@ const (
 )
 
 var (
+	bufPool = &sync.Pool{
+		New: func() interface{} {
+			return make([]byte, 32*1024)
+		},
+	}
 	UpstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
 	UpstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("::6")}
 )
@@ -530,7 +535,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		metrics.AgentScrapeErrors.Increment()
 	}
 
-	buf := make([]byte, 32*1024)
+	buf := bufPool.Get().([]byte)
+	defer bufPool.Put(buf)
 
 	if envoy != nil {
 		var eerr error
@@ -540,7 +546,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			_, eerr = io.CopyBuffer(w, envoy, buf)
 		}
 		if eerr != nil {
-			log.Errorf("failed to scraping and writing envoy metrics: %v", err)
+			log.Errorf("failed to scraping and writing envoy metrics: %v", eerr)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
 	}
