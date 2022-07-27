@@ -15,6 +15,7 @@
 package status
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
