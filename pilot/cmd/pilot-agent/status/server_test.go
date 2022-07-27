@@ -659,18 +659,17 @@ my_other_metric{} 0
 			t.Errorf("failed to copyAndProcessMetrics %v", err)
 			return
 		}
-		res := string(writer.Bytes())
+		res := writer.String()
 		if !reflect.DeepEqual(tc.want, res) {
 			t.Errorf("copyAndProcessmetrics unexpected result, want = %v, got = %v", tc.want, res)
 		}
-		if int64(len(tc.want)) == written {
+		if int64(len(tc.want)) != written {
 			t.Errorf("copyAndProcessmetrics unexpected written num, want = %v, got = %v", len(tc.want), written)
 		}
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) { testFn(t, tc) })
 	}
-
 }
 
 func TestAppProbe(t *testing.T) {
