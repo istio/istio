@@ -663,7 +663,7 @@ my_other_metric{} 0
 		if !reflect.DeepEqual(tc.want, res) {
 			t.Errorf("copyAndProcessmetrics unexpected result, want = %v, got = %v", tc.want, res)
 		}
-		if !reflect.DeepEqual(len(tc.want), written) {
+		if int64(len(tc.want)) == written {
 			t.Errorf("copyAndProcessmetrics unexpected written num, want = %v, got = %v", len(tc.want), written)
 		}
 	}
