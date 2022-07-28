@@ -4,6 +4,6 @@ area: traffic-management
 
 releaseNotes:
 - |
-  **Changed** the load balancing algorithm used for consistent hash to MAGLEV inplance of RING_HASH.
+  **Updated** the load balancing algorithm used for consistent hash to MAGLEV inplance of RING_HASH.
   This is expected to perform better with low host lookup times and also handles changes to backend
   hosts better. This can be reverted by setting PILOT_USE_MAGLEV_FOR_CONSISTENT_HASH to false.
