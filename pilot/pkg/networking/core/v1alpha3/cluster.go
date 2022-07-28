@@ -788,7 +788,7 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 		c.LbPolicy = cluster.Cluster_MAGLEV
 	} else {
 		// TODO MinimumRingSize is an int, and zero could potentially be a valid value
-		// unable to distinguish between set and unset case currently GregHanson
+		// unable to distinguish between set and unset case currently.
 		// 1024 is the default value for envoy
 		minRingSize := &wrappers.UInt64Value{Value: 1024}
 		if consistentHash.MinimumRingSize != 0 {
