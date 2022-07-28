@@ -240,6 +240,21 @@ func TestECDSGenerate(t *testing.T) {
 			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}},
 			wantSecrets:      sets.Set{"default-docker-credential": {}},
 		},
+		// All the credentials should be sent to istio-agent even if one of them is only updated,
+		// because `istio-agent` does not keep the credentials.
+		{
+			name:           "multi_wasmplugin_update_secret",
+			proxyNamespace: "default",
+			request: &model.PushRequest{
+				Full: false,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
+				},
+			},
+			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
+			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},
+			wantSecrets:      sets.Set{"default-docker-credential": {}, "root-docker-credential": {}},
+		},
 	}
 
 	for _, tt := range cases {
