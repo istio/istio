@@ -135,7 +135,7 @@ func TestIncrementalPush(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/38709
 func TestSAUpdate(t *testing.T) {
-	test.SetBoolForTest(t, &features.SendUnhealthyEndpoints, false)
+	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, false)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.Connect(s.SetupProxy(nil), nil, []string{v3.ClusterType})
 
@@ -323,7 +323,7 @@ func TestEDSOverlapping(t *testing.T) {
 }
 
 func TestEDSUnhealthyEndpoints(t *testing.T) {
-	test.SetBoolForTest(t, &features.SendUnhealthyEndpoints, true)
+	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, true)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addUnhealthyCluster(s)
 	adscon := s.Connect(nil, nil, watchEds)

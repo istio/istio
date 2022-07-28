@@ -670,7 +670,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		// When we are sending unhealthy endpoints, we should disble Panic Threshold. Otherwise
 		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
 		// below minimum health percentage.
-		if features.SendUnhealthyEndpoints {
+		if features.SendUnhealthyEndpoints.Load() {
 			minHealthPercent = 0
 		}
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(minHealthPercent)}
@@ -689,7 +689,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 ) {
 	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
 	// end points when load balancer is in panic mode.
-	if features.SendUnhealthyEndpoints {
+	if features.SendUnhealthyEndpoints.Load() {
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
