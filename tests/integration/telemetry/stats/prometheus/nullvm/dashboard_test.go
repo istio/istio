@@ -53,7 +53,7 @@ var dashboards = []struct {
 }{
 	{
 		"istio-grafana-dashboards",
-		"pilot-dashboard.json",
+		"istio-control-plane-dashboard.json",
 		[]string{
 			"pilot_xds_push_errors",
 			"pilot_total_xds_internal_errors",
