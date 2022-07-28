@@ -164,7 +164,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	ep.Lock()
 	defer ep.Unlock()
 	newIstioEndpoints := istioEndpoints
-	if features.SendUnhealthyEndpoints {
+	if features.SendUnhealthyEndpoints.Load() {
 		oldIstioEndpoints := ep.Shards[shard]
 		newIstioEndpoints = make([]*model.IstioEndpoint, 0, len(istioEndpoints))
 
