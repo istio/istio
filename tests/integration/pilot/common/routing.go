@@ -760,7 +760,7 @@ spec:
 								// Conditionally check reached clusters to work around connection load balancing issues
 								// See https://github.com/istio/istio/issues/32208 for details
 								// We want to skip this for requests from the cross-network pod
-								if err := check.ReachedClusters(t, t.AllClusters(), toClusters).Check(echo.CallResult{
+								if err := check.ReachedClusters(t.AllClusters(), toClusters).Check(echo.CallResult{
 									From:      result.From,
 									Opts:      result.Opts,
 									Responses: hostResponses,
