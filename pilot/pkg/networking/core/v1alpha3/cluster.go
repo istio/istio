@@ -783,19 +783,23 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 	if consistentHash == nil {
 		return
 	}
-
-	// TODO MinimumRingSize is an int, and zero could potentially be a valid value
-	// unable to distinguish between set and unset case currently GregHanson
-	// 1024 is the default value for envoy
-	minRingSize := &wrappers.UInt64Value{Value: 1024}
-	if consistentHash.MinimumRingSize != 0 {
-		minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
-	}
-	c.LbPolicy = cluster.Cluster_RING_HASH
-	c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
-		RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
-			MinimumRingSize: minRingSize,
-		},
+	if features.UseMaglevForConsistentHash {
+		// Maglev performs consistently better when consistent hashing is needed.
+		c.LbPolicy = cluster.Cluster_MAGLEV
+	} else {
+		// TODO MinimumRingSize is an int, and zero could potentially be a valid value
+		// unable to distinguish between set and unset case currently GregHanson
+		// 1024 is the default value for envoy
+		minRingSize := &wrappers.UInt64Value{Value: 1024}
+		if consistentHash.MinimumRingSize != 0 {
+			minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
+		}
+		c.LbPolicy = cluster.Cluster_RING_HASH
+		c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
+			RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
+				MinimumRingSize: minRingSize,
+			},
+		}
 	}
 }
 

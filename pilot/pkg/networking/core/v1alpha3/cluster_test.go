@@ -424,16 +424,25 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 		name             string
 		ringSize         int
 		expectedRingSize int
+		useRingHash      bool
 	}{
 		{
 			"default",
 			0,
 			1024,
+			false,
 		},
 		{
 			"ring size",
 			2,
 			2,
+			false,
+		},
+		{
+			"use ring hash",
+			2,
+			2,
+			true,
 		},
 	}
 	for _, tt := range cases {
@@ -441,6 +450,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 			g := NewWithT(t)
 
 			test.SetBoolForTest(t, &features.FilterGatewayClusterConfig, false)
+			test.SetBoolForTest(t, &features.UseMaglevForConsistentHash, !tt.useRingHash)
 
 			c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 				buildTestClusters(clusterTest{
@@ -465,9 +475,13 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 					},
 				}))
 
-			g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_RING_HASH))
-			g.Expect(c.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(tt.expectedRingSize)))
-			g.Expect(c.ConnectTimeout).To(Equal(durationpb.New(time.Duration(10000000001))))
+			if tt.useRingHash {
+				g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_RING_HASH))
+				g.Expect(c.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(tt.expectedRingSize)))
+				g.Expect(c.ConnectTimeout).To(Equal(durationpb.New(time.Duration(10000000001))))
+			} else {
+				g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_MAGLEV))
+			}
 		})
 	}
 }
