@@ -370,7 +370,7 @@ func URL(expected string) echo.Checker {
 	})
 }
 
-func isDNSCaptureEnabled(t framework.TestContext) bool {
+func IsDNSCaptureEnabled(t framework.TestContext) bool {
 	t.Helper()
 	mc := istio.GetOrFail(t, t).MeshConfigOrFail(t)
 	if mc.DefaultConfig != nil && mc.DefaultConfig.ProxyMetadata != nil {
@@ -382,7 +382,7 @@ func isDNSCaptureEnabled(t framework.TestContext) bool {
 // ReachedTargetClusters is similar to ReachedClusters, except that the set of expected clusters is
 // retrieved from the Target of the request.
 func ReachedTargetClusters(t framework.TestContext) echo.Checker {
-	dnsCaptureEnabled := isDNSCaptureEnabled(t)
+	dnsCaptureEnabled := IsDNSCaptureEnabled(t)
 	return func(result echo.CallResult, err error) error {
 		from := result.From
 		to := result.Opts.To
@@ -431,20 +431,17 @@ func ReachedTargetClusters(t framework.TestContext) echo.Checker {
 // For multi-network configurations, verifies the current (limited) Istio load balancing behavior when going through
 // a gateway. Ensures that all expected networks were reached, and that all clusters on the same network as the
 // client were reached.
-func ReachedClusters(t framework.TestContext, allClusters cluster.Clusters, expectedClusters cluster.Clusters) echo.Checker {
+func ReachedClusters(allClusters cluster.Clusters, expectedClusters cluster.Clusters) echo.Checker {
 	expectedByNetwork := expectedClusters.ByNetwork()
 	return func(result echo.CallResult, err error) error {
-		dnsCaptureEnabled := isDNSCaptureEnabled(t)
-		to := result.Opts.To
-		if !dnsCaptureEnabled && to.Config().IsHeadless() {
-			// Headless services rely on DNS resolution. If DNS capture is
-			// enabled, DNS will return all endpoints in the mesh, which will
-			// allow requests to go cross-cluster. Otherwise, k8s DNS will
-			// only return the endpoints within the same cluster as the source
-			// pod.
-			return checkReachedSourceClusterOnly(result, allClusters)
-		}
 		return checkReachedClusters(result, allClusters, expectedByNetwork)
+	}
+}
+
+// ReachedSourceCluster is similar to ReachedClusters, except it only checks the reachability of source cluster only
+func ReachedSourceCluster(allClusters cluster.Clusters) echo.Checker {
+	return func(result echo.CallResult, err error) error {
+		return checkReachedSourceClusterOnly(result, allClusters)
 	}
 }
 

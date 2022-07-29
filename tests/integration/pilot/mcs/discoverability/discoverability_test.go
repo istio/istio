@@ -105,7 +105,7 @@ func TestClusterLocal(t *testing.T) {
 						if ht == hostTypeClusterLocal {
 							// For calls to cluster.local, ensure that all requests stay in the same cluster
 							expectedClusters := cluster.Clusters{from.Config().Cluster}
-							checker = checkClustersReached(t, t.AllClusters(), expectedClusters)
+							checker = checkClustersReached(t.AllClusters(), expectedClusters)
 						} else {
 							// For calls to clusterset.local, we should fail DNS lookup. The clusterset.local host
 							// is only available for a service when it is exported in at least one cluster.
@@ -136,7 +136,7 @@ func TestMeshWide(t *testing.T) {
 							// Ensure that requests to clusterset.local reach all destination clusters.
 							expectedClusters = to.Clusters()
 						}
-						callAndValidate(t, ht, from, to, checkClustersReached(t, t.AllClusters(), expectedClusters))
+						callAndValidate(t, ht, from, to, checkClustersReached(t.AllClusters(), expectedClusters))
 					})
 				})
 			}
@@ -177,7 +177,7 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 											expectedClusters = append(expectedClusters, from.Config().Cluster)
 										}
 									}
-									callAndValidate(t, ht, from, to, checkClustersReached(t, t.AllClusters(), expectedClusters))
+									callAndValidate(t, ht, from, to, checkClustersReached(t.AllClusters(), expectedClusters))
 								})
 							})
 						}
@@ -226,10 +226,10 @@ func newServiceExport(service string, serviceExportGVR schema.GroupVersionResour
 	}
 }
 
-func checkClustersReached(t framework.TestContext, allClusters cluster.Clusters, clusters cluster.Clusters) echo.Checker {
+func checkClustersReached(allClusters cluster.Clusters, clusters cluster.Clusters) echo.Checker {
 	return check.And(
 		check.OK(),
-		check.ReachedClusters(t, allClusters, clusters))
+		check.ReachedClusters(allClusters, clusters))
 }
 
 func checkDNSLookupFailed() echo.Checker {
