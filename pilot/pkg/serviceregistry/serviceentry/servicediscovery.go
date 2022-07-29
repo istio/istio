@@ -515,7 +515,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			fullPush = true
 			for _, inst := range instance {
 				configsUpdated[model.ConfigKey{
-					Kind:      kind.ServiceEntry,
+					Kind:      gvk.ServiceEntry,
 					Name:      string(inst.Service.Hostname),
 					Namespace: cfg.Namespace,
 				}] = struct{}{}
