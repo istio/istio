@@ -453,15 +453,27 @@ func TestReachability(t *testing.T) {
 
 										// Check that the correct clusters/networks were reached.
 										if c.expectCrossNetwork(from, opts) {
-											opts.Check = check.And(opts.Check, check.ReachedTargetClusters(t))
+											if !check.IsDNSCaptureEnabled(t) && opts.To.Config().Headless {
+												opts.Check = check.And(opts.Check, check.ReachedSourceCluster(t.Clusters()))
+											} else {
+												opts.Check = check.And(opts.Check, check.ReachedTargetClusters(t))
+											}
 										} else if c.expectCrossCluster(from, opts) {
 											// Expect to stay in the same network as the source pod.
 											expectedClusters := to.Clusters().ForNetworks(from.Config().Cluster.NetworkName())
-											opts.Check = check.And(opts.Check, check.ReachedClusters(t, t.Clusters(), expectedClusters))
+											if !check.IsDNSCaptureEnabled(t) && opts.To.Config().Headless {
+												opts.Check = check.And(opts.Check, check.ReachedSourceCluster(t.Clusters()))
+											} else {
+												opts.Check = check.And(opts.Check, check.ReachedClusters(t.Clusters(), expectedClusters))
+											}
 										} else {
 											// Expect to stay in the same cluster as the source pod.
 											expectedClusters := cluster.Clusters{from.Config().Cluster}
-											opts.Check = check.And(opts.Check, check.ReachedClusters(t, t.Clusters(), expectedClusters))
+											if !check.IsDNSCaptureEnabled(t) && opts.To.Config().Headless {
+												opts.Check = check.And(opts.Check, check.ReachedSourceCluster(t.Clusters()))
+											} else {
+												opts.Check = check.And(opts.Check, check.ReachedClusters(t.Clusters(), expectedClusters))
+											}
 										}
 									} else {
 										opts.Check = check.NotOK()
