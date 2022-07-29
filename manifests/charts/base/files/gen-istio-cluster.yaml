@@ -199,12 +199,11 @@ spec:
                                   - UPGRADE
                                   type: string
                                 http1MaxPendingRequests:
-                                  description: Maximum number of pending HTTP requests
-                                    to a destination.
                                   format: int32
                                   type: integer
                                 http2MaxRequests:
-                                  description: Maximum number of requests to a backend.
+                                  description: Maximum number of active requests to
+                                    a destination.
                                   format: int32
                                   type: integer
                                 idleTimeout:
@@ -450,13 +449,11 @@ spec:
                                         - UPGRADE
                                         type: string
                                       http1MaxPendingRequests:
-                                        description: Maximum number of pending HTTP
-                                          requests to a destination.
                                         format: int32
                                         type: integer
                                       http2MaxRequests:
-                                        description: Maximum number of requests to
-                                          a backend.
+                                        description: Maximum number of active requests
+                                          to a destination.
                                         format: int32
                                         type: integer
                                       idleTimeout:
@@ -795,12 +792,10 @@ spec:
                             - UPGRADE
                             type: string
                           http1MaxPendingRequests:
-                            description: Maximum number of pending HTTP requests to
-                              a destination.
                             format: int32
                             type: integer
                           http2MaxRequests:
-                            description: Maximum number of requests to a backend.
+                            description: Maximum number of active requests to a destination.
                             format: int32
                             type: integer
                           idleTimeout:
@@ -1042,12 +1037,11 @@ spec:
                                   - UPGRADE
                                   type: string
                                 http1MaxPendingRequests:
-                                  description: Maximum number of pending HTTP requests
-                                    to a destination.
                                   format: int32
                                   type: integer
                                 http2MaxRequests:
-                                  description: Maximum number of requests to a backend.
+                                  description: Maximum number of active requests to
+                                    a destination.
                                   format: int32
                                   type: integer
                                 idleTimeout:
@@ -1436,12 +1430,11 @@ spec:
                                   - UPGRADE
                                   type: string
                                 http1MaxPendingRequests:
-                                  description: Maximum number of pending HTTP requests
-                                    to a destination.
                                   format: int32
                                   type: integer
                                 http2MaxRequests:
-                                  description: Maximum number of requests to a backend.
+                                  description: Maximum number of active requests to
+                                    a destination.
                                   format: int32
                                   type: integer
                                 idleTimeout:
@@ -1687,13 +1680,11 @@ spec:
                                         - UPGRADE
                                         type: string
                                       http1MaxPendingRequests:
-                                        description: Maximum number of pending HTTP
-                                          requests to a destination.
                                         format: int32
                                         type: integer
                                       http2MaxRequests:
-                                        description: Maximum number of requests to
-                                          a backend.
+                                        description: Maximum number of active requests
+                                          to a destination.
                                         format: int32
                                         type: integer
                                       idleTimeout:
@@ -2032,12 +2023,10 @@ spec:
                             - UPGRADE
                             type: string
                           http1MaxPendingRequests:
-                            description: Maximum number of pending HTTP requests to
-                              a destination.
                             format: int32
                             type: integer
                           http2MaxRequests:
-                            description: Maximum number of requests to a backend.
+                            description: Maximum number of active requests to a destination.
                             format: int32
                             type: integer
                           idleTimeout:
@@ -2279,12 +2268,11 @@ spec:
                                   - UPGRADE
                                   type: string
                                 http1MaxPendingRequests:
-                                  description: Maximum number of pending HTTP requests
-                                    to a destination.
                                   format: int32
                                   type: integer
                                 http2MaxRequests:
-                                  description: Maximum number of requests to a backend.
+                                  description: Maximum number of active requests to
+                                    a destination.
                                   format: int32
                                   type: integer
                                 idleTimeout:
