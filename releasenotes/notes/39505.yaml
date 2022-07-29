@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 39505
+
+releaseNotes:
+- |
+  **Fixed** an issue where Istio did not update the list of endpoints in STRICT_DNS clusters during workload instance updates.
