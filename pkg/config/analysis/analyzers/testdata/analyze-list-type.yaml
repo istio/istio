@@ -1,10 +1,25 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: alpha
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: tcp
+        protocol: TCP
+      hosts:
+        - "foo.bar"
+---
 apiVersion: v1
 kind: List
 items:
   - apiVersion: networking.istio.io/v1alpha3
     kind: Gateway
     metadata:
-      name: beta
+      name: beta-l
     spec:
       selector:
         istio: ingressgateway
@@ -19,7 +34,7 @@ items:
   - apiVersion: networking.istio.io/v1alpha3
     kind: Gateway
     metadata:
-      name: alpha
+      name: alpha-l
     spec:
       selector:
         istio: ingressgateway

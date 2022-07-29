@@ -282,26 +282,11 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
-		resource, err := s.parseChunk(r, name, lineNum, chunk)
+		chunkResources, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError
 			if errors.As(err, &uerr) {
-				if uerr.kind == "List" {
-					resourceChunks, err := extractResourceChunksFromListYamlChunk(chunk)
-					if err != nil {
-						scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
-					}
-					for _, resourceChunk := range resourceChunks {
-						lr, err := s.parseChunk(r, name, resourceChunk.lineNum, resourceChunk.yamlChunk)
-						if err != nil && errors.As(err, &uerr) {
-							scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
-						}
-						resources = append(resources, lr)
-					}
-				} else {
-					// Note the error to the debug log but continue
-					scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
-				}
+				scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
 			} else {
 				e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
 				scope.Warnf("%v - skipping", e)
@@ -310,7 +295,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 			}
 			continue
 		}
-		resources = append(resources, resource)
+		resources = append(resources, chunkResources...)
 	}
 
 	return resources, errs
@@ -327,27 +312,43 @@ func (e unknownSchemaError) Error() string {
 	return fmt.Sprintf("failed finding schema for group/version/kind: %s/%s/%s", e.group, e.version, e.kind)
 }
 
-func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte) (kubeResource, error) {
+func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte) ([]kubeResource, error) {
+	resources := make([]kubeResource, 0)
 	// Convert to JSON
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
-		return kubeResource{}, fmt.Errorf("failed converting YAML to JSON: %v", err)
+		return resources, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
 
 	// Peek at the beginning of the JSON to
 	groupVersionKind, err := kubeJson.DefaultMetaFactory.Interpret(jsonChunk)
 	if err != nil {
-		return kubeResource{}, fmt.Errorf("failed interpreting jsonChunk: %v", err)
+		return resources, fmt.Errorf("failed interpreting jsonChunk: %v", err)
+	}
+
+	if groupVersionKind.Kind == "List" {
+		resourceChunks, err := extractResourceChunksFromListYamlChunk(yamlChunk)
+		if err != nil {
+			return resources, fmt.Errorf("failed extracting resource chunks from list yaml chunk: %v", err)
+		}
+		for _, resourceChunk := range resourceChunks {
+			lr, err := s.parseChunk(r, name, resourceChunk.lineNum+lineNum, resourceChunk.yamlChunk)
+			if err != nil {
+				return resources, fmt.Errorf("failed parsing resource chunk: %v", err)
+			}
+			resources = append(resources, lr...)
+		}
+		return resources, nil
 	}
 
 	if groupVersionKind.Empty() {
-		return kubeResource{}, fmt.Errorf("unable to parse resource with no group, version and kind")
+		return resources, fmt.Errorf("unable to parse resource with no group, version and kind")
 	}
 
 	schema, found := r.FindByGroupVersionAliasesKind(schemaresource.FromKubernetesGVK(groupVersionKind))
 
 	if !found {
-		return kubeResource{}, &unknownSchemaError{
+		return resources, &unknownSchemaError{
 			group:   groupVersionKind.Group,
 			version: groupVersionKind.Version,
 			kind:    groupVersionKind.Kind,
@@ -361,7 +362,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	_, e := schema.Resource().NewInstance()
 	cannotHandleProto := e != nil
 	if cannotHandleProto {
-		return kubeResource{}, &unknownSchemaError{
+		return resources, &unknownSchemaError{
 			group:   groupVersionKind.Group,
 			version: groupVersionKind.Version,
 			kind:    groupVersionKind.Kind,
@@ -373,15 +374,15 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	deserializer := codecs.UniversalDeserializer()
 	obj, err := kube.IstioScheme.New(schema.Resource().GroupVersionKind().Kubernetes())
 	if err != nil {
-		return kubeResource{}, fmt.Errorf("failed to initialize interface for built-in type: %v", err)
+		return resources, fmt.Errorf("failed to initialize interface for built-in type: %v", err)
 	}
 	_, _, err = deserializer.Decode(jsonChunk, nil, obj)
 	if err != nil {
-		return kubeResource{}, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
+		return resources, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}
 	objMeta, ok := obj.(metav1.Object)
 	if !ok {
-		return kubeResource{}, errors.New("failed to assert type of object metadata")
+		return resources, errors.New("failed to assert type of object metadata")
 	}
 
 	// If namespace is blank and we have a default set, fill in the default
@@ -414,12 +415,14 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	pos := kube2.Position{Filename: name, Line: lineNum}
 	c, err := ToConfig(objMeta, schema, &pos, fieldMap)
 	if err != nil {
-		return kubeResource{}, err
+		return resources, err
 	}
-	return kubeResource{
-		schema: schema,
-		sha:    sha256.Sum256(yamlChunk),
-		config: c,
+	return []kubeResource{
+		{
+			schema: schema,
+			sha:    sha256.Sum256(yamlChunk),
+			config: c,
+		},
 	}, nil
 }
 

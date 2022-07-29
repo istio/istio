@@ -733,7 +733,8 @@ var testGrid = []testCase{
 		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
 		expected: []message{
 			{msg.ConflictingGateways, "Gateway alpha"},
-			{msg.ConflictingGateways, "Gateway beta"},
+			{msg.ConflictingGateways, "Gateway alpha-l"},
+			{msg.ConflictingGateways, "Gateway beta-l"},
 		},
 	},
 }
