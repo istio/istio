@@ -15,7 +15,6 @@
 package route_test
 
 import (
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -71,8 +70,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
-		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
+		t.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry, nil, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
