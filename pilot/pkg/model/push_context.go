@@ -2126,7 +2126,7 @@ func (ps *PushContext) ServiceInstances(svcKey string) map[int][]*ServiceInstanc
 func (ps *PushContext) initKubernetesGateways(env *Environment) error {
 	if env.GatewayAPIController != nil {
 		ps.GatewayAPIController = env.GatewayAPIController
-		return env.GatewayAPIController.Recompute(ps)
+		return env.GatewayAPIController.Reconcile(ps)
 	}
 	return nil
 }
@@ -2134,7 +2134,7 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) error {
 // ReferenceAllowed determines if a given resource (of type `kind` and name `resourceName`) can be
 // accessed by `namespace`, based of specific reference policies.
 // Note: this function only determines if a reference is *explicitly* allowed; the reference may not require
-// explicitly authorization to be made at all in most cases. Today, this only is for allowing cross-namespace
+// explicit authorization to be made at all in most cases. Today, this only is for allowing cross-namespace
 // secret access.
 func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceName string, namespace string) bool {
 	// Currently, only Secret has reference policy, and only implemented by Gateway API controller.
