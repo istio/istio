@@ -447,6 +447,8 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 
 	instances := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
+	configsUpdated := map[model.ConfigKey]struct{}{}
+	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
 		workloadLabels := labels.Collection{wi.Endpoint.Labels}
@@ -470,6 +472,20 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		} else {
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
 		}
+		// If serviceentry's resolution is DNS, make a full push
+		// TODO: maybe cds?
+		if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
+			se.WorkloadSelector != nil {
+
+			fullPush = true
+			for _, inst := range instance {
+				configsUpdated[model.ConfigKey{
+					Kind:      kind.ServiceEntry,
+					Name:      string(inst.Service.Hostname),
+					Namespace: cfg.Namespace,
+				}] = struct{}{}
+			}
+		}
 	}
 	if len(instancesDeleted) > 0 {
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
@@ -483,6 +499,20 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	s.mutex.Unlock()
 
 	s.edsUpdate(instances)
+
+	// ServiceEntry with WorkloadEntry results in STRICT_DNS cluster with hardcoded endpoints
+	// need to update CDS to refresh endpoints
+	// https://github.com/istio/istio/issues/39505
+	if fullPush {
+		log.Debugf("Full push triggered during event %s for workload instance (%s/%s) in namespace %s", event,
+			wi.Kind, wi.Endpoint.Address, wi.Namespace)
+		pushReq := &model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: configsUpdated,
+			Reason:         []model.TriggerReason{model.EndpointUpdate},
+		}
+		s.XdsUpdater.ConfigUpdate(pushReq)
+	}
 }
 
 func (s *ServiceEntryStore) Provider() provider.ID {
