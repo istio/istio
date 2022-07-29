@@ -89,8 +89,8 @@ func TestGetNodeMetaData(t *testing.T) {
 	expectWorkloadName := "workload"
 	expectExitOnZeroActiveConnections := model.StringBool(true)
 
-	os.Setenv(IstioMetaPrefix+"OWNER", inputOwner)
-	os.Setenv(IstioMetaPrefix+"WORKLOAD_NAME", inputWorkloadName)
+	t.Setenv(IstioMetaPrefix+"OWNER", inputOwner)
+	t.Setenv(IstioMetaPrefix+"WORKLOAD_NAME", inputWorkloadName)
 
 	node, err := GetNodeMetaData(MetadataOptions{
 		ID:                          "test",

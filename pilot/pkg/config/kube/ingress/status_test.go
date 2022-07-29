@@ -16,7 +16,6 @@ package ingress
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -110,9 +109,7 @@ func fakeMeshHolder(ingressService string) mesh.Holder {
 }
 
 func makeStatusSyncer(t *testing.T) *StatusSyncer {
-	oldEnvs := setAndRestoreEnv(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": testNamespace})
-	// Restore env settings
-	defer setAndRestoreEnv(t, oldEnvs)
+	setEnvs(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": testNamespace})
 
 	client := kubelib.NewFakeClient()
 	setupFake(t, client)
@@ -122,17 +119,11 @@ func makeStatusSyncer(t *testing.T) *StatusSyncer {
 	return sync
 }
 
-// setAndRestoreEnv set the envs with given value, and return the old setting.
-func setAndRestoreEnv(t *testing.T, inputs map[string]string) map[string]string {
-	oldEnvs := map[string]string{}
+// setEnvs set the envs with given value.
+func setEnvs(t *testing.T, inputs map[string]string) {
 	for k, v := range inputs {
-		oldEnvs[k] = os.Getenv(k)
-		if err := os.Setenv(k, v); err != nil {
-			t.Error(err)
-		}
+		t.Setenv(k, v)
 	}
-
-	return oldEnvs
 }
 
 func TestRunningAddresses(t *testing.T) {
