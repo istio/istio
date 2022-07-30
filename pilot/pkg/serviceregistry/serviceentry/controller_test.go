@@ -886,13 +886,14 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		instances = []*model.ServiceInstance{}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+		expectEvents(t, events, Event{kind: "xds", proxyIP: "2.2.2.2"},
+			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
 	})
 
 	t.Run("change label removing one", func(t *testing.T) {
 		// Add a WLE, we expect this to update
 		createConfigs([]*config.Config{wle}, store, t)
-		expectEvents(t, events,
+		expectEvents(t, events, Event{kind: "xds", proxyIP: "2.2.2.2"},
 			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2},
 		)
 		// add a wle, expect this to be an add
@@ -942,7 +943,8 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "3.3.3.3")
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectEvents(t, events, Event{kind: "xds", proxyIP: "2.2.2.2"},
+			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 	})
 }
 
