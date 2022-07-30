@@ -1365,13 +1365,20 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	pod := c.pods.getPodByProxy(proxy)
 	if pod != nil {
+		if _, exist := pod.Labels[model.LocalityLabel]; exist {
+			return pod.Labels
+		}
 		locality := c.getPodLocality(pod)
-		if pod.Labels == nil {
-			pod.Labels = make(map[string]string)
+		if locality == "" {
+			return pod.Labels
+		}
+		out := make(map[string]string, len(pod.Labels)+1)
+		for k, v := range pod.Labels {
+			out[k] = v
 		}
 		// Add locality labels
-		pod.Labels[model.LocalityLabel] = locality
-		return pod.Labels
+		out[model.LocalityLabel] = locality
+		return out
 	}
 	return nil
 }
