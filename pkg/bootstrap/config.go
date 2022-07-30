@@ -484,7 +484,6 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 		case "ISTIO_METAJSON_LABELS":
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
-				meta.IstioMetaLabels = m
 				meta.Labels = m
 			}
 		case "POD_NAME":
@@ -688,7 +687,6 @@ func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeM
 		meta.Labels = map[string]string{}
 	}
 	for k, v := range instanceLabels {
-		meta.IstioMetaLabels[k] = v
 		meta.Labels[k] = v
 	}
 }
