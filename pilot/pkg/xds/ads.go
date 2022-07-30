@@ -663,7 +663,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// 3. proxy update
 	recomputeLabels := request == nil || request.IsRequest() || request.IsProxyUpdate()
 	if recomputeLabels {
-		proxy.SetWorkloadLabels(s.Env)
+		proxy.SetWorkloadLabels(s.Env, request)
 		setTopologyLabels(proxy)
 	}
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
