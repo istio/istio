@@ -117,7 +117,7 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: podinjectiondisabled-label
+  name: podinjectiondisabled-label-and-anno
   namespace: default
   annotations:
     sidecar.istio.io/inject: "true"
