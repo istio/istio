@@ -227,7 +227,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	// but proxy's SidecarScope has been updated(s.updateProxy) due to optimizations that skip sidecar scope
 	// computation.
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
-		s.computeProxyState(con.proxy, request, true)
+		s.computeProxyState(con.proxy, request)
 	}
 	return s.pushXds(con, con.Watched(req.TypeUrl), request)
 }
@@ -642,7 +642,7 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.connectedAt); err != nil {
 		return err
 	}
-	s.computeProxyState(proxy, nil, false)
+	s.computeProxyState(proxy, nil)
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
 	proxy.DiscoverIPMode()
 
@@ -655,9 +655,14 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 	return nil
 }
 
-func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest, skipLabels bool) {
+func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
 	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
-	if !skipLabels {
+	// only recompute workload labels when
+	// 1. stream established and proxy first time initialization
+	// 2. proxy request
+	// 3. proxy update
+	recomputeLabels := request == nil || request.IsRequest() || request.IsProxyUpdate()
+	if recomputeLabels {
 		proxy.SetWorkloadLabels(s.Env)
 		setTopologyLabels(proxy)
 	}
@@ -733,9 +738,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
 	if pushRequest.Full {
-		skipLabel := !pushRequest.IsProxyUpdate()
 		// Update Proxy with current information.
-		s.computeProxyState(con.proxy, pushRequest, skipLabel)
+		s.computeProxyState(con.proxy, pushRequest)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
