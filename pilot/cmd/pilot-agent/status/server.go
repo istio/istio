@@ -15,7 +15,6 @@
 package status
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -542,7 +541,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if envoy != nil {
 		_, err = io.CopyBuffer(w, envoy, *buf)
 		if err != nil {
-			log.Errorf("failed to scraping and writing envoy metrics: %v", eerr)
+			log.Errorf("failed to scraping and writing envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
 	}
@@ -564,49 +563,6 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 		return expfmt.FmtOpenMetrics
 	}
 	return expfmt.FmtText
-}
-
-func copyAndProcessMetrics(dst io.Writer, src io.Reader, buf []byte) (written int64, err error) {
-	var sideBreak bool
-	for {
-		nr, er := src.Read(buf)
-		if nr > 0 {
-			rbuf := bytes.ReplaceAll(buf[0:nr], []byte("\n\n"), []byte("\n"))
-			if rbuf[0] == '\n' && sideBreak {
-				rbuf = rbuf[1:]
-			}
-			lr := len(rbuf)
-			if rbuf[lr-1] == '\n' {
-				sideBreak = true
-			}
-			nw, ew := dst.Write(rbuf[0:lr])
-			if nw < 0 || lr < nw {
-				nw = 0
-				if ew == nil {
-					ew = errors.New("invalid write result")
-				}
-			}
-			written += int64(nw)
-			if ew != nil {
-				err = ew
-				break
-			}
-			if lr != nw {
-				err = io.ErrShortWrite
-				break
-			}
-		}
-		if er != nil {
-			if er != io.EOF {
-				err = er
-			}
-			break
-		}
-		if nr <= 0 {
-			break
-		}
-	}
-	return written, err
 }
 
 func scrapeAndWriteAgentMetrics(w io.Writer) error {
