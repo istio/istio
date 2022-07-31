@@ -379,7 +379,7 @@ spec:
 `
 			}
 
-			successChecker := check.And(check.OK(), check.ReachedClusters(t, t.AllClusters(), apps.B.Clusters()))
+			successChecker := check.And(check.OK(), check.ReachedClusters(t.AllClusters(), apps.B.Clusters()))
 			failureChecker := check.Status(http.StatusNotFound)
 			count := 2 * t.Clusters().Len()
 

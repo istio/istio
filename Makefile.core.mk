@@ -38,7 +38,7 @@ SHELL := /bin/bash -o pipefail
 export VERSION ?= 1.15-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2022-07-06T19-01-15
+BASE_VERSION ?= master-2022-07-29T19-01-38
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -390,6 +390,7 @@ copy-templates:
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_*.yaml manifests/charts/istiod-remote/templates
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-all.gen.yaml > manifests/charts/istiod-remote/templates/crd-all.gen.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-operator.yaml > manifests/charts/istiod-remote/templates/crd-operator.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/templates/default.yaml > manifests/charts/istiod-remote/templates/default.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml > manifests/charts/istiod-remote/templates/validatingwebhookconfiguration.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/serviceaccount.yaml > manifests/charts/istiod-remote/templates/serviceaccount.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/role.yaml > manifests/charts/istiod-remote/templates/role.yaml

@@ -99,3 +99,31 @@ spec:
   containers:
   - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
     name: server
+---
+# Pod that explicitly disables injection with label. Should not generate a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podinjectiondisabled-label
+  namespace: default
+  labels:
+    sidecar.istio.io/inject: "false"
+spec:
+  containers:
+    - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
+      name: server
+---
+# Pod that explicitly disables injection with label. Should not generate a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podinjectiondisabled-label-and-anno
+  namespace: default
+  annotations:
+    sidecar.istio.io/inject: "true"
+  labels:
+    sidecar.istio.io/inject: "false"
+spec:
+  containers:
+    - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
+      name: server

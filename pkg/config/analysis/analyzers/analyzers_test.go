@@ -727,6 +727,16 @@ var testGrid = []testCase{
 			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-remove-5"},
 		},
 	},
+	{
+		name:       "Analyze conflicting gateway with list type",
+		inputFiles: []string{"testdata/analyze-list-type.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected: []message{
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway alpha-l"},
+			{msg.ConflictingGateways, "Gateway beta-l"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
