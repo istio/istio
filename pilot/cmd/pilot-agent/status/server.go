@@ -540,13 +540,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	defer bufPool.Put(buf)
 
 	if envoy != nil {
-		var eerr error
-		if format == expfmt.FmtOpenMetrics {
-			_, eerr = copyAndProcessMetrics(w, envoy, *buf)
-		} else {
-			_, eerr = io.CopyBuffer(w, envoy, *buf)
-		}
-		if eerr != nil {
+		_, err = io.CopyBuffer(w, envoy, *buf)
+		if err != nil {
 			log.Errorf("failed to scraping and writing envoy metrics: %v", eerr)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
