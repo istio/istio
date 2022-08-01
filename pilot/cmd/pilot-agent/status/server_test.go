@@ -578,7 +578,7 @@ my_other_metric{} 0
 
 func BenchmarkStats(t *testing.B) {
 	server := initServerWithSize(t, 1)
-	t.Run("stats-fmttext-1mb", func(t *testing.B) {
+	t.Run("stats-fmttext-1kb", func(t *testing.B) {
 		for i := 0; i < t.N; i++ {
 			req := &http.Request{}
 			req.Header = make(http.Header)
@@ -587,7 +587,7 @@ func BenchmarkStats(t *testing.B) {
 			server.handleStats(rec, req)
 		}
 	})
-	t.Run("stats-fmtopenmetrics-1mb", func(t *testing.B) {
+	t.Run("stats-fmtopenmetrics-1kb", func(t *testing.B) {
 		for i := 0; i < t.N; i++ {
 			req := &http.Request{}
 			req.Header = make(http.Header)
