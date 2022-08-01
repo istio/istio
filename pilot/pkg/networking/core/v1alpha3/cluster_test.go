@@ -2612,7 +2612,7 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 	})
 	proxy := cg.SetupProxy(nil)
 	proxy.Metadata.Raw = map[string]any{
-		security.CredentialMetaDataName: "true",
+		security.GatewayCertMetaDataName: "true",
 	}
 	// Expect sds_external cluster be added if credentialSocket exists
 	clusters := cg.Clusters(proxy)

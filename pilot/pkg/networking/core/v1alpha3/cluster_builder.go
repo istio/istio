@@ -138,7 +138,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 			}
 		}
 		cb.clusterID = string(proxy.Metadata.ClusterID)
-		if proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
+		if proxy.Metadata.Raw[security.GatewayCertMetaDataName] == "true" {
 			cb.credentialSocketExist = true
 		}
 	}

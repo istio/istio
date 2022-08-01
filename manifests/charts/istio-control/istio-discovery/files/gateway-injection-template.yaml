@@ -133,8 +133,8 @@ spec:
     volumeMounts:
     - name: workload-socket
       mountPath: /var/run/secrets/workload-spiffe-uds
-    - name: credential-socket
-      mountPath: /var/run/secrets/credential-uds
+    - name: gateway-cert-socket
+      mountPath: /var/run/secrets/gateway-uds
     {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
     - name: gke-workload-certificate
       mountPath: /var/run/secrets/workload-spiffe-credentials
@@ -168,7 +168,7 @@ spec:
   - emptyDir: {}
     name: workload-socket
   - emptyDir: {}
-    name: credential-socket
+    name: gateway-cert-socket
   {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
   - name: gke-workload-certificate
     csi:

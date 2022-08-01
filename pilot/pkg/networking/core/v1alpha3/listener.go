@@ -142,7 +142,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		ctx.RequireClientCertificate = proto.BoolTrue
 	}
 	credentialSocketExist := false
-	if proxy.Metadata != nil && proxy.Metadata.Raw[secconst.CredentialMetaDataName] == "true" {
+	if proxy.Metadata != nil && proxy.Metadata.Raw[secconst.GatewayCertMetaDataName] == "true" {
 		credentialSocketExist = true
 	}
 	if features.EnableLegacyIstioMutualCredentialName {

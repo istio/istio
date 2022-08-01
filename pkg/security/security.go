@@ -48,16 +48,16 @@ const (
 	// WorkloadIdentitySocketPath is the well-known path to the Unix Domain Socket for SDS.
 	WorkloadIdentitySocketPath = "./var/run/secrets/workload-spiffe-uds/socket"
 
-	// CredentialNameSocketPath is the well-known path to the Unix Domain Socket for Credential Name.
-	CredentialNameSocketPath = "./var/run/secrets/credential-uds/socket"
+	// GatewayCertSocketPath is the well-known path to the Unix Domain Socket for Gateway Cert.
+	GatewayCertSocketPath = "./var/run/secrets/gateway-uds/socket"
 
-	// CredentialMetaDataName is the name in node meta data.
-	CredentialMetaDataName = "credential"
+	// GatewayCertMetaDataName is the name in node meta data.
+	GatewayCertMetaDataName = "gateway-cert"
 
-	// SDSExternalClusterName is the name of the cluster for external SDS connections which is defined via CredentialNameSocketPath
+	// SDSExternalClusterName is the name of the cluster for external SDS connections which is defined via GatewayCertSocketPath
 	SDSExternalClusterName = "sds-external"
 
-	// SDSExternalCredentialPrefix is the prefix for the credentialName which will utilize external SDS connections defined via CredentialNameSocketPath
+	// SDSExternalCredentialPrefix is the prefix for the credentialName which will utilize external SDS connections defined via GatewayCertSocketPath
 	SDSExternalCredentialPrefix = "sds://"
 
 	// WorkloadIdentityCredentialsPath is the well-known path to a folder with workload certificate files.
@@ -249,6 +249,8 @@ type Options struct {
 	KeyFilePath string
 	// The path for an existing root certificate bundle
 	RootCertFilePath string
+	// GatewayCertSocketExists indicates whether the GatewayCertSocketPath exists
+	GatewayCertSocketExists bool
 }
 
 // TokenManager contains methods for generating token.

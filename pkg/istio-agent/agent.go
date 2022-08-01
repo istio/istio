@@ -269,10 +269,10 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	})
 }
 
-func (a *Agent) initializeEnvoyAgent(ctx context.Context, credentialSocketExists bool) error {
+func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	node, err := a.generateNodeMetadata()
-	if credentialSocketExists {
-		node.RawMetadata[security.CredentialMetaDataName] = "true"
+	if a.secOpts.GatewayCertSocketExists {
+		node.RawMetadata[security.GatewayCertMetaDataName] = "true"
 	}
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
@@ -435,12 +435,13 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			return nil, fmt.Errorf("failed to start SDS server: %v", err)
 		}
 	}
-	credentialSocketExists, err := checkSocket(ctx, security.CredentialNameSocketPath)
+	gatewayCertSocketExists, err := checkSocket(ctx, security.GatewayCertSocketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check credential SDS socket: %v", err)
 	}
-	if credentialSocketExists {
-		log.Info("Credential SDS socket found")
+	if gatewayCertSocketExists {
+		log.Info("Gateway Cert SDS socket found")
+		a.secOpts.GatewayCertSocketExists = true
 	}
 	a.xdsProxy, err = initXdsProxy(a)
 	if err != nil {
@@ -454,7 +455,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	}
 
 	if a.cfg.GRPCBootstrapPath != "" {
-		if err := a.generateGRPCBootstrap(credentialSocketExists); err != nil {
+		if err := a.generateGRPCBootstrap(); err != nil {
 			return nil, fmt.Errorf("failed generating gRPC XDS bootstrap: %v", err)
 		}
 	}
@@ -465,7 +466,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	go a.caFileWatcherHandler(ctx, rootCAForXDS)
 
 	if !a.EnvoyDisabled() {
-		err = a.initializeEnvoyAgent(ctx, credentialSocketExists)
+		err = a.initializeEnvoyAgent(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start envoy agent: %v", err)
 		}
@@ -602,13 +603,9 @@ func (a *Agent) initLocalDNSServer() (err error) {
 	return nil
 }
 
-func (a *Agent) generateGRPCBootstrap(credentialSocketExists bool) error {
+func (a *Agent) generateGRPCBootstrap() error {
 	// generate metadata
 	node, err := a.generateNodeMetadata()
-	if credentialSocketExists {
-		node.RawMetadata[security.CredentialMetaDataName] = "true"
-	}
-
 	if err != nil {
 		return fmt.Errorf("failed generating node metadata: %v", err)
 	}

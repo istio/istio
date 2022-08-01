@@ -182,8 +182,8 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
 	// if credential socket exists, create a cluster for it
-	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
-		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
+	if proxy.Metadata != nil && proxy.Metadata.Raw[security.GatewayCertMetaDataName] == "true" {
+		clusters = append(clusters, cb.buildExternalSDSCluster(security.GatewayCertSocketPath))
 	}
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})

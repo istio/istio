@@ -441,9 +441,9 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 	}{
 		{
 			credentialSocketExists: true,
-			name:                   "sds://test-credential-uds",
+			name:                   "sds://test-gateway-uds",
 			expected: &auth.SdsSecretConfig{
-				Name: "sds://test-credential-uds",
+				Name: "sds://test-gateway-uds",
 				SdsConfig: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{

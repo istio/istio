@@ -3551,7 +3551,7 @@ func TestBuildExternalSDSClusters(t *testing.T) {
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{
 			Raw: map[string]any{
-				security.CredentialMetaDataName: "true",
+				security.GatewayCertMetaDataName: "true",
 			},
 		},
 	}
@@ -3564,14 +3564,14 @@ func TestBuildExternalSDSClusters(t *testing.T) {
 		{
 			name:         "uds",
 			expectedName: security.SDSExternalClusterName,
-			expectedPath: security.CredentialNameSocketPath,
+			expectedPath: security.GatewayCertSocketPath,
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-			cluster := cb.buildExternalSDSCluster(security.CredentialNameSocketPath)
+			cluster := cb.buildExternalSDSCluster(security.GatewayCertSocketPath)
 			path := cluster.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetPipe().Path
 			if cluster.Name != tt.expectedName {
 				t.Errorf("Unexpected cluster name, got: %v, want: %v", cluster.Name, tt.expectedName)
