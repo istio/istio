@@ -36,6 +36,7 @@ Makefile*                                                        @istio/wg-test-
 /pkg/security/                                                   @istio/wg-security-maintainers @istio/wg-environments-maintainers
 /pkg/spiffe/                                                     @istio/wg-security-maintainers
 /pkg/test/                                                       @istio/wg-test-and-release-maintainers
+/pkg/fuzz/                                                       @istio/wg-test-and-release-maintainers
 /pkg/tracing/                                                    @istio/wg-policies-and-telemetry-maintainers
 /pkg/wasm/                                                       @istio/wg-policies-and-telemetry-maintainers
 /pkg/webhooks/                                                   @istio/wg-environments-maintainers
