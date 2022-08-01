@@ -310,9 +310,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 // Legacy registry provides are synced to the new data structure as well, during
 // the full push.
 func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-	out, _ := json.MarshalIndent(s.Env.EndpointIndex.Shardz(), " ", " ")
-	_, _ = w.Write(out)
+	writeJSON(w, s.Env.EndpointIndex.Shardz(), req)
 }
 
 func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
