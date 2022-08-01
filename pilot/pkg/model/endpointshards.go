@@ -46,6 +46,11 @@ func (sk ShardKey) String() string {
 	return fmt.Sprintf("%s/%s", sk.Provider, sk.Cluster)
 }
 
+// MarshalText implements the TextMarshaler interface (for json key usage)
+func (sk ShardKey) MarshalText() (text []byte, err error) {
+	return []byte(sk.String()), nil
+}
+
 // EndpointShards holds the set of endpoint shards of a service. Registries update
 // individual shards incrementally. The shards are aggregated and split into
 // clusters when a push for the specific cluster is needed.
