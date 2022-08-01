@@ -1,0 +1,254 @@
+//go:build integ
+// +build integ
+
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package uproxy
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/cookiejar"
+	"net/url"
+	"strings"
+	"testing"
+	"time"
+
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/retry"
+)
+
+const (
+	bookinfoDir     = "../../../samples/bookinfo/"
+	bookinfoFile    = bookinfoDir + "platform/kube/bookinfo.yaml"
+	defaultDestRule = bookinfoDir + "networking/destination-rule-all.yaml"
+	bookinfoGateway = bookinfoDir + "networking/bookinfo-gateway.yaml"
+	routingV1       = bookinfoDir + "networking/virtual-service-all-v1.yaml"
+	headerRouting   = bookinfoDir + "networking/virtual-service-reviews-test-v2.yaml"
+)
+
+func TestBookinfo(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ambient").
+		Run(func(t framework.TestContext) {
+			skipsForTest(t)
+			nsConfig, err := namespace.New(t, namespace.Config{
+				Prefix: "bookinfo",
+				Inject: false,
+				Labels: map[string]string{
+					"istio.io/dataplane-mode": "ambient",
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			setupBookinfo(t, nsConfig)
+			applyDefaultRouting(t, nsConfig)
+
+			jar, err := cookiejar.New(nil)
+			if err != nil {
+				t.Fatal(fmt.Errorf("Got error while creating cookie jar %s", err.Error()))
+			}
+			ingressClient := http.Client{}
+			ingressInst := istio.DefaultIngressOrFail(t, t)
+			addr, ingrPort := ingressInst.HTTPAddress()
+			ingressURL := fmt.Sprintf("http://%v:%v", addr, ingrPort)
+
+			t.NewSubTest("no pep").Run(func(t framework.TestContext) {
+				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := ingressClient.Get(ingressURL + "/productpage")
+						if err != nil {
+							return fmt.Errorf("error fetching /productpage: %v", err)
+						}
+						defer resp.Body.Close()
+						if resp.StatusCode != http.StatusOK {
+							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+						}
+						bodyBytes, err := io.ReadAll(resp.Body)
+						if err != nil {
+							return fmt.Errorf("error reading /productpage response: %v", err)
+						}
+						reviewsFound := strings.Contains(string(bodyBytes), "Reviews served by:")
+						detailsFound := strings.Contains(string(bodyBytes), "Book Details")
+						if !reviewsFound || !detailsFound {
+							return fmt.Errorf("productpage could not reach other service(s), reviews reached:%v details reached:%v", reviewsFound, detailsFound)
+						}
+						return nil
+					})
+				})
+			})
+
+			t.NewSubTest("pep routing").Run(func(t framework.TestContext) {
+				setupPeps(t, nsConfig)
+
+				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := ingressClient.Get(ingressURL + "/productpage")
+						if err != nil {
+							return fmt.Errorf("error fetching /productpage: %v", err)
+						}
+						defer resp.Body.Close()
+						if resp.StatusCode != http.StatusOK {
+							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+						}
+						bodyBytes, err := io.ReadAll(resp.Body)
+						if err != nil {
+							return fmt.Errorf("error reading /productpage response: %v", err)
+						}
+						reviewsFound := strings.Contains(string(bodyBytes), "Reviews served by:")
+						detailsFound := strings.Contains(string(bodyBytes), "Book Details")
+						if !reviewsFound || !detailsFound {
+							return fmt.Errorf("productpage could not reach other service(s), reviews reached:%v details reached:%v", reviewsFound, detailsFound)
+						}
+						return nil
+					})
+				})
+
+				t.NewSubTest("reviews v1").Run(func(t framework.TestContext) {
+					applyFileOrFail(t, nsConfig.Name(), routingV1)
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := ingressClient.Get(ingressURL + "/productpage")
+						if err != nil {
+							return fmt.Errorf("error fetching /productpage: %v", err)
+						}
+						defer resp.Body.Close()
+						if resp.StatusCode != http.StatusOK {
+							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+						}
+						bodyBytes, err := io.ReadAll(resp.Body)
+						if err != nil {
+							return fmt.Errorf("error reading /productpage response: %v", err)
+						}
+						if !strings.Contains(string(bodyBytes), "Reviews served by:") {
+							return fmt.Errorf("productpage could not reach reviews")
+						}
+						if strings.Contains(string(bodyBytes), "glyphicon glyphicon-star") {
+							return fmt.Errorf("stars were provided when none were exected")
+						}
+						return nil
+					}, retry.Converge(5))
+				})
+				t.NewSubTest("reviews v2").Run(func(t framework.TestContext) {
+					applyFileOrFail(t, nsConfig.Name(), headerRouting)
+					cookieClient := http.Client{
+						Jar: jar,
+						CheckRedirect: func(req *http.Request, via []*http.Request) error {
+							return http.ErrUseLastResponse
+						},
+					}
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := cookieClient.PostForm(ingressURL+"/login",
+							url.Values{"username": {"jason"}, "passwd": {"password"}})
+						if err != nil {
+							return fmt.Errorf("error during /login: %v", err)
+						}
+						defer resp.Body.Close()
+						if resp.StatusCode != http.StatusFound {
+							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+						}
+
+						resp, err = cookieClient.Get(ingressURL + "/productpage")
+						if err != nil {
+							return fmt.Errorf("error fetching /productpage: %v", err)
+						}
+						defer resp.Body.Close()
+						if resp.StatusCode != http.StatusOK {
+							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+						}
+						bodyBytes, err := io.ReadAll(resp.Body)
+						if err != nil {
+							return fmt.Errorf("error reading /productpage response: %v", err)
+						}
+						if !strings.Contains(string(bodyBytes), "glyphicon glyphicon-star") {
+							return fmt.Errorf("expected stars to be provided with reviews, received none. Body:\n%v", string(bodyBytes))
+						}
+						return nil
+					})
+				})
+			})
+		})
+}
+
+func applyDefaultRouting(t framework.TestContext, nsConfig namespace.Instance) {
+	applyFileOrFail(t, nsConfig.Name(), defaultDestRule)
+	applyFileOrFail(t, nsConfig.Name(), bookinfoGateway)
+	applyFileOrFail(t, nsConfig.Name(), routingV1)
+}
+
+func setupPeps(t framework.TestContext, nsConfig namespace.Instance) {
+	if err := t.ConfigIstio().YAML(nsConfig.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: bookinfo-peps
+  annotations:
+    istio.io/service-account: bookinfo-reviews
+spec:
+  gatewayClassName: istio-mesh`).Apply(apply.NoCleanup); err != nil {
+		t.Fatal(err)
+	}
+	pepErr := retry.UntilSuccess(func() error {
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "ambient-type=pep")); err != nil {
+			return fmt.Errorf("gateway is not ready: %v", err)
+		}
+		return nil
+	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
+	if pepErr != nil {
+		t.Fatal(pepErr)
+	}
+}
+
+func setupBookinfo(t framework.TestContext, nsConfig namespace.Instance) {
+	applyFileOrFail(t, nsConfig.Name(), bookinfoFile)
+	bookinfoErr := retry.UntilSuccess(func() error {
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "")); err != nil {
+			return fmt.Errorf("bookinfo pods are not ready: %v", err)
+		}
+		return nil
+	}, retry.Timeout(time.Minute*2), retry.BackoffDelay(time.Millisecond*500))
+	if bookinfoErr != nil {
+		t.Fatal(bookinfoErr)
+	}
+}
+
+func skipsForTest(ctx resource.Context) {
+	oldWorkloadClasses := ctx.Settings().SkipWorkloadClasses
+	oldSkipVM, oldSkipTProxy := ctx.Settings().SkipVM, ctx.Settings().SkipTProxy
+	ctx.Cleanup(func() {
+		ctx.Settings().SkipWorkloadClasses = oldWorkloadClasses
+		ctx.Settings().SkipVM = oldSkipVM
+		ctx.Settings().SkipTProxy = oldSkipTProxy
+	})
+	ctx.Settings().SkipVM = true
+	ctx.Settings().SkipTProxy = true
+	ctx.Settings().SkipWorkloadClasses = append(ctx.Settings().SkipWorkloadClasses,
+		echo.VM, echo.TProxy)
+}
+
+// applyFileOrFail applys the given yaml file and deletes it during context cleanup
+func applyFileOrFail(t framework.TestContext, ns, filename string) {
+	t.Helper()
+	if err := t.ConfigIstio().File(ns, filename).Apply(apply.NoCleanup); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -68,6 +68,7 @@ spec:
       labels:
         app: details
         version: v1
+        ambient-type: workload
     spec:
       serviceAccountName: bookinfo-details
       containers:
@@ -121,6 +122,7 @@ spec:
       labels:
         app: ratings
         version: v1
+        ambient-type: workload
     spec:
       serviceAccountName: bookinfo-ratings
       containers:
@@ -174,6 +176,7 @@ spec:
       labels:
         app: reviews
         version: v1
+        ambient-type: workload
     spec:
       serviceAccountName: bookinfo-reviews
       containers:
@@ -216,6 +219,7 @@ spec:
       labels:
         app: reviews
         version: v2
+        ambient-type: workload
     spec:
       serviceAccountName: bookinfo-reviews
       containers:
@@ -258,6 +262,7 @@ spec:
       labels:
         app: reviews
         version: v3
+        ambient-type: workload
     spec:
       serviceAccountName: bookinfo-reviews
       containers:
@@ -324,6 +329,7 @@ spec:
       labels:
         app: productpage
         version: v1
+        ambient-type: workload
     spec:
       serviceAccountName: bookinfo-productpage
       containers:
