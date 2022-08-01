@@ -524,15 +524,6 @@ func TestStatsError(t *testing.T) {
 
 // initServerWithSize size is mb
 func initServerWithSize(t *testing.B, size int) *Server {
-	appOpenMetrics := `# TYPE jvm info
-# HELP jvm VM version info
-jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9"} 1.0
-# TYPE jmx_config_reload_success counter
-# HELP jmx_config_reload_success Number of times configuration have successfully been reloaded.
-jmx_config_reload_success_total 0.0
-jmx_config_reload_success_created 1.623984612719E9
-# EOF
-`
 	appText := `# TYPE jvm info
 # HELP jvm VM version info
 jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9"} 1.0
@@ -541,6 +532,7 @@ jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16
 jmx_config_reload_success_total 0.0
 jmx_config_reload_success_created 1.623984612719E9
 `
+	appOpenMetrics := appText + "# EOF"
 	envoy := `# TYPE my_metric counter
 my_metric{} 0
 # TYPE my_other_metric counter
