@@ -538,7 +538,7 @@ my_metric{} 0
 # TYPE my_other_metric counter
 my_other_metric{} 0
 `
-	for i := 0; len(envoy)+len(appText) > size<<(10*2); i++ {
+	for i := 0; len(envoy)+len(appText) < size<<(10*2); i++ {
 		envoy = envoy + "#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n"
 	}
 
