@@ -106,7 +106,7 @@ done
 
 if [ -f /proc/cpuinfo ]; then
   echo "Checking CPU..."
-  grep 'model' /proc/cpuinfo
+  grep -q 'model' /proc/cpuinfo
 fi
 
 # Default IP family of the cluster is IPv4
