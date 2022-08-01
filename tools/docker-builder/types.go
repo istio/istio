@@ -71,6 +71,8 @@ type Args struct {
 	IstioVersion  string
 	Tags          []string
 	Hubs          []string
+	// Suffix on artifacts, used for multi-arch images where we cannot use manifests
+	suffix string
 
 	// Plan describes the build plan, read from file.
 	// This is a map of architecture -> plan, as the plan is arch specific.

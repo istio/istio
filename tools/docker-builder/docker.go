@@ -48,6 +48,29 @@ import (
 // Once we have these staged folders, we just construct a docker bakefile and pass it to `buildx
 // bake` and let it do its work.
 func RunDocker(args Args) error {
+	requiresSplitBuild := len(args.Architectures) > 1 && (args.Save || !args.Push)
+	if !requiresSplitBuild {
+		return runDocker(args)
+	}
+	// https://github.com/docker/buildx/issues/59 - load and save are not supported for multi-arch
+	// To workaround, we do a build per-arch, and suffix with the architecture
+	for _, arch := range args.Architectures {
+		args.Architectures = []string{arch}
+		args.suffix = ""
+		if arch != "linux/amd64" {
+			// For backwards compatibility, we do not suffix linux/amd64
+			_, arch, _ := strings.Cut(arch, "/")
+			args.suffix = "-" + arch
+		}
+		log.Infof("building for arch %v", arch)
+		if err := runDocker(args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func runDocker(args Args) error {
 	tarFiles, err := ConstructBakeFile(args)
 	if err != nil {
 		return err
@@ -222,11 +245,11 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 					n += "-" + variant
 				}
 
-				tarFiles[n] = ""
+				tarFiles[n+a.suffix] = ""
 				if variant == PrimaryVariant && hasDoubleDefault {
-					tarFiles[n] = target
+					tarFiles[n+a.suffix] = target+a.suffix
 				}
-				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+".tar")}
+				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+a.suffix+".tar")}
 			} else {
 				t.Outputs = []string{"type=docker"}
 			}
