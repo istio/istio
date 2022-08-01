@@ -169,7 +169,10 @@ fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
   trace "setup kind registry" setup_kind_registry
-  trace "build images" build_images "${PARAMS[*]}"
+  trace "build images" build_images "${PARAMS[*]}" || {
+    tools/dump-docker-logs.sh
+    exit 1
+  }
 fi
 
 # If a variant is defined, update the tag accordingly
