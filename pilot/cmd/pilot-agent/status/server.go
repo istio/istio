@@ -74,12 +74,6 @@ const (
 )
 
 var (
-	bufPool = &sync.Pool{
-		New: func() interface{} {
-			buf := make([]byte, 32*1024)
-			return &buf
-		},
-	}
 	UpstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
 	UpstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("::6")}
 )
@@ -535,11 +529,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		metrics.AgentScrapeErrors.Increment()
 	}
 
-	buf := bufPool.Get().(*[]byte)
-	defer bufPool.Put(buf)
-
 	if envoy != nil {
-		_, err = io.CopyBuffer(w, envoy, *buf)
+		_, err = io.Copy(w, envoy)
 		if err != nil {
 			log.Errorf("failed to scraping and writing envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
@@ -549,7 +540,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// App metrics must go last because if they are FmtOpenMetrics,
 	// they will have a trailing "# EOF" which terminates the full exposition
 	if application != nil {
-		_, err = io.CopyBuffer(w, application, *buf)
+		_, err = io.Copy(w, application)
 		if err != nil {
 			log.Errorf("failed to scraping and writing application metrics: %v", err)
 			metrics.AppScrapeErrors.Increment()
