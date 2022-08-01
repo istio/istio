@@ -577,63 +577,32 @@ my_other_metric{} 0
 }
 
 func BenchmarkStats(t *testing.B) {
-	server := initServerWithSize(t, 1)
-	t.Run("stats-fmttext-1kb", func(t *testing.B) {
-		for i := 0; i < t.N; i++ {
-			req := &http.Request{}
-			req.Header = make(http.Header)
-			req.Header.Add("Accept", string(expfmt.FmtText))
-			rec := httptest.NewRecorder()
-			server.handleStats(rec, req)
-		}
-	})
-	t.Run("stats-fmtopenmetrics-1kb", func(t *testing.B) {
-		for i := 0; i < t.N; i++ {
-			req := &http.Request{}
-			req.Header = make(http.Header)
-			req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
-			rec := httptest.NewRecorder()
-			server.handleStats(rec, req)
-		}
-	})
-	server1 := initServerWithSize(t, 1<<10)
-	t.Run("stats-fmttext-1mb", func(t *testing.B) {
-		for i := 0; i < t.N; i++ {
-			req := &http.Request{}
-			req.Header = make(http.Header)
-			req.Header.Add("Accept", string(expfmt.FmtText))
-			rec := httptest.NewRecorder()
-			server1.handleStats(rec, req)
-		}
-	})
-	t.Run("stats-fmtopenmetrics-1mb", func(t *testing.B) {
-		for i := 0; i < t.N; i++ {
-			req := &http.Request{}
-			req.Header = make(http.Header)
-			req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
-			rec := httptest.NewRecorder()
-			server1.handleStats(rec, req)
-		}
-	})
-	server2 := initServerWithSize(t, 10<<10)
-	t.Run("stats-fmttext-10mb", func(t *testing.B) {
-		for i := 0; i < t.N; i++ {
-			req := &http.Request{}
-			req.Header = make(http.Header)
-			req.Header.Add("Accept", string(expfmt.FmtText))
-			rec := httptest.NewRecorder()
-			server2.handleStats(rec, req)
-		}
-	})
-	t.Run("stats-fmtopenmetrics-10mb", func(t *testing.B) {
-		for i := 0; i < t.N; i++ {
-			req := &http.Request{}
-			req.Header = make(http.Header)
-			req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
-			rec := httptest.NewRecorder()
-			server2.handleStats(rec, req)
-		}
-	})
+	tests := map[int]string{
+		1:        "1kb",
+		1 << 10:  "1mb",
+		10 << 10: "10mb",
+	}
+	for size, v := range tests {
+		server := initServerWithSize(t, size)
+		t.Run("stats-fmttext-"+v, func(t *testing.B) {
+			for i := 0; i < t.N; i++ {
+				req := &http.Request{}
+				req.Header = make(http.Header)
+				req.Header.Add("Accept", string(expfmt.FmtText))
+				rec := httptest.NewRecorder()
+				server.handleStats(rec, req)
+			}
+		})
+		t.Run("stats-fmtopenmetrics-"+v, func(t *testing.B) {
+			for i := 0; i < t.N; i++ {
+				req := &http.Request{}
+				req.Header = make(http.Header)
+				req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
+				rec := httptest.NewRecorder()
+				server.handleStats(rec, req)
+			}
+		})
+	}
 }
 
 func TestAppProbe(t *testing.T) {
