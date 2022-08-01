@@ -631,7 +631,7 @@ func BenchmarkStats(t *testing.B) {
 			req.Header = make(http.Header)
 			req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
 			rec := httptest.NewRecorder()
-			server1.handleStats(rec, req)
+			server2.handleStats(rec, req)
 		}
 	})
 }
