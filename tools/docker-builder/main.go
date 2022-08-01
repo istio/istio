@@ -221,7 +221,22 @@ func StandardEnv(args Args) []string {
 		// Build should already run in container, having multiple layers of docker causes issues
 		"BUILD_WITH_CONTAINER=0",
 	)
-	return env
+	// Ignore a few env vars. These cause problems because they are set once to a pinned value in the outer make,
+	// then refuse to be updated in the inner make.
+	ignoredEnvs := sets.New(
+		"CONTAINER_TARGET_OUT",
+		"CONTAINER_TARGET_OUT_LINUX",
+		"ISTIO_ENVOY_LINUX_RELEASE_DIR",
+		"ISTIO_ENVOY_LINUX_RELEASE_PATH",
+	)
+	res := make([]string, 0, len(env))
+	for _, vr := range env {
+		k, _, _ := strings.Cut(vr, "=")
+		if !ignoredEnvs.Contains(k) {
+			res = append(res, vr)
+		}
+	}
+	return res
 }
 
 var SkipMake = os.Getenv("SKIP_MAKE")
