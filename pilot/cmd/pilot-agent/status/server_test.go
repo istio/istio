@@ -522,7 +522,8 @@ func TestStatsError(t *testing.T) {
 	}
 }
 
-func initServerWithStats(t *testing.B) *Server {
+// initServerWithSize size is mb
+func initServerWithSize(t *testing.B, size int) *Server {
 	appOpenMetrics := `# TYPE jvm info
 # HELP jvm VM version info
 jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9"} 1.0
@@ -532,20 +533,21 @@ jmx_config_reload_success_total 0.0
 jmx_config_reload_success_created 1.623984612719E9
 # EOF
 `
-	appText004 := `# HELP jvm_info VM version info
-# TYPE jvm_info gauge
-jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9",} 1.0
-# HELP jmx_config_reload_failure_created Number of times configuration have failed to be reloaded.
-# TYPE jmx_config_reload_failure_created gauge
-jmx_config_reload_failure_created 1.624025983489E9
+	appText := `# TYPE jvm info
+# HELP jvm VM version info
+jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9"} 1.0
+# TYPE jmx_config_reload_success counter
+# HELP jmx_config_reload_success Number of times configuration have successfully been reloaded.
+jmx_config_reload_success_total 0.0
+jmx_config_reload_success_created 1.623984612719E9
 `
 	envoy := `# TYPE my_metric counter
 my_metric{} 0
 # TYPE my_other_metric counter
 my_other_metric{} 0
 `
-	for i := 0; i < 5000; i++ {
-		envoy = envoy + "\n#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0"
+	for i := 0; len(envoy)+len(appText) > size<<(10*2); i++ {
+		envoy = envoy + "#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n"
 	}
 
 	envoyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -561,7 +563,7 @@ my_other_metric{} 0
 			negotiatedMetrics = appOpenMetrics
 			w.Header().Set("Content-Type", string(expfmt.FmtOpenMetrics))
 		} else {
-			negotiatedMetrics = appText004
+			negotiatedMetrics = appText
 			w.Header().Set("Content-Type", string(expfmt.FmtText))
 		}
 		if _, err := w.Write([]byte(negotiatedMetrics)); err != nil {
@@ -583,8 +585,8 @@ my_other_metric{} 0
 }
 
 func BenchmarkStats(t *testing.B) {
-	server := initServerWithStats(t)
-	t.Run("stats-fmttext", func(t *testing.B) {
+	server := initServerWithSize(t, 1)
+	t.Run("stats-fmttext-1mb", func(t *testing.B) {
 		for i := 0; i < t.N; i++ {
 			req := &http.Request{}
 			req.Header = make(http.Header)
@@ -593,13 +595,32 @@ func BenchmarkStats(t *testing.B) {
 			server.handleStats(rec, req)
 		}
 	})
-	t.Run("stats-fmtopenmetrics", func(t *testing.B) {
+	t.Run("stats-fmtopenmetrics-1mb", func(t *testing.B) {
 		for i := 0; i < t.N; i++ {
 			req := &http.Request{}
 			req.Header = make(http.Header)
 			req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
 			rec := httptest.NewRecorder()
 			server.handleStats(rec, req)
+		}
+	})
+	server1 := initServerWithSize(t, 10)
+	t.Run("stats-fmttext-10mb", func(t *testing.B) {
+		for i := 0; i < t.N; i++ {
+			req := &http.Request{}
+			req.Header = make(http.Header)
+			req.Header.Add("Accept", string(expfmt.FmtText))
+			rec := httptest.NewRecorder()
+			server1.handleStats(rec, req)
+		}
+	})
+	t.Run("stats-fmtopenmetrics-10mb", func(t *testing.B) {
+		for i := 0; i < t.N; i++ {
+			req := &http.Request{}
+			req.Header = make(http.Header)
+			req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
+			rec := httptest.NewRecorder()
+			server1.handleStats(rec, req)
 		}
 	})
 }
