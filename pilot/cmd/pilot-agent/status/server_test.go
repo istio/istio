@@ -522,7 +522,7 @@ func TestStatsError(t *testing.T) {
 	}
 }
 
-// initServerWithSize size is mb
+// initServerWithSize size is kB
 func initServerWithSize(t *testing.B, size int) *Server {
 	appText := `# TYPE jvm info
 # HELP jvm VM version info
@@ -538,7 +538,7 @@ my_metric{} 0
 # TYPE my_other_metric counter
 my_other_metric{} 0
 `
-	for i := 0; len(envoy)+len(appText) < size<<(10*2); i++ {
+	for i := 0; len(envoy)+len(appText) < size<<10; i++ {
 		envoy = envoy + "#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n"
 	}
 
@@ -596,14 +596,33 @@ func BenchmarkStats(t *testing.B) {
 			server.handleStats(rec, req)
 		}
 	})
-	server1 := initServerWithSize(t, 10)
-	t.Run("stats-fmttext-10mb", func(t *testing.B) {
+	server1 := initServerWithSize(t, 1<<10)
+	t.Run("stats-fmttext-1mb", func(t *testing.B) {
 		for i := 0; i < t.N; i++ {
 			req := &http.Request{}
 			req.Header = make(http.Header)
 			req.Header.Add("Accept", string(expfmt.FmtText))
 			rec := httptest.NewRecorder()
 			server1.handleStats(rec, req)
+		}
+	})
+	t.Run("stats-fmtopenmetrics-1mb", func(t *testing.B) {
+		for i := 0; i < t.N; i++ {
+			req := &http.Request{}
+			req.Header = make(http.Header)
+			req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
+			rec := httptest.NewRecorder()
+			server1.handleStats(rec, req)
+		}
+	})
+	server2 := initServerWithSize(t, 10<<10)
+	t.Run("stats-fmttext-10mb", func(t *testing.B) {
+		for i := 0; i < t.N; i++ {
+			req := &http.Request{}
+			req.Header = make(http.Header)
+			req.Header.Add("Accept", string(expfmt.FmtText))
+			rec := httptest.NewRecorder()
+			server2.handleStats(rec, req)
 		}
 	})
 	t.Run("stats-fmtopenmetrics-10mb", func(t *testing.B) {
