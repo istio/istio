@@ -155,13 +155,19 @@ exec_on_node "$node" <<EOF
       apt update
       apt install ipset -y
     elif yum --help; then
-      yum makecache --refresh
       yum -y install ipset
     else
       echo "*** ERROR no supported way to install ipset ***"
     fi
   fi
 EOF
+  if [[ "${K8S_TYPE}" == "aws" ]]; then
+    exec_on_node "$node" <<EOF
+wget https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.24.1/crictl-v1.24.1-linux-amd64.tar.gz
+sudo tar zxvf crictl-v1.24.1-linux-amd64.tar.gz -C /sbin
+rm -f crictl-v1.24.1-linux-amd64.tar.gz
+EOF
+  fi
 done
 
 # add our tables if not exist yet, flush them if they do exist.
@@ -235,7 +241,7 @@ $IPTABLES -t filter -I INPUT -j LOG --log-prefix "filt inp [$uproxypod] "
 EOF
 
 done
-
+fi
 exit 0
 
 # some thoughts as how to make the rules more hermetic.

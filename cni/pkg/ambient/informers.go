@@ -27,7 +27,6 @@ import (
 var ErrLegacyLabel = "Namespace %s has sidecar label istio-injection or istio.io/rev " +
 	"enabled while also setting ambient mode. This is not supported and the namespace will " +
 	"be ignored from the ambient mesh."
-var ErrLegacyLabelPod = "Pod %s in " + ErrLegacyLabel
 
 func (s *Server) newConfigMapWatcher() {
 	var newAmbientMeshConfig *mesh.MeshConfig_AmbientMeshConfig
@@ -46,9 +45,9 @@ func (s *Server) newConfigMapWatcher() {
 		s.ReconcileNamespaces()
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.meshMode = newAmbientMeshConfig.Mode
 	s.disabledSelectors = newAmbientMeshConfig.DisabledSelectors
+	s.mu.Unlock()
 	s.UpdateConfig()
 }
 

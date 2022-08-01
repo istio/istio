@@ -77,7 +77,10 @@ var rootCmd = &cobra.Command{
 
 		if cfg.InstallConfig.AmbientEnabled {
 			// Start ambient controller
-			server, err := ambient.NewServer(ctx, ambient.AmbientArgs{})
+			server, err := ambient.NewServer(ctx, ambient.AmbientArgs{
+				SystemNamespace: ambient.PodNamespace,
+				Revision:        ambient.Revision,
+			})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient informer service: %v", err)
 			}

@@ -7,7 +7,7 @@ spec:
   tag: latest
 
   unvalidatedValues:
-    uproxyType: gke
+    uproxyType: kind
 
   # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
@@ -21,6 +21,9 @@ spec:
       prometheus: {}
 
   components:
+    cni:
+      enabled: true
+      namespace: kube-system
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -33,6 +36,8 @@ spec:
   values:
     global:
       operatorManageWebhooks: true
+    cni:
+      cniBinDir: /home/kubernetes/bin
     telemetry:
       enabled: false
       v2:

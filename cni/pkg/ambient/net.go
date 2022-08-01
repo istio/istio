@@ -103,6 +103,16 @@ func AddPodToMesh(pod *corev1.Pod, ip string) {
 	} else {
 		log.Infof("Route already exists for %s/%s: %+v", pod.Name, pod.Namespace, rte)
 	}
+
+	dev, err := getDeviceWithDestinationOf(ip)
+	if err != nil {
+		log.Warnf("Failed to get device for destination %s", ip)
+		return
+	}
+	err = SetProc("/proc/sys/net/ipv4/conf/"+dev+"/rp_filter", "0")
+	if err != nil {
+		log.Warnf("Failed to set rp_filter to 0 for device %s", dev)
+	}
 }
 
 func DelPodFromMesh(pod *corev1.Pod) {
@@ -188,36 +198,48 @@ func getDeviceWithDestinationOf(ip string) (string, error) {
 }
 
 func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
+	var ip string
 	// Get the node from the Kubernetes API
 	node, err := kubeClient.CoreV1().Nodes().Get(context.TODO(), NodeName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("error getting node: %v", err)
 	}
 
-	ip := node.Spec.PodCIDR
-	network, err := netip.ParsePrefix(ip)
-	if err != nil {
-		return "", fmt.Errorf("error parsing node IP: %v", err)
-	}
+	ip = node.Spec.PodCIDR
 
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return "", fmt.Errorf("error getting interfaces: %v", err)
-	}
-
-	for _, iface := range ifaces {
-		addrs, err := iface.Addrs()
+	// This needs to be done as in Kind, the node internal IP is not the one we want.
+	if ip == "" {
+		// PodCIDR is not set, try to get the IP from the node internal IP
+		for _, address := range node.Status.Addresses {
+			if address.Type == corev1.NodeInternalIP {
+				return address.Address, nil
+			}
+		}
+	} else {
+		network, err := netip.ParsePrefix(ip)
 		if err != nil {
-			return "", fmt.Errorf("error getting addresses: %v", err)
+			return "", fmt.Errorf("error parsing node IP: %v", err)
 		}
 
-		for _, addr := range addrs {
-			a, err := netip.ParseAddr(strings.Split(addr.String(), "/")[0])
+		ifaces, err := net.Interfaces()
+		if err != nil {
+			return "", fmt.Errorf("error getting interfaces: %v", err)
+		}
+
+		for _, iface := range ifaces {
+			addrs, err := iface.Addrs()
 			if err != nil {
-				return "", fmt.Errorf("error parsing address: %v", err)
+				return "", fmt.Errorf("error getting addresses: %v", err)
 			}
-			if network.Contains(a) {
-				return a.String(), nil
+
+			for _, addr := range addrs {
+				a, err := netip.ParseAddr(strings.Split(addr.String(), "/")[0])
+				if err != nil {
+					return "", fmt.Errorf("error parsing address: %v", err)
+				}
+				if network.Contains(a) {
+					return a.String(), nil
+				}
 			}
 		}
 	}
@@ -579,6 +601,19 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 	err = netlink.LinkSetUp(outbnd)
 	if err != nil {
 		log.Errorf("failed to set outbound tunnel up: %v", err)
+	}
+
+	procs = map[string]int{
+		"/proc/sys/net/ipv4/conf/" + constants.InboundTun + "/rp_filter":     0,
+		"/proc/sys/net/ipv4/conf/" + constants.InboundTun + "/accept_local":  1,
+		"/proc/sys/net/ipv4/conf/" + constants.OutboundTun + "/rp_filter":    0,
+		"/proc/sys/net/ipv4/conf/" + constants.OutboundTun + "/accept_local": 1,
+	}
+	for proc, val := range procs {
+		err = SetProc(proc, fmt.Sprint(val))
+		if err != nil {
+			log.Errorf("failed to write to proc file %s: %v", proc, err)
+		}
 	}
 
 	dirEntries, err := os.ReadDir("/proc/sys/net/ipv4/conf")

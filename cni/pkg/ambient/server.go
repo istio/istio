@@ -17,7 +17,6 @@ package ambient
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -53,11 +52,6 @@ type AmbientConfigFile struct {
 	DisabledSelectors []*metav1.LabelSelector `json:"disabledSelectors"`
 	UproxyReady       bool                    `json:"uproxyReady"`
 }
-
-var (
-	ErrRouteList   = errors.New("getting route list")
-	ErrRouteDelete = errors.New("deleting route")
-)
 
 func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	e := &model.Environment{

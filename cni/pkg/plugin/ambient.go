@@ -67,10 +67,8 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 			return false, fmt.Errorf("error getting host IP: %v", err)
 		}
 
-		err := ambient.SetProc("/proc/sys/net/ipv4/conf/"+podIfname+"/rp_filter", "0")
-		if err != nil {
-			return false, fmt.Errorf("error setting rp_filter: %v", err)
-		}
+		// Can't set this on GKE, but needed in AWS.. so silently ignore failures
+		_ = ambient.SetProc("/proc/sys/net/ipv4/conf/"+podIfname+"/rp_filter", "0")
 
 		for _, ip := range podIPs {
 			ambient.AddPodToMesh(pod, ip.IP.String())

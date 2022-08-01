@@ -21,6 +21,8 @@ spec:
       prometheus: {}
 
   components:
+    cni:
+      enabled: true
     # Istio Gateway feature
     ingressGateways:
       - name: istio-ingressgateway
@@ -32,7 +34,7 @@ spec:
   # Please keep this in sync with manifests/charts/global.yaml
   values:
     global:
-      operatorManageWebhooks: true
+      operatorManageWebhooks: false
     telemetry:
       enabled: false
       v2:
