@@ -63,8 +63,8 @@ func (f FileParseError) Error() string {
 var (
 	listAnalyzers     bool
 	useKube           bool
-	failureThreshold  = formatting.MessageThreshold{diag.Error} // messages at least this level will generate an error exit code
-	outputThreshold   = formatting.MessageThreshold{diag.Info}  // messages at least this level will be included in the output
+	failureThreshold  = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
+	outputThreshold   = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
 	colorize          bool
 	msgOutputFormat   string
 	meshCfgFile       string
