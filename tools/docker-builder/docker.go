@@ -50,6 +50,7 @@ import (
 func RunDocker(args Args) error {
 	requiresSplitBuild := len(args.Architectures) > 1 && (args.Save || !args.Push)
 	if !requiresSplitBuild {
+		log.Infof("building for architectures: %v", args.Architectures)
 		return runDocker(args)
 	}
 	// https://github.com/docker/buildx/issues/59 - load and save are not supported for multi-arch
