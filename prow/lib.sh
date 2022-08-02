@@ -126,7 +126,7 @@ function build_images() {
   fi
   targets+="docker.install-cni "
   arch="linux/amd64"
-  if [[ "$(uname -m)" == arm* ]]; then
+  if [[ "$(uname -m)" == "aarch64" ]]; then
       arch="linux/arm64"
   fi
   if [[ "${VARIANT:-default}" == "distroless" ]]; then
