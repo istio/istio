@@ -20,6 +20,14 @@
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
+
+(cd /tmp; go get golang.org/dl/go1.19rc2)
+go1.19rc2 download
+go version
+su-exec 0:0 cp `which go1.19rc2` `which go`
+go version
+go1.19rc2 version
 
 if [[ "${ISTIO_ENVOY_LINUX_RELEASE_URL:-}" == "" ]]; then
   echo "Envoy variables no set. Make sure you run through the makefile (\`make init\`) rather than directly."
