@@ -228,6 +228,10 @@ func StandardEnv(args Args) []string {
 		"CONTAINER_TARGET_OUT_LINUX",
 		"ISTIO_ENVOY_LINUX_RELEASE_DIR",
 		"ISTIO_ENVOY_LINUX_RELEASE_PATH",
+		"ISTIO_ENVOY_ARCH_SUFFIX",
+		"ISTIO_ENVOY_DEBUG_URL",
+		"ISTIO_ENVOY_RELEASE_URL",
+		"ISTIO_ENVOY_LINUX_RELEASE_URL",
 	)
 	res := make([]string, 0, len(env))
 	for _, vr := range env {
