@@ -27,7 +27,6 @@ import (
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/cluster"
@@ -43,26 +42,6 @@ var (
 	Slash     = []byte{'/'}
 )
 
-// Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
-// collection includes only the endpoints which support H2 tunnel and the non-tunnel endpoints. The latter case is to
-// support multi-cluster service.
-// Revisit non-tunnel endpoint decision once the gateways supports tunnel.
-// TODO(lambdai): Propose to istio api.
-func GetTunnelBuilderType(_ string, proxy *model.Proxy, _ *model.PushContext) networking.TunnelType {
-	if proxy == nil || proxy.Metadata == nil || proxy.Metadata.ProxyConfig == nil {
-		return networking.NoTunnel
-	}
-	if outTunnel, ok := proxy.Metadata.ProxyConfig.ProxyMetadata["tunnel"]; ok {
-		switch outTunnel {
-		case networking.H2TunnelTypeName:
-			return networking.H2Tunnel
-		default:
-			// passthrough
-		}
-	}
-	return networking.NoTunnel
-}
-
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
@@ -73,7 +52,6 @@ type EndpointBuilder struct {
 	destinationRule *model.ConsolidatedDestRule
 	service         *model.Service
 	clusterLocal    bool
-	tunnelType      networking.TunnelType
 
 	// These fields are provided for convenience only
 	subsetName string
@@ -102,7 +80,6 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		service:         svc,
 		clusterLocal:    push.IsClusterLocal(svc),
 		destinationRule: dr,
-		tunnelType:      GetTunnelBuilderType(clusterName, proxy, push),
 
 		push:       push,
 		proxy:      proxy,
@@ -138,8 +115,6 @@ func (b EndpointBuilder) Key() string {
 	hash.Write([]byte(strconv.FormatBool(b.clusterLocal)))
 	hash.Write(Separator)
 	hash.Write([]byte(util.LocalityToString(b.locality)))
-	hash.Write(Separator)
-	hash.Write([]byte(b.tunnelType.ToString()))
 	hash.Write(Separator)
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
@@ -203,18 +178,18 @@ func (b EndpointBuilder) DependentTypes() []kind.Kind {
 	return edsDependentTypes
 }
 
-type LocLbEndpointsAndOptions struct {
+type LocalityEndpoints struct {
 	istioEndpoints []*model.IstioEndpoint
 	// The protobuf message which contains LbEndpoint slice.
 	llbEndpoints endpoint.LocalityLbEndpoints
 }
 
-func (e *LocLbEndpointsAndOptions) append(ep *model.IstioEndpoint, le *endpoint.LbEndpoint) {
+func (e *LocalityEndpoints) append(ep *model.IstioEndpoint, le *endpoint.LbEndpoint) {
 	e.istioEndpoints = append(e.istioEndpoints, ep)
 	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
 }
 
-func (e *LocLbEndpointsAndOptions) refreshWeight() {
+func (e *LocalityEndpoints) refreshWeight() {
 	var weight *wrappers.UInt32Value
 	if len(e.llbEndpoints.LbEndpoints) == 0 {
 		weight = nil
@@ -227,7 +202,7 @@ func (e *LocLbEndpointsAndOptions) refreshWeight() {
 	e.llbEndpoints.LoadBalancingWeight = weight
 }
 
-func (e *LocLbEndpointsAndOptions) AssertInvarianceInTest() {
+func (e *LocalityEndpoints) AssertInvarianceInTest() {
 	if len(e.llbEndpoints.LbEndpoints) != len(e.istioEndpoints) {
 		panic(" len(e.llbEndpoints.LbEndpoints) != len(e.tunnelMetadata)")
 	}
@@ -237,8 +212,8 @@ func (e *LocLbEndpointsAndOptions) AssertInvarianceInTest() {
 func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	shards *model.EndpointShards,
 	svcPort *model.Port,
-) []*LocLbEndpointsAndOptions {
-	localityEpMap := make(map[string]*LocLbEndpointsAndOptions)
+) []*LocalityEndpoints {
+	localityEpMap := make(map[string]*LocalityEndpoints)
 	// get the subset labels
 	epLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
 
@@ -272,7 +247,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 
 			locLbEps, found := localityEpMap[ep.Locality.Label]
 			if !found {
-				locLbEps = &LocLbEndpointsAndOptions{
+				locLbEps = &LocalityEndpoints{
 					llbEndpoints: endpoint.LocalityLbEndpoints{
 						Locality:    util.ConvertLocality(ep.Locality.Label),
 						LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
@@ -302,7 +277,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	}
 	shards.Unlock()
 
-	locEps := make([]*LocLbEndpointsAndOptions, 0, len(localityEpMap))
+	locEps := make([]*LocalityEndpoints, 0, len(localityEpMap))
 	locs := make([]string, 0, len(localityEpMap))
 	for k := range localityEpMap {
 		locs = append(locs, k)
@@ -330,7 +305,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 }
 
 // Create the CLusterLoadAssignment. At this moment the options must have been applied to the locality lb endpoints.
-func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsAndOptions) *endpoint.ClusterLoadAssignment {
+func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoints) *endpoint.ClusterLoadAssignment {
 	llbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(llbOpts))
 	for _, l := range llbOpts {
 		llbEndpoints = append(llbEndpoints, &l.llbEndpoints)
