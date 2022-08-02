@@ -103,6 +103,9 @@ func CopyInputs(a Args) error {
 	for _, target := range a.Targets {
 		for _, arch := range a.Architectures {
 			bp := a.PlanFor(arch).Find(target)
+			if bp == nil {
+				continue
+			}
 			args := bp.Dependencies()
 			args = append(args, filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target)))
 			if err := RunCommand(a, "tools/docker-copy.sh", args...); err != nil {
@@ -217,6 +220,9 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 		for _, target := range a.Targets {
 			// Just for Dockerfile, so do not worry about architecture
 			bp := a.PlanFor(a.Architectures[0]).Find(target)
+			if bp == nil {
+				continue
+			}
 			if variant == DefaultVariant && hasDoubleDefault {
 				// This will be process by the PrimaryVariant, skip it here
 				continue
@@ -248,7 +254,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 
 				tarFiles[n+a.suffix] = ""
 				if variant == PrimaryVariant && hasDoubleDefault {
-					tarFiles[n+a.suffix] = target+a.suffix
+					tarFiles[n+a.suffix] = target + a.suffix
 				}
 				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+a.suffix+".tar")}
 			} else {

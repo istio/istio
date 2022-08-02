@@ -57,20 +57,20 @@ type Target struct {
 }
 
 type Args struct {
-	Push          bool
-	Save          bool
-	Builder       string
-	KindLoad      bool
-	NoClobber     bool
-	NoCache       bool
-	Targets       []string
-	Variants      []string
-	Architectures []string
-	BaseVersion   string
-	ProxyVersion  string
-	IstioVersion  string
-	Tags          []string
-	Hubs          []string
+	Push              bool
+	Save              bool
+	Builder           string
+	SupportsEmulation bool
+	NoClobber         bool
+	NoCache           bool
+	Targets           []string
+	Variants          []string
+	Architectures     []string
+	BaseVersion       string
+	ProxyVersion      string
+	IstioVersion      string
+	Tags              []string
+	Hubs              []string
 	// Suffix on artifacts, used for multi-arch images where we cannot use manifests
 	suffix string
 
@@ -112,6 +112,10 @@ type ImagePlan struct {
 	Targets []string `json:"targets"`
 	// Base indicates if this is a base image or not
 	Base bool `json:"base"`
+	// EmulationRequired indicates if emulation is required when cross-compiling. It typically is not,
+	// as most building in Istio is done outside of docker.
+	// When this is set, cross-compile is disabled for components unless emulation is epxlicitly specified
+	EmulationRequired bool `json:"emulationRequired"`
 }
 
 func (p ImagePlan) Dependencies() []string {
@@ -133,13 +137,13 @@ func (p BuildPlan) Targets() []string {
 	return tgts.SortedList()
 }
 
-func (p BuildPlan) Find(n string) ImagePlan {
+func (p BuildPlan) Find(n string) *ImagePlan {
 	for _, i := range p.Images {
 		if i.Name == n {
-			return i
+			return &i
 		}
 	}
-	panic("couldn't find target " + n)
+	return nil
 }
 
 // Define variants, which control the base image of an image.
