@@ -300,6 +300,30 @@ func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 		buildService("test3.com", wildcardIP, protocol.TCP, tnow.Add(2*time.Second)))
 }
 
+func TestOutboundListenerConflict(t *testing.T) {
+	run := func(t *testing.T, s []*model.Service) {
+		proxy := getProxy()
+		proxy.DiscoverIPMode()
+		listeners := buildOutboundListeners(t, getProxy(), nil, nil, s...)
+		if len(listeners) != 1 {
+			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+		}
+	}
+	// Iterate over all protocol pairs and generate listeners
+	// ValidateListeners will be called on all of them ensuring they are valid
+	protos := []protocol.Instance{protocol.TCP, protocol.TLS, protocol.HTTP, protocol.Unsupported}
+	for _, older := range protos {
+		for _, newer := range protos {
+			t.Run(fmt.Sprintf("%v then %v", older, newer), func(t *testing.T) {
+				run(t, []*model.Service{
+					buildService("test1.com", wildcardIP, older, tnow.Add(-1*time.Second)),
+					buildService("test2.com", wildcardIP, newer, tnow),
+				})
+			})
+		}
+	}
+}
+
 func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	services := []*model.Service{
 		buildService("test1.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
