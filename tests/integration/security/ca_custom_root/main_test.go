@@ -72,9 +72,9 @@ func TestMain(m *testing.M) {
 				Namespaces: []namespace.Getter{
 					namespace.Future(&echo1NS),
 				},
-				Custom: echo.CustomFuture(&customConfig),
+				Configs: echo.ConfigFuture(&customConfig),
 			}
-			err := addDefaultConfig(config, namespace.Future(&echo1NS), &customConfig)
+			err := addDefaultConfig(ctx, config, &customConfig)
 			if err != nil {
 				return err
 			}
@@ -84,7 +84,7 @@ func TestMain(m *testing.M) {
 			Namespaces: []namespace.Getter{
 				namespace.Future(&echo1NS),
 			},
-			Custom: echo.CustomFuture(&customConfig),
+			Configs: echo.ConfigFuture(&customConfig),
 		})).
 		Setup(func(ctx resource.Context) error {
 			return createCustomInstances(&apps)
@@ -348,8 +348,8 @@ func generateCerts(tmpdir, ns string) error {
 	return nil
 }
 
-func addDefaultConfig(cfg deployment.Config, customNs namespace.Getter, customCfg *[]echo.Config) error {
-	defaultConfigs := deployment.CreateDefaultConfig(customNs.Get(), cfg)
+func addDefaultConfig(ctx resource.Context, cfg deployment.Config, customCfg *[]echo.Config) error {
+	defaultConfigs := cfg.DefaultEchoConfigs(ctx)
 
 	if defaultConfigs == nil {
 		return fmt.Errorf("unable to create default config")

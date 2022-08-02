@@ -16,10 +16,8 @@ package deployment
 
 import (
 	"fmt"
-	"strconv"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -69,57 +67,12 @@ type EchoNamespace struct {
 	All echo.Services
 }
 
-func (n EchoNamespace) build(t resource.Context, b deployment.Builder, cfg Config) deployment.Builder {
-	if cfg.Custom == nil {
-		defaultConfigs := CreateDefaultConfig(n.Namespace, cfg)
-
-		for _, config := range defaultConfigs {
-			b = b.WithConfig(config)
+func (n EchoNamespace) build(b deployment.Builder, cfg Config) deployment.Builder {
+	for _, config := range cfg.Configs.Get() {
+		if config.Namespace == nil {
+			config.Namespace = n.Namespace
 		}
-
-		if !skipDeltaXDS(t) {
-			b = b.
-				WithConfig(echo.Config{
-					Service:        DeltaSvc,
-					Namespace:      n.Namespace,
-					ServiceAccount: true,
-					Ports:          ports.All(),
-					Subsets: []echo.SubsetConfig{{
-						Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
-ISTIO_DELTA_XDS: "true"`),
-					}},
-				})
-		}
-
-		if !t.Clusters().IsMulticluster() {
-			b = b.
-				// TODO when agent handles secure control-plane connection for grpc-less, deploy to "remote" clusters
-				WithConfig(echo.Config{
-					Service:        ProxylessGRPCSvc,
-					Namespace:      n.Namespace,
-					ServiceAccount: true,
-					Ports:          ports.All(),
-					Subsets: []echo.SubsetConfig{
-						{
-							Annotations: map[echo.Annotation]*echo.AnnotationValue{
-								echo.SidecarInjectTemplates: {
-									Value: "grpc-agent",
-								},
-							},
-						},
-					},
-				})
-		}
-	} else {
-		// Add any custom deployments
-		for _, custom := range cfg.Custom.Get() {
-			if custom.Namespace == nil {
-				custom.Namespace = n.Namespace
-			}
-			if custom.NamespaceName() == n.Namespace.Name() {
-				b.WithConfig(custom)
-			}
-		}
+		b = b.WithConfig(config)
 	}
 
 	return b
@@ -203,99 +156,4 @@ spec:
 	}
 
 	return cfg.Apply(apply.NoCleanup)
-}
-
-func CreateDefaultConfig(n namespace.Instance, cfg Config) []echo.Config {
-	var defaultConfig []echo.Config
-
-	a := echo.Config{
-		Service:         ASvc,
-		Namespace:       n,
-		ServiceAccount:  true,
-		Ports:           ports.All(),
-		Subsets:         []echo.SubsetConfig{{}},
-		Locality:        "region.zone.subzone",
-		IncludeExtAuthz: cfg.IncludeExtAuthz,
-	}
-
-	b := echo.Config{
-		Service:         BSvc,
-		Namespace:       n,
-		ServiceAccount:  true,
-		Ports:           ports.All(),
-		Subsets:         []echo.SubsetConfig{{}},
-		IncludeExtAuthz: cfg.IncludeExtAuthz,
-	}
-
-	c := echo.Config{
-		Service:         CSvc,
-		Namespace:       n,
-		ServiceAccount:  true,
-		Ports:           ports.All(),
-		Subsets:         []echo.SubsetConfig{{}},
-		IncludeExtAuthz: cfg.IncludeExtAuthz,
-	}
-
-	headless := echo.Config{
-		Service:         HeadlessSvc,
-		Namespace:       n,
-		ServiceAccount:  true,
-		Headless:        true,
-		Ports:           ports.Headless(),
-		Subsets:         []echo.SubsetConfig{{}},
-		IncludeExtAuthz: cfg.IncludeExtAuthz,
-	}
-
-	stateful := echo.Config{
-		Service:         StatefulSetSvc,
-		Namespace:       n,
-		ServiceAccount:  true,
-		Headless:        true,
-		StatefulSet:     true,
-		Ports:           ports.Headless(),
-		Subsets:         []echo.SubsetConfig{{}},
-		IncludeExtAuthz: cfg.IncludeExtAuthz,
-	}
-
-	naked := echo.Config{
-		Service:        NakedSvc,
-		Namespace:      n,
-		ServiceAccount: true,
-		Ports:          ports.All(),
-		Subsets: []echo.SubsetConfig{
-			{
-				Annotations: map[echo.Annotation]*echo.AnnotationValue{
-					echo.SidecarInject: {
-						Value: strconv.FormatBool(false),
-					},
-				},
-			},
-		},
-	}
-
-	tProxy := echo.Config{
-		Service:        TproxySvc,
-		Namespace:      n,
-		ServiceAccount: true,
-		Ports:          ports.All(),
-		Subsets: []echo.SubsetConfig{{
-			Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
-		}},
-		IncludeExtAuthz: cfg.IncludeExtAuthz,
-	}
-
-	vmSvc := echo.Config{
-		Service:         VMSvc,
-		Namespace:       n,
-		ServiceAccount:  true,
-		Ports:           ports.All(),
-		DeployAsVM:      true,
-		AutoRegisterVM:  true,
-		Subsets:         []echo.SubsetConfig{{}},
-		IncludeExtAuthz: cfg.IncludeExtAuthz,
-	}
-
-	defaultConfig = append(defaultConfig, a, b, c, headless, stateful, naked, tProxy, vmSvc)
-
-	return defaultConfig
 }

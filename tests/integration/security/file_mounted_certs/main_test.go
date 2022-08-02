@@ -87,7 +87,7 @@ func TestMain(m *testing.M) {
 			Namespaces: []namespace.Getter{
 				namespace.Future(&echo1NS),
 			},
-			Custom: echo.CustomFuture(&customConfig),
+			Configs: echo.ConfigFuture(&customConfig),
 		})).
 		Setup(func(ctx resource.Context) error {
 			return createCustomInstances(&apps)
@@ -396,7 +396,6 @@ func setupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		}},
 	}
 	customConfig = append(customConfig, client, server)
-
 	*customCfg = customConfig
 	return nil
 }
