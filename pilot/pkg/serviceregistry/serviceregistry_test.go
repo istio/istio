@@ -76,7 +76,7 @@ func setupTest(t *testing.T) (
 			XDSUpdater:            xdsUpdater,
 			DomainSuffix:          "cluster.local",
 			MeshWatcher:           meshWatcher,
-			MeshServiceController: aggregate.NewController(aggregate.Options{meshWatcher}),
+			MeshServiceController: aggregate.NewController(aggregate.Options{MeshHolder: meshWatcher}),
 		},
 	)
 	configController := memory.NewController(memory.Make(collections.Pilot))
