@@ -343,7 +343,11 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 	// avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
 	defer sc.certMutex.Unlock()
-	file = filepath.Clean(file)
+	file, err := filepath.Abs(file)
+	if err != nil {
+		cacheLog.Errorf("%v: error finding absolute path of %s, retrying watches [%s] %v", resourceName, file, err)
+		return err
+	}
 	key := FileCert{
 		ResourceName: resourceName,
 		Filename:     file,
