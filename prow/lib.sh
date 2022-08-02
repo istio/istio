@@ -125,11 +125,15 @@ function build_images() {
     targets+="docker.operator "
   fi
   targets+="docker.install-cni "
+  arch="linux/amd64"
+  if [[ "$(uname -m)" == arm* ]]; then
+      arch="linux/arm64"
+  fi
   if [[ "${VARIANT:-default}" == "distroless" ]]; then
-    DOCKER_ARCHITECTURES="linux/${TARGET_ARCH}" DOCKER_BUILD_VARIANTS="distroless" DOCKER_TARGETS="${targets}" make dockerx.pushx
-    DOCKER_ARCHITECTURES="linux/${TARGET_ARCH}" DOCKER_BUILD_VARIANTS="default" DOCKER_TARGETS="${nonDistrolessTargets}" make dockerx.pushx
+    DOCKER_ARCHITECTURES="${arch}" DOCKER_BUILD_VARIANTS="distroless" DOCKER_TARGETS="${targets}" make dockerx.pushx
+    DOCKER_ARCHITECTURES="${arch}" DOCKER_BUILD_VARIANTS="default" DOCKER_TARGETS="${nonDistrolessTargets}" make dockerx.pushx
   else
-   DOCKER_ARCHITECTURES="linux/${TARGET_ARCH}"  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets} ${nonDistrolessTargets}" make dockerx.pushx
+   DOCKER_ARCHITECTURES="${arch}"  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets} ${nonDistrolessTargets}" make dockerx.pushx
   fi
 }
 
