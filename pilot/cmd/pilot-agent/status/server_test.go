@@ -683,8 +683,8 @@ func TestAppProbe(t *testing.T) {
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
 						HTTPHeaders: []apimirror.HTTPHeader{
-							{"Host", testHostValue},
-							{testHeader, testHeaderValue},
+							{Name: "Host", Value: testHostValue},
+							{Name: testHeader, Value: testHeaderValue},
 						},
 					},
 				},
