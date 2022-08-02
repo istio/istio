@@ -94,7 +94,7 @@ func RunCrane(a Args) error {
 
 	// Warm up our base images while we are building everything. This isn't pulling them -- we actually
 	// never pull them -- but it is pulling the config file from the remote registry.
-	builder.WarmBase(bases.SortedList()...)
+	builder.WarmBase(a.Architectures, bases.SortedList()...)
 
 	// Build all dependencies
 	makeStart := time.Now()
