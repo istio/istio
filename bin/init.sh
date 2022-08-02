@@ -22,7 +22,7 @@ set -o nounset
 set -o pipefail
 set -x
 
-(cd /tmp; go get golang.org/dl/go1.19rc2)
+(cd /tmp; go install golang.org/dl/go1.19rc2@latest)
 go1.19rc2 download
 go version
 su-exec 0:0 cp `which go1.19rc2` `which go`
