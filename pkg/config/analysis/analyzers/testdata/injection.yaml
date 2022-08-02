@@ -127,3 +127,15 @@ spec:
   containers:
     - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
       name: server
+# Pod on the host network that's not injected and should not be. Should not generate warning
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: noninjectedpodhostnetwork
+  namespace: default
+spec:
+  hostNetwork: true
+  containers:
+  - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
+    name: server
