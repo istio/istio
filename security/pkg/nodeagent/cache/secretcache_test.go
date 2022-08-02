@@ -692,3 +692,54 @@ func TestOSCACertGenerateSecretEmpty(t *testing.T) {
 		t.Fatal("Certs did match")
 	}
 }
+
+func TestTryAddFileWatcher(t *testing.T) {
+	var (
+		dummyResourceName = "default"
+		relativeFilePath  = "./testdata/file-to-watch.txt"
+	)
+	absFilePathOfRelativeFilePath, err := filepath.Abs(relativeFilePath)
+	if err != nil {
+		t.Fatalf("unable to get absolute path to file %s, err: %v", relativeFilePath, err)
+	}
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, true)
+	if err != nil {
+		t.Fatalf("unable to create fake mock ca client: %v", err)
+	}
+	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{WorkloadRSAKeySize: 2048})
+	cases := []struct {
+		name               string
+		filePath           string
+		expFilePathToWatch string
+		expErr             error
+	}{
+		{
+			name: "Given a file is expected to be watched, " +
+				"When tryAddFileWatcher is invoked, with file path which does not start with /" +
+				"Then tryAddFileWatcher should watch on the absolute path",
+			filePath:           relativeFilePath,
+			expFilePathToWatch: absFilePathOfRelativeFilePath,
+			expErr:             nil,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err = sc.tryAddFileWatcher(c.filePath, dummyResourceName)
+			if err != c.expErr {
+				t.Fatalf("expected: %v, got: %v", c.expErr, err)
+			}
+			t.Logf("file watch: %v\n", sc.certWatcher.WatchList())
+			if c.expErr == nil && len(sc.certWatcher.WatchList()) != 1 {
+				t.Fatalf("expected certWatcher to watch 1 file, but it is watching: %d files", len(sc.certWatcher.WatchList()))
+			}
+			for _, v := range sc.certWatcher.WatchList() {
+				if v != c.expFilePathToWatch {
+					t.Fatalf(
+						"expected certWatcher to watch on: %s, but it is watching on: %s",
+						c.expFilePathToWatch, v)
+				}
+			}
+		})
+	}
+}
