@@ -433,6 +433,17 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTPService(svc *model.S
 		}
 	}
 	hcm := lb.buildHTTPConnectionManager(httpOpts)
+
+	if lb.node.IsAmbient() {
+		filters = append(filters, &listener.Filter{
+			Name: "istio.filters.network.internal_ssl_forwarder",
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: &any.Any{
+				// nolint: staticcheck
+				TypeUrl: "type.googleapis.com/" + "istio.telemetry.internal_ssl_forwarder.v1.Config",
+			}},
+		})
+	}
+
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
