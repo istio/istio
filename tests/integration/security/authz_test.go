@@ -844,9 +844,10 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 									allow: false,
 								},
 								{
-									// Make sure the bad policy did not select this workload.
+									// Make sure the bad policy select this workload.
+									// Skip vm
 									path:        fmt.Sprintf("/policy-%s-%s-bad", to.Config().Namespace.Prefix(), to.Config().Service),
-									allow:       true, // TODO: how can i exclude vm app
+									allow:       true,
 									updateLabel: true,
 								},
 							}
@@ -889,6 +890,10 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 
 							for _, c := range cases {
 								if c.updateLabel {
+									// skip updating pod labels for VM
+									if to.Config().DeployAsVM {
+										continue
+									}
 									for _, instance := range to.Instances() {
 										err := instance.UpdateWorkloadLabel(map[string]string{"foo": "bla"}, nil)
 										if err != nil {
