@@ -889,10 +889,11 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 
 							for _, c := range cases {
 								if c.updateLabel {
-									instances := to.Instances()
-									err := instances[0].UpdateWorkloadLabel(map[string]string{"foo": "bla"}, nil)
-									if err != nil {
-										t.Fatal(err)
+									for _, instance := range to.Instances() {
+										err := instance.UpdateWorkloadLabel(map[string]string{"foo": "bla"}, nil)
+										if err != nil {
+											t.Fatal(err)
+										}
 									}
 								}
 								newAuthzTest().
@@ -902,10 +903,11 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 									Path(c.path).
 									BuildAndRunForPorts(t, ports.HTTP, ports.HTTP2)
 								if c.updateLabel {
-									instances := to.Instances()
-									err := instances[0].UpdateWorkloadLabel(nil, []string{"foo"})
-									if err != nil {
-										t.Fatal(err)
+									for _, instance := range to.Instances() {
+										err := instance.UpdateWorkloadLabel(nil, []string{"foo"})
+										if err != nil {
+											t.Fatal(err)
+										}
 									}
 								}
 							}
