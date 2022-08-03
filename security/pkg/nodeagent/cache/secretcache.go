@@ -64,12 +64,12 @@ const (
 // it serves.
 //
 // SecretManagerClient supports two modes of retrieving certificate (potentially at the same time):
-// * File based certificates. If certs are mounted under well-known path /etc/certs/{key,cert,root-cert.pem},
-//   requests for `default` and `ROOTCA` will automatically read from these files. Additionally,
-//   certificates from Gateway/DestinationRule can also be served. This is done by parsing resource
-//   names in accordance with security.SdsCertificateConfig (file-cert: and file-root:).
-// * On demand CSRs. This is used only for the `default` certificate. When this resource is
-//   requested, a CSR will be sent to the configured caClient.
+//   - File based certificates. If certs are mounted under well-known path /etc/certs/{key,cert,root-cert.pem},
+//     requests for `default` and `ROOTCA` will automatically read from these files. Additionally,
+//     certificates from Gateway/DestinationRule can also be served. This is done by parsing resource
+//     names in accordance with security.SdsCertificateConfig (file-cert: and file-root:).
+//   - On demand CSRs. This is used only for the `default` certificate. When this resource is
+//     requested, a CSR will be sent to the configured caClient.
 //
 // Callers are expected to only call GenerateSecret when a new certificate is required. Generally,
 // this should be done a single time at startup, then repeatedly when the certificate is near

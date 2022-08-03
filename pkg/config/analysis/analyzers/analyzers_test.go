@@ -68,7 +68,7 @@ type testCase struct {
 // * The resources in the input files don't necessarily need to be completely defined, just defined enough for the analyzer being tested.
 // * Please keep this list sorted alphabetically by the pkg.name of the analyzer for convenience
 // * Expected messages are in the format {msg.ValidationMessageType, "<ResourceKind>/<Namespace>/<ResourceName>"}.
-//     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
+//   - Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
 	{
 		name: "misannoted",
