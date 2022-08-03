@@ -832,8 +832,9 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 						ToMatch(toMatch).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							type testCase struct {
-								path  string
-								allow allowValue
+								path        string
+								allow       allowValue
+								updateLabel bool
 							}
 
 							cases := []testCase{
@@ -841,6 +842,12 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 									// Make sure the bad policy did not select this workload.
 									path:  fmt.Sprintf("/policy-%s-%s-bad", to.Config().Namespace.Prefix(), to.Config().Service),
 									allow: false,
+								},
+								{
+									// Make sure the bad policy did not select this workload.
+									path:        fmt.Sprintf("/policy-%s-%s-bad", to.Config().Namespace.Prefix(), to.Config().Service),
+									allow:       true, // TODO: how can i exclude vm app
+									updateLabel: true,
 								},
 							}
 
@@ -881,12 +888,26 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 							}
 
 							for _, c := range cases {
+								if c.updateLabel {
+									instances := to.Instances()
+									err := instances[0].UpdateWorkloadLabel(map[string]string{"foo": "bla"}, nil)
+									if err != nil {
+										t.Fatal(err)
+									}
+								}
 								newAuthzTest().
 									From(from).
 									To(to).
 									Allow(c.allow).
 									Path(c.path).
 									BuildAndRunForPorts(t, ports.HTTP, ports.HTTP2)
+								if c.updateLabel {
+									instances := to.Instances()
+									err := instances[0].UpdateWorkloadLabel(nil, []string{"foo"})
+									if err != nil {
+										t.Fatal(err)
+									}
+								}
 							}
 						})
 				})
