@@ -135,7 +135,7 @@ components:
                 name: inject-volume
                 mountPath: /var/lib/istio/inject
 {{- end }}
-`, map[string]interface{}{
+`, map[string]any{
 		"rootcert1":              cert1.Rootcert,
 		"signer1":                cert1.Signer,
 		"rootcert2":              cert2.Rootcert,

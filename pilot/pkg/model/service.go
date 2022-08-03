@@ -831,7 +831,7 @@ func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
 }
 
-func copyInternal(v interface{}) interface{} {
+func copyInternal(v any) any {
 	copied, err := copystructure.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:

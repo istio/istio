@@ -166,8 +166,8 @@ func TestGRPC(t *testing.T) {
 	// This does not attempt to resolve CDS or EDS.
 	t.Run("gRPC-resolve", func(t *testing.T) {
 		rb := xdsresolver
-		stateCh := &Channel{ch: make(chan interface{}, 1)}
-		errorCh := &Channel{ch: make(chan interface{}, 1)}
+		stateCh := &Channel{ch: make(chan any, 1)}
+		errorCh := &Channel{ch: make(chan any, 1)}
 		_, err := rb.Build(resolver.Target{URL: url.URL{
 			Scheme: "xds",
 			Path:   "/" + net.JoinHostPort(istiodSvcHost, xdsPorts),
@@ -428,11 +428,11 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 }
 
 type Channel struct {
-	ch chan interface{}
+	ch chan any
 }
 
 // Send sends value on the underlying channel.
-func (c *Channel) Send(value interface{}) {
+func (c *Channel) Send(value any) {
 	c.ch <- value
 }
 

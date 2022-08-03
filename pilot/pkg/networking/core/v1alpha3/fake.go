@@ -55,7 +55,7 @@ type TestOptions struct {
 	// If provided, the yaml string will be parsed and used as configs
 	ConfigString string
 	// If provided, the ConfigString will be treated as a go template, with this as input params
-	ConfigTemplateInput interface{}
+	ConfigTemplateInput any
 
 	// Services to pre-populate as part of the service discovery
 	Services  []*model.Service
@@ -83,6 +83,20 @@ type TestOptions struct {
 
 	// Used to set the serviceentry registry's cluster id
 	ClusterID cluster2.ID
+}
+
+func (to TestOptions) FuzzValidate() bool {
+	for _, csc := range to.ConfigStoreCaches {
+		if csc == nil {
+			return false
+		}
+	}
+	for _, sr := range to.ServiceRegistries {
+		if sr == nil {
+			return false
+		}
+	}
+	return true
 }
 
 type ConfigGenTest struct {

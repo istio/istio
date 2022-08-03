@@ -314,7 +314,7 @@ func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 		log.Errorf("Failed to fetch jwks_uri from %q: %v", issuer+openIDDiscoveryCfgURLSuffix, err)
 		return "", err
 	}
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal(body, &data); err != nil {
 		return "", err
 	}
@@ -435,7 +435,7 @@ func (r *JwksResolver) refresh() bool {
 	var wg sync.WaitGroup
 	hasChange := false
 	hasErrors := false
-	r.keyEntries.Range(func(key interface{}, value interface{}) bool {
+	r.keyEntries.Range(func(key any, value any) bool {
 		now := time.Now()
 		k := key.(jwtKey)
 		e := value.(jwtPubKeyEntry)
@@ -532,8 +532,8 @@ func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error)
 		return false, nil
 	}
 
-	var oldJWKs map[string]interface{}
-	var newJWKs map[string]interface{}
+	var oldJWKs map[string]any
+	var newJWKs map[string]any
 	if err := json.Unmarshal([]byte(newKeyString), &newJWKs); err != nil {
 		// If the new key is not parseable as JSON return an error since we will not want to use this key
 		log.Warnf("New JWKs public key JSON is not parseable: %s", newKeyString)
@@ -545,12 +545,12 @@ func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error)
 	}
 
 	// Sort both sets of keys by "kid (key ID)" to be able to directly compare
-	oldKeys, oldKeysExists := oldJWKs["keys"].([]interface{})
-	newKeys, newKeysExists := newJWKs["keys"].([]interface{})
+	oldKeys, oldKeysExists := oldJWKs["keys"].([]any)
+	newKeys, newKeysExists := newJWKs["keys"].([]any)
 	if oldKeysExists && newKeysExists {
 		sort.Slice(oldKeys, func(i, j int) bool {
-			key1, ok1 := oldKeys[i].(map[string]interface{})
-			key2, ok2 := oldKeys[j].(map[string]interface{})
+			key1, ok1 := oldKeys[i].(map[string]any)
+			key2, ok2 := oldKeys[j].(map[string]any)
 			if ok1 && ok2 {
 				key1Id, kid1Exists := key1["kid"]
 				key2Id, kid2Exists := key2["kid"]
@@ -565,8 +565,8 @@ func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error)
 			return len(key1) < len(key2)
 		})
 		sort.Slice(newKeys, func(i, j int) bool {
-			key1, ok1 := newKeys[i].(map[string]interface{})
-			key2, ok2 := newKeys[j].(map[string]interface{})
+			key1, ok1 := newKeys[i].(map[string]any)
+			key2, ok2 := newKeys[j].(map[string]any)
 			if ok1 && ok2 {
 				key1Id, kid1Exists := key1["kid"]
 				key2Id, kid2Exists := key2["kid"]

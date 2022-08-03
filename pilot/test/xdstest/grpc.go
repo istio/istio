@@ -35,7 +35,7 @@ type slowClientStream struct {
 	recv, send time.Duration
 }
 
-func (w *slowClientStream) RecvMsg(m interface{}) error {
+func (w *slowClientStream) RecvMsg(m any) error {
 	if w.recv > 0 {
 		safeSleep(w.Context(), w.recv)
 		log.Infof("delayed recv for %v", w.recv)
@@ -43,7 +43,7 @@ func (w *slowClientStream) RecvMsg(m interface{}) error {
 	return w.ClientStream.RecvMsg(m)
 }
 
-func (w *slowClientStream) SendMsg(m interface{}) error {
+func (w *slowClientStream) SendMsg(m any) error {
 	if w.send > 0 {
 		safeSleep(w.Context(), w.send)
 		log.Infof("delayed send for %v", w.send)
@@ -66,7 +66,7 @@ type slowServerStream struct {
 	recv, send time.Duration
 }
 
-func (w *slowServerStream) RecvMsg(m interface{}) error {
+func (w *slowServerStream) RecvMsg(m any) error {
 	if w.recv > 0 {
 		safeSleep(w.Context(), w.recv)
 		log.Infof("delayed recv for %v", w.recv)
@@ -74,7 +74,7 @@ func (w *slowServerStream) RecvMsg(m interface{}) error {
 	return w.ServerStream.RecvMsg(m)
 }
 
-func (w *slowServerStream) SendMsg(m interface{}) error {
+func (w *slowServerStream) SendMsg(m any) error {
 	if w.send > 0 {
 		safeSleep(w.Context(), w.send)
 		log.Infof("delayed send for %v", w.send)
@@ -84,7 +84,7 @@ func (w *slowServerStream) SendMsg(m interface{}) error {
 
 // SlowServerInterceptor is an interceptor that allows injecting delays on Send and Recv
 func SlowServerInterceptor(recv, send time.Duration) grpc.StreamServerInterceptor {
-	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		return handler(srv, &slowServerStream{ss, recv, send})
 	}
 }

@@ -87,7 +87,7 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.ConfigKube().EvalFile(EchoNsInst.Name(), map[string]interface{}{
+	err = ctx.ConfigKube().EvalFile(EchoNsInst.Name(), map[string]any{
 		"StackdriverAddress": SDInst.Address(),
 		"EchoNamespace":      EchoNsInst.Name(),
 		"UseRealSD":          stackdriver.UseRealStackdriver(),
@@ -270,7 +270,7 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 	if err != nil {
 		return err
 	}
-	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
+	resource, err := tmpl.Evaluate(string(templateFile), map[string]any{
 		"EchoNamespace": EchoNsInst.Name(),
 		"ClusterName":   clName,
 		"TrustDomain":   trustDomain,

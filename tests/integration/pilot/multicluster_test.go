@@ -107,7 +107,7 @@ spec:
         host: {{$.host}}
         subset: {{ .Config.Cluster.Name }}
 {{- end }}
-`, map[string]interface{}{"src": sources, "dst": to, "host": to.Config().ClusterLocalFQDN()})
+`, map[string]any{"src": sources, "dst": to, "host": to.Config().ClusterLocalFQDN()})
 						t.ConfigIstio().YAML(sources.Config().Namespace.Name(), cfg).ApplyOrFail(t)
 					},
 				},
@@ -127,7 +127,7 @@ spec:
 								},
 								Check: check.And(
 									check.OK(),
-									check.ReachedClusters(t, t.AllClusters(), cluster.Clusters{source.Config().Cluster}),
+									check.ReachedClusters(t.AllClusters(), cluster.Clusters{source.Config().Cluster}),
 								),
 								Retry: echo.Retry{
 									Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},

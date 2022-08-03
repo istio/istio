@@ -169,7 +169,7 @@ func (v *Version) String() string {
 }
 
 // UnmarshalYAML implements the Unmarshaler interface.
-func (v *Version) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (v *Version) UnmarshalYAML(unmarshal func(any) error) error {
 	s := ""
 	if err := unmarshal(&s); err != nil {
 		return err

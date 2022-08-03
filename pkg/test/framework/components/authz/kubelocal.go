@@ -172,8 +172,8 @@ func (s *localServerImpl) grpcHost() string {
 	return fmt.Sprintf("%s.%s.local", grpcName, s.ns.Prefix())
 }
 
-func (s *localServerImpl) templateArgs() map[string]interface{} {
-	return map[string]interface{}{
+func (s *localServerImpl) templateArgs() map[string]any {
+	return map[string]any{
 		"httpName": s.httpName(),
 		"grpcName": s.grpcName(),
 		"httpHost": s.httpHost(),

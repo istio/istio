@@ -23,7 +23,7 @@ func TestParseValue(t *testing.T) {
 	tests := []struct {
 		desc string
 		in   string
-		want interface{}
+		want any
 	}{
 		{
 			desc: "empty",

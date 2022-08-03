@@ -72,7 +72,7 @@ type Config struct {
 }
 
 // toTemplateParams creates a new template configuration for the given configuration.
-func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
+func (cfg Config) toTemplateParams() (map[string]any, error) {
 	opts := make([]option.Instance, 0)
 
 	discHost := strings.Split(cfg.Metadata.ProxyConfig.DiscoveryAddress, ":")[0]
@@ -436,9 +436,9 @@ func getInt64ValueOrDefault(src *wrapperspb.Int64Value, defaultVal int64) int64 
 	return val
 }
 
-type setMetaFunc func(m map[string]interface{}, key string, val string)
+type setMetaFunc func(m map[string]any, key string, val string)
 
-func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]interface{}) {
+func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]any) {
 	metaPrefixLen := len(prefix)
 	for _, e := range envs {
 		if !shouldExtract(e, prefix) {
@@ -484,7 +484,6 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 		case "ISTIO_METAJSON_LABELS":
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
-				meta.IstioMetaLabels = m
 				meta.Labels = m
 			}
 		case "POD_NAME":
@@ -524,13 +523,13 @@ type MetadataOptions struct {
 // ISTIO_META_* env variables are passed thru
 func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta := &model.BootstrapNodeMetadata{}
-	untypedMeta := map[string]interface{}{}
+	untypedMeta := map[string]any{}
 
-	extractMetadata(options.Envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
+	extractMetadata(options.Envs, IstioMetaPrefix, func(m map[string]any, key string, val string) {
 		m[key] = val
 	}, untypedMeta)
 
-	extractMetadata(options.Envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
+	extractMetadata(options.Envs, IstioMetaJSONPrefix, func(m map[string]any, key string, val string) {
 		err := json.Unmarshal([]byte(val), &m)
 		if err != nil {
 			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
@@ -545,6 +544,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	if err := json.Unmarshal(j, meta); err != nil {
 		return nil, err
 	}
+	extractAttributesMetadata(options.Envs, options.Platform, meta)
 
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
@@ -559,7 +559,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
-	extractAttributesMetadata(options.Envs, options.Platform, meta)
 	// Add all instance labels with lower precedence than pod labels
 	extractInstanceLabels(options.Platform, meta)
 
@@ -688,7 +687,6 @@ func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeM
 		meta.Labels = map[string]string{}
 	}
 	for k, v := range instanceLabels {
-		meta.IstioMetaLabels[k] = v
 		meta.Labels[k] = v
 	}
 }

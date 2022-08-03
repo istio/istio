@@ -35,7 +35,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
@@ -149,7 +149,7 @@ type Validation struct {
 type AnalysisAwareError struct {
 	Type       string
 	Msg        string
-	Parameters []interface{}
+	Parameters []any
 }
 
 // OverlappingMatchValidationForHTTPRoute holds necessary information from virtualservice
@@ -180,7 +180,7 @@ func WrapWarning(e error) Validation {
 
 // Warningf formats according to a format specifier and returns the string as a
 // value that satisfies error. Like Errorf, but for warnings.
-func Warningf(format string, a ...interface{}) Validation {
+func Warningf(format string, a ...any) Validation {
 	return WrapWarning(fmt.Errorf(format, a...))
 }
 
@@ -927,7 +927,7 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 	message.Range(func(descriptor protoreflect.FieldDescriptor, value protoreflect.Value) bool {
 		m, isMessage := value.Interface().(protoreflect.Message)
 		if isMessage {
-			anyMessage, isAny := m.Interface().(*any.Any)
+			anyMessage, isAny := m.Interface().(*anypb.Any)
 			if isAny {
 				mt, err := protoregistry.GlobalTypes.FindMessageByURL(anyMessage.TypeUrl)
 				if err != nil {
@@ -1344,10 +1344,7 @@ func validateTunnelSettings(tunnel *networking.TrafficPolicy_TunnelSettings) (er
 	if tunnel == nil {
 		return
 	}
-	if tunnel.Protocol == "" {
-		errs = appendErrors(errs, fmt.Errorf("tunnel protocol must be specified"))
-	}
-	if tunnel.Protocol != "CONNECT" && tunnel.Protocol != "POST" {
+	if tunnel.Protocol != "" && tunnel.Protocol != "CONNECT" && tunnel.Protocol != "POST" {
 		errs = appendErrors(errs, fmt.Errorf("tunnel protocol must be \"CONNECT\" or \"POST\""))
 	}
 	fqdnErr := ValidateFQDN(tunnel.TargetHost)
@@ -2247,14 +2244,14 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
 				Type:       "VirtualServiceUnreachableRule",
 				Msg:        fmt.Sprintf("virtualService rule %v not used (%s)", ruleno, reason),
-				Parameters: []interface{}{ruleno, reason},
+				Parameters: []any{ruleno, reason},
 			}))
 		}
 		warnIneffective := func(ruleno, matchno, dupno string) {
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
 				Type:       "VirtualServiceIneffectiveMatch",
 				Msg:        fmt.Sprintf("virtualService rule %v match %v is not used (duplicate/overlapping match in rule %v)", ruleno, matchno, dupno),
-				Parameters: []interface{}{ruleno, matchno, dupno},
+				Parameters: []any{ruleno, matchno, dupno},
 			}))
 		}
 
@@ -2557,7 +2554,7 @@ func analyzeUnreachableTLSRules(routes []*networking.TLSRoute,
 }
 
 // asJSON() creates a JSON serialization of a match, to use for match comparison.  We don't use the JSON itself.
-func asJSON(data interface{}) string {
+func asJSON(data any) string {
 	// Remove the name, so we can create a serialization that only includes traffic routing config
 	switch mr := data.(type) {
 	case *networking.HTTPMatchRequest:
@@ -2576,7 +2573,7 @@ func asJSON(data interface{}) string {
 	return string(b)
 }
 
-func routeName(route interface{}, routen int) string {
+func routeName(route any, routen int) string {
 	switch r := route.(type) {
 	case *networking.HTTPRoute:
 		if r.Name != "" {
@@ -2588,7 +2585,7 @@ func routeName(route interface{}, routen int) string {
 	return fmt.Sprintf("#%d", routen)
 }
 
-func requestName(match interface{}, matchn int) string {
+func requestName(match any, matchn int) string {
 	switch mr := match.(type) {
 	case *networking.HTTPMatchRequest:
 		if mr != nil && mr.Name != "" {
@@ -3410,13 +3407,13 @@ func appendValidation(v Validation, vs ...error) Validation {
 
 // appendErrorf appends a formatted error string
 // nolint: unparam
-func appendErrorf(v Validation, format string, a ...interface{}) Validation {
+func appendErrorf(v Validation, format string, a ...any) Validation {
 	return appendValidation(v, fmt.Errorf(format, a...))
 }
 
 // appendWarningf appends a formatted warning string
 // nolint: unparam
-func appendWarningf(v Validation, format string, a ...interface{}) Validation {
+func appendWarningf(v Validation, format string, a ...any) Validation {
 	return appendValidation(v, Warningf(format, a...))
 }
 

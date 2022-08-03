@@ -34,7 +34,7 @@ import (
 // sidecar network and add a gateway endpoint to remote networks that have endpoints
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
+func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoints) []*LocalityEndpoints {
 	if !b.push.NetworkManager().IsMultiNetworkEnabled() {
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
@@ -42,7 +42,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
-	filtered := make([]*LocLbEndpointsAndOptions, 0)
+	filtered := make([]*LocalityEndpoints, 0)
 
 	// Scale all weights by the lcm of gateways per network and gateways per cluster.
 	// This will allow us to more easily spread traffic to the endpoint across multiple
@@ -53,7 +53,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	// to the result. Also count the number of endpoints per each remote network while
 	// iterating so that it can be used as the weight for the gateway endpoint
 	for _, ep := range endpoints {
-		lbEndpoints := &LocLbEndpointsAndOptions{
+		lbEndpoints := &LocalityEndpoints{
 			llbEndpoints: endpoint.LocalityLbEndpoints{
 				Locality: ep.llbEndpoints.Locality,
 				Priority: ep.llbEndpoints.Priority,
@@ -201,14 +201,14 @@ func splitWeightAmongGateways(weight uint32, gateways []model.NetworkGateway, ga
 // EndpointsWithMTLSFilter removes all endpoints that do not handle mTLS. This is determined by looking at
 // auto-mTLS, DestinationRule, and PeerAuthentication to determine if we would send mTLS to these endpoints.
 // Note there is no guarantee these destinations *actually* handle mTLS; just that we are configured to send mTLS to them.
-func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
+func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocalityEndpoints) []*LocalityEndpoints {
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
-	filtered := make([]*LocLbEndpointsAndOptions, 0)
+	filtered := make([]*LocalityEndpoints, 0)
 
 	// Go through all cluster endpoints and add those with mTLS enabled
 	for _, ep := range endpoints {
-		lbEndpoints := &LocLbEndpointsAndOptions{
+		lbEndpoints := &LocalityEndpoints{
 			llbEndpoints: endpoint.LocalityLbEndpoints{
 				Locality: ep.llbEndpoints.Locality,
 				Priority: ep.llbEndpoints.Priority,

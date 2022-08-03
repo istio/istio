@@ -29,7 +29,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -191,7 +191,7 @@ type Resources = []*discovery.Resource
 // DeletedResources is an alias for array of strings that represent removed resources in delta.
 type DeletedResources = []string
 
-func AnyToUnnamedResources(r []*any.Any) Resources {
+func AnyToUnnamedResources(r []*anypb.Any) Resources {
 	a := make(Resources, 0, len(r))
 	for _, rr := range r {
 		a = append(a, &discovery.Resource{Resource: rr})
@@ -199,8 +199,8 @@ func AnyToUnnamedResources(r []*any.Any) Resources {
 	return a
 }
 
-func ResourcesToAny(r Resources) []*any.Any {
-	a := make([]*any.Any, 0, len(r))
+func ResourcesToAny(r Resources) []*anypb.Any {
+	a := make([]*anypb.Any, 0, len(r))
 	for _, rr := range r {
 		a = append(a, rr.Resource)
 	}
@@ -472,7 +472,7 @@ type Node struct {
 	// Metadata is the typed node metadata
 	Metadata *BootstrapNodeMetadata
 	// RawMetadata is the untyped node metadata
-	RawMetadata map[string]interface{}
+	RawMetadata map[string]any
 	// Locality from Envoy bootstrap
 	Locality *core.Locality
 }
@@ -533,15 +533,10 @@ type NodeMetadata struct {
 	// Mostly used when istiod requests the upstream.
 	IstioRevision string `json:"ISTIO_REVISION,omitempty"`
 
-	// IstioMetaLabels contains the labels specified by ISTIO_METAJSON_LABELS and platform instance,
-	// so we can tell the difference between user specified labels and istio labels.
-	IstioMetaLabels map[string]string `json:"ISTIO_META_LABELS,omitempty"`
-
-	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node. Labels is a
-	// superset of IstioMetaLabels.
+	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
 	Labels map[string]string `json:"LABELS,omitempty"`
 
-	// Annotations specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
+	// Labels specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
 	Annotations map[string]string `json:"ANNOTATIONS,omitempty"`
 
 	// InstanceIPs is the set of IPs attached to this proxy
@@ -648,7 +643,7 @@ type NodeMetadata struct {
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
-	Raw map[string]interface{} `json:"-"`
+	Raw map[string]any `json:"-"`
 }
 
 // ProxyConfigOrDefault is a helper function to get the ProxyConfig from metadata, or fallback to a default
@@ -688,7 +683,7 @@ func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, t2); err != nil {
 		return err
 	}
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
@@ -854,23 +849,14 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 	node.ServiceInstances = instances
 }
 
-// SetWorkloadLabels will set the node.Metadata.Labels.
-// It merges both node meta labels and workload labels and give preference to workload labels.
-// Note: must be called after `SetServiceInstances`.
+// SetWorkloadLabels will set the node.Metadata.Labels only when it is nil.
 func (node *Proxy) SetWorkloadLabels(env *Environment) {
-	labels := env.GetProxyWorkloadLabels(node)
-	if len(labels) > 0 {
-		node.Metadata.Labels = make(map[string]string, len(labels)+len(node.Metadata.IstioMetaLabels))
-		// we can't just equate proxy workload labels to node meta labels as it may be customized by user
-		// with `ISTIO_METAJSON_LABELS` env (pkg/bootstrap/config.go extractAttributesMetadata).
-		// so, we fill the `ISTIO_METAJSON_LABELS` as well.
-		for k, v := range labels {
-			node.Metadata.Labels[k] = v
-		}
-		for k, v := range node.Metadata.IstioMetaLabels {
-			node.Metadata.Labels[k] = v
-		}
+	// First get the workload labels from node meta
+	if len(node.Metadata.Labels) > 0 {
+		return
 	}
+	// Fallback to calling GetProxyWorkloadLabels
+	node.Metadata.Labels = env.GetProxyWorkloadLabels(node)
 }
 
 // DiscoverIPMode discovers the IP Versions supported by Proxy based on its IP addresses.
@@ -1122,11 +1108,18 @@ func (node *Proxy) IsProxylessGrpc() bool {
 	return node.Metadata != nil && node.Metadata.Generator == "grpc"
 }
 
+func (node *Proxy) FuzzValidate() bool {
+	if node.Metadata == nil {
+		return false
+	}
+	return len(node.IPAddresses) != 0
+}
+
 type GatewayController interface {
 	ConfigStoreController
-	// Recompute updates the internal state of the gateway controller for a given input. This should be
+	// Reconcile updates the internal state of the gateway controller for a given input. This should be
 	// called before any List/Get calls if the state has changed
-	Recompute(ctx *PushContext) error
+	Reconcile(ctx *PushContext) error
 	// SecretAllowed determines if a SDS credential is accessible to a given namespace.
 	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
 	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.

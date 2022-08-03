@@ -25,7 +25,7 @@ import (
 )
 
 func TestConvert(t *testing.T) {
-	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
+	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]any{"x": 1}}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
 	cfg := config.Config{

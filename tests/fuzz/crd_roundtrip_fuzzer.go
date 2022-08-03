@@ -154,7 +154,7 @@ func dataAsString(data []byte) string {
 // checkForNilValues is a helper to check for nil
 // values in the runtime objects.
 // This part only converts the interface to a reflect.Value.
-func checkForNilValues(targetStruct interface{}) error {
+func checkForNilValues(targetStruct any) error {
 	v := reflect.ValueOf(targetStruct)
 	e := v.Elem()
 	err := checkForNil(e)

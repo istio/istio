@@ -635,7 +635,7 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 				t.Fatalf("error decoding object %q: %v", object, err)
 			}
 			if out.GetName() == "istio-sidecar-injector" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
-				data, ok := out.Object["data"].(map[string]interface{})
+				data, ok := out.Object["data"].(map[string]any)
 				if !ok {
 					t.Fatalf("failed to convert %v", out)
 				}
@@ -654,7 +654,7 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 					t.Fatal(err)
 				}
 			} else if out.GetName() == "istio" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
-				data, ok := out.Object["data"].(map[string]interface{})
+				data, ok := out.Object["data"].(map[string]any)
 				if !ok {
 					t.Fatalf("failed to convert %v", out)
 				}
@@ -691,7 +691,7 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 
 func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	t.Helper()
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(yamlDoc), &m); err != nil {
 		t.Fatal(err)
 	}
@@ -721,7 +721,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	}
 }
 
-func convertToJSON(i interface{}, t *testing.T) []byte {
+func convertToJSON(i any, t *testing.T) []byte {
 	t.Helper()
 	outputJSON, err := json.Marshal(i)
 	if err != nil {
@@ -1221,6 +1221,11 @@ func TestParseInjectEnvs(t *testing.T) {
 			name: "two-kv",
 			in:   "/inject/cluster/cluster1/net/network1/",
 			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1", "ISTIO_META_NETWORK": "network1"},
+		},
+		{
+			name: "kv-with-slashes",
+			in:   "/inject/cluster/cluster--slash--1/net/network--slash--1",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster/1", "ISTIO_META_NETWORK": "network/1"},
 		},
 		{
 			name: "not-predefined-kv",

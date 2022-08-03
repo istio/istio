@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -82,14 +82,14 @@ func NewTaintSetterController(ts *Setter) (*Controller, error) {
 // remove: retaint the node
 func buildPodController(c *Controller, config ConfigSettings, source cache.ListerWatcher) cache.Controller {
 	tempstore, tempcontroller := cache.NewInformer(source, &v1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj interface{}) {
+		AddFunc: func(newObj any) {
 			// remove filter condition will introduce a lot of error handling in workqueue
 			c.podWorkQueue.AddRateLimited(newObj)
 		},
-		UpdateFunc: func(_, newObj interface{}) {
+		UpdateFunc: func(_, newObj any) {
 			c.podWorkQueue.AddRateLimited(newObj)
 		},
-		DeleteFunc: func(newObj interface{}) {
+		DeleteFunc: func(newObj any) {
 			err := reTaintNodeByPod(newObj, c)
 			if err != nil {
 				log.Errorf("Error in pod remove process.")
@@ -106,7 +106,7 @@ func buildPodController(c *Controller, config ConfigSettings, source cache.Liste
 
 func buildNodeController(c *Controller, nodeListWatch cache.ListerWatcher) (cache.Store, cache.Controller) {
 	store, controller := cache.NewInformer(nodeListWatch, &v1.Node{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj interface{}) {
+		AddFunc: func(newObj any) {
 			_, ok := newObj.(*v1.Node)
 			if !ok {
 				log.Errorf("Error decoding object, invalid type.")
@@ -114,14 +114,14 @@ func buildNodeController(c *Controller, nodeListWatch cache.ListerWatcher) (cach
 			}
 			c.nodeWorkQueue.AddRateLimited(newObj)
 		},
-		UpdateFunc: func(_, newObj interface{}) {
+		UpdateFunc: func(_, newObj any) {
 			c.nodeWorkQueue.AddRateLimited(newObj)
 		},
 	})
 	return store, controller
 }
 
-func reTaintNodeByPod(obj interface{}, c *Controller) error {
+func reTaintNodeByPod(obj any, c *Controller) error {
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
 		log.Errorf("error decoding object, invalid type.")
@@ -185,7 +185,7 @@ func (tc *Controller) Run(stopCh <-chan struct{}) {
 }
 
 func (tc *Controller) processNextPod() bool {
-	errorHandler := func(obj interface{}, pod *v1.Pod, err error) {
+	errorHandler := func(obj any, pod *v1.Pod, err error) {
 		podName := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
 		if err == nil {
 			log.Debugf("Removing %s from work queue", podName)

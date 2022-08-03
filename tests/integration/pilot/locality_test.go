@@ -266,7 +266,7 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 	})
 }
 
-func runTemplate(t test.Failer, tmpl string, input interface{}) string {
+func runTemplate(t test.Failer, tmpl string, input any) string {
 	tt, err := template.New("").Funcs(sprig.TxtFuncMap()).Parse(tmpl)
 	if err != nil {
 		t.Fatal(err)

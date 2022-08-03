@@ -47,7 +47,7 @@ type TransportSocket struct {
 }
 
 func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) convertFunc {
-	return func(*instance) (interface{}, error) {
+	return func(*instance) (any, error) {
 		upstreamConnectionOptions := &cluster.UpstreamConnectionOptions{
 			TcpKeepalive: &core.TcpKeepalive{},
 		}
@@ -68,7 +68,7 @@ func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_
 }
 
 func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.BootstrapNodeMetadata, isH2 bool) convertFunc {
-	return func(*instance) (interface{}, error) {
+	return func(*instance) (any, error) {
 		tlsContext := tlsContextConvert(tls, sniName, metadata)
 		if tlsContext == nil {
 			return "", nil
@@ -150,8 +150,8 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 	return tlsContext
 }
 
-func nodeMetadataConverter(metadata *model.BootstrapNodeMetadata, rawMeta map[string]interface{}) convertFunc {
-	return func(*instance) (interface{}, error) {
+func nodeMetadataConverter(metadata *model.BootstrapNodeMetadata, rawMeta map[string]any) convertFunc {
+	return func(*instance) (any, error) {
 		marshalString, err := marshalMetadata(metadata, rawMeta)
 		if err != nil {
 			return "", err
@@ -161,7 +161,7 @@ func nodeMetadataConverter(metadata *model.BootstrapNodeMetadata, rawMeta map[st
 }
 
 func sanConverter(sans []string) convertFunc {
-	return func(*instance) (interface{}, error) {
+	return func(*instance) (any, error) {
 		matchers := []string{}
 		for _, s := range sans {
 			matchers = append(matchers, fmt.Sprintf(`{"exact":"%s"}`, s))
@@ -171,7 +171,7 @@ func sanConverter(sans []string) convertFunc {
 }
 
 func addressConverter(addr string) convertFunc {
-	return func(o *instance) (interface{}, error) {
+	return func(o *instance) (any, error) {
 		host, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse %s address %q: %v", o.name, addr, err)
@@ -192,15 +192,15 @@ func addressConverter(addr string) convertFunc {
 	}
 }
 
-func jsonConverter(d interface{}) convertFunc {
-	return func(o *instance) (interface{}, error) {
+func jsonConverter(d any) convertFunc {
+	return func(o *instance) (any, error) {
 		b, err := json.Marshal(d)
 		return string(b), err
 	}
 }
 
 func durationConverter(value *durationpb.Duration) convertFunc {
-	return func(*instance) (interface{}, error) {
+	return func(*instance) (any, error) {
 		return value.AsDuration().String(), nil
 	}
 }
@@ -209,7 +209,7 @@ func durationConverter(value *durationpb.Duration) convertFunc {
 // distributed trace contexts to propagate with envoy.
 func openCensusAgentContextConverter(contexts []meshAPI.Tracing_OpenCensusAgent_TraceContext) convertFunc {
 	allContexts := `["TRACE_CONTEXT","GRPC_TRACE_BIN","CLOUD_TRACE_CONTEXT","B3"]`
-	return func(*instance) (interface{}, error) {
+	return func(*instance) (any, error) {
 		if len(contexts) == 0 {
 			return allContexts, nil
 		}
@@ -232,7 +232,7 @@ func openCensusAgentContextConverter(contexts []meshAPI.Tracing_OpenCensusAgent_
 	}
 }
 
-func convertToJSON(v interface{}) string {
+func convertToJSON(v any) string {
 	if v == nil {
 		return ""
 	}
@@ -246,12 +246,12 @@ func convertToJSON(v interface{}) string {
 
 // marshalMetadata combines type metadata and untyped metadata and marshals to json
 // This allows passing arbitrary metadata to Envoy, while still supported typed metadata for known types
-func marshalMetadata(metadata *model.BootstrapNodeMetadata, rawMeta map[string]interface{}) (string, error) {
+func marshalMetadata(metadata *model.BootstrapNodeMetadata, rawMeta map[string]any) (string, error) {
 	b, err := json.Marshal(metadata)
 	if err != nil {
 		return "", err
 	}
-	var output map[string]interface{}
+	var output map[string]any
 	if err := json.Unmarshal(b, &output); err != nil {
 		return "", err
 	}

@@ -32,7 +32,7 @@ type AuthzLogger struct {
 	errMsg   *multierror.Error
 }
 
-func (al *AuthzLogger) AppendDebugf(format string, args ...interface{}) {
+func (al *AuthzLogger) AppendDebugf(format string, args ...any) {
 	al.debugMsg = append(al.debugMsg, fmt.Sprintf(format, args...))
 }
 

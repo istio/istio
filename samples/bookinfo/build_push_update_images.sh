@@ -19,10 +19,10 @@ set -o errexit
 display_usage() {
     echo
     echo "USAGE: ./build_push_update_images.sh <version> [-h|--help] [--prefix=value] [--scan-images]"
-    echo "	version : Version of the sample app images (Required)"
-    echo "	-h|--help : Prints usage information"
+    echo "	version: Version of the sample app images (Required)"
+    echo "	-h|--help: Prints usage information"
     echo "	--prefix: Use the value as the prefix for image names. By default, 'istio' is used"
-    echo -e "	--scan-images : Enable security vulnerability scans for docker images \n\t\t\trelated to bookinfo sample apps. By default, this feature \n\t\t\tis disabled."
+    echo -e "	--scan-images: Enable security vulnerability scans for docker images \n\t\t\trelated to bookinfo sample apps. By default, this feature \n\t\t\tis disabled."
     exit 1
 }
 
@@ -31,7 +31,7 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
         display_usage
 fi
 
-# Check if there is atleast one input argument
+# Check if there is at least one input argument
 if [[ -z "$1" ]] ; then
 	echo "Missing version parameter"
         display_usage
@@ -61,17 +61,17 @@ do
 	esac
 done
 
-#Build docker images
+# Build docker images
 src/build-services.sh "${VERSION}" "${PREFIX}"
 
-#get all the new image names and tags
+# Get all the new image names and tags
 for v in ${VERSION} "latest"
 do
   IMAGES+=$(docker images -f reference="${PREFIX}/examples-bookinfo*:$v" --format "{{.Repository}}:$v")
   IMAGES+=" "
 done
 
-# check that $IMAGES contains the images we've just built
+# Check that $IMAGES contains the images we've just built
 if [[ "${IMAGES}" =~ ^\ +$ ]] ; then
   echo "Found no images matching prefix \"${PREFIX}/examples-bookinfo\"."
   echo "Try running the script without specifying the image registry in --prefix (e.g. --prefix=/foo instead of --prefix=docker.io/foo)."
@@ -81,7 +81,7 @@ fi
 #
 # Run security vulnerability scanning on bookinfo sample app images using
 # trivy. If the image has vulnerabilities, the file will have a .failed
-# suffix. A successult scan will have a .passed suffix.
+# suffix. A successful scan will have a .passed suffix.
 function run_vulnerability_scanning() {
   RESULT_DIR="vulnerability_scan_results"
   mkdir -p "$RESULT_DIR"
@@ -111,6 +111,6 @@ do
   fi
 done
 
-#Update image references in the yaml files
+# Update image references in the yaml files
 find . -name "*bookinfo*.yaml" -exec sed -i.bak "s#image:.*\\(\\/examples-bookinfo-.*\\):.*#image: ${PREFIX//\//\\/}\\1:$VERSION#g" {} +
 

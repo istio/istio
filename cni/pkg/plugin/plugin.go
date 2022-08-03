@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,8 +71,8 @@ type Config struct {
 	// chained.
 	// If you need to modify the result before returning it, you will need
 	// to actually convert it to a concrete versioned struct.
-	RawPrevResult *map[string]interface{} `json:"prevResult"`
-	PrevResult    *cniv1.Result           `json:"-"`
+	RawPrevResult *map[string]any `json:"prevResult"`
+	PrevResult    *cniv1.Result   `json:"-"`
 
 	// Add plugin-specific flags here
 	LogLevel        string     `json:"log_level"`
@@ -177,7 +177,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	}
 	log.FindScope("default").SetOutputLevel(getLogLevel(conf.LogLevel))
 
-	var loggedPrevResult interface{}
+	var loggedPrevResult any
 	if conf.PrevResult == nil {
 		loggedPrevResult = "none"
 	} else {

@@ -200,7 +200,7 @@ func (s sourceImpl) WithParams(params param.Params) Source {
 	mergedParams := params
 	if len(s.params) > 0 {
 		// Make a copy of params.
-		mergedParams = make(map[string]interface{}, len(params)+len(s.params))
+		mergedParams = make(map[string]any, len(params)+len(s.params))
 		for k, v := range params {
 			mergedParams[k] = v
 		}

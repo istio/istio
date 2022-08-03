@@ -838,7 +838,7 @@ func filenames(t *testing.T, dir string) []string {
 
 func proxyConfigToMetadata(t *testing.T, proxyConfig *meshconfig.ProxyConfig) model.NodeMetadata {
 	t.Helper()
-	m := map[string]interface{}{}
+	m := map[string]any{}
 	for k, v := range proxyConfig.ProxyMetadata {
 		if strings.HasPrefix(k, bootstrap.IstioMetaPrefix) {
 			m[strings.TrimPrefix(k, bootstrap.IstioMetaPrefix)] = v

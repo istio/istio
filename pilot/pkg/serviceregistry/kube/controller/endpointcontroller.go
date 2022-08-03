@@ -35,14 +35,14 @@ type kubeEndpointsController interface {
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
 	getInformer() filter.FilteredSharedIndexInformer
-	onEvent(curr interface{}, event model.Event) error
+	onEvent(curr any, event model.Event) error
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Instance) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
-	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
+	buildIstioEndpoints(ep any, host host.Name) []*model.IstioEndpoint
 	buildIstioEndpointsWithService(name, namespace string, host host.Name, clearCache bool) []*model.IstioEndpoint
 	// forgetEndpoint does internal bookkeeping on a deleted endpoint
-	forgetEndpoint(endpoint interface{}) map[host.Name][]*model.IstioEndpoint
-	getServiceNamespacedName(ep interface{}) types.NamespacedName
+	forgetEndpoint(endpoint any) map[host.Name][]*model.IstioEndpoint
+	getServiceNamespacedName(ep any) types.NamespacedName
 }
 
 // kubeEndpoints abstracts the common behavior across endpoint and endpoint slices.
@@ -60,7 +60,7 @@ func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 }
 
 // processEndpointEvent triggers the config update.
-func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep interface{}) error {
+func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep any) error {
 	// Update internal endpoint cache no matter what kind of service, even headless service.
 	// As for gateways, the cluster discovery type is `EDS` for headless service.
 	updateEDS(c, epc, ep, event)
@@ -88,7 +88,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 	return nil
 }
 
-func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event model.Event) {
+func updateEDS(c *Controller, epc kubeEndpointsController, ep any, event model.Event) {
 	namespacedName := epc.getServiceNamespacedName(ep)
 	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
 	var forgottenEndpointsByHost map[host.Name][]*model.IstioEndpoint

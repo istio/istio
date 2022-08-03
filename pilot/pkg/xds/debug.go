@@ -32,7 +32,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
@@ -310,9 +310,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 // Legacy registry provides are synced to the new data structure as well, during
 // the full push.
 func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-	out, _ := json.MarshalIndent(s.Env.EndpointIndex.Shardz(), " ", " ")
-	_, _ = w.Write(out)
+	writeJSON(w, s.Env.EndpointIndex.Shardz(), req)
 }
 
 func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
@@ -622,7 +620,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		wasmCfgs := make([]interface{}, 0, len(resource))
+		wasmCfgs := make([]any, 0, len(resource))
 		for _, rr := range resource {
 			if w, err := unmarshalToWasm(rr); err != nil {
 				istiolog.Warnf("failed to unmarshal wasm: %v", err)
@@ -635,7 +633,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
+func unmarshalToWasm(r *discovery.Resource) (any, error) {
 	tce := &core.TypedExtensionConfig{}
 	if err := r.GetResource().UnmarshalTo(tce); err != nil {
 		return nil, err
@@ -790,7 +788,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 		return nil, err
 	}
 
-	var endpointsAny *any.Any
+	var endpointsAny *anypb.Any
 	// EDS is disabled by default for compatibility with Envoy config_dump interface
 	if includeEds {
 		endpoints, err := generate(v3.EndpointType)
@@ -816,7 +814,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 	scopedRoutesAny := protoconv.MessageToAny(&adminapi.ScopedRoutesConfigDump{})
 	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	configs := []*any.Any{
+	configs := []*anypb.Any{
 		bootstrapAny,
 		clustersAny,
 	}
@@ -1117,7 +1115,7 @@ func (p jsonMarshalProto) MarshalJSON() ([]byte, error) {
 }
 
 // writeJSON writes a json payload, handling content type, marshaling, and errors
-func writeJSON(w http.ResponseWriter, obj interface{}, req *http.Request) {
+func writeJSON(w http.ResponseWriter, obj any, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var b []byte
 	var err error

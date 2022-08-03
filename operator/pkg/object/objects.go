@@ -143,18 +143,18 @@ func (o *K8sObject) ResolveK8sConflict() *K8sObject {
 }
 
 // Unstructured exposes the raw object content, primarily for testing
-func (o *K8sObject) Unstructured() map[string]interface{} {
+func (o *K8sObject) Unstructured() map[string]any {
 	return o.UnstructuredObject().UnstructuredContent()
 }
 
 // Container returns a container subtree for Deployment objects if one is found, or nil otherwise.
-func (o *K8sObject) Container(name string) map[string]interface{} {
+func (o *K8sObject) Container(name string) map[string]any {
 	u := o.Unstructured()
 	path := fmt.Sprintf("spec.template.spec.containers.[name:%s]", name)
 	node, f, err := tpath.GetPathContext(u, util.PathFromString(path), false)
 	if err == nil && f {
 		// Must be the type from the schema.
-		return node.Node.(map[string]interface{})
+		return node.Node.(map[string]any)
 	}
 	return nil
 }
@@ -544,8 +544,8 @@ func resolvePDBConflict(o *K8sObject) *K8sObject {
 	if o.object.Object["spec"] == nil {
 		return o
 	}
-	spec := o.object.Object["spec"].(map[string]interface{})
-	isDefault := func(item interface{}) bool {
+	spec := o.object.Object["spec"].(map[string]any)
+	isDefault := func(item any) bool {
 		var ii intstr.IntOrString
 		switch item := item.(type) {
 		case int:

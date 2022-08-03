@@ -24,7 +24,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/google/uuid"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -392,7 +392,7 @@ func xdsResponseInput(istiodID string, configInputs []clientConfigInput) *xdsapi
 	}
 	identifier, _ := json.Marshal(icp)
 
-	resources := make([]*any.Any, 0)
+	resources := make([]*anypb.Any, 0)
 	for _, input := range configInputs {
 		resources = append(resources, protoconv.MessageToAny(newXdsClientConfig(input)))
 	}

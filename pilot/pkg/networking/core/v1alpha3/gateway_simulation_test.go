@@ -281,13 +281,13 @@ spec:
 			calls: []simulation.Expect{
 				{
 					// Expect listener, but no routing
-					"defined port",
-					simulation.Call{
+					Name: "defined port",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "foo.bar",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						Error:              simulation.ErrNoRoute,
 						ListenerMatched:    "0.0.0.0_80",
 						RouteConfigMatched: "http.80",
@@ -296,13 +296,13 @@ spec:
 				},
 				{
 					// There will be no listener
-					"undefined port",
-					simulation.Call{
+					Name: "undefined port",
+					Call: simulation.Call{
 						Port:       81,
 						HostHeader: "foo.bar",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						Error: simulation.ErrNoListener,
 					},
 				},
@@ -332,13 +332,13 @@ spec:
 `,
 			calls: []simulation.Expect{
 				{
-					"uri mismatch",
-					simulation.Call{
+					Name: "uri mismatch",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "foo.bar",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						// We didn't match the URI
 						Error:              simulation.ErrNoRoute,
 						ListenerMatched:    "0.0.0.0_80",
@@ -347,13 +347,13 @@ spec:
 					},
 				},
 				{
-					"host mismatch",
-					simulation.Call{
+					Name: "host mismatch",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "bad.bar",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						// We didn't match the host
 						Error:              simulation.ErrNoVirtualHost,
 						ListenerMatched:    "0.0.0.0_80",
@@ -361,14 +361,14 @@ spec:
 					},
 				},
 				{
-					"match",
-					simulation.Call{
+					Name: "match",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "foo.bar",
 						Path:       "/productpage",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						ListenerMatched:    "0.0.0.0_80",
 						VirtualHostMatched: "foo.bar:80",
 						ClusterMatched:     "outbound|9080||productpage.default",
@@ -424,31 +424,31 @@ spec:
 `,
 			calls: []simulation.Expect{
 				{
-					"a",
-					simulation.Call{
+					Name: "a",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "a.example.com",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{ClusterMatched: "outbound|80||a.default"},
+					Result: simulation.Result{ClusterMatched: "outbound|80||a.default"},
 				},
 				{
-					"b",
-					simulation.Call{
+					Name: "b",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "b.example.com",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{ClusterMatched: "outbound|80||b.default"},
+					Result: simulation.Result{ClusterMatched: "outbound|80||b.default"},
 				},
 				{
-					"undefined hostname",
-					simulation.Call{
+					Name: "undefined hostname",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "c.example.com",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{Error: simulation.ErrNoVirtualHost},
+					Result: simulation.Result{Error: simulation.ErrNoVirtualHost},
 				},
 			},
 		},
@@ -464,13 +464,13 @@ tls:
   httpsRedirect: true`),
 			calls: []simulation.Expect{
 				{
-					"request",
-					simulation.Call{
+					Name: "request",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "example.com",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						Error:              simulation.ErrTLSRedirect,
 						ListenerMatched:    "0.0.0.0_80",
 						VirtualHostMatched: "example.com:80",
@@ -494,13 +494,13 @@ tls:
   httpsRedirect: true`) + simpleRoute,
 			calls: []simulation.Expect{
 				{
-					"request",
-					simulation.Call{
+					Name: "request",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "example.com",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						Error:              simulation.ErrTLSRedirect,
 						ListenerMatched:    "0.0.0.0_80",
 						VirtualHostMatched: "example.com:80",
@@ -530,13 +530,13 @@ hosts:
 - "example.com"`) + simpleRoute,
 			calls: []simulation.Expect{
 				{
-					"request",
-					simulation.Call{
+					Name: "request",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "example.com",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						Error:              simulation.ErrTLSRedirect,
 						ListenerMatched:    "0.0.0.0_80",
 						VirtualHostMatched: "example.com:80",
@@ -560,14 +560,14 @@ tls:
   credentialName: test`) + simpleRoute,
 			calls: []simulation.Expect{
 				{
-					"request",
-					simulation.Call{
+					Name: "request",
+					Call: simulation.Call{
 						Port:       443,
 						HostHeader: "example.com",
 						Protocol:   simulation.HTTP,
 						TLS:        simulation.TLS,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						ListenerMatched:    "0.0.0.0_443",
 						VirtualHostMatched: "example.com:443",
 						RouteConfigMatched: "https.443.https.gateway.default",
@@ -628,11 +628,11 @@ spec:
 				gatewayCollision,
 			calls: []simulation.Expect{
 				{
-					"call",
-					simulation.Call{Port: 80, Protocol: simulation.TCP},
+					Name: "call",
+					Call: simulation.Call{Port: 80, Protocol: simulation.TCP},
 					// TODO(https://github.com/istio/istio/issues/21394) This is a bug!
 					// Should have identical result to the test below
-					simulation.Result{Error: simulation.ErrNoListener},
+					Result: simulation.Result{Error: simulation.ErrNoListener},
 				},
 			},
 		},
@@ -643,9 +643,9 @@ spec:
 				gatewayCollision,
 			calls: []simulation.Expect{
 				{
-					"call",
-					simulation.Call{Port: 80, Protocol: simulation.TCP},
-					simulation.Result{ListenerMatched: "0.0.0.0_80", ClusterMatched: "outbound|9080||productpage.default"},
+					Name:   "call",
+					Call:   simulation.Call{Port: 80, Protocol: simulation.TCP},
+					Result: simulation.Result{ListenerMatched: "0.0.0.0_80", ClusterMatched: "outbound|9080||productpage.default"},
 				},
 			},
 		},
@@ -659,9 +659,9 @@ spec:
 				{
 					// TODO(https://github.com/istio/istio/issues/24638) This is a bug!
 					// We should not have multiple matches, envoy will NACK this
-					"call",
-					simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "foo.bar"},
-					simulation.Result{Error: simulation.ErrMultipleFilterChain},
+					Name:   "call",
+					Call:   simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "foo.bar"},
+					Result: simulation.Result{Error: simulation.ErrMultipleFilterChain},
 				},
 			},
 		},
@@ -731,9 +731,9 @@ spec:
 `,
 			calls: []simulation.Expect{
 				{
-					"call",
-					simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "mysite.example.com"},
-					simulation.Result{
+					Name: "call",
+					Call: simulation.Call{Port: 443, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "mysite.example.com"},
+					Result: simulation.Result{
 						ListenerMatched: "0.0.0.0_443",
 						ClusterMatched:  "outbound|443||mysite.default.svc.cluster.local",
 					},
@@ -747,13 +747,13 @@ spec:
 				createGateway("beta", "", httpServer),
 			calls: []simulation.Expect{
 				{
-					"call tcp",
+					Name: "call tcp",
 					// TCP takes precedence. Since we have no tcp routes, this will result in no listeners
-					simulation.Call{
+					Call: simulation.Call{
 						Port:     80,
 						Protocol: simulation.TCP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						Error: simulation.ErrNoListener,
 					},
 				},
@@ -769,13 +769,13 @@ spec:
 					// Port define in gateway, but no virtual services
 					// Expect a 404
 					// HTTP protocol takes precedence
-					"call http",
-					simulation.Call{
+					Name: "call http",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "foo.bar",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						Error:              simulation.ErrNoRoute,
 						ListenerMatched:    "0.0.0.0_80",
 						RouteConfigMatched: "http.80",
@@ -832,26 +832,26 @@ spec:
 `,
 			calls: []simulation.Expect{
 				{
-					"ns-1",
-					simulation.Call{
+					Name: "ns-1",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "ns-1.example.com",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						ListenerMatched:    "0.0.0.0_80",
 						RouteConfigMatched: "http.80",
 						ClusterMatched:     "outbound|80||echo.ns-1",
 					},
 				},
 				{
-					"ns-2",
-					simulation.Call{
+					Name: "ns-2",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "ns-2.example.com",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						ListenerMatched:    "0.0.0.0_80",
 						RouteConfigMatched: "http.80",
 						ClusterMatched:     "outbound|80||echo.ns-2",
@@ -894,43 +894,43 @@ spec:
 			tmpl.MustEvaluate(cfg, map[string]string{"Name": "beta", "Time": "2010-01-01T00:00:00Z"}),
 		calls: []simulation.Expect{
 			{
-				"http alpha",
-				simulation.Call{
+				Name: "http alpha",
+				Call: simulation.Call{
 					Port:       80,
 					HostHeader: "example.com",
 					Path:       "/alpha",
 					Protocol:   simulation.HTTP,
 				},
-				simulation.Result{
+				Result: simulation.Result{
 					ListenerMatched:    "0.0.0.0_80",
 					RouteConfigMatched: "http.80",
 					ClusterMatched:     "outbound|80||alpha.default.svc.cluster.local",
 				},
 			},
 			{
-				"http beta",
-				simulation.Call{
+				Name: "http beta",
+				Call: simulation.Call{
 					Port:       80,
 					HostHeader: "example.com",
 					Path:       "/beta",
 					Protocol:   simulation.HTTP,
 				},
-				simulation.Result{
+				Result: simulation.Result{
 					ListenerMatched:    "0.0.0.0_80",
 					RouteConfigMatched: "http.80",
 					ClusterMatched:     "outbound|80||beta.default.svc.cluster.local",
 				},
 			},
 			{
-				"https alpha",
-				simulation.Call{
+				Name: "https alpha",
+				Call: simulation.Call{
 					Port:       443,
 					HostHeader: "example.com",
 					Path:       "/alpha",
 					Protocol:   simulation.HTTP,
 					TLS:        simulation.TLS,
 				},
-				simulation.Result{
+				Result: simulation.Result{
 					Error:              simulation.ErrNoRoute,
 					ListenerMatched:    "0.0.0.0_443",
 					RouteConfigMatched: "https.443.https-443-ingress-alpha-default-0.alpha-istio-autogenerated-k8s-ingress-default.istio-system",
@@ -938,15 +938,15 @@ spec:
 				},
 			},
 			{
-				"https beta",
-				simulation.Call{
+				Name: "https beta",
+				Call: simulation.Call{
 					Port:       443,
 					HostHeader: "example.com",
 					Path:       "/beta",
 					Protocol:   simulation.HTTP,
 					TLS:        simulation.TLS,
 				},
-				simulation.Result{
+				Result: simulation.Result{
 					Error:              simulation.ErrNoRoute,
 					ListenerMatched:    "0.0.0.0_443",
 					RouteConfigMatched: "https.443.https-443-ingress-alpha-default-0.alpha-istio-autogenerated-k8s-ingress-default.istio-system",
@@ -961,58 +961,58 @@ spec:
 			tmpl.MustEvaluate(cfg, map[string]string{"Name": "beta", "Time": "2020-01-01T00:00:00Z"}),
 		calls: []simulation.Expect{
 			{
-				"http alpha",
-				simulation.Call{
+				Name: "http alpha",
+				Call: simulation.Call{
 					Port:       80,
 					HostHeader: "example.com",
 					Path:       "/alpha",
 					Protocol:   simulation.HTTP,
 				},
-				simulation.Result{
+				Result: simulation.Result{
 					ListenerMatched:    "0.0.0.0_80",
 					RouteConfigMatched: "http.80",
 					ClusterMatched:     "outbound|80||alpha.default.svc.cluster.local",
 				},
 			},
 			{
-				"http beta",
-				simulation.Call{
+				Name: "http beta",
+				Call: simulation.Call{
 					Port:       80,
 					HostHeader: "example.com",
 					Path:       "/beta",
 					Protocol:   simulation.HTTP,
 				},
-				simulation.Result{
+				Result: simulation.Result{
 					ListenerMatched:    "0.0.0.0_80",
 					RouteConfigMatched: "http.80",
 					ClusterMatched:     "outbound|80||beta.default.svc.cluster.local",
 				},
 			},
 			{
-				"https alpha",
-				simulation.Call{
+				Name: "https alpha",
+				Call: simulation.Call{
 					Port:       443,
 					HostHeader: "example.com",
 					Path:       "/alpha",
 					Protocol:   simulation.HTTP,
 					TLS:        simulation.TLS,
 				},
-				simulation.Result{
+				Result: simulation.Result{
 					ListenerMatched:    "0.0.0.0_443",
 					RouteConfigMatched: "https.443.https-443-ingress-alpha-default-0.alpha-istio-autogenerated-k8s-ingress-default.istio-system",
 					ClusterMatched:     "outbound|80||alpha.default.svc.cluster.local",
 				},
 			},
 			{
-				"https beta",
-				simulation.Call{
+				Name: "https beta",
+				Call: simulation.Call{
 					Port:       443,
 					HostHeader: "example.com",
 					Path:       "/beta",
 					Protocol:   simulation.HTTP,
 					TLS:        simulation.TLS,
 				},
-				simulation.Result{
+				Result: simulation.Result{
 					ListenerMatched:    "0.0.0.0_443",
 					RouteConfigMatched: "https.443.https-443-ingress-alpha-default-0.alpha-istio-autogenerated-k8s-ingress-default.istio-system",
 					ClusterMatched:     "outbound|80||beta.default.svc.cluster.local",
@@ -1056,8 +1056,8 @@ func runSimulationTest(t *testing.T, proxy *model.Proxy, o xds.FakeOptions, tt s
 		if t.Failed() && debugMode {
 			t.Log(xdstest.MapKeys(xdstest.ExtractClusters(sim.Clusters)))
 			t.Log(xdstest.ExtractListenerNames(sim.Listeners))
-			t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Listeners)))
-			t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Routes)))
+			t.Log(xdstest.DumpList(t, sim.Listeners))
+			t.Log(xdstest.DumpList(t, sim.Routes))
 			t.Log(tt.config)
 			t.Log(tt.kubeConfig)
 		}

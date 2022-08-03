@@ -1778,7 +1778,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			test.SetBoolForTest(t, &features.SendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
+			test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
 				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
@@ -2611,7 +2611,7 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 		Services: []*model.Service{service},
 	})
 	proxy := cg.SetupProxy(nil)
-	proxy.Metadata.Raw = map[string]interface{}{
+	proxy.Metadata.Raw = map[string]any{
 		security.CredentialMetaDataName: "true",
 	}
 	// Expect sds_external cluster be added if credentialSocket exists

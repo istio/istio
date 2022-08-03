@@ -28,13 +28,13 @@ import (
 )
 
 // GetFromStructPath returns the value at path from the given node, or false if the path does not exist.
-func GetFromStructPath(node interface{}, path string) (interface{}, bool, error) {
+func GetFromStructPath(node any, path string) (any, bool, error) {
 	return getFromStructPath(node, util.PathFromString(path))
 }
 
 // getFromStructPath is the internal implementation of GetFromStructPath which recurses through a tree of Go structs
 // given a path. It terminates when the end of the path is reached or a path element does not exist.
-func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, error) {
+func getFromStructPath(node any, path util.Path) (any, bool, error) {
 	scope.Debugf("getFromStructPath path=%s, node(%T)", path, node)
 	if len(path) == 0 {
 		scope.Debugf("getFromStructPath returning node(%T)%v", node, node)
@@ -98,7 +98,7 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 // SetFromPath sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.
 // All intermediate along path must be type struct ptr. Out must be either a struct ptr or map ptr.
 // TODO: move these out to a separate package (istio/istio#15494).
-func SetFromPath(node interface{}, path string, out interface{}) (bool, error) {
+func SetFromPath(node any, path string, out any) (bool, error) {
 	val, found, err := GetFromStructPath(node, path)
 	if err != nil {
 		return false, err
@@ -111,7 +111,7 @@ func SetFromPath(node interface{}, path string, out interface{}) (bool, error) {
 }
 
 // Set sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.
-func Set(val, out interface{}) error {
+func Set(val, out any) error {
 	// Special case: map out type must be set through map ptr.
 	if util.IsMap(val) && util.IsMapPtr(out) {
 		reflect.ValueOf(out).Elem().Set(reflect.ValueOf(val))

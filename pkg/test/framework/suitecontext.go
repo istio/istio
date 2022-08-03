@@ -167,7 +167,7 @@ func (c *suiteContext) TrackResource(r resource.Resource) resource.ID {
 	return rid
 }
 
-func (c *suiteContext) GetResource(ref interface{}) error {
+func (c *suiteContext) GetResource(ref any) error {
 	return c.globalScope.get(ref)
 }
 
@@ -272,17 +272,17 @@ func (c *suiteContext) registerOutcome(test *testImpl) {
 	c.testOutcomes = append(c.testOutcomes, newOutcome)
 }
 
-func (c *suiteContext) RecordTraceEvent(key string, value interface{}) {
+func (c *suiteContext) RecordTraceEvent(key string, value any) {
 	c.traces.Store(key, value)
 }
 
 func (c *suiteContext) marshalTraceEvent() []byte {
-	kvs := map[string]interface{}{}
-	c.traces.Range(func(key, value interface{}) bool {
+	kvs := map[string]any{}
+	c.traces.Range(func(key, value any) bool {
 		kvs[key.(string)] = value
 		return true
 	})
-	outer := map[string]interface{}{
+	outer := map[string]any{
 		fmt.Sprintf("suite/%s", c.settings.TestID): kvs,
 	}
 	d, _ := yaml.Marshal(outer)

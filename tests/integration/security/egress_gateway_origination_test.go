@@ -235,7 +235,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
 func newTLSGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, to echo.Instances) {
-	args := map[string]interface{}{"to": to}
+	args := map[string]any{"to": to}
 
 	gateway := `
 apiVersion: networking.istio.io/v1beta1
@@ -313,7 +313,7 @@ spec:
 }
 
 func newTLSGatewayDestinationRule(t framework.TestContext, to echo.Instances, destinationRuleMode string, credentialName string) {
-	args := map[string]interface{}{
+	args := map[string]any{
 		"to":             to,
 		"Mode":           destinationRuleMode,
 		"CredentialName": credentialName,

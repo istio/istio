@@ -469,7 +469,7 @@ spec:
     - "{{.Host}}"
 `
 
-func runTemplate(t test.Failer, tmpl string, params interface{}) string {
+func runTemplate(t test.Failer, tmpl string, params any) string {
 	tm, err := template.New("").Parse(tmpl)
 	if err != nil {
 		t.Fatalf("failed to render template: %v", err)

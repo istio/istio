@@ -15,22 +15,22 @@
 package param
 
 // Params for a Template.
-type Params map[string]interface{}
+type Params map[string]any
 
 // NewParams returns a new Params instance.
 func NewParams() Params {
 	return make(Params)
 }
 
-func (p Params) Get(k string) interface{} {
+func (p Params) Get(k string) any {
 	return p[k]
 }
 
-func (p Params) GetWellKnown(k WellKnown) interface{} {
+func (p Params) GetWellKnown(k WellKnown) any {
 	return p[k.String()]
 }
 
-func (p Params) Set(k string, v interface{}) Params {
+func (p Params) Set(k string, v any) Params {
 	p[k] = v
 	return p
 }
@@ -51,7 +51,7 @@ func (p Params) SetAllNoOverwrite(other Params) Params {
 	return p
 }
 
-func (p Params) SetWellKnown(k WellKnown, v interface{}) Params {
+func (p Params) SetWellKnown(k WellKnown, v any) Params {
 	p[k.String()] = v
 	return p
 }
@@ -70,7 +70,7 @@ func (p Params) Copy() Params {
 		return NewParams()
 	}
 
-	out := make(map[string]interface{})
+	out := make(map[string]any)
 	for k, v := range p {
 		out[k] = v
 	}

@@ -70,7 +70,7 @@ func (e *BootstrapGenerator) applyPatches(bs *bootstrapv3.Bootstrap, proxy *mode
 	if patches == nil {
 		return bs
 	}
-	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		envoyfilter.IncrementEnvoyFilterErrorMetric(envoyfilter.Bootstrap)
 		log.Errorf("bootstrap patch caused panic, so the patches did not take effect")
 	})

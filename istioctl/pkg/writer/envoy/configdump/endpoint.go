@@ -24,7 +24,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	any "github.com/golang/protobuf/ptypes/any"
+	anypb "github.com/golang/protobuf/ptypes/any"
 	"sigs.k8s.io/yaml"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
@@ -165,7 +165,7 @@ func (c *ConfigWriter) retrieveSortedEndpointsSlice(filter EndpointFilter) ([]*e
 	return endpoints, nil
 }
 
-func retrieveEndpoint(epConfig *any.Any, filter EndpointFilter) (*endpoint.ClusterLoadAssignment, int) {
+func retrieveEndpoint(epConfig *anypb.Any, filter EndpointFilter) (*endpoint.ClusterLoadAssignment, int) {
 	cla := &endpoint.ClusterLoadAssignment{}
 	if err := epConfig.UnmarshalTo(cla); err != nil {
 		return nil, 0

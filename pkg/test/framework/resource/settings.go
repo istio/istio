@@ -57,7 +57,7 @@ func (s *ImageSettings) PullSecretName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	secret := unstructured.Unstructured{Object: map[string]interface{}{}}
+	secret := unstructured.Unstructured{Object: map[string]any{}}
 	if err := yaml.Unmarshal(data, secret.Object); err != nil {
 		return "", err
 	}

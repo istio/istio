@@ -61,7 +61,7 @@ type KubernetesResources struct {
 	Context GatewayContext
 }
 
-type AllowedReferences map[Reference]map[Reference]*ReferenceAllowance
+type AllowedReferences map[Reference]map[Reference]*Grants
 
 func (refs AllowedReferences) SecretAllowed(resourceName string, namespace string) bool {
 	p, err := credentials.ParseResourceName(resourceName, "", "", "")
@@ -131,9 +131,8 @@ func convertResources(r KubernetesResources) OutputResources {
 	result := OutputResources{}
 	ctx := ConfigContext{
 		KubernetesResources: r,
+		AllowedReferences:   convertReferencePolicies(r),
 	}
-	refs := convertReferencePolicies(r)
-	ctx.AllowedReferences = refs
 
 	gw, gwMap, nsReferences := convertGateways(ctx)
 	ctx.GatewayReferences = gwMap
@@ -150,12 +149,12 @@ func convertResources(r KubernetesResources) OutputResources {
 			}
 		}
 	}
-	result.AllowedReferences = convertReferencePolicies(r)
+	result.AllowedReferences = ctx.AllowedReferences
 	result.ReferencedNamespaceKeys = nsReferences
 	return result
 }
 
-type ReferenceAllowance struct {
+type Grants struct {
 	AllowAll     bool
 	AllowedNames sets.Set
 }
@@ -164,7 +163,7 @@ type ReferenceAllowance struct {
 // The currently supported references are:
 // * Gateway -> Secret
 func convertReferencePolicies(r KubernetesResources) AllowedReferences {
-	res := map[Reference]map[Reference]*ReferenceAllowance{}
+	res := map[Reference]map[Reference]*Grants{}
 	type namespacedGrant struct {
 		Namespace string
 		Grant     *k8s.ReferenceGrantSpec
@@ -210,10 +209,10 @@ func convertReferencePolicies(r KubernetesResources) AllowedReferences {
 					continue
 				}
 				if _, f := res[fromKey]; !f {
-					res[fromKey] = map[Reference]*ReferenceAllowance{}
+					res[fromKey] = map[Reference]*Grants{}
 				}
 				if _, f := res[fromKey][toKey]; !f {
-					res[fromKey][toKey] = &ReferenceAllowance{
+					res[fromKey][toKey] = &Grants{
 						AllowedNames: sets.New(),
 					}
 				}
@@ -1769,4 +1768,43 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 	}
 	ret[NamespaceNameLabel] = name
 	return ret
+}
+
+func (kr KubernetesResources) FuzzValidate() bool {
+	for _, gwc := range kr.GatewayClass {
+		if gwc.Spec == nil {
+			return false
+		}
+	}
+	for _, rp := range kr.ReferencePolicy {
+		if rp.Spec == nil {
+			return false
+		}
+	}
+	for _, rp := range kr.ReferenceGrant {
+		if rp.Spec == nil {
+			return false
+		}
+	}
+	for _, hr := range kr.HTTPRoute {
+		if hr.Spec == nil {
+			return false
+		}
+	}
+	for _, tr := range kr.TLSRoute {
+		if tr.Spec == nil {
+			return false
+		}
+	}
+	for _, g := range kr.Gateway {
+		if g.Spec == nil {
+			return false
+		}
+	}
+	for _, tr := range kr.TCPRoute {
+		if tr.Spec == nil {
+			return false
+		}
+	}
+	return true
 }

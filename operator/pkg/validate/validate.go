@@ -33,7 +33,7 @@ import (
 var (
 	// DefaultValidations maps a data path to a validation function.
 	DefaultValidations = map[string]ValidatorFunc{
-		"Values": func(path util.Path, i interface{}) util.Errors {
+		"Values": func(path util.Path, i any) util.Errors {
 			return CheckValues(i)
 		},
 		"MeshConfig":                 validateMeshConfig,
@@ -81,7 +81,7 @@ func Validate2(validations map[string]ValidatorFunc, iop *v1alpha1.IstioOperator
 // Validate function below is used by third party for integrations and has to be public
 
 // Validate validates the values of the tree using the supplied Func.
-func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path util.Path, checkRequired bool) (errs util.Errors) {
+func Validate(validations map[string]ValidatorFunc, structPtr any, path util.Path, checkRequired bool) (errs util.Errors) {
 	scope.Debugf("validate with path %s, %v (%T)", path, structPtr, structPtr)
 	if structPtr == nil {
 		return nil
@@ -158,7 +158,7 @@ func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 	return errs
 }
 
-func validateLeaf(validations map[string]ValidatorFunc, path util.Path, val interface{}, checkRequired bool) util.Errors {
+func validateLeaf(validations map[string]ValidatorFunc, path util.Path, val any, checkRequired bool) util.Errors {
 	pstr := path.String()
 	msg := fmt.Sprintf("validate %s:%v(%T) ", pstr, val, val)
 	if util.IsValueNil(val) || util.IsEmptyString(val) {
@@ -181,7 +181,7 @@ func validateLeaf(validations map[string]ValidatorFunc, path util.Path, val inte
 	return vf(path, val)
 }
 
-func validateMeshConfig(path util.Path, root interface{}) util.Errors {
+func validateMeshConfig(path util.Path, root any) util.Errors {
 	vs, err := util.ToYAMLGeneric(root)
 	if err != nil {
 		return util.Errors{err}
@@ -197,18 +197,18 @@ func validateMeshConfig(path util.Path, root interface{}) util.Errors {
 	return nil
 }
 
-func validateHub(path util.Path, val interface{}) util.Errors {
+func validateHub(path util.Path, val any) util.Errors {
 	if val == "" {
 		return nil
 	}
 	return validateWithRegex(path, val, ReferenceRegexp)
 }
 
-func validateTag(path util.Path, val interface{}) util.Errors {
+func validateTag(path util.Path, val any) util.Errors {
 	return validateWithRegex(path, val.(*structpb.Value).GetStringValue(), TagRegexp)
 }
 
-func validateRevision(_ util.Path, val interface{}) util.Errors {
+func validateRevision(_ util.Path, val any) util.Errors {
 	if val == "" {
 		return nil
 	}
@@ -219,7 +219,7 @@ func validateRevision(_ util.Path, val interface{}) util.Errors {
 	return nil
 }
 
-func validateGatewayName(path util.Path, val interface{}) (errs util.Errors) {
+func validateGatewayName(path util.Path, val any) (errs util.Errors) {
 	v := val.([]*v1alpha1.GatewaySpec)
 	for _, n := range v {
 		errs = append(errs, validateWithRegex(path, n.Name, ObjectNameRegexp)...)

@@ -76,7 +76,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("could not create %q namespace for registry redirector server install; err: %v", ns, err)
 	}
 
-	args := map[string]interface{}{}
+	args := map[string]any{}
 
 	if len(cfg.TargetRegistry) != 0 {
 		args["TargetRegistry"] = cfg.TargetRegistry
