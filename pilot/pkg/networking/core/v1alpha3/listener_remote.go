@@ -434,7 +434,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTPService(svc *model.S
 	}
 	hcm := lb.buildHTTPConnectionManager(httpOpts)
 
-	if lb.node.IsAmbient() {
+	if lb.node.IsPEP() {
 		filters = append(filters, &listener.Filter{
 			Name: "istio.filters.network.internal_ssl_forwarder",
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: &any.Any{
