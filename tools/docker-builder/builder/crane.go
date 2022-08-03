@@ -79,7 +79,7 @@ func WarmBase(architectures []string, baseImages ...string) {
 	basesMu.Lock()
 	wg := sync.WaitGroup{}
 	wg.Add(len(baseImages) * len(architectures))
-	resolvedBaseImages := make([]v1.Image, len(baseImages))
+	resolvedBaseImages := make([]v1.Image, len(baseImages) * len(architectures))
 	keys := []baseKey{}
 	for _, a := range architectures {
 		for _, b := range baseImages {
