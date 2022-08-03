@@ -17,9 +17,9 @@ package util
 import (
 	"strings"
 
-	"istio.io/api/annotation"
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/resource"
