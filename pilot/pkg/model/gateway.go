@@ -435,8 +435,10 @@ func CheckDuplicates(hosts []string, knownHosts sets.Set) []string {
 // Unlike sidecars where the RDS route name is the listener port number, gateways have a different
 // structure for RDS.
 // HTTP servers have route name set to http.<portNumber>.
-//   Multiple HTTP servers can exist on the same port and the code will combine all of them into
-//   one single RDS payload for http.<portNumber>
+//
+//	Multiple HTTP servers can exist on the same port and the code will combine all of them into
+//	one single RDS payload for http.<portNumber>
+//
 // HTTPS servers with TLS termination (i.e. envoy decoding the content, and making outbound http calls to backends)
 // will use route name https.<portNumber>.<portName>.<gatewayName>.<namespace>. HTTPS servers using SNI passthrough or
 // non-HTTPS servers (e.g., TCP+TLS) with SNI passthrough will be setup as opaque TCP proxies without terminating
