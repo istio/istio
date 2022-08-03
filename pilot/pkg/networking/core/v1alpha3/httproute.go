@@ -245,7 +245,7 @@ func (configgen *ConfigGeneratorImpl) matchingVirtualHosts(req *model.PushReques
 					} else {
 						if features.EnableDualStack && (strings.Contains(virtualHost.Routes[0].GetRoute().GetCluster(), "outbound6") ||
 							(len(svc.DefaultAddresses) == 1 && svc.DefaultAddresses[0] != coreV1.ClusterIPNone && net.ParseIP(svc.DefaultAddress) != nil &&
-							net.ParseIP(svc.DefaultAddress).To4() == nil)) {
+								net.ParseIP(svc.DefaultAddress).To4() == nil)) {
 							continue
 						}
 					}
@@ -408,7 +408,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		}
 		if features.EnableDualStack && (strings.HasPrefix(vhwrapper.Routes[0].GetRoute().GetCluster(), "outbound6") ||
 			(vService != nil && len(vService.DefaultAddresses) == 1 && len(vService.DefaultAddress) != 0 &&
-			net.ParseIP(vService.DefaultAddress) != nil && net.ParseIP(vService.DefaultAddress).To4() == nil)) {
+				net.ParseIP(vService.DefaultAddress) != nil && net.ParseIP(vService.DefaultAddress).To4() == nil)) {
 			name += constants.IPv6Suffix
 		}
 		if duplicateVirtualHost(name, vhosts) {
@@ -522,13 +522,13 @@ func cleanupDomains(domains []string, allowIPv6Addresses bool) []string {
 			addr = domain
 		}
 		if net.ParseIP(addr) != nil {
-			 if allowIPv6Addresses && net.ParseIP(addr).To4() != nil {
+			if allowIPv6Addresses && net.ParseIP(addr).To4() != nil {
 				continue
-			 }
-			 if !allowIPv6Addresses && net.ParseIP(addr).To4() == nil && net.ParseIP(addr).To16() != nil {
+			}
+			if !allowIPv6Addresses && net.ParseIP(addr).To4() == nil && net.ParseIP(addr).To16() != nil {
 				continue
-			 }
-			 cleanedUpDomains = append(cleanedUpDomains, domain)
+			}
+			cleanedUpDomains = append(cleanedUpDomains, domain)
 		} else {
 			cleanedUpDomains = append(cleanedUpDomains, domain)
 		}

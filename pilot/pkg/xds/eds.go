@@ -518,7 +518,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 						if (strings.Contains(clusterName, string(model.TrafficDirectionOutbound6)) &&
 							net.ParseIP(lbEndpoint.GetEndpoint().Address.GetSocketAddress().Address).To4() != nil) ||
 							(!strings.Contains(clusterName, string(model.TrafficDirectionOutbound6)) &&
-							net.ParseIP(lbEndpoint.GetEndpoint().Address.GetSocketAddress().Address).To4() == nil) {
+								net.ParseIP(lbEndpoint.GetEndpoint().Address.GetSocketAddress().Address).To4() == nil) {
 							ep.LbEndpoints = append(ep.LbEndpoints[:i], ep.LbEndpoints[i+1:]...)
 						}
 					}
