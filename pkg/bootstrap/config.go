@@ -127,9 +127,9 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv4),
 			option.IPv4Wildcard(option.WildcardIPv4))
-			if network.AllIPv4(cfg.Metadata.InstanceIPs) {
-				opts = append(opts, option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
-			}
+		if network.AllIPv4(cfg.Metadata.InstanceIPs) {
+			opts = append(opts, option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+		}
 	}
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)

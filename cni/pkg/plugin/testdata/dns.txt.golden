@@ -13,15 +13,15 @@
 -A ISTIO_INBOUND -p tcp -j ISTIO_IN_REDIRECT
 -A OUTPUT -p tcp -j ISTIO_OUTPUT
 -A ISTIO_OUTPUT -p tcp --dport 15020 -j RETURN
--A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
--A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -p tcp ! --dport 53 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
+-A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN
+-A ISTIO_OUTPUT -o lo ! -d ::1/128 -p tcp ! --dport 53 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
 -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --uid-owner 1337 -j RETURN
 -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN
--A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
+-A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
 -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
 -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
 -A ISTIO_OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports 15053
--A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
+-A ISTIO_OUTPUT -d ::1/128 -j RETURN
 -A ISTIO_OUTPUT -j ISTIO_REDIRECT
 -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
 -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN

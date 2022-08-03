@@ -94,7 +94,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 
 func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
 	service *model.Service, bind string, listenPort *model.Port, gateways map[string]bool,
-	configs []config.Config, actualWildcard string,) []*filterChainOpts {
+	configs []config.Config, actualWildcard string) []*filterChainOpts {
 	if !listenPort.Protocol.IsTLS() {
 		return nil
 	}
@@ -200,7 +200,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 
 		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 ||
 			(svcListenAddress == WildcardAddress || svcListenAddress == WildcardIPv6Address) &&
-			(bind == WildcardAddress || bind == WildcardIPv6Address) {
+				(bind == WildcardAddress || bind == WildcardIPv6Address) {
 			sniHosts = []string{string(service.Hostname)}
 		}
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(

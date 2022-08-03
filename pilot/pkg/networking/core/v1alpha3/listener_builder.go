@@ -420,7 +420,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 			if aFilterChain.Name == model.VirtualInboundBlackholeFilterChainName ||
 				aFilterChain.Name == model.VirtualInboundCatchAllHTTPFilterChainName ||
 				(aFilterChain.GetFilterChainMatch() != nil && len(aFilterChain.GetFilterChainMatch().GetPrefixRanges()) != 0 &&
-				aFilterChain.GetFilterChainMatch().GetPrefixRanges()[0].GetAddressPrefix() == actualWildcard) {
+					aFilterChain.GetFilterChainMatch().GetPrefixRanges()[0].GetAddressPrefix() == actualWildcard) {
 				matchFilterChains = append(matchFilterChains, aFilterChain)
 			}
 		}
