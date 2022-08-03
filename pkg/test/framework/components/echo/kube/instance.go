@@ -249,7 +249,7 @@ func (c *instance) UpdateWorkloadLabel(add map[string]string, remove []string) e
 		pod := wl.pod
 		wl.mutex.Unlock()
 		if pod.Name != "" {
-			retry.UntilSuccess(func() (err error) {
+			return retry.UntilSuccess(func() (err error) {
 				pod, err := wl.Cluster().Kube().CoreV1().Pods(c.NamespaceName()).Get(context.TODO(), pod.Name, metav1.GetOptions{})
 				if err != nil {
 					return fmt.Errorf("get pod %s/%s failed: %v", pod.Namespace, pod.Name, err)
