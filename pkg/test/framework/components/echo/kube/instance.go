@@ -261,7 +261,9 @@ func (c *instance) UpdateWorkloadLabel(add map[string]string, remove []string) e
 			}
 			pod.Labels = newLabels
 			_, err := wl.Cluster().Kube().CoreV1().Pods(c.NamespaceName()).Update(context.TODO(), &pod, metav1.UpdateOptions{})
-			return fmt.Errorf("update pod labels failed: %v", err)
+			if err != nil {
+				return fmt.Errorf("update pod labels failed: %v", err)
+			}
 		}
 	}
 	return nil
