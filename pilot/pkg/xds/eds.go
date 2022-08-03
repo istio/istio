@@ -269,9 +269,7 @@ func (s *DiscoveryServer) UpdateServiceAccount(shards *model.EndpointShards, ser
 	return false
 }
 
-// localityEndpointsForCluster return the endpoints for a cluster
-// Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
-// perf tests.
+// localityEndpointsForCluster returns the endpoints for a cluster
 func (s *DiscoveryServer) localityEndpointsForCluster(b EndpointBuilder) ([]*LocalityEndpoints, error) {
 	if b.service == nil {
 		// Shouldn't happen here
