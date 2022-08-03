@@ -174,6 +174,10 @@ func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echo.CallResult 
 	panic("implement me")
 }
 
+func (f fakeInstance) UpdateWorkloadLabel(add map[string]string, remove []string) error {
+	panic("implement me")
+}
+
 func (f fakeInstance) Restart() error {
 	panic("implement me")
 }
