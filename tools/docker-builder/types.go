@@ -219,6 +219,8 @@ func DefaultArgs() Args {
 		builder = b
 	}
 
+	// TODO: consider automatically detecting Qemu support
+
 	return Args{
 		Push:          false,
 		Save:          false,
