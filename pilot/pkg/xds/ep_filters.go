@@ -162,12 +162,12 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 // no match for the network+cluster, then all gateways matching the network are returned. Preferring
 // gateways that match against cluster has the following advantages:
 //
-//   1. Potentially reducing extra latency incurred when the gateway and endpoint reside in different
-//      clusters.
+//  1. Potentially reducing extra latency incurred when the gateway and endpoint reside in different
+//     clusters.
 //
-//   2. Enables Kubernetes MCS use cases, where endpoints for a service might be exported in one
-//      cluster but not another within the same network. By targeting the gateway for the cluster
-//      where the exported endpoints reside, we ensure that we only send traffic to exported endpoints.
+//  2. Enables Kubernetes MCS use cases, where endpoints for a service might be exported in one
+//     cluster but not another within the same network. By targeting the gateway for the cluster
+//     where the exported endpoints reside, we ensure that we only send traffic to exported endpoints.
 func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []model.NetworkGateway {
 	// Get the gateways for this network+cluster combination.
 	gws := b.push.NetworkManager().GatewaysForNetworkAndCluster(nw, c)

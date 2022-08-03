@@ -99,10 +99,10 @@ func TestStartExit(t *testing.T) {
 }
 
 // TestStartDrain tests basic start, termination sequence
-//   * Runs with passed config
-//   * Terminate is called
-//   * Runs with drain config
-//   * Aborts all proxies
+//   - Runs with passed config
+//   - Terminate is called
+//   - Runs with drain config
+//   - Aborts all proxies
 func TestStartDrain(t *testing.T) {
 	wantEpoch := 0
 	proxiesStarted, wantProxiesStarted := 0, 1
