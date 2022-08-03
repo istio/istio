@@ -271,3 +271,73 @@ spec:
     - route:
         - destination:
             host: details.default.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+  namespace: hello
+  annotations:
+    networking.istio.io/exportTo: hello1,hello2,. # export to hello1, hello2 and the namespace itself belongs to
+  labels:
+    app: hello
+    service: hello
+spec:
+  ports:
+    - port: 9080
+      name: http
+  selector:
+    app: hello
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  # This is cross-namespace, but not a problem, details has explicit networking.istio.io/exportTo=hello1,hello2,.
+  name: hello
+  namespace: hello1
+spec:
+  hosts: [hello]
+  http:
+    - route:
+        - destination:
+            host: hello.hello.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  # This is cross-namespace, but not a problem, details has explicit networking.istio.io/exportTo=hello1,hello2,.
+  name: hello
+  namespace: hello2
+spec:
+  hosts: [hello]
+  http:
+    - route:
+        - destination:
+            host: hello.hello.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  # This is cross-namespace, but not a problem, details has explicit networking.istio.io/exportTo=hello1,hello2,.
+  name: hello
+  namespace: hello
+spec:
+  hosts: [hello]
+  http:
+    - route:
+        - destination:
+            host: hello.hello.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: hello-export-to-bogus
+  namespace: hello
+spec:
+  hosts: [hello]
+  exportTo:
+    - bogus # This should generate an error, because the exportTo
+  http:
+    - route:
+        - destination:
+            host: hello.hello.svc.cluster.local

@@ -315,6 +315,7 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogusport"},
 			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService default/reviews-2port-missing"},
 			{msg.ReferencedResourceNotFound, "VirtualService istio-system/cross-namespace-details"},
+			{msg.ReferencedResourceNotFound, "VirtualService hello/hello-export-to-bogus"},
 		},
 	},
 	{
