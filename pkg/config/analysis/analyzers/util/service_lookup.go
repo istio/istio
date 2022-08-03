@@ -86,7 +86,8 @@ func getVisibleNamespacesFromExportToAnno(anno, resourceNamespace string) []stri
 }
 
 func GetDestinationHost(sourceNs resource.Namespace, exportTo []string, host string,
-	serviceEntryHosts map[ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
+	serviceEntryHosts map[ScopedFqdn]*v1alpha3.ServiceEntry,
+) *v1alpha3.ServiceEntry {
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
 
 	// Check ServiceEntries which are exposed to all namespaces
