@@ -84,7 +84,6 @@ endif
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
 export ISTIO_BIN=$(GOBIN)
-# Using same package structure as pkg/
 
 # If we are running in the Linux build container on non Linux hosts, we add the
 # linux binaries to the build dependencies, BUILD_DEPS, which can be added to other targets
@@ -105,71 +104,9 @@ $(shell mkdir -p $(TARGET_OUT_LINUX))
 $(shell mkdir -p $(TARGET_OUT_LINUX)/logs)
 $(shell mkdir -p $(dir $(JUNIT_OUT)))
 
-# Need seperate target for init:
+# Need separate target for init:
 $(TARGET_OUT):
 	@mkdir -p $@
-
-# scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
-ISTIO_DOCKER:=${TARGET_OUT_LINUX}/docker_temp
-
-# scratch dir for building isolated images. Please don't remove it again - using
-# ISTIO_DOCKER results in slowdown, all files (including multiple copies of envoy) will be
-# copied to the docker temp container - even if you add only a tiny file, >1G of data will
-# be copied, for each docker image.
-DOCKER_BUILD_TOP:=${TARGET_OUT_LINUX}/docker_build
-DOCKERX_BUILD_TOP:=${TARGET_OUT_LINUX}/dockerx_build
-
-# dir where tar.gz files from docker.save are stored
-ISTIO_DOCKER_TAR:=${TARGET_OUT_LINUX}/release/docker
-
-# Populate the git version for istio/proxy (i.e. Envoy)
-ifeq ($(PROXY_REPO_SHA),)
-  export PROXY_REPO_SHA:=$(shell grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-endif
-
-# Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
-
-export ISTIO_ENVOY_BASE_URL ?= https://storage.googleapis.com/istio-build/proxy
-
-# Use envoy as the sidecar by default
-export SIDECAR ?= envoy
-
-# OS-neutral vars. These currently only work for linux.
-export ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
-export ISTIO_ENVOY_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
-export ISTIO_ENVOY_CENTOS_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-centos-debug-$(ISTIO_ENVOY_VERSION).tar.gz
-export ISTIO_ENVOY_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
-export ISTIO_ENVOY_CENTOS_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-centos-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
-
-# Envoy Linux vars.
-export ISTIO_ENVOY_LINUX_VERSION ?= ${ISTIO_ENVOY_VERSION}
-export ISTIO_ENVOY_LINUX_DEBUG_URL ?= ${ISTIO_ENVOY_DEBUG_URL}
-export ISTIO_ENVOY_LINUX_RELEASE_URL ?= ${ISTIO_ENVOY_RELEASE_URL}
-# Variables for the extracted debug/release Envoy artifacts.
-export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT_LINUX}/debug
-export ISTIO_ENVOY_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}
-export ISTIO_ENVOY_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}
-export ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME ?= envoy-centos-debug-${ISTIO_ENVOY_LINUX_VERSION}
-export ISTIO_ENVOY_CENTOS_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME}
-
-export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT_LINUX}/release
-export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= ${SIDECAR}-${ISTIO_ENVOY_VERSION}
-export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}
-export ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME ?= envoy-centos-${ISTIO_ENVOY_LINUX_VERSION}
-export ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME}
-
-# Envoy macOS vars.
-# TODO Change url when official envoy release for macOS is available
-export ISTIO_ENVOY_MACOS_VERSION ?= 1.0.2
-export ISTIO_ENVOY_MACOS_RELEASE_URL ?= https://github.com/istio/proxy/releases/download/${ISTIO_ENVOY_MACOS_VERSION}/istio-proxy-${ISTIO_ENVOY_MACOS_VERSION}-macos.tar.gz
-# Variables for the extracted debug/release Envoy artifacts.
-export ISTIO_ENVOY_MACOS_RELEASE_DIR ?= ${TARGET_OUT}/release
-export ISTIO_ENVOY_MACOS_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_MACOS_VERSION}
-export ISTIO_ENVOY_MACOS_RELEASE_PATH ?= ${ISTIO_ENVOY_MACOS_RELEASE_DIR}/${ISTIO_ENVOY_MACOS_RELEASE_NAME}
-
-# Allow user-override envoy bootstrap config path.
-export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap.json
-export ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR = $(dir ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH})
 
 # If the hub is not explicitly set, use default to istio.
 HUB ?=istio
@@ -220,12 +157,6 @@ $(TARGET_OUT)/istio_is_init: bin/init.sh istio.deps | $(TARGET_OUT)
 	@# Like `curl: (56) OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 104`
 	TARGET_OUT=$(TARGET_OUT) ISTIO_BIN=$(ISTIO_BIN) GOOS_LOCAL=$(GOOS_LOCAL) bin/retry.sh SSL_ERROR_SYSCALL bin/init.sh
 	touch $(TARGET_OUT)/istio_is_init
-
-# init.sh downloads envoy and webassembly plugins
-${TARGET_OUT}/${SIDECAR}: init
-${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
-${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
-${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 
 # Pull dependencies such as envoy
 depend: init | $(TARGET_OUT)

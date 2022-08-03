@@ -58,8 +58,8 @@ ISTIO_EXTENSIONS:=stats-filter.wasm \
                   metadata-exchange-filter.compiled.wasm
 
 $(foreach EXT,$(ISTIO_EXTENSIONS),\
-        $(eval SIDECAR_FILES+=${ISTIO_ENVOY_LINUX_RELEASE_DIR}/$(EXT)=$(ISTIO_PROXY_HOME)/extensions/$(EXT)) \
-        $(eval SIDECAR_CENTOS_7_FILES+=${ISTIO_ENVOY_LINUX_RELEASE_DIR}/$(EXT)=$(ISTIO_PROXY_HOME)/extensions/$(EXT)))
+        $(eval SIDECAR_FILES+=${TARGET_OUT_LINUX}/release/$(EXT)=$(ISTIO_PROXY_HOME)/extensions/$(EXT)) \
+        $(eval SIDECAR_CENTOS_7_FILES+=${TARGET_OUT_LINUX}/release/$(EXT)=$(ISTIO_PROXY_HOME)/extensions/$(EXT)))
 
 # original name used in 0.2 - will be updated to 'istio.deb' since it now includes all istio binaries.
 SIDECAR_PACKAGE_NAME ?= istio-sidecar
