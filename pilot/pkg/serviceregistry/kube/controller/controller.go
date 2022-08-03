@@ -1376,7 +1376,8 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 		for k, v := range pod.Labels {
 			out[k] = v
 		}
-		// Add locality labels
+		// Add locality labels to support locality Load balancing for proxy without service instances.
+		// As this may contain node topology labels, which could not be got from aggregator controller
 		out[model.LocalityLabel] = locality
 		return out
 	}
