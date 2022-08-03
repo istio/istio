@@ -859,29 +859,27 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 // Note: must be called after `SetServiceInstances`.
 func (node *Proxy) SetWorkloadLabels(env *Environment, request *PushRequest) {
 	labels := env.GetProxyWorkloadLabels(node)
-	if len(labels) > 0 {
-		// when initializeProxy, calculate the IstioMetaLabels
-		if request == nil {
-			IstioMetaLabels := make(map[string]string, len(node.Metadata.Labels))
-			for k, v := range node.Metadata.Labels {
-				IstioMetaLabels[k] = v
-			}
-			for k := range labels {
-				delete(IstioMetaLabels, k)
-			}
-			node.IstioMetaLabels = IstioMetaLabels
+	// when IstioMetaLabels, calculate the IstioMetaLabels
+	if node.IstioMetaLabels == nil {
+		IstioMetaLabels := make(map[string]string, len(node.Metadata.Labels))
+		for k, v := range node.Metadata.Labels {
+			IstioMetaLabels[k] = v
 		}
+		for k := range labels {
+			delete(IstioMetaLabels, k)
+		}
+		node.IstioMetaLabels = IstioMetaLabels
+	}
 
-		node.Metadata.Labels = make(map[string]string, len(labels)+len(node.IstioMetaLabels))
-		// we can't just equate proxy workload labels to node meta labels as it may be customized by user
-		// with `ISTIO_METAJSON_LABELS` env (pkg/bootstrap/config.go extractAttributesMetadata).
-		// so, we fill the `ISTIO_METAJSON_LABELS` as well.
-		for k, v := range labels {
-			node.Metadata.Labels[k] = v
-		}
-		for k, v := range node.IstioMetaLabels {
-			node.Metadata.Labels[k] = v
-		}
+	node.Metadata.Labels = make(map[string]string, len(labels)+len(node.IstioMetaLabels))
+	// we can't just equate proxy workload labels to node meta labels as it may be customized by user
+	// with `ISTIO_METAJSON_LABELS` env (pkg/bootstrap/config.go extractAttributesMetadata).
+	// so, we fill the `ISTIO_METAJSON_LABELS` as well.
+	for k, v := range node.IstioMetaLabels {
+		node.Metadata.Labels[k] = v
+	}
+	for k, v := range labels {
+		node.Metadata.Labels[k] = v
 	}
 }
 
