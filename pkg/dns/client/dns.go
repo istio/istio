@@ -414,12 +414,12 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 // The overall approach of parallel resolution is likely not widespread, but there are already some widely used
 // clients support it:
 //
-// * dnsmasq: setting flag '--all-servers' forces dnsmasq to send all queries to all available servers. The reply from
-//   the server which answers first will be returned to the original requester.
-// * tailscale: will either proxy all DNS requests—in which case we query all nameservers in parallel and use the quickest
-//   response—or defer to the operating system, which we have no control over.
-// * systemd-resolved: which is used as a default resolver in many Linux distributions nowadays also performs parallel
-// 	 lookups for multiple DNS servers and returns the first successful response.
+//   - dnsmasq: setting flag '--all-servers' forces dnsmasq to send all queries to all available servers. The reply from
+//     the server which answers first will be returned to the original requester.
+//   - tailscale: will either proxy all DNS requests—in which case we query all nameservers in parallel and use the quickest
+//     response—or defer to the operating system, which we have no control over.
+//   - systemd-resolved: which is used as a default resolver in many Linux distributions nowadays also performs parallel
+//     lookups for multiple DNS servers and returns the first successful response.
 func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	// Guarantee that the ctx we use below is done when this function returns.
 	ctx, cancel := context.WithCancel(context.Background())

@@ -1750,15 +1750,15 @@ func hostCases(t TrafficContext) {
 
 // serviceCases tests overlapping Services. There are a few cases.
 // Consider we have our base service B, with service port P and target port T
-// 1) Another service, B', with P -> T. In this case, both the listener and the cluster will conflict.
-//    Because everything is workload oriented, this is not a problem unless they try to make them different
-//    protocols (this is explicitly called out as "not supported") or control inbound connectionPool settings
-//    (which is moving to Sidecar soon)
-// 2) Another service, B', with P -> T'. In this case, the listener will be distinct, since its based on the target.
-//    The cluster, however, will be shared, which is broken, because we should be forwarding to T when we call B, and T' when we call B'.
-// 3) Another service, B', with P' -> T. In this case, the listener is shared. This is fine, with the exception of different protocols
-//    The cluster is distinct.
-// 4) Another service, B', with P' -> T'. There is no conflicts here at all.
+//  1. Another service, B', with P -> T. In this case, both the listener and the cluster will conflict.
+//     Because everything is workload oriented, this is not a problem unless they try to make them different
+//     protocols (this is explicitly called out as "not supported") or control inbound connectionPool settings
+//     (which is moving to Sidecar soon)
+//  2. Another service, B', with P -> T'. In this case, the listener will be distinct, since its based on the target.
+//     The cluster, however, will be shared, which is broken, because we should be forwarding to T when we call B, and T' when we call B'.
+//  3. Another service, B', with P' -> T. In this case, the listener is shared. This is fine, with the exception of different protocols
+//     The cluster is distinct.
+//  4. Another service, B', with P' -> T'. There is no conflicts here at all.
 func serviceCases(t TrafficContext) {
 	for _, c := range t.Apps.A {
 		c := c

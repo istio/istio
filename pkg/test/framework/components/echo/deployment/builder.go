@@ -42,17 +42,17 @@ import (
 // Builder for a group of collaborating Echo Instances. Once built, all Instances in the
 // group:
 //
-//     1. Are ready to receive traffic, and
-//     2. Can call every other Instance in the group (i.e. have received Envoy config
-//        from Pilot).
+//  1. Are ready to receive traffic, and
+//  2. Can call every other Instance in the group (i.e. have received Envoy config
+//     from Pilot).
 //
 // If a test needs to verify that one Instance is NOT reachable from another, there are
 // a couple of options:
 //
-//     1. Build a group while all Instances ARE reachable. Then apply a policy
-//        disallowing the communication.
-//     2. Build the source and destination Instances in separate groups and then
-//        call `source.WaitUntilCallable(destination)`.
+//  1. Build a group while all Instances ARE reachable. Then apply a policy
+//     disallowing the communication.
+//  2. Build the source and destination Instances in separate groups and then
+//     call `source.WaitUntilCallable(destination)`.
 type Builder interface {
 	// With adds a new Echo configuration to the Builder. Once built, the instance
 	// pointer will be updated to point at the new Instance.
