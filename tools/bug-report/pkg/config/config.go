@@ -50,11 +50,12 @@ const (
 //
 // Examples:
 //
-//  1. All pods in test-namespace with label "test=foo" but without label "private" (with any value):
-//     include:
-//     test-namespace/*/*/test=foo
-//     exclude:
-//     test-namespace/*/*/private
+// 1. All pods in test-namespace with label "test=foo" but without label "private" (with any value):
+//
+//	include:
+//	  test-namespace/*/*/test=foo
+//	exclude:
+//	  test-namespace/*/*/private
 //
 // 2. Pods in all namespaces except "kube-system" with annotation "revision"
 // matching wildcard 1.6*:
@@ -65,14 +66,15 @@ const (
 // 3. Pods with "prometheus" in the name, except those with
 // the annotation "internal=true":
 //
-//		include:
-//		  */*/*prometheus*
-//		exclude:
-//		  */*/*prometheus*/*/internal=true
+//	include:
+//	  */*/*prometheus*
+//	exclude:
+//	  */*/*prometheus*/*/internal=true
 //
-//	 4. Container logs for all containers called "istio-proxy":
-//	    include:
-//	    */*/*/*/*/istio-proxy
+// 4. Container logs for all containers called "istio-proxy":
+//
+//	include:
+//	  */*/*/*/*/istio-proxy
 type SelectionSpec struct {
 	Namespaces  []string          `json:"namespaces,omitempty"`
 	Deployments []string          `json:"deployments,omitempty"`

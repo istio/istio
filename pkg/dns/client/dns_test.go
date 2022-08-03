@@ -323,11 +323,10 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 }
 
 // Baseline:
-//
-//	~150us via agent if cached for A/AAAA
-//	~300us via agent when doing the cname redirect
-//	5-6ms to upstream resolver directly
-//	6-7ms via agent to upstream resolver (cache miss)
+//   - ~150us via agent if cached for A/AAAA
+//   - ~300us via agent when doing the cname redirect
+//   - 5-6ms to upstream resolver directly
+//   - 6-7ms via agent to upstream resolver (cache miss)
 //
 // Also useful for load testing is using dnsperf. This can be run with:
 //
