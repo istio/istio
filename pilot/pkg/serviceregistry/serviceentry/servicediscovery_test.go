@@ -873,7 +873,8 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 }
 
 func TestWorkloadInstanceFullPush(t *testing.T) {
-	store, sd, events := initServiceDiscovery(t)
+	store, sd, events, stopFn := initServiceDiscovery()
+	defer stopFn()
 
 	// Setup a WorkloadEntry with selector the same as ServiceEntry
 	wle := createWorkloadEntry("wl", selectorDNS.Name,
