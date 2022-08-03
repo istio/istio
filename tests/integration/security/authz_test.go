@@ -907,14 +907,6 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 									Allow(c.allow).
 									Path(c.path).
 									BuildAndRunForPorts(t, ports.HTTP, ports.HTTP2)
-								if c.updateLabel {
-									for _, instance := range to.Instances() {
-										err := instance.UpdateWorkloadLabel(nil, []string{"foo"})
-										if err != nil {
-											t.Fatal(err)
-										}
-									}
-								}
 							}
 						})
 				})
