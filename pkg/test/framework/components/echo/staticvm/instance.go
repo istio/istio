@@ -221,7 +221,7 @@ func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echo.CallRes
 	return res
 }
 
-func (c *instance) UpdateWorkloadLabel(add map[string]string, remove []string) error {
+func (i *instance) UpdateWorkloadLabel(add map[string]string, remove []string) error {
 	panic("cannot trigger UpdateWorkloadLabel of a static VM")
 }
 
