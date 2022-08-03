@@ -46,16 +46,11 @@ function detect_arch() {
 }
 
 function may_copy_into_arch_named_sub_dir() {
-  FILE=${1}
-  COPY_ARCH_RELATED=${COPY_ARCH_RELATED:-1}
+  local FILE=${1}
+  local COPY_ARCH_RELATED=${COPY_ARCH_RELATED:-1}
 
-  arch="$(detect_arch "${FILE}")"
-  FILE_INFO=$(file "${FILE}" || true)
-  echo "File: ${FILE}, arch=${arch}"
-  # will put an arch named sub dir
-  # like
-  #   arm64/
-  #   amd64/
+  local arch="$(detect_arch "${FILE}")"
+  local FILE_INFO=$(file "${FILE}" || true)
 
   if [[ "${arch}" != "" && ${COPY_ARCH_RELATED} == 1 ]]; then
     # if other arch files exists, should copy too.
@@ -63,7 +58,7 @@ function may_copy_into_arch_named_sub_dir() {
       # like file `out/linux_amd64/pilot-discovery`
       # should check  `out/linux_arm64/pilot-discovery` exists then do copy
 
-      FILE_ARCH_RELATED=${FILE/linux_${TARGET_ARCH}/linux_${ARCH}}
+      local FILE_ARCH_RELATED=${FILE/linux_${TARGET_ARCH}/linux_${ARCH}}
 
       if [[ ${FILE_ARCH_RELATED} != "${FILE}" && -f ${FILE_ARCH_RELATED} ]]; then
         COPY_ARCH_RELATED=0 may_copy_into_arch_named_sub_dir "${FILE_ARCH_RELATED}"

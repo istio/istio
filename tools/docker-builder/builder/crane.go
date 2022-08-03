@@ -31,6 +31,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"istio.io/pkg/log"
 )
@@ -257,6 +258,7 @@ func Build(b BuildSpec) error {
 	} else {
 		// Multiple, we need to create an index
 		var manifest v1.ImageIndex = empty.Index
+		manifest = mutate.IndexMediaType(manifest, types.DockerManifestList)
 		for idx, i := range images {
 			img := i
 			mt, err := img.MediaType()
