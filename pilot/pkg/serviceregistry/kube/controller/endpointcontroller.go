@@ -121,11 +121,12 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep any, event model.E
 
 // getPod fetches a pod by name or IP address.
 // A pod may be missing (nil) for two reasons:
-// * It is an endpoint without an associated Pod. In this case, expectPod will be false.
-// * It is an endpoint with an associate Pod, but its not found. In this case, expectPod will be true.
-//   this may happen due to eventually consistency issues, out of order events, etc. In this case, the caller
-//   should not precede with the endpoint, or inaccurate information would be sent which may have impacts on
-//   correctness and security.
+//   - It is an endpoint without an associated Pod. In this case, expectPod will be false.
+//   - It is an endpoint with an associate Pod, but its not found. In this case, expectPod will be true.
+//     this may happen due to eventually consistency issues, out of order events, etc. In this case, the caller
+//     should not precede with the endpoint, or inaccurate information would be sent which may have impacts on
+//     correctness and security.
+//
 // Note: this is only used by endpoints and endpointslice controller
 func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (*v1.Pod, bool) {
 	var expectPod bool
