@@ -174,7 +174,7 @@ spec:
       serviceAccountName: istio-operator
       containers:
         - name: istio-operator
-          image: gcr.io/istio-testing/operator:1.15-dev
+          image: gcr.io/istio-testing/operator:1.16-dev
           command:
           - operator
           - server
