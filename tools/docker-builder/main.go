@@ -166,6 +166,11 @@ func ReadPlan(a Args) (Args, error) {
 		input := os.Expand(string(by), func(s string) string {
 			data := archToEnvMap(arch)
 			data["SIDECAR"] = "envoy"
+			if _, f := os.LookupEnv("DEBUG_IMAGE"); f {
+				data["RELEASE_MODE"] = "debug"
+			} else {
+				data["RELEASE_MODE"] = "release"
+			}
 			if r, f := data[s]; f {
 				return r
 			}
