@@ -25,6 +25,10 @@ source "${ROOT}/prow/lib.sh"
 
 setup_gcloud_credentials
 
+# Enable emulation required for cross compiling a few images (VMs)
+docker run --rm --privileged gcr.io/istio-testing/qemu-user-static --reset -p yes
+export ISTIO_DOCKER_QEMU=true
+
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
 

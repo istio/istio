@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"k8s.io/utils/env"
@@ -220,20 +221,28 @@ func DefaultArgs() Args {
 	}
 
 	// TODO: consider automatically detecting Qemu support
+	qemu := false
+	if b, f := os.LookupEnv("ISTIO_DOCKER_QEMU"); f {
+		q, err := strconv.ParseBool(b)
+		if err == nil {
+			qemu = q
+		}
+	}
 
 	return Args{
-		Push:          false,
-		Save:          false,
-		NoCache:       false,
-		Hubs:          hub,
-		Tags:          tag,
-		BaseVersion:   fetchBaseVersion(),
-		IstioVersion:  fetchIstioVersion(),
-		ProxyVersion:  pv,
-		Architectures: arch,
-		Targets:       targets,
-		Variants:      variants,
-		Builder:       builder,
+		Push:              false,
+		Save:              false,
+		NoCache:           false,
+		Hubs:              hub,
+		Tags:              tag,
+		BaseVersion:       fetchBaseVersion(),
+		IstioVersion:      fetchIstioVersion(),
+		ProxyVersion:      pv,
+		Architectures:     arch,
+		Targets:           targets,
+		Variants:          variants,
+		Builder:           builder,
+		SupportsEmulation: qemu,
 	}
 }
 
