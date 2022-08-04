@@ -79,7 +79,7 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 	}
 	cfg := i.store.Get(colschema.Resource().GroupVersionKind(), name.Name.String(), name.Namespace.String())
 	if cfg == nil {
-		log.Warnf(" %s resource [%s/%s] could not be found", colschema.Resource().GroupVersionKind(), name.Namespace.String(), name.Name.String())
+		log.Debugf(" %s resource [%s/%s] could not be found", colschema.Resource().GroupVersionKind(), name.Namespace.String(), name.Name.String())
 		return nil
 	}
 	result, err := cfgToInstance(*cfg, col, colschema)
