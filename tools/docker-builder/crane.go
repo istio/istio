@@ -65,7 +65,11 @@ func RunCrane(a Args) error {
 				Dests: extractTags(a, t, v, hasDoubleDefault),
 			}
 			for _, arch := range a.Architectures {
-				df := a.PlanFor(arch).Find(t).Dockerfile
+				p := a.PlanFor(arch).Find(t)
+				if p == nil {
+					continue
+				}
+				df := p.Dockerfile
 				dargs := createArgs(a, t, v, arch)
 				args, err := dockerfile.Parse(df, dockerfile.WithArgs(dargs), dockerfile.IgnoreRuns())
 				if err != nil {
@@ -76,6 +80,9 @@ func RunCrane(a Args) error {
 				// args.Files provides a mapping from final destination -> docker context source
 				// docker context is virtual, so we need to rewrite the "docker context source" to the real path of disk
 				plan := a.PlanFor(arch).Find(args.Name)
+				if plan == nil {
+					continue
+				}
 				// Plan is a list of real file paths, but we don't have a strong mapping from "docker context source"
 				// to "real path on disk". We do have a weak mapping though, by reproducing docker-copy.sh
 				for dest, src := range args.Files {
@@ -94,7 +101,7 @@ func RunCrane(a Args) error {
 
 	// Warm up our base images while we are building everything. This isn't pulling them -- we actually
 	// never pull them -- but it is pulling the config file from the remote registry.
-	builder.WarmBase(bases.SortedList()...)
+	builder.WarmBase(a.Architectures, bases.SortedList()...)
 
 	// Build all dependencies
 	makeStart := time.Now()
