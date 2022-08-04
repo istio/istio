@@ -80,6 +80,7 @@ rpm/fpm:
 	fpm -s dir -t rpm -n ${SIDECAR_PACKAGE_NAME} -p ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm --version $(PACKAGE_VERSION) -f \
 		--url http://istio.io  \
 		--license Apache \
+		--architecture "${TARGET_ARCH}" \
 		--vendor istio.io \
 		--maintainer istio@istio.io \
 		--after-install tools/packaging/postinst.sh \
@@ -99,6 +100,7 @@ rpm-7/fpm:
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
+		--architecture "${TARGET_ARCH}" \
 		--maintainer istio@istio.io \
 		--after-install tools/packaging/postinst.sh \
 		--config-files /var/lib/istio/envoy/envoy_bootstrap_tmpl.json \
@@ -117,6 +119,7 @@ deb/fpm:
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
+		--architecture "${TARGET_ARCH}" \
 		--maintainer istio@istio.io \
 		--after-install tools/packaging/postinst.sh \
 		--config-files /var/lib/istio/envoy/envoy_bootstrap_tmpl.json \

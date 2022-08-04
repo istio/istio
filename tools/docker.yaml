@@ -104,6 +104,7 @@ images:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
+  emulationRequired: true
 - name: app_sidecar_debian_11
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
   files:
@@ -115,6 +116,7 @@ images:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
+  emulationRequired: true
 - name: app_sidecar_ubuntu_jammy
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
   files:
@@ -126,6 +128,7 @@ images:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
+  emulationRequired: true
 - name: app_sidecar_ubuntu_xenial
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
   files:
@@ -137,6 +140,7 @@ images:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
+  emulationRequired: true
 
 # Test base images
 - name: app_sidecar_base_debian_11 # latest debian
