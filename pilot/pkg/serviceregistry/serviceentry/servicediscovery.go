@@ -259,12 +259,12 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 		if event == model.EventAdd {
 			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address)
 		}
-		s.edsUpdate(allInstances, true)
+		s.edsUpdate(allInstances)
 		return
 	}
 
 	// update eds cache only
-	s.edsUpdate(allInstances, false)
+	s.edsCacheUpdate(allInstances)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -315,6 +315,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	}
 
 	shard := model.ShardKeyFromRegistry(s)
+
 	for _, svc := range addedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
@@ -359,7 +360,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	fullPush := len(configsUpdated) > 0
 	// if not full push needed, at least one service unchanged
 	if !fullPush {
-		s.edsUpdate(serviceInstances, true)
+		s.edsUpdate(serviceInstances)
 		return
 	}
 
@@ -380,11 +381,8 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	for _, svc := range nonDNSServices {
 		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
-	// trigger update eds endpoint shards
-	s.edsQueue.Push(func() error {
-		s.edsUpdateByKeys(keys, false)
-		return nil
-	})
+
+	s.queueEdsEvent(keys, s.doEdsCacheUpdate)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -408,10 +406,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	redundantEventForPod := false
 
 	var addressToDelete string
-
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
 	k := types.NamespacedName{Namespace: wi.Namespace, Name: wi.Name}
@@ -439,17 +434,21 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	}
 
 	if redundantEventForPod {
+		s.mutex.Unlock()
 		return
 	}
 
 	// We will only select entries in the same namespace
 	cfgs, _ := s.store.List(gvk.ServiceEntry, wi.Namespace)
 	if len(cfgs) == 0 {
+		s.mutex.Unlock()
 		return
 	}
 
 	instances := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
+	configsUpdated := map[model.ConfigKey]struct{}{}
+	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
 		workloadLabels := labels.Collection{wi.Endpoint.Labels}
@@ -473,6 +472,20 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		} else {
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
 		}
+		// If serviceentry's resolution is DNS, make a full push
+		// TODO: maybe cds?
+		if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
+			se.WorkloadSelector != nil {
+
+			fullPush = true
+			for _, inst := range instance {
+				configsUpdated[model.ConfigKey{
+					Kind:      gvk.ServiceEntry,
+					Name:      string(inst.Service.Hostname),
+					Namespace: cfg.Namespace,
+				}] = struct{}{}
+			}
+		}
 	}
 	if len(instancesDeleted) > 0 {
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
@@ -483,8 +496,23 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	} else {
 		s.serviceInstances.updateInstances(key, instances)
 	}
+	s.mutex.Unlock()
 
-	s.edsUpdate(instances, true)
+	s.edsUpdate(instances)
+
+	// ServiceEntry with WorkloadEntry results in STRICT_DNS cluster with hardcoded endpoints
+	// need to update CDS to refresh endpoints
+	// https://github.com/istio/istio/issues/39505
+	if fullPush {
+		log.Debugf("Full push triggered during event %s for workload instance (%s/%s) in namespace %s", event,
+			wi.Kind, wi.Endpoint.Address, wi.Namespace)
+		pushReq := &model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: configsUpdated,
+			Reason:         []model.TriggerReason{model.EndpointUpdate},
+		}
+		s.XdsUpdater.ConfigUpdate(pushReq)
+	}
 }
 
 func (s *ServiceEntryStore) Provider() provider.ID {
@@ -574,38 +602,88 @@ func (s *ServiceEntryStore) ResyncEDS() {
 	s.mutex.RLock()
 	allInstances := s.serviceInstances.getAll()
 	s.mutex.RUnlock()
-	s.edsUpdateSync(allInstances, true)
+	s.edsUpdate(allInstances)
 }
 
-// edsUpdateSync triggers an EDS cache update for the given instances.
-// And triggers a push if `push` is true synchronously.
-// This should probably not be used in production code.
-func (s *ServiceEntryStore) edsUpdateSync(instances []*model.ServiceInstance, push bool) {
+// edsUpdate triggers an EDS push serially such that we can prevent allinstances
+// got at t1 can accidentally override that got at t2 if multiple threads are
+// running this function. Queueing ensures latest updated wins.
+func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance) {
 	// Find all keys we need to lookup
 	keys := map[instancesKey]struct{}{}
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
-	s.edsUpdateByKeys(keys, push)
+	s.queueEdsEvent(keys, s.doEdsUpdate)
 }
 
-// edsUpdate triggers an EDS cache update for the given instances.
-// And triggers a push if `push` is true.
-func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push bool) {
+// edsCacheUpdate upates eds cache serially such that we can prevent allinstances
+// got at t1 can accidentally override that got at t2 if multiple threads are
+// running this function. Queueing ensures latest updated wins.
+func (s *ServiceEntryStore) edsCacheUpdate(instances []*model.ServiceInstance) {
 	// Find all keys we need to lookup
 	keys := map[instancesKey]struct{}{}
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
+	s.queueEdsEvent(keys, s.doEdsCacheUpdate)
+}
+
+// queueEdsEvent processes eds events sequentially for the passed keys and invokes the passed function.
+func (s *ServiceEntryStore) queueEdsEvent(keys map[instancesKey]struct{}, edsFn func(keys map[instancesKey]struct{})) {
+	// wait for the cache update finished
+	waitCh := make(chan struct{})
+	// trigger update eds endpoint shards
 	s.edsQueue.Push(func() error {
-		s.edsUpdateByKeys(keys, push)
+		defer close(waitCh)
+		edsFn(keys)
 		return nil
 	})
+	select {
+	case <-waitCh:
+		return
+	// To prevent goroutine leak in tests
+	// in case the queue is stopped but the task has not been executed..
+	case <-s.edsQueue.Closed():
+		return
+	}
 }
 
-// edsUpdateByKeys will be run in serial within one thread, such that we can
-// prevent allinstances got at t1 can override that got at t2 if multi threads running this function
-func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push bool) {
+// doEdsCacheUpdate invokes XdsUpdater's EDSCacheUpdate to update endpoint shards.
+func (s *ServiceEntryStore) doEdsCacheUpdate(keys map[instancesKey]struct{}) {
+	endpoints := s.buildEndpoints(keys)
+	shard := model.ShardKeyFromRegistry(s)
+	// This is delete.
+	if len(endpoints) == 0 {
+		for k := range keys {
+			s.XdsUpdater.EDSCacheUpdate(shard, string(k.hostname), k.namespace, nil)
+		}
+	} else {
+		for k, eps := range endpoints {
+			s.XdsUpdater.EDSCacheUpdate(shard, string(k.hostname), k.namespace, eps)
+		}
+	}
+}
+
+// doEdsUpdate invokes XdsUpdater's eds update to trigger eds push.
+func (s *ServiceEntryStore) doEdsUpdate(keys map[instancesKey]struct{}) {
+	endpoints := s.buildEndpoints(keys)
+	shard := model.ShardKeyFromRegistry(s)
+	// This is delete.
+	if len(endpoints) == 0 {
+		for k := range keys {
+			s.XdsUpdater.EDSUpdate(shard, string(k.hostname), k.namespace, nil)
+		}
+	} else {
+		for k, eps := range endpoints {
+			s.XdsUpdater.EDSUpdate(shard, string(k.hostname), k.namespace, eps)
+		}
+	}
+}
+
+// buildEndpoints builds endpoints for the instance keys.
+func (s *ServiceEntryStore) buildEndpoints(keys map[instancesKey]struct{}) map[instancesKey][]*model.IstioEndpoint {
+	var endpoints map[instancesKey][]*model.IstioEndpoint
 	allInstances := []*model.ServiceInstance{}
 	s.mutex.RLock()
 	for key := range keys {
@@ -614,50 +692,29 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 	}
 	s.mutex.RUnlock()
 
-	// This was a delete
-	shard := model.ShardKeyFromRegistry(s)
-	if len(allInstances) == 0 {
-		if push {
-			for k := range keys {
-				s.XdsUpdater.EDSUpdate(shard, string(k.hostname), k.namespace, nil)
-			}
-		} else {
-			for k := range keys {
-				s.XdsUpdater.EDSCacheUpdate(shard, string(k.hostname), k.namespace, nil)
-			}
+	if len(allInstances) > 0 {
+		endpoints = make(map[instancesKey][]*model.IstioEndpoint)
+		for _, instance := range allInstances {
+			port := instance.ServicePort
+			key := makeInstanceKey(instance)
+			endpoints[key] = append(endpoints[key],
+				&model.IstioEndpoint{
+					Address:         instance.Endpoint.Address,
+					EndpointPort:    instance.Endpoint.EndpointPort,
+					ServicePortName: port.Name,
+					Labels:          instance.Endpoint.Labels,
+					ServiceAccount:  instance.Endpoint.ServiceAccount,
+					Network:         instance.Endpoint.Network,
+					Locality:        instance.Endpoint.Locality,
+					LbWeight:        instance.Endpoint.LbWeight,
+					TLSMode:         instance.Endpoint.TLSMode,
+					WorkloadName:    instance.Endpoint.WorkloadName,
+					Namespace:       instance.Endpoint.Namespace,
+				})
 		}
-		return
-	}
 
-	endpoints := make(map[instancesKey][]*model.IstioEndpoint)
-	for _, instance := range allInstances {
-		port := instance.ServicePort
-		key := makeInstanceKey(instance)
-		endpoints[key] = append(endpoints[key],
-			&model.IstioEndpoint{
-				Address:         instance.Endpoint.Address,
-				EndpointPort:    instance.Endpoint.EndpointPort,
-				ServicePortName: port.Name,
-				Labels:          instance.Endpoint.Labels,
-				ServiceAccount:  instance.Endpoint.ServiceAccount,
-				Network:         instance.Endpoint.Network,
-				Locality:        instance.Endpoint.Locality,
-				LbWeight:        instance.Endpoint.LbWeight,
-				TLSMode:         instance.Endpoint.TLSMode,
-				WorkloadName:    instance.Endpoint.WorkloadName,
-				Namespace:       instance.Endpoint.Namespace,
-			})
 	}
-
-	if push {
-		for k, eps := range endpoints {
-			s.XdsUpdater.EDSUpdate(shard, string(k.hostname), k.namespace, eps)
-		}
-	} else {
-		for k, eps := range endpoints {
-			s.XdsUpdater.EDSCacheUpdate(shard, string(k.hostname), k.namespace, eps)
-		}
-	}
+	return endpoints
 }
 
 // returns true if an instance's port matches with any in the provided list
