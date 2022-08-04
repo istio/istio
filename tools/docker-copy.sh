@@ -49,8 +49,10 @@ function may_copy_into_arch_named_sub_dir() {
   local FILE=${1}
   local COPY_ARCH_RELATED=${COPY_ARCH_RELATED:-1}
 
-  local arch="$(detect_arch "${FILE}")"
-  local FILE_INFO=$(file "${FILE}" || true)
+  local arch
+  arch="$(detect_arch "${FILE}")"
+  local FILE_INFO
+  FILE_INFO=$(file "${FILE}" || true)
 
   if [[ "${arch}" != "" && ${COPY_ARCH_RELATED} == 1 ]]; then
     # if other arch files exists, should copy too.
