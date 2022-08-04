@@ -146,6 +146,7 @@ default: init build test
 .PHONY: init
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: $(TARGET_OUT)/istio_is_init
+	echo ISTIO_ENVOY_LINUX_RELEASE_PATH=$(ISTIO_ENVOY_LINUX_RELEASE_PATH) TARGET_OUT_LINUX=$(TARGET_OUT_LINUX)
 	@mkdir -p ${TARGET_OUT}/logs
 	@mkdir -p ${TARGET_OUT}/release
 

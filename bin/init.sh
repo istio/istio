@@ -26,6 +26,13 @@ if [[ "${TARGET_OUT_LINUX:-}" == "" ]]; then
   exit 1
 fi
 
+# Setup arch suffix for envoy binary. For backwards compatibility, amd64 has no suffix.
+if [[ "${TARGET_ARCH}" == "amd64" ]]; then
+	ISTIO_ENVOY_ARCH_SUFFIX=""
+else
+	ISTIO_ENVOY_ARCH_SUFFIX="-${TARGET_ARCH}"
+fi
+
 # Populate the git version for istio/proxy (i.e. Envoy)
 PROXY_REPO_SHA="${PROXY_REPO_SHA:-$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')}"
 
@@ -36,9 +43,9 @@ SIDECAR="${SIDECAR:-envoy}"
 
 # OS-neutral vars. These currently only work for linux.
 ISTIO_ENVOY_VERSION="${ISTIO_ENVOY_VERSION:-${PROXY_REPO_SHA}}"
-ISTIO_ENVOY_DEBUG_URL="${ISTIO_ENVOY_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-debug-${ISTIO_ENVOY_VERSION}.tar.gz}"
+ISTIO_ENVOY_DEBUG_URL="${ISTIO_ENVOY_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-debug-${ISTIO_ENVOY_VERSION}${ISTIO_ENVOY_ARCH_SUFFIX}.tar.gz}"
 ISTIO_ENVOY_CENTOS_DEBUG_URL="${ISTIO_ENVOY_CENTOS_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-centos-debug-${ISTIO_ENVOY_VERSION}.tar.gz}"
-ISTIO_ENVOY_RELEASE_URL="${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-alpha-${ISTIO_ENVOY_VERSION}.tar.gz}"
+ISTIO_ENVOY_RELEASE_URL="${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-alpha-${ISTIO_ENVOY_VERSION}${ISTIO_ENVOY_ARCH_SUFFIX}.tar.gz}"
 ISTIO_ENVOY_CENTOS_RELEASE_URL="${ISTIO_ENVOY_CENTOS_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-centos-alpha-${ISTIO_ENVOY_VERSION}.tar.gz}"
 
 # Envoy Linux vars.

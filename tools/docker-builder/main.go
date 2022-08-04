@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -49,7 +50,7 @@ func main() {
 	rootCmd.Flags().StringVar(&globalArgs.Builder, "builder", globalArgs.Builder, "type of builder to use. options are crane or docker")
 	rootCmd.Flags().BoolVar(&version, "version", version, "show build version")
 
-	rootCmd.Flags().BoolVar(&globalArgs.KindLoad, "kind-load", globalArgs.KindLoad, "kind cluster to load into")
+	rootCmd.Flags().BoolVar(&globalArgs.SupportsEmulation, "qemu", globalArgs.SupportsEmulation, "if enable, allows building images that require emulation")
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
@@ -150,6 +151,8 @@ func ReadPlanTargets() ([]string, []string, error) {
 	return bases.SortedList(), nonBases.SortedList(), nil
 }
 
+var LocalArch = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+
 func ReadPlan(a Args) (Args, error) {
 	by, err := os.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
 	if err != nil {
@@ -188,7 +191,12 @@ func ReadPlan(a Args) (Args, error) {
 		// This is not arch specific, so we can just let it run for each arch.
 		desiredImages := []ImagePlan{}
 		for _, i := range plan.Images {
+			canBuild := !i.EmulationRequired || (arch == LocalArch)
 			if tgt.Contains(i.Name) {
+				if !canBuild {
+					log.Infof("Skipping %s for %s as --qemu is not passed", i.Name, arch)
+					continue
+				}
 				desiredImages = append(desiredImages, i)
 			}
 		}
