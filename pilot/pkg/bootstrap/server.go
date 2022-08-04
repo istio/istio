@@ -231,7 +231,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if err := s.initIstiodAdminServer(args, whc); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
-	if err := s.serveHttp(); err != nil {
+	if err := s.serveHTTP(); err != nil {
 		return nil, fmt.Errorf("error serving http: %v", err)
 	}
 
@@ -1279,7 +1279,7 @@ func (s *Server) initStatusManager(_ *PilotArgs) {
 	})
 }
 
-func (s *Server) serveHttp() error {
+func (s *Server) serveHTTP() error {
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	httpListener, err := net.Listen("tcp", s.httpServer.Addr)
 	if err != nil {
