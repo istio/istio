@@ -452,9 +452,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 			if port, err = strconv.Atoi(hostPort); err != nil {
 				continue
 			}
-			if hostIP == model.PodIPAddressPrefix {
+			if hostIP == model.PodIPAddressPrefix || hostIP == model.PodIPv6AddressPrefix {
 				endpointAddress = cb.proxyIPAddresses[0]
-			} else if hostIP == model.LocalhostAddressPrefix {
+			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
 				endpointAddress = actualLocalHost
 			}
 		}
