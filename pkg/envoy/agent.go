@@ -46,14 +46,11 @@ func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Durat
 	return &Agent{
 		proxy:                       proxy,
 		statusCh:                    make(chan exitStatus, 1), // context might stop drainage
-		drainCh:                     make(chan struct{}),
 		abortCh:                     make(chan error, 1),
 		terminationDrainDuration:    terminationDrainDuration,
 		minDrainDuration:            minDrainDuration,
 		exitOnZeroActiveConnections: exitOnZeroActiveConnections,
 		adminPort:                   adminPort,
-		statusPort:                  statusPort,
-		prometheusPort:              prometheusPort,
 		localhost:                   localhost,
 		knownIstioListeners:         knownIstioListeners,
 	}
@@ -81,8 +78,6 @@ type Agent struct {
 	// channel for proxy exit notifications
 	statusCh chan exitStatus
 
-	drainCh chan struct{}
-
 	abortCh chan error
 
 	// time to allow for the proxy to drain before terminating all remaining proxy processes
@@ -91,9 +86,6 @@ type Agent struct {
 
 	adminPort int
 	localhost string
-
-	statusPort     int
-	prometheusPort int
 
 	knownIstioListeners sets.Set
 
