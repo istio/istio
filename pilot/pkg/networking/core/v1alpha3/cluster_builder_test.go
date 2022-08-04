@@ -1426,7 +1426,10 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
+							Metadata: util.BuildLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{
+								"version": "v1",
+								"app":     "example",
+							}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},

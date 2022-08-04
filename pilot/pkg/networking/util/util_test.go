@@ -1021,7 +1021,7 @@ func TestEndpointMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"workload": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "workload;default;;;cluster",
+									StringValue: "workload;default;workload;;cluster",
 								},
 							},
 						},

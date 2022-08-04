@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/strcase"
@@ -444,7 +445,7 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
 func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, labels labels.Instance,
+	clusterID cluster.ID, lbls labels.Instance,
 ) *core.Metadata {
 	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
 		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
@@ -469,18 +470,23 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
 	if features.EndpointTelemetryLabel {
+
+		// allow defaulting for ambient cases (assuming no injection)
+		canonicalName, canonicalRevision := kubelabels.CanonicalService(lbls, workloadname)
+
+		// don't bother sending the default value in config
+		if canonicalRevision == "latest" {
+			canonicalRevision = ""
+		}
+
 		var sb strings.Builder
 		sb.WriteString(workloadname)
 		sb.WriteString(";")
 		sb.WriteString(namespace)
 		sb.WriteString(";")
-		if csn, ok := labels[model.IstioCanonicalServiceLabelName]; ok {
-			sb.WriteString(csn)
-		}
+		sb.WriteString(canonicalName)
 		sb.WriteString(";")
-		if csr, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
-			sb.WriteString(csr)
-		}
+		sb.WriteString(canonicalRevision)
 		sb.WriteString(";")
 		sb.WriteString(clusterID.String())
 		addIstioEndpointLabel(metadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
