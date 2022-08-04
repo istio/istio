@@ -29,6 +29,8 @@ set -u
 # Print commands
 set -x
 
+export DEBUG_IMAGE=1
+
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
