@@ -374,7 +374,7 @@ func buildFileAccessJSONLogFormat(
 
 	needsFormatter := false
 	for _, value := range jsonLogStruct.Fields {
-		if value.GetStringValue() == requestWithoutQuery {
+		if strings.Contains(value.GetStringValue(), requestWithoutQuery) {
 			needsFormatter = true
 			break
 		}
@@ -465,7 +465,7 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 			}
 		}
 		for _, value := range jsonLogStruct.Fields {
-			if value.GetStringValue() == requestWithoutQuery {
+			if strings.Contains(value.GetStringValue(), requestWithoutQuery) {
 				needsFormatter = true
 				break
 			}
