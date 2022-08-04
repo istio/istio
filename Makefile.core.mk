@@ -35,7 +35,7 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.15-dev
+export VERSION ?= 1.16-dev
 
 # Base version of Istio image to use
 BASE_VERSION ?= master-2022-07-29T19-01-38
