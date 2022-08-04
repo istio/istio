@@ -1,4 +1,4 @@
-﻿# Release Branches
+﻿# Release Branches 
 
 Release branches have a name of `release-MAJOR.MINOR`. Essential Istio repositories are branched from master roughly 4
 weeks prior to a new release. The `istio/istio.io` repository does not get branched until the release is ready
