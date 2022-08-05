@@ -17,6 +17,7 @@ package deployment
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -63,7 +64,7 @@ type Config struct {
 	//
 	// Custom echo instances will be accessible from the `All` field in the namespace(s) under which they
 	// were created.
-	Custom echo.CustomGetter
+	Configs echo.ConfigGetter
 }
 
 func (c *Config) fillDefaults(ctx resource.Context) error {
@@ -74,21 +75,24 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 		c.Echos = &Echos{}
 	}
 
+	if c.Configs == nil {
+		defaultConfigs := c.DefaultEchoConfigs(ctx)
+		c.Configs = echo.ConfigFuture(&defaultConfigs)
+	}
+
 	// Verify the namespace for any custom deployments.
-	if c.Custom != nil {
-		for _, custom := range c.Custom.Get() {
-			if custom.Namespace != nil {
-				found := false
-				for _, ns := range c.Namespaces {
-					if custom.Namespace.Name() == ns.Get().Name() {
-						found = true
-						break
-					}
+	for _, config := range c.Configs.Get() {
+		if config.Namespace != nil {
+			found := false
+			for _, ns := range c.Namespaces {
+				if config.Namespace.Name() == ns.Get().Name() {
+					found = true
+					break
 				}
-				if !found {
-					return fmt.Errorf("custom echo deployment %s uses unconfigured namespace %s",
-						custom.NamespacedName().String(), custom.NamespaceName())
-				}
+			}
+			if !found {
+				return fmt.Errorf("custom echo deployment %s uses unconfigured namespace %s",
+					config.NamespacedName().String(), config.NamespaceName())
 			}
 		}
 	}
@@ -150,6 +154,125 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 
 	// Wait for the namespaces to be created.
 	return g.Wait()
+}
+
+func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
+	var defaultConfigs []echo.Config
+
+	a := echo.Config{
+		Service:         ASvc,
+		ServiceAccount:  true,
+		Ports:           ports.All(),
+		Subsets:         []echo.SubsetConfig{{}},
+		Locality:        "region.zone.subzone",
+		IncludeExtAuthz: c.IncludeExtAuthz,
+	}
+
+	b := echo.Config{
+		Service:         BSvc,
+		ServiceAccount:  true,
+		Ports:           ports.All(),
+		Subsets:         []echo.SubsetConfig{{}},
+		IncludeExtAuthz: c.IncludeExtAuthz,
+	}
+
+	cSvc := echo.Config{
+		Service:         CSvc,
+		ServiceAccount:  true,
+		Ports:           ports.All(),
+		Subsets:         []echo.SubsetConfig{{}},
+		IncludeExtAuthz: c.IncludeExtAuthz,
+	}
+
+	headless := echo.Config{
+		Service:         HeadlessSvc,
+		ServiceAccount:  true,
+		Headless:        true,
+		Ports:           ports.Headless(),
+		Subsets:         []echo.SubsetConfig{{}},
+		IncludeExtAuthz: c.IncludeExtAuthz,
+	}
+
+	stateful := echo.Config{
+		Service:         StatefulSetSvc,
+		ServiceAccount:  true,
+		Headless:        true,
+		StatefulSet:     true,
+		Ports:           ports.Headless(),
+		Subsets:         []echo.SubsetConfig{{}},
+		IncludeExtAuthz: c.IncludeExtAuthz,
+	}
+
+	naked := echo.Config{
+		Service:        NakedSvc,
+		ServiceAccount: true,
+		Ports:          ports.All(),
+		Subsets: []echo.SubsetConfig{
+			{
+				Annotations: map[echo.Annotation]*echo.AnnotationValue{
+					echo.SidecarInject: {
+						Value: strconv.FormatBool(false),
+					},
+				},
+			},
+		},
+	}
+
+	tProxy := echo.Config{
+		Service:        TproxySvc,
+		ServiceAccount: true,
+		Ports:          ports.All(),
+		Subsets: []echo.SubsetConfig{{
+			Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
+		}},
+		IncludeExtAuthz: c.IncludeExtAuthz,
+	}
+
+	vmSvc := echo.Config{
+		Service:         VMSvc,
+		ServiceAccount:  true,
+		Ports:           ports.All(),
+		DeployAsVM:      true,
+		AutoRegisterVM:  true,
+		Subsets:         []echo.SubsetConfig{{}},
+		IncludeExtAuthz: c.IncludeExtAuthz,
+	}
+
+	defaultConfigs = append(defaultConfigs, a, b, cSvc, headless, stateful, naked, tProxy, vmSvc)
+
+	if !skipDeltaXDS(t) {
+		delta := echo.Config{
+			Service:        DeltaSvc,
+			ServiceAccount: true,
+			Ports:          ports.All(),
+			Subsets: []echo.SubsetConfig{{
+				Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
+ISTIO_DELTA_XDS: "true"`),
+			}},
+		}
+		defaultConfigs = append(defaultConfigs, delta)
+	}
+
+	if !t.Clusters().IsMulticluster() {
+		// TODO when agent handles secure control-plane connection for grpc-less, deploy to "remote" clusters
+		proxylessGRPC := echo.Config{
+			Service:        ProxylessGRPCSvc,
+			ServiceAccount: true,
+			Ports:          ports.All(),
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarInjectTemplates: {
+							Value: "grpc-agent",
+						},
+					},
+				},
+			},
+		}
+		defaultConfigs = append(defaultConfigs, proxylessGRPC)
+	}
+
+	return defaultConfigs
 }
 
 // View of an Echos deployment.
@@ -237,7 +360,7 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 
 	builder := deployment.New(ctx).WithClusters(ctx.Clusters()...)
 	for _, n := range apps.NS {
-		builder = n.build(ctx, builder, cfg)
+		builder = n.build(builder, cfg)
 	}
 
 	if !cfg.NoExternalNamespace {
