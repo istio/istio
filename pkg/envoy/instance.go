@@ -50,9 +50,6 @@ type Config struct {
 	// AdminPort specifies the administration port for the Envoy server. If not set, will
 	// be determined by parsing the Envoy bootstrap configuration file.
 	AdminPort uint32
-
-	// SkipBaseIDClose skips calling Close on the BaseID, if one was specified.
-	SkipBaseIDClose bool
 }
 
 // Waitable specifies a waitable operation.
@@ -75,10 +72,6 @@ type Instance interface {
 	BaseID() BaseID
 
 	// Start the Envoy Instance. The process will be killed if the given context is canceled.
-	//
-	// If this Instance was created via NewInstanceForHotRestart, this method will block until the parent
-	// Instance terminates or goes "live". This is due to the fact that hot restart will fail if the previous
-	// envoy process is still initializing.
 	Start(ctx context.Context) Instance
 
 	// WaitUntilLive polls the Envoy ServerInfo endpoint and waits for it to transition to "live". If the
@@ -168,16 +161,15 @@ func New(cfg Config) (Instance, error) {
 }
 
 type instance struct {
-	config     Config
-	name       string
-	waitErr    error
-	cmd        *exec.Cmd
-	waitCh     chan struct{}
-	adminPort  uint32
-	baseID     BaseID
-	started    bool
-	hotRestart Instance
-	mux        sync.Mutex
+	config    Config
+	name      string
+	waitErr   error
+	cmd       *exec.Cmd
+	waitCh    chan struct{}
+	adminPort uint32
+	baseID    BaseID
+	started   bool
+	mux       sync.Mutex
 }
 
 func (i *instance) Config() Config {
@@ -233,43 +225,6 @@ func (i *instance) Start(ctx context.Context) Instance {
 	}()
 
 	return i
-}
-
-func (i *instance) NewInstanceForHotRestart() (Instance, error) {
-	i.mux.Lock()
-	defer i.mux.Unlock()
-
-	if i.hotRestart != nil {
-		return nil, fmt.Errorf("%s already created a hot restart Instance", i.logID())
-	}
-
-	if !i.started {
-		// This instance hasn't been started yet, no restart required.
-		return i, nil
-	}
-
-	// If this is a hot restart, wait for the parent process to be live before creating the new
-	// instance.
-	if err := i.WaitLive().WithTimeout(defaultLiveTimeout).Do(); err != nil {
-		log.Warnf("%s failed to go live: %v. Proceeding with hot restart",
-			i.logID(), err)
-	}
-
-	// Copy the configuration.
-	cfg := i.config
-	cfg.Options = make(Options, 0, len(cfg.Options))
-	for _, o := range i.config.Options {
-		cfg.Options = append(cfg.Options, o)
-	}
-
-	// Create the new instance.
-	hotRestart, err := New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	i.hotRestart = hotRestart
-
-	return hotRestart, nil
 }
 
 func (i *instance) WaitLive() Waitable {
@@ -350,15 +305,6 @@ func (i *instance) DrainListeners() error {
 }
 
 func (i *instance) close() {
-	// Delete the shared memory segment (used for hot restart) if configured to do and no
-	// further hot-restarts were initiated. If another restart was initiated, we hand off
-	// ownership of the shared memory to that Instance.
-	if !i.config.SkipBaseIDClose && i.hotRestart == nil {
-		if err := i.baseID.Close(); err != nil {
-			log.Infof("Failed freeing BaseID for %s: %v", i.logID(), err)
-		}
-	}
-
 	close(i.waitCh)
 }
 
