@@ -32,6 +32,9 @@ rules:
   resources: ["pods"]
   verbs: ["get", "list", "watch", "delete", "patch", "update" ]
 - apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: [""]
   resources: ["events"]
   verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]
 {{- end }}

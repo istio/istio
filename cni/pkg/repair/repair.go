@@ -22,6 +22,7 @@ import (
 	"go.uber.org/multierr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	client "k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/cni/pkg/config"
@@ -233,6 +234,14 @@ func StartRepair(ctx context.Context, cfg *config.RepairConfig) {
 	clientSet, err := clientSetup()
 	if err != nil {
 		repairLog.Fatalf("CNI repair could not construct clientSet: %s", err)
+	}
+	jsonPatchEscapedKey := strings.ReplaceAll("cni.istio.io/ready", "/", "~1")
+	nodeLabelPatch := fmt.Sprintf(`[{"op":"replace","path":"/metadata/labels/%s","value":"%s"}]`, jsonPatchEscapedKey, "true")
+
+	if _, err := clientSet.CoreV1().Nodes().Patch(context.Background(), cfg.NodeName, types.JSONPatchType, []byte(nodeLabelPatch), metav1.PatchOptions{}); err != nil {
+		repairLog.Fatalf("failed to register node as ready")
+	} else {
+		repairLog.Infof("registered node as ready")
 	}
 
 	podFixer := newBrokenPodReconciler(clientSet, cfg)
