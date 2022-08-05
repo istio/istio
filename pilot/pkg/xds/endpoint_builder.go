@@ -240,6 +240,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if svcPort.Name != ep.ServicePortName {
 				continue
 			}
+			// Port labels
 			if !epLabels.SubsetOf(ep.Labels) {
 				continue
 			}
