@@ -53,10 +53,9 @@ func TestEnvoyArgs(t *testing.T) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
 	}
 
-	got := test.args("test.json", 5, "testdata/bootstrap.json")
+	got := test.args("test.json", "testdata/bootstrap.json")
 	want := []string{
 		"-c", "test.json",
-		"--restart-epoch", "5",
 		"--drain-time-s", "45",
 		"--drain-strategy", "immediate",
 		"--parent-shutdown-time-s", "60",

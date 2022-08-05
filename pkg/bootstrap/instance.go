@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	// EpochFileTemplate is a template for the root config JSON
-	EpochFileTemplate = "envoy-rev%d.%s"
+	// EnvoyFileTemplate is a template for the root config JSON
+	EnvoyFileTemplate = "envoy-rev.%s"
 	DefaultCfgDir     = "./var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
 )
 
@@ -44,8 +44,8 @@ type Instance interface {
 	// WriteTo writes the content of the Envoy bootstrap to the given writer.
 	WriteTo(templateFile string, w io.Writer) error
 
-	// CreateFileForEpoch generates an Envoy bootstrap file for a particular epoch.
-	CreateFileForEpoch(epoch int) (string, error)
+	// CreateFile generates an Envoy bootstrap file.
+	CreateFile() (string, error)
 }
 
 // New creates a new Instance of an Envoy bootstrap writer.
@@ -108,7 +108,7 @@ func GetEffectiveTemplatePath(pc *model.NodeMetaProxyConfig) string {
 	return templateFilePath
 }
 
-func (i *instance) CreateFileForEpoch(epoch int) (string, error) {
+func (i *instance) CreateFile() (string, error) {
 	// Create the output file.
 	if err := os.MkdirAll(i.Metadata.ProxyConfig.ConfigPath, 0o700); err != nil {
 		return "", err
@@ -116,7 +116,7 @@ func (i *instance) CreateFileForEpoch(epoch int) (string, error) {
 
 	templateFile := GetEffectiveTemplatePath(i.Metadata.ProxyConfig)
 
-	outputFilePath := configFile(i.Metadata.ProxyConfig.ConfigPath, templateFile, epoch)
+	outputFilePath := configFile(i.Metadata.ProxyConfig.ConfigPath, templateFile)
 	outputFile, err := os.Create(outputFilePath)
 	if err != nil {
 		return "", err
@@ -131,13 +131,13 @@ func (i *instance) CreateFileForEpoch(epoch int) (string, error) {
 	return outputFilePath, err
 }
 
-func configFile(config string, templateFile string, epoch int) string {
+func configFile(config string, templateFile string) string {
 	suffix := "json"
 	// Envoy will interpret the file extension to determine the type. We should detect yaml inputs
 	if strings.HasSuffix(templateFile, ".yaml.tmpl") || strings.HasSuffix(templateFile, ".yaml") {
 		suffix = "yaml"
 	}
-	return path.Join(config, fmt.Sprintf(EpochFileTemplate, epoch, suffix))
+	return path.Join(config, fmt.Sprintf(EnvoyFileTemplate, suffix))
 }
 
 func newTemplate(templateFilePath string) (*template.Template, error) {

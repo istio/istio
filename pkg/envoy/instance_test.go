@@ -177,72 +177,6 @@ func TestStartTwiceShouldDoNothing(t *testing.T) {
 	waitLive(t, i)
 }
 
-func TestHotRestartTwiceShouldFail(t *testing.T) {
-	runLinuxOnly(t)
-
-	g := NewWithT(t)
-
-	h := newBootstrapHelper(t)
-	defer h.Close()
-
-	i := h.NewOrFail(t, envoy.Config{
-		BinaryPath: testEnvoy.FindBinaryOrFail(t),
-		Options:    options(envoy.ConfigPath(h.BootstrapFile())),
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	i.Start(ctx)
-
-	_, err := i.NewInstanceForHotRestart()
-	g.Expect(err).To(BeNil())
-
-	_, err = i.NewInstanceForHotRestart()
-	g.Expect(err).ToNot(BeNil())
-}
-
-func TestHotRestart(t *testing.T) {
-	runLinuxOnly(t)
-
-	g := NewWithT(t)
-
-	h := newBootstrapHelper(t)
-	defer h.Close()
-
-	i := h.NewOrFail(t, envoy.Config{
-		BinaryPath: testEnvoy.FindBinaryOrFail(t),
-		Options: options(
-			envoy.ConfigPath(h.BootstrapFile()),
-			// Setting parameters to force shutdown of the first Envoy quickly.
-			envoy.DrainDuration(1*time.Second),
-			envoy.ParentShutdownDuration(1*time.Second)),
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	i.Start(ctx)
-	restartInstance, err := i.NewInstanceForHotRestart()
-	g.Expect(err).To(BeNil())
-	g.Expect(restartInstance.Epoch()).To(Equal(envoy.Epoch(1)))
-
-	// Confirm that the first instance is live.
-	info, err := i.GetServerInfo()
-	g.Expect(err).To(BeNil())
-	g.Expect(info.State).To(Equal(envoyAdmin.ServerInfo_LIVE))
-
-	// Start the restart instance.
-	restartInstance.Start(ctx)
-
-	// Wait for the first instance to exit
-	if err := i.Wait().WithTimeout(5 * time.Second).Do(); err != nil {
-		t.Fatal(err)
-	}
-
-	waitLive(t, restartInstance)
-}
-
 func TestCommandLineArgs(t *testing.T) {
 	runLinuxOnly(t)
 
@@ -270,14 +204,12 @@ func TestCommandLineArgs(t *testing.T) {
 			envoy.LocalAddressIPVersion(envoy.IPV4),
 			envoy.Concurrency(7),
 			envoy.DisableHotRestart(true),
-			envoy.Epoch(1),
 			envoy.ServiceCluster("mycluster"),
 			envoy.ServiceNode("mynode"),
 			envoy.DrainDuration(drainDuration),
 			envoy.ParentShutdownDuration(parentShutdownDuration),
 		),
 	})
-	g.Expect(i.Epoch()).To(Equal(envoy.Epoch(1)))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -301,7 +233,6 @@ func TestCommandLineArgs(t *testing.T) {
 	g.Expect(opts.BaseId).To(Equal(h.baseID.GetInternalEnvoyValue()))
 	g.Expect(opts.Concurrency).To(Equal(uint32(7)))
 	g.Expect(opts.DisableHotRestart).To(BeTrue())
-	g.Expect(opts.RestartEpoch).To(Equal(uint32(1)))
 	g.Expect(opts.ServiceCluster).To(Equal("mycluster"))
 	g.Expect(opts.ServiceNode).To(Equal("mynode"))
 	g.Expect(opts.DrainTime.AsDuration()).To(Equal(drainDuration))
