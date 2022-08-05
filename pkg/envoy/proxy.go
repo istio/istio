@@ -199,10 +199,10 @@ func (e *envoy) Run(abort <-chan error) error {
 	}
 }
 
-func (e *envoy) Cleanup(epoch int) {
+func (e *envoy) Cleanup() {
 	if e.ConfigCleanup {
 		if err := os.Remove(e.ConfigPath); err != nil {
-			log.Warnf("Failed to delete config file %s for %d, %v", e.ConfigPath, epoch, err)
+			log.Warnf("Failed to delete config file %s: %v", e.ConfigPath, err)
 		}
 	}
 }

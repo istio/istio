@@ -328,7 +328,7 @@ func TestGolden(t *testing.T) {
 			}
 			fn, err := New(Config{
 				Node: node,
-			}).CreateFileForEpoch(0)
+			}).CreateFile()
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -27,7 +27,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var errAbort = errors.New("epoch aborted")
+var errAbort = errors.New("proxy aborted")
 
 const errOutOfMemory = "signal: killed"
 
@@ -64,11 +64,11 @@ type Proxy interface {
 	// Run command with an abort channel
 	Run(<-chan error) error
 
-	// Drains the current epoch.
+	// Drains the envoy process.
 	Drain() error
 
-	// Cleanup command for an epoch
-	Cleanup(int)
+	// Cleanup command for cleans up the proxy.
+	Cleanup()
 
 	// UpdateConfig writes a new config file
 	UpdateConfig(config []byte) error
@@ -120,14 +120,13 @@ func (a *Agent) Run(ctx context.Context) {
 			log.Infof("Envoy exited normally")
 		}
 
-		log.Infof("No more active epochs, terminating")
 	case <-ctx.Done():
 		a.terminate()
 		status := <-a.statusCh
 		if status.err == errAbort {
 			log.Infof("Envoy aborted normally")
 		} else {
-			log.Warnf("Epoch aborted abnormally")
+			log.Warnf("Envoy aborted abnormally")
 		}
 		log.Info("Agent has successfully terminated")
 	}
@@ -173,7 +172,7 @@ func (a *Agent) terminate() {
 		log.Infof("Graceful termination period complete, terminating remaining proxies.")
 		a.abortCh <- errAbort
 	}
-	log.Warnf("Aborted all epochs")
+	log.Warnf("Aborted proxy instance")
 }
 
 func (a *Agent) activeProxyConnections() (int, error) {
@@ -221,5 +220,5 @@ func (a *Agent) runWait(abortCh <-chan error) {
 	log.Infof("starting")
 	err := a.proxy.Run(abortCh)
 	a.proxy.Cleanup()
-	a.statusCh <- exitStatus{epo, err: err}
+	a.statusCh <- exitStatus{err: err}
 }

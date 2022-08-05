@@ -505,40 +505,6 @@ var logFormatValidator = registerFlagValidator(&flagValidator{
 	flagName: "--log-format",
 })
 
-// Epoch sets the --restart-epoch flag, which specifies the epoch used for hot restart.
-type Epoch uint32
-
-func (e Epoch) FlagName() FlagName {
-	return epochValidator.flagName
-}
-
-func (e Epoch) FlagValue() string {
-	return strconv.FormatUint(uint64(e), 10)
-}
-
-func (e Epoch) apply(ctx *configContext) {
-	epochValidator.apply(ctx, e.FlagValue())
-}
-
-func (e Epoch) validate(ctx *configContext) error {
-	return epochValidator.validate(ctx, e.FlagValue())
-}
-
-var epochValidator = registerFlagValidator(&flagValidator{
-	flagName: "--restart-epoch",
-	apply: func(ctx *configContext, flagValue string) {
-		if e, err := strconv.ParseUint(flagValue, 10, 32); err == nil {
-			ctx.epoch = Epoch(e)
-		}
-	},
-	validate: func(ctx *configContext, flagValue string) error {
-		if _, err := strconv.ParseUint(flagValue, 10, 32); err != nil {
-			return err
-		}
-		return nil
-	},
-})
-
 // ServiceCluster sets the --service-cluster flag, which defines the local service cluster
 // name where Envoy is running
 func ServiceCluster(c string) Option {
@@ -647,7 +613,6 @@ type configContext struct {
 	configPath string
 	configYaml string
 	baseID     BaseID
-	epoch      Epoch
 }
 
 func newConfigContext() *configContext {
