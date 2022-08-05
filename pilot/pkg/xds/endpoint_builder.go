@@ -215,7 +215,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 ) []*LocalityEndpoints {
 	localityEpMap := make(map[string]*LocalityEndpoints)
 	// get the subset labels
-	epLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
+	subsetLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
@@ -240,8 +240,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if svcPort.Name != ep.ServicePortName {
 				continue
 			}
-			// Port labels
-			if !epLabels.SubsetOf(ep.Labels) {
+			if !subsetLabels.SubsetOf(ep.Labels) {
 				continue
 			}
 
