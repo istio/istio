@@ -897,14 +897,14 @@ func TestHttpsAppProbe(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not load TLS keys: %v", err)
 		}
-		serverTlsConfig := &tls.Config{
+		serverTLSConfig := &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			NextProtos:   alpn,
 		}
-		tlsListner := tls.NewListener(listener, serverTlsConfig)
+		tlsListener := tls.NewListener(listener, serverTLSConfig)
 		h := &handler{lastAlpn: atomic.NewString("")}
 		srv := http.Server{Handler: h}
-		go srv.Serve(tlsListner)
+		go srv.Serve(tlsListener)
 		appPort := listener.Addr().(*net.TCPAddr).Port
 
 		// Starts the pilot agent status server.
