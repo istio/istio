@@ -59,6 +59,7 @@ func TestPiggyback(t *testing.T) {
 				if dr.Resources[0].TypeUrl != "type.googleapis.com/envoy.service.status.v3.ClientConfig" {
 					return fmt.Errorf("resources[0] doesn't contain expected typeURL: %s", out)
 				}
+				return nil
 			})
 		})
 }
