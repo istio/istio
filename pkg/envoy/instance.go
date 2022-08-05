@@ -74,31 +74,12 @@ type Instance interface {
 	// BaseID used to start Envoy. If not set, returns InvalidBaseID.
 	BaseID() BaseID
 
-	// Epoch used to start Envoy. If it was not set, defaults to 0.
-	Epoch() Epoch
-
 	// Start the Envoy Instance. The process will be killed if the given context is canceled.
 	//
 	// If this Instance was created via NewInstanceForHotRestart, this method will block until the parent
 	// Instance terminates or goes "live". This is due to the fact that hot restart will fail if the previous
 	// envoy process is still initializing.
 	Start(ctx context.Context) Instance
-
-	// NewInstanceForHotRestart creates a new Envoy Instance that is configured for a hot restart of this
-	// Instance (i.e. epoch is incremented). During a hot restart of Envoy, the old process is drained and
-	// traffic is shifted over to the new process.
-	//
-	// The caller must Start the returned instance to initiate the hot restart.
-	//
-	// If a new Instance is successfully created, it assumes ownership of the Envoy shared memory segment
-	// used for hot restart. This means that when this Instance exits, it will no longer destroy
-	// the shared memory segment, regardless of the value of SkipBaseIDClose.
-	//
-	// If this Instance hasn't been started, calling this method does nothing and simply returns
-	// this Instance since there is nothing to restart.
-	//
-	// This method may only be called once on a given Instance. Subsequent calls will return an error.
-	NewInstanceForHotRestart() (Instance, error)
 
 	// WaitUntilLive polls the Envoy ServerInfo endpoint and waits for it to transition to "live". If the
 	// wait times out, returns the last known error or context.DeadlineExceeded if no error occurred within the
@@ -182,7 +163,6 @@ func New(cfg Config) (Instance, error) {
 		cmd:       cmd,
 		adminPort: adminPort,
 		baseID:    ctx.baseID,
-		epoch:     ctx.epoch,
 		waitCh:    make(chan struct{}, 1),
 	}, nil
 }
@@ -195,7 +175,6 @@ type instance struct {
 	waitCh     chan struct{}
 	adminPort  uint32
 	baseID     BaseID
-	epoch      Epoch
 	started    bool
 	hotRestart Instance
 	mux        sync.Mutex
@@ -276,17 +255,12 @@ func (i *instance) NewInstanceForHotRestart() (Instance, error) {
 			i.logID(), err)
 	}
 
-	// Copy the configuration, but replace the epoch.
+	// Copy the configuration.
 	cfg := i.config
 	cfg.Options = make(Options, 0, len(cfg.Options))
 	for _, o := range i.config.Options {
-		if o.FlagName() != Epoch(0).FlagName() {
-			cfg.Options = append(cfg.Options, o)
-		}
+		cfg.Options = append(cfg.Options, o)
 	}
-
-	// Increment the epoch on the new Instance.
-	cfg.Options = append(cfg.Options, i.epoch+1)
 
 	// Create the new instance.
 	hotRestart, err := New(cfg)
@@ -329,10 +303,6 @@ func (i *instance) AdminPort() uint32 {
 
 func (i *instance) BaseID() BaseID {
 	return i.baseID
-}
-
-func (i *instance) Epoch() Epoch {
-	return i.epoch
 }
 
 func (i *instance) GetServerInfo() (*envoyAdmin.ServerInfo, error) {
@@ -393,7 +363,7 @@ func (i *instance) close() {
 }
 
 func (i *instance) logID() string {
-	return fmt.Sprintf("Envoy '%s' (epoch %d)", i.name, i.epoch)
+	return fmt.Sprintf("Envoy '%s'", i.name)
 }
 
 var _ Waitable = &waitableImpl{}

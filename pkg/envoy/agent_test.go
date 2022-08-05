@@ -59,7 +59,7 @@ var downstreamCxZeroAcStats = "http.admin.downstream_cx_active: 2 \n" +
 // TestProxy sample struct for proxy
 type TestProxy struct {
 	run          func(<-chan error) error
-	cleanup      func(int)
+	cleanup      func()
 	blockChannel chan any
 }
 
@@ -75,9 +75,9 @@ func (tp TestProxy) Drain() error {
 	return nil
 }
 
-func (tp TestProxy) Cleanup(epoch int) {
+func (tp TestProxy) Cleanup() {
 	if tp.cleanup != nil {
-		tp.cleanup(epoch)
+		tp.cleanup()
 	}
 }
 
@@ -103,10 +103,8 @@ func TestStartStop(t *testing.T) {
 	start := func(_ <-chan error) error {
 		return nil
 	}
-	cleanup := func(epoch int) {
-		if epoch == 0 {
-			cancel()
-		}
+	cleanup := func() {
+		cancel()
 	}
 	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0, 0, "", 0, 0, 0, true)
 	go func() { a.Run(ctx) }()
