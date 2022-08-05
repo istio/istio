@@ -340,14 +340,15 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 
 			// Get previous container logs, if applicable
 			if restarts := containerRestarts(pod, container.Name); restarts > 0 {
+				fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.previous.log", container.Name))
 				// only care about istio components restart
 				if proxyContainer.IsContainer(container) || discoveryContainer.IsContainer(container) || initContainer.IsContainer(container) ||
 					validationContainer.IsContainer(container) || strings.HasPrefix(pod.Name, "istio-cni-node") {
 					// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
 					// a log which will get highlighted in the test logs
 					// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
-					scopes.Framework.Errorf("FAIL: cluster/pod/container %s/%s/%s/%s restarted %d times",
-						c.Name(), pod.Namespace, pod.Name, container.Name, restarts)
+					scopes.Framework.Errorf("FAIL: cluster/pod/container %s/%s/%s/%s restarted %d times, see %v",
+						c.Name(), pod.Namespace, pod.Name, container.Name, restarts, fname)
 				}
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
 				if err != nil {
@@ -355,7 +356,6 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 						c.Name(), pod.Namespace, pod.Name, container.Name, err)
 				}
 
-				fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.previous.log", container.Name))
 				if err = os.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 					scopes.Framework.Warnf("Unable to write previous logs for cluster/pod/container: %s/%s/%s/%s: %v",
 						c.Name(), pod.Namespace, pod.Name, container.Name, err)
