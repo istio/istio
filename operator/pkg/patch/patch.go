@@ -20,21 +20,18 @@ Paths are specified in the form a.b.c.[key:value].d.[list_entry_value], where:
 
 Some examples are given below. Given a resource:
 
-kind: Deployment
-metadata:
-
-	name: istio-citadel
-	namespace: istio-system
-
-a:
-
-	b:
-	- name: n1
-	  value: v1
-	- name: n2
-	  list:
-	  - "vv1"
-	  - vv2=foo
+	kind: Deployment
+	metadata:
+	  name: istio-citadel
+	  namespace: istio-system
+	a:
+	  b:
+	  - name: n1
+	    value: v1
+	  - name: n2
+	    list:
+	    - "vv1"
+	    - vv2=foo
 
 values and list entries can be added, modifed or deleted.
 

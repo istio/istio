@@ -582,7 +582,7 @@ func waitForIstioReady(ctx resource.Context, c cluster.Cluster, cfg Config) erro
 	return nil
 }
 
-// configureDirectAPIServiceAccessBetweenClusters - create a remote secret of cluster `c“ and place
+// configureDirectAPIServiceAccessBetweenClusters - create a remote secret of cluster `c` and place
 // the secret in all `from` clusters
 func (i *istioImpl) configureDirectAPIServiceAccessBetweenClusters(c cluster.Cluster, from ...cluster.Cluster) error {
 	// Create a secret.
