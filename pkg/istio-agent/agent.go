@@ -290,7 +290,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context, credentialSocketExists
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node: node,
-		}).CreateFileForEpoch(0)
+		}).CreateFile()
 		if err != nil {
 			return fmt.Errorf("failed to generate bootstrap config: %v", err)
 		}
