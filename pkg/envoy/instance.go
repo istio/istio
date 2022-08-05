@@ -29,8 +29,7 @@ import (
 )
 
 const (
-	defaultName        = "envoy"
-	defaultLiveTimeout = 20 * time.Second
+	defaultName = "envoy"
 )
 
 // Config for an Envoy Instance.
