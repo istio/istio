@@ -452,8 +452,28 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 			if port, err = strconv.Atoi(hostPort); err != nil {
 				continue
 			}
-			if hostIP == model.PodIPAddressPrefix || hostIP == model.PodIPv6AddressPrefix {
-				endpointAddress = cb.proxyIPAddresses[0]
+			if hostIP == model.PodIPAddressPrefix {
+				for _, proxyIPaddr := range cb.proxyIPAddresses {
+					edAddr := net.ParseIP(proxyIPaddr)
+					if edAddr.To4() != nil {
+						endpointAddress = proxyIPaddr
+						break
+					}
+				}
+				if endpointAddress == "" {
+					endpointAddress = model.LocalhostAddressPrefix
+				}
+			} else if hostIP == model.PodIPv6AddressPrefix {
+				for _, proxyIPaddr := range cb.proxyIPAddresses {
+					edAddr := net.ParseIP(proxyIPaddr)
+					if edAddr.To4() == nil {
+						endpointAddress = proxyIPaddr
+						break
+					}
+				}
+				if endpointAddress == "" {
+					endpointAddress = model.LocalhostIPv6AddressPrefix
+				}
 			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
 				endpointAddress = actualLocalHost
 			}
