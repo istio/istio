@@ -175,6 +175,269 @@ var networkFiltered = []networkFilterCase{
 	},
 }
 
+var mtlsCases = map[string]map[string]struct {
+	Config         config.Config
+	Configs        []config.Config
+	IsMtlsDisabled bool
+}{
+	gvk.PeerAuthentication.String(): {
+		"mtls-off-ineffective": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-partial",
+					Namespace:        "istio-system",
+				},
+				Spec: &security.PeerAuthentication{
+					Selector: &v1beta1.WorkloadSelector{
+						// shouldn't affect our test workload
+						MatchLabels: map[string]string{"app": "b"},
+					},
+					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				},
+			},
+			IsMtlsDisabled: false,
+		},
+		"mtls-on-strict": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-on",
+					Namespace:        "istio-system",
+				},
+				Spec: &security.PeerAuthentication{
+					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_STRICT},
+				},
+			},
+			IsMtlsDisabled: false,
+		},
+		"mtls-off-global": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-off",
+					Namespace:        "istio-system",
+				},
+				Spec: &security.PeerAuthentication{
+					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				},
+			},
+			IsMtlsDisabled: true,
+		},
+		"mtls-off-namespace": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-off",
+					Namespace:        "ns",
+				},
+				Spec: &security.PeerAuthentication{
+					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				},
+			},
+			IsMtlsDisabled: true,
+		},
+		"mtls-off-workload": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-off",
+					Namespace:        "ns",
+				},
+				Spec: &security.PeerAuthentication{
+					Selector: &v1beta1.WorkloadSelector{
+						MatchLabels: map[string]string{"app": "example"},
+					},
+					Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+				},
+			},
+			IsMtlsDisabled: true,
+		},
+		"mtls-off-port": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.PeerAuthentication,
+					Name:             "mtls-off",
+					Namespace:        "ns",
+				},
+				Spec: &security.PeerAuthentication{
+					Selector: &v1beta1.WorkloadSelector{
+						MatchLabels: map[string]string{"app": "example"},
+					},
+					PortLevelMtls: map[uint32]*security.PeerAuthentication_MutualTLS{
+						8080: {Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+					},
+				},
+			},
+			IsMtlsDisabled: true,
+		},
+	},
+	gvk.DestinationRule.String(): {
+		"mtls-on-override-pa": {
+			Configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.PeerAuthentication,
+						Name:             "mtls-off",
+						Namespace:        "ns",
+					},
+					Spec: &security.PeerAuthentication{
+						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "mtls-on",
+						Namespace:        "ns",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "example.ns.svc.cluster.local",
+						TrafficPolicy: &networking.TrafficPolicy{
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+						},
+					},
+				},
+			},
+			IsMtlsDisabled: false,
+		},
+		"mtls-off-innefective": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "mtls-off",
+					Namespace:        "ns",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "other.ns.svc.cluster.local",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+					},
+				},
+			},
+			IsMtlsDisabled: false,
+		},
+		"mtls-on-destination-level": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "mtls-on",
+					Namespace:        "ns",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "example.ns.svc.cluster.local",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+					},
+				},
+			},
+			IsMtlsDisabled: false,
+		},
+		"mtls-on-port-level": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "mtls-on",
+					Namespace:        "ns",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "example.ns.svc.cluster.local",
+					TrafficPolicy: &networking.TrafficPolicy{
+						PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+							Port: &networking.PortSelector{Number: 80},
+							Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+						}},
+					},
+				},
+			},
+			IsMtlsDisabled: false,
+		},
+		"mtls-off-destination-level": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "mtls-off",
+					Namespace:        "ns",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "example.ns.svc.cluster.local",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+					},
+				},
+			},
+			IsMtlsDisabled: true,
+		},
+		"mtls-off-port-level": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "mtls-off",
+					Namespace:        "ns",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "example.ns.svc.cluster.local",
+					TrafficPolicy: &networking.TrafficPolicy{
+						PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+							Port: &networking.PortSelector{Number: 80},
+							Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+						}},
+					},
+				},
+			},
+			IsMtlsDisabled: true,
+		},
+		"mtls-off-subset-level": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "mtls-off",
+					Namespace:        "ns",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "example.ns.svc.cluster.local",
+					TrafficPolicy: &networking.TrafficPolicy{
+						// should be overridden by subset
+						Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+					},
+					Subsets: []*networking.Subset{{
+						Name:   "disable-tls",
+						Labels: map[string]string{"app": "example"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+						},
+					}},
+				},
+			},
+			IsMtlsDisabled: true,
+		},
+		"mtls-on-subset-level": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "mtls-on",
+					Namespace:        "ns",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "example.ns.svc.cluster.local",
+					TrafficPolicy: &networking.TrafficPolicy{
+						// should be overridden by subset
+						Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+					},
+					Subsets: []*networking.Subset{{
+						Name:   "disable-tls",
+						Labels: map[string]string{"app": "example"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+						},
+					}},
+				},
+			},
+			IsMtlsDisabled: false,
+		},
+	},
+}
+
 func TestEndpointsByNetworkFilter(t *testing.T) {
 	env := environment(t)
 	env.Env().InitNetworksManager(env.Discovery)
@@ -279,270 +542,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 		},
 	}
 
-	cases := map[string]map[string]struct {
-		Config  config.Config
-		Configs []config.Config
-		Tests   []networkFilterCase
-	}{
-		gvk.PeerAuthentication.String(): {
-			"mtls-off-ineffective": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.PeerAuthentication,
-						Name:             "mtls-partial",
-						Namespace:        "istio-system",
-					},
-					Spec: &security.PeerAuthentication{
-						Selector: &v1beta1.WorkloadSelector{
-							// shouldn't affect our test workload
-							MatchLabels: map[string]string{"app": "b"},
-						},
-						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-					},
-				},
-				Tests: networkFiltered,
-			},
-			"mtls-on-strict": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.PeerAuthentication,
-						Name:             "mtls-on",
-						Namespace:        "istio-system",
-					},
-					Spec: &security.PeerAuthentication{
-						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_STRICT},
-					},
-				},
-				Tests: networkFiltered,
-			},
-			"mtls-off-global": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.PeerAuthentication,
-						Name:             "mtls-off",
-						Namespace:        "istio-system",
-					},
-					Spec: &security.PeerAuthentication{
-						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-					},
-				},
-				Tests: noCrossNetwork,
-			},
-			"mtls-off-namespace": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.PeerAuthentication,
-						Name:             "mtls-off",
-						Namespace:        "ns",
-					},
-					Spec: &security.PeerAuthentication{
-						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-					},
-				},
-				Tests: noCrossNetwork,
-			},
-			"mtls-off-workload": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.PeerAuthentication,
-						Name:             "mtls-off",
-						Namespace:        "ns",
-					},
-					Spec: &security.PeerAuthentication{
-						Selector: &v1beta1.WorkloadSelector{
-							MatchLabels: map[string]string{"app": "example"},
-						},
-						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-					},
-				},
-				Tests: noCrossNetwork,
-			},
-			"mtls-off-port": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.PeerAuthentication,
-						Name:             "mtls-off",
-						Namespace:        "ns",
-					},
-					Spec: &security.PeerAuthentication{
-						Selector: &v1beta1.WorkloadSelector{
-							MatchLabels: map[string]string{"app": "example"},
-						},
-						PortLevelMtls: map[uint32]*security.PeerAuthentication_MutualTLS{
-							8080: {Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-						},
-					},
-				},
-				Tests: noCrossNetwork,
-			},
-		},
-		gvk.DestinationRule.String(): {
-			"mtls-on-override-pa": {
-				Configs: []config.Config{
-					{
-						Meta: config.Meta{
-							GroupVersionKind: gvk.PeerAuthentication,
-							Name:             "mtls-off",
-							Namespace:        "ns",
-						},
-						Spec: &security.PeerAuthentication{
-							Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-						},
-					},
-					{
-						Meta: config.Meta{
-							GroupVersionKind: gvk.DestinationRule,
-							Name:             "mtls-on",
-							Namespace:        "ns",
-						},
-						Spec: &networking.DestinationRule{
-							Host: "example.ns.svc.cluster.local",
-							TrafficPolicy: &networking.TrafficPolicy{
-								Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
-							},
-						},
-					},
-				},
-				Tests: networkFiltered,
-			},
-			"mtls-off-innefective": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.DestinationRule,
-						Name:             "mtls-off",
-						Namespace:        "ns",
-					},
-					Spec: &networking.DestinationRule{
-						Host: "other.ns.svc.cluster.local",
-						TrafficPolicy: &networking.TrafficPolicy{
-							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
-						},
-					},
-				},
-				Tests: networkFiltered,
-			},
-			"mtls-on-destination-level": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.DestinationRule,
-						Name:             "mtls-on",
-						Namespace:        "ns",
-					},
-					Spec: &networking.DestinationRule{
-						Host: "example.ns.svc.cluster.local",
-						TrafficPolicy: &networking.TrafficPolicy{
-							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
-						},
-					},
-				},
-				Tests: networkFiltered,
-			},
-			"mtls-on-port-level": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.DestinationRule,
-						Name:             "mtls-on",
-						Namespace:        "ns",
-					},
-					Spec: &networking.DestinationRule{
-						Host: "example.ns.svc.cluster.local",
-						TrafficPolicy: &networking.TrafficPolicy{
-							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
-								Port: &networking.PortSelector{Number: 80},
-								Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
-							}},
-						},
-					},
-				},
-				Tests: networkFiltered,
-			},
-			"mtls-off-destination-level": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.DestinationRule,
-						Name:             "mtls-off",
-						Namespace:        "ns",
-					},
-					Spec: &networking.DestinationRule{
-						Host: "example.ns.svc.cluster.local",
-						TrafficPolicy: &networking.TrafficPolicy{
-							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
-						},
-					},
-				},
-				Tests: noCrossNetwork,
-			},
-			"mtls-off-port-level": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.DestinationRule,
-						Name:             "mtls-off",
-						Namespace:        "ns",
-					},
-					Spec: &networking.DestinationRule{
-						Host: "example.ns.svc.cluster.local",
-						TrafficPolicy: &networking.TrafficPolicy{
-							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
-								Port: &networking.PortSelector{Number: 80},
-								Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
-							}},
-						},
-					},
-				},
-				Tests: noCrossNetwork,
-			},
-			"mtls-off-subset-level": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.DestinationRule,
-						Name:             "mtls-off",
-						Namespace:        "ns",
-					},
-					Spec: &networking.DestinationRule{
-						Host: "example.ns.svc.cluster.local",
-						TrafficPolicy: &networking.TrafficPolicy{
-							// should be overridden by subset
-							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
-						},
-						Subsets: []*networking.Subset{{
-							Name:   "disable-tls",
-							Labels: map[string]string{"app": "example"},
-							TrafficPolicy: &networking.TrafficPolicy{
-								Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
-							},
-						}},
-					},
-				},
-				Tests: noCrossNetwork,
-			},
-			"mtls-on-subset-level": {
-				Config: config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.DestinationRule,
-						Name:             "mtls-on",
-						Namespace:        "ns",
-					},
-					Spec: &networking.DestinationRule{
-						Host: "example.ns.svc.cluster.local",
-						TrafficPolicy: &networking.TrafficPolicy{
-							// should be overridden by subset
-							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
-						},
-						Subsets: []*networking.Subset{{
-							Name:   "disable-tls",
-							Labels: map[string]string{"app": "example"},
-							TrafficPolicy: &networking.TrafficPolicy{
-								Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
-							},
-						}},
-					},
-				},
-				Tests: networkFiltered,
-			},
-		},
-	}
-
-	for configType, cases := range cases {
+	for configType, cases := range mtlsCases {
 		t.Run(configType, func(t *testing.T) {
 			for name, pa := range cases {
 				t.Run(name, func(t *testing.T) {
@@ -551,7 +551,13 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 						cfgs = append(cfgs, pa.Config)
 					}
 					env := environment(t, cfgs...)
-					runNetworkFilterTest(t, env, pa.Tests)
+					var tests []networkFilterCase
+					if pa.IsMtlsDisabled {
+						tests = noCrossNetwork
+					} else {
+						tests = networkFiltered
+					}
+					runNetworkFilterTest(t, env, tests)
 				})
 			}
 		})
@@ -610,53 +616,117 @@ func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []network
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
 			}
-			if len(filtered) != len(tt.want) {
-				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
-				return
-			}
-
-			sort.Slice(filtered, func(i, j int) bool {
-				addrI := filtered[i].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-				addrJ := filtered[j].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-				return addrI < addrJ
-			})
-
-			for i, ep := range filtered {
-				if len(ep.llbEndpoints.LbEndpoints) != len(tt.want[i].lbEps) {
-					t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v",
-						i, getLbEndpointAddrs(&ep.llbEndpoints), tt.want[i].getAddrs())
-				}
-
-				if ep.llbEndpoints.LoadBalancingWeight.GetValue() != tt.want[i].weight {
-					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.llbEndpoints.LoadBalancingWeight.GetValue(), tt.want[i].weight)
-				}
-
-				for _, lbEp := range ep.llbEndpoints.LbEndpoints {
-					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
-					found := false
-					for _, wantLbEp := range tt.want[i].lbEps {
-						if addr == wantLbEp.address {
-							found = true
-
-							// Now compare the weight.
-							if lbEp.GetLoadBalancingWeight().Value != wantLbEp.weight {
-								t.Errorf("Unexpected weight for endpoint %s: got %v, want %v",
-									addr, lbEp.GetLoadBalancingWeight().Value, wantLbEp.weight)
-							}
-							break
-						}
-					}
-					if !found {
-						t.Errorf("Unexpected address for endpoint %d: %v", i, addr)
-					}
-				}
-			}
+			compareEndpoints(t, filtered, tt.want)
 
 			b2 := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
 			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
 			if !reflect.DeepEqual(filtered2, filtered) {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic")
+			}
+		})
+	}
+}
+
+func compareEndpoints(t *testing.T, got []*LocalityEndpoints, want []LocLbEpInfo) {
+	if len(got) != len(want) {
+		t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(got), len(want))
+		return
+	}
+
+	sort.Slice(got, func(i, j int) bool {
+		addrI := got[i].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+		addrJ := got[j].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+		return addrI < addrJ
+	})
+
+	for i, ep := range got {
+		if len(ep.llbEndpoints.LbEndpoints) != len(want[i].lbEps) {
+			t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v",
+				i, getLbEndpointAddrs(&ep.llbEndpoints), want[i].getAddrs())
+		}
+
+		if ep.llbEndpoints.LoadBalancingWeight.GetValue() != want[i].weight {
+			t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.llbEndpoints.LoadBalancingWeight.GetValue(), want[i].weight)
+		}
+
+		for _, lbEp := range ep.llbEndpoints.LbEndpoints {
+			addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
+			found := false
+			for _, wantLbEp := range want[i].lbEps {
+				if addr == wantLbEp.address {
+					found = true
+
+					// Now compare the weight.
+					if lbEp.GetLoadBalancingWeight().Value != wantLbEp.weight {
+						t.Errorf("Unexpected weight for endpoint %s: got %v, want %v",
+							addr, lbEp.GetLoadBalancingWeight().Value, wantLbEp.weight)
+					}
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Unexpected address for endpoint %d: %v", i, addr)
+			}
+		}
+	}
+}
+
+func TestEndpointsWithMTLSFilter(t *testing.T) {
+	casesMtlsDisabled := []networkFilterCase{
+		{
+			name: "from_network1_cluster1a",
+			conn: xdsConnection("network1", "cluster1a"),
+			want: []LocLbEpInfo{
+				{
+					lbEps:  []LbEpInfo{},
+					weight: 0,
+				},
+			},
+		},
+	}
+
+	for configType, cases := range mtlsCases {
+		t.Run(configType, func(t *testing.T) {
+			for name, pa := range cases {
+				t.Run(name, func(t *testing.T) {
+					cfgs := pa.Configs
+					if pa.Config.Name != "" {
+						cfgs = append(cfgs, pa.Config)
+					}
+					env := environment(t, cfgs...)
+					var tests []networkFilterCase
+					if pa.IsMtlsDisabled {
+						tests = casesMtlsDisabled
+					} else {
+						tests = networkFiltered
+					}
+					runMTLSFilterTest(t, env, tests)
+				})
+			}
+		})
+	}
+}
+
+func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proxy := ds.SetupProxy(tt.conn.proxy)
+			b := NewEndpointBuilder("outbound_.80_._.example.ns.svc.cluster.local", proxy, ds.PushContext())
+			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			filtered := b.EndpointsByNetworkFilter(testEndpoints)
+			filtered = b.EndpointsWithMTLSFilter(filtered)
+			for _, e := range testEndpoints {
+				e.AssertInvarianceInTest()
+			}
+			compareEndpoints(t, filtered, tt.want)
+
+			b2 := NewEndpointBuilder("outbound_.80_._.example.ns.svc.cluster.local", proxy, ds.PushContext())
+			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
+			filtered2 = b2.EndpointsWithMTLSFilter(filtered2)
+			if !reflect.DeepEqual(filtered2, filtered) {
+				t.Fatalf("output of EndpointsWithMTLSFilter is non-deterministic")
 			}
 		})
 	}
