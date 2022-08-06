@@ -226,6 +226,24 @@ components.ingressGateways[name=istio-ingressgateway].k8s.replicaCount should no
 components.egressGateways[name=istio-egressgateway].k8s.replicaCount should not be set when values.gateways.istio-egressgateway.autoscaleEnabled is true
 `),
 		},
+		{
+			name: "pilot.k8s.replicaCount is default value set when autoscaleEnabled is true",
+			values: `
+values:
+  pilot:
+    autoscaleEnabled: true
+  gateways:
+    istio-ingressgateway:
+      autoscaleEnabled: true
+    istio-egressgateway:
+      autoscaleEnabled: true
+components:
+  pilot:
+    k8s:
+      replicaCount: 1
+`,
+			warnings: strings.TrimSpace(``),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
