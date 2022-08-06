@@ -628,7 +628,7 @@ func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []network
 	}
 }
 
-func compareEndpoints(t *testing.T, got []*LocalityEndpoints, want []LocLbEpInfo) {
+func compareEndpoints(t *testing.T, got []*LocLbEndpointsAndOptions, want []LocLbEpInfo) {
 	if len(got) != len(want) {
 		t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(got), len(want))
 		return
