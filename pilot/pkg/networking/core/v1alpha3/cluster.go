@@ -460,6 +460,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 						break
 					}
 				}
+				// if there is no any IPv4 address in proxyIPAddresses
 				if endpointAddress == "" {
 					endpointAddress = model.LocalhostAddressPrefix
 				}
@@ -471,6 +472,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 						break
 					}
 				}
+				// if there is no any IPv6 address in proxyIPAddresses
 				if endpointAddress == "" {
 					endpointAddress = model.LocalhostIPv6AddressPrefix
 				}
