@@ -22,37 +22,23 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"os"
-	"path"
 	"testing"
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
-
-func mustReadCert(t framework.TestContext, f string) string {
-	b, err := os.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
-	if err != nil {
-		t.Fatalf("failed to read %v: %v", f, err)
-	}
-	return string(b)
-}
 
 // TestEgressGatewayTls brings up an cluster and will ensure that the TLS origination at
 // egress gateway allows secure communication between the egress gateway and external workload.
@@ -62,9 +48,8 @@ func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.tls.filebased").
 		Run(func(t framework.TestContext) {
-			internalClient, externalServer, _, serviceNamespace := setupEcho(t, t)
 			// Set up Host Name
-			host := "server." + serviceNamespace.Name() + ".svc.cluster.local"
+			host := "server." + serviceNS.Name() + ".svc.cluster.local"
 
 			testCases := map[string]struct {
 				destinationRuleMode string
@@ -121,7 +106,7 @@ func TestEgressGatewayTls(t *testing.T) {
 			for name, tc := range testCases {
 				t.NewSubTest(name).
 					Run(func(t framework.TestContext) {
-						bufDestinationRule := createDestinationRule(t, serviceNamespace, tc.destinationRuleMode, tc.fakeRootCert)
+						bufDestinationRule := createDestinationRule(t, serviceNS, tc.destinationRuleMode, tc.fakeRootCert)
 
 						istioCfg := istio.DefaultConfigOrFail(t, t)
 						systemNamespace := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
@@ -129,7 +114,7 @@ func TestEgressGatewayTls(t *testing.T) {
 						t.ConfigIstio().YAML(systemNamespace.Name(), bufDestinationRule.String()).ApplyOrFail(t)
 
 						opts := echo.CallOptions{
-							To:    externalServer,
+							To:    externalService,
 							Count: 1,
 							Port: echo.Port{
 								Name: "http",
@@ -151,7 +136,7 @@ func TestEgressGatewayTls(t *testing.T) {
 								})),
 						}
 
-						internalClient.CallOrFail(t, opts)
+						internalClient[0].CallOrFail(t, opts)
 					})
 			}
 		})
@@ -243,79 +228,6 @@ func createDestinationRule(t framework.TestContext, serviceNamespace namespace.I
 		t.Fatalf("failed to create template: %v", err)
 	}
 	return buf
-}
-
-// setupEcho creates two namespaces app and service. It also brings up two echo instances server and
-// client in app namespace. HTTP and HTTPS port on the server echo are set up. Sidecar scope config
-// is applied to only allow egress traffic to service namespace such that when client to server calls are made
-// we are able to simulate "external" traffic by going outside this namespace. Egress Gateway is set up in the
-// service namespace to handle egress for "external" calls.
-func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
-	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
-		Prefix: "app",
-		Inject: true,
-	})
-	serviceNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
-		Prefix: "service",
-		Inject: true,
-	})
-
-	var internalClient, externalServer echo.Instance
-	deployment.New(ctx).
-		With(&internalClient, echo.Config{
-			Service:   "client",
-			Namespace: appsNamespace,
-			Ports:     []echo.Port{},
-			Subsets: []echo.SubsetConfig{{
-				Version: "v1",
-			}},
-			Cluster: ctx.Clusters().Default(),
-		}).
-		With(&externalServer, echo.Config{
-			Service:   "server",
-			Namespace: serviceNamespace,
-			Ports: []echo.Port{
-				{
-					// Plain HTTP port only used to route request to egress gateway
-					Name:         "http",
-					Protocol:     protocol.HTTP,
-					ServicePort:  80,
-					WorkloadPort: 8080,
-				},
-				{
-					// HTTPS port
-					Name:         "https",
-					Protocol:     protocol.HTTPS,
-					ServicePort:  443,
-					WorkloadPort: 8443,
-					TLS:          true,
-				},
-			},
-			// Set up TLS certs on the server. This will make the server listen with these credentials.
-			TLSSettings: &common.TLSSettings{
-				// Echo has these test certs baked into the docker image
-				RootCert:   mustReadCert(t, "root-cert.pem"),
-				ClientCert: mustReadCert(t, "cert-chain.pem"),
-				Key:        mustReadCert(t, "key.pem"),
-				// Override hostname to match the SAN in the cert we are using
-				Hostname: "server.default.svc",
-			},
-			Subsets: []echo.SubsetConfig{{
-				Version:     "v1",
-				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-			}},
-			Cluster: ctx.Clusters().Default(),
-		}).
-		BuildOrFail(t)
-
-	// Apply Egress Gateway for service namespace to originate external traffic
-	createGateway(t, ctx, appsNamespace, serviceNamespace)
-
-	if err := WaitUntilNotCallable(internalClient, externalServer); err != nil {
-		t.Fatalf("failed to apply sidecar, %v", err)
-	}
-
-	return internalClient, externalServer, appsNamespace, serviceNamespace
 }
 
 const (

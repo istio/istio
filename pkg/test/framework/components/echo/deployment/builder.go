@@ -179,8 +179,17 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 		perClusterConfig = perClusterConfig.DeepCopy()
 		k := ec.Kind()
 		perClusterConfig.Cluster = ec
-		b.configs[k] = append(b.configs[k], perClusterConfig)
-		b.refs[k] = append(b.refs[k], ref)
+		addConfig := true
+		for _, tempConfig := range b.configs[k] {
+			if tempConfig.Namespace == perClusterConfig.Namespace && tempConfig.Service == perClusterConfig.Service {
+				addConfig = false
+				break
+			}
+		}
+		if addConfig {
+			b.configs[k] = append(b.configs[k], perClusterConfig)
+			b.refs[k] = append(b.refs[k], ref)
+		}
 		deployedTo++
 	}
 

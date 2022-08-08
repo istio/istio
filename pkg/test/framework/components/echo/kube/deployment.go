@@ -31,13 +31,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/test/util/file"
+
+	"istio.io/istio/pkg/test/env"
+
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istioctlcmd "istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -47,7 +50,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -272,7 +274,7 @@ func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost
 	return
 }
 
-func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]any, error) {
+func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]interface{}, error) {
 	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 	imagePullSecretName, err := settings.Image.PullSecretName()
 	if err != nil {
@@ -280,7 +282,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	}
 
 	containerPorts := getContainerPorts(cfg)
-	appContainers := []map[string]any{{
+	appContainers := []map[string]interface{}{{
 		"Name":           appContainerName,
 		"ImageFullPath":  settings.EchoImage, // This overrides image hub/tag if it's not empty.
 		"ContainerPorts": getContainerPorts(cfg),
@@ -304,7 +306,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 			Port:     grpcFallbackPort,
 		})
 		appContainers[0]["ContainerPorts"] = otherPorts
-		appContainers = append(appContainers, map[string]any{
+		appContainers = append(appContainers, map[string]interface{}{
 			"Name":           "custom-grpc-" + appContainerName,
 			"ImageFullPath":  settings.CustomGRPCEchoImage, // This overrides image hub/tag if it's not empty.
 			"ContainerPorts": grpcPorts,
@@ -312,7 +314,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		})
 	}
 
-	params := map[string]any{
+	params := map[string]interface{}{
 		"ImageHub":            settings.Image.Hub,
 		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
 		"ImagePullPolicy":     settings.Image.PullPolicy,
@@ -353,7 +355,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 
 		vmIstioHost, vmIstioIP = getVMOverrideForIstiodDNS(ctx, cfg)
 
-		params["VM"] = map[string]any{
+		params["VM"] = map[string]interface{}{
 			"Image":     vmImage,
 			"IstioHost": vmIstioHost,
 			"IstioIP":   vmIstioIP,
@@ -363,8 +365,8 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	return params, nil
 }
 
-func serviceParams(cfg echo.Config) map[string]any {
-	return map[string]any{
+func serviceParams(cfg echo.Config) map[string]interface{} {
+	return map[string]interface{}{
 		"Service":            cfg.Service,
 		"Headless":           cfg.Headless,
 		"ServiceAccount":     cfg.ServiceAccount,
