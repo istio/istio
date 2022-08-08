@@ -74,6 +74,9 @@ type Client struct {
 	// revision for this control plane instance. We will only read configs that match this revision.
 	revision string
 
+	// identifier describes the purpose for which this client is used.
+	identifier string
+
 	// kinds keeps track of all cache handlers for known types
 	kinds   map[config.GroupVersionKind]*cacheHandler
 	kindsMu sync.RWMutex
@@ -99,12 +102,12 @@ type Client struct {
 
 var _ model.ConfigStoreController = &Client{}
 
-func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreController, error) {
+func New(client kube.Client, revision, domainSuffix, identifier string) (model.ConfigStoreController, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI
 	}
-	return NewForSchemas(client, revision, domainSuffix, schemas)
+	return NewForSchemas(client, revision, domainSuffix, identifier, schemas)
 }
 
 var crdWatches = map[config.GroupVersionKind]*waiter{
@@ -130,7 +133,7 @@ func newWaiter() *waiter {
 func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	ch, f := crdWatches[k]
 	if !f {
-		log.Warnf("waiting for CRD that is not registered")
+		log.Warnf("waiting for CRD %s that is not registered", k.String())
 		return false
 	}
 	select {
@@ -141,7 +144,7 @@ func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	}
 }
 
-func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreController, error) {
+func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string, schemas collection.Schemas) (model.ConfigStoreController, error) {
 	schemasByCRDName := map[string]collection.Schema{}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
@@ -153,6 +156,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 		schemas:          schemas,
 		schemasByCRDName: schemasByCRDName,
 		revision:         revision,
+		identifier:       identifier,
 		queue:            queue.NewQueue(1 * time.Second),
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
@@ -183,7 +187,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 			if _, f := known[name]; f {
 				handleCRDAdd(out, name, nil)
 			} else {
-				scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+				scope.Warnf("%s:Skipping CRD %v as it is not present", identifier, s.Resource().GroupVersionKind())
 			}
 		}
 	}
@@ -198,7 +202,7 @@ func (cl *Client) checkReadyForEvents(curr any) error {
 	}
 	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
 	if err != nil {
-		scope.Infof("Error retrieving key: %v", err)
+		scope.Infof("%s:Error retrieving key: %v", cl.identifier, err)
 	}
 	return nil
 }
@@ -220,22 +224,22 @@ func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err erro
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
-	scope.Info("Starting Pilot K8S CRD controller")
+	scope.Info("%s:Starting Pilot K8S CRD controller", cl.identifier)
 
 	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
-		scope.Error("Failed to sync Pilot K8S CRD controller cache")
+		scope.Error("%s:Failed to sync Pilot K8S CRD controller cache", cl.identifier)
 		return
 	}
 	cl.SyncAll()
 	cl.initialSync.Store(true)
-	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
+	scope.Info("%s:Pilot K8S CRD controller synced ", time.Since(t0), cl.identifier)
 
 	cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			crd, ok := obj.(*metav1.PartialObjectMetadata)
 			if !ok {
 				// Shouldn't happen
-				scope.Errorf("wrong type %T: %v", obj, obj)
+				scope.Errorf("%s:wrong type %T: %v", cl.identifier, obj, obj)
 				return
 			}
 			handleCRDAdd(cl, crd.Name, stop)
@@ -245,13 +249,13 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	})
 
 	cl.queue.Run(stop)
-	scope.Info("controller terminated")
+	scope.Info("%s:controller terminated", cl.identifier)
 }
 
 func (cl *Client) informerSynced() bool {
 	for _, ctl := range cl.allKinds() {
 		if !ctl.informer.HasSynced() {
-			scope.Infof("controller %q is syncing...", ctl.schema.Resource().GroupVersionKind())
+			scope.Infof("%s:controller %q is syncing...", cl.identifier, ctl.schema.Resource().GroupVersionKind())
 			return false
 		}
 	}
@@ -279,7 +283,7 @@ func (cl *Client) SyncAll() {
 			for _, object := range objects {
 				currItem, ok := object.(runtime.Object)
 				if !ok {
-					scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
+					scope.Warnf("%s:New Object can not be converted to runtime Object %v, is type %T", cl.identifier, object, object)
 					continue
 				}
 				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
