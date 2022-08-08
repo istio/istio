@@ -18,6 +18,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -83,4 +84,22 @@ func configureTProxyRoutes(cfg *config.Config) error {
 		}
 	}
 	return nil
+}
+
+func nsContainerCode(cfg *config.Config) error {
+	nsContainer, err := ns.GetNS(cfg.NetworkNamespace)
+	if err != nil {
+		return err
+	}
+	defer nsContainer.Close()
+
+	return nsContainer.Do(func(ns.NetNS) error {
+		if err := configureIPv6Addresses(cfg); err != nil {
+			return err
+		}
+		if err := configureTProxyRoutes(cfg); err != nil {
+			return err
+		}
+		return nil
+	})
 }
