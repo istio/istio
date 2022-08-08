@@ -215,7 +215,7 @@ func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		epLog.Warnf("failed to get host from remote address: %s", err)
 	}
-	epLog.WithLabels("remoteAddr", remoteAddr, "method", r.Method, "url", r.URL, "host", r.Host, "headers", r.Header, "id", id).Infof("HTTP Request")
+	epLog.WithLabels("remoteAddr", remoteAddr, "method", r.Method, "url", r.URL, "host", r.Host, "headers", r.Header, "id", id).Infof("%v Request", r.Proto)
 	if h.Port == nil {
 		defer common.Metrics.HTTPRequests.With(common.PortLabel.Value("uds")).Increment()
 	} else {
@@ -273,7 +273,7 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request, id uuid.UUID)
 	if _, err := w.Write(body.Bytes()); err != nil {
 		epLog.Warn(err)
 	}
-	epLog.WithLabels("code", code, "headers", w.Header(), "id", id).Infof("HTTP Response")
+	epLog.WithLabels("code", code, "headers", w.Header(), "id", id).Infof("%v Response", r.Proto)
 }
 
 func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
