@@ -925,7 +925,10 @@ func TestHttpsAppProbe(t *testing.T) {
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != tc.statusCode {
-				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+				t.Errorf("unexpected status code, want = %v, got = %v", tc.statusCode, resp.StatusCode)
+			}
+			if got := getAlpn(); got != tc.expectedProtocol {
+				t.Errorf("unexpected protocol, want = %v, got = %v", tc.expectedProtocol, got)
 			}
 		})
 	}
@@ -1047,9 +1050,6 @@ func TestGRPCAppProbe(t *testing.T) {
 			defer resp.Body.Close()
 			if resp.StatusCode != tc.statusCode {
 				t.Errorf("unexpected status code, want = %v, got = %v", tc.statusCode, resp.StatusCode)
-			}
-			if got := getAlpn(); got != tc.expectedProtocol {
-				t.Errorf("unexpected protocol, want = %v, got = %v", tc.expectedProtocol, got)
 			}
 		})
 	}
