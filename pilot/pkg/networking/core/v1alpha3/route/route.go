@@ -492,7 +492,7 @@ func applyHTTPRouteDestination(
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
-	setTimeout(action, features.DefaultRequestTimeout, in.Timeout, node)
+	setTimeout(action, in.Timeout, node)
 
 	if model.UseGatewaySemantics(vs) && util.IsIstioVersionGE115(node.IstioVersion) {
 		// return 500 for invalid backends
@@ -1059,7 +1059,13 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
 	out := buildDefaultHTTPRoute(clusterName, operation)
 	// For inbound, configure with notimeout.
-	setTimeout(out.GetRoute(), notimeout, nil, nil)
+	out.GetRoute().Timeout = notimeout
+	out.GetRoute().MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+		MaxStreamDuration: notimeout,
+		// If not configured at all, the grpc-timeout header is not used and
+		// gRPC requests time out like any other requests using timeout or its default.
+		GrpcTimeoutHeaderMax: notimeout,
+	}
 	return out
 }
 
@@ -1082,45 +1088,37 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 }
 
 // setTimeout sets timeout for a route.
-// defaultTimeout is the timeout to be used if vsTimeout is not specified.
-func setTimeout(action *route.RouteAction, defaultTimeout *duration.Duration,
-	vsTimeout *duration.Duration, node *model.Proxy,
-) {
-	// If default request timeout or virtual service timeout is not set, default to no timeout.
-	if defaultTimeout.AsDuration().Nanoseconds() == 0 && vsTimeout == nil {
-		action.Timeout = notimeout
-		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
-			MaxStreamDuration: notimeout,
-			// If not configured at all, the grpc-timeout header is not used and
-			// gRPC requests time out like any other requests using timeout or its default.
-			GrpcTimeoutHeaderMax: notimeout,
-		}
-		return
-	}
+func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *model.Proxy) {
 	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
 	action.Timeout = features.DefaultRequestTimeout
 	if vsTimeout != nil {
 		action.Timeout = vsTimeout
 	}
+	action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{}
 	if node != nil && node.IsProxylessGrpc() {
 		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
 		action.MaxStreamDuration.MaxStreamDuration = action.Timeout
 	} else {
-		// If not configured at all, the grpc-timeout header is not used and
-		// gRPC requests time out like any other requests using timeout or its default.
-		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-		// nolint: staticcheck
-		action.MaxGrpcTimeout = action.Timeout
+		// Set MaxStreamDuration only for notimeout cases otherwise it wont be honored.
+		if action.Timeout.AsDuration().Nanoseconds() == 0 {
+			action.MaxStreamDuration.MaxStreamDuration = action.Timeout
+			action.MaxStreamDuration.GrpcTimeoutHeaderMax = action.Timeout
+		} else {
+			// If not configured at all, the grpc-timeout header is not used and
+			// gRPC requests time out like any other requests using timeout or its default.
+			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+			// nolint: staticcheck
+			action.MaxGrpcTimeout = action.Timeout
+		}
 	}
 }
 
 // BuildDefaultHTTPOutboundRoute builds a default outbound route, including a retry policy.
 func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *meshconfig.MeshConfig) *route.Route {
 	out := buildDefaultHTTPRoute(clusterName, operation)
-
 	// Add a default retry policy for outbound routes.
 	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy())
-	setTimeout(out.GetRoute(), features.DefaultRequestTimeout, nil, nil)
+	setTimeout(out.GetRoute(), nil, nil)
 	return out
 }
 
