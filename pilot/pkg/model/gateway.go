@@ -190,8 +190,8 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					// To avoid this, we need to make sure we don't have duplicated hosts, which will become
 					// SNI filter chain matches.
 
-					// When there is Bind specified in the Gateway, the listener will be splitted per IP instead of
-					// sharing one wildcard listener, hence the de-deplicate logic changed. Different Gateways can
+					// When there is Bind specified in the Gateway, the listener is built per IP instead of
+					// sharing one wildcard listener. So different Gateways can
 					// have same host as long as they have different Bind.
 					if tlsHostsByPort[resolvedPort] == nil {
 						tlsHostsByPort[resolvedPort] = map[string]string{}
