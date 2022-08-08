@@ -224,6 +224,7 @@ func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocLbEndpointsAnd
 			lbEndpoints.append(ep.istioEndpoints[i], lbEp)
 		}
 
+		lbEndpoints.refreshWeight()
 		filtered = append(filtered, lbEndpoints)
 	}
 
