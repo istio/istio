@@ -388,6 +388,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"1.1.1.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
+				Labels: map[string]string{
+					"app":                      "prod-app",
+					label.SecurityTlsMode.Name: "mutual",
+				},
 				Metadata: &model.NodeMetadata{
 					ServiceAccount: "account",
 					ClusterID:      clusterID,
@@ -462,6 +466,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
+				Labels: map[string]string{
+					"app": "prod-app",
+				},
 				Metadata: &model.NodeMetadata{
 					ServiceAccount: "account",
 					ClusterID:      clusterID,
@@ -530,6 +537,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.2"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
+				Labels: map[string]string{
+					"app": "prod-app",
+				},
 				Metadata: &model.NodeMetadata{
 					ServiceAccount: "account",
 					ClusterID:      clusterID,

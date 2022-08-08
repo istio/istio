@@ -1536,6 +1536,9 @@ func TestInboundMTLSSettings(t *testing.T) {
 	}
 
 	testNode := &model.Proxy{
+		Labels: map[string]string{
+			"app": "foo",
+		},
 		Metadata: &model.NodeMetadata{
 			Labels: map[string]string{
 				"app": "foo",

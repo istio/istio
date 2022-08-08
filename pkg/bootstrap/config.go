@@ -516,10 +516,17 @@ type MetadataOptions struct {
 	ExitOnZeroActiveConnections bool
 }
 
+const (
+	// DefaultDeploymentUniqueLabelKey is the default key of the selector that is added
+	// to existing ReplicaSets (and label key that is added to its pods) to prevent the existing ReplicaSets
+	// to select new pods (and old pods being select by new ReplicaSet).
+	DefaultDeploymentUniqueLabelKey string = "pod-template-hash"
+)
+
 // GetNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // The name of variable is ignored.
-// ISTIO_META_* env variables are passed thru
+// ISTIO_META_* env variables are passed through
 func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta := &model.BootstrapNodeMetadata{}
 	untypedMeta := map[string]any{}
@@ -569,6 +576,10 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 			meta.Labels = map[string]string{}
 		}
 		for k, v := range lbls {
+			// ignore `pod-template-hash` label
+			if k == DefaultDeploymentUniqueLabelKey {
+				continue
+			}
 			meta.Labels[k] = v
 		}
 	} else {
