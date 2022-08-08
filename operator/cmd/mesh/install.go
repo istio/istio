@@ -194,17 +194,20 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 
 	// Detect whether previous installation exists prior to performing the installation.
 	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
-	pilotEnabled := iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	rev := iop.Spec.Revision
-	if rev == "" && pilotEnabled {
+	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
+	operatorManageWebhooks := operatorManageWebhooks(iop)
+
+	if !operatorManageWebhooks && isDefaultInstallation {
 		_ = revtag.DeleteTagWebhooks(context.Background(), kubeClient.Kube(), revtag.DefaultRevisionName)
 	}
+
 	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
-	if !exists || rev == "" && pilotEnabled {
+	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
 		p.Println("Making this installation the default for injection and validation.")
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
@@ -247,6 +250,23 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	}
 
 	return nil
+}
+
+// operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
+func operatorManageWebhooks(iop *v1alpha12.IstioOperator) bool {
+	if iop.Spec.GetValues() == nil {
+		return false
+	}
+	globalValues := iop.Spec.Values.AsMap()["global"]
+	global, ok := globalValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	omw, ok := global["operatorManageWebhooks"].(bool)
+	if !ok {
+		return false
+	}
+	return omw
 }
 
 // InstallManifests generates manifests from the given istiooperator instance and applies them to the
