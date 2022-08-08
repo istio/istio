@@ -572,8 +572,8 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	if group.Metadata != nil && group.Metadata.Labels != nil {
 		entry.Labels = mergeLabels(entry.Labels, group.Metadata.Labels)
 	}
-	if proxy.Metadata != nil && proxy.Metadata.Labels != nil {
-		entry.Labels = mergeLabels(entry.Labels, proxy.Metadata.Labels)
+	if proxy.Labels != nil {
+		entry.Labels = mergeLabels(entry.Labels, proxy.Labels)
 	}
 
 	annotations := map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name}

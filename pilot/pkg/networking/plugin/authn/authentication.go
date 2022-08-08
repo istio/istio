@@ -33,7 +33,7 @@ type Builder struct {
 }
 
 func NewBuilder(push *model.PushContext, proxy *model.Proxy) *Builder {
-	applier := factory.NewPolicyApplier(push, proxy.Metadata.Namespace, proxy.Metadata.Labels)
+	applier := factory.NewPolicyApplier(push, proxy.Metadata.Namespace, proxy.Labels)
 	trustDomains := TrustDomainsForValidation(push.Mesh)
 	return &Builder{
 		applier:      applier,

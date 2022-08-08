@@ -1923,6 +1923,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			if tt.sidecarConfig != nil {
 				dr := sidecarScope.DestinationRule(TrafficDirectionOutbound,
 					&Proxy{
+						Labels:          tt.sidecarConfig.Labels,
 						Metadata:        &NodeMetadata{Labels: tt.sidecarConfig.Labels},
 						ConfigNamespace: tt.sidecarConfig.Namespace,
 					}, host.Name("httpbin.org")).GetRule()

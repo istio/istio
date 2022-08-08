@@ -629,8 +629,8 @@ func setTopologyLabels(proxy *model.Proxy) {
 	}
 
 	locality := util.LocalityToString(proxy.Locality)
-	// add topology labels to proxy metadata labels
-	proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
+	// add topology labels to proxy labels
+	proxy.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
 }
 
 // initializeProxy completes the initialization of a proxy. It is expected to be called only after
@@ -663,7 +663,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// 3. proxy update
 	recomputeLabels := request == nil || request.IsRequest() || request.IsProxyUpdate()
 	if recomputeLabels {
-		proxy.SetWorkloadLabels(s.Env, request)
+		proxy.SetWorkloadLabels(s.Env)
 		setTopologyLabels(proxy)
 	}
 	// Precompute the sidecar scope and merged gateways associated with this proxy.

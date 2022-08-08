@@ -43,7 +43,11 @@ import (
 
 func TestAccessLogging(t *testing.T) {
 	labels := map[string]string{"app": "test"}
-	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: labels}}
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Labels:          labels,
+		Metadata:        &NodeMetadata{Labels: labels},
+	}
 	envoy := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -596,7 +600,11 @@ func TestAccessLogging(t *testing.T) {
 }
 
 func TestAccessLoggingWithFilter(t *testing.T) {
-	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Labels:          map[string]string{"app": "test"},
+		Metadata:        &NodeMetadata{},
+	}
 	code400filter := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{

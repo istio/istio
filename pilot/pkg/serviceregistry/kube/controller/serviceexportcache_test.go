@@ -229,6 +229,10 @@ func (ec *serviceExportCacheImpl) getProxyServiceInstances() []*model.ServiceIns
 		IPAddresses:     []string{serviceExportPodIP},
 		Locality:        &core.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: serviceExportNamespace,
+		Labels: map[string]string{
+			"app":                      "prod-app",
+			label.SecurityTlsMode.Name: "mutual",
+		},
 		Metadata: &model.NodeMetadata{
 			ServiceAccount: "account",
 			ClusterID:      ec.Cluster(),
