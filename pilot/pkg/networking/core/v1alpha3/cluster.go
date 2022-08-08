@@ -467,9 +467,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 			} else if hostIP == model.PodIPv6AddressPrefix {
 				for _, proxyIPaddr := range cb.proxyIPAddresses {
 					edAddr := net.ParseIP(proxyIPaddr)
-					if edAddr.To16() != nil {
-						endpointAddress = proxyIPaddr
-						break
+					if edAddr.To4() == nil {
+						if edAddr.To16() != nil {
+							endpointAddress = proxyIPaddr
+							break
+						}
 					}
 				}
 				// if there is no any IPv6 address in proxyIPAddresses
