@@ -1121,21 +1121,20 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
 					errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
 				} else {
-					// format should be 127.0.0.1:port or :port
-					parts := strings.Split(i.DefaultEndpoint, ":")
-					if len(parts) < 2 {
-						errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
+					// format should be 127.0.0.1:port, [::1]:port or :port
+					sHost, sPort, sErr := net.SplitHostPort(i.DefaultEndpoint)
+					if sErr != nil {
+						errs = appendValidation(errs, sErr)
+					}
+					if sHost != "" && sHost != "127.0.0.1" && sHost != "0.0.0.0" && sHost != "::1" && sHost != "::" {
+						errMsg := "sidecar: defaultEndpoint must be of form 127.0.0.1:<port>,0.0.0.0:<port>,[::1]:port,[::]:port,unix://filepath or unset"
+						errs = appendValidation(errs, fmt.Errorf(errMsg))
+					}
+					port, err := strconv.Atoi(sPort)
+					if err != nil {
+						errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", sPort, err))
 					} else {
-						if len(parts[0]) > 0 && parts[0] != "127.0.0.1" && parts[0] != "0.0.0.0" {
-							errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
-						}
-
-						port, err := strconv.Atoi(parts[1])
-						if err != nil {
-							errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
-						} else {
-							errs = appendValidation(errs, ValidatePort(port))
-						}
+						errs = appendValidation(errs, ValidatePort(port))
 					}
 				}
 			}
