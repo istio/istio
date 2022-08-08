@@ -90,8 +90,9 @@ type telemetryKey struct {
 // metricsKey defines a key into the computedMetricsFilters cache.
 type metricsKey struct {
 	telemetryKey
-	Class    networking.ListenerClass
-	Protocol networking.ListenerProtocol
+	Class     networking.ListenerClass
+	Protocol  networking.ListenerProtocol
+	ProxyType string
 }
 
 // getTelemetries returns the Telemetry configurations for the given environment.
@@ -397,6 +398,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		telemetryKey: c.telemetryKey,
 		Class:        class,
 		Protocol:     protocol,
+		ProxyType:    proxy.Metadata.SidecarlessType,
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()

@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	kubetest "istio.io/istio/pkg/test/kube"
@@ -48,6 +49,9 @@ var (
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
 	// its doing something unique to that specific test.
 	apps = &EchoDeployments{}
+
+	// used to validate telemetry in-cluster
+	prom prometheus.Instance
 )
 
 type EchoDeployments struct {
@@ -128,6 +132,11 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		return err
 	}
 
+	prom, err = prometheus.New(t, prometheus.Config{})
+	if err != nil {
+		return err
+	}
+
 	// Headless services don't work with targetPort, set to same port
 	headlessPorts := make([]echo.Port, len(ports.All()))
 	for i, p := range ports.All() {
@@ -149,6 +158,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 						// TODO: remove or keep https://github.com/solo-io/istio-sidecarless/issues/168
 						"asm-type":   "workload",
 						"asm-remote": "true",
+						"app":        "remote",
+						"version":    "v1",
 					},
 				},
 				{
@@ -157,6 +168,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Labels: map[string]string{
 						"asm-type":   "workload",
 						"asm-remote": "true",
+						"app":        "remote",
+						"version":    "v2",
 					},
 				},
 			},
@@ -175,9 +188,10 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		//	}},
 		//}).
 		WithConfig(echo.Config{
-			Service:   Captured,
-			Namespace: apps.Namespace,
-			Ports:     ports.All(),
+			Service:        Captured,
+			Namespace:      apps.Namespace,
+			ServiceAccount: true,
+			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
