@@ -74,9 +74,6 @@ type Client struct {
 	// revision for this control plane instance. We will only read configs that match this revision.
 	revision string
 
-	// identifier describes the purpose for which this client is used.
-	identifier string
-
 	// kinds keeps track of all cache handlers for known types
 	kinds   map[config.GroupVersionKind]*cacheHandler
 	kindsMu sync.RWMutex
@@ -98,6 +95,7 @@ type Client struct {
 	schemasByCRDName    map[string]collection.Schema
 	client              kube.Client
 	crdMetadataInformer cache.SharedIndexInformer
+	scope               *log.Scope
 }
 
 var _ model.ConfigStoreController = &Client{}
@@ -156,7 +154,6 @@ func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string
 		schemas:          schemas,
 		schemasByCRDName: schemasByCRDName,
 		revision:         revision,
-		identifier:       identifier,
 		queue:            queue.NewQueue(1 * time.Second),
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
@@ -167,6 +164,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string
 			GroupVersionResource()).Informer(),
 		beginSync:   atomic.NewBool(false),
 		initialSync: atomic.NewBool(false),
+		scope:       log.WithLabels("controller", identifier),
 	}
 	_ = out.crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 
@@ -202,7 +200,7 @@ func (cl *Client) checkReadyForEvents(curr any) error {
 	}
 	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
 	if err != nil {
-		scope.Infof("%s:Error retrieving key: %v", cl.identifier, err)
+		cl.scope.Infof("Error retrieving key: %v", err)
 	}
 	return nil
 }
@@ -224,22 +222,22 @@ func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err erro
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
-	scope.Infof("%s:Starting Pilot K8S CRD controller", cl.identifier)
+	cl.scope.Infof("Starting Pilot K8S CRD controller")
 
 	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
-		scope.Errorf("%s:Failed to sync Pilot K8S CRD controller cache", cl.identifier)
+		cl.scope.Errorf("Failed to sync Pilot K8S CRD controller cache")
 		return
 	}
 	cl.SyncAll()
 	cl.initialSync.Store(true)
-	scope.Infof("%s:Pilot K8S CRD controller synced ", time.Since(t0), cl.identifier)
+	cl.scope.Infof("Pilot K8S CRD controller synced ", time.Since(t0))
 
 	cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			crd, ok := obj.(*metav1.PartialObjectMetadata)
 			if !ok {
 				// Shouldn't happen
-				scope.Errorf("%s:wrong type %T: %v", cl.identifier, obj, obj)
+				cl.scope.Errorf("wrong type %T: %v", obj, obj)
 				return
 			}
 			handleCRDAdd(cl, crd.Name, stop)
@@ -249,13 +247,13 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	})
 
 	cl.queue.Run(stop)
-	scope.Infof("%s:controller terminated", cl.identifier)
+	cl.scope.Infof("%s:controller terminated")
 }
 
 func (cl *Client) informerSynced() bool {
 	for _, ctl := range cl.allKinds() {
 		if !ctl.informer.HasSynced() {
-			scope.Infof("%s:controller %q is syncing...", cl.identifier, ctl.schema.Resource().GroupVersionKind())
+			cl.scope.Infof("controller %q is syncing...", ctl.schema.Resource().GroupVersionKind())
 			return false
 		}
 	}
@@ -283,7 +281,7 @@ func (cl *Client) SyncAll() {
 			for _, object := range objects {
 				currItem, ok := object.(runtime.Object)
 				if !ok {
-					scope.Warnf("%s:New Object can not be converted to runtime Object %v, is type %T", cl.identifier, object, object)
+					cl.scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
 					continue
 				}
 				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
