@@ -224,15 +224,15 @@ func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err erro
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
-	scope.Info("%s:Starting Pilot K8S CRD controller", cl.identifier)
+	scope.Infof("%s:Starting Pilot K8S CRD controller", cl.identifier)
 
 	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
-		scope.Error("%s:Failed to sync Pilot K8S CRD controller cache", cl.identifier)
+		scope.Errorf("%s:Failed to sync Pilot K8S CRD controller cache", cl.identifier)
 		return
 	}
 	cl.SyncAll()
 	cl.initialSync.Store(true)
-	scope.Info("%s:Pilot K8S CRD controller synced ", time.Since(t0), cl.identifier)
+	scope.Infof("%s:Pilot K8S CRD controller synced ", time.Since(t0), cl.identifier)
 
 	cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
@@ -249,7 +249,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	})
 
 	cl.queue.Run(stop)
-	scope.Info("%s:controller terminated", cl.identifier)
+	scope.Infof("%s:controller terminated", cl.identifier)
 }
 
 func (cl *Client) informerSynced() bool {
