@@ -143,6 +143,10 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
+		if pod.HostNetwork {
+			return true
+		}
+
 		proxyImage := ""
 		for _, container := range pod.Containers {
 			if container.Name == util.IstioProxyName {
