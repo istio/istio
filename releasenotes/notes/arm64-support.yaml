@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 26652
+releaseNotes:
+- |
+  **Added** support for `arm64` architecture for all components.
