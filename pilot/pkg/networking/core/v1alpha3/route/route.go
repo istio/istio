@@ -492,11 +492,7 @@ func applyHTTPRouteDestination(
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
-	if in.Retries != nil {
-		action.RetryPolicy = retry.ConvertPolicy(in.Retries)
-	}
-
-	setTimeouts(action, features.DefaultRequestTimeout, in.Timeout, node)
+	setTimeout(action, features.DefaultRequestTimeout, in.Timeout, node)
 
 	if model.UseGatewaySemantics(vs) && util.IsIstioVersionGE115(node.IstioVersion) {
 		// return 500 for invalid backends
@@ -1063,7 +1059,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
 	out := buildDefaultHTTPRoute(clusterName, operation)
 	// For inbound, configure with notimeout.
-	setTimeouts(out.GetRoute(), notimeout, nil, nil)
+	setTimeout(out.GetRoute(), notimeout, nil, nil)
 	return out
 }
 
@@ -1085,7 +1081,9 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 	return val
 }
 
-func setTimeouts(action *route.RouteAction, defaultTimeout *duration.Duration,
+// setTimeout sets timeout for a route.
+// defaultTimeout is the timeout to be used if vsTimeout is not specified.
+func setTimeout(action *route.RouteAction, defaultTimeout *duration.Duration,
 	vsTimeout *duration.Duration, node *model.Proxy,
 ) {
 	// If default request timeout or virtual service timeout is not set, default to no timeout.
@@ -1122,7 +1120,7 @@ func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *m
 
 	// Add a default retry policy for outbound routes.
 	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy())
-	setTimeouts(out.GetRoute(), features.DefaultRequestTimeout, nil, nil)
+	setTimeout(out.GetRoute(), features.DefaultRequestTimeout, nil, nil)
 	return out
 }
 
