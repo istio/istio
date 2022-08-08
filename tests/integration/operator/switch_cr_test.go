@@ -147,7 +147,7 @@ func cleanupIstioResources(t framework.TestContext, cs cluster.Cluster, istioCtl
 	scopes.Framework.Infof("cleaning up resources")
 	// clean up Istio control plane
 	unInstallCmd := []string{
-		"x", "uninstall", "--purge", "--skip-confirmation",
+		"uninstall", "--purge", "--skip-confirmation",
 	}
 	out, _ := istioCtl.InvokeOrFail(t, unInstallCmd)
 	t.Logf("uninstall command output: %s", out)
