@@ -366,6 +366,9 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
 			remoteCluster.Stop()
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
+			time.AfterFunc(30*time.Second, func() {
+				c.queue.Add(name)
+			})
 			continue
 		}
 		log.Infof("finished callback for %s and starting to sync", clusterID)
