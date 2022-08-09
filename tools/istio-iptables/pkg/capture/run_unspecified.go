@@ -20,6 +20,7 @@ import (
 	"errors"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 // ErrNotImplemented is returned when a requested feature is not implemented.
@@ -31,6 +32,6 @@ func configureTProxyRoutes(cfg *config.Config) error {
 	return ErrNotImplemented
 }
 
-func nsContainerCode(cfg *config.Config) error {
+func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
 	return ErrNotImplemented
 }
