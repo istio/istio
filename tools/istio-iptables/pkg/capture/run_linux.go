@@ -16,6 +16,7 @@ package capture
 import (
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -24,6 +25,8 @@ import (
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
+	"istio.io/pkg/log"
 )
 
 // configureTProxyRoutes configures ip firewall rules to enable TPROXY support.
