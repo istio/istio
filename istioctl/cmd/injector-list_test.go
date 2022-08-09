@@ -16,10 +16,13 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 
+	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -67,5 +70,74 @@ func Test_extractRevisionFromPod(t *testing.T) {
 		t.Run(fmt.Sprintf("case %d %s", i, c.name), func(t *testing.T) {
 			assert.Equal(t, c.expectedRevision, extractRevisionFromPod(c.pod))
 		})
+	}
+}
+
+func Test_getMatchingNamespacesWithDefaultAndRevInjector(t *testing.T) {
+	cases := []struct {
+		ns                    corev1.Namespace
+		expectedInjectorTotal int
+	}{
+		{
+			ns: corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test1",
+				},
+			},
+			expectedInjectorTotal: 2,
+		},
+		{
+			ns: corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test1",
+					Labels: map[string]string{
+						"istio-injection": "enabled",
+					},
+				},
+			},
+			expectedInjectorTotal: 1,
+		},
+		{
+			ns: corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test1",
+					Labels: map[string]string{
+						label.IoIstioRev.Name: "default",
+					},
+				},
+			},
+			expectedInjectorTotal: 1,
+		},
+		{
+			ns: corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test1",
+					Labels: map[string]string{
+						label.IoIstioRev.Name: "1-16",
+					},
+				},
+			},
+			expectedInjectorTotal: 1,
+		},
+	}
+	defaultFile, err := ioutil.ReadFile("testdata/default-injector.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var defaultWh *admit_v1.MutatingWebhookConfiguration
+	if err := yaml.Unmarshal(defaultFile, &defaultWh); err != nil {
+		t.Fatal(err)
+	}
+	revFile, err := ioutil.ReadFile("testdata/rev-16-injector.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var revWh *admit_v1.MutatingWebhookConfiguration
+	if err := yaml.Unmarshal(revFile, &revWh); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.expectedInjectorTotal, len(getMatchingNamespaces(defaultWh, []corev1.Namespace{c.ns}))+
+			len(getMatchingNamespaces(revWh, []corev1.Namespace{c.ns})))
 	}
 }
