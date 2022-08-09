@@ -264,31 +264,6 @@ func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 	return
 }
 
-func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
-	if cfg.DryRun {
-		log.Infof("skipping configuring routes due to dry run mode")
-		return nil
-	}
-	if ext != nil && cfg.CNIMode {
-		if cfg.HostNSEnterExec {
-			command := os.Args[0]
-			return ext.Run(command, constants.CommandConfigureRoutes)
-		}
-
-		if err := nsContainerCode(cfg); err != nil {
-			return err
-		}
-	}
-	// called through 'nsenter -- istio-cni configure-routes'
-	if err := configureIPv6Addresses(cfg); err != nil {
-		return err
-	}
-	if err := configureTProxyRoutes(cfg); err != nil {
-		return err
-	}
-	return nil
-}
-
 // configureIPv6Addresses sets up a new IP address on local interface. This is used as the source IP
 // for inbound traffic to distinguish traffic we want to capture vs traffic we do not. This is needed
 // for IPv6 but not IPv4, as IPv4 defaults to `netmask 255.0.0.0`, which allows binding to addresses

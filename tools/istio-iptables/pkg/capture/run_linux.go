@@ -86,20 +86,39 @@ func configureTProxyRoutes(cfg *config.Config) error {
 	return nil
 }
 
-func nsContainerCode(cfg *config.Config) error {
-	nsContainer, err := ns.GetNS(cfg.NetworkNamespace)
-	if err != nil {
+func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
+	if cfg.DryRun {
+		log.Infof("skipping configuring routes due to dry run mode")
+		return nil
+	}
+	if ext != nil && cfg.CNIMode {
+		if cfg.HostNSEnterExec {
+			command := os.Args[0]
+			return ext.Run(command, constants.CommandConfigureRoutes)
+		}
+
+		nsContainer, err := ns.GetNS(cfg.NetworkNamespace)
+		if err != nil {
+			return err
+		}
+		defer nsContainer.Close()
+
+		return nsContainer.Do(func(ns.NetNS) error {
+			if err := configureIPv6Addresses(cfg); err != nil {
+				return err
+			}
+			if err := configureTProxyRoutes(cfg); err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+	// called through 'nsenter -- istio-cni configure-routes'
+	if err := configureIPv6Addresses(cfg); err != nil {
 		return err
 	}
-	defer nsContainer.Close()
-
-	return nsContainer.Do(func(ns.NetNS) error {
-		if err := configureIPv6Addresses(cfg); err != nil {
-			return err
-		}
-		if err := configureTProxyRoutes(cfg); err != nil {
-			return err
-		}
-		return nil
-	})
+	if err := configureTProxyRoutes(cfg); err != nil {
+		return err
+	}
+	return nil
 }
