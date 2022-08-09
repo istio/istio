@@ -54,6 +54,7 @@ package uproxygen
 import (
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -177,16 +178,16 @@ func (g *UProxyConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.Pu
 	}
 
 	for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
-		c := outboundTunnelCluster(proxy, push, sa, &saWorkloads[0])
+		c := outboundTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
 		out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
 	}
 	for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
-		c := outboundPodTunnelCluster(proxy, push, sa, &saWorkloads[0])
+		c := outboundPodTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
 		out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
 	}
 	if features.SidecarlessCapture == model.VariantIptables {
 		for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
-			c := outboundPodLocalTunnelCluster(proxy, push, sa, &saWorkloads[0])
+			c := outboundPodLocalTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
 			out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
 		}
 	}
@@ -199,6 +200,25 @@ func (g *UProxyConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.Pu
 		tcpPassthroughCluster(push),
 		blackholeCluster(push))
 	return out
+}
+
+// pickWorkload selects the oldest workload from the list. This is needed for stable UID selection for SDS.
+// Without this, clusters churn a lot. Oldest is picked because older pods are less likely to be removed soon.
+func pickWorkload(workloads []ambient.Workload) *ambient.Workload {
+	// TODO: Min instead oF sort
+	workloads = append([]ambient.Workload{}, workloads...)
+	sort.Slice(workloads, func(i, j int) bool {
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if workloads[i].CreationTimestamp.Equal(&workloads[j].CreationTimestamp) {
+			in := workloads[i].Name + "." + workloads[i].Namespace
+			jn := workloads[j].Name + "." + workloads[j].Namespace
+			return in < jn
+		}
+		return workloads[i].CreationTimestamp.Before(&workloads[j].CreationTimestamp)
+	})
+	return &workloads[0]
 }
 
 func blackholeCluster(push *model.PushContext) *discovery.Resource {
@@ -666,7 +686,7 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 			// no peps or no workloads that use this client PEP on the node
 			continue
 		}
-		workload := saWorkloads[0] // we use this pod id for fetching cert
+		workload := pickWorkload(saWorkloads) // we use this pod id for fetching cert
 
 		clusters = append(clusters, &cluster.Cluster{
 			Name:                          pepClusterName(sa),
@@ -677,7 +697,7 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
 				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
-					CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
+					CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
 				})},
 			},
 			EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
@@ -697,7 +717,6 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 				// no peps or no workloads that use this identity on the node
 				continue
 			}
-			workload := workloads[0] // we use this pod id for fetching cert
 			clusters = append(clusters, &cluster.Cluster{
 				Name:                          serverPepClusterName(pepSA, workloadSA),
 				ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
@@ -707,7 +726,7 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 				TransportSocket: &core.TransportSocket{
 					Name: "envoy.transport_sockets.tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
-						CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, false),
+						CommonTlsContext: buildCommonTLSContext(proxy, pickWorkload(workloads), push, false),
 					})},
 				},
 				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
