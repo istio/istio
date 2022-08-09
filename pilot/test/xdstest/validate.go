@@ -50,6 +50,18 @@ func ValidateListener(t testing.TB, l *listener.Listener) {
 	validateListenerTLS(t, l)
 	validateFilterChainMatch(t, l)
 	validateInboundListener(t, l)
+	validateListenerFilters(t, l)
+}
+
+func validateListenerFilters(t testing.TB, l *listener.Listener) {
+	found := sets.String{}
+	for _, lf := range l.GetListenerFilters() {
+		if found.Has(lf.GetName()) {
+			// Technically legal in Envoy but should always be a bug when done in Istio based on our usage
+			t.Errorf("listener contains duplicate listener filter: %v", lf.GetName())
+		}
+		found.Insert(lf.GetName())
+	}
 }
 
 func validateInboundListener(t testing.TB, l *listener.Listener) {
@@ -104,7 +116,7 @@ func validateFilterChainMatch(t testing.TB, l *listener.Listener) {
 			destPorts.Insert(int(fc.GetFilterChainMatch().GetDestinationPort().GetValue()))
 		}
 	}
-	for _, p := range destPorts.List() {
+	for p := range destPorts {
 		hasTLSInspector := false
 		for _, fc := range l.FilterChains {
 			if p == int(fc.GetFilterChainMatch().GetDestinationPort().GetValue()) && fc.GetFilterChainMatch().GetTransportProtocol() != "" {
