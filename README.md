@@ -32,7 +32,6 @@ tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --pus
 ## Setup Ambient
 
 ```shell
-# Install Istio without gateway or webhook
 # profile can be "ambient" or "ambient-gke" or "ambient-aws"
 # Mesh config options are optional to improve debugging
 CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
@@ -42,7 +41,7 @@ CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set h
 kubectl apply -f local-test-utils/samples/
 ```
 
-## New Test
+## New Test with Ambient
 
 ```shell
 # Label the default namespace to make it part of the mesh
@@ -55,6 +54,22 @@ k exec -it $(k get po -lapp=sleep -ojsonpath='{.items[0].metadata.name}') -- sh
 
 # (From the client pod) Send traffic
 curl helloworld:5000/hello
+```
+
+## Tests with Sidecar Continue to Work
+
+```shell
+# Label the foo namespace with istio injection
+kubectl create ns foo
+kubectl label namespace foo istio-injection=enabled
+
+# Deploy and test the sample with sidecars
+kubectl apply -f local-test-utils/samples/ -n foo
+kubectl exec -it deploy/sleep -n foo -- curl http://helloworld:5000/hello
+
+# Test ambient to sidecar and sidecar to ambient:
+kubectl exec -it deploy/sleep  -- curl  http://helloworld.foo:5000/hello
+kubectl exec -it deploy/sleep -n foo -- curl  http://helloworld.default:5000/hello
 ```
 
 ## Debugging
