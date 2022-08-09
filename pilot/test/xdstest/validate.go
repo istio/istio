@@ -24,9 +24,9 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func ValidateListeners(t testing.TB, ls []*listener.Listener) {
