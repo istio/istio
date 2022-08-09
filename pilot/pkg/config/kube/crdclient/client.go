@@ -185,7 +185,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string
 			if _, f := known[name]; f {
 				handleCRDAdd(out, name, nil)
 			} else {
-				scope.Warnf("%s:Skipping CRD %v as it is not present", identifier, s.Resource().GroupVersionKind())
+				out.scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
 			}
 		}
 	}
@@ -303,14 +303,14 @@ func (cl *Client) Schemas() collection.Schemas {
 func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	h, f := cl.kind(typ)
 	if !f {
-		scope.Warnf("unknown type: %s", typ)
+		cl.scope.Warnf("unknown type: %s", typ)
 		return nil
 	}
 
 	obj, err := h.lister(namespace).Get(name)
 	if err != nil {
 		// TODO we should be returning errors not logging
-		scope.Warnf("error on get %v/%v: %v", name, namespace, err)
+		cl.scope.Warnf("error on get %v/%v: %v", name, namespace, err)
 		return nil
 	}
 
@@ -495,10 +495,10 @@ func genPatchBytes(oldRes, modRes runtime.Object, patchType types.PatchType) ([]
 }
 
 func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
-	scope.Debugf("adding CRD %q", name)
+	cl.scope.Debugf("adding CRD %q", name)
 	s, f := cl.schemasByCRDName[name]
 	if !f {
-		scope.Debugf("added resource that we are not watching: %v", name)
+		cl.scope.Debugf("added resource that we are not watching: %v", name)
 		return
 	}
 	resourceGVK := s.Resource().GroupVersionKind()
@@ -507,7 +507,7 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	cl.kindsMu.Lock()
 	defer cl.kindsMu.Unlock()
 	if _, f := cl.kinds[resourceGVK]; f {
-		scope.Debugf("added resource that already exists: %v", resourceGVK)
+		cl.scope.Debugf("added resource that already exists: %v", resourceGVK)
 		return
 	}
 	var i informers.GenericInformer
@@ -530,14 +530,14 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 
 	if err != nil {
 		// Shouldn't happen
-		scope.Errorf("failed to create informer for %v: %v", resourceGVK, err)
+		cl.scope.Errorf("failed to create informer for %v: %v", resourceGVK, err)
 		return
 	}
 	_ = i.Informer().SetTransform(kube.StripUnusedFields)
 
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
 	if w, f := crdWatches[resourceGVK]; f {
-		scope.Infof("notifying watchers %v was created", resourceGVK)
+		cl.scope.Infof("notifying watchers %v was created", resourceGVK)
 		w.once.Do(func() {
 			close(w.stop)
 		})
