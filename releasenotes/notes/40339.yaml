@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Promoted** `istioctl x uninstall` promoted to `istioctl uninstall`.
+  **Promoted** `istioctl x uninstall` to `istioctl uninstall`.
