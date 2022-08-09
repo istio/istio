@@ -35,3 +35,8 @@ func configureTProxyRoutes(cfg *config.Config) error {
 func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
 	return ErrNotImplemented
 }
+
+// Gets kernel version - not implemented for unspecified OS
+func getKVersion() []byte {
+	return nil
+}

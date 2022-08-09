@@ -269,10 +269,23 @@ func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 // for IPv6 but not IPv4, as IPv4 defaults to `netmask 255.0.0.0`, which allows binding to addresses
 // in the 127.x.y.z range, while IPv6 defaults to `prefixlen 128` which allows binding only to ::1.
 // Equivalent to `ip -6 addr add "::6/128" dev lo`
-func configureIPv6Addresses(cfg *config.Config) error {
+func configureIPv6Addresses(cfg *config.Config, ext dep.Dependencies) error {
 	if !cfg.EnableInboundIPv6 {
 		return nil
 	}
+	// Issue: https://github.com/istio/istio/issues/39963
+	// netlink.LinkByName("lo") fails with "protocol not available" for Linux Kernel < 4.x.x
+	// (https://github.com/vishvananda/netlink/issues/791)
+	// Running "ip -6" command directly to add lo addr if Kernel release is <4.
+	KernelRelease := getKVersion()
+	if len(KernelRelease) > 0 && int(KernelRelease[0]) < 52 { // byte 52 is string 4 (ascii)
+		err := ext.Run(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
+		if err != nil {
+			return fmt.Errorf("failed to add 'lo' address: %s", err.Error())
+		}
+		return nil
+	}
+
 	link, err := netlink.LinkByName("lo")
 	if err != nil {
 		return fmt.Errorf("failed to find 'lo' link: %v", err)

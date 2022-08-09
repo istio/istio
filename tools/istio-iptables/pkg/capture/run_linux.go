@@ -18,6 +18,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"syscall"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
@@ -107,7 +108,7 @@ func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
 		defer nsContainer.Close()
 
 		return nsContainer.Do(func(ns.NetNS) error {
-			if err := configureIPv6Addresses(cfg); err != nil {
+			if err := configureIPv6Addresses(cfg, ext); err != nil {
 				return err
 			}
 			if err := configureTProxyRoutes(cfg); err != nil {
@@ -117,11 +118,26 @@ func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
 		})
 	}
 	// called through 'nsenter -- istio-cni configure-routes'
-	if err := configureIPv6Addresses(cfg); err != nil {
+	if err := configureIPv6Addresses(cfg, ext); err != nil {
 		return err
 	}
 	if err := configureTProxyRoutes(cfg); err != nil {
 		return err
 	}
 	return nil
+}
+
+// Gets linux kernel version
+func getKVersion() []byte {
+	var uts syscall.Utsname
+	var release []byte
+	err := syscall.Uname(&uts)
+	if err != nil {
+		log.Errorf("Unable to get Linux Kernel version: %s", err.Error())
+		return []byte{}
+	}
+	for _, v := range uts.Release {
+		release = append(release, byte(v))
+	}
+	return release
 }
