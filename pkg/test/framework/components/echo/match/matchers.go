@@ -50,7 +50,8 @@ func Or(ms ...Matcher) Matcher {
 }
 
 // Not negates the given matcher. Example:
-//     Not(Naked())
+//
+//	Not(Naked())
 func Not(m Matcher) Matcher {
 	return func(i echo.Instance) bool {
 		return !m(i)

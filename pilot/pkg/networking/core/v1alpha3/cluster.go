@@ -453,8 +453,32 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 				continue
 			}
 			if hostIP == model.PodIPAddressPrefix {
-				endpointAddress = cb.proxyIPAddresses[0]
-			} else if hostIP == model.LocalhostAddressPrefix {
+				for _, proxyIPaddr := range cb.proxyIPAddresses {
+					edAddr := net.ParseIP(proxyIPaddr)
+					if edAddr.To4() != nil {
+						endpointAddress = proxyIPaddr
+						break
+					}
+				}
+				// if there is no any IPv4 address in proxyIPAddresses
+				if endpointAddress == "" {
+					endpointAddress = model.LocalhostAddressPrefix
+				}
+			} else if hostIP == model.PodIPv6AddressPrefix {
+				for _, proxyIPaddr := range cb.proxyIPAddresses {
+					edAddr := net.ParseIP(proxyIPaddr)
+					if edAddr.To4() == nil {
+						if edAddr.To16() != nil {
+							endpointAddress = proxyIPaddr
+							break
+						}
+					}
+				}
+				// if there is no any IPv6 address in proxyIPAddresses
+				if endpointAddress == "" {
+					endpointAddress = model.LocalhostIPv6AddressPrefix
+				}
+			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
 				endpointAddress = actualLocalHost
 			}
 		}
@@ -670,7 +694,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		// When we are sending unhealthy endpoints, we should disble Panic Threshold. Otherwise
 		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
 		// below minimum health percentage.
-		if features.SendUnhealthyEndpoints {
+		if features.SendUnhealthyEndpoints.Load() {
 			minHealthPercent = 0
 		}
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(minHealthPercent)}
@@ -689,7 +713,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 ) {
 	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
 	// end points when load balancer is in panic mode.
-	if features.SendUnhealthyEndpoints {
+	if features.SendUnhealthyEndpoints.Load() {
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())

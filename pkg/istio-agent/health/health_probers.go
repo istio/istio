@@ -88,7 +88,7 @@ func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig, ipv6 bool) *HTTPProber {
 }
 
 // HttpProber_Probe will return whether or not the target is healthy (true -> healthy)
-// 	by making an HTTP Get response.
+// by making an HTTP Get response.
 func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	client := &http.Client{
 		Timeout:   timeout,

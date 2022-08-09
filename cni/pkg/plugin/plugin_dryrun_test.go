@@ -173,14 +173,13 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			if _, err := os.Create(outputFilePath); err != nil {
 				t.Fatalf("Failed to create temp file for IPTables rule output: %v", err)
 			}
-			os.Setenv(dryRunFilePath.Name, outputFilePath)
+			t.Setenv(dryRunFilePath.Name, outputFilePath)
 			_, _, err := testutils.CmdAddWithArgs(
 				&skel.CmdArgs{
 					Netns:     sandboxDirectory,
 					IfName:    ifname,
 					StdinData: []byte(cniConf),
 				}, func() error { return CmdAdd(args) })
-			os.Unsetenv(dryRunFilePath.Name)
 			if err != nil {
 				t.Fatalf("CNI cmdAdd failed with error: %v", err)
 			}

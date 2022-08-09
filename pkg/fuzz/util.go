@@ -83,7 +83,7 @@ func validate[T any](h Helper, validators []func(T) bool, r T) {
 }
 
 // BaseCases inserts a few trivial test cases to do a very brief sanity check of a test that relies on []byte inputs
-func BaseCases(f *testing.F) {
+func BaseCases(f Fuzzer) {
 	for _, c := range [][]byte{
 		{},
 		[]byte("."),
@@ -91,4 +91,10 @@ func BaseCases(f *testing.F) {
 	} {
 		f.Add(c)
 	}
+}
+
+// Fuzzer abstracts *testing.F to handle oss-fuzz's (temporary) workaround to support native fuzzing,
+// which utilizes a custom type.
+type Fuzzer interface {
+	Add(args ...any)
 }

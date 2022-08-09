@@ -61,13 +61,15 @@ func TestStrictMTLS(t *testing.T) {
 		NewTest(t).
 		Features("security.peer.ecc-signature-algorithm").
 		Run(func(t framework.TestContext) {
-			ns := apps.Namespace.Name()
+			ns := apps.EchoNamespace.Namespace.Name()
 			args := map[string]string{"AppNamespace": ns}
 			t.ConfigIstio().Eval(ns, args, PeerAuthenticationConfig).ApplyOrFail(t, apply.Wait)
 			t.ConfigIstio().Eval(ns, args, DestinationRuleConfigIstioMutual).ApplyOrFail(t, apply.Wait)
 
-			apps.Client.CallOrFail(t, echo.CallOptions{
-				To: apps.Server,
+			client := apps.EchoNamespace.A[0]
+			server := apps.EchoNamespace.B[0]
+			client.CallOrFail(t, echo.CallOptions{
+				To: server,
 				Port: echo.Port{
 					Name: "http",
 				},
@@ -75,7 +77,7 @@ func TestStrictMTLS(t *testing.T) {
 				Check: check.OK(),
 			})
 
-			certPEMs := cert.DumpCertFromSidecar(t, apps.Client, apps.Server, "http")
+			certPEMs := cert.DumpCertFromSidecar(t, client, server, "http")
 			block, _ := pem.Decode([]byte(strings.Join(certPEMs, "\n")))
 			if block == nil { // nolint: staticcheck
 				t.Fatalf("failed to parse certificate PEM")

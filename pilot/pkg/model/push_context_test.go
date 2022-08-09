@@ -1289,9 +1289,9 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
-				{"test", "nsRule"},
-				{"test", "svcRule"},
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test", Name: "nsRule"},
+				{Namespace: "test", Name: "svcRule"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
@@ -1320,8 +1320,8 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule2",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
-				{"test2", "svcRule2"},
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test2", Name: "svcRule2"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
@@ -1345,9 +1345,9 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: testhost,
 			expectedConfig:  "drRule2",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
-				{"test2", "drRule2"},
-				{"test2", "svcRule2"},
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test2", Name: "drRule2"},
+				{Namespace: "test2", Name: "svcRule2"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
@@ -1377,8 +1377,8 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: "unknown.host",
 			expectedConfig:  "nsRule",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
-				{"test", "nsRule"},
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test", Name: "nsRule"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
@@ -1409,7 +1409,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: "unknown.host",
 			expectedConfig:  "meshRule",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
+				{Namespace: "istio-system", Name: "meshRule"},
 			},
 			expectedPolicy: meshDestinationRule.Spec.(*networking.DestinationRule).TrafficPolicy,
 		},
@@ -1651,8 +1651,8 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 		},
 	}
 	expectedDestRules := []types.NamespacedName{
-		{"test", "rule1"},
-		{"test", "rule2"},
+		{Namespace: "test", Name: "rule1"},
+		{Namespace: "test", Name: "rule2"},
 	}
 	ps.SetDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
 	private := ps.destinationRuleIndex.namespaceLocal["test"].destRules[host.Name(testhost)]

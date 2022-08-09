@@ -978,7 +978,11 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 	//  Type 7 can be resolved by appending service to existing services
 	//  Type 8 can be resolved by merging TCP filter chains
 	//  Type 9 can be resolved by merging TCP and HTTP filter chains
-
+	if currentListenerEntry != nil {
+		// Listener filters enable inspecting TLS or HTTP. If either filter chain depends on it, our final listener
+		// must also have the inspector.
+		currentListenerEntry.listener.ListenerFilters = mergeListenerFilters(currentListenerEntry.listener.ListenerFilters, mutable.Listener.ListenerFilters)
+	}
 	switch conflictType {
 	case NoConflict:
 		if currentListenerEntry != nil {
@@ -997,14 +1001,12 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 		// Merge HTTP filter chain to TCP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(mutable.Listener.FilterChains, currentListenerEntry.listener.FilterChains)
 		currentListenerEntry.protocol = protocol.Unsupported
-		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 		currentListenerEntry.services = append(currentListenerEntry.services, listenerOpts.service)
 
 	case TCPOverHTTP:
 		// Merge TCP filter chain to HTTP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(currentListenerEntry.listener.FilterChains, mutable.Listener.FilterChains)
 		currentListenerEntry.protocol = protocol.Unsupported
-		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 	case TCPOverTCP:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
@@ -1022,7 +1024,6 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 			listener:    mutable.Listener,
 			protocol:    protocol.Unsupported,
 		}
-		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 
 	case AutoOverTCP:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
@@ -1030,7 +1031,6 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
 			listenerOpts, listenerMapKey, listenerMap)
 		currentListenerEntry.protocol = protocol.Unsupported
-		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 
 	default:
 		// Covered previously - in this case we return early to prevent creating listeners that we end up throwing away
@@ -1539,24 +1539,29 @@ func isConflictWithWellKnownPort(incoming, existing protocol.Instance, conflict 
 	return true
 }
 
-func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.ListenerFilter {
-	hasTLSInspector := false
-	hasHTTPInspector := false
-
-	for _, f := range filters {
-		hasTLSInspector = hasTLSInspector || f.Name == wellknown.TlsInspector
-		hasHTTPInspector = hasHTTPInspector || f.Name == wellknown.HttpInspector
+// mergeListenerFilters appends a TLS and/or HTTP inspector to `a` if `a` does not yet have it but `n` does.
+// This is used when merging filter chains - the listener filters should be the union.
+func mergeListenerFilters(a, b []*listener.ListenerFilter) []*listener.ListenerFilter {
+	alreadyHasTLSInspector := false
+	alreadyHasHTTPInspector := false
+	for _, f := range a {
+		alreadyHasTLSInspector = alreadyHasTLSInspector || f.Name == wellknown.TlsInspector
+		alreadyHasHTTPInspector = alreadyHasHTTPInspector || f.Name == wellknown.HttpInspector
+	}
+	wantTLSInspector := false
+	wantHTTPInspector := false
+	for _, f := range b {
+		wantTLSInspector = wantTLSInspector || f.Name == wellknown.TlsInspector
+		wantHTTPInspector = wantHTTPInspector || f.Name == wellknown.HttpInspector
 	}
 
-	if !hasTLSInspector {
-		filters = append(filters, xdsfilters.TLSInspector)
+	if !alreadyHasTLSInspector && wantTLSInspector {
+		a = append(a, xdsfilters.TLSInspector)
 	}
-
-	if !hasHTTPInspector {
-		filters = append(filters, xdsfilters.HTTPInspector)
+	if !alreadyHasHTTPInspector && wantHTTPInspector {
+		a = append(a, xdsfilters.HTTPInspector)
 	}
-
-	return filters
+	return a
 }
 
 // nolint: interfacer

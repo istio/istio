@@ -21,6 +21,7 @@ import (
 )
 
 // FS embeds the manifests
+//
 //go:embed charts/* profiles/*
 //go:embed charts/gateways/istio-egress/templates/_affinity.tpl
 //go:embed charts/gateways/istio-ingress/templates/_affinity.tpl

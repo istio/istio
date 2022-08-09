@@ -51,10 +51,10 @@ var (
 // Controller defines the controller for the gateway-api. The controller acts a bit different from most.
 // Rather than watching the CRs directly, we depend on the existing model.ConfigStoreController which
 // already watches all CRs. When there are updates, a new PushContext will be computed, which will eventually
-// call Controller.Recompute(). Once this happens, we will inspect the current state of the world, and transform
+// call Controller.Reconcile(). Once this happens, we will inspect the current state of the world, and transform
 // gateway-api types into Istio types (Gateway/VirtualService). Future calls to Get/List will return these
 // Istio types. These are not stored in the cluster at all, and are purely internal; they can be seen on /debug/configz.
-// During Recompute(), the status on all gateway-api types is also tracked. Once completed, if the status
+// During Reconcile(), the status on all gateway-api types is also tracked. Once completed, if the status
 // has changed at all, it is queued to asynchronously update the status of the object in Kubernetes.
 type Controller struct {
 	// client for accessing Kubernetes
@@ -70,7 +70,7 @@ type Controller struct {
 	// domain stores the cluster domain, typically cluster.local
 	domain string
 
-	// state is our computed Istio resources. Access is guarded by stateMu. This is updated from Recompute().
+	// state is our computed Istio resources. Access is guarded by stateMu. This is updated from Reconcile().
 	state   OutputResources
 	stateMu sync.RWMutex
 
@@ -148,12 +148,12 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 	}
 }
 
-// Recompute takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
+// Reconcile takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
 // Any status updates required will be enqueued as well.
-func (c *Controller) Recompute(ps *model.PushContext) error {
+func (c *Controller) Reconcile(ps *model.PushContext) error {
 	t0 := time.Now()
 	defer func() {
-		log.Debugf("recompute complete in %v", time.Since(t0))
+		log.Debugf("reconcile complete in %v", time.Since(t0))
 	}()
 	gatewayClass, err := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
 	if err != nil {
@@ -196,7 +196,7 @@ func (c *Controller) Recompute(ps *model.PushContext) error {
 		Context:         NewGatewayContext(ps),
 	}
 
-	if !anyApisUsed(input) {
+	if !input.hasResources() {
 		// Early exit for common case of no gateway-api used.
 		c.stateMu.Lock()
 		defer c.stateMu.Unlock()
@@ -378,13 +378,13 @@ func filterNamespace(cfgs []config.Config, namespace string) []config.Config {
 	return filtered
 }
 
-// anyApisUsed determines if there are any gateway-api resources created at all. If not, we can
-// short circuit all processing to avoid excessive work.
-func anyApisUsed(input KubernetesResources) bool {
-	return len(input.GatewayClass) > 0 ||
-		len(input.Gateway) > 0 ||
-		len(input.HTTPRoute) > 0 ||
-		len(input.TCPRoute) > 0 ||
-		len(input.TLSRoute) > 0 ||
-		len(input.ReferencePolicy) > 0
+// hasResources determines if there are any gateway-api resources created at all.
+// If not, we can short circuit all processing to avoid excessive work.
+func (kr KubernetesResources) hasResources() bool {
+	return len(kr.GatewayClass) > 0 ||
+		len(kr.Gateway) > 0 ||
+		len(kr.HTTPRoute) > 0 ||
+		len(kr.TCPRoute) > 0 ||
+		len(kr.TLSRoute) > 0 ||
+		len(kr.ReferencePolicy) > 0
 }

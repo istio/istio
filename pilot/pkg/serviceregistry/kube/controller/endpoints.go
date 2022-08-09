@@ -127,7 +127,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
 		out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, labels, svcPort, model.Healthy)...)
-		if features.SendUnhealthyEndpoints {
+		if features.SendUnhealthyEndpoints.Load() {
 			out = append(out, e.buildServiceInstances(ep, ss, ss.NotReadyAddresses, svc, discoverabilityPolicy, labels, svcPort, model.UnHealthy)...)
 		}
 	}
@@ -175,7 +175,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint any, host host.Name) 
 
 	for _, ss := range ep.Subsets {
 		endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.Addresses, host, discoverabilityPolicy, model.Healthy)...)
-		if features.SendUnhealthyEndpoints {
+		if features.SendUnhealthyEndpoints.Load() {
 			endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.NotReadyAddresses, host, discoverabilityPolicy, model.UnHealthy)...)
 		}
 	}
