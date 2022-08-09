@@ -241,6 +241,8 @@ func getInjectedRevision(namespace *v1.Namespace, hooks []admit_v1.MutatingWebho
 
 func getMatchingNamespaces(hook *admit_v1.MutatingWebhookConfiguration, namespaces []v1.Namespace) []v1.Namespace {
 	retval := make([]v1.Namespace, 0)
+
+	matched := map[string]bool{}
 	for _, webhook := range hook.Webhooks {
 		nsSelector, err := metav1.LabelSelectorAsSelector(webhook.NamespaceSelector)
 		if err != nil {
@@ -248,7 +250,8 @@ func getMatchingNamespaces(hook *admit_v1.MutatingWebhookConfiguration, namespac
 		}
 
 		for _, namespace := range namespaces {
-			if nsSelector.Matches(api_pkg_labels.Set(namespace.Labels)) {
+			if nsSelector.Matches(api_pkg_labels.Set(namespace.Labels)) && !matched[namespace.Name] {
+				matched[namespace.Name] = true
 				retval = append(retval, namespace)
 			}
 		}
