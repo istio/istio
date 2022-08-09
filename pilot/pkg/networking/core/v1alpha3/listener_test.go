@@ -308,9 +308,8 @@ func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 
 func TestOutboundListenerConflict(t *testing.T) {
 	run := func(t *testing.T, s []*model.Service) {
-		proxy := getProxy()
-		proxy.DiscoverIPMode()
-		listeners := buildOutboundListeners(t, getProxy(), nil, nil, s...)
+		p := &fakePlugin{}
+		listeners := buildOutboundListeners(t, p, getProxy(), nil, nil, s...)
 		if len(listeners) != 1 {
 			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 		}
