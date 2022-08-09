@@ -18,8 +18,10 @@
 package pilot
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -293,5 +296,32 @@ stringData:
 				}
 				return nil
 			}, retry.Timeout(time.Minute), retry.Delay(time.Second))
+
+			t.NewSubTest("istioctl status").Run(func(t framework.TestContext) {
+				istioctl, err := istioctl.New(t, istioctl.Config{Cluster: primary})
+				if err != nil {
+					t.Fatal(err)
+				}
+				retry.UntilSuccessOrFail(t, func() error {
+					res, _, err := istioctl.Invoke([]string{"remote-clusters"})
+					if err != nil {
+						return err
+					}
+
+					f := false
+					s := bufio.NewScanner(strings.NewReader(res))
+					for s.Scan() {
+						l := s.Text()
+						if strings.Contains(l, "bad") && strings.Contains(l, "TIMEOUT") {
+							f = true
+							break
+						}
+					}
+					if !f {
+						return fmt.Errorf("did not find TIMEOUT for bad secret")
+					}
+					return nil
+				})
+			})
 		})
 }
