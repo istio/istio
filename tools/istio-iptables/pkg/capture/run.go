@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
@@ -263,43 +262,6 @@ func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 		}
 	}
 	return
-}
-
-func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
-	if cfg.DryRun {
-		log.Infof("skipping configuring routes due to dry run mode")
-		return nil
-	}
-	if ext != nil && cfg.CNIMode {
-		if cfg.HostNSEnterExec {
-			command := os.Args[0]
-			return ext.Run(command, constants.CommandConfigureRoutes)
-		}
-
-		nsContainer, err := ns.GetNS(cfg.NetworkNamespace)
-		if err != nil {
-			return err
-		}
-		defer nsContainer.Close()
-
-		return nsContainer.Do(func(ns.NetNS) error {
-			if err := configureIPv6Addresses(cfg); err != nil {
-				return err
-			}
-			if err := configureTProxyRoutes(cfg); err != nil {
-				return err
-			}
-			return nil
-		})
-	}
-	// called through 'nsenter -- istio-cni configure-routes'
-	if err := configureIPv6Addresses(cfg); err != nil {
-		return err
-	}
-	if err := configureTProxyRoutes(cfg); err != nil {
-		return err
-	}
-	return nil
 }
 
 // configureIPv6Addresses sets up a new IP address on local interface. This is used as the source IP
