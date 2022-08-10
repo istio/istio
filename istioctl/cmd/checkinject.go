@@ -24,10 +24,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"istio.io/api/label"
-	"istio.io/istio/istioctl/pkg/util/handlers"
-	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
-	"istio.io/istio/pkg/kube"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +31,11 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/kubectl/pkg/polymorphichelpers"
 	"k8s.io/kubectl/pkg/util/podutils"
+
+	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/util/handlers"
+	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/pkg/kube"
 )
 
 var labelPairs string
@@ -60,7 +61,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && !cmd.Flags().Lookup("labels").Changed || len(args) > 1 {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("check-inject requires only [<resource-type>/]<resource-name>[.<namespace>], or specifiy labels flag")
+				return fmt.Errorf("check-inject requires only [<resource-type>/]<resource-name>[.<namespace>], or specify labels flag")
 			}
 			return nil
 		},
@@ -89,6 +90,9 @@ Checks associated resources of the given resource, and running webhooks to exami
 				sortBy := func(pods []*corev1.Pod) sort.Interface { return podutils.ByLogging(pods) }
 				timeout := 2 * time.Second
 				pod, _, err := polymorphichelpers.GetFirstPod(coreClient, namespace, labelPairs, timeout, sortBy)
+				if err != nil {
+					return err
+				}
 				podName = pod.Name
 				podNs = pod.Namespace
 			}
@@ -121,7 +125,7 @@ func printCheckInjectorResults(writer io.Writer, was []webhookAnalysis) error {
 	injectedTotal := 0
 	for _, ws := range was {
 		injected := "\u2716"
-		if ws.Injected == true {
+		if ws.Injected {
 			injected = "\u2714"
 			injectedTotal++
 		}
@@ -170,8 +174,7 @@ func analyzeRunningWebhooks(client kube.ExtendedClient, whs []admit_v1.MutatingW
 	return results, nil
 }
 
-func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, pod *corev1.Pod, ns *corev1.Namespace,
-	revision string) (reason string, injected bool) {
+func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, pod *corev1.Pod, ns *corev1.Namespace, revision string) (reason string, injected bool) {
 	for _, wh := range whs {
 		nsMatched, nsLabel := extractMatchedSelectorInfo(wh.NamespaceSelector, ns.GetLabels())
 		podMatched, podLabel := extractMatchedSelectorInfo(wh.ObjectSelector, pod.GetLabels())
@@ -212,7 +215,7 @@ func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, pod *corev1.Pod,
 			}
 		}
 	}
-	var noMatchingReason = func(revision string) string {
+	noMatchingReason := func(revision string) string {
 		if revision == "default" {
 			return fmt.Sprintf("No matching namespace labels (istio-injection=enabled, istio.io/rev=default) " +
 				"or pod labels (sidecar.istio.io/inject=true, istio.io/rev=default)")
