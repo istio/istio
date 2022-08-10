@@ -152,6 +152,15 @@ spec:
         {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
     spec:
+{{- if $.Ambient }}
+      topologySpreadConstraints:
+      - topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: "ScheduleAnyway"
+        maxSkew: 1
+        labelSelector:
+          matchLabels:
+            app: {{ $.Service }}
+{{- end }}
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
