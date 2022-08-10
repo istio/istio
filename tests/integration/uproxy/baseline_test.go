@@ -560,6 +560,72 @@ func TestMTLS(t *testing.T) {
 		})
 }
 
+func TestOutboundPolicyAllowAny(t *testing.T) {
+	framework.NewTest(t).
+		Features("traffic.ambient").
+		Run(func(t framework.TestContext) {
+			svcs := apps.All
+			for _, svc := range svcs {
+				if svc.Config().IsUncaptured() || svc.Config().HasSidecar() {
+					continue
+				}
+				t.NewSubTestf("ALLOW_ANY %v to external service", svc.Config().Service).Run(func(t framework.TestContext) {
+					// TODO use Sidecar to simulate external service (see tests/integration/pilot/mirror_test.go)
+					svc.CallOrFail(t, echo.CallOptions{
+						Address: "httpbin.org",
+						Port:    echo.Port{Name: "http", ServicePort: 80},
+						Scheme:  scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/headers",
+						},
+						Check: check.OK(),
+					})
+				})
+			}
+		})
+}
+
+func TestServiceEntryDNS(t *testing.T) {
+	framework.NewTest(t).
+		Features("traffic.ambient").
+		Run(func(t framework.TestContext) {
+			svcs := apps.All
+			for _, svc := range svcs {
+				if svc.Config().IsUncaptured() || svc.Config().HasSidecar() {
+					continue
+				}
+				if err := t.ConfigIstio().YAML(svc.NamespaceName(), `apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: externalservice-httpbin
+spec:
+  exportTo:
+  - .
+  hosts:
+  - httpbin.org
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  resolution: DNS`).Apply(apply.NoCleanup); err != nil {
+					t.Fatal(err)
+				}
+				t.NewSubTestf("%v to ServiceEntry", svc.Config().Service).Run(func(t framework.TestContext) {
+					// TODO use Sidecar to simulate external service (see tests/integration/pilot/mirror_test.go)
+					svc.CallOrFail(t, echo.CallOptions{
+						Address: "httpbin.org",
+						Port:    echo.Port{Name: "http", ServicePort: 80},
+						Scheme:  scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/headers",
+						},
+						Check: check.OK(),
+					})
+				})
+			}
+		})
+}
+
 func TestServiceEntry(t *testing.T) {
 	framework.NewTest(t).
 		Features("traffic.ambient").

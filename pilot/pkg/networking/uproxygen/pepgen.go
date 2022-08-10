@@ -117,12 +117,20 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 					// TODO: this is not 100% accurate for custom cases
 					bind = service.GetAddressForProxy(proxy)
 				}
+
+				// This essentially mirrors the sidecar case for serviceEntries have no VIP.  In the PEP, we
+				// don't know the ServiceEntry's VIP, so instead we search for a matching ServiceEntry host
+				// for any remaining unmatched outbund to *:<port>
+				authorityHost := service.GetAddressForProxy(proxy)
+				if authorityHost == "0.0.0.0" {
+					authorityHost = "*"
+				}
 				name := fmt.Sprintf("%s_%d", bind, port.Port)
 				vhost.Routes = append(vhost.Routes, &route.Route{
 					Match: &route.RouteMatch{
 						PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 						Headers: []*route.HeaderMatcher{
-							istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("%s:%d", service.GetAddressForProxy(proxy), port.Port)),
+							istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("%s:%d", authorityHost, port.Port)),
 						},
 					},
 					Action: &route.Route_Route{Route: &route.RouteAction{

@@ -80,6 +80,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -303,6 +304,9 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 				},
 			},
 		}},
+	}
+	if push.Mesh.GetOutboundTrafficPolicy().GetMode() == v1alpha1.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+		l.DefaultFilterChain = passthroughFilterChain()
 	}
 	// nolint: gocritic
 	//if features.SidecarlessCapture == model.VariantIptables {
