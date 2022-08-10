@@ -105,7 +105,7 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 		scope.Errorf("can't identify pod %s context: %s", podname, err)
 	} else {
 		r.cm.OwnerReferences = []metav1.OwnerReference{
-			*metav1.NewControllerRef(x, metav1.SchemeGroupVersion.WithKind("Pod")),
+			*metav1.NewControllerRef(x, corev1.SchemeGroupVersion.WithKind("Pod")),
 		}
 	}
 	go func() {
