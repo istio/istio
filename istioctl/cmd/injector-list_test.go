@@ -16,7 +16,7 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	admit_v1 "k8s.io/api/admissionregistration/v1"
@@ -120,7 +120,7 @@ func Test_getMatchingNamespacesWithDefaultAndRevInjector(t *testing.T) {
 			expectedInjectorTotal: 1,
 		},
 	}
-	defaultFile, err := ioutil.ReadFile("testdata/default-injector.yaml")
+	defaultFile, err := os.ReadFile("testdata/default-injector.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func Test_getMatchingNamespacesWithDefaultAndRevInjector(t *testing.T) {
 	if err := yaml.Unmarshal(defaultFile, &defaultWh); err != nil {
 		t.Fatal(err)
 	}
-	revFile, err := ioutil.ReadFile("testdata/rev-16-injector.yaml")
+	revFile, err := os.ReadFile("testdata/rev-16-injector.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
