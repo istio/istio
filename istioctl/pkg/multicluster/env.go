@@ -52,7 +52,7 @@ func (e *KubeEnvironment) CreateClient(context string) (kube.ExtendedClient, err
 	if err != nil {
 		return nil, err
 	}
-	return kube.NewExtendedClient(kube.NewClientConfigForRestConfig(cfg), "")
+	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(cfg), "")
 }
 
 func (e *KubeEnvironment) Printf(format string, a ...any) {

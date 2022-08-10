@@ -85,7 +85,7 @@ func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
 	options ...StatusVerifierOptions,
 ) (*StatusVerifier, error) {
-	client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, context), "")
+	client, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, context), "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}

@@ -127,7 +127,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
-	client, err := kube.NewExtendedClient(clientConfig, "")
+	client, err := kube.NewCLIClient(clientConfig, "")
 	if err != nil {
 		return err
 	}
@@ -252,7 +252,7 @@ func getIstioVersions(kubeconfig, configContext, istioNamespace string, revision
 }
 
 func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string) string {
-	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+	kubeClient, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 	if err != nil {
 		return err.Error()
 	}

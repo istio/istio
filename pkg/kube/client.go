@@ -429,19 +429,21 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 
 // NewDefaultClient returns a default client, using standard Kubernetes config resolution to determine
 // the cluster to access.
-func NewDefaultClient() (ExtendedClient, error) {
-	return NewExtendedClient(BuildClientCmd("", ""), "")
+func NewDefaultClient() (Client, error) {
+	return NewClient(BuildClientCmd("", ""))
 }
 
-// NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
+// NewCLIClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
-func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
-	return newClientInternal(newClientFactory(clientConfig), revision)
+// This is appropriate for use in CLI libraries because it exposes functionality unsafe for in-cluster controllers,
+// and uses standard CLI (kubectl) caching.
+func NewCLIClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
+	return newClientInternal(newClientFactory(clientConfig, true), revision)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
 func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
-	return newClientInternal(newClientFactory(clientConfig), "")
+	return newClientInternal(newClientFactory(clientConfig, false), "")
 }
 
 func (c *client) RESTConfig() *rest.Config {

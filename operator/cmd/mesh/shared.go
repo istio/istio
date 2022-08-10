@@ -126,7 +126,7 @@ func KubernetesClients(kubeConfigPath, context string, l clog.Logger) (kube.Exte
 	if err != nil {
 		return nil, nil, err
 	}
-	kubeClient, err := kube.NewExtendedClient(kube.NewClientConfigForRestConfig(rc), "")
+	kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("create Kubernetes client: %v", err)
 	}

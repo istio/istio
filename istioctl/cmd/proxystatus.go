@@ -147,7 +147,7 @@ func newKubeClientWithRevision(kubeconfig, configContext string, revision string
 	if err != nil {
 		return nil, err
 	}
-	return kube.NewExtendedClient(kube.NewClientConfigForRestConfig(rc), revision)
+	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
 func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {

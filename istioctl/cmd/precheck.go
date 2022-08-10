@@ -62,7 +62,7 @@ func preCheck() *cobra.Command {
   # Check only a single namespace
   istioctl x precheck --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			cli, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+			cli, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 			if err != nil {
 				return err
 			}

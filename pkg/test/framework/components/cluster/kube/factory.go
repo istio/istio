@@ -100,7 +100,7 @@ func buildClient(kubeconfig string) (istioKube.ExtendedClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), "")
+	return istioKube.NewCLIClient(istioKube.NewClientConfigForRestConfig(rc), "")
 }
 
 func buildClientWithProxy(kubeconfig string, proxyURL *url.URL) (istioKube.ExtendedClient, error) {
@@ -112,5 +112,5 @@ func buildClientWithProxy(kubeconfig string, proxyURL *url.URL) (istioKube.Exten
 		return nil, err
 	}
 	rc.Proxy = http.ProxyURL(proxyURL)
-	return istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), "")
+	return istioKube.NewCLIClient(istioKube.NewClientConfigForRestConfig(rc), "")
 }

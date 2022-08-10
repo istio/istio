@@ -345,7 +345,7 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTempla
 
 func setUpExternalInjector(kubeconfig, revision, injectorAddress string) (*ExternalInjector, error) {
 	e := &ExternalInjector{}
-	client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+	client, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), "")
 	if err != nil {
 		return e, err
 	}
