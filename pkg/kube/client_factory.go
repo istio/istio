@@ -46,12 +46,13 @@ type clientFactory struct {
 	factory      util.Factory
 
 	expander lazy.Lazy[meta.RESTMapper]
+	mapper   lazy.Lazy[meta.ResettableRESTMapper]
 
 	discoveryClient lazy.Lazy[discovery.CachedDiscoveryInterface]
 }
 
 // newClientFactory creates a new util.Factory from the given clientcmd.ClientConfig.
-func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool) util.Factory {
+func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool) *clientFactory {
 	out := &clientFactory{
 		clientConfig: clientConfig,
 	}
@@ -70,22 +71,30 @@ func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool) util.
 			discoveryCacheDir := computeDiscoverCacheDir(filepath.Join(cacheDir, "discovery"), restConfig.Host)
 
 			return diskcached.NewCachedDiscoveryClientForConfig(restConfig, discoveryCacheDir, httpCacheDir, 6*time.Hour)
-		} else {
-			d, err := discovery.NewDiscoveryClientForConfig(restConfig)
-			if err != nil {
-				return nil, err
-			}
-			return memory.NewMemCacheClient(d), nil
 		}
+		d, err := discovery.NewDiscoveryClientForConfig(restConfig)
+		if err != nil {
+			return nil, err
+		}
+		return memory.NewMemCacheClient(d), nil
 	})
-	out.expander = lazy.NewWithRetry(func() (meta.RESTMapper, error) {
+	out.mapper = lazy.NewWithRetry(func() (meta.ResettableRESTMapper, error) {
 		discoveryClient, err := out.ToDiscoveryClient()
 		if err != nil {
 			return nil, err
 		}
-		mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-		expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
-		return expander, nil
+		return restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient), nil
+	})
+	out.expander = lazy.NewWithRetry(func() (meta.RESTMapper, error) {
+		discoveryClient, err := out.discoveryClient.Get()
+		if err != nil {
+			return nil, err
+		}
+		mapper, err := out.mapper.Get()
+		if err != nil {
+			return nil, err
+		}
+		return restmapper.NewShortcutExpander(mapper, discoveryClient), nil
 	})
 	return out
 }

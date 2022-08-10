@@ -347,7 +347,7 @@ type client struct {
 	revision        string
 	restClient      *rest.RESTClient
 	discoveryClient discovery.CachedDiscoveryInterface
-	mapper          meta.RESTMapper
+	mapper          meta.ResettableRESTMapper
 
 	versionOnce sync.Once
 	version     *kubeVersion.Info
@@ -356,7 +356,7 @@ type client struct {
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
-func newClientInternal(clientFactory util.Factory, revision string) (*client, error) {
+func newClientInternal(clientFactory *clientFactory, revision string) (*client, error) {
 	var c client
 	var err error
 
@@ -378,7 +378,7 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	if err != nil {
 		return nil, err
 	}
-	c.mapper, err = clientFactory.ToRESTMapper()
+	c.mapper, err = clientFactory.mapper.Get()
 	if err != nil {
 		return nil, err
 	}
@@ -1039,6 +1039,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		}
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
 			c.discoveryClient.Invalidate()
+			c.mapper.Reset()
 		}
 	}
 	return nil
