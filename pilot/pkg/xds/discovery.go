@@ -17,6 +17,7 @@ package xds
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -562,7 +563,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // InitGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string) {
+func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, internalDebugMux *http.ServeMux) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
@@ -585,7 +586,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
-	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace)
+	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace, internalDebugMux)
 	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
 
