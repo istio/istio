@@ -613,6 +613,10 @@ func (a *Agent) generateGRPCBootstrap(credentialSocketExists bool) error {
 		return fmt.Errorf("failed generating node metadata: %v", err)
 	}
 
+	// GRPC bootstrap requires this. Original implementation injected this via env variable, but
+	// this interfere with envoy, we should be able to use both envoy for TCP/HTTP and proxyless.
+	node.Metadata.Generator = "grpc"
+
 	if err := os.MkdirAll(filepath.Dir(a.cfg.GRPCBootstrapPath), 0o700); err != nil {
 		return err
 	}
