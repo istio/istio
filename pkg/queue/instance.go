@@ -22,7 +22,50 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
+
+var (
+	idTag = monitoring.MustCreateLabel("id")
+
+	add = monitoring.NewSum(
+		"pilot_queue_add_total",
+		"Total number of entries to queue.",
+		monitoring.WithLabels(idTag),
+	)
+
+	size = monitoring.NewGauge(
+		"pilot_queue_size",
+		"Total number of items in queue.",
+		monitoring.WithLabels(idTag),
+	)
+
+	done = monitoring.NewSum(
+		"pilot_queue_done_total",
+		"Total number of items processing done.",
+		monitoring.WithLabels(idTag),
+	)
+
+	active = monitoring.NewGauge(
+		"pilot_queue_active",
+		"Total number of items in progress.",
+		monitoring.WithLabels(idTag),
+	)
+
+	qerrors = monitoring.NewSum(
+		"pilot_queue_error_total",
+		"Total number of tasks errored and retried.",
+		monitoring.WithLabels(idTag),
+	)
+)
+
+func init() {
+	monitoring.MustRegister(add)
+	monitoring.MustRegister(size)
+	monitoring.MustRegister(done)
+	monitoring.MustRegister(active)
+	monitoring.MustRegister(qerrors)
+}
 
 // Task to be performed.
 type Task func() error
@@ -99,7 +142,9 @@ func (q *queueImpl) Push(item Task) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 	if !q.closing {
+		add.With(idTag.Value(q.id)).Increment()
 		q.tasks = append(q.tasks, &BackoffTask{item, newExponentialBackOff(q.retryBackoff)})
+		size.With(idTag.Value(q.id)).RecordInt(int64(len(q.tasks)))
 	}
 	q.cond.Signal()
 }
@@ -108,7 +153,9 @@ func (q *queueImpl) pushRetryTask(item *BackoffTask) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 	if !q.closing {
+		add.With(idTag.Value(q.id)).Increment()
 		q.tasks = append(q.tasks, item)
+		size.With(idTag.Value(q.id)).RecordInt(int64(len(q.tasks)))
 	}
 	q.cond.Signal()
 }
@@ -138,23 +185,26 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 
 		// wait for closing to be set, or a task to be pushed
 		for !q.closing && len(q.tasks) == 0 {
+			size.With(idTag.Value(q.id)).RecordInt(int64(len(q.tasks)))
 			q.cond.Wait()
 		}
 
 		if q.closing {
+			size.With(idTag.Value(q.id)).RecordInt(int64(len(q.tasks)))
 			q.cond.L.Unlock()
 			// We must be shutting down.
 			return
 		}
 
 		backoffTask := q.tasks[0]
+		active.With(idTag.Value(q.id)).Increment()
 		// Slicing will not free the underlying elements of the array, so explicitly clear them out here
 		q.tasks[0] = nil
 		q.tasks = q.tasks[1:]
-
+		size.With(idTag.Value(q.id)).RecordInt(int64(len(q.tasks)))
 		q.cond.L.Unlock()
-
 		if err := backoffTask.task(); err != nil {
+			qerrors.With(idTag.Value(q.id)).Increment()
 			delay := q.delay
 			if q.retryBackoff != nil {
 				delay = backoffTask.backoff.NextBackOff()
@@ -164,5 +214,7 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 				q.pushRetryTask(backoffTask)
 			})
 		}
+		active.With(idTag.Value(q.id)).Decrement()
+		done.With(idTag.Value(q.id)).Increment()
 	}
 }
