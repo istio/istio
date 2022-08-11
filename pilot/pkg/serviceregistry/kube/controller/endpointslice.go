@@ -231,7 +231,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
 	for _, e := range slice.Endpoints() {
-		if !features.SendUnhealthyEndpoints {
+		if !features.SendUnhealthyEndpoints.Load() {
 			if e.Conditions.Ready != nil && !*e.Conditions.Ready {
 				// Ignore not ready endpoints
 				continue

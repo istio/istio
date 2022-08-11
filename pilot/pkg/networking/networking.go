@@ -129,44 +129,6 @@ type MutableObjects struct {
 	FilterChains []FilterChain
 }
 
-const (
-	NoTunnelTypeName = "notunnel"
-	H2TunnelTypeName = "H2Tunnel"
-)
-
-type (
-	TunnelType    int
-	TunnelAbility int
-)
-
-const (
-	// Bind the no tunnel support to a name.
-	NoTunnel TunnelType = 0
-	// Enumeration of tunnel type below. Each type should own a unique bit field.
-	H2Tunnel TunnelType = 1 << 0
-)
-
-func MakeTunnelAbility(ttypes ...TunnelType) TunnelAbility {
-	ability := int(NoTunnel)
-	for _, tunnelType := range ttypes {
-		ability |= int(tunnelType)
-	}
-	return TunnelAbility(ability)
-}
-
-func (t TunnelType) ToString() string {
-	switch t {
-	case H2Tunnel:
-		return H2TunnelTypeName
-	default:
-		return NoTunnelTypeName
-	}
-}
-
-func (t TunnelAbility) SupportH2Tunnel() bool {
-	return (int(t) & int(H2Tunnel)) != 0
-}
-
 // ListenerClass defines the class of the listener
 type ListenerClass int
 

@@ -46,10 +46,6 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		s := r.Message.(*corev1.ServiceSpec)
 		var se *v1alpha3.ServiceEntry
-		hostsNamespaceScope, ok := r.Metadata.Annotations[annotation.NetworkingExportTo.Name]
-		if !ok {
-			hostsNamespaceScope = ExportToAllNamespaces
-		}
 		var ports []*v1alpha3.Port
 		for _, p := range s.Ports {
 			ports = append(ports, &v1alpha3.Port{
@@ -63,25 +59,59 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 			Hosts: []string{host},
 			Ports: ports,
 		}
-		result[NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())] = se
+		visibleNamespaces := getVisibleNamespacesFromExportToAnno(
+			r.Metadata.Annotations[annotation.NetworkingExportTo.Name], r.Metadata.FullName.Namespace.String())
+		for _, scope := range visibleNamespaces {
+			result[NewScopedFqdn(scope, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())] = se
+		}
 		return true
 	})
 	return result
 }
 
-func GetDestinationHost(sourceNs resource.Namespace, host string, serviceEntryHosts map[ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
-	// Check explicitly defined ServiceEntries as well as services discovered from the platform
-
-	// ServiceEntries can be either namespace scoped or exposed to all namespaces
-	nsScopedFqdn := NewScopedFqdn(string(sourceNs), sourceNs, host)
-	if s, ok := serviceEntryHosts[nsScopedFqdn]; ok {
-		return s
+func getVisibleNamespacesFromExportToAnno(anno, resourceNamespace string) []string {
+	scopes := make([]string, 0)
+	if anno == "" {
+		scopes = append(scopes, ExportToAllNamespaces)
+	} else {
+		for _, ns := range strings.Split(anno, ",") {
+			if ns == ExportToNamespaceLocal {
+				scopes = append(scopes, resourceNamespace)
+			} else {
+				scopes = append(scopes, ns)
+			}
+		}
 	}
+	return scopes
+}
+
+func GetDestinationHost(sourceNs resource.Namespace, exportTo []string, host string,
+	serviceEntryHosts map[ScopedFqdn]*v1alpha3.ServiceEntry,
+) *v1alpha3.ServiceEntry {
+	// Check explicitly defined ServiceEntries as well as services discovered from the platform
 
 	// Check ServiceEntries which are exposed to all namespaces
 	allNsScopedFqdn := NewScopedFqdn(ExportToAllNamespaces, sourceNs, host)
 	if s, ok := serviceEntryHosts[allNsScopedFqdn]; ok {
 		return s
+	}
+
+	// ServiceEntries can be either namespace scoped or exposed to different/all namespaces
+	if len(exportTo) == 0 {
+		nsScopedFqdn := NewScopedFqdn(string(sourceNs), sourceNs, host)
+		if s, ok := serviceEntryHosts[nsScopedFqdn]; ok {
+			return s
+		}
+	} else {
+		for _, e := range exportTo {
+			if e == ExportToNamespaceLocal {
+				e = sourceNs.String()
+			}
+			nsScopedFqdn := NewScopedFqdn(e, sourceNs, host)
+			if s, ok := serviceEntryHosts[nsScopedFqdn]; ok {
+				return s
+			}
+		}
 	}
 
 	// Now check wildcard matches, namespace scoped or all namespaces

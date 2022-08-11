@@ -17,7 +17,6 @@ package platform
 import (
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -236,7 +235,7 @@ func TestGCPMetadata(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			for e, v := range tt.env {
-				os.Setenv(e, v)
+				t.Setenv(e, v)
 				if e == "GCP_METADATA" {
 					GCPMetadata = v
 				}
@@ -250,7 +249,6 @@ func TestGCPMetadata(t *testing.T) {
 				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
 			}
 			for e := range tt.env {
-				os.Unsetenv(e)
 				if e == "GCP_METADATA" {
 					GCPMetadata = ""
 				}

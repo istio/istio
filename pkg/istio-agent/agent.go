@@ -290,7 +290,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context, credentialSocketExists
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node: node,
-		}).CreateFileForEpoch(0)
+		}).CreateFile()
 		if err != nil {
 			return fmt.Errorf("failed to generate bootstrap config: %v", err)
 		}
@@ -612,6 +612,10 @@ func (a *Agent) generateGRPCBootstrap(credentialSocketExists bool) error {
 	if err != nil {
 		return fmt.Errorf("failed generating node metadata: %v", err)
 	}
+
+	// GRPC bootstrap requires this. Original implementation injected this via env variable, but
+	// this interfere with envoy, we should be able to use both envoy for TCP/HTTP and proxyless.
+	node.Metadata.Generator = "grpc"
 
 	if err := os.MkdirAll(filepath.Dir(a.cfg.GRPCBootstrapPath), 0o700); err != nil {
 		return err

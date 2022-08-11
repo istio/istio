@@ -219,6 +219,9 @@ def getForwardHeaders(request):
         # 'x-b3-sampled',
         # 'x-b3-flags',
 
+        # SkyWalking trace headers.
+        'sw8',
+
         # Application-specific headers to forward.
         'user-agent',
 

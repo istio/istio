@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+
+releaseNotes:
+  - |
+    **Fixed** an issue where updating a secret caused a `missing pulling secret`

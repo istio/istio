@@ -81,12 +81,7 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 		Version: un.GroupVersionKind().Version,
 		Kind:    un.GroupVersionKind().Kind,
 	}
-	// TODO(jasonwzm) remove this when multi-version is supported. v1beta1 shares the same
-	// schema as v1lalpha3. Fake conversion and validate against v1alpha3.
-	if gvk.Group == name.NetworkingAPIGroupName && gvk.Version == "v1beta1" {
-		gvk.Version = "v1alpha3"
-	}
-	schema, exists := collections.Pilot.FindByGroupVersionKind(gvk)
+	schema, exists := collections.Pilot.FindByGroupVersionAliasesKind(gvk)
 	if exists {
 		obj, err := convertObjectFromUnstructured(schema, un, "")
 		if err != nil {

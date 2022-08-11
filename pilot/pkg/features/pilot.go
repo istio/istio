@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/atomic"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/config/constants"
@@ -104,13 +105,13 @@ var (
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	).Get()
 
-	SendUnhealthyEndpoints = env.RegisterBoolVar(
+	SendUnhealthyEndpoints = atomic.NewBool(env.RegisterBoolVar(
 		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
 		false,
 		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing."+
 			"  To avoid, sending traffic to non ready endpoints, enabling this flag, disables panic threshold in Envoy i.e. Envoy does not load balance requests"+
 			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
-	).Get()
+	).Get())
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	HTTP10 = env.RegisterBoolVar(

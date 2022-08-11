@@ -125,11 +125,16 @@ function build_images() {
     targets+="docker.operator "
   fi
   targets+="docker.install-cni "
+  # Integration tests are always running on local architecture (no cross compiling), so find out what that is.
+  arch="linux/amd64"
+  if [[ "$(uname -m)" == "aarch64" ]]; then
+      arch="linux/arm64"
+  fi
   if [[ "${VARIANT:-default}" == "distroless" ]]; then
-    DOCKER_BUILD_VARIANTS="distroless" DOCKER_TARGETS="${targets}" make dockerx.pushx
-    DOCKER_BUILD_VARIANTS="default" DOCKER_TARGETS="${nonDistrolessTargets}" make dockerx.pushx
+    DOCKER_ARCHITECTURES="${arch}" DOCKER_BUILD_VARIANTS="distroless" DOCKER_TARGETS="${targets}" make dockerx.pushx
+    DOCKER_ARCHITECTURES="${arch}" DOCKER_BUILD_VARIANTS="default" DOCKER_TARGETS="${nonDistrolessTargets}" make dockerx.pushx
   else
-    DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets} ${nonDistrolessTargets}" make dockerx.pushx
+   DOCKER_ARCHITECTURES="${arch}"  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets} ${nonDistrolessTargets}" make dockerx.pushx
   fi
 }
 

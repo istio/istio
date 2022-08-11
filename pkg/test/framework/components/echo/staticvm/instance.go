@@ -221,6 +221,10 @@ func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echo.CallRes
 	return res
 }
 
+func (i *instance) UpdateWorkloadLabel(add map[string]string, remove []string) error {
+	panic("cannot trigger UpdateWorkloadLabel of a static VM")
+}
+
 func (i *instance) Restart() error {
 	panic("cannot trigger restart of a static VM")
 }

@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,13 +16,17 @@ package capture
 import (
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
+	"istio.io/pkg/log"
 )
 
 // configureTProxyRoutes configures ip firewall rules to enable TPROXY support.
@@ -81,6 +85,43 @@ func configureTProxyRoutes(cfg *config.Config) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
+	if cfg.DryRun {
+		log.Infof("skipping configuring routes due to dry run mode")
+		return nil
+	}
+	if ext != nil && cfg.CNIMode {
+		if cfg.HostNSEnterExec {
+			command := os.Args[0]
+			return ext.Run(command, constants.CommandConfigureRoutes)
+		}
+
+		nsContainer, err := ns.GetNS(cfg.NetworkNamespace)
+		if err != nil {
+			return err
+		}
+		defer nsContainer.Close()
+
+		return nsContainer.Do(func(ns.NetNS) error {
+			if err := configureIPv6Addresses(cfg); err != nil {
+				return err
+			}
+			if err := configureTProxyRoutes(cfg); err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+	// called through 'nsenter -- istio-cni configure-routes'
+	if err := configureIPv6Addresses(cfg); err != nil {
+		return err
+	}
+	if err := configureTProxyRoutes(cfg); err != nil {
+		return err
 	}
 	return nil
 }
