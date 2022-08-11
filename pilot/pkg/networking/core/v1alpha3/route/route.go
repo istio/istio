@@ -107,7 +107,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 
 	// First build virtual host wrappers for services that have virtual services.
 	for _, virtualService := range virtualServices {
-		hashByDestination, drs := hashForVirtualService(push, node, virtualService, serviceRegistry)
+		hashByDestination, drs := hashForVirtualService(push, node, virtualService)
 		dependentDestinationRules = append(dependentDestinationRules, drs...)
 		wrappers := virtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh)
 		out = append(out, wrappers...)
@@ -1254,15 +1254,13 @@ func hashForService(node *model.Proxy, push *model.PushContext, svc *model.Servi
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
 	virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service,
+	_ map[host.Name]*model.Service,
 ) DestinationHashMap {
-	hashByDestination, _ := hashForVirtualService(push, node, virtualService, serviceRegistry)
+	hashByDestination, _ := hashForVirtualService(push, node, virtualService)
 	return hashByDestination
 }
 
-func hashForVirtualService(push *model.PushContext, node *model.Proxy, virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service,
-) (DestinationHashMap, []*model.ConsolidatedDestRule) {
+func hashForVirtualService(push *model.PushContext, node *model.Proxy, virtualService config.Config) (DestinationHashMap, []*model.ConsolidatedDestRule) {
 	hashByDestination := DestinationHashMap{}
 	destinationRules := make([]*model.ConsolidatedDestRule, 0)
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
