@@ -490,8 +490,14 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							}
 							addresses = append(addresses, instance.Endpoint.Address)
 						}
-						listenerOpts.bind = addresses[0]
-						lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard, nil)
+						if len(addresses) > 0 {
+							listenerOpts.bind = addresses[0]
+							var addition []string
+							if len(addresses) > 1 {
+								addition = addresses[1:]
+							}
+							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard, addition)
+						}
 					} else {
 						// Standard logic for headless and non headless services
 						lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard, nil)
@@ -789,7 +795,7 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 // if one doesn't already exist. HTTP listeners on same port are ignored
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
-func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts, listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcard string, additionalAddresses []string, ) {
+func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts, listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcard string, additionalAddresses []string) {
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
 	var ret bool
