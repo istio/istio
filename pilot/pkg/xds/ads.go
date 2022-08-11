@@ -224,7 +224,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	// SidecarScope for the proxy may not have been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
-	// but proxy's SidecarScope has been updated(s.updateProxy) due to optimizations that skip sidecar scope
+	// but proxy's SidecarScope has been updated(s.computeProxyState -> SetSidecarScope) due to optimizations that skip sidecar scope
 	// computation.
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
 		s.computeProxyState(con.proxy, request)
@@ -659,9 +659,8 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
 	// only recompute workload labels when
 	// 1. stream established and proxy first time initialization
-	// 2. proxy request
-	// 3. proxy update
-	recomputeLabels := request == nil || request.IsRequest() || request.IsProxyUpdate()
+	// 2. proxy update
+	recomputeLabels := request == nil || request.IsProxyUpdate()
 	if recomputeLabels {
 		proxy.SetWorkloadLabels(s.Env)
 		setTopologyLabels(proxy)
