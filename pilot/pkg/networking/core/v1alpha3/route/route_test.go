@@ -472,7 +472,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualServicePlain, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -520,7 +520,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualServicePlain, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -565,7 +565,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -608,7 +608,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -654,7 +654,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -689,7 +689,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		proxy := node(cg)
 		gatewayNames := map[string]bool{"some-gateway": true}
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualServicePlain, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)

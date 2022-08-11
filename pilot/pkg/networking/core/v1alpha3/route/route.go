@@ -1252,10 +1252,7 @@ func hashForService(node *model.Proxy, push *model.PushContext, svc *model.Servi
 	return consistentHash, mergedDR
 }
 
-func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
-	virtualService config.Config,
-	_ map[host.Name]*model.Service,
-) DestinationHashMap {
+func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy, virtualService config.Config) DestinationHashMap {
 	hashByDestination, _ := hashForVirtualService(push, node, virtualService)
 	return hashByDestination
 }
