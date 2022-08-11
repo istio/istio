@@ -13,13 +13,15 @@ nodeAffinity:
   {{- if or .global.arch $nodeSelector }}
       nodeSelectorTerms:
       - matchExpressions:
-        {{- range $key, $val := .global.arch }}
+        {{- if .global.arch }}
         - key: kubernetes.io/arch
           operator: In
           values:
+        {{- range $key, $val := .global.arch }}
           {{- if gt ($val | int) 0 }}
           - {{ $key | quote }}
           {{- end }}
+        {{- end }}
         {{- end }}
         {{- range $key, $val := $nodeSelector }}
         - key: {{ $key }}
