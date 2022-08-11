@@ -140,9 +140,12 @@ type SyncedVersions struct {
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
+func (s *DiscoveryServer) InitDebug(
+	mux *http.ServeMux,
+	sctl *aggregate.Controller,
+	enableProfiling bool,
 	fetchWebhook func() map[string]string,
-) {
+) *http.ServeMux {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery()
 	s.MemRegistry.XdsUpdater = s
@@ -156,10 +159,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	})
 	internalMux := http.NewServeMux()
 	s.AddDebugHandlers(mux, internalMux, enableProfiling, fetchWebhook)
-	debugGen, ok := (s.Generators[TypeDebug]).(*DebugGen)
-	if ok {
-		debugGen.DebugMux = internalMux
-	}
+	return internalMux
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
