@@ -1267,14 +1267,7 @@ func hashForVirtualService(push *model.PushContext, node *model.Proxy, virtualSe
 	destinationRules := make([]*model.ConsolidatedDestRule, 0)
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
 		for _, destination := range httpRoute.Route {
-			hostName := destination.Destination.Host
-			var configNamespace string
-			if serviceRegistry[host.Name(hostName)] != nil {
-				configNamespace = serviceRegistry[host.Name(hostName)].Attributes.Namespace
-			} else {
-				configNamespace = virtualService.Namespace
-			}
-			hash, dr := hashForHTTPDestination(push, node, destination, configNamespace)
+			hash, dr := hashForHTTPDestination(push, node, destination)
 			if hash != nil {
 				hashByDestination[destination] = hash
 				destinationRules = append(destinationRules, dr)
