@@ -3512,7 +3512,8 @@ spec:
                 items:
                   properties:
                     bind:
-                      description: The IP to which the listener should be bound.
+                      description: The IP(IPv4 or IPv6) to which the listener should
+                        be bound.
                       type: string
                     captureMode:
                       enum:
@@ -3684,7 +3685,8 @@ spec:
                 items:
                   properties:
                     bind:
-                      description: The IP to which the listener should be bound.
+                      description: The IP(IPv4 or IPv6) to which the listener should
+                        be bound.
                       type: string
                     captureMode:
                       enum:
