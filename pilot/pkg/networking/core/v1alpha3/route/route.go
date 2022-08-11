@@ -60,6 +60,8 @@ const DefaultRouteName = "default"
 
 var regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 
+var notimeout = durationpb.New(0)
+
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
 // Note: Currently we are not fully utilizing this structure. We could invoke this logic
 // once for all sidecars in the cluster to compute all RDS for inside the mesh and arrange
@@ -472,19 +474,7 @@ func applyHTTPRouteDestination(
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
-	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-	action.Timeout = features.DefaultRequestTimeout
-	if in.Timeout != nil {
-		action.Timeout = gogo.DurationToProtoDuration(in.Timeout)
-	}
-	if node.IsProxylessGrpc() {
-		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
-		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: action.Timeout}
-	} else {
-		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-		// nolint: staticcheck
-		action.MaxGrpcTimeout = action.Timeout
-	}
+	setTimeout(action, gogo.DurationToProtoDuration(in.Timeout), node)
 
 	out.Action = &route.Route_Route{Route: action}
 
@@ -1109,16 +1099,21 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
-	notimeout := durationpb.New(0)
-	routeAction := &route.RouteAction{
-		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-		Timeout:          notimeout,
-	}
-	routeAction.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+	out := buildDefaultHTTPRoute(clusterName, operation)
+	// For inbound, configure with notimeout.
+	out.GetRoute().Timeout = notimeout
+	out.GetRoute().MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
 		MaxStreamDuration: notimeout,
 		// If not configured at all, the grpc-timeout header is not used and
 		// gRPC requests time out like any other requests using timeout or its default.
 		GrpcTimeoutHeaderMax: notimeout,
+	}
+	return out
+}
+
+func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
+	routeAction := &route.RouteAction{
+		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 	}
 	val := &route.Route{
 		Match: translateRouteMatch(nil),
@@ -1132,6 +1127,32 @@ func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.R
 
 	val.Name = DefaultRouteName
 	return val
+}
+
+// setTimeout sets timeout for a route.
+func setTimeout(action *route.RouteAction, vsTimeout *durationpb.Duration, node *model.Proxy) {
+	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
+	action.Timeout = features.DefaultRequestTimeout
+	if vsTimeout != nil {
+		action.Timeout = &durationpb.Duration{Seconds: vsTimeout.Seconds, Nanos: vsTimeout.Nanos}
+	}
+	action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{}
+	if node != nil && node.IsProxylessGrpc() {
+		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
+		action.MaxStreamDuration.MaxStreamDuration = action.Timeout
+	} else {
+		// Set MaxStreamDuration only for notimeout cases otherwise it wont be honored.
+		if action.Timeout.AsDuration().Nanoseconds() == 0 {
+			action.MaxStreamDuration.MaxStreamDuration = action.Timeout
+			action.MaxStreamDuration.GrpcTimeoutHeaderMax = action.Timeout
+		} else {
+			// If not configured at all, the grpc-timeout header is not used and
+			// gRPC requests time out like any other requests using timeout or its default.
+			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+			// nolint: staticcheck
+			action.MaxGrpcTimeout = action.Timeout
+		}
+	}
 }
 
 // BuildDefaultHTTPOutboundRoute builds a default outbound route, including a retry policy.
