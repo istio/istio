@@ -76,10 +76,11 @@ func NewResponseCapture() *ResponseCapture {
 	}
 }
 
-func NewDebugGen(s *DiscoveryServer, systemNamespace string) *DebugGen {
+func NewDebugGen(s *DiscoveryServer, systemNamespace string, debugMux *http.ServeMux) *DebugGen {
 	return &DebugGen{
 		Server:          s,
 		SystemNamespace: systemNamespace,
+		DebugMux:        debugMux,
 	}
 }
 
