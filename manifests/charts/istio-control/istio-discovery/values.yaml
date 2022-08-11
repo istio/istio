@@ -522,3 +522,14 @@ global:
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true
+
+# istio_cni determines values used by the control plane relating to CNI.
+# Not to be confused by values under `cni.*`, which control the CNI itself.
+istio_cni:
+  # If true, consider CNI enabled and injection accordingly
+  enabled: false
+  # If true, an istio-validation container is injected to test that iptables is setup.
+  # WARNING: without appropriate alternatives in place, disabling this can lead to bypassing the sidecar
+  enableValidation: true
+  # If true, pods will be configured to only run on nodes where CNI is ready (`cni.istio.io/ready=true`)
+  enabledNodeSelector: true
