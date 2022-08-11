@@ -61,15 +61,15 @@ metadata:
   }
 spec:
   {{- $holdProxy := or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts }}
-  {{- if .Values.istio_cni.enabledNodeSelector }}
+  {{- if and .Values.istio_cni.enabled .Values.istio_cni.enabledNodeSelector }}
   nodeSelector:
     cni.istio.io/ready: "true"
   {{- end }}
   initContainers:
-  {{- /* We will have an init container if we have intercept, unless we are using CNI with validation disabled */ }}
+  {{- /* We will have an init container if we have intercept, unless we are using CNI with validation disabled */}}
   {{ if and
     (ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE`)
-    (or (not .Values.istio_cni.enabled) (.Values.istio_cni.validation)) }}
+    (or (not .Values.istio_cni.enabled) (.Values.istio_cni.enableValidation)) }}
   {{ if .Values.istio_cni.enabled -}}
   - name: istio-validation
   {{ else -}}

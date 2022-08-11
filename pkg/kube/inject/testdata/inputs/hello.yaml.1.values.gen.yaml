@@ -117,7 +117,9 @@
     "useMCP": false
   },
   "istio_cni": {
-    "enabled": false
+    "enableValidation": true,
+    "enabled": false,
+    "enabledNodeSelector": true
   },
   "revision": "",
   "sidecarInjectorWebhook": {

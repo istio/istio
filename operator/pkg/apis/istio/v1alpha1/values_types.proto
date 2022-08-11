@@ -46,6 +46,9 @@ message CNIConfig {
   // Controls whether CNI is enabled.
   google.protobuf.BoolValue enabled = 1;
 
+  google.protobuf.BoolValue enableValidation = 19;
+  google.protobuf.BoolValue enabledNodeSelector = 20;
+
   string hub = 2;
 
   google.protobuf.Value tag = 3;

@@ -191,6 +191,8 @@ spec:
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
+      nodeSelector:
+        cni.istio.io/ready: "true"
       securityContext:
         fsGroup: 1337
       volumes:

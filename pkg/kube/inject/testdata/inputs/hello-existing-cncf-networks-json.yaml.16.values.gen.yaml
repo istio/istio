@@ -118,7 +118,9 @@
   },
   "istio_cni": {
     "chained": false,
-    "enabled": true
+    "enableValidation": true,
+    "enabled": true,
+    "enabledNodeSelector": true
   },
   "revision": "",
   "sidecarInjectorWebhook": {

@@ -182,3 +182,10 @@ spec:
           - name: ingressgateway-ca-certs
             secretName: istio-ingressgateway-ca-certs
             mountPath: /etc/istio/ingressgateway-ca-certs
+
+    istio_cni:
+      # If true, an istio-validation container is injected to test that iptables is setup.
+      # WARNING: without appropriate alternatives in place, disabling this can lead to bypassing the sidecar
+      enableValidation: true
+      # If true, pods will be configured to only run on nodes where CNI is ready (`cni.istio.io/ready=true`)
+      enabledNodeSelector: true
