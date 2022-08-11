@@ -127,9 +127,9 @@ func newAccessLogBuilder() *AccessLogBuilder {
 
 func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass) {
 	mesh := push.Mesh
-	cfg := push.Telemetry.AccessLogging(push, proxy, class)
+	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
 
-	if cfg == nil {
+	if cfgs == nil {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			tcp.AccessLog = append(tcp.AccessLog, b.buildFileAccessLog(mesh))
@@ -142,26 +142,26 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(cfg, false); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(cfgs, false); len(al) != 0 {
 		tcp.AccessLog = append(tcp.AccessLog, al...)
 	}
 }
 
-func buildAccessLogFromTelemetry(spec *model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
-	als := make([]*accesslog.AccessLog, 0)
-	telFilter := buildAccessLogFilterFromTelemetry(spec)
-	filters := make([]*accesslog.AccessLogFilter, 0, 2)
-	if forListener {
-		filters = append(filters, addAccessLogFilter())
-	}
-	if telFilter != nil {
-		filters = append(filters, telFilter)
-	}
+func buildAccessLogFromTelemetry(cfgs []model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
+	als := make([]*accesslog.AccessLog, 0, len(cfgs))
+	for _, c := range cfgs {
+		filters := make([]*accesslog.AccessLogFilter, 0, 2)
+		if forListener {
+			filters = append(filters, addAccessLogFilter())
+		}
 
-	for _, l := range spec.Logs {
+		if telFilter := buildAccessLogFilterFromTelemetry(c); telFilter != nil {
+			filters = append(filters, telFilter)
+		}
+
 		al := &accesslog.AccessLog{
-			Name:       l.Name,
-			ConfigType: l.ConfigType,
+			Name:       c.AccessLog.Name,
+			ConfigType: c.AccessLog.ConfigType,
 			Filter:     buildAccessLogFilter(filters...),
 		}
 
@@ -170,8 +170,8 @@ func buildAccessLogFromTelemetry(spec *model.LoggingConfig, forListener bool) []
 	return als
 }
 
-func buildAccessLogFilterFromTelemetry(spec *model.LoggingConfig) *accesslog.AccessLogFilter {
-	if spec == nil || spec.Filter == nil {
+func buildAccessLogFilterFromTelemetry(spec model.LoggingConfig) *accesslog.AccessLogFilter {
+	if spec.Filter == nil {
 		return nil
 	}
 
@@ -193,9 +193,9 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass,
 ) {
 	mesh := push.Mesh
-	cfg := push.Telemetry.AccessLogging(push, proxy, class)
+	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
 
-	if cfg == nil {
+	if cfgs == nil {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh))
@@ -207,7 +207,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(cfg, false); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(cfgs, false); len(al) != 0 {
 		connectionManager.AccessLog = append(connectionManager.AccessLog, al...)
 	}
 }
@@ -220,9 +220,9 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 		return
 	}
 
-	cfg := push.Telemetry.AccessLogging(push, proxy, class)
+	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
 
-	if cfg == nil {
+	if cfgs == nil {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))
@@ -236,7 +236,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(cfg, true); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(cfgs, true); len(al) != 0 {
 		listener.AccessLog = append(listener.AccessLog, al...)
 	}
 }
