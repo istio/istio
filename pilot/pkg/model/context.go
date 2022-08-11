@@ -273,6 +273,10 @@ type Proxy struct {
 	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
 	ConfigNamespace string
 
+	// IstioMetaLabels contains the labels specified by ISTIO_METAJSON_LABELS and platform instance,
+	// so we can tell the difference between user specified labels and istio labels.
+	IstioMetaLabels map[string]string `json:"ISTIO_META_LABELS,omitempty"`
+
 	// Metadata key-value pairs extending the Node identifier
 	Metadata *NodeMetadata
 
@@ -533,10 +537,11 @@ type NodeMetadata struct {
 	// Mostly used when istiod requests the upstream.
 	IstioRevision string `json:"ISTIO_REVISION,omitempty"`
 
-	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
+	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node. Labels is a
+	// superset of IstioMetaLabels.
 	Labels map[string]string `json:"LABELS,omitempty"`
 
-	// Labels specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
+	// Annotations specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
 	Annotations map[string]string `json:"ANNOTATIONS,omitempty"`
 
 	// InstanceIPs is the set of IPs attached to this proxy
@@ -849,14 +854,33 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 	node.ServiceInstances = instances
 }
 
-// SetWorkloadLabels will set the node.Metadata.Labels only when it is nil.
-func (node *Proxy) SetWorkloadLabels(env *Environment) {
-	// First get the workload labels from node meta
-	if len(node.Metadata.Labels) > 0 {
-		return
+// SetWorkloadLabels will set the node.Metadata.Labels.
+// It merges both node meta labels and workload labels and give preference to workload labels.
+// Note: must be called after `SetServiceInstances`.
+func (node *Proxy) SetWorkloadLabels(env *Environment, request *PushRequest) {
+	labels := env.GetProxyWorkloadLabels(node)
+	// when IstioMetaLabels, calculate the IstioMetaLabels
+	if node.IstioMetaLabels == nil {
+		IstioMetaLabels := make(map[string]string, len(node.Metadata.Labels))
+		for k, v := range node.Metadata.Labels {
+			IstioMetaLabels[k] = v
+		}
+		for k := range labels {
+			delete(IstioMetaLabels, k)
+		}
+		node.IstioMetaLabels = IstioMetaLabels
 	}
-	// Fallback to calling GetProxyWorkloadLabels
-	node.Metadata.Labels = env.GetProxyWorkloadLabels(node)
+
+	node.Metadata.Labels = make(map[string]string, len(labels)+len(node.IstioMetaLabels))
+	// we can't just equate proxy workload labels to node meta labels as it may be customized by user
+	// with `ISTIO_METAJSON_LABELS` env (pkg/bootstrap/config.go extractAttributesMetadata).
+	// so, we fill the `ISTIO_METAJSON_LABELS` as well.
+	for k, v := range node.IstioMetaLabels {
+		node.Metadata.Labels[k] = v
+	}
+	for k, v := range labels {
+		node.Metadata.Labels[k] = v
+	}
 }
 
 // DiscoverIPMode discovers the IP Versions supported by Proxy based on its IP addresses.
