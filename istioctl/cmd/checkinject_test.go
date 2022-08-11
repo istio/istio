@@ -25,7 +25,6 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -44,8 +43,8 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 				{
 					Name:     "istio-sidecar-injector",
 					Revision: "default",
-					Reason: "No matching namespace labels (istio-injection=enabled, istio.io/rev=default) " +
-						"or pod labels (sidecar.istio.io/inject=true, istio.io/rev=default)",
+					Reason: "No matching namespace labels (istio.io/rev=default, istio-injection=enabled) " +
+						"or pod labels (istio.io/rev=default, sidecar.istio.io/inject=true)",
 				},
 				{
 					Name:     "istio-sidecar-injector-1-16",
@@ -80,8 +79,8 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 				{
 					Name:     "istio-sidecar-injector",
 					Revision: "default",
-					Reason: "No matching namespace labels (istio-injection=enabled, istio.io/rev=default) " +
-						"or pod labels (sidecar.istio.io/inject=true, istio.io/rev=default)",
+					Reason: "No matching namespace labels (istio.io/rev=default, istio-injection=enabled) " +
+						"or pod labels (istio.io/rev=default, sidecar.istio.io/inject=true)",
 				},
 				{
 					Name:     "istio-sidecar-injector-1-16",
@@ -153,8 +152,8 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 				{
 					Name:     "istio-sidecar-injector",
 					Revision: "default",
-					Reason: "No matching namespace labels (istio-injection=enabled, istio.io/rev=default) " +
-						"or pod labels (sidecar.istio.io/inject=true, istio.io/rev=default)",
+					Reason: "No matching namespace labels (istio.io/rev=default, istio-injection=enabled) " +
+						"or pod labels (istio.io/rev=default, sidecar.istio.io/inject=true)",
 				},
 				{
 					Name:     "istio-sidecar-injector-1-16",
@@ -229,8 +228,8 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Name:     "istio-sidecar-injector",
 					Revision: "default",
 					Injected: false,
-					Reason: "No matching namespace labels (istio-injection=enabled, istio.io/rev=default) or pod labels " +
-						"(sidecar.istio.io/inject=true, istio.io/rev=default)",
+					Reason: "No matching namespace labels (istio.io/rev=default, istio-injection=enabled) " +
+						"or pod labels (istio.io/rev=default, sidecar.istio.io/inject=true)",
 				},
 				{
 					Name:     "istio-sidecar-injector-1-16",
@@ -259,12 +258,8 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			client := kube.NewFakeClient(c.pod, c.ns)
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			checkResults, err := analyzeRunningWebhooks(client, []admit_v1.MutatingWebhookConfiguration{*defaultWh, *revWh},
-				c.pod.Name, c.pod.Namespace)
+			checkResults, err := analyzeRunningWebhooks([]admit_v1.MutatingWebhookConfiguration{*defaultWh, *revWh},
+				c.pod.Labels, c.ns.Labels)
 			if err != nil {
 				t.Fatal(err)
 			}

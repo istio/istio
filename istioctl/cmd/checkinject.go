@@ -21,21 +21,14 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/spf13/cobra"
-	admit_v1 "k8s.io/api/admissionregistration/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/kubectl/pkg/polymorphichelpers"
-	"k8s.io/kubectl/pkg/util/podutils"
-
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
-	"istio.io/istio/pkg/kube"
+	admit_v1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 var labelPairs string
@@ -55,11 +48,11 @@ Checks associated resources of the given resource, and running webhooks to exami
 	# Check the injection status of a pod under a deployment in namespace test
 	istioctl check-inject deployment/details-v1 -n test
 
-   # Check the injection status of a pod based on namespace and app labels
+   # Check the injection status of label pairs in a specific namespace before actual injection 
 	istioctl check-inject -n test -l app=helloworld,version=v1
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 && !cmd.Flags().Lookup("labels").Changed || len(args) > 1 {
+			if len(args) == 0 && labelPairs == "" || len(args) > 1 {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("check-inject requires only [<resource-type>/]<resource-name>[.<namespace>], or specify labels flag")
 			}
@@ -71,6 +64,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 				return err
 			}
 			var podName, podNs string
+			var podLabels, nsLabels map[string]string
 			if len(args) == 1 {
 				podName, podNs, err = handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(namespace, defaultNamespace),
@@ -78,32 +72,36 @@ Checks associated resources of the given resource, and running webhooks to exami
 				if err != nil {
 					return err
 				}
+				pod, err := client.Kube().CoreV1().Pods(podNs).Get(context.TODO(), podName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				ns, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), podNs, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				podLabels = pod.GetLabels()
+				nsLabels = ns.GetLabels()
 			} else {
-				rest, err := client.UtilFactory().ToRESTConfig()
+				if namespace == "" {
+					namespace = defaultNamespace
+				}
+				ns, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
-				coreClient, err := corev1client.NewForConfig(rest)
+				ls, err := metav1.ParseToLabelSelector(labelPairs)
 				if err != nil {
 					return err
 				}
-				sortBy := func(pods []*corev1.Pod) sort.Interface { return podutils.ByLogging(pods) }
-				timeout := 2 * time.Second
-				pod, _, err := polymorphichelpers.GetFirstPod(coreClient, namespace, labelPairs, timeout, sortBy)
-				if err != nil {
-					return err
-				}
-				podName = pod.Name
-				podNs = pod.Namespace
+				podLabels = ls.MatchLabels
+				nsLabels = ns.GetLabels()
 			}
 			whs, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
-			if len(whs.Items) == 0 {
-				return fmt.Errorf("ERROR: no injector is found for sidecar injection")
-			}
-			checkResults, err := analyzeRunningWebhooks(client, whs.Items, podName, podNs)
+			checkResults, err := analyzeRunningWebhooks(whs.Items, podLabels, nsLabels)
 			if err != nil {
 				return err
 			}
@@ -117,19 +115,20 @@ Checks associated resources of the given resource, and running webhooks to exami
 
 func printCheckInjectorResults(writer io.Writer, was []webhookAnalysis) error {
 	if len(was) == 0 {
-		fmt.Fprintf(writer, "No Istio injection hooks present.\n")
+		fmt.Fprintf(writer, "ERROR: no Istio injection hooks present.\n")
 		return nil
 	}
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	fmt.Fprintln(w, "WEBHOOK\tREVISION\tINJECTED\tREASON")
 	injectedTotal := 0
 	for _, ws := range was {
-		injected := "\u2716"
+		// TODO investigate to use colors for mark and x chars, tabwriter format will be messed up using color package
+		injected := "✘"
 		if ws.Injected {
-			injected = "\u2714"
+			injected = "✔"
 			injectedTotal++
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", ws.Name, ws.Revision, injected, ws.Reason)
+		fmt.Fprintf(w, "%s\t%s\t%+v\t%s\n", ws.Name, ws.Revision, injected, ws.Reason)
 	}
 	if injectedTotal > 1 {
 		fmt.Fprintf(w, "ERROR: multiple webhooks will inject, which can lead to errors")
@@ -144,23 +143,14 @@ type webhookAnalysis struct {
 	Reason   string
 }
 
-func analyzeRunningWebhooks(client kube.ExtendedClient, whs []admit_v1.MutatingWebhookConfiguration,
-	podName, podNamespace string) ([]webhookAnalysis, error) {
+func analyzeRunningWebhooks(whs []admit_v1.MutatingWebhookConfiguration, podLabels, nsLabels map[string]string) ([]webhookAnalysis, error) {
 	results := make([]webhookAnalysis, 0)
-	ns, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), podNamespace, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	pod, err := client.Kube().CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
 	for _, mwc := range whs {
 		if !isIstioWebhook(&mwc) {
 			continue
 		}
 		rev := extractRevision(&mwc)
-		reason, injected := analyzeWebhooksMatchStatus(mwc.Webhooks, pod, ns, rev)
+		reason, injected := analyzeWebhooksMatchStatus(mwc.Webhooks, podLabels, nsLabels)
 		results = append(results, webhookAnalysis{
 			Name:     mwc.Name,
 			Revision: rev,
@@ -174,10 +164,10 @@ func analyzeRunningWebhooks(client kube.ExtendedClient, whs []admit_v1.MutatingW
 	return results, nil
 }
 
-func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, pod *corev1.Pod, ns *corev1.Namespace, revision string) (reason string, injected bool) {
+func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, podLabels, nsLabels map[string]string) (reason string, injected bool) {
 	for _, wh := range whs {
-		nsMatched, nsLabel := extractMatchedSelectorInfo(wh.NamespaceSelector, ns.GetLabels())
-		podMatched, podLabel := extractMatchedSelectorInfo(wh.ObjectSelector, pod.GetLabels())
+		nsMatched, nsLabel := extractMatchedSelectorInfo(wh.NamespaceSelector, nsLabels)
+		podMatched, podLabel := extractMatchedSelectorInfo(wh.ObjectSelector, podLabels)
 		if nsMatched && podMatched {
 			if nsLabel != "" && podLabel != "" {
 				return fmt.Sprintf("Namespace label %s matches, and pod label %s matches", nsLabel, podLabel), true
@@ -190,12 +180,12 @@ func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, pod *corev1.Pod,
 			for _, me := range wh.ObjectSelector.MatchExpressions {
 				switch me.Operator {
 				case metav1.LabelSelectorOpDoesNotExist:
-					v, ok := pod.GetLabels()[me.Key]
+					v, ok := podLabels[me.Key]
 					if ok {
 						return fmt.Sprintf("Pod has %s=%s label, preventing injection", me.Key, v), false
 					}
 				case metav1.LabelSelectorOpNotIn:
-					v, ok := pod.GetLabels()[me.Key]
+					v, ok := podLabels[me.Key]
 					if !ok {
 						continue
 					}
@@ -207,7 +197,7 @@ func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, pod *corev1.Pod,
 				}
 			}
 		} else if podMatched {
-			if v, ok := ns.GetLabels()[analyzer_util.InjectionLabelName]; ok {
+			if v, ok := nsLabels[analyzer_util.InjectionLabelName]; ok {
 				if v != "enabled" {
 					return fmt.Sprintf("Namespace has %s=%s label, preventing injection",
 						analyzer_util.InjectionLabelName, v), false
@@ -215,15 +205,32 @@ func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, pod *corev1.Pod,
 			}
 		}
 	}
-	noMatchingReason := func(revision string) string {
-		if revision == "default" {
-			return fmt.Sprintf("No matching namespace labels (istio-injection=enabled, istio.io/rev=default) " +
-				"or pod labels (sidecar.istio.io/inject=true, istio.io/rev=default)")
+	noMatchingReason := func(whs []admit_v1.MutatingWebhook) string {
+		nsMatchedLabels := make([]string, 0)
+		podMatchedLabels := make([]string, 0)
+		extractMatchLabels := func(selector *metav1.LabelSelector) []string {
+			if selector == nil {
+				return nil
+			}
+			labels := make([]string, 0)
+			for _, me := range selector.MatchExpressions {
+				if me.Operator != metav1.LabelSelectorOpIn {
+					continue
+				}
+				for _, v := range me.Values {
+					labels = append(labels, fmt.Sprintf("%s=%s", me.Key, v))
+				}
+			}
+			return labels
 		}
-		return fmt.Sprintf("No matching namespace labels (istio.io/rev=%s) "+
-			"or pod labels (istio.io/rev=%s)", revision, revision)
+		for _, wh := range whs {
+			nsMatchedLabels = append(nsMatchedLabels, extractMatchLabels(wh.NamespaceSelector)...)
+			podMatchedLabels = append(podMatchedLabels, extractMatchLabels(wh.ObjectSelector)...)
+		}
+		return fmt.Sprintf("No matching namespace labels (%s) "+
+			"or pod labels (%s)", strings.Join(nsMatchedLabels, ", "), strings.Join(podMatchedLabels, ", "))
 	}
-	return noMatchingReason(revision), false
+	return noMatchingReason(whs), false
 }
 
 func extractMatchedSelectorInfo(ls *metav1.LabelSelector, objLabels map[string]string) (matched bool, injLabel string) {
