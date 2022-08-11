@@ -61,7 +61,7 @@ func waitCmd() *cobra.Command {
   istioctl experimental wait --for=distribution virtualservice bookinfo.default
 
   # Wait until 99% of the proxies receive the distribution, timing out after 5 minutes
-  istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virtualservice bookinfo.default
+  istioctl experimental wait --for=distribution --threshold=.99 --timeout=300s virtualservice bookinfo.default
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			printVerbosef(cmd, "kubeconfig %s", kubeconfig)
@@ -147,7 +147,7 @@ func waitCmd() *cobra.Command {
 	return cmd
 }
 
-func printVerbosef(cmd *cobra.Command, template string, args ...interface{}) {
+func printVerbosef(cmd *cobra.Command, template string, args ...any) {
 	if verbose {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), template+"\n", args...)
 	}

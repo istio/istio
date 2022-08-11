@@ -15,7 +15,6 @@
 package route_test
 
 import (
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -71,8 +70,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
-		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
+		t.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry, nil, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -164,6 +162,18 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[1].Name).To(gomega.Equal("route.catch-all"))
 	})
 
+	t.Run("for virtual service with catch all route：port match", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithCatchAllPort,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].Name).To(gomega.Equal("route 1.catch-all for 8080"))
+	})
+
 	t.Run("for internally generated virtual service with ingress semantics (istio version<1.14)", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
@@ -221,12 +231,16 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				Regex:      `/route/v1((\/).*)?`,
 			},
 		}))
+		g.Expect(routes[0].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
+			To(gomega.Equal(envoyroute.RouteAction_SERVICE_UNAVAILABLE))
 		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
 			Prefix: "/",
 		}))
+		g.Expect(routes[1].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
+			To(gomega.Equal(envoyroute.RouteAction_SERVICE_UNAVAILABLE))
 	})
 
-	t.Run("for internally generated virtual service with ingress semantics (istio version>=1.14)", func(t *testing.T) {
+	t.Run("for internally generated virtual service with ingress semantics", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
@@ -249,7 +263,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}))
 	})
 
-	t.Run("for internally generated virtual service with gateway semantics (istio version>=1.14)", func(t *testing.T) {
+	t.Run("for internally generated virtual service with gateway semantics", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
@@ -267,9 +281,13 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_PathSeparatedPrefix{
 			PathSeparatedPrefix: "/route/v1",
 		}))
+		g.Expect(routes[0].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
+			To(gomega.Equal(envoyroute.RouteAction_INTERNAL_SERVER_ERROR))
 		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
 			Prefix: "/",
 		}))
+		g.Expect(routes[1].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
+			To(gomega.Equal(envoyroute.RouteAction_INTERNAL_SERVER_ERROR))
 	})
 
 	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
@@ -875,6 +893,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		}
 
+		var totalWeight uint32
 		for i, expectResult := range expectResults {
 			cluster := weightedCluster.GetClusters()[i]
 			g.Expect(cluster.RequestHeadersToAdd).To(gomega.Equal(expectResult.reqAdd))
@@ -882,7 +901,10 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			g.Expect(cluster.ResponseHeadersToAdd).To(gomega.Equal(expectResult.respAdd))
 			g.Expect(cluster.RequestHeadersToRemove).To(gomega.Equal(expectResult.reqRemove))
 			g.Expect(cluster.GetHostRewriteLiteral()).To(gomega.Equal(expectResult.authority))
+			totalWeight += cluster.Weight.GetValue()
 		}
+		// total weight must be set
+		g.Expect(weightedCluster.GetTotalWeight().GetValue()).To(gomega.Equal(totalWeight))
 	})
 
 	t.Run("for redirect code", func(t *testing.T) {
@@ -911,6 +933,41 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
 		g.Expect(ok).NotTo(gomega.BeFalse())
 		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
+		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
+		g.Expect(routes[0].ResponseHeadersToAdd[0].Append.Value).To(gomega.BeFalse())
+		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
+		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
+	})
+
+	t.Run("for direct response code", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithDirectResponse, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		directResponseAction, ok := routes[0].Action.(*envoyroute.Route_DirectResponse)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(directResponseAction.DirectResponse.Status).To(gomega.Equal(uint32(200)))
+		g.Expect(directResponseAction.DirectResponse.Body.Specifier.(*core.DataSource_InlineString).InlineString).To(gomega.Equal("hello"))
+	})
+
+	t.Run("for direct response code and header manipulation", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithDirectResponseAndSetHeader, serviceRegistry,
+			nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		directResponseAction, ok := routes[0].Action.(*envoyroute.Route_DirectResponse)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(directResponseAction.DirectResponse.Status).To(gomega.Equal(uint32(200)))
+		g.Expect(directResponseAction.DirectResponse.Body.Specifier.(*core.DataSource_InlineString).InlineString).To(gomega.Equal("hello"))
 		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Append.Value).To(gomega.BeFalse())
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
@@ -1146,6 +1203,74 @@ var virtualServiceWithCatchAllRoute = config.Config{
 	},
 }
 
+var virtualServiceWithCatchAllPort = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "route 1",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "catch-all for 8080",
+						Port: 8080,
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example1.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "route 2",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "header match",
+						Headers: map[string]*networking.StringMatch{
+							"cookie": {
+								MatchType: &networking.StringMatch_Exact{Exact: "canary"},
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example2.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "route 3",
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example1.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 var virtualServiceWithCatchAllMultiPrefixRoute = config.Config{
 	Meta: config.Meta{
 		GroupVersionKind: gvk.VirtualService,
@@ -1319,7 +1444,7 @@ var virtualServiceWithHeaderOperationsForWeightedCluster = config.Config{
 								Remove: []string{"x-route-resp-remove-blue"},
 							},
 						},
-						Weight: 90,
+						Weight: 9,
 					},
 					{
 						Destination: &networking.Destination{
@@ -1338,7 +1463,7 @@ var virtualServiceWithHeaderOperationsForWeightedCluster = config.Config{
 								Remove: []string{"x-route-resp-remove-green"},
 							},
 						},
-						Weight: 10,
+						Weight: 1,
 					},
 				},
 				Headers: &networking.Headers{
@@ -1392,6 +1517,55 @@ var virtualServiceWithRedirectAndSetHeader = config.Config{
 					Uri:          "example.org",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
+				},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithDirectResponse = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				DirectResponse: &networking.HTTPDirectResponse{
+					Status: 200,
+					Body: &networking.HTTPBody{
+						Specifier: &networking.HTTPBody_String_{String_: "hello"},
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithDirectResponseAndSetHeader = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				DirectResponse: &networking.HTTPDirectResponse{
+					Status: 200,
+					Body: &networking.HTTPBody{
+						Specifier: &networking.HTTPBody_String_{String_: "hello"},
+					},
 				},
 				Headers: &networking.Headers{
 					Response: &networking.Headers_HeaderOperations{
@@ -1782,13 +1956,20 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 	},
 }
 
-func TestCombineVHostRoutes(t *testing.T) {
-	regexEngine := &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-		MaxProgramSize: &wrappers.UInt32Value{
-			Value: uint32(10),
-		},
-	}}
+func TestSortVHostRoutes(t *testing.T) {
+	regexEngine := &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 	first := []*envoyroute.Route{
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: regexEngine,
+				Regex:      ".*?regex1",
+			},
+		}}},
+	}
+	wantFirst := []*envoyroute.Route{
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
@@ -1827,15 +2008,7 @@ func TestCombineVHostRoutes(t *testing.T) {
 		}},
 	}
 
-	want := []*envoyroute.Route{
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
-			SafeRegex: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      ".*?regex1",
-			},
-		}}},
+	wantSecond := []*envoyroute.Route{
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
@@ -1861,19 +2034,39 @@ func TestCombineVHostRoutes(t *testing.T) {
 				},
 			},
 		}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
 	}
 
-	got := route.CombineVHostRoutes(first, second)
-	if !reflect.DeepEqual(want, got) {
-		t.Errorf("CombineVHostRoutes: \n")
-		t.Errorf("got: \n")
-		for _, g := range got {
-			t.Errorf("%v\n", g.Match.PathSpecifier)
-		}
-		t.Errorf("want: \n")
-		for _, g := range want {
-			t.Errorf("%v\n", g.Match.PathSpecifier)
-		}
+	testCases := []struct {
+		name     string
+		in       []*envoyroute.Route
+		expected []*envoyroute.Route
+	}{
+		{
+			name:     "routes with catchall match",
+			in:       first,
+			expected: wantFirst,
+		},
+		{
+			name:     "routes without catchall match",
+			in:       second,
+			expected: wantSecond,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := route.SortVHostRoutes(tc.in)
+			if !reflect.DeepEqual(tc.expected, got) {
+				t.Errorf("SortVHostRoutes: \n")
+				t.Errorf("got: \n")
+				for _, g := range got {
+					t.Errorf("%v\n", g.Match.PathSpecifier)
+				}
+				t.Errorf("want: \n")
+				for _, g := range tc.expected {
+					t.Errorf("%v\n", g.Match.PathSpecifier)
+				}
+			}
+		})
 	}
 }

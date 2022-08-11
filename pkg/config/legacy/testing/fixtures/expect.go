@@ -22,7 +22,7 @@ import (
 )
 
 // ExpectEqual calls CheckEqual and fails the test if it returns an error.
-func ExpectEqual(t *testing.T, o1 interface{}, o2 interface{}) {
+func ExpectEqual(t *testing.T, o1 any, o2 any) {
 	t.Helper()
 	if err := CheckEqual(o1, o2); err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func ExpectEqual(t *testing.T, o1 interface{}, o2 interface{}) {
 }
 
 // CheckEqual checks that o1 and o2 are equal. If not, returns an error with the diff.
-func CheckEqual(o1 interface{}, o2 interface{}) error {
+func CheckEqual(o1 any, o2 any) error {
 	if diff := cmp.Diff(o1, o2); diff != "" {
 		return fmt.Errorf(diff)
 	}

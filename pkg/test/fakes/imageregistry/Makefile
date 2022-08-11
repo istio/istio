@@ -16,13 +16,13 @@
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MD_PATH := $(dir $(MKFILE_PATH))
-HUB ?= gcr.io
-IMG := $(HUB)/istio-testing/fake-registry
+HUB ?= gcr.io/istio-testing
+IMG := $(HUB)/fake-registry
 BIN_NAME := main
 
 # NOTE: TAG should be updated whenever changes are made in this directory
 # This should also be updated in dependent components
-TAG := 1.1
+TAG := 1.2
 
 all: build_and_push clean
 

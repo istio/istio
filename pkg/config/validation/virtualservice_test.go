@@ -374,7 +374,7 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRoute(tc.route, false); (err.Err == nil) != tc.valid {
+			if err := validateHTTPRoute(tc.route, false, false); (err.Err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Err == nil, tc.valid, err)
 			}
 		})
@@ -416,7 +416,7 @@ func TestValidateDelegateHTTPRoute(t *testing.T) {
 				Destination: &networking.Destination{Host: "foo.baz.east"},
 				Weight:      50,
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "total weight < 100", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
@@ -425,7 +425,7 @@ func TestValidateDelegateHTTPRoute(t *testing.T) {
 				Destination: &networking.Destination{Host: "foo.baz.east"},
 				Weight:      50,
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "simple redirect", route: &networking.HTTPRoute{
 			Redirect: &networking.HTTPRedirect{
 				Uri:       "/lerp",
@@ -613,7 +613,7 @@ func TestValidateDelegateHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRoute(tc.route, true); (err.Err == nil) != tc.valid {
+			if err := validateHTTPRoute(tc.route, true, false); (err.Err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Err == nil, tc.valid, err)
 			}
 		})

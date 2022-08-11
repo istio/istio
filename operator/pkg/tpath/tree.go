@@ -44,9 +44,9 @@ type PathContext struct {
 	// Parent in the Parent of this PathContext.
 	Parent *PathContext
 	// KeyToChild is the key required to reach the child.
-	KeyToChild interface{}
+	KeyToChild any
 	// Node is the actual Node in the data tree.
-	Node interface{}
+	Node any
 }
 
 // String implements the Stringer interface.
@@ -68,12 +68,12 @@ func (nc *PathContext) String() string {
 // a malformed path.
 // It also creates a tree of PathContexts during the traversal so that Parent nodes can be updated if required. This is
 // required when (say) appending to a list, where the parent list itself must be updated.
-func GetPathContext(root interface{}, path util.Path, createMissing bool) (*PathContext, bool, error) {
+func GetPathContext(root any, path util.Path, createMissing bool) (*PathContext, bool, error) {
 	return getPathContext(&PathContext{Node: root}, path, path, createMissing)
 }
 
 // WritePathContext writes the given value to the Node in the given PathContext.
-func WritePathContext(nc *PathContext, value interface{}, merge bool) error {
+func WritePathContext(nc *PathContext, value any, merge bool) error {
 	scope.Debugf("WritePathContext PathContext=%s, value=%v", nc, value)
 
 	if !util.IsValueNil(value) {
@@ -103,7 +103,7 @@ func WritePathContext(nc *PathContext, value interface{}, merge bool) error {
 }
 
 // WriteNode writes value to the tree in root at the given path, creating any required missing internal nodes in path.
-func WriteNode(root interface{}, path util.Path, value interface{}) error {
+func WriteNode(root any, path util.Path, value any) error {
 	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func WriteNode(root interface{}, path util.Path, value interface{}) error {
 }
 
 // MergeNode merges value to the tree in root at the given path, creating any required missing internal nodes in path.
-func MergeNode(root interface{}, path util.Path, value interface{}) error {
+func MergeNode(root any, path util.Path, value any) error {
 	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
 	if err != nil {
 		return err
@@ -123,7 +123,7 @@ func MergeNode(root interface{}, path util.Path, value interface{}) error {
 // Find returns the value at path from the given tree, or false if the path does not exist.
 // It behaves differently from GetPathContext in that it never creates map entries at the leaf and does not provide
 // a way to mutate the parent of the found node.
-func Find(inputTree map[string]interface{}, path util.Path) (interface{}, bool, error) {
+func Find(inputTree map[string]any, path util.Path) (any, bool, error) {
 	scope.Debugf("Find path=%s", path)
 	if len(path) == 0 {
 		return nil, false, fmt.Errorf("path is empty")
@@ -133,7 +133,7 @@ func Find(inputTree map[string]interface{}, path util.Path) (interface{}, bool, 
 }
 
 // Delete sets value at path of input untyped tree to nil
-func Delete(root map[string]interface{}, path util.Path) (bool, error) {
+func Delete(root map[string]any, path util.Path) (bool, error) {
 	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, false)
 	if err != nil {
 		return false, err
@@ -155,9 +155,9 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			return nil, false, fmt.Errorf("node %s is zero", pe)
 		}
 		if util.IsNPathElement(pe) || util.IsKVPathElement(pe) {
-			nc.Node = []interface{}{}
+			nc.Node = []any{}
 		} else {
-			nc.Node = make(map[string]interface{})
+			nc.Node = make(map[string]any)
 		}
 	}
 
@@ -169,7 +169,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 
 	// For list types, we need a key to identify the selected list item. This can be either a a value key of the
 	// form :matching_value in the case of a leaf list, or a matching key:value in the case of a non-leaf list.
-	if lst, ok := ncNode.([]interface{}); ok {
+	if lst, ok := ncNode.([]any); ok {
 		scope.Debug("list type")
 		// If the path element has the form [N], a list element is being selected by index. Return the element at index
 		// N if it exists.
@@ -178,13 +178,13 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			if err != nil {
 				return nil, false, fmt.Errorf("path %s, index %s: %s", fullPath, pe, err)
 			}
-			var foundNode interface{}
+			var foundNode any
 			if idx >= len(lst) || idx < 0 {
 				if !createMissing {
 					return nil, false, fmt.Errorf("index %d exceeds list length %d at path %s", idx, len(lst), remainPath)
 				}
 				idx = len(lst)
-				foundNode = make(map[string]interface{})
+				foundNode = make(map[string]any)
 			} else {
 				foundNode = lst[idx]
 			}
@@ -200,7 +200,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 		// must have map type, and try to find one which has a matching key:value.
 		for idx, le := range lst {
 			// non-leaf list, expect to match item by key:value.
-			if lm, ok := le.(map[interface{}]interface{}); ok {
+			if lm, ok := le.(map[any]any); ok {
 				k, v, err := util.PathKV(pe)
 				if err != nil {
 					return nil, false, fmt.Errorf("path %s: %s", fullPath, err)
@@ -223,7 +223,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			}
 			// repeat of the block above for the case where tree unmarshals to map[string]interface{}. There doesn't
 			// seem to be a way to merge this case into the above block.
-			if lm, ok := le.(map[string]interface{}); ok {
+			if lm, ok := le.(map[string]any); ok {
 				k, v, err := util.PathKV(pe)
 				if err != nil {
 					return nil, false, fmt.Errorf("path %s: %s", fullPath, err)
@@ -264,13 +264,13 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 
 	if util.IsMap(ncNode) {
 		scope.Debug("map type")
-		var nn interface{}
-		if m, ok := ncNode.(map[interface{}]interface{}); ok {
+		var nn any
+		if m, ok := ncNode.(map[any]any); ok {
 			nn, ok = m[pe]
 			if !ok {
 				// remainPath == 1 means the patch is creation of a new leaf.
 				if createMissing || len(remainPath) == 1 {
-					m[pe] = make(map[interface{}]interface{})
+					m[pe] = make(map[any]any)
 					nn = m[pe]
 				} else {
 					return nil, false, fmt.Errorf("path not found at element %s in path %s", pe, fullPath)
@@ -278,10 +278,10 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			}
 		}
 		if reflect.ValueOf(ncNode).IsNil() {
-			ncNode = make(map[string]interface{})
+			ncNode = make(map[string]any)
 			nc.Node = ncNode
 		}
-		if m, ok := ncNode.(map[string]interface{}); ok {
+		if m, ok := ncNode.(map[string]any); ok {
 			nn, ok = m[pe]
 			if !ok {
 				// remainPath == 1 means the patch is creation of a new leaf.
@@ -289,10 +289,10 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 					nextElementNPath := len(remainPath) > 1 && util.IsNPathElement(remainPath[1])
 					if nextElementNPath {
 						scope.Debug("map type, slice child")
-						m[pe] = make([]interface{}, 0)
+						m[pe] = make([]any, 0)
 					} else {
 						scope.Debug("map type, map child")
-						m[pe] = make(map[string]interface{})
+						m[pe] = make(map[string]any)
 					}
 					nn = m[pe]
 				} else {
@@ -318,7 +318,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 
 // setPathContext writes the given value to the Node in the given PathContext,
 // enlarging all PathContext lists to ensure all indexes are valid.
-func setPathContext(nc *PathContext, value interface{}, merge bool) error {
+func setPathContext(nc *PathContext, value any, merge bool) error {
 	processParent, err := setValueContext(nc, value, merge)
 	if err != nil || !processParent {
 		return err
@@ -333,7 +333,7 @@ func setPathContext(nc *PathContext, value interface{}, merge bool) error {
 
 // setValueContext writes the given value to the Node in the given PathContext.
 // If setting the value requires growing the final slice, grows it.
-func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, error) {
+func setValueContext(nc *PathContext, value any, merge bool) (bool, error) {
 	if nc.Parent == nil {
 		return false, nil
 	}
@@ -341,9 +341,9 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, erro
 	vv, mapFromString := tryToUnmarshalStringToYAML(value)
 
 	switch parentNode := nc.Parent.Node.(type) {
-	case *interface{}:
+	case *any:
 		switch vParentNode := (*parentNode).(type) {
-		case []interface{}:
+		case []any:
 			idx := nc.Parent.KeyToChild.(int)
 			if idx == -1 {
 				// Treat -1 as insert-at-end of list
@@ -351,7 +351,7 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, erro
 			}
 
 			if idx >= len(vParentNode) {
-				newElements := make([]interface{}, idx-len(vParentNode)+1)
+				newElements := make([]any, idx-len(vParentNode)+1)
 				vParentNode = append(vParentNode, newElements...)
 				*parentNode = vParentNode
 			}
@@ -366,20 +366,20 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, erro
 		default:
 			return false, fmt.Errorf("don't know about vtype %T", vParentNode)
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		key := nc.Parent.KeyToChild.(string)
 
 		// Update is treated differently depending on whether the value is a scalar or map type. If scalar,
 		// insert a new element into the terminal node, otherwise replace the terminal node with the new subtree.
-		if ncNode, ok := nc.Node.(*interface{}); ok && !mapFromString {
+		if ncNode, ok := nc.Node.(*any); ok && !mapFromString {
 			switch vNcNode := (*ncNode).(type) {
-			case []interface{}:
+			case []any:
 				switch vv.(type) {
-				case map[string]interface{}:
+				case map[string]any:
 					// the vv is a map, and the node is a slice
 					mergedValue := append(vNcNode, vv)
 					parentNode[key] = mergedValue
-				case *interface{}:
+				case *any:
 					merged, err := mergeConditional(vv, vNcNode, merge)
 					if err != nil {
 						return false, err
@@ -402,7 +402,7 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, erro
 				if err := util.DeleteFromMap(nc.Parent.Node, nc.Parent.KeyToChild); err != nil {
 					return false, err
 				}
-				vm := vv.(map[string]interface{})
+				vm := vv.(map[string]any)
 				newKey := getTreeRoot(vm)
 				return false, util.InsertIntoMap(nc.Parent.Node, newKey, vm[newKey])
 			}
@@ -410,7 +410,7 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, erro
 			nc.Node = vv
 		}
 	// TODO `map[interface{}]interface{}` is used by tests in operator/cmd/mesh, we should add our own tests
-	case map[interface{}]interface{}:
+	case map[any]any:
 		key := nc.Parent.KeyToChild.(string)
 		parentNode[key] = vv
 		nc.Node = vv
@@ -422,7 +422,7 @@ func setValueContext(nc *PathContext, value interface{}, merge bool) (bool, erro
 }
 
 // mergeConditional returns a merge of newVal and originalVal if merge is true, otherwise it returns newVal.
-func mergeConditional(newVal, originalVal interface{}, merge bool) (interface{}, error) {
+func mergeConditional(newVal, originalVal any, merge bool) (any, error) {
 	if !merge || util.IsValueNilOrDefault(originalVal) {
 		return newVal, nil
 	}
@@ -448,7 +448,7 @@ func mergeConditional(newVal, originalVal interface{}, merge bool) (interface{},
 
 	if util.IsMap(originalVal) {
 		// For JSON compatibility
-		out := make(map[string]interface{})
+		out := make(map[string]any)
 		if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
 			return nil, err
 		}
@@ -463,12 +463,12 @@ func mergeConditional(newVal, originalVal interface{}, merge bool) (interface{},
 }
 
 // find returns the value at path from the given tree, or false if the path does not exist.
-func find(treeNode interface{}, path util.Path) (interface{}, bool) {
+func find(treeNode any, path util.Path) (any, bool) {
 	if len(path) == 0 || treeNode == nil {
 		return nil, false
 	}
 	switch nt := treeNode.(type) {
-	case map[interface{}]interface{}:
+	case map[any]any:
 		val := nt[path[0]]
 		if val == nil {
 			return nil, false
@@ -477,7 +477,7 @@ func find(treeNode interface{}, path util.Path) (interface{}, bool) {
 			return val, true
 		}
 		return find(val, path[1:])
-	case map[string]interface{}:
+	case map[string]any:
 		val := nt[path[0]]
 		if val == nil {
 			return nil, false
@@ -486,7 +486,7 @@ func find(treeNode interface{}, path util.Path) (interface{}, bool) {
 			return val, true
 		}
 		return find(val, path[1:])
-	case []interface{}:
+	case []any:
 		idx, err := strconv.Atoi(path[0])
 		if err != nil {
 			return nil, false
@@ -502,12 +502,12 @@ func find(treeNode interface{}, path util.Path) (interface{}, bool) {
 }
 
 // stringsEqual reports whether the string representations of a and b are equal. a and b may have different types.
-func stringsEqual(a, b interface{}) bool {
+func stringsEqual(a, b any) bool {
 	return fmt.Sprint(a) == fmt.Sprint(b)
 }
 
 // matchesRegex reports whether str regex matches pattern.
-func matchesRegex(pattern, str interface{}) bool {
+func matchesRegex(pattern, str any) bool {
 	match, err := regexp.MatchString(fmt.Sprint(pattern), fmt.Sprint(str))
 	if err != nil {
 		log.Errorf("bad regex expression %s", fmt.Sprint(pattern))
@@ -518,7 +518,7 @@ func matchesRegex(pattern, str interface{}) bool {
 }
 
 // isSliceOrPtrInterface reports whether v is a slice, a ptr to slice or interface to slice.
-func isSliceOrPtrInterface(v interface{}) bool {
+func isSliceOrPtrInterface(v any) bool {
 	vv := reflect.ValueOf(v)
 	if vv.Kind() == reflect.Ptr {
 		vv = vv.Elem()
@@ -530,7 +530,7 @@ func isSliceOrPtrInterface(v interface{}) bool {
 }
 
 // isMapOrInterface reports whether v is a map, or interface to a map.
-func isMapOrInterface(v interface{}) bool {
+func isMapOrInterface(v any) bool {
 	vv := reflect.ValueOf(v)
 	if vv.Kind() == reflect.Interface {
 		vv = vv.Elem()
@@ -540,7 +540,7 @@ func isMapOrInterface(v interface{}) bool {
 
 // tryToUnmarshalStringToYAML tries to unmarshal something that may be a YAML list or map into a structure. If not
 // possible, returns original scalar value.
-func tryToUnmarshalStringToYAML(s interface{}) (interface{}, bool) {
+func tryToUnmarshalStringToYAML(s any) (any, bool) {
 	// If value type is a string it could either be a literal string or a map type passed as a string. Try to unmarshal
 	// to discover it's the latter.
 	vv := s
@@ -551,7 +551,7 @@ func tryToUnmarshalStringToYAML(s interface{}) (interface{}, bool) {
 		// is different for inserts.
 		if len(sv) == 1 && strings.Contains(s.(string), ": ") ||
 			len(sv) > 1 && strings.Contains(s.(string), ":") {
-			nv := make(map[string]interface{})
+			nv := make(map[string]any)
 			if err := json.Unmarshal([]byte(vv.(string)), &nv); err == nil {
 				// treat JSON as string
 				return vv, false
@@ -566,7 +566,7 @@ func tryToUnmarshalStringToYAML(s interface{}) (interface{}, bool) {
 }
 
 // getTreeRoot returns the first key found in m. It assumes a single root tree.
-func getTreeRoot(m map[string]interface{}) string {
+func getTreeRoot(m map[string]any) string {
 	for k := range m {
 		return k
 	}

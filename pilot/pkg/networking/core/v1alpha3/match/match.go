@@ -21,34 +21,34 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/pkg/log"
 )
 
 var (
 	DestinationPort = &xds.TypedExtensionConfig{
 		Name:        "port",
-		TypedConfig: util.MessageToAny(&network.DestinationPortInput{}),
+		TypedConfig: protoconv.MessageToAny(&network.DestinationPortInput{}),
 	}
 	DestinationIP = &xds.TypedExtensionConfig{
 		Name:        "ip",
-		TypedConfig: util.MessageToAny(&network.DestinationIPInput{}),
+		TypedConfig: protoconv.MessageToAny(&network.DestinationIPInput{}),
 	}
 	SourceIP = &xds.TypedExtensionConfig{
 		Name:        "source-ip",
-		TypedConfig: util.MessageToAny(&network.SourceIPInput{}),
+		TypedConfig: protoconv.MessageToAny(&network.SourceIPInput{}),
 	}
 	SNI = &xds.TypedExtensionConfig{
 		Name:        "sni",
-		TypedConfig: util.MessageToAny(&network.ServerNameInput{}),
+		TypedConfig: protoconv.MessageToAny(&network.ServerNameInput{}),
 	}
 	ApplicationProtocolInput = &xds.TypedExtensionConfig{
 		Name:        "application-protocol",
-		TypedConfig: util.MessageToAny(&network.ApplicationProtocolInput{}),
+		TypedConfig: protoconv.MessageToAny(&network.ApplicationProtocolInput{}),
 	}
 	TransportProtocolInput = &xds.TypedExtensionConfig{
 		Name:        "transport-protocol",
-		TypedConfig: util.MessageToAny(&network.TransportProtocolInput{}),
+		TypedConfig: protoconv.MessageToAny(&network.TransportProtocolInput{}),
 	}
 )
 
@@ -107,7 +107,7 @@ func ToChain(name string) *matcher.Matcher_OnMatch {
 		OnMatch: &matcher.Matcher_OnMatch_Action{
 			Action: &xds.TypedExtensionConfig{
 				Name:        name,
-				TypedConfig: util.MessageToAny(&wrappers.StringValue{Value: name}),
+				TypedConfig: protoconv.MessageToAny(&wrappers.StringValue{Value: name}),
 			},
 		},
 	}

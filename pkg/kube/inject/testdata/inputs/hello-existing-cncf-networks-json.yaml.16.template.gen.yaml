@@ -70,6 +70,7 @@ templates:
         traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}",
         {{- end }}
         {{ with index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}traffic.sidecar.istio.io/kubevirtInterfaces: "{{.}}",{{ end }}
+        {{ with index .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces` }}traffic.sidecar.istio.io/excludeInterfaces: "{{.}}",{{ end }}
     {{- end }}
       }
     spec:
@@ -119,6 +120,14 @@ templates:
         {{ if (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces`) -}}
         - "-k"
         - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
+        {{ end -}}
+         {{ if (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces`) -}}
+        - "-c"
+        - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces` }}"
+        {{ end -}}
+        - "--log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}"
+        {{ if .Values.global.logAsJson -}}
+        - "--log_as_json"
         {{ end -}}
         {{ if .Values.istio_cni.enabled -}}
         - "--run-validation"
@@ -376,6 +385,8 @@ templates:
         volumeMounts:
         - name: workload-socket
           mountPath: /var/run/secrets/workload-spiffe-uds
+        - name: credential-socket
+          mountPath: /var/run/secrets/credential-uds
         {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
         - name: gke-workload-certificate
           mountPath: /var/run/secrets/workload-spiffe-credentials
@@ -423,6 +434,8 @@ templates:
       volumes:
       - emptyDir:
         name: workload-socket
+      - emptyDir:
+        name: credential-socket
       {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
       - name: gke-workload-certificate
         csi:
@@ -634,6 +647,8 @@ templates:
         volumeMounts:
         - name: workload-socket
           mountPath: /var/run/secrets/workload-spiffe-uds
+        - name: credential-socket
+          mountPath: /var/run/secrets/credential-uds
         {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
         - name: gke-workload-certificate
           mountPath: /var/run/secrets/workload-spiffe-credentials
@@ -666,6 +681,8 @@ templates:
       volumes:
       - emptyDir: {}
         name: workload-socket
+      - emptyDir: {}
+        name: credential-socket
       {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
       - name: gke-workload-certificate
         csi:

@@ -29,10 +29,10 @@ func newTCPServer(t testing.TB, data string) string {
 		for {
 			c, err := n.Accept()
 			if err != nil {
-				t.Log(err)
+				log.Info(err)
 				return
 			}
-			t.Log("accepted connection")
+			log.Info("accepted connection")
 			c.Write([]byte(data))
 			c.Close()
 		}
@@ -76,7 +76,7 @@ func TestDialer(t *testing.T) {
 
 		go func() {
 			n, err := client.Write([]byte("hello world"))
-			t.Logf("wrote %v/%v", n, err)
+			log.Infof("wrote %v/%v", n, err)
 		}()
 
 		buf := make([]byte, 8)

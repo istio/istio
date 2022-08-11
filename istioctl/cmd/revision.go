@@ -716,7 +716,7 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 	return revDescription
 }
 
-func printJSON(w io.Writer, res interface{}) error {
+func printJSON(w io.Writer, res any) error {
 	out, err := json.MarshalIndent(res, "", "\t")
 	if err != nil {
 		return fmt.Errorf("error while marshaling to JSON: %v", err)
@@ -1028,11 +1028,11 @@ func getDiffs(installed *iopv1alpha1.IstioOperator, manifestsPath, profile strin
 }
 
 // TODO(su225): Improve this and write tests for it.
-func diffWalk(path, separator string, installed interface{}, base interface{}) ([]iopDiff, error) {
+func diffWalk(path, separator string, installed any, base any) ([]iopDiff, error) {
 	switch v := installed.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		accum := make([]iopDiff, 0)
-		typedOrig, ok := base.(map[string]interface{})
+		typedOrig, ok := base.(map[string]any)
 		if ok {
 			for key, vv := range v {
 				childwalk, err := diffWalk(fmt.Sprintf("%s%s%s", path, separator, pathComponent(key)), ".", vv, typedOrig[key])
@@ -1043,12 +1043,12 @@ func diffWalk(path, separator string, installed interface{}, base interface{}) (
 			}
 		}
 		return accum, nil
-	case []interface{}:
+	case []any:
 		accum := make([]iopDiff, 0)
-		typedOrig, ok := base.([]interface{})
+		typedOrig, ok := base.([]any)
 		if ok {
 			for idx, vv := range v {
-				var baseMap interface{}
+				var baseMap any
 				if idx < len(typedOrig) {
 					baseMap = typedOrig[idx]
 				}

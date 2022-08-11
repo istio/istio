@@ -282,11 +282,10 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
-		r, err := s.parseChunk(r, name, lineNum, chunk)
+		chunkResources, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError
 			if errors.As(err, &uerr) {
-				// Note the error to the debug log but continue
 				scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
 			} else {
 				e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
@@ -296,7 +295,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 			}
 			continue
 		}
-		resources = append(resources, r)
+		resources = append(resources, chunkResources...)
 	}
 
 	return resources, errs
@@ -313,27 +312,43 @@ func (e unknownSchemaError) Error() string {
 	return fmt.Sprintf("failed finding schema for group/version/kind: %s/%s/%s", e.group, e.version, e.kind)
 }
 
-func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte) (kubeResource, error) {
+func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte) ([]kubeResource, error) {
+	resources := make([]kubeResource, 0)
 	// Convert to JSON
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
-		return kubeResource{}, fmt.Errorf("failed converting YAML to JSON: %v", err)
+		return resources, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
 
 	// Peek at the beginning of the JSON to
 	groupVersionKind, err := kubeJson.DefaultMetaFactory.Interpret(jsonChunk)
 	if err != nil {
-		return kubeResource{}, fmt.Errorf("failed interpreting jsonChunk: %v", err)
+		return resources, fmt.Errorf("failed interpreting jsonChunk: %v", err)
+	}
+
+	if groupVersionKind.Kind == "List" {
+		resourceChunks, err := extractResourceChunksFromListYamlChunk(yamlChunk)
+		if err != nil {
+			return resources, fmt.Errorf("failed extracting resource chunks from list yaml chunk: %v", err)
+		}
+		for _, resourceChunk := range resourceChunks {
+			lr, err := s.parseChunk(r, name, resourceChunk.lineNum+lineNum, resourceChunk.yamlChunk)
+			if err != nil {
+				return resources, fmt.Errorf("failed parsing resource chunk: %v", err)
+			}
+			resources = append(resources, lr...)
+		}
+		return resources, nil
 	}
 
 	if groupVersionKind.Empty() {
-		return kubeResource{}, fmt.Errorf("unable to parse resource with no group, version and kind")
+		return resources, fmt.Errorf("unable to parse resource with no group, version and kind")
 	}
 
 	schema, found := r.FindByGroupVersionAliasesKind(schemaresource.FromKubernetesGVK(groupVersionKind))
 
 	if !found {
-		return kubeResource{}, &unknownSchemaError{
+		return resources, &unknownSchemaError{
 			group:   groupVersionKind.Group,
 			version: groupVersionKind.Version,
 			kind:    groupVersionKind.Kind,
@@ -347,7 +362,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	_, e := schema.Resource().NewInstance()
 	cannotHandleProto := e != nil
 	if cannotHandleProto {
-		return kubeResource{}, &unknownSchemaError{
+		return resources, &unknownSchemaError{
 			group:   groupVersionKind.Group,
 			version: groupVersionKind.Version,
 			kind:    groupVersionKind.Kind,
@@ -359,15 +374,15 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	deserializer := codecs.UniversalDeserializer()
 	obj, err := kube.IstioScheme.New(schema.Resource().GroupVersionKind().Kubernetes())
 	if err != nil {
-		return kubeResource{}, fmt.Errorf("failed to initialize interface for built-in type: %v", err)
+		return resources, fmt.Errorf("failed to initialize interface for built-in type: %v", err)
 	}
 	_, _, err = deserializer.Decode(jsonChunk, nil, obj)
 	if err != nil {
-		return kubeResource{}, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
+		return resources, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}
 	objMeta, ok := obj.(metav1.Object)
 	if !ok {
-		return kubeResource{}, errors.New("failed to assert type of object metadata")
+		return resources, errors.New("failed to assert type of object metadata")
 	}
 
 	// If namespace is blank and we have a default set, fill in the default
@@ -400,13 +415,57 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	pos := kube2.Position{Filename: name, Line: lineNum}
 	c, err := ToConfig(objMeta, schema, &pos, fieldMap)
 	if err != nil {
-		return kubeResource{}, err
+		return resources, err
 	}
-	return kubeResource{
-		schema: schema,
-		sha:    sha256.Sum256(yamlChunk),
-		config: c,
+	return []kubeResource{
+		{
+			schema: schema,
+			sha:    sha256.Sum256(yamlChunk),
+			config: c,
+		},
 	}, nil
+}
+
+type resourceYamlChunk struct {
+	lineNum   int
+	yamlChunk []byte
+}
+
+func extractResourceChunksFromListYamlChunk(chunk []byte) ([]resourceYamlChunk, error) {
+	chunks := make([]resourceYamlChunk, 0)
+	yamlChunkNode := yamlv3.Node{}
+	err := yamlv3.Unmarshal(chunk, &yamlChunkNode)
+	if err != nil {
+		return nil, fmt.Errorf("failed parsing yamlChunk: %v", err)
+	}
+	if len(yamlChunkNode.Content) == 0 {
+		return nil, fmt.Errorf("failed parsing yamlChunk: no content")
+	}
+	yamlNode := yamlChunkNode.Content[0]
+	var itemsInd int
+	for ; itemsInd < len(yamlNode.Content); itemsInd++ {
+		if yamlNode.Content[itemsInd].Kind == yamlv3.ScalarNode && yamlNode.Content[itemsInd].Value == "items" {
+			itemsInd++
+			break
+		}
+	}
+	if itemsInd >= len(yamlNode.Content) && yamlNode.Content[itemsInd].Kind != yamlv3.SequenceNode {
+		return nil, fmt.Errorf("failed parsing yamlChunk: malformed items field")
+	}
+	for _, n := range yamlNode.Content[itemsInd].Content {
+		if n.Kind != yamlv3.MappingNode {
+			return nil, fmt.Errorf("failed parsing yamlChunk: malformed items field")
+		}
+		resourceChunk, err := yamlv3.Marshal(n)
+		if err != nil {
+			return nil, fmt.Errorf("failed marshaling yamlChunk: %v", err)
+		}
+		chunks = append(chunks, resourceYamlChunk{
+			lineNum:   n.Line,
+			yamlChunk: resourceChunk,
+		})
+	}
+	return chunks, nil
 }
 
 const (
@@ -449,7 +508,7 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 		panic(err)
 	}
 	if spec, ok := obj.UnstructuredContent()["spec"]; ok {
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(spec.(map[string]interface{}), mv2)
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(spec.(map[string]any), mv2)
 	} else {
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), mv2)
 	}

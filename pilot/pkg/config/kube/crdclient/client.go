@@ -42,12 +42,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/informers"
-
-	//  import GKE cluster authentication plugin
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-
-	//  import OIDC cluster authentication plugin, e.g. for Tectonic
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
 	"k8s.io/client-go/tools/cache"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
@@ -168,6 +164,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 		beginSync:   atomic.NewBool(false),
 		initialSync: atomic.NewBool(false),
 	}
+	_ = out.crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 
 	known, err := knownCRDs(client.Ext())
 	if err != nil {
@@ -195,7 +192,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 }
 
 // Validate we are ready to handle events. Until the informers are synced, we will block the queue
-func (cl *Client) checkReadyForEvents(curr interface{}) error {
+func (cl *Client) checkReadyForEvents(curr any) error {
 	if !cl.informerSynced() {
 		return errors.New("waiting till full synchronization")
 	}
@@ -234,7 +231,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
 
 	cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+		AddFunc: func(obj any) {
 			crd, ok := obj.(*metav1.PartialObjectMetadata)
 			if !ok {
 				// Shouldn't happen
@@ -534,6 +531,8 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 		scope.Errorf("failed to create informer for %v: %v", resourceGVK, err)
 		return
 	}
+	_ = i.Informer().SetTransform(kube.StripUnusedFields)
+
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
 	if w, f := crdWatches[resourceGVK]; f {
 		scope.Infof("notifying watchers %v was created", resourceGVK)

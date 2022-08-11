@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/pkg/log"
@@ -43,9 +42,9 @@ func NewBuilder(push *model.PushContext, proxy *model.Proxy) *Builder {
 	}
 }
 
-func (b *Builder) ForPort(port uint32) plugin.MTLSSettings {
+func (b *Builder) ForPort(port uint32) authn.MTLSSettings {
 	if b == nil {
-		return plugin.MTLSSettings{
+		return authn.MTLSSettings{
 			Port: port,
 			Mode: model.MTLSDisable,
 		}
@@ -53,9 +52,9 @@ func (b *Builder) ForPort(port uint32) plugin.MTLSSettings {
 	return b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains)
 }
 
-func (b *Builder) ForPassthrough() []plugin.MTLSSettings {
+func (b *Builder) ForPassthrough() []authn.MTLSSettings {
 	if b == nil {
-		return []plugin.MTLSSettings{{
+		return []authn.MTLSSettings{{
 			Port: 0,
 			Mode: model.MTLSDisable,
 		}}
@@ -63,7 +62,7 @@ func (b *Builder) ForPassthrough() []plugin.MTLSSettings {
 	//	We need to create configuration for the passthrough,
 	// but also any ports that are not explicitly declared in the Service but are in the mTLS port level settings.
 
-	resp := []plugin.MTLSSettings{
+	resp := []authn.MTLSSettings{
 		// Full passthrough - no port match
 		b.applier.InboundMTLSSettings(0, b.proxy, b.trustDomains),
 	}

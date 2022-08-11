@@ -41,6 +41,8 @@ func TestRevisionTraffic(t *testing.T) {
 		t.Skip("ISTIO_TEST_EXTRA_REVISIONS not specified")
 	}
 	extraRevs := strings.Split(rawExtraRevs, ",")
+
+	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().

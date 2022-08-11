@@ -77,6 +77,10 @@ spec:
             capabilities:
               add: ["NET_ADMIN"]
           command: ["install-cni"]
+          args:
+            {{- if .Values.global.logging.level }}
+            - --log_output_level={{ .Values.global.logging.level }}
+            {{- end}}
           env:
 {{- if .Values.cni.cniConfFileName }}
             # Name of the CNI config file to create.

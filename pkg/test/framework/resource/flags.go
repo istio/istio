@@ -82,6 +82,10 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		s.EchoImage = env.ECHO_IMAGE.ValueOrDefault("")
 	}
 
+	if s.CustomGRPCEchoImage == "" {
+		s.CustomGRPCEchoImage = env.GRPC_ECHO_IMAGE.ValueOrDefault("")
+	}
+
 	if err = validate(s); err != nil {
 		return nil, err
 	}
@@ -144,6 +148,9 @@ func init() {
 	flag.Var(&settingsFromCommandLine.SkipWorkloadClasses, "istio.test.skipWorkloads",
 		"Skips deploying and using workloads of the given comma-separated classes (e.g. vm, proxyless, etc.)")
 
+	flag.Var(&settingsFromCommandLine.OnlyWorkloadClasses, "istio.test.onlyWorkloads",
+		"Skips deploying and using workloads not included in the given comma-separated classes (e.g. vm, proxyless, etc.)")
+
 	flag.IntVar(&settingsFromCommandLine.Retries, "istio.test.retries", settingsFromCommandLine.Retries,
 		"Number of times to retry tests")
 
@@ -182,4 +189,7 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.Image.PullSecret, "istio.test.imagePullSecret", settingsFromCommandLine.Image.PullSecret,
 		"Path to a file containing a DockerConfig secret use for test apps. This will be pushed to all created namespaces."+
 			"Secret should already exist when used with istio.test.stableNamespaces.")
+
+	flag.Uint64Var(&settingsFromCommandLine.MaxDumps, "istio.test.maxDumps", settingsFromCommandLine.MaxDumps,
+		"Maximum number of full test dumps that are allowed to occur within a test suite.")
 }

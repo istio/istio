@@ -31,8 +31,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	istioroute "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -52,6 +54,16 @@ func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []
 	return filterstack
 }
 
+func buildMetadataExchangeNetworkFiltersForTCPIstioMTLSGateway() []*listener.Filter {
+	filterstack := make([]*listener.Filter, 0)
+	// We add metadata exchange on inbound only; outbound is handled in cluster filter
+	if features.MetadataExchange {
+		filterstack = append(filterstack, xdsfilters.TCPListenerMx)
+	}
+
+	return filterstack
+}
+
 func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) []*listener.Filter {
 	return push.Telemetry.TCPFilters(proxy, class)
 }
@@ -63,7 +75,7 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, c
 
 	tcpFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(config)},
 	}
 	return tcpFilter
 }
@@ -71,7 +83,7 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, c
 // buildOutboundNetworkFiltersWithSingleDestination takes a single cluster name
 // and builds a stack of network filters.
 func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, node *model.Proxy,
-	statPrefix, clusterName, subsetName string, port *model.Port, destinationRule *networking.DestinationRule,
+	statPrefix, clusterName, subsetName string, port *model.Port, destinationRule *networking.DestinationRule, applyTunnelingConfig tunnelingconfig.ApplyFunc,
 ) []*listener.Filter {
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
@@ -82,7 +94,12 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	if err == nil {
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
 	}
+	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
+	if maxConnectionDuration != nil {
+		tcpProxy.MaxDownstreamConnectionDuration = maxConnectionDuration
+	}
 	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
+	applyTunnelingConfig(tcpProxy, destinationRule, subsetName)
 	class := model.OutboundListenerClass(node.Type)
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy, class)
 
@@ -114,6 +131,10 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	if err == nil {
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
 	}
+	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
+	if maxConnectionDuration != nil {
+		tcpProxy.MaxDownstreamConnectionDuration = maxConnectionDuration
+	}
 
 	for _, route := range routes {
 		service := push.ServiceForHostname(node, host.Name(route.Destination.Host))
@@ -128,6 +149,9 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 	// For weighted clusters set hash policy if any of the upstream destinations have sourceIP.
 	maybeSetHashPolicy(destinationRule, tcpProxy, "")
+	// In case of weighted clusters, tunneling config for a subset is ignored,
+	// because it is set on listener, not on a cluster.
+	tunnelingconfig.Apply(tcpProxy, destinationRule, "")
 
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
@@ -210,7 +234,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
 	var destinationRule *networking.DestinationRule
 	if service != nil {
-		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, service.Hostname))
+		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
 	}
 	if len(routes) == 1 {
 		clusterName := istioroute.GetDestinationCluster(routes[0].Destination, service, port.Port)
@@ -221,7 +245,8 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 				routes[0].Destination.Subset, port, &service.Attributes)
 		}
 
-		return buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule)
+		return buildOutboundNetworkFiltersWithSingleDestination(
+			push, node, statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply)
 	}
 	return buildOutboundNetworkFiltersWithWeightedClusters(node, routes, push, port, configMeta, destinationRule)
 }
@@ -238,7 +263,7 @@ func buildMongoFilter(statPrefix string) *listener.Filter {
 
 	out := &listener.Filter{
 		Name:       wellknown.MongoProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mongoProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(mongoProxy)},
 	}
 
 	return out
@@ -249,7 +274,8 @@ func buildMongoFilter(statPrefix string) *listener.Filter {
 func buildOutboundAutoPassthroughFilterStack(push *model.PushContext, node *model.Proxy, port *model.Port) []*listener.Filter {
 	// First build tcp with access logs
 	// then add sni_cluster to the front
-	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(push, node, util.BlackHoleCluster, util.BlackHoleCluster, "", port, nil)
+	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(push, node, util.BlackHoleCluster, util.BlackHoleCluster,
+		"", port, nil, tunnelingconfig.Skip)
 	filterstack := make([]*listener.Filter, 0)
 	filterstack = append(filterstack, &listener.Filter{
 		Name: util.SniClusterFilter,
@@ -278,7 +304,7 @@ func buildRedisFilter(statPrefix, clusterName string) *listener.Filter {
 
 	out := &listener.Filter{
 		Name:       wellknown.RedisProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(redisProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(redisProxy)},
 	}
 
 	return out
@@ -292,7 +318,7 @@ func buildMySQLFilter(statPrefix string) *listener.Filter {
 
 	out := &listener.Filter{
 		Name:       wellknown.MySQLProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mySQLProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(mySQLProxy)},
 	}
 
 	return out

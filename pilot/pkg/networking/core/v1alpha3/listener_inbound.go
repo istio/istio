@@ -37,11 +37,12 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn"
 	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -181,7 +182,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 				Filters: []*listener.Filter{{
 					Name: "envoy.filters.network.http_connection_manager",
 					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
+						TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
 							StatPrefix: "inbound-hbone",
 							RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 								RouteConfig: &route.RouteConfiguration{
@@ -192,7 +193,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 							},
 							HttpFilters: []*hcm.HttpFilter{{
 								Name:       "envoy.filters.http.router",
-								ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(&routerfilter.Router{})},
+								ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
 							}},
 							Http2ProtocolOptions: &core.Http2ProtocolOptions{
 								AllowConnect: true,
@@ -215,7 +216,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	for _, cc := range lb.buildInboundChainConfigs() {
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
 		// Internal chain has no mTLS
-		mtls := plugin.MTLSSettings{Port: cc.port.TargetPort, Mode: model.MTLSDisable}
+		mtls := authn.MTLSSettings{Port: cc.port.TargetPort, Mode: model.MTLSDisable}
 		opts := getFilterChainMatchOptions(mtls, lp)
 		chains := lb.inboundChainForOpts(cc, mtls, opts)
 		for _, c := range chains {
@@ -254,7 +255,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 		// to handle mTLS vs plaintext and HTTP vs TCP (depending on protocol and PeerAuthentication).
 		var opts []FilterChainMatchOptions
 		mtls := lb.authnBuilder.ForPort(cc.port.TargetPort)
-		// Chain has explicit user TLS config. This can only apply when the mTLS settings are DISABLE to avoid conflicts
+		// Chain has explicit user TLS config. This can only apply when the TLS mode is DISABLE to avoid conflicts.
 		if cc.tlsSettings != nil && mtls.Mode == model.MTLSDisable {
 			// Since we are terminating TLS, we need to treat the protocol as if its terminated.
 			// Example: user specifies protocol=HTTPS and user TLS, we will use HTTP
@@ -330,7 +331,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, address *core.Addre
 }
 
 // inboundChainForOpts builds a set of filter chains
-func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls plugin.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
+func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
 	chains := make([]*listener.FilterChain, 0, len(opts))
 	for _, opt := range opts {
 		switch opt.Protocol {
@@ -714,7 +715,7 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, &listener.Filter{
 		Name: wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 			StatPrefix:       util.BlackHoleCluster,
 			ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 		})},
@@ -781,7 +782,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	hcm := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 	})
 	return filters
 }

@@ -54,6 +54,10 @@ var (
 	// nolint: golint, revive, stylecheck
 	ECHO_IMAGE Variable = "ECHO_IMAGE"
 
+	// GRPC_ECHO_IMAGE is the image to use for a separate gRPC-only container in echo Pods.
+	// nolint: golint, revive, stylecheck
+	GRPC_ECHO_IMAGE Variable = "GRPC_ECHO_IMAGE"
+
 	// KUBECONFIG is the list of Kubernetes configuration files. If configuration files are specified on
 	// the command-line, that takes precedence.
 	// nolint: revive, stylecheck

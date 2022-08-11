@@ -103,7 +103,10 @@ func FuzzOverlayIOP(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_, _ = util.OverlayIOP(base, overlay)
+	_, err = util.OverlayIOP(base, overlay)
+	if err != nil {
+		return 0
+	}
 	return 1
 }
 
@@ -139,7 +142,7 @@ func FuzzNewControlplane(data []byte) int {
 		return 0
 	}
 	inTranslator.ComponentMaps[name.PilotComponentName] = cm
-	_, _ = controlplane.NewIstioControlPlane(inInstallSpec, inTranslator, nil)
+	_, _ = controlplane.NewIstioControlPlane(inInstallSpec, inTranslator, nil, nil)
 	return 1
 }
 

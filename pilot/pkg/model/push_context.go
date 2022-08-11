@@ -16,10 +16,8 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,7 +37,9 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
@@ -116,14 +116,14 @@ type destinationRuleIndex struct {
 	exportedByNamespace map[string]*consolidatedDestRules
 	rootNamespaceLocal  *consolidatedDestRules
 	// mesh/namespace dest rules to be inherited
-	inheritedByNamespace map[string]*consolidatedDestRule
+	inheritedByNamespace map[string]*ConsolidatedDestRule
 }
 
 func newDestinationRuleIndex() destinationRuleIndex {
 	return destinationRuleIndex{
 		namespaceLocal:       map[string]*consolidatedDestRules{},
 		exportedByNamespace:  map[string]*consolidatedDestRules{},
-		inheritedByNamespace: map[string]*consolidatedDestRule{},
+		inheritedByNamespace: map[string]*ConsolidatedDestRule{},
 	}
 }
 
@@ -257,11 +257,11 @@ type consolidatedDestRules struct {
 	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
 	exportTo map[host.Name]map[visibility.Instance]bool
 	// Map of dest rule host and the merged destination rules for that host
-	destRules map[host.Name][]*consolidatedDestRule
+	destRules map[host.Name][]*ConsolidatedDestRule
 }
 
-// consolidatedDestRule represents a dr and from which it is consolidated.
-type consolidatedDestRule struct {
+// ConsolidatedDestRule represents a dr and from which it is consolidated.
+type ConsolidatedDestRule struct {
 	// rule is merged from the following destinationRules.
 	rule *config.Config
 	// the original dest rules from which above rule is merged.
@@ -474,8 +474,12 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 	return merged
 }
 
+func (pr *PushRequest) IsRequest() bool {
+	return len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest
+}
+
 func (pr *PushRequest) PushReason() string {
-	if len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest {
+	if pr.IsRequest() {
 		return " request"
 	}
 	return ""
@@ -690,34 +694,47 @@ func (ps *PushContext) UpdateMetrics() {
 }
 
 // It is called after virtual service short host name is resolved to FQDN
-func virtualServiceDestinationHosts(v *networking.VirtualService) []string {
+func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.IntSet {
 	if v == nil {
 		return nil
 	}
 
-	var out []string
+	out := make(map[string]sets.IntSet)
+
+	addDestination := func(host string, port *networking.PortSelector) {
+		if _, ok := out[host]; !ok {
+			out[host] = make(sets.IntSet)
+		}
+		if port != nil {
+			out[host].Insert(int(port.Number))
+		} else {
+			// Use the value 0 as a sentinel indicating that one of the destinations
+			// in the Virtual Service does not specify a port for this host.
+			out[host].Insert(0)
+		}
+	}
 
 	for _, h := range v.Http {
 		for _, r := range h.Route {
 			if r.Destination != nil {
-				out = append(out, r.Destination.Host)
+				addDestination(r.Destination.Host, r.Destination.GetPort())
 			}
 		}
 		if h.Mirror != nil {
-			out = append(out, h.Mirror.Host)
+			addDestination(h.Mirror.Host, h.Mirror.GetPort())
 		}
 	}
 	for _, t := range v.Tcp {
 		for _, r := range t.Route {
 			if r.Destination != nil {
-				out = append(out, r.Destination.Host)
+				addDestination(r.Destination.Host, r.Destination.GetPort())
 			}
 		}
 	}
 	for _, t := range v.Tls {
 		for _, r := range t.Route {
 			if r.Destination != nil {
-				out = append(out, r.Destination.Host)
+				addDestination(r.Destination.Host, r.Destination.GetPort())
 			}
 		}
 	}
@@ -745,7 +762,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 				return svcs
 			}
 
-			for _, host := range virtualServiceDestinationHosts(vs) {
+			for host := range virtualServiceDestinations(vs) {
 				hostsFromGateways.Insert(host)
 			}
 		}
@@ -880,13 +897,14 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	return res
 }
 
-// DelegateVirtualServicesConfigKey lists all the delegate virtual services configkeys associated with the provided virtual services
-func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []ConfigKey {
-	var out []ConfigKey
+// DelegateVirtualServices lists all the delegate virtual services configkeys associated with the provided virtual services
+func (ps *PushContext) DelegateVirtualServices(vses []config.Config) []ConfigHash {
+	var out []ConfigHash
 	for _, vs := range vses {
-		out = append(out, ps.virtualServiceIndex.delegates[ConfigKey{Kind: gvk.VirtualService, Namespace: vs.Namespace, Name: vs.Name}]...)
+		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
+			out = append(out, delegate.HashCode())
+		}
 	}
-
 	return out
 }
 
@@ -975,7 +993,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 }
 
 // destinationRule returns a destination rule for a service name in a given namespace.
-func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) []*consolidatedDestRule {
+func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) []*ConsolidatedDestRule {
 	if service == nil {
 		return nil
 	}
@@ -1042,18 +1060,18 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	if features.EnableDestinationRuleInheritance {
 		// return namespace rule if present
 		if out := ps.destinationRuleIndex.inheritedByNamespace[proxyNameSpace]; out != nil {
-			return []*consolidatedDestRule{out}
+			return []*ConsolidatedDestRule{out}
 		}
 		// return mesh rule
 		if out := ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]; out != nil {
-			return []*consolidatedDestRule{out}
+			return []*ConsolidatedDestRule{out}
 		}
 	}
 
 	return nil
 }
 
-func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*consolidatedDestRule {
+func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*ConsolidatedDestRule {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
 		if specificHostname, ok := MostSpecificHostMatch(hostname,
 			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules,
@@ -1062,13 +1080,13 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
 			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(clientNamespace)] {
 				if features.EnableDestinationRuleInheritance {
-					var parent *consolidatedDestRule
+					var parent *ConsolidatedDestRule
 					// client inherits global DR from its own namespace, not from the exported DR's owning namespace
 					// grab the client namespace DR or mesh if none exists
 					if parent = ps.destinationRuleIndex.inheritedByNamespace[clientNamespace]; parent == nil {
 						parent = ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]
 					}
-					var inheritedDrList []*consolidatedDestRule
+					var inheritedDrList []*ConsolidatedDestRule
 					for _, child := range ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname] {
 						inheritedDr := ps.inheritDestinationRule(parent, child)
 						if inheritedDr != nil {
@@ -1202,33 +1220,33 @@ func (ps *PushContext) updateContext(
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
-		case gvk.ServiceEntry:
+		case kind.ServiceEntry:
 			servicesChanged = true
-		case gvk.DestinationRule:
+		case kind.DestinationRule:
 			destinationRulesChanged = true
-		case gvk.VirtualService:
+		case kind.VirtualService:
 			virtualServicesChanged = true
-		case gvk.Gateway:
+		case kind.Gateway:
 			gatewayChanged = true
-		case gvk.Sidecar:
+		case kind.Sidecar:
 			sidecarsChanged = true
-		case gvk.WasmPlugin:
+		case kind.WasmPlugin:
 			wasmPluginsChanged = true
-		case gvk.EnvoyFilter:
+		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
-		case gvk.AuthorizationPolicy:
+		case kind.AuthorizationPolicy:
 			authzChanged = true
-		case gvk.RequestAuthentication,
-			gvk.PeerAuthentication:
+		case kind.RequestAuthentication,
+			kind.PeerAuthentication:
 			authnChanged = true
-		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.KubernetesGateway, gvk.TLSRoute, gvk.ReferencePolicy:
+		case kind.HTTPRoute, kind.TCPRoute, kind.GatewayClass, kind.KubernetesGateway, kind.TLSRoute, kind.ReferencePolicy, kind.ReferenceGrant:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
 			gatewayChanged = true
-		case gvk.Telemetry:
+		case kind.Telemetry:
 			telemetryChanged = true
-		case gvk.ProxyConfig:
+		case kind.ProxyConfig:
 			proxyConfigsChanged = true
 		}
 	}
@@ -1425,7 +1443,14 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
+			s, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
+			if !f {
+				continue
+			}
+			s.RLock()
+			sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
+			s.RUnlock()
+			ps.ServiceAccounts[svc.Hostname][port.Port] = sa
 		}
 	}
 }
@@ -1655,7 +1680,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 func newConsolidatedDestRules() *consolidatedDestRules {
 	return &consolidatedDestRules{
 		exportTo:  map[host.Name]map[visibility.Instance]bool{},
-		destRules: map[host.Name][]*consolidatedDestRule{},
+		destRules: map[host.Name][]*ConsolidatedDestRule{},
 	}
 }
 
@@ -1670,7 +1695,7 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newConsolidatedDestRules()
-	inheritedConfigs := make(map[string]*consolidatedDestRule)
+	inheritedConfigs := make(map[string]*ConsolidatedDestRule)
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
@@ -1682,7 +1707,7 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 					configs[i].Namespace, t.rule.CreationTimestamp, configs[i].Name, configs[i].CreationTimestamp)
 				continue
 			}
-			inheritedConfigs[configs[i].Namespace] = convertConsolidatedDestRule(&configs[i])
+			inheritedConfigs[configs[i].Namespace] = ConvertConsolidatedDestRule(&configs[i])
 		}
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
@@ -2042,92 +2067,6 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	return MergeGateways(gatewayInstances, proxy, ps)
 }
 
-// GatewayContext contains a minimal subset of push context functionality to be exposed to GatewayAPIControllers
-type GatewayContext struct {
-	ps *PushContext
-}
-
-func NewGatewayContext(ps *PushContext) GatewayContext {
-	return GatewayContext{ps}
-}
-
-// ResolveGatewayInstances attempts to resolve all instances that a gateway will be exposed on.
-// Note: this function considers *all* instances of the service; its possible those instances will not actually be properly functioning
-// gateways, so this is not 100% accurate, but sufficient to expose intent to users.
-// The actual configuration generation is done on a per-workload basis and will get the exact set of matched instances for that workload.
-// Three sets are exposed:
-// * Internal addresses (ie istio-ingressgateway.istio-system.svc.cluster.local:80).
-// * External addresses (ie 1.2.3.4), this comes from LoadBalancer services. There may be multiple in some cases (especially multi cluster).
-// * Warnings for references that could not be resolved. These are intended to be user facing.
-func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []string, servers []*networking.Server) (internal, external, warns []string) {
-	ports := map[int]struct{}{}
-	for _, s := range servers {
-		ports[int(s.Port.Number)] = struct{}{}
-	}
-	foundInternal := sets.New()
-	foundExternal := sets.New()
-	warnings := []string{}
-	for _, g := range gwsvcs {
-		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
-		if !f {
-			otherNamespaces := []string{}
-			for ns := range gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)] {
-				otherNamespaces = append(otherNamespaces, `"`+ns+`"`) // Wrap in quotes for output
-			}
-			if len(otherNamespaces) > 0 {
-				sort.Strings(otherNamespaces)
-				warnings = append(warnings, fmt.Sprintf("hostname %q not found in namespace %q, but it was found in namespace(s) %v",
-					g, namespace, strings.Join(otherNamespaces, ", ")))
-			} else {
-				warnings = append(warnings, fmt.Sprintf("hostname %q not found", g))
-			}
-			continue
-		}
-		svcKey := svc.Key()
-		for port := range ports {
-			instances := gc.ps.ServiceIndex.instancesByPort[svcKey][port]
-			if len(instances) > 0 {
-				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
-				// Fetch external IPs from all clusters
-				svc.Attributes.ClusterExternalAddresses.ForEach(func(c cluster.ID, externalIPs []string) {
-					foundExternal.InsertAll(externalIPs...)
-				})
-			} else {
-				if instancesEmpty(gc.ps.ServiceIndex.instancesByPort[svcKey]) {
-					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
-				} else {
-					hintPort := sets.New()
-					for _, instances := range gc.ps.ServiceIndex.instancesByPort[svcKey] {
-						for _, i := range instances {
-							if i.Endpoint.EndpointPort == uint32(port) {
-								hintPort.Insert(strconv.Itoa(i.ServicePort.Port))
-							}
-						}
-					}
-					if len(hintPort) > 0 {
-						warnings = append(warnings, fmt.Sprintf(
-							"port %d not found for hostname %q (hint: the service port should be specified, not the workload port. Did you mean one of these ports: %v?)",
-							port, g, hintPort.SortedList()))
-					} else {
-						warnings = append(warnings, fmt.Sprintf("port %d not found for hostname %q", port, g))
-					}
-				}
-			}
-		}
-	}
-	sort.Strings(warnings)
-	return foundInternal.SortedList(), foundExternal.SortedList(), warnings
-}
-
-func instancesEmpty(m map[int][]*ServiceInstance) bool {
-	for _, instances := range m {
-		if len(instances) > 0 {
-			return false
-		}
-	}
-	return true
-}
-
 func (ps *PushContext) NetworkManager() *NetworkManager {
 	return ps.networkMgr
 }
@@ -2191,11 +2130,20 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 	return out
 }
 
+// ServiceInstances returns the cached instances by svc if exists.
+func (ps *PushContext) ServiceInstances(svcKey string) map[int][]*ServiceInstance {
+	if instances, exists := ps.ServiceIndex.instancesByPort[svcKey]; exists {
+		return instances
+	}
+
+	return nil
+}
+
 // initKubernetesGateways initializes Kubernetes gateway-api objects
 func (ps *PushContext) initKubernetesGateways(env *Environment) error {
 	if env.GatewayAPIController != nil {
 		ps.GatewayAPIController = env.GatewayAPIController
-		return env.GatewayAPIController.Recompute(GatewayContext{ps})
+		return env.GatewayAPIController.Reconcile(ps)
 	}
 	return nil
 }
@@ -2203,7 +2151,7 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) error {
 // ReferenceAllowed determines if a given resource (of type `kind` and name `resourceName`) can be
 // accessed by `namespace`, based of specific reference policies.
 // Note: this function only determines if a reference is *explicitly* allowed; the reference may not require
-// explicitly authorization to be made at all in most cases. Today, this only is for allowing cross-namespace
+// explicit authorization to be made at all in most cases. Today, this only is for allowing cross-namespace
 // secret access.
 func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceName string, namespace string) bool {
 	// Currently, only Secret has reference policy, and only implemented by Gateway API controller.

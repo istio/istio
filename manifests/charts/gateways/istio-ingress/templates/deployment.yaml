@@ -227,6 +227,8 @@ spec:
           volumeMounts:
           - name: workload-socket
             mountPath: /var/run/secrets/workload-spiffe-uds
+          - name: credential-socket
+            mountPath: /var/run/secrets/credential-uds
           - name: workload-certs
             mountPath: /var/run/secrets/workload-spiffe-credentials
           - name: istio-envoy
@@ -270,6 +272,8 @@ spec:
       volumes:
       - emptyDir: {}
         name: workload-socket
+      - emptyDir: {}
+        name: credential-socket
       - emptyDir: {}
         name: workload-certs
 {{- if eq .Values.global.pilotCertProvider "istiod" }}

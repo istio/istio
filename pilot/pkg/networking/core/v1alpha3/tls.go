@@ -20,6 +20,7 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
@@ -200,11 +201,12 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			sniHosts = []string{string(service.Hostname)}
 		}
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
-			model.TrafficDirectionOutbound, node, service.Hostname))
+			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "", listenPort, destinationRule),
+			networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "",
+				listenPort, destinationRule, tunnelingconfig.Apply),
 		})
 	}
 
@@ -304,14 +306,15 @@ TcpLoop:
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
 		statPrefix := clusterName
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
-			model.TrafficDirectionOutbound, node, service.Hostname))
+			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
 			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)
 		}
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "", listenPort, destinationRule),
+			networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "",
+				listenPort, destinationRule, tunnelingconfig.Apply),
 		})
 	}
 

@@ -39,59 +39,77 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	}
 	// Collect all of our unique parent references. There may be multiple when we have a route without section name,
 	// but reference a parent with multiple sections.
+	// While we process these internally for-each sectionName, in the status we are just supposed to report one merged entry
 	seen := map[k8s.ParentReference]routeParentReference{}
 	failedCount := map[k8s.ParentReference]int{}
-	for _, gw := range gateways {
+	successCount := map[k8s.ParentReference]int{}
+	for _, incoming := range gateways {
 		// We will append it if it is our first occurrence, or the existing one has an error. This means
 		// if *any* section has no errors, we will declare Admitted
-		if gw.DeniedReason != nil {
-			failedCount[gw.OriginalReference]++
+		if incoming.DeniedReason != nil {
+			failedCount[incoming.OriginalReference]++
+		} else {
+			successCount[incoming.OriginalReference]++
 		}
-		if exist, f := seen[gw.OriginalReference]; !f || (exist.DeniedReason != nil && gw.DeniedReason == nil) {
-			seen[gw.OriginalReference] = gw
+		exist, f := seen[incoming.OriginalReference]
+		if !f {
+			exist = incoming
+		} else {
+			if incoming.DeniedReason == nil {
+				// The incoming gateway has no error; wipe out any errors
+				// When we have multiple, this means we attached without sectionName - we only need one success to be valid.
+				exist.DeniedReason = nil
+			} else if exist.DeniedReason != nil {
+				// TODO this only handles message, not reason
+				exist.DeniedReason.Message += "; " + incoming.DeniedReason.Message
+			}
+		}
+		seen[exist.OriginalReference] = exist
+	}
+	// Enhance error message when we have multiple
+	for k, gw := range seen {
+		if gw.DeniedReason == nil {
+			continue
+		}
+		if failedCount[k] > 1 {
+			gw.DeniedReason.Message = fmt.Sprintf("failed to bind to %d parents, errors: %v", failedCount[k], gw.DeniedReason.Message)
 		}
 	}
-	// Now we fill in all the ones we do own
-	// TODO look into also reporting ResolvedRefs; we should be gracefully dropping invalid backends instead
-	// of rejecting the whole thing.
+
+	// Now we fill in all the parents we do own
 	for k, gw := range seen {
-		var condition metav1.Condition
+		msg := "Route was valid"
+		if successCount[k] > 1 {
+			msg = fmt.Sprintf("Route was valid, bound to %d parents", successCount[k])
+		}
+		conds := map[string]*Condition{
+			string(k8s.RouteConditionAccepted): {
+				Reason:  string(k8s.RouteReasonAccepted),
+				Message: msg,
+			},
+			string(k8s.RouteConditionResolvedRefs): {
+				Reason:  string(k8s.RouteReasonResolvedRefs),
+				Message: "All references resolved",
+			},
+		}
 		if routeErr != nil {
-			condition = metav1.Condition{
-				Type:               string(k8s.RouteConditionAccepted),
-				Status:             kstatus.StatusFalse,
-				ObservedGeneration: obj.Generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             routeErr.Reason,
-				Message:            routeErr.Message,
-			}
-		} else if gw.DeniedReason != nil {
-			err := gw.DeniedReason.Error()
-			if failedCount[k] > 1 {
-				err = fmt.Sprintf("failed to bind to %d parents, last error: %v", failedCount[k], gw.DeniedReason.Error())
-			}
-			condition = metav1.Condition{
-				Type:               string(k8s.RouteConditionAccepted),
-				Status:             kstatus.StatusFalse,
-				ObservedGeneration: obj.Generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             InvalidParentRef,
-				Message:            err,
-			}
-		} else {
-			condition = metav1.Condition{
-				Type:               string(k8s.RouteConditionAccepted),
-				Status:             kstatus.StatusTrue,
-				ObservedGeneration: obj.Generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             "RouteAdmitted",
-				Message:            "Route was valid",
+			// Currently, the spec is not clear on where errors should be reported. The provided resources are:
+			// * Accepted - used to describe errors binding to parents
+			// * ResolvedRefs - used to describe errors about binding to objects
+			// But no general errors
+			// For now, we will treat all general route errors as "Ref" errors.
+			conds[string(k8s.RouteConditionResolvedRefs)].Error = routeErr
+		}
+		if gw.DeniedReason != nil {
+			conds[string(k8s.RouteConditionAccepted)].Error = &ConfigError{
+				Reason:  ConfigErrorReason(gw.DeniedReason.Reason),
+				Message: gw.DeniedReason.Message,
 			}
 		}
 		gws = append(gws, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
 			ControllerName: ControllerName,
-			Conditions:     []metav1.Condition{condition},
+			Conditions:     SetConditions(obj.Generation, nil, conds),
 		})
 	}
 	// Ensure output is deterministic.
@@ -102,11 +120,26 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	return gws
 }
 
+type ParentErrorReason string
+
+const (
+	ParentErrorNotAllowed = ParentErrorReason(k8s.RouteReasonNotAllowedByListeners)
+	ParentErrorNoHostname = ParentErrorReason(k8s.RouteReasonNoMatchingListenerHostname)
+)
+
 type ConfigErrorReason = string
 
 const (
+	// InvalidRefNotPermitted indicates a route was not permitted
+	InvalidRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestination indicates an issue with the destination
 	InvalidDestination ConfigErrorReason = "InvalidDestination"
+	// InvalidDestinationPermit indicates a destination was not permitted
+	InvalidDestinationPermit ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
+	// InvalidDestinationKind indicates an issue with the destination kind
+	InvalidDestinationKind ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonInvalidKind)
+	// InvalidDestinationNotFound indicates a destination does not exist
+	InvalidDestinationNotFound ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonBackendNotFound)
 	// InvalidParentRef indicates we could not refer to the parent we request
 	InvalidParentRef ConfigErrorReason = "InvalidParentReference"
 	// InvalidFilter indicates an issue with the filters
@@ -117,6 +150,12 @@ const (
 	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
 )
 
+// ParentError represents that a parent could not be referenced
+type ParentError struct {
+	Reason  ParentErrorReason
+	Message string
+}
+
 // ConfigError represents an invalid configuration that will be reported back to the user.
 type ConfigError struct {
 	Reason  ConfigErrorReason
@@ -124,17 +163,17 @@ type ConfigError struct {
 }
 
 type Condition struct {
-	// Reason defines the reason to report on success. Ignored if error is set
+	// Reason defines the Reason to report on success. Ignored if error is set
 	Reason string
-	// Message defines the message to report on success. Ignored if error is set
+	// Message defines the Message to report on success. Ignored if error is set
 	Message string
-	// Status defines the status to report on success. The inverse will be set if error is set
+	// Status defines the Status to report on success. The inverse will be set if error is set
 	// If not set, will default to StatusTrue
 	Status metav1.ConditionStatus
-	// Error defines an error state; the reason and message will be replaced with that of the error and
-	// the status inverted
+	// Error defines an Error state; the Reason and Message will be replaced with that of the Error and
+	// the Status inverted
 	Error *ConfigError
-	// SetOnce, if enabled, will only set the condition if it is not yet present or set to this reason
+	// SetOnce, if enabled, will only set the Condition if it is not yet present or set to this Reason
 	SetOnce string
 }
 
@@ -154,10 +193,10 @@ func SetConditions(generation int64, existingConditions []metav1.Condition, cond
 				return kstatus.CreateCondition(conditions, condition, cond.SetOnce)
 			}
 		}
-		// A condition can be "negative polarity" (ex: ListenerInvalid) or "positive polarity" (ex:
-		// ListenerValid), so in order to determine the status we should set each `condition` defines its
+		// A Condition can be "negative polarity" (ex: ListenerInvalid) or "positive polarity" (ex:
+		// ListenerValid), so in order to determine the status we should set each `Condition` defines its
 		// default positive status. When there is an error, we will invert that. Example: If we have
-		// condition ListenerInvalid, the status will be set to StatusFalse. If an error is reported, it
+		// Condition ListenerInvalid, the status will be set to StatusFalse. If an error is reported, it
 		// will be inverted to StatusTrue to indicate listeners are invalid. See
 		// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 		// for more information

@@ -198,7 +198,7 @@ components:
 				}
 			}
 			translator := NewTranslator()
-			values := make(map[string]interface{})
+			values := make(map[string]any)
 			_ = translator.translateDeprecatedAutoscalingFields(values, iop)
 			val, found, _ := tpath.GetFromStructPath(values, "global.autoscalingv2API")
 			if tt.expectFound {

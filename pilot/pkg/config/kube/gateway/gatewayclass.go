@@ -84,7 +84,7 @@ func (c *ClassController) Reconcile(name types.NamespacedName) error {
 	}
 	_, err = c.directClient.Create(context.Background(), gc, metav1.CreateOptions{})
 	if apierrors.IsConflict(err) {
-		// This is not really an error, just a race condition
+		// This is not really an error, just a race Condition
 		log.Infof("Attempted to create GatewayClass/%v, but it was already created", DefaultClassName)
 		return nil
 	}

@@ -14,8 +14,12 @@ tools/vagrant/.vagrant/
 .devcontainer
 # Bazel
 /bazel-*
+# vi swap files
+.*.swp
 # vi backups
 *.bak
+# common backups
+*~
 # python artifacts
 *.pyc
 # pilot
@@ -52,6 +56,8 @@ etc/
 var/
 # Go compiled tests
 *.test
+# Profiles
+*.prof
 # MacOS extended attributes
 ._*
 # MacOS Desktop Services Store

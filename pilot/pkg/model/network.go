@@ -25,6 +25,7 @@ import (
 
 	"github.com/miekg/dns"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
@@ -71,24 +72,65 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 		return nil, err
 	}
 	mgr := &NetworkManager{env: env, NameCache: nameCache, xdsUpdater: xdsUpdater}
-	env.AddNetworksHandler(mgr.reloadAndPush)
-	env.AppendNetworkGatewayHandler(mgr.reloadAndPush)
-	nameCache.AppendNetworkGatewayHandler(mgr.reloadAndPush)
+	env.AddNetworksHandler(mgr.reloadGateways)
+	if features.EnableHCMInternalNetworks {
+		env.AddNetworksHandler(mgr.reloadNetworkEndpoints)
+	}
+	env.AppendNetworkGatewayHandler(mgr.reloadGateways)
+	nameCache.AppendNetworkGatewayHandler(mgr.reloadGateways)
 	mgr.reload()
 	return mgr, nil
 }
 
-func (mgr *NetworkManager) reloadAndPush() {
+// reloadGaeways reloads NetworkGateways and triggers a push if they change.
+func (mgr *NetworkManager) reloadGateways() {
 	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
 	oldGateways := make(NetworkGatewaySet)
 	for _, gateway := range mgr.allGateways() {
 		oldGateways.Add(gateway)
 	}
+
 	changed := !mgr.reload().Equals(oldGateways)
+	mgr.mu.Unlock()
 
 	if changed && mgr.xdsUpdater != nil {
 		log.Infof("gateways changed, triggering push")
+		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: []TriggerReason{NetworksTrigger}})
+	}
+}
+
+// reloadNetworkEndpoints reloads NetworkEndpoints and triggers a push if they change.
+func (mgr *NetworkManager) reloadNetworkEndpoints() {
+	oldNetworks := mgr.env.NetworksWatcher.PrevNetworks()
+	currNetworks := mgr.env.NetworksWatcher.Networks()
+	// There are no network endpoints - no need to push.
+	if oldNetworks == nil && currNetworks == nil {
+		return
+	}
+
+	oldEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
+	newEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
+	if currNetworks != nil {
+		for _, networkconf := range currNetworks.Networks {
+			for _, ne := range networkconf.Endpoints {
+				if len(ne.GetFromCidr()) > 0 {
+					newEndpoints = append(newEndpoints, ne)
+				}
+			}
+		}
+	}
+	if oldNetworks != nil {
+		for _, networkconf := range oldNetworks.Networks {
+			for _, ne := range networkconf.Endpoints {
+				if len(ne.GetFromCidr()) > 0 {
+					newEndpoints = append(newEndpoints, ne)
+				}
+			}
+		}
+	}
+
+	if !reflect.DeepEqual(newEndpoints, oldEndpoints) && mgr.xdsUpdater != nil {
+		log.Infof("endpoints changed, triggering push")
 		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: []TriggerReason{NetworksTrigger}})
 	}
 }
@@ -482,30 +524,41 @@ func stringSliceEqual(a, b []string) bool {
 
 // resolve gets all the A and AAAA records for the given name
 func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration) {
-	// TODO figure out how to query only A + AAAA
-	res := n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dns.TypeANY))
-	if res == nil || len(res.Answer) == 0 {
-		return nil, 0
-	}
 	ttl := uint32(math.MaxUint32)
 	var out []string
-	for _, rr := range res.Answer {
-		switch v := rr.(type) {
-		case *dns.A:
-			out = append(out, v.A.String())
-		case *dns.AAAA:
-			// TODO may not always want ipv6t?
-			out = append(out, v.AAAA.String())
-		default:
-			// not a valid record, don't inspect TTL
-			continue
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	doResolve := func(dnsType uint16) {
+		defer wg.Done()
+
+		res := n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dnsType))
+		if len(res.Answer) == 0 {
+			return
 		}
-		if nextTTL := rr.Header().Ttl; nextTTL < ttl {
-			ttl = nextTTL
+
+		mu.Lock()
+		defer mu.Unlock()
+		for _, rr := range res.Answer {
+			switch dnsType {
+			case dns.TypeA:
+				out = append(out, rr.(*dns.A).A.String())
+			case dns.TypeAAAA:
+				out = append(out, rr.(*dns.AAAA).AAAA.String())
+			}
+			if nextTTL := rr.Header().Ttl; nextTTL < ttl {
+				ttl = nextTTL
+			}
 		}
 	}
+
+	wg.Add(2)
+	go doResolve(dns.TypeA)
+	go doResolve(dns.TypeAAAA)
+	wg.Wait()
+
 	sort.Strings(out)
-	return out, time.Duration(ttl)
+	return out, time.Duration(ttl) * time.Second
 }
 
 // TODO share code with pkg/dns
@@ -544,15 +597,30 @@ func newClient() (*dnsClient, error) {
 	return c, nil
 }
 
+// for more informative logging of dns errors
+func getReqNames(req *dns.Msg) []string {
+	names := make([]string, 0, 1)
+	for _, qq := range req.Question {
+		names = append(names, qq.Name)
+	}
+	return names
+}
+
 func (c *dnsClient) Query(req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
 	for _, upstream := range c.resolvConfServers {
 		cResponse, _, err := c.Exchange(req, upstream)
 		if err == nil {
 			response = cResponse
-			break
+			code := response.MsgHdr.Rcode
+			if code == dns.RcodeSuccess {
+				break
+			}
+			codeString := dns.RcodeToString[code]
+			log.Debugf("upstream dns error: %v: %v: %v", upstream, getReqNames(req), codeString)
+		} else {
+			log.Infof("upstream dns failure: %v: %v: %v", upstream, getReqNames(req), err)
 		}
-		log.Infof("upstream dns failure: %v", err)
 	}
 	if response == nil {
 		response = new(dns.Msg)

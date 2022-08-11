@@ -40,7 +40,8 @@ import (
 // DumpCertFromSidecar gets the certificates served by the destination.
 func DumpCertFromSidecar(t test.Failer, from echo.Instance, to echo.Target, port string) []string {
 	result := from.CallOrFail(t, echo.CallOptions{
-		To: to,
+		To:    to,
+		Count: 1,
 		Port: echo.Port{
 			Name: port,
 		},
@@ -161,7 +162,6 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 		return err
 	}
 
-	kubeAccessor := ctx.Clusters().Default()
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -174,16 +174,16 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 			"fake-root-cert.pem": fakeRootCert,
 		},
 	}
-
-	_, err = kubeAccessor.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			_, err = kubeAccessor.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{})
+	for _, cluster := range ctx.Clusters() {
+		_, err = cluster.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
+		if err != nil {
+			if errors.IsAlreadyExists(err) {
+				_, err = cluster.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{})
+				return err
+			}
 			return err
 		}
-		return err
 	}
-
 	return nil
 }
 
@@ -193,4 +193,12 @@ func ReadCustomCertFromFile(f string) ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func LoadCert(filename string) (string, error) {
+	data, err := ReadSampleCertFromFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }

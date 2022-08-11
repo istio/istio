@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
@@ -75,7 +76,7 @@ func (p *PEPGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 		for _, c := range sidecarListeners {
 			resources = append(resources, &discovery.Resource{
 				Name:     c.Name,
-				Resource: util.MessageToAny(c),
+				Resource: protoconv.MessageToAny(c),
 			})
 		}
 		out = append(p.buildPEPListeners(proxy, req.Push), resources...)
@@ -156,14 +157,14 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 
 				TransportSocket: &core.TransportSocket{
 					Name: "envoy.transport_sockets.tls",
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
 						CommonTlsContext: buildCommonTLSContext(proxy, nil, push, true),
 					})},
 				},
 				Filters: []*listener.Filter{{
 					Name: "envoy.filters.network.http_connection_manager",
 					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: util.MessageToAny(&httpconn.HttpConnectionManager{
+						TypedConfig: protoconv.MessageToAny(&httpconn.HttpConnectionManager{
 							AccessLog:  accessLogString("pep hcm"),
 							StatPrefix: "outbound_hcm",
 							RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
@@ -175,7 +176,7 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 							},
 							HttpFilters: []*httpconn.HttpFilter{{
 								Name:       "envoy.filters.http.router",
-								ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(&routerfilter.Router{})},
+								ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
 							}},
 							Http2ProtocolOptions: &core.Http2ProtocolOptions{
 								AllowConnect: true,
@@ -193,7 +194,7 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 	for _, l := range []*listener.Listener{l} {
 		out = append(out, &discovery.Resource{
 			Name:     l.Name,
-			Resource: util.MessageToAny(l),
+			Resource: protoconv.MessageToAny(l),
 		})
 	}
 	return out
@@ -240,7 +241,7 @@ func (p *PEPGenerator) buildClusters(node *model.Proxy, push *model.PushContext)
 	clusters = append(clusters, outboundTunnelCluster(node, push, node.Metadata.ServiceAccount, nil))
 	var out model.Resources
 	for _, c := range clusters {
-		out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+		out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
 	return out
 }

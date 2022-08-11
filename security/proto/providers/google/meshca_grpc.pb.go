@@ -4,6 +4,7 @@ package google
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -71,7 +72,7 @@ func RegisterMeshCertificateServiceServer(s grpc.ServiceRegistrar, srv MeshCerti
 	s.RegisterService(&MeshCertificateService_ServiceDesc, srv)
 }
 
-func _MeshCertificateService_CreateCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MeshCertificateService_CreateCertificate_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(MeshCertificateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -83,7 +84,7 @@ func _MeshCertificateService_CreateCertificate_Handler(srv interface{}, ctx cont
 		Server:     srv,
 		FullMethod: "/google.security.meshca.v1.MeshCertificateService/CreateCertificate",
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MeshCertificateServiceServer).CreateCertificate(ctx, req.(*MeshCertificateRequest))
 	}
 	return interceptor(ctx, in, info, handler)

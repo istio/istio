@@ -53,7 +53,6 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 							Port: echo.Port{
 								Name: "tcp",
 							},
-							Count: telemetry.RequestCountMultipler * Srv.WorkloadsOrFail(t).Len(),
 							Retry: echo.Retry{
 								NoRetry: true,
 							},

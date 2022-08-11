@@ -21,7 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -44,6 +44,11 @@ type ShardKey struct {
 
 func (sk ShardKey) String() string {
 	return fmt.Sprintf("%s/%s", sk.Provider, sk.Cluster)
+}
+
+// MarshalText implements the TextMarshaler interface (for json key usage)
+func (sk ShardKey) MarshalText() (text []byte, err error) {
+	return []byte(sk.String()), nil
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -113,7 +118,7 @@ func (e *EndpointIndex) clearCacheForService(svc, ns string) {
 		return
 	}
 	e.cache.Clear(map[ConfigKey]struct{}{{
-		Kind:      gvk.ServiceEntry,
+		Kind:      kind.ServiceEntry,
 		Name:      svc,
 		Namespace: ns,
 	}: {}})

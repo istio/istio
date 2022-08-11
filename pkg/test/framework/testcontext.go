@@ -43,7 +43,7 @@ type TestContext interface {
 	//
 	// If this TestContext was not created by a Test or if that Test is not running, this method will panic.
 	NewSubTest(name string) Test
-	NewSubTestf(format string, a ...interface{}) Test
+	NewSubTestf(format string, a ...any) Test
 
 	// WorkDir allocated for this test.
 	WorkDir() string
@@ -59,13 +59,13 @@ type TestContext interface {
 
 	// Methods for interacting with the underlying *testing.T.
 
-	Error(args ...interface{})
-	Errorf(format string, args ...interface{})
+	Error(args ...any)
+	Errorf(format string, args ...any)
 	Failed() bool
 	Name() string
-	Skip(args ...interface{})
+	Skip(args ...any)
 	SkipNow()
-	Skipf(format string, args ...interface{})
+	Skipf(format string, args ...any)
 	Skipped() bool
 }
 
@@ -158,7 +158,7 @@ func (c *testContext) TrackResource(r resource.Resource) resource.ID {
 	return rid
 }
 
-func (c *testContext) GetResource(ref interface{}) error {
+func (c *testContext) GetResource(ref any) error {
 	return c.scope.get(ref)
 }
 
@@ -256,7 +256,7 @@ func (c *testContext) NewSubTest(name string) Test {
 	}
 }
 
-func (c *testContext) NewSubTestf(format string, a ...interface{}) Test {
+func (c *testContext) NewSubTestf(format string, a ...any) Test {
 	return c.NewSubTest(fmt.Sprintf(format, a...))
 }
 
@@ -286,13 +286,21 @@ func (c *testContext) CleanupStrategy(strategy cleanup.Strategy, fn func()) {
 	}
 }
 
-func (c *testContext) close() {
-	if c.Failed() && c.Settings().CIMode {
+func (c *testContext) dump() {
+	if c.suite.RequestTestDump() {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
 		// make sure we dump suite-level resources, but don't dump sibling tests or their children
-		rt.DumpShallow(c)
+		rt.DumpCustom(c, false)
 		c.scope.dump(c, true)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)
+	} else {
+		scopes.Framework.Debugf("Begin skipping dump of testContext: %q. Maximum number of test dumps exceeded", c.id)
+	}
+}
+
+func (c *testContext) close() {
+	if c.Failed() && c.Settings().CIMode {
+		c.dump()
 	}
 
 	scopes.Framework.Debugf("Begin cleaning up testContext: %q", c.id)
@@ -307,12 +315,12 @@ func (c *testContext) close() {
 	scopes.Framework.Debugf("Completed cleaning up testContext: %q", c.id)
 }
 
-func (c *testContext) Error(args ...interface{}) {
+func (c *testContext) Error(args ...any) {
 	c.Helper()
 	c.T.Error(args...)
 }
 
-func (c *testContext) Errorf(format string, args ...interface{}) {
+func (c *testContext) Errorf(format string, args ...any) {
 	c.Helper()
 	c.T.Errorf(format, args...)
 }
@@ -332,22 +340,22 @@ func (c *testContext) Failed() bool {
 	return c.T.Failed()
 }
 
-func (c *testContext) Fatal(args ...interface{}) {
+func (c *testContext) Fatal(args ...any) {
 	c.Helper()
 	c.T.Fatal(args...)
 }
 
-func (c *testContext) Fatalf(format string, args ...interface{}) {
+func (c *testContext) Fatalf(format string, args ...any) {
 	c.Helper()
 	c.T.Fatalf(format, args...)
 }
 
-func (c *testContext) Log(args ...interface{}) {
+func (c *testContext) Log(args ...any) {
 	c.Helper()
 	c.T.Log(args...)
 }
 
-func (c *testContext) Logf(format string, args ...interface{}) {
+func (c *testContext) Logf(format string, args ...any) {
 	c.Helper()
 	c.T.Logf(format, args...)
 }
@@ -357,7 +365,7 @@ func (c *testContext) Name() string {
 	return c.T.Name()
 }
 
-func (c *testContext) Skip(args ...interface{}) {
+func (c *testContext) Skip(args ...any) {
 	c.Helper()
 	c.T.Skip(args...)
 }
@@ -367,7 +375,7 @@ func (c *testContext) SkipNow() {
 	c.T.SkipNow()
 }
 
-func (c *testContext) Skipf(format string, args ...interface{}) {
+func (c *testContext) Skipf(format string, args ...any) {
 	c.Helper()
 	c.T.Skipf(format, args...)
 }
@@ -375,6 +383,10 @@ func (c *testContext) Skipf(format string, args ...interface{}) {
 func (c *testContext) Skipped() bool {
 	c.Helper()
 	return c.T.Skipped()
+}
+
+func (c *testContext) ID() string {
+	return c.id
 }
 
 var _ io.Closer = &closer{}
@@ -388,7 +400,7 @@ func (c *closer) Close() error {
 	return c.fn()
 }
 
-func (c *testContext) RecordTraceEvent(string, interface{}) {
+func (c *testContext) RecordTraceEvent(string, any) {
 	// Currently, only supported at suite level.
 	panic("TODO: implement tracing in test context")
 }

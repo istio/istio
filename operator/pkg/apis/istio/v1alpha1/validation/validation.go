@@ -38,7 +38,7 @@ type deprecatedSettings struct {
 	old string
 	new string
 	// In ordered to distinguish between unset for non-pointer values, we need to specify the default value
-	def interface{}
+	def any
 }
 
 // ValidateConfig  calls validation func for every defined element in Values

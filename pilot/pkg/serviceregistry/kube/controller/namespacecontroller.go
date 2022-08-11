@@ -58,6 +58,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	c.queue = controllers.NewQueue("namespace controller", controllers.WithReconciler(c.insertDataForNamespace))
 
 	c.configMapInformer = kubeClient.KubeInformer().Core().V1().ConfigMaps().Informer()
+	_ = c.configMapInformer.SetTransform(kube.StripUnusedFields)
 	c.configmapLister = kubeClient.KubeInformer().Core().V1().ConfigMaps().Lister()
 	c.namespacesInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	c.namespaceLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()

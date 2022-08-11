@@ -29,7 +29,7 @@ var Any Matcher = func(_ echo.Instance) bool {
 func And(ms ...Matcher) Matcher {
 	return func(i echo.Instance) bool {
 		for _, m := range ms {
-			if !m(i) {
+			if m != nil && !m(i) {
 				return false
 			}
 		}
@@ -41,7 +41,7 @@ func And(ms ...Matcher) Matcher {
 func Or(ms ...Matcher) Matcher {
 	return func(i echo.Instance) bool {
 		for _, m := range ms {
-			if m(i) {
+			if m != nil && m(i) {
 				return true
 			}
 		}
@@ -50,7 +50,8 @@ func Or(ms ...Matcher) Matcher {
 }
 
 // Not negates the given matcher. Example:
-//     Not(Naked())
+//
+//	Not(Naked())
 func Not(m Matcher) Matcher {
 	return func(i echo.Instance) bool {
 		return !m(i)
@@ -119,9 +120,14 @@ var External Matcher = func(i echo.Instance) bool {
 // NotExternal is equivalent to Not(External)
 var NotExternal = Not(External)
 
-// Naked matches instances that are Pods with a SidecarInject annotation equal to false.
+// Naked matches instances with any subset marked with SidecarInject equal to false.
 var Naked Matcher = func(i echo.Instance) bool {
 	return i.Config().IsNaked()
+}
+
+// AllNaked matches instances where every subset has SidecarInject set to false.
+var AllNaked Matcher = func(i echo.Instance) bool {
+	return i.Config().IsAllNaked()
 }
 
 // NotNaked is equivalent to Not(Naked)
@@ -160,3 +166,21 @@ var RegularPod Matcher = func(instance echo.Instance) bool {
 }
 
 var NotRegularPod = Not(RegularPod)
+
+// MultiVersion matches echos that have Multi-version specific setup.
+var MultiVersion Matcher = func(i echo.Instance) bool {
+	if len(i.Config().Subsets) != 2 {
+		return false
+	}
+	var matchIstio, matchLegacy bool
+	for _, s := range i.Config().Subsets {
+		if s.Version == "vistio" {
+			matchIstio = true
+		} else if s.Version == "vlegacy" && !s.Annotations.GetBool(echo.SidecarInject) {
+			matchLegacy = true
+		}
+	}
+	return matchIstio && matchLegacy
+}
+
+var NotMultiVersion = Not(MultiVersion)

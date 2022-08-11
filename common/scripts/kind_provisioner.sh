@@ -152,6 +152,7 @@ function setup_kind_cluster() {
   IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
   CONFIG="${3:-}"
   NOMETALBINSTALL="${4:-}"
+  CLEANUP="${5:-true}"
 
   check_default_cluster_yaml
 
@@ -163,7 +164,9 @@ function setup_kind_cluster() {
 
   # explicitly disable shellcheck since we actually want $NAME to expand now
   # shellcheck disable=SC2064
-  trap "cleanup_kind_cluster ${NAME}" EXIT
+  if [[ "${CLEANUP}" == "true" ]]; then
+    trap "cleanup_kind_cluster ${NAME}" EXIT
+  fi
 
     # If config not explicitly set, then use defaults
   if [[ -z "${CONFIG}" ]]; then
@@ -222,10 +225,6 @@ EOF
     echo "${fixed_coredns}"
     printf '%s' "${fixed_coredns}" | kubectl apply -f -
   fi
-
-  # On Ubuntu Jammy, the trap runs when this function exits. Remove trap to prevent
-  # cluster shutdown here.
-  trap EXIT
 }
 
 ###############################################################################
@@ -277,7 +276,7 @@ EOF
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
     # Create the clusters.
-    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true"
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true" "false"
 
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.
@@ -415,9 +414,17 @@ function cidr_to_ips() {
     # cidr_to_ips returns a list of single IPs from a CIDR. We skip 1000 (since they are likely to be allocated
     # already to other services), then pick the next 100.
     python3 - <<EOF
-from ipaddress import ip_network;
+from ipaddress import ip_network, IPv6Network;
 from itertools import islice;
-[print(str(ip) + "/" + str(ip.max_prefixlen)) for ip in islice(ip_network('$CIDR').hosts(), 1000, 1100)]
+
+net = ip_network('$CIDR')
+net_bits = 128 if type(net) == IPv6Network else 32;
+net_len = pow(2, net_bits - net.prefixlen)
+start, end = int(net_len / 4 * 3), net_len
+if net_len > 2000:
+  start, end = 1000, 2000
+
+[print(str(ip) + "/" + str(ip.max_prefixlen)) for ip in islice(ip_network('$CIDR').hosts(), start, end)]
 EOF
 }
 

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 31946
+releaseNotes:
+- |
+  **Added** support to watch local secret resource updates for external istiod

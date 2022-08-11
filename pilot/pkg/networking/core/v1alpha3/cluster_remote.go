@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	security "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -203,7 +204,7 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 		},
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.internal_upstream",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&internalupstream.InternalUpstreamTransport{
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
 				PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 					{
 						Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
@@ -221,7 +222,7 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 				//}},
 				TransportSocket: &core.TransportSocket{
 					Name:       "envoy.transport_sockets.raw_buffer",
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&rawbuffer.RawBuffer{})},
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
 				},
 			})},
 		},
@@ -231,7 +232,7 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 
 var BaggagePassthroughTransportSocket = &core.TransportSocket{
 	Name: "envoy.transport_sockets.internal_upstream",
-	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&internalupstream.InternalUpstreamTransport{
+	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
 		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 			{
 				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
@@ -242,7 +243,7 @@ var BaggagePassthroughTransportSocket = &core.TransportSocket{
 		},
 		TransportSocket: &core.TransportSocket{
 			Name:       "envoy.transport_sockets.raw_buffer",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&rawbuffer.RawBuffer{})},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
 		},
 	})},
 }
@@ -319,7 +320,7 @@ func (cb *ClusterBuilder) buildRemoteInboundConnect(proxy *model.Proxy, push *mo
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 				CommonTlsContext: ctx,
 			})},
 		},
@@ -339,7 +340,7 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 				CommonTlsContext: buildCommonTLSContext(proxy, nil, push, false),
 			})},
 		},
@@ -348,7 +349,7 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster
 
 func h2connectUpgrade() map[string]*anypb.Any {
 	return map[string]*anypb.Any{
-		v3.HttpProtocolOptionsType: util.MessageToAny(&http.HttpProtocolOptions{
+		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{

@@ -46,7 +46,7 @@ func FromJSON(s collection.Schema, js string) (config.Spec, error) {
 	return c, nil
 }
 
-func IstioStatusJSONFromMap(jsonMap map[string]interface{}) (config.Status, error) {
+func IstioStatusJSONFromMap(jsonMap map[string]any) (config.Status, error) {
 	if jsonMap == nil {
 		return nil, nil
 	}
@@ -76,7 +76,7 @@ func FromYAML(s collection.Schema, yml string) (config.Spec, error) {
 
 // FromJSONMap converts from a generic map to a proto message using canonical JSON encoding
 // JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
-func FromJSONMap(s collection.Schema, data interface{}) (config.Spec, error) {
+func FromJSONMap(s collection.Schema, data any) (config.Spec, error) {
 	// Marshal to YAML bytes
 	str, err := yaml.Marshal(data)
 	if err != nil {
@@ -180,7 +180,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]config.Config, []Istio
 		}
 
 		gvk := obj.GroupVersionKind()
-		s, exists := collections.PilotGatewayAPI.FindByGroupVersionKind(resource.FromKubernetesGVK(&gvk))
+		s, exists := collections.PilotGatewayAPI.FindByGroupVersionAliasesKind(resource.FromKubernetesGVK(&gvk))
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)

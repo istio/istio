@@ -37,7 +37,7 @@ func TestSetLabel(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			resource := &unstructured.Unstructured{Object: make(map[string]interface{})}
+			resource := &unstructured.Unstructured{Object: make(map[string]any)}
 			gotErr := SetLabel(resource, tt.wantLabel, tt.wantValue)
 			resourceAccessor, _ := meta.Accessor(resource)
 			labels := resourceAccessor.GetLabels()

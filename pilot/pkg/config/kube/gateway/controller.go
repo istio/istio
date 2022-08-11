@@ -25,12 +25,10 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
@@ -53,10 +51,10 @@ var (
 // Controller defines the controller for the gateway-api. The controller acts a bit different from most.
 // Rather than watching the CRs directly, we depend on the existing model.ConfigStoreController which
 // already watches all CRs. When there are updates, a new PushContext will be computed, which will eventually
-// call Controller.Recompute(). Once this happens, we will inspect the current state of the world, and transform
+// call Controller.Reconcile(). Once this happens, we will inspect the current state of the world, and transform
 // gateway-api types into Istio types (Gateway/VirtualService). Future calls to Get/List will return these
 // Istio types. These are not stored in the cluster at all, and are purely internal; they can be seen on /debug/configz.
-// During Recompute(), the status on all gateway-api types is also tracked. Once completed, if the status
+// During Reconcile(), the status on all gateway-api types is also tracked. Once completed, if the status
 // has changed at all, it is queued to asynchronously update the status of the object in Kubernetes.
 type Controller struct {
 	// client for accessing Kubernetes
@@ -72,7 +70,7 @@ type Controller struct {
 	// domain stores the cluster domain, typically cluster.local
 	domain string
 
-	// state is our computed Istio resources. Access is guarded by stateMu. This is updated from Recompute().
+	// state is our computed Istio resources. Access is guarded by stateMu. This is updated from Reconcile().
 	state   OutputResources
 	stateMu sync.RWMutex
 
@@ -100,10 +98,10 @@ func NewController(client kube.Client, c model.ConfigStoreController, options co
 	}
 
 	nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+		AddFunc: func(obj any) {
 			gatewayController.namespaceEvent(nil, obj)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
+		UpdateFunc: func(oldObj, newObj any) {
 			gatewayController.namespaceEvent(oldObj, newObj)
 		},
 	})
@@ -142,7 +140,7 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	c.statusEnabled.Store(enabled)
 	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
-		c.statusController = statusManager.CreateGenericController(func(status interface{}, context interface{}) status.GenerationProvider {
+		c.statusController = statusManager.CreateGenericController(func(status any, context any) status.GenerationProvider {
 			return &gatewayGeneration{context}
 		})
 	} else {
@@ -150,12 +148,12 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 	}
 }
 
-// Recompute takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
+// Reconcile takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
 // Any status updates required will be enqueued as well.
-func (c *Controller) Recompute(context model.GatewayContext) error {
+func (c *Controller) Reconcile(ps *model.PushContext) error {
 	t0 := time.Now()
 	defer func() {
-		log.Debugf("recompute complete in %v", time.Since(t0))
+		log.Debugf("reconcile complete in %v", time.Since(t0))
 	}()
 	gatewayClass, err := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
 	if err != nil {
@@ -181,19 +179,24 @@ func (c *Controller) Recompute(context model.GatewayContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to list type BackendPolicy: %v", err)
 	}
+	referenceGrant, err := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
+	if err != nil {
+		return fmt.Errorf("failed to list type BackendPolicy: %v", err)
+	}
 
-	input := &KubernetesResources{
+	input := KubernetesResources{
 		GatewayClass:    deepCopyStatus(gatewayClass),
 		Gateway:         deepCopyStatus(gateway),
 		HTTPRoute:       deepCopyStatus(httpRoute),
 		TCPRoute:        deepCopyStatus(tcpRoute),
 		TLSRoute:        deepCopyStatus(tlsRoute),
 		ReferencePolicy: referencePolicy,
+		ReferenceGrant:  referenceGrant,
 		Domain:          c.domain,
-		Context:         context,
+		Context:         NewGatewayContext(ps),
 	}
 
-	if !anyApisUsed(input) {
+	if !input.hasResources() {
 		// Early exit for common case of no gateway-api used.
 		c.stateMu.Lock()
 		defer c.stateMu.Unlock()
@@ -222,7 +225,7 @@ func (c *Controller) Recompute(context model.GatewayContext) error {
 	return nil
 }
 
-func (c *Controller) QueueStatusUpdates(r *KubernetesResources) {
+func (c *Controller) QueueStatusUpdates(r KubernetesResources) {
 	c.handleStatusUpdates(r.GatewayClass)
 	c.handleStatusUpdates(r.Gateway)
 	c.handleStatusUpdates(r.HTTPRoute)
@@ -291,27 +294,16 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
-	p, err := credentials.ParseResourceName(resourceName, "", "", "")
-	if err != nil {
-		log.Warnf("failed to parse resource name %q: %v", resourceName, err)
-		return false
-	}
-	from := Reference{Kind: gvk.KubernetesGateway, Namespace: k8s.Namespace(namespace)}
-	to := Reference{Kind: gvk.Secret, Namespace: k8s.Namespace(p.Namespace)}
 	c.stateMu.RLock()
-	allow := c.state.AllowedReferences[from][to]
-	c.stateMu.RUnlock()
-	if allow == nil {
-		return false
-	}
-	return allow.AllowAll || allow.AllowedNames.Contains(p.Name)
+	defer c.stateMu.RUnlock()
+	return c.state.AllowedReferences.SecretAllowed(resourceName, namespace)
 }
 
 // namespaceEvent handles a namespace add/update. Gateway's can select routes by label, so we need to handle
 // when the labels change.
 // Note: we don't handle delete as a delete would also clean up any relevant gateway-api types which will
 // trigger its own event.
-func (c *Controller) namespaceEvent(oldObj interface{}, newObj interface{}) {
+func (c *Controller) namespaceEvent(oldObj any, newObj any) {
 	// First, find all the label keys on the old/new namespace. We include NamespaceNameLabel
 	// since we have special logic to always allow this on namespace.
 	touchedNamespaceLabels := sets.New(NamespaceNameLabel)
@@ -333,7 +325,7 @@ func (c *Controller) namespaceEvent(oldObj interface{}, newObj interface{}) {
 }
 
 // getLabelKeys extracts all label keys from a namespace object.
-func getLabelKeys(obj interface{}) []string {
+func getLabelKeys(obj any) []string {
 	if obj == nil {
 		return nil
 	}
@@ -386,13 +378,13 @@ func filterNamespace(cfgs []config.Config, namespace string) []config.Config {
 	return filtered
 }
 
-// anyApisUsed determines if there are any gateway-api resources created at all. If not, we can
-// short circuit all processing to avoid excessive work.
-func anyApisUsed(input *KubernetesResources) bool {
-	return len(input.GatewayClass) > 0 ||
-		len(input.Gateway) > 0 ||
-		len(input.HTTPRoute) > 0 ||
-		len(input.TCPRoute) > 0 ||
-		len(input.TLSRoute) > 0 ||
-		len(input.ReferencePolicy) > 0
+// hasResources determines if there are any gateway-api resources created at all.
+// If not, we can short circuit all processing to avoid excessive work.
+func (kr KubernetesResources) hasResources() bool {
+	return len(kr.GatewayClass) > 0 ||
+		len(kr.Gateway) > 0 ||
+		len(kr.HTTPRoute) > 0 ||
+		len(kr.TCPRoute) > 0 ||
+		len(kr.TLSRoute) > 0 ||
+		len(kr.ReferencePolicy) > 0
 }

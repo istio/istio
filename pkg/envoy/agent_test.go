@@ -61,7 +61,7 @@ var downstreamCxZeroAcStats = "http.admin.downstream_cx_active: 2 \n" +
 type TestProxy struct {
 	run          func(int, <-chan error) error
 	cleanup      func(int)
-	blockChannel chan interface{}
+	blockChannel chan any
 }
 
 func (tp TestProxy) Run(epoch int, stop <-chan error) error {
@@ -99,14 +99,14 @@ func TestStartExit(t *testing.T) {
 }
 
 // TestStartDrain tests basic start, termination sequence
-//   * Runs with passed config
-//   * Terminate is called
-//   * Runs with drain config
-//   * Aborts all proxies
+//   - Runs with passed config
+//   - Terminate is called
+//   - Runs with drain config
+//   - Aborts all proxies
 func TestStartDrain(t *testing.T) {
 	wantEpoch := 0
 	proxiesStarted, wantProxiesStarted := 0, 1
-	blockChan := make(chan interface{})
+	blockChan := make(chan any)
 	ctx, cancel := context.WithCancel(context.Background())
 	start := func(currentEpoch int, _ <-chan error) error {
 		proxiesStarted++

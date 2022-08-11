@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -85,7 +86,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push0,
 				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
+					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
 				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
@@ -94,7 +95,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push1,
 				Start: t1,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {},
+					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
 				Reason: []TriggerReason{EndpointUpdate},
 			},
@@ -103,8 +104,8 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push1,
 				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
-					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {},
+					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
+					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
@@ -113,7 +114,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigsUpdated: nil},
 			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
-				Kind: config.GroupVersionKind{Kind: "cfg2"},
+				Kind: kind.Kind(2),
 			}: {}}},
 			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil},
 		},
@@ -644,7 +645,7 @@ func TestWasmPlugins(t *testing.T) {
 
 func TestServiceIndex(t *testing.T) {
 	g := NewWithT(t)
-	env := &Environment{}
+	env := NewEnvironment()
 	store := istioConfigStore{ConfigStore: NewFakeStore()}
 
 	env.ConfigStore = &store
@@ -867,7 +868,7 @@ func serviceNames(svcs []*Service) []string {
 }
 
 func TestInitPushContext(t *testing.T) {
-	env := &Environment{}
+	env := NewEnvironment()
 	configStore := NewFakeStore()
 	_, _ = configStore.Create(config.Config{
 		Meta: config.Meta{
@@ -934,7 +935,7 @@ func TestInitPushContext(t *testing.T) {
 	newPush := NewPushContext()
 	if err := newPush.InitContext(env, old, &PushRequest{
 		ConfigsUpdated: map[ConfigKey]struct{}{
-			{Kind: gvk.Secret}: {},
+			{Kind: kind.Secret}: {},
 		},
 	}); err != nil {
 		t.Fatal(err)
@@ -946,7 +947,7 @@ func TestInitPushContext(t *testing.T) {
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, consolidatedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
-			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, consolidatedDestRule{}),
+			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
@@ -1289,9 +1290,9 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
-				{"test", "nsRule"},
-				{"test", "svcRule"},
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test", Name: "nsRule"},
+				{Namespace: "test", Name: "svcRule"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
@@ -1320,8 +1321,8 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule2",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
-				{"test2", "svcRule2"},
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test2", Name: "svcRule2"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
@@ -1345,9 +1346,9 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: testhost,
 			expectedConfig:  "drRule2",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
-				{"test2", "drRule2"},
-				{"test2", "svcRule2"},
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test2", Name: "drRule2"},
+				{Namespace: "test2", Name: "svcRule2"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
@@ -1377,8 +1378,8 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: "unknown.host",
 			expectedConfig:  "nsRule",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
-				{"test", "nsRule"},
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test", Name: "nsRule"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
@@ -1409,7 +1410,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: "unknown.host",
 			expectedConfig:  "meshRule",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
+				{Namespace: "istio-system", Name: "meshRule"},
 			},
 			expectedPolicy: meshDestinationRule.Spec.(*networking.DestinationRule).TrafficPolicy,
 		},
@@ -1651,8 +1652,8 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 		},
 	}
 	expectedDestRules := []types.NamespacedName{
-		{"test", "rule1"},
-		{"test", "rule2"},
+		{Namespace: "test", Name: "rule1"},
+		{Namespace: "test", Name: "rule2"},
 	}
 	ps.SetDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
 	private := ps.destinationRuleIndex.namespaceLocal["test"].destRules[host.Name(testhost)]
@@ -2428,10 +2429,6 @@ func (l *localServiceDiscovery) GetProxyServiceInstances(*Proxy) []*ServiceInsta
 
 func (l *localServiceDiscovery) GetProxyWorkloadLabels(*Proxy) labels.Instance {
 	panic("implement me")
-}
-
-func (l *localServiceDiscovery) GetIstioServiceAccounts(*Service, []int) []string {
-	return nil
 }
 
 func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {

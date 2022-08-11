@@ -41,7 +41,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -710,7 +710,7 @@ func (a *ADSC) Save(base string) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	// guarrante the persistence order for each element in tcpListeners
+	// guarantee the persistence order for each element in tcpListeners
 	var sortTCPListeners []string
 	for key := range a.tcpListeners {
 		sortTCPListeners = append(sortTCPListeners, key)
@@ -730,7 +730,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in httpListeners
+	// guarantee the persistence order for each element in httpListeners
 	var sortHTTPListeners []string
 	for key := range a.httpListeners {
 		sortHTTPListeners = append(sortHTTPListeners, key)
@@ -750,7 +750,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in routes
+	// guarantee the persistence order for each element in routes
 	var sortRoutes []string
 	for key := range a.routes {
 		sortRoutes = append(sortRoutes, key)
@@ -770,7 +770,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in edsClusters
+	// guarantee the persistence order for each element in edsClusters
 	var sortEdsClusters []string
 	for key := range a.edsClusters {
 		sortEdsClusters = append(sortEdsClusters, key)
@@ -790,7 +790,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in clusters
+	// guarantee the persistence order for each element in clusters
 	var sortClusters []string
 	for key := range a.clusters {
 		sortClusters = append(sortClusters, key)
@@ -810,7 +810,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in eds
+	// guarantee the persistence order for each element in eds
 	var sortEds []string
 	for key := range a.eds {
 		sortEds = append(sortEds, key)
@@ -1211,7 +1211,7 @@ func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
 	return a.eds
 }
 
-func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
+func (a *ADSC) handleMCP(gvk []string, resources []*anypb.Any) {
 	if len(gvk) != 3 {
 		return // Not MCP
 	}

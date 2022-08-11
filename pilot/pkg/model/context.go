@@ -29,7 +29,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -50,6 +50,13 @@ import (
 )
 
 var _ mesh.Holder = &Environment{}
+
+func NewEnvironment() *Environment {
+	return &Environment{
+		PushContext:   NewPushContext(),
+		EndpointIndex: NewEndpointIndex(),
+	}
+}
 
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
@@ -93,6 +100,10 @@ type Environment struct {
 	clusterLocalServices ClusterLocalProvider
 
 	GatewayAPIController GatewayController
+
+	// EndpointShards for a service. This is a global (per-server) list, built from
+	// incremental updates. This is keyed by service and namespace
+	EndpointIndex *EndpointIndex
 
 	// TODO this can probably be part of the k8s controller's Pod indexing
 	// splitting it out just lets us modify things quicker in PoC state without
@@ -189,7 +200,7 @@ type Resources = []*discovery.Resource
 // DeletedResources is an alias for array of strings that represent removed resources in delta.
 type DeletedResources = []string
 
-func AnyToUnnamedResources(r []*any.Any) Resources {
+func AnyToUnnamedResources(r []*anypb.Any) Resources {
 	a := make(Resources, 0, len(r))
 	for _, rr := range r {
 		a = append(a, &discovery.Resource{Resource: rr})
@@ -197,8 +208,8 @@ func AnyToUnnamedResources(r []*any.Any) Resources {
 	return a
 }
 
-func ResourcesToAny(r Resources) []*any.Any {
-	a := make([]*any.Any, 0, len(r))
+func ResourcesToAny(r Resources) []*anypb.Any {
+	a := make([]*anypb.Any, 0, len(r))
 	for _, rr := range r {
 		a = append(a, rr.Resource)
 	}
@@ -339,10 +350,6 @@ type WatchedResource struct {
 	// For Delta Xds, all resources of the TypeUrl that a client has subscribed to.
 	ResourceNames []string
 
-	// VersionSent is the version of the resource included in the last sent response.
-	// It corresponds to the [Cluster/Route/Listener]VersionSent in the XDS package.
-	VersionSent string
-
 	// NonceSent is the nonce sent in the last sent response. If it is equal with NonceAcked, the
 	// last message has been processed. If empty: we never sent a message of this type.
 	NonceSent string
@@ -350,11 +357,12 @@ type WatchedResource struct {
 	// NonceAcked is the last acked message.
 	NonceAcked string
 
-	// NonceNacked is the last nacked message. This is reset following a successful ACK
-	NonceNacked string
-
-	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
-	LastSent time.Time
+	// AlwaysRespond, if true, will ensure that even when a request would otherwise be treated as an
+	// ACK, it will be responded to. This typically happens when a proxy reconnects to another instance of
+	// Istiod. In that case, Envoy expects us to respond to EDS/RDS/SDS requests to finish warming of
+	// clusters/listeners.
+	// Typically, this should be set to 'false' after response; keeping it true would likely result in an endless loop.
+	AlwaysRespond bool
 
 	// LastResources tracks the contents of the last push.
 	// This field is extremely expensive to maintain and is typically disabled
@@ -473,7 +481,7 @@ type Node struct {
 	// Metadata is the typed node metadata
 	Metadata *BootstrapNodeMetadata
 	// RawMetadata is the untyped node metadata
-	RawMetadata map[string]interface{}
+	RawMetadata map[string]any
 	// Locality from Envoy bootstrap
 	Locality *core.Locality
 }
@@ -646,12 +654,15 @@ type NodeMetadata struct {
 	// redirected tcp listeners. This does not change the virtualOutbound listener.
 	OutboundListenerExactBalance StringBool `json:"OUTBOUND_LISTENER_EXACT_BALANCE,omitempty"`
 
+	// The istiod address when running ASM Managed Control Plane.
+	CloudrunAddr string `json:"CLOUDRUN_ADDR,omitempty"`
+
 	// SidecarlessType can be one of ambient.NodeType TODO(stevenctl,ambient) make the type ambient.NodeType
 	SidecarlessType string `json:"SIDECARLESS_TYPE,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
-	Raw map[string]interface{} `json:"-"`
+	Raw map[string]any `json:"-"`
 }
 
 // ProxyConfigOrDefault is a helper function to get the ProxyConfig from metadata, or fallback to a default
@@ -706,7 +717,7 @@ func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, t2); err != nil {
 		return err
 	}
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
@@ -1140,11 +1151,18 @@ func (node *Proxy) EnableHBONE() bool {
 	return bool(node.Metadata.EnableHBONE)
 }
 
+func (node *Proxy) FuzzValidate() bool {
+	if node.Metadata == nil {
+		return false
+	}
+	return len(node.IPAddresses) != 0
+}
+
 type GatewayController interface {
 	ConfigStoreController
-	// Recompute updates the internal state of the gateway controller for a given input. This should be
+	// Reconcile updates the internal state of the gateway controller for a given input. This should be
 	// called before any List/Get calls if the state has changed
-	Recompute(GatewayContext) error
+	Reconcile(ctx *PushContext) error
 	// SecretAllowed determines if a SDS credential is accessible to a given namespace.
 	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
 	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.

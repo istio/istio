@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 
+	"go.uber.org/atomic"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -63,6 +64,8 @@ type suiteContext struct {
 	outcomeMu    sync.RWMutex
 	testOutcomes []TestOutcome
 
+	dumpCount *atomic.Uint64
+
 	traces sync.Map
 }
 
@@ -80,6 +83,7 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 		FileWriter:   yml.NewFileWriter(workDir),
 		suiteLabels:  labels,
 		contextNames: sets.New(),
+		dumpCount:    atomic.NewUint64(0),
 	}
 
 	env, err := envFn(c)
@@ -163,7 +167,7 @@ func (c *suiteContext) TrackResource(r resource.Resource) resource.ID {
 	return rid
 }
 
-func (c *suiteContext) GetResource(ref interface{}) error {
+func (c *suiteContext) GetResource(ref any) error {
 	return c.globalScope.get(ref)
 }
 
@@ -221,6 +225,17 @@ func (c *suiteContext) ConfigIstio() config.Factory {
 	return newConfigFactory(c, c.Clusters().Configs())
 }
 
+// RequestTestDump is called by the test context for a failed test to request a full
+// dump of the system state. Returns true if the dump may proceed, or false if the
+// maximum number of dumps has been exceeded for this suite.
+func (c *suiteContext) RequestTestDump() bool {
+	return c.dumpCount.Inc() < c.settings.MaxDumps
+}
+
+func (c *suiteContext) ID() string {
+	return c.globalScope.id
+}
+
 type Outcome string
 
 const (
@@ -257,17 +272,17 @@ func (c *suiteContext) registerOutcome(test *testImpl) {
 	c.testOutcomes = append(c.testOutcomes, newOutcome)
 }
 
-func (c *suiteContext) RecordTraceEvent(key string, value interface{}) {
+func (c *suiteContext) RecordTraceEvent(key string, value any) {
 	c.traces.Store(key, value)
 }
 
 func (c *suiteContext) marshalTraceEvent() []byte {
-	kvs := map[string]interface{}{}
-	c.traces.Range(func(key, value interface{}) bool {
+	kvs := map[string]any{}
+	c.traces.Range(func(key, value any) bool {
 		kvs[key.(string)] = value
 		return true
 	})
-	outer := map[string]interface{}{
+	outer := map[string]any{
 		fmt.Sprintf("suite/%s", c.settings.TestID): kvs,
 	}
 	d, _ := yaml.Marshal(outer)

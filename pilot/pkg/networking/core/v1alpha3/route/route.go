@@ -28,7 +28,7 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -41,11 +41,13 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/constant"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/grpc"
 	"istio.io/pkg/log"
 )
 
@@ -96,7 +98,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	out := make([]VirtualHostWrapper, 0)
 
 	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
-	dependentDestinationRules := []*config.Config{}
+	dependentDestinationRules := []*model.ConsolidatedDestRule{}
 	// consistent hash policies for the http route destinations
 	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
 	for _, virtualService := range virtualServices {
@@ -295,6 +297,10 @@ func buildSidecarVirtualHostsForService(
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	if len(destination.GetHost()) == 0 {
+		// only happens when the gateway-api BackendRef is invalid
+		return "UnknownService"
+	}
 	port := listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
@@ -351,7 +357,7 @@ func BuildHTTPRoutesForVirtualService(
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
-					if isCatchAllMatch(match) {
+					if isCatchAllRoute(r) {
 						catchall = true
 						break
 					}
@@ -437,16 +443,18 @@ func translateRoute(
 
 	if in.Redirect != nil {
 		applyRedirect(out, in.Redirect, listenPort)
+	} else if in.DirectResponse != nil {
+		applyDirectResponse(out, in.DirectResponse)
 	} else {
-		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		applyHTTPRouteDestination(out, node, virtualService, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
 		Operation: getRouteOperation(out, virtualService.Name, listenPort),
 	}
 	if in.Fault != nil {
-		out.TypedPerFilterConfig = make(map[string]*any.Any)
-		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
+		out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(translateFault(in.Fault))
 	}
 
 	if isHTTP3AltSvcHeaderNeeded {
@@ -463,6 +471,7 @@ func translateRoute(
 func applyHTTPRouteDestination(
 	out *route.Route,
 	node *model.Proxy,
+	vs config.Config,
 	in *networking.HTTPRoute,
 	mesh *meshconfig.MeshConfig,
 	authority string,
@@ -494,6 +503,12 @@ func applyHTTPRouteDestination(
 		action.MaxGrpcTimeout = action.Timeout
 	}
 
+	if model.UseGatewaySemantics(vs) && util.IsIstioVersionGE115(node.IstioVersion) {
+		// return 500 for invalid backends
+		// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L204
+		action.ClusterNotFoundResponseCode = route.RouteAction_INTERNAL_SERVER_ERROR
+	}
+
 	out.Action = &route.Route_Route{Route: action}
 
 	if in.Rewrite != nil {
@@ -518,6 +533,7 @@ func applyHTTPRouteDestination(
 		}
 	}
 
+	var totalWeight uint32
 	// TODO: eliminate this logic and use the total_weight option in envoy route
 	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 	for _, dst := range in.Route {
@@ -537,6 +553,7 @@ func applyHTTPRouteDestination(
 			Name:   n,
 			Weight: weight,
 		}
+		totalWeight += weight.GetValue()
 		if dst.Headers != nil {
 			operations := translateHeadersOperations(dst.Headers)
 			clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
@@ -578,7 +595,8 @@ func applyHTTPRouteDestination(
 	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
-				Clusters: weighted,
+				Clusters:    weighted,
+				TotalWeight: wrappers.UInt32(totalWeight),
 			},
 		}
 	}
@@ -631,6 +649,33 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 	default:
 		log.Warnf("Redirect Code %d is not yet supported", redirect.RedirectCode)
 		action = nil
+	}
+
+	out.Action = action
+}
+
+func applyDirectResponse(out *route.Route, directResponse *networking.HTTPDirectResponse) {
+	action := &route.Route_DirectResponse{
+		DirectResponse: &route.DirectResponseAction{
+			Status: directResponse.Status,
+		},
+	}
+
+	if directResponse.Body != nil {
+		switch op := directResponse.Body.Specifier.(type) {
+		case *networking.HTTPBody_String_:
+			action.DirectResponse.Body = &core.DataSource{
+				Specifier: &core.DataSource_InlineString{
+					InlineString: op.String_,
+				},
+			}
+		case *networking.HTTPBody_Bytes:
+			action.DirectResponse.Body = &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: op.Bytes,
+				},
+			}
+		}
 	}
 
 	out.Action = action
@@ -800,8 +845,6 @@ func TranslateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 	return translateRouteMatch(node, vs, in)
 }
 
-const singleDNSLabelWildcardRegex = "^[-a-zA-Z]*"
-
 // translateRouteMatch translates match condition
 func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
@@ -827,25 +870,6 @@ func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 			matcher := translateHeaderMatch(name, stringMatch)
 			matcher.InvertMatch = true
 			out.Headers = append(out.Headers, matcher)
-		}
-	}
-	if model.UseGatewaySemantics(vs) {
-		hosts := vs.Spec.(*networking.VirtualService).Hosts
-		// If we have a wildcard match, add a header match regex rule to match the
-		// hostname, so we can be sure to only match one DNS label. This is required
-		// as Envoy's virtualhost hostname wildcard matching can match multiple
-		// labels. This match ignores a port in the hostname in case it is present.
-		// Conversion guarantees a single host
-		if len(hosts) == 1 && strings.HasPrefix(hosts[0], "*.") {
-			mm := &route.HeaderMatcher{
-				Name: HeaderAuthority,
-				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
-					StringMatch: util.ConvertToEnvoyMatch(&networking.StringMatch{
-						MatchType: &networking.StringMatch_Regex{Regex: singleDNSLabelWildcardRegex + regexp.QuoteMeta(hosts[0][1:])},
-					}),
-				},
-			}
-			out.Headers = append(out.Headers, mm)
 		}
 	}
 
@@ -1158,8 +1182,15 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 			out.Abort.ErrorType = &xdshttpfault.FaultAbort_HttpStatus{
 				HttpStatus: uint32(a.HttpStatus),
 			}
+		case *networking.HTTPFaultInjection_Abort_GrpcStatus:
+			// We wouldn't have an unknown gRPC code here. This is because
+			// the validation webhook would have already caught the invalid
+			// code and we wouldn't reach here.
+			out.Abort.ErrorType = &xdshttpfault.FaultAbort_GrpcStatus{
+				GrpcStatus: uint32(grpc.SupportedGRPCStatus[a.GrpcStatus]),
+			}
 		default:
-			log.Warnf("Non-HTTP type abort faults are not yet supported")
+			log.Warnf("Only HTTP and gRPC type abort faults are supported")
 			out.Abort = nil
 		}
 	}
@@ -1234,11 +1265,12 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 
 func getHashForService(node *model.Proxy, push *model.PushContext,
 	svc *model.Service, port *model.Port,
-) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil
 	}
-	destinationRule := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
+	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
+	destinationRule := mergedDR.GetRule()
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1255,7 +1287,7 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 		}
 	}
 
-	return consistentHash, destinationRule
+	return consistentHash, mergedDR
 }
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
@@ -1285,13 +1317,14 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 // GetHashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
 func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
 	configNamespace string,
-) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil
 	}
 
 	destination := dst.GetDestination()
-	destinationRule := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
+	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
+	destinationRule := mergedDR.GetRule()
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1320,7 +1353,7 @@ func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *
 	case plsHash != nil:
 		consistentHash = plsHash
 	}
-	return consistentHash, destinationRule
+	return consistentHash, mergedDR
 }
 
 // isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise
@@ -1351,25 +1384,16 @@ func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
 		m.SourceNamespace == ""
 }
 
-// CombineVHostRoutes semi concatenates Vhost's routes into a single route set.
-// Moves the catch all routes alone to the end, while retaining
-// the relative order of other routes in the concatenated route.
-// Assumes that the virtual Services that generated first and second are ordered by
-// time.
-func CombineVHostRoutes(routeSets ...[]*route.Route) []*route.Route {
-	l := 0
-	for _, rs := range routeSets {
-		l += len(rs)
-	}
-	allroutes := make([]*route.Route, 0, l)
+// SortVHostRoutes moves the catch all routes alone to the end, while retaining
+// the relative order of other routes in the slice.
+func SortVHostRoutes(routes []*route.Route) []*route.Route {
+	allroutes := make([]*route.Route, 0, len(routes))
 	catchAllRoutes := make([]*route.Route, 0)
-	for _, routes := range routeSets {
-		for _, r := range routes {
-			if isCatchAllRoute(r) {
-				catchAllRoutes = append(catchAllRoutes, r)
-			} else {
-				allroutes = append(allroutes, r)
-			}
+	for _, r := range routes {
+		if isCatchAllRoute(r) {
+			catchAllRoutes = append(catchAllRoutes, r)
+		} else {
+			allroutes = append(allroutes, r)
 		}
 	}
 	return append(allroutes, catchAllRoutes...)
@@ -1381,10 +1405,12 @@ func isCatchAllRoute(r *route.Route) bool {
 	switch ir := r.Match.PathSpecifier.(type) {
 	case *route.RouteMatch_Prefix:
 		catchall = ir.Prefix == "/"
+	case *route.RouteMatch_PathSeparatedPrefix:
+		catchall = ir.PathSeparatedPrefix == "/"
 	case *route.RouteMatch_SafeRegex:
 		catchall = ir.SafeRegex.GetRegex() == "*"
 	}
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
-	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0
+	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
 }

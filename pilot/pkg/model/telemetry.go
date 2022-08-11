@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -35,6 +36,7 @@ import (
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/xds"
@@ -73,7 +75,8 @@ type Telemetries struct {
 	// The computedMetricsFilters lifetime is bound to the Telemetries object. During a push context
 	// creation, we will preserve the Telemetries (and thus the cache) if not Telemetries are modified.
 	// As result, this cache will live until any Telemetry is modified.
-	computedMetricsFilters map[metricsKey]interface{}
+	computedMetricsFilters map[metricsKey]any
+	computedLoggingConfig  map[loggingKey]LoggingConfig
 	mu                     sync.Mutex
 }
 
@@ -85,6 +88,13 @@ type telemetryKey struct {
 	Namespace NamespacedName
 	// Workload stores the Telemetry in the root namespace, if any
 	Workload NamespacedName
+}
+
+// loggingKey defines a key into the computedLoggingConfig cache.
+type loggingKey struct {
+	telemetryKey
+	Class    networking.ListenerClass
+	Protocol networking.ListenerProtocol
 }
 
 // metricsKey defines a key into the computedMetricsFilters cache.
@@ -101,7 +111,8 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 		NamespaceToTelemetries: map[string][]Telemetry{},
 		RootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
-		computedMetricsFilters: map[metricsKey]interface{}{},
+		computedMetricsFilters: map[metricsKey]any{},
+		computedLoggingConfig:  map[loggingKey]LoggingConfig{},
 	}
 
 	fromEnv, err := env.List(collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(), NamespaceAll)
@@ -183,6 +194,7 @@ type TracingSpec struct {
 }
 
 type LoggingConfig struct {
+	Logs      []*accesslog.AccessLog
 	Providers []*meshconfig.MeshConfig_ExtensionProvider
 	Filter    *tpb.AccessLogging_Filter
 }
@@ -206,10 +218,21 @@ func workloadMode(class networking.ListenerClass) tpb.WorkloadMode {
 // AccessLogging returns the logging configuration for a given proxy and listener class.
 // If nil is returned, access logs are not configured via Telemetry and should use fallback mechanisms.
 // If a non-nil but empty configuration is passed, access logging is explicitly disabled.
-func (t *Telemetries) AccessLogging(proxy *Proxy, class networking.ListenerClass) *LoggingConfig {
+func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class networking.ListenerClass) *LoggingConfig {
 	ct := t.applicableTelemetries(proxy)
 	if len(ct.Logging) == 0 && len(t.meshConfig.GetDefaultProviders().GetAccessLogging()) == 0 {
 		return nil
+	}
+
+	key := loggingKey{
+		telemetryKey: ct.telemetryKey,
+		Class:        class,
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	precomputed, ok := t.computedLoggingConfig[key]
+	if ok {
+		return &precomputed
 	}
 
 	cfg := LoggingConfig{}
@@ -217,10 +240,19 @@ func (t *Telemetries) AccessLogging(proxy *Proxy, class networking.ListenerClass
 	cfg.Filter = f
 	for _, p := range providers.SortedList() {
 		fp := t.fetchProvider(p)
-		if fp != nil {
-			cfg.Providers = append(cfg.Providers, fp)
+		if fp == nil {
+			continue
 		}
+
+		cfg.Providers = append(cfg.Providers, fp)
+		al := telemetryAccessLog(push, fp)
+		if al == nil {
+			continue
+		}
+		cfg.Logs = append(cfg.Logs, al)
 	}
+
+	t.computedLoggingConfig[key] = cfg
 	return &cfg
 }
 
@@ -387,7 +419,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 // set of applicable Telemetries, merges them, then translates to the appropriate filters based on the
 // extension providers in the mesh config. Where possible, the result is cached.
 // Currently, this includes metrics and access logging, as some providers are implemented in filters.
-func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) interface{} {
+func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) any {
 	if t == nil {
 		return nil
 	}
@@ -439,7 +471,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		m = append(m, cfg)
 	}
 
-	var res interface{}
+	var res any
 	// Finally, compute the actual filters based on the protoc
 	switch protocol {
 	case networking.ListenerProtocolHTTP:
@@ -773,7 +805,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 
 			f := &hcm.HttpFilter{
 				Name:       xds.StatsFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
@@ -791,7 +823,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 
 			f := &hcm.HttpFilter{
 				Name:       xds.StackdriverFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		default:
@@ -822,7 +854,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 
 			f := &listener.Filter{
 				Name:       xds.StatsFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
@@ -840,7 +872,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 
 			f := &listener.Filter{
 				Name:       xds.StackdriverFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		default:
@@ -951,7 +983,7 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 	// to mimic MarshalProtoNames() with configured JSON Encoder.
 	pb := &wrappers.StringValue{Value: jsonUnescaper.Replace(string(cfgJSON))}
 
-	return networking.MessageToAny(pb)
+	return protoconv.MessageToAny(pb)
 }
 
 var metricToPrometheusMetric = map[string]string{
@@ -996,7 +1028,7 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 	}
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
-	return networking.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
+	return protoconv.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
 }
 
 func disableHostHeaderFallback(class networking.ListenerClass) bool {

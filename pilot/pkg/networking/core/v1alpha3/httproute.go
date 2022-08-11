@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -75,7 +76,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 				}
 				rc = &discovery.Resource{
 					Name:     routeName,
-					Resource: util.MessageToAny(emptyRoute),
+					Resource: protoconv.MessageToAny(emptyRoute),
 				}
 			}
 			routeConfigurations = append(routeConfigurations, rc)
@@ -87,7 +88,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, efw, rc)
 				resource := &discovery.Resource{
 					Name:     routeName,
-					Resource: util.MessageToAny(rc),
+					Resource: protoconv.MessageToAny(rc),
 				}
 				routeConfigurations = append(routeConfigurations, resource)
 			}
@@ -206,7 +207,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 
 	resource = &discovery.Resource{
 		Name:     out.Name,
-		Resource: util.MessageToAny(out),
+		Resource: protoconv.MessageToAny(out),
 	}
 
 	if features.EnableRDSCaching && routeCache != nil {
@@ -220,8 +221,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 // selectVirtualServices selects the virtual services by matching given services' host names.
 func selectVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*model.Service) []config.Config {
 	out := make([]config.Config, 0)
-	for _, c := range virtualServices {
-		rule := c.Spec.(*networking.VirtualService)
+	// As a performance optimization, find out wildcard service hosts first, so that
+	// if non wildcard vs hosts can't be looked up directly in the service map, only need to
+	// loop through wildcard service hosts instead of all.
+	wcSvcHosts := []host.Name{}
+	for svcHost := range servicesByName {
+		if svcHost.IsWildCarded() {
+			wcSvcHosts = append(wcSvcHosts, svcHost)
+		}
+	}
+
+	for i := range virtualServices {
+		rule := virtualServices[i].Spec.(*networking.VirtualService)
 		var match bool
 
 		// Selection algorithm:
@@ -237,10 +248,23 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 				break
 			}
 
-			for svcHost := range servicesByName {
-				if host.Name(h).Matches(svcHost) {
-					match = true
-					break
+			if host.Name(h).IsWildCarded() {
+				// Process wildcard vs host as it need to follow the slow path of
+				// looping through all services in the map.
+				for svcHost := range servicesByName {
+					if host.Name(h).Matches(svcHost) {
+						match = true
+						break
+					}
+				}
+			} else {
+				// If non wildcard vs host isn't be found in service map, only loop through
+				// wildcard service hosts to avoid repeated matching.
+				for _, svcHost := range wcSvcHosts {
+					if host.Name(h).Matches(svcHost) {
+						match = true
+						break
+					}
 				}
 			}
 
@@ -250,7 +274,7 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 		}
 
 		if match {
-			out = append(out, c)
+			out = append(out, virtualServices[i])
 		}
 	}
 
@@ -330,10 +354,11 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			DNSDomain:               node.DNSDomain,
 			DNSCapture:              bool(node.Metadata.DNSCapture),
 			DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
+			AllowAny:                util.IsAllowAnyOutbound(node),
 			ListenerPort:            listenerPort,
 			Services:                services,
 			VirtualServices:         virtualServices,
-			DelegateVirtualServices: push.DelegateVirtualServicesConfigKey(virtualServices),
+			DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
 			EnvoyFilterKeys:         efKeys,
 		}
 	}

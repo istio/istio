@@ -25,13 +25,13 @@ func extractTags(a Args, target, variant string, hasDoubleDefault bool) []string
 		for _, tg := range a.Tags {
 			if variant == DefaultVariant {
 				// For default, we have no suffix
-				tags = append(tags, fmt.Sprintf("%s/%s:%s", h, target, tg))
+				tags = append(tags, fmt.Sprintf("%s/%s:%s%s", h, target, tg, a.suffix))
 			} else {
 				// Otherwise, we have a suffix with the variant
-				tags = append(tags, fmt.Sprintf("%s/%s:%s-%s", h, target, tg, variant))
+				tags = append(tags, fmt.Sprintf("%s/%s:%s-%s%s", h, target, tg, variant, a.suffix))
 				// If we need a default as well, add it as a second tag for the same image to avoid building twice
 				if variant == PrimaryVariant && hasDoubleDefault {
-					tags = append(tags, fmt.Sprintf("%s/%s:%s", h, target, tg))
+					tags = append(tags, fmt.Sprintf("%s/%s:%s%s", h, target, tg, a.suffix))
 				}
 			}
 		}
@@ -39,12 +39,12 @@ func extractTags(a Args, target, variant string, hasDoubleDefault bool) []string
 	return tags
 }
 
-func createArgs(args Args, target string, variant string) map[string]string {
+func createArgs(args Args, target string, variant string, architecture string) map[string]string {
 	baseDist := variant
 	if baseDist == DefaultVariant {
 		baseDist = PrimaryVariant
 	}
-	return map[string]string{
+	m := map[string]string{
 		// Base version defines the tag of the base image to use. Typically, set in the Makefile and not overridden.
 		"BASE_VERSION": args.BaseVersion,
 		// Base distribution picks which variant to build
@@ -55,6 +55,13 @@ func createArgs(args Args, target string, variant string) map[string]string {
 		"VM_IMAGE_NAME":    vmImageName(target),
 		"VM_IMAGE_VERSION": vmImageVersion(target),
 	}
+	// Only needed for crane - buildx does it automagically
+	if architecture != "" {
+		os, arch, _ := strings.Cut(architecture, "/")
+		m["TARGETARCH"] = arch
+		m["TARGETOS"] = os
+	}
+	return m
 }
 
 func vmImageName(target string) string {

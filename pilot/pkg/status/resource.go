@@ -109,14 +109,14 @@ func ResourceToModelConfig(c Resource) config.Meta {
 	}
 }
 
-func GetTypedStatus(in interface{}) (out *v1alpha1.IstioStatus, err error) {
+func GetTypedStatus(in any) (out *v1alpha1.IstioStatus, err error) {
 	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
 		return ret, nil
 	}
 	return nil, fmt.Errorf("cannot cast %T: %v to IstioStatus", in, in)
 }
 
-func GetOGProvider(in interface{}) (out GenerationProvider, err error) {
+func GetOGProvider(in any) (out GenerationProvider, err error) {
 	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
 		return &IstioGenerationProvider{ret}, nil
 	}

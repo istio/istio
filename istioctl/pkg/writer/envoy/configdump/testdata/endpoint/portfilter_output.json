@@ -1,0 +1,70 @@
+[
+    {
+        "clusterName": "outbound|80||istio-ingressgateway.istio-system.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.176",
+                                    "portValue": 8080
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "istio-ingressgateway;istio-system;istio-ingressgateway;latest;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    },
+    {
+        "clusterName": "outbound|80||skywalking-ui.skywalking.svc.cluster.local",
+        "endpoints": [
+            {
+                "locality": {},
+                "lbEndpoints": [
+                    {
+                        "endpoint": {
+                            "address": {
+                                "socketAddress": {
+                                    "address": "10.244.0.189",
+                                    "portValue": 8080
+                                }
+                            },
+                            "healthCheckConfig": {}
+                        },
+                        "healthStatus": "HEALTHY",
+                        "metadata": {
+                            "filterMetadata": {
+                                "istio": {
+                                    "workload": "skywalking-ui;skywalking;;;Kubernetes"
+                                }
+                            }
+                        },
+                        "loadBalancingWeight": 1
+                    }
+                ],
+                "loadBalancingWeight": 1
+            }
+        ],
+        "policy": {
+            "overprovisioningFactor": 140
+        }
+    }
+]

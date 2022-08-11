@@ -17,16 +17,16 @@
 package gateway
 
 type gatewayGeneration struct {
-	inner interface{}
+	inner any
 }
 
 func (g *gatewayGeneration) SetObservedGeneration(i int64) {
 	// Intentionally blank.  The observed generation of a gateway
 	// status type is contained in the individual conditions
 	// not at the top level, and is the responsibility
-	// of the condition functions to update.
+	// of the Condition functions to update.
 }
 
-func (g *gatewayGeneration) Unwrap() interface{} {
+func (g *gatewayGeneration) Unwrap() any {
 	return g.inner
 }

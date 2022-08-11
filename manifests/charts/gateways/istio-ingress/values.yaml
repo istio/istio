@@ -181,11 +181,7 @@ global:
   #   1 - Least preferred
   #   2 - No preference
   #   3 - Most preferred
-  arch:
-    amd64: 2
-    s390x: 2
-    ppc64le: 2
-    arm64: 2
+  arch: {}
 
   # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
   # The control plane has different scopes depending on component, but can configure default log level across all components

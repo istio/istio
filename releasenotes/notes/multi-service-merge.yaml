@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: []
+releaseNotes:
+- |
+  **Fixed** an issue causing Service merging to only take into account the first and last Service, rather than all of them.

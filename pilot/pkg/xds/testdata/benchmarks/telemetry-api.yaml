@@ -1,12 +1,15 @@
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
-  name: metrics
+  name: telemetry
   namespace: istio-system
 spec:
   metrics:
   - providers:
     - name: prometheus
+  accessLogging:
+  - providers:
+      - name: envoy-json
 ---
 # Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
 apiVersion: networking.istio.io/v1alpha3

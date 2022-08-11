@@ -41,6 +41,7 @@ import (
 	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -181,13 +182,13 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 				Name: name,
 				TransportSocket: &core.TransportSocket{
 					Name: "envoy.transport_sockets.tls",
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
 						CommonTlsContext: buildCommonTLSContext(lb.node, nil, lb.push, true),
 					})},
 				},
 				Filters: []*listener.Filter{{
 					Name:       wellknown.HTTPConnectionManager,
-					ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(h)},
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
 				}},
 			},
 		},
@@ -206,7 +207,7 @@ func (lb *ListenerBuilder) buildRemoteInboundOriginateConnect() *listener.Listen
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
 				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 						StatPrefix:       name,
 						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
 						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
@@ -446,7 +447,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTPService(svc *model.S
 
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 	})
 	return filters
 }
@@ -566,7 +567,7 @@ func (lb *ListenerBuilder) translateRoute(
 	}
 	if in.Fault != nil {
 		out.TypedPerFilterConfig = make(map[string]*any.Any)
-		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(istio_route.TranslateFault(in.Fault))
+		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(istio_route.TranslateFault(in.Fault))
 	}
 
 	return out

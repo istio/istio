@@ -93,12 +93,14 @@ func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, e
 		err = fmt.Errorf("could not parse url in image reference: %v", err)
 		return
 	}
+	wasmLog.Infof("fetching image %s from registry %s with tag %s", ref.Context().RepositoryStr(),
+		ref.Context().RegistryStr(), ref.Identifier())
 
 	// fallback to http based request, inspired by [helm](https://github.com/helm/helm/blob/12f1bc0acdeb675a8c50a78462ed3917fb7b2e37/pkg/registry/client.go#L594)
 	// only deal with https fallback instead of attributing all other type of errors to URL parsing error
 	desc, err := remote.Get(ref, o.fetchOpts...)
 	if err != nil && strings.Contains(err.Error(), "server gave HTTP response") {
-		wasmLog.Infof("fetch with plain text from %s", url)
+		wasmLog.Infof("fetching image with plain text from %s", url)
 		ref, err = name.ParseReference(url, name.Insecure)
 		if err == nil {
 			desc, err = remote.Get(ref, o.fetchOpts...)

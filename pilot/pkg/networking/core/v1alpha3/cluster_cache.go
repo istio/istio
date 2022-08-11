@@ -24,8 +24,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
+)
+
+var (
+	Separator = []byte{'~'}
+	Slash     = []byte{'/'}
 )
 
 // clusterCache includes the variables that can influence a Cluster Configuration.
@@ -48,58 +52,93 @@ type clusterCache struct {
 
 	// Dependent configs
 	service         *model.Service
-	destinationRule *config.Config
+	destinationRule *model.ConsolidatedDestRule
 	envoyFilterKeys []string
 	peerAuthVersion string   // identifies the versions of all peer authentications
 	serviceAccounts []string // contains all the service accounts associated with the service
 }
 
 func (t *clusterCache) Key() string {
-	params := []string{
-		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
-		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
-		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto), strconv.FormatBool(t.supportsIPv4),
-	}
-	if t.proxyView != nil {
-		params = append(params, t.proxyView.String())
-	}
-	if t.metadataCerts != nil {
-		params = append(params, t.metadataCerts.String())
-	}
-	if t.service != nil {
-		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
-	}
-	if t.destinationRule != nil {
-		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
-	}
-	params = append(params, t.envoyFilterKeys...)
-	params = append(params, t.peerAuthVersion)
-	params = append(params, t.serviceAccounts...)
-
 	hash := md5.New()
-	for _, param := range params {
-		hash.Write([]byte(param))
+	hash.Write([]byte(t.clusterName))
+	hash.Write(Separator)
+	hash.Write([]byte(t.proxyVersion))
+	hash.Write(Separator)
+	hash.Write([]byte(util.LocalityToString(t.locality)))
+	hash.Write(Separator)
+	hash.Write([]byte(t.proxyClusterID))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(t.proxySidecar)))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(t.http2)))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
+	hash.Write(Separator)
+	hash.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
+	hash.Write(Separator)
+
+	if t.proxyView != nil {
+		hash.Write([]byte(t.proxyView.String()))
 	}
+	hash.Write(Separator)
+
+	if t.metadataCerts != nil {
+		hash.Write([]byte(t.metadataCerts.String()))
+	}
+	hash.Write(Separator)
+
+	if t.service != nil {
+		hash.Write([]byte(t.service.Hostname))
+		hash.Write(Slash)
+		hash.Write([]byte(t.service.Attributes.Namespace))
+	}
+	hash.Write(Separator)
+
+	for _, dr := range t.destinationRule.GetFrom() {
+		hash.Write([]byte(dr.Name))
+		hash.Write(Slash)
+		hash.Write([]byte(dr.Namespace))
+	}
+	hash.Write(Separator)
+
+	for _, efk := range t.envoyFilterKeys {
+		hash.Write([]byte(efk))
+		hash.Write(Separator)
+	}
+	hash.Write(Separator)
+
+	hash.Write([]byte(t.peerAuthVersion))
+	hash.Write(Separator)
+
+	for _, sa := range t.serviceAccounts {
+		hash.Write([]byte(sa))
+		hash.Write(Separator)
+	}
+	hash.Write(Separator)
+
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
 }
 
-func (t clusterCache) DependentConfigs() []model.ConfigKey {
-	configs := []model.ConfigKey{}
+func (t clusterCache) DependentConfigs() []model.ConfigHash {
+	drs := t.destinationRule.GetFrom()
+	configs := make([]model.ConfigHash, 0, len(drs)+1+len(t.envoyFilterKeys))
 	if t.destinationRule != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace})
+		for _, dr := range drs {
+			configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: dr.Name, Namespace: dr.Namespace}.HashCode())
+		}
 	}
 	if t.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace}.HashCode())
 	}
 	for _, efKey := range t.envoyFilterKeys {
 		items := strings.Split(efKey, "/")
-		configs = append(configs, model.ConfigKey{Kind: gvk.EnvoyFilter, Name: items[1], Namespace: items[0]})
+		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
 	}
 	return configs
 }
 
-func (t *clusterCache) DependentTypes() []config.GroupVersionKind {
+func (t *clusterCache) DependentTypes() []kind.Kind {
 	return nil
 }
 

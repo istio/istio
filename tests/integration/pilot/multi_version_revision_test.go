@@ -55,6 +55,7 @@ type revisionedNamespace struct {
 // TestMultiVersionRevision tests traffic between data planes running under differently versioned revisions
 // should test all possible revisioned namespace pairings to test traffic between all versions
 func TestMultiVersionRevision(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
@@ -142,7 +143,8 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 					Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
 							result, err := from.Call(echo.CallOptions{
-								To: to,
+								To:    to,
+								Count: 1,
 								Port: echo.Port{
 									Name: trafficType,
 								},

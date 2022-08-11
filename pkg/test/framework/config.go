@@ -69,7 +69,7 @@ func (c *configFactory) YAML(ns string, yamlText ...string) config.Plan {
 	return c.New().YAML(ns, yamlText...)
 }
 
-func (c *configFactory) Eval(ns string, args interface{}, yamlTemplates ...string) config.Plan {
+func (c *configFactory) Eval(ns string, args any, yamlTemplates ...string) config.Plan {
 	return c.New().Eval(ns, args, yamlTemplates...)
 }
 
@@ -77,7 +77,7 @@ func (c *configFactory) File(ns string, filePaths ...string) config.Plan {
 	return c.New().File(ns, filePaths...)
 }
 
-func (c *configFactory) EvalFile(ns string, args interface{}, filePaths ...string) config.Plan {
+func (c *configFactory) EvalFile(ns string, args any, filePaths ...string) config.Plan {
 	return c.New().EvalFile(ns, args, filePaths...)
 }
 
@@ -219,11 +219,11 @@ func (c *configPlan) File(ns string, paths ...string) config.Plan {
 	return c.YAML(ns, yamlText...)
 }
 
-func (c *configPlan) Eval(ns string, args interface{}, templates ...string) config.Plan {
+func (c *configPlan) Eval(ns string, args any, templates ...string) config.Plan {
 	return c.YAML(ns, tmpl.MustEvaluateAll(args, templates...)...)
 }
 
-func (c *configPlan) EvalFile(ns string, args interface{}, paths ...string) config.Plan {
+func (c *configPlan) EvalFile(ns string, args any, paths ...string) config.Plan {
 	templates, err := file.AsStringArray(paths...)
 	if err != nil {
 		panic(err)

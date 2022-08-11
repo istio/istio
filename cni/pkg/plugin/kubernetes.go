@@ -117,7 +117,7 @@ func (pi PodInfo) String() string {
 	b.WriteString(fmt.Sprintf("  Init Containers: %v\n", icn))
 	b.WriteString(fmt.Sprintf("  Containers: %v\n", pi.Containers))
 	b.WriteString(fmt.Sprintf("  Labels: %+v\n", pi.Labels))
-	b.WriteString(fmt.Sprintf("  Annotatioins: %+v\n", pi.Annotations))
+	b.WriteString(fmt.Sprintf("  Annotations: %+v\n", pi.Annotations))
 	b.WriteString(fmt.Sprintf("  Envs: %+v\n", pi.ProxyEnvironments))
 	b.WriteString(fmt.Sprintf("  ProxyConfig: %+v\n", pi.ProxyEnvironments))
 	return b.String()

@@ -114,13 +114,12 @@ func TestMultiRevision(t *testing.T) {
 							Port: echo.Port{
 								Name: "http",
 							},
-							Count: 3 * to.WorkloadsOrFail(t).Len(),
 							Retry: echo.Retry{
 								NoRetry: true,
 							},
 							Check: check.And(
 								check.OK(),
-								check.ReachedTargetClusters(t.AllClusters()),
+								check.ReachedTargetClusters(t),
 							),
 						})
 						return check.And(

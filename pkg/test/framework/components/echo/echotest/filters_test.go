@@ -133,8 +133,8 @@ func TestFilters(t *testing.T) {
 		filter func(echo.Instances) echo.Instances
 		expect echo.Instances
 	}{
-		"SingleSimplePodServiceAndAllSpecial": {
-			filter: echotest.SingleSimplePodServiceAndAllSpecial(1),
+		"SimplePodServiceAndAllSpecial": {
+			filter: echotest.SingleSimplePodServiceAndAllSpecial(),
 			expect: echo.Instances{
 				// Keep pods for one regular service per namespace.
 				a1, a2, a1Ns2, a2Ns2,

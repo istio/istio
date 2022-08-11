@@ -35,7 +35,7 @@ func ApplyRouteConfigurationPatches(
 	efw *model.EnvoyFilterWrapper,
 	routeConfiguration *route.RouteConfiguration,
 ) (out *route.RouteConfiguration) {
-	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Route)
 		log.Errorf("route patch caused panic, so the patches did not take effect")
 	})

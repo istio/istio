@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,10 +73,10 @@ func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 	)
 
 	_, c.podController = cache.NewInformer(podListWatch, &v1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj interface{}) {
+		AddFunc: func(newObj any) {
 			c.mayAddToWorkQueue(newObj)
 		},
-		UpdateFunc: func(_, newObj interface{}) {
+		UpdateFunc: func(_, newObj any) {
 			c.mayAddToWorkQueue(newObj)
 		},
 	})
@@ -84,7 +84,7 @@ func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 	return c, nil
 }
 
-func (rc *Controller) mayAddToWorkQueue(obj interface{}) {
+func (rc *Controller) mayAddToWorkQueue(obj any) {
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
 		repairLog.Error("Cannot convert object to pod. Skip adding it to the repair working queue.")

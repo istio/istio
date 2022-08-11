@@ -32,9 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-
-	//  to avoid 'No Auth Provider found for name "gcp"'
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // to avoid 'No Auth Provider found for name "gcp"'
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
@@ -427,8 +425,8 @@ func createServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptions) e
 
 func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
 	// Create a renderer for the base installation.
-	baseRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace)
-	discoveryRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "istio-control/istio-discovery", "Pilot", opt.Namespace)
+	baseRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace, nil)
+	discoveryRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "istio-control/istio-discovery", "Pilot", opt.Namespace, nil)
 
 	baseTemplates := []string{"reader-serviceaccount.yaml"}
 	discoveryTemplates := []string{"clusterrole.yaml", "clusterrolebinding.yaml"}

@@ -255,7 +255,8 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 			for _, tc := range cases {
 				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
 					client.CallOrFail(t, echo.CallOptions{
-						To: to,
+						To:    to,
+						Count: 1,
 						Port: echo.Port{
 							Name: tc.PortName,
 						},

@@ -91,6 +91,7 @@ import (
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -173,23 +174,23 @@ func (g *UProxyConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.Pu
 				if c == nil {
 					continue
 				}
-				out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+				out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 			}
 		}
 	}
 
 	for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
 		c := outboundTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
-		out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+		out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
 	for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
 		c := outboundPodTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
-		out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+		out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
 	if features.SidecarlessCapture == model.VariantIptables {
 		for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
 			c := outboundPodLocalTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
-			out = append(out, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
+			out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 		}
 	}
 
@@ -231,7 +232,7 @@ func blackholeCluster(push *model.PushContext) *discovery.Resource {
 	}
 	return &discovery.Resource{
 		Name:     c.Name,
-		Resource: util.MessageToAny(c),
+		Resource: protoconv.MessageToAny(c),
 	}
 }
 
@@ -243,7 +244,7 @@ func passthroughCluster(push *model.PushContext) *discovery.Resource {
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		// TODO protocol options are copy-paste from v1alpha3 package
 		TypedExtensionProtocolOptions: map[string]*any.Any{
-			v3.HttpProtocolOptionsType: util.MessageToAny(&http.HttpProtocolOptions{
+			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
 				UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 					UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
@@ -258,7 +259,7 @@ func passthroughCluster(push *model.PushContext) *discovery.Resource {
 			}),
 		},
 	}
-	return &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)}
+	return &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)}
 }
 
 func tcpPassthroughCluster(push *model.PushContext) *discovery.Resource {
@@ -268,7 +269,7 @@ func tcpPassthroughCluster(push *model.PushContext) *discovery.Resource {
 		ConnectTimeout:       push.Mesh.ConnectTimeout,
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 	}
-	return &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)}
+	return &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)}
 }
 
 // buildPodOutboundCaptureListener creates a single listener with a FilterChain for each combination
@@ -292,7 +293,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 			{
 				Name: wellknown.OriginalDestination,
 				ConfigType: &listener.ListenerFilter_TypedConfig{
-					TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
+					TypedConfig: protoconv.MessageToAny(&originaldst.OriginalDst{}),
 				},
 			},
 		},
@@ -313,7 +314,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 	//	l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
 	//		Name: wellknown.OriginalSource,
 	//		ConfigType: &listener.ListenerFilter_TypedConfig{
-	//			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+	//			TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
 	//				Mark: OriginalSrcMark,
 	//			}),
 	//		},
@@ -379,7 +380,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 						Name: name,
 						Filters: []*listener.Filter{{
 							Name: wellknown.TCPProxy,
-							ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+							ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 								AccessLog:        accessLogString("capture outbound (no pep)"),
 								StatPrefix:       name,
 								ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
@@ -460,7 +461,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 						{
 							Name: wellknown.TCPProxy,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+								TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 									AccessLog:        accessLogString("capture outbound pod (no pep)"),
 									StatPrefix:       name,
 									ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: cluster},
@@ -483,7 +484,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 	l.FilterChains = append(l.FilterChains, passthroughFilterChain(), blackholeFilterChain("outbound"))
 	return &discovery.Resource{
 		Name:     l.Name,
-		Resource: util.MessageToAny(l),
+		Resource: protoconv.MessageToAny(l),
 	}
 }
 
@@ -545,7 +546,7 @@ func blackholeFilterChain(t string) *listener.FilterChain {
 		Name: "blackhole " + t,
 		Filters: []*listener.Filter{{
 			Name: wellknown.TCPProxy,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 				AccessLog:        accessLogString("blackhole " + t),
 				StatPrefix:       util.BlackHoleCluster,
 				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "blackhole " + t},
@@ -571,7 +572,7 @@ func buildPepChain(workload ambient.Workload, peps []ambient.Workload, t string)
 		Name: cluster,
 		Filters: []*listener.Filter{{
 			Name: wellknown.TCPProxy,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 				AccessLog:        accessLogString(fmt.Sprintf("capture outbound (to %v pep)", t)),
 				StatPrefix:       cluster,
 				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: cluster},
@@ -598,7 +599,7 @@ func passthroughFilterChain() *listener.FilterChain {
 		/// TODO no match – add one to make it so we only passthrough if strict mTLS to the destination is allowed
 		Filters: []*listener.Filter{{
 			Name: wellknown.TCPProxy,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 				AccessLog:        accessLogString("passthrough"),
 				StatPrefix:       util.PassthroughCluster,
 				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
@@ -700,7 +701,7 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 			TypedExtensionProtocolOptions: h2connectUpgrade(),
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
-				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 					CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
 				})},
 			},
@@ -729,7 +730,7 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 				TypedExtensionProtocolOptions: h2connectUpgrade(),
 				TransportSocket: &core.TransportSocket{
 					Name: "envoy.transport_sockets.tls",
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 						CommonTlsContext: buildCommonTLSContext(proxy, pickWorkload(workloads), push, false),
 					})},
 				},
@@ -749,7 +750,7 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 	for _, c := range clusters {
 		out = append(out, &discovery.Resource{
 			Name:     c.Name,
-			Resource: util.MessageToAny(c),
+			Resource: protoconv.MessageToAny(c),
 		})
 	}
 	return out
@@ -767,7 +768,7 @@ func (g *UProxyConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.P
 		svc := push.ServiceForHostname(proxy, host.Name(hostname))
 		out = append(out, &discovery.Resource{
 			Name: clusterName,
-			Resource: util.MessageToAny(&endpoint.ClusterLoadAssignment{
+			Resource: protoconv.MessageToAny(&endpoint.ClusterLoadAssignment{
 				ClusterName: clusterName,
 				Endpoints:   g.upstreamLbEndpointsFromShards(proxy, push, sa, svc, port),
 			}),
@@ -781,7 +782,7 @@ func (g *UProxyConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.P
 		}
 		out = append(out, &discovery.Resource{
 			Name: clusterName,
-			Resource: util.MessageToAny(&endpoint.ClusterLoadAssignment{
+			Resource: protoconv.MessageToAny(&endpoint.ClusterLoadAssignment{
 				ClusterName: clusterName,
 				Endpoints:   buildPepLbEndpoints(dst, t, push),
 			}),
@@ -936,7 +937,7 @@ func outboundTunnelListener(name string, sa string) *discovery.Resource {
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
 				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 						StatPrefix:       name,
 						AccessLog:        accessLogString("outbound tunnel"),
 						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: outboundTunnelClusterName(sa)},
@@ -953,7 +954,7 @@ func outboundTunnelListener(name string, sa string) *discovery.Resource {
 	}
 	return &discovery.Resource{
 		Name:     name,
-		Resource: util.MessageToAny(l),
+		Resource: protoconv.MessageToAny(l),
 	}
 }
 
@@ -991,7 +992,7 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa strin
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 				CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
 			})},
 		},
@@ -1014,7 +1015,7 @@ func outboundPodTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa st
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 				CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
 			})},
 		},
@@ -1038,7 +1039,7 @@ func outboundPodLocalTunnelCluster(proxy *model.Proxy, push *model.PushContext, 
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 				CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
 			})},
 		},
@@ -1067,7 +1068,7 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 		ListenerFilters: []*listener.ListenerFilter{{
 			Name: wellknown.OriginalDestination,
 			ConfigType: &listener.ListenerFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
+				TypedConfig: protoconv.MessageToAny(&originaldst.OriginalDst{}),
 			},
 		}},
 		AccessLog: accessLogString("capture inbound listener"),
@@ -1096,7 +1097,7 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 		l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
 			Name: wellknown.OriginalSource,
 			ConfigType: &listener.ListenerFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+				TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
 					Mark: OriginalSrcMark,
 				}),
 			},
@@ -1111,14 +1112,14 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 				FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.Status.PodIP)},
 				TransportSocket: &core.TransportSocket{
 					Name: "envoy.transport_sockets.tls",
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
 						CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, true),
 					})},
 				},
 				Filters: []*listener.Filter{{
 					Name: "envoy.filters.network.http_connection_manager",
 					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: util.MessageToAny(&httpconn.HttpConnectionManager{
+						TypedConfig: protoconv.MessageToAny(&httpconn.HttpConnectionManager{
 							AccessLog:  accessLogString("inbound hcm"),
 							CodecType:  0,
 							StatPrefix: "inbound_hcm",
@@ -1151,7 +1152,7 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 							// TODO rewrite destination port to original_dest port
 							HttpFilters: []*httpconn.HttpFilter{{
 								Name:       "envoy.filters.http.router",
-								ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(&routerfilter.Router{})},
+								ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
 							}},
 							Http2ProtocolOptions: &core.Http2ProtocolOptions{
 								AllowConnect: true,
@@ -1171,7 +1172,7 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 				Filters: []*listener.Filter{{
 					Name: wellknown.TCPProxy,
 					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+						TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 							StatPrefix: "virtual_inbound_hbone",
 							AccessLog:  accessLogString("inbound passthrough"),
 							ClusterSpecifier: &tcp.TcpProxy_Cluster{
@@ -1188,7 +1189,7 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 
 	return &discovery.Resource{
 		Name:     l.Name,
-		Resource: util.MessageToAny(l),
+		Resource: protoconv.MessageToAny(l),
 	}
 }
 
@@ -1201,7 +1202,7 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 		ListenerFilters: []*listener.ListenerFilter{{
 			Name: wellknown.OriginalDestination,
 			ConfigType: &listener.ListenerFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
+				TypedConfig: protoconv.MessageToAny(&originaldst.OriginalDst{}),
 			},
 		}},
 		AccessLog: accessLogString("capture inbound listener plaintext"),
@@ -1230,7 +1231,7 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 		l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
 			Name: wellknown.OriginalSource,
 			ConfigType: &listener.ListenerFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+				TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
 					Mark: OriginalSrcMark,
 				}),
 			},
@@ -1246,7 +1247,7 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
 				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 						StatPrefix:       util.BlackHoleCluster,
 						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "virtual_inbound"},
 					}),
@@ -1259,7 +1260,7 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 
 	return &discovery.Resource{
 		Name:     l.Name,
-		Resource: util.MessageToAny(l),
+		Resource: protoconv.MessageToAny(l),
 	}
 }
 
@@ -1276,7 +1277,7 @@ func (g *UProxyConfigGenerator) buildVirtualInboundCluster() *discovery.Resource
 	}
 	return &discovery.Resource{
 		Name:     c.Name,
-		Resource: util.MessageToAny(c),
+		Resource: protoconv.MessageToAny(c),
 	}
 }
 
@@ -1297,7 +1298,7 @@ func (g *UProxyConfigGenerator) buildVirtualInboundClusterHBONE() *discovery.Res
 	}
 	return &discovery.Resource{
 		Name:     c.Name,
-		Resource: util.MessageToAny(c),
+		Resource: protoconv.MessageToAny(c),
 	}
 }
 
@@ -1321,7 +1322,7 @@ func accessLogString(prefix string) []*accesslog.AccessLog {
 	inlineString := EnvoyTextLogFormat + prefix + "\n"
 	return []*accesslog.AccessLog{{
 		Name: "envoy.access_loggers.file",
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(&fileaccesslog.FileAccessLog{
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(&fileaccesslog.FileAccessLog{
 			Path: "/dev/stdout",
 			AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{LogFormat: &core.SubstitutionFormatString{
 				Format: &core.SubstitutionFormatString_TextFormatSource{TextFormatSource: &core.DataSource{Specifier: &core.DataSource_InlineString{
@@ -1334,7 +1335,7 @@ func accessLogString(prefix string) []*accesslog.AccessLog {
 
 func h2connectUpgrade() map[string]*any.Any {
 	return map[string]*any.Any{
-		v3.HttpProtocolOptionsType: util.MessageToAny(&http.HttpProtocolOptions{
+		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{

@@ -68,7 +68,7 @@ type testCase struct {
 // * The resources in the input files don't necessarily need to be completely defined, just defined enough for the analyzer being tested.
 // * Please keep this list sorted alphabetically by the pkg.name of the analyzer for convenience
 // * Expected messages are in the format {msg.ValidationMessageType, "<ResourceKind>/<Namespace>/<ResourceName>"}.
-//     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
+//   - Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
 	{
 		name: "misannoted",
@@ -288,6 +288,20 @@ var testGrid = []testCase{
 			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/ratings"},
 			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage"},
 			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/bogus-productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService team2/ratings"},
+		},
+	},
+	{
+		name:       "virtualServiceConflictingMeshGatewayHostsWithExportTo",
+		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts_with_exportto.yaml"},
+		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
+		expected: []message{
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage-c"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/productpage-c"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage-d"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/productpage-d"},
 		},
 	},
 	{
@@ -301,6 +315,7 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogusport"},
 			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService default/reviews-2port-missing"},
 			{msg.ReferencedResourceNotFound, "VirtualService istio-system/cross-namespace-details"},
+			{msg.ReferencedResourceNotFound, "VirtualService hello/hello-export-to-bogus"},
 		},
 	},
 	{
@@ -544,12 +559,21 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/serviceentry-missing-addresses-protocol.yaml",
 		},
-		analyzer: &serviceentry.ProtocolAdressesAnalyzer{},
+		analyzer: &serviceentry.ProtocolAddressesAnalyzer{},
 		expected: []message{
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry default/service-entry-test-03"},
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry default/service-entry-test-04"},
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry default/service-entry-test-07"},
 		},
+	},
+	{
+		name: "missing Addresses and Protocol in Service Entry with ISTIO_META_DNS_AUTO_ALLOCATE enabled",
+		inputFiles: []string{
+			"testdata/serviceentry-missing-addresses-protocol.yaml",
+		},
+		meshConfigFile: "testdata/serviceentry-missing-addresses-protocol-mesh-cfg.yaml",
+		analyzer:       &serviceentry.ProtocolAddressesAnalyzer{},
+		expected:       []message{},
 	},
 	{
 		name: "certificate duplication in Gateway",
@@ -660,8 +684,10 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/relative-envoy-filter-operation.yaml"},
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
 		expected: []message{
-			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-1"},
-			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-reviews-lua-2"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-relative-1"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-relative-2"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-relative-3"},
+			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-relative-3"},
 		},
 	},
 	{
@@ -670,6 +696,46 @@ var testGrid = []testCase{
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
 		expected:   []message{
 			// Test no messages are received for absolute operation usage
+		},
+	},
+	{
+		name:       "EnvoyFilterUsesReplaceOperation",
+		inputFiles: []string{"testdata/envoy-filter-replace-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterUsesReplaceOperationIncorrectly, "EnvoyFilter bookinfo/test-replace-1"},
+			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-replace-3"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-replace-3"},
+		},
+	},
+	{
+		name:       "EnvoyFilterUsesAddOperation",
+		inputFiles: []string{"testdata/envoy-filter-add-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterUsesAddOperationIncorrectly, "EnvoyFilter bookinfo/test-auth-2"},
+			{msg.EnvoyFilterUsesAddOperationIncorrectly, "EnvoyFilter bookinfo/test-auth-3"},
+		},
+	},
+	{
+		name:       "EnvoyFilterUsesRemoveOperation",
+		inputFiles: []string{"testdata/envoy-filter-remove-operation.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-remove-1"},
+			{msg.EnvoyFilterUsesRemoveOperationIncorrectly, "EnvoyFilter bookinfo/test-remove-2"},
+			{msg.EnvoyFilterUsesRemoveOperationIncorrectly, "EnvoyFilter bookinfo/test-remove-3"},
+			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-remove-5"},
+		},
+	},
+	{
+		name:       "Analyze conflicting gateway with list type",
+		inputFiles: []string{"testdata/analyze-list-type.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected: []message{
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway alpha-l"},
+			{msg.ConflictingGateways, "Gateway beta-l"},
 		},
 	},
 }

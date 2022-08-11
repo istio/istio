@@ -1,0 +1,32 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: ALLOW
+  rules:
+    - to:
+        - operation: # HTTP
+            ports: [ "{{ (.To.PortForName `http`).WorkloadPort }}", "{{ (.To.PortForName `http2`).WorkloadPort }}" ]
+            paths: [ "/allow" ]
+            methods: [ "GET" ]
+      from:
+        - source:
+            principals: [ "{{ .Allowed.ServiceAccountName }}" ]
+    - to:
+        - operation: # GRPC
+            ports: [ "{{ (.To.PortForName `grpc`).WorkloadPort }}" ]
+            paths: [ "/proto.EchoTestService/Echo" ]
+            methods: [ "POST" ]
+      from:
+        - source:
+            principals: [ "{{ .Allowed.ServiceAccountName }}" ]
+    - to:
+        - operation: # TCP
+            ports: [ "{{ (.To.PortForName `tcp`).WorkloadPort }}" ]
+      from:
+        - source:
+            principals: [ "{{ .Allowed.ServiceAccountName }}" ]

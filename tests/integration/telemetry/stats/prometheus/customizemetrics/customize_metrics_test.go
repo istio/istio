@@ -51,10 +51,9 @@ var (
 )
 
 const (
-	removedTag            = "source_principal"
-	requestCountMultipler = 3
-	httpProtocol          = "http"
-	grpcProtocol          = "grpc"
+	removedTag   = "source_principal"
+	httpProtocol = "http"
+	grpcProtocol = "grpc"
 
 	// Same user name and password as specified at pkg/test/fakes/imageregistry
 	registryUser   = "user"
@@ -237,6 +236,7 @@ values:
              - %s
 `
 	cfg.ControlPlaneValues = fmt.Sprintf(cfValue, removedTag)
+	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 }
 
 func setupWasmExtension(ctx resource.Context) error {
@@ -252,7 +252,7 @@ func setupWasmExtension(ctx resource.Context) error {
 		useRemoteWasmModule = true
 	}
 
-	args := map[string]interface{}{
+	args := map[string]any{
 		"WasmRemoteLoad":  useRemoteWasmModule,
 		"AttributeGenURL": attrGenImageURL,
 		"DockerConfigJson": base64.StdEncoding.EncodeToString(
@@ -268,7 +268,6 @@ func setupWasmExtension(ctx resource.Context) error {
 
 func sendTraffic() error {
 	for _, cltInstance := range client {
-		count := requestCountMultipler * server.MustWorkloads().Len()
 		httpOpts := echo.CallOptions{
 			To: server,
 			Port: echo.Port{
@@ -278,7 +277,6 @@ func sendTraffic() error {
 				Path:   "/path",
 				Method: "GET",
 			},
-			Count: count,
 			Retry: echo.Retry{
 				NoRetry: true,
 			},
@@ -298,7 +296,6 @@ func sendTraffic() error {
 			Port: echo.Port{
 				Name: "grpc",
 			},
-			Count: count,
 		}
 		if _, err := cltInstance.Call(grpcOpts); err != nil {
 			return err

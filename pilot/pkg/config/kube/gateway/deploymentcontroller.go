@@ -59,14 +59,14 @@ import (
 //
 // Server Side Apply with go templates is an odd choice (no one likes YAML templating...) but is one of the few
 // remaining options after all others are ruled out.
-// * Merge patch/Update cannot be used. If we always enforce that our object is *exactly* the same as
-//   the in-cluster object we will get in endless loops due to other controllers that like to add annotations, etc.
-//   If we chose to allow any unknown fields, then we would never be able to remove fields we added, as
-//   we cannot tell if we created it or someone else did. SSA fixes these issues
-// * SSA using client-go Apply libraries is almost a good choice, but most third-party clients (Istio, MCS, and gateway-api)
-//   do not provide these libraries.
-// * SSA using standard API types doesn't work well either: https://github.com/kubernetes-sigs/controller-runtime/issues/1669
-// * This leaves YAML templates, converted to unstructured types and Applied with the dynamic client.
+//   - Merge patch/Update cannot be used. If we always enforce that our object is *exactly* the same as
+//     the in-cluster object we will get in endless loops due to other controllers that like to add annotations, etc.
+//     If we chose to allow any unknown fields, then we would never be able to remove fields we added, as
+//     we cannot tell if we created it or someone else did. SSA fixes these issues
+//   - SSA using client-go Apply libraries is almost a good choice, but most third-party clients (Istio, MCS, and gateway-api)
+//     do not provide these libraries.
+//   - SSA using standard API types doesn't work well either: https://github.com/kubernetes-sigs/controller-runtime/issues/1669
+//   - This leaves YAML templates, converted to unstructured types and Applied with the dynamic client.
 type DeploymentController struct {
 	client             kube.Client
 	queue              controllers.Queue
@@ -114,14 +114,16 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		AddEventHandler(handler)
 
 	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
-	client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
+	deployInformer := client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
 		return appsinformersv1.NewFilteredDeploymentInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 			func(options *metav1.ListOptions) {
 				options.LabelSelector = "gateway.istio.io/managed=istio.io-gateway-controller"
 			},
 		)
-	}).AddEventHandler(handler)
+	})
+	_ = deployInformer.SetTransform(kube.StripUnusedFields)
+	deployInformer.AddEventHandler(handler)
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
 	gw.Informer().AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
@@ -227,7 +229,7 @@ func (d *DeploymentController) ApplyTemplate(template string, input metav1.Objec
 	if err := d.templates.ExecuteTemplate(&buf, template, input); err != nil {
 		return err
 	}
-	data := map[string]interface{}{}
+	data := map[string]any{}
 	err := yaml.Unmarshal(buf.Bytes(), &data)
 	if err != nil {
 		return err

@@ -36,7 +36,7 @@ func TestFlushObjectCaches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			unstObjs := make(map[string]interface{})
+			unstObjs := make(map[string]any)
 			tUnstructured := &unstructured.Unstructured{Object: unstObjs}
 			testCache := make(map[string]*object.K8sObject)
 			testCache["foo"] = object.NewK8sObject(tUnstructured, nil, nil)
@@ -116,10 +116,10 @@ func TestRemoveObject(t *testing.T) {
 				"cache-foo-key": {
 					Cache: map[string]*object.K8sObject{
 						"obj-foo-key": object.NewK8sObject(&unstructured.Unstructured{
-							Object: make(map[string]interface{}),
+							Object: make(map[string]any),
 						}, nil, nil),
 						"dont-touch-me-key": object.NewK8sObject(&unstructured.Unstructured{
-							Object: make(map[string]interface{}),
+							Object: make(map[string]any),
 						}, nil, nil),
 					},
 					Mu: &sync.RWMutex{},
@@ -130,7 +130,7 @@ func TestRemoveObject(t *testing.T) {
 			expectedCache: ObjectCache{
 				Cache: map[string]*object.K8sObject{
 					"dont-touch-me-key": object.NewK8sObject(&unstructured.Unstructured{
-						Object: make(map[string]interface{}),
+						Object: make(map[string]any),
 					}, nil, nil),
 				},
 				Mu: &sync.RWMutex{},

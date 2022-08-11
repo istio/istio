@@ -25,6 +25,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
@@ -47,6 +48,8 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 )
 
@@ -1302,15 +1305,16 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 func TestSlowStartConfig(t *testing.T) {
 	g := NewWithT(t)
 	testcases := []struct {
-		name             string
-		lbType           networking.LoadBalancerSettings_SimpleLB
-		slowStartEnabled bool
+		name                string
+		lbType              networking.LoadBalancerSettings_SimpleLB
+		enableSlowStartMode bool
 	}{
-		{name: "roundrobin", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, slowStartEnabled: true},
-		{name: "leastrequest", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, slowStartEnabled: true},
-		{name: "passthrough", lbType: networking.LoadBalancerSettings_PASSTHROUGH, slowStartEnabled: true},
-		{name: "roundrobin-without-warmup", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, slowStartEnabled: false},
-		{name: "leastrequest-without-warmup", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, slowStartEnabled: false},
+		{name: "roundrobin", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, enableSlowStartMode: true},
+		{name: "leastrequest", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, enableSlowStartMode: true},
+		{name: "passthrough", lbType: networking.LoadBalancerSettings_PASSTHROUGH, enableSlowStartMode: true},
+		{name: "roundrobin-without-warmup", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, enableSlowStartMode: false},
+		{name: "leastrequest-without-warmup", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, enableSlowStartMode: false},
+		{name: "empty lb type", enableSlowStartMode: true},
 	}
 
 	for _, test := range testcases {
@@ -1322,14 +1326,14 @@ func TestSlowStartConfig(t *testing.T) {
 				mesh:            testMesh(),
 				destRule: &networking.DestinationRule{
 					Host:          test.name,
-					TrafficPolicy: getSlowStartTrafficPolicy(test.slowStartEnabled, test.lbType),
+					TrafficPolicy: getSlowStartTrafficPolicy(test.enableSlowStartMode, test.lbType),
 				},
 			})
 
 			c := xdstest.ExtractCluster("outbound|8080||"+test.name,
 				clusters)
 
-			if !test.slowStartEnabled {
+			if !test.enableSlowStartMode {
 				g.Expect(c.GetLbConfig()).To(BeNil())
 			} else {
 				switch c.LbPolicy {
@@ -1706,12 +1710,14 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 
 func TestApplyLoadBalancer(t *testing.T) {
 	testcases := []struct {
-		name                           string
-		lbSettings                     *networking.LoadBalancerSettings
-		discoveryType                  cluster.Cluster_DiscoveryType
-		port                           *model.Port
-		expectedLbPolicy               cluster.Cluster_LbPolicy
-		expectedLocalityWeightedConfig bool
+		name                               string
+		lbSettings                         *networking.LoadBalancerSettings
+		discoveryType                      cluster.Cluster_DiscoveryType
+		port                               *model.Port
+		sendUnhealthyEndpoints             bool
+		expectedLbPolicy                   cluster.Cluster_LbPolicy
+		expectedLocalityWeightedConfig     bool
+		expectClusterLoadAssignmenttoBeNil bool
 	}{
 		{
 			name:             "ORIGINAL_DST discovery type is a no op",
@@ -1746,6 +1752,21 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLbPolicy:               defaultLBAlgorithm(),
 			expectedLocalityWeightedConfig: true,
 		},
+		{
+			name:          "DNS cluster with PASSTHROUGH in DR",
+			discoveryType: cluster.Cluster_STRICT_DNS,
+			lbSettings: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+			},
+			expectedLbPolicy:                   cluster.Cluster_CLUSTER_PROVIDED,
+			expectClusterLoadAssignmenttoBeNil: true,
+		},
+		{
+			name:                   "Send Unhealthy Endpoints enabled",
+			discoveryType:          cluster.Cluster_EDS,
+			sendUnhealthyEndpoints: true,
+			expectedLbPolicy:       defaultLBAlgorithm(),
+		},
 		// TODO: add more to cover all cases
 	}
 
@@ -1757,8 +1778,11 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
+				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
+				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 			}
 
 			if tt.discoveryType == cluster.Cluster_ORIGINAL_DST {
@@ -1775,8 +1799,15 @@ func TestApplyLoadBalancer(t *testing.T) {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
 			}
 
+			if tt.sendUnhealthyEndpoints && c.CommonLbConfig.HealthyPanicThreshold.GetValue() != 0 {
+				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabeld")
+			}
+
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
 				t.Errorf("cluster expected to have weighed config, but is nil")
+			}
+			if tt.expectClusterLoadAssignmenttoBeNil && c.LoadAssignment != nil {
+				t.Errorf("cluster expected not to have load assignmentset, but is present")
 			}
 		})
 	}
@@ -2504,7 +2535,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "service is added",
 			services:             []*model.Service{testService1, testService2},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|8080||test.com"},
 			usedDelta:            true,
 			removedClusters:      nil,
@@ -2513,7 +2544,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "service is removed",
 			services:             []*model.Service{},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|8080||test.com"},
 			usedDelta:            true,
 			removedClusters:      []string{"outbound|8080||test.com"},
@@ -2522,7 +2553,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "service port is removed",
 			services:             []*model.Service{testService1},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|7070||test.com"},
 			usedDelta:            true,
 			removedClusters:      []string{"outbound|7070||test.com"},
@@ -2531,7 +2562,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "config update that is not delta aware",
 			services:             []*model.Service{testService1, testService2},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|7070||test.com"},
 			usedDelta:            false,
 			removedClusters:      nil,
@@ -2556,4 +2587,45 @@ func TestBuildDeltaClusters(t *testing.T) {
 			g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal(tc.expectedClusters))
 		})
 	}
+}
+
+func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
+	g := NewWithT(t)
+
+	service := &model.Service{
+		Hostname: host.Name("static.test"),
+		Ports: []*model.Port{
+			{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution:   model.DNSLB,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{service},
+	})
+	proxy := cg.SetupProxy(nil)
+	proxy.Metadata.Raw = map[string]any{
+		security.CredentialMetaDataName: "true",
+	}
+	// Expect sds_external cluster be added if credentialSocket exists
+	clusters := cg.Clusters(proxy)
+	xdstest.ValidateClusters(t, clusters)
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
+		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", security.SDSExternalClusterName,
+	}))
+
+	// Expect no sds_external cluster be added if if credentialSocket does NOT exists
+	proxy = cg.SetupProxy(nil)
+	clusters = cg.Clusters(proxy)
+	xdstest.ValidateClusters(t, clusters)
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
+		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+	}))
 }

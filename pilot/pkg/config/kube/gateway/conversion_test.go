@@ -37,12 +37,250 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var ports = []*model.Port{
+	{
+		Name:     "http",
+		Port:     80,
+		Protocol: "HTTP",
+	},
+	{
+		Name:     "tcp",
+		Port:     34000,
+		Protocol: "TCP",
+	},
+}
+
+var services = []*model.Service{
+	{
+		Attributes: model.ServiceAttributes{
+			Name:      "istio-ingressgateway",
+			Namespace: "istio-system",
+			ClusterExternalAddresses: model.AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"Kubernetes": {"1.2.3.4"},
+				},
+			},
+		},
+		Ports:    ports,
+		Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "istio-system",
+		},
+		Ports:    ports,
+		Hostname: "example.com",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "httpbin.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "apple",
+		},
+		Ports:    ports,
+		Hostname: "httpbin-apple.apple.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "banana",
+		},
+		Ports:    ports,
+		Hostname: "httpbin-banana.banana.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "httpbin-second.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "httpbin-wildcard.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "foo-svc.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "httpbin-other.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "example.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "echo.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "echo.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "cert",
+		},
+		Ports:    ports,
+		Hostname: "httpbin.cert.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "service",
+		},
+		Ports:    ports,
+		Hostname: "my-svc.service.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "google.com",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "allowed-1",
+		},
+		Ports:    ports,
+		Hostname: "svc2.allowed-1.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "allowed-2",
+		},
+		Ports:    ports,
+		Hostname: "svc2.allowed-2.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "allowed-1",
+		},
+		Ports:    ports,
+		Hostname: "svc1.allowed-1.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "allowed-2",
+		},
+		Ports:    ports,
+		Hostname: "svc3.allowed-2.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "svc4.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "group-namespace1",
+		},
+		Ports:    ports,
+		Hostname: "httpbin.group-namespace1.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "group-namespace2",
+		},
+		Ports:    ports,
+		Hostname: "httpbin.group-namespace2.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "httpbin-zero.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "istio-system",
+		},
+		Ports:    ports,
+		Hostname: "httpbin.istio-system.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "httpbin-mirror.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "httpbin-foo.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "httpbin-alt.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "istio-system",
+		},
+		Ports:    ports,
+		Hostname: "istiod.istio-system.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "istio-system",
+		},
+		Ports:    ports,
+		Hostname: "istiod.istio-system.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "istio-system",
+		},
+		Ports:    ports,
+		Hostname: "echo.istio-system.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "httpbin-bad.default.svc.domain.suffix",
+	},
+}
 
 func TestConvertResources(t *testing.T) {
 	validator := crdvalidation.NewIstioValidator(t)
@@ -61,6 +299,7 @@ func TestConvertResources(t *testing.T) {
 		{"delegated"},
 		{"route-binding"},
 		{"reference-policy-tls"},
+		{"reference-policy-service"},
 		{"serviceentry"},
 		{"eastwest"},
 		{"alias"},
@@ -71,53 +310,27 @@ func TestConvertResources(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator)
 			// Setup a few preconfigured services
-			ports := []*model.Port{
-				{
-					Name:     "http",
-					Port:     80,
-					Protocol: "HTTP",
-				},
-				{
-					Name:     "tcp",
-					Port:     34000,
-					Protocol: "TCP",
-				},
-			}
-			ingressSvc := &model.Service{
-				Attributes: model.ServiceAttributes{
-					Name:      "istio-ingressgateway",
-					Namespace: "istio-system",
-					ClusterExternalAddresses: model.AddressMap{
-						Addresses: map[cluster.ID][]string{
-							"Kubernetes": {"1.2.3.4"},
-						},
-					},
-				},
-				Ports:    ports,
-				Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
-			}
-			altIngressSvc := &model.Service{
-				Attributes: model.ServiceAttributes{
-					Namespace: "istio-system",
-				},
-				Ports:    ports,
-				Hostname: "example.com",
+			instances := []*model.ServiceInstance{}
+			for _, svc := range services {
+				instances = append(instances, &model.ServiceInstance{
+					Service:     svc,
+					ServicePort: ports[0],
+					Endpoint:    &model.IstioEndpoint{EndpointPort: 8080},
+				}, &model.ServiceInstance{
+					Service:     svc,
+					ServicePort: ports[1],
+					Endpoint:    &model.IstioEndpoint{},
+				})
 			}
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
-				Services: []*model.Service{ingressSvc, altIngressSvc},
-				Instances: []*model.ServiceInstance{
-					{Service: ingressSvc, ServicePort: ingressSvc.Ports[0], Endpoint: &model.IstioEndpoint{EndpointPort: 8080}},
-					{Service: ingressSvc, ServicePort: ingressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
-					{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[0], Endpoint: &model.IstioEndpoint{}},
-					{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
-				},
-			},
-			)
+				Services:  services,
+				Instances: instances,
+			})
 			kr := splitInput(input)
-			kr.Context = model.NewGatewayContext(cg.PushContext())
+			kr.Context = NewGatewayContext(cg.PushContext())
 			output := convertResources(kr)
-			output.AllowedReferences = nil       // Not tested here
-			output.ReferencedNamespaceKeys = nil // Not tested here
+			output.AllowedReferences = AllowedReferences{} // Not tested here
+			output.ReferencedNamespaceKeys = nil           // Not tested here
 
 			// sort virtual services to make the order deterministic
 			sort.Slice(output.VirtualService, func(i, j int) bool {
@@ -305,7 +518,7 @@ spec:
 			input := readConfigString(t, tt.config, validator)
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 			kr := splitInput(input)
-			kr.Context = model.NewGatewayContext(cg.PushContext())
+			kr.Context = NewGatewayContext(cg.PushContext())
 			output := convertResources(kr)
 			c := &Controller{
 				state: output,
@@ -359,8 +572,8 @@ func splitOutput(configs []config.Config) OutputResources {
 	return out
 }
 
-func splitInput(configs []config.Config) *KubernetesResources {
-	out := &KubernetesResources{}
+func splitInput(configs []config.Config) KubernetesResources {
+	out := KubernetesResources{}
 	namespaces := sets.New()
 	for _, c := range configs {
 		namespaces.Insert(c.Namespace)
@@ -377,6 +590,8 @@ func splitInput(configs []config.Config) *KubernetesResources {
 			out.TLSRoute = append(out.TLSRoute, c)
 		case gvk.ReferencePolicy:
 			out.ReferencePolicy = append(out.ReferencePolicy, c)
+		case gvk.ReferenceGrant:
+			out.ReferenceGrant = append(out.ReferenceGrant, c)
 		}
 	}
 	out.Namespaces = map[string]*corev1.Namespace{}
@@ -394,7 +609,7 @@ func splitInput(configs []config.Config) *KubernetesResources {
 	return out
 }
 
-func readConfig(t *testing.T, filename string, validator *crdvalidation.Validator) []config.Config {
+func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator) []config.Config {
 	t.Helper()
 
 	data, err := os.ReadFile(filename)
@@ -404,7 +619,7 @@ func readConfig(t *testing.T, filename string, validator *crdvalidation.Validato
 	return readConfigString(t, string(data), validator)
 }
 
-func readConfigString(t *testing.T, data string, validator *crdvalidation.Validator) []config.Config {
+func readConfigString(t testing.TB, data string, validator *crdvalidation.Validator) []config.Config {
 	if err := validator.ValidateCustomResourceYAML(data); err != nil {
 		t.Error(err)
 	}
@@ -457,34 +672,6 @@ func marshalYaml(t test.Failer, cl []config.Config) []byte {
 	return result
 }
 
-func TestStandardizeWeight(t *testing.T) {
-	tests := []struct {
-		name   string
-		input  []int
-		output []int
-	}{
-		{"single", []int{1}, []int{0}},
-		{"double", []int{1, 1}, []int{50, 50}},
-		{"zero", []int{1, 0}, []int{100, 0}},
-		{"overflow", []int{1, 1, 1}, []int{34, 33, 33}},
-		{"skewed", []int{9, 1}, []int{90, 10}},
-		{"multiple overflow", []int{1, 1, 1, 1, 1, 1}, []int{17, 17, 17, 17, 16, 16}},
-		{"skewed overflow", []int{1, 1, 1, 3}, []int{17, 17, 16, 50}},
-		{"skewed overflow 2", []int{1, 1, 1, 1, 2}, []int{17, 17, 17, 16, 33}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := standardizeWeights(tt.input)
-			if !reflect.DeepEqual(tt.output, got) {
-				t.Errorf("standardizeWeights() = %v, want %v", got, tt.output)
-			}
-			if len(tt.output) > 1 && intSum(tt.output) != 100 {
-				t.Errorf("invalid weights, should sum to 100: %v", got)
-			}
-		})
-	}
-}
-
 func TestHumanReadableJoin(t *testing.T) {
 	tests := []struct {
 		input []string
@@ -503,25 +690,68 @@ func TestHumanReadableJoin(t *testing.T) {
 	}
 }
 
-func TestStrictestHost(t *testing.T) {
-	tests := []struct {
-		route   host.Name
-		gateway host.Name
-		want    string
-	}{
-		{"foo.com", "bar.com", ""},
-		{"foo.com", "foo.com", "foo.com"},
-		{"*.com", "foo.com", "foo.com"},
-		{"foo.com", "*.com", "foo.com"},
-		{"*.com", "*.com", "*.com"},
-		{"*.foo.com", "*.bar.com", ""},
-		{"*.foo.com", "*.com", ""},
-		{"*", "foo.com", "foo.com"},
-		{"bar.com", "", "bar.com"},
+func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
+	ports := []*model.Port{
+		{
+			Name:     "http",
+			Port:     80,
+			Protocol: "HTTP",
+		},
+		{
+			Name:     "tcp",
+			Port:     34000,
+			Protocol: "TCP",
+		},
 	}
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%v/%v", tt.route, tt.gateway), func(t *testing.T) {
-			assert.Equal(t, strictestHost(tt.route, tt.gateway), tt.want)
-		})
+	ingressSvc := &model.Service{
+		Attributes: model.ServiceAttributes{
+			Name:      "istio-ingressgateway",
+			Namespace: "istio-system",
+			ClusterExternalAddresses: model.AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"Kubernetes": {"1.2.3.4"},
+				},
+			},
+		},
+		Ports:    ports,
+		Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
+	}
+	altIngressSvc := &model.Service{
+		Attributes: model.ServiceAttributes{
+			Namespace: "istio-system",
+		},
+		Ports:    ports,
+		Hostname: "example.com",
+	}
+	cg := v1alpha3.NewConfigGenTest(b, v1alpha3.TestOptions{
+		Services: []*model.Service{ingressSvc, altIngressSvc},
+		Instances: []*model.ServiceInstance{
+			{Service: ingressSvc, ServicePort: ingressSvc.Ports[0], Endpoint: &model.IstioEndpoint{EndpointPort: 8080}},
+			{Service: ingressSvc, ServicePort: ingressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
+			{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[0], Endpoint: &model.IstioEndpoint{}},
+			{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
+		},
+	})
+
+	validator := crdvalidation.NewIstioValidator(b)
+	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator)
+	kr := splitInput(input)
+	kr.Context = NewGatewayContext(cg.PushContext())
+	ctx := ConfigContext{
+		KubernetesResources: kr,
+		AllowedReferences:   convertReferencePolicies(kr),
+	}
+	_, gwMap, _ := convertGateways(ctx)
+	ctx.GatewayReferences = gwMap
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		// for gateway routes, build one VS per gateway+host
+		gatewayRoutes := make(map[string]map[string]*config.Config)
+		// for mesh routes, build one VS per namespace+host
+		meshRoutes := make(map[string]map[string]*config.Config)
+		for _, obj := range kr.HTTPRoute {
+			buildHTTPVirtualServices(ctx, obj, gatewayRoutes, meshRoutes)
+		}
 	}
 }

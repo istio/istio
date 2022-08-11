@@ -74,7 +74,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 					})
 					return nil
 				}).
-				To(echotest.SingleSimplePodServiceAndAllSpecial(1)).
+				To(echotest.SingleSimplePodServiceAndAllSpecial()).
 				RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, _ echo.Target) {
 					// Add kubernetes secret to provision key/cert for ingress gateway.
 					ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.TLS,
@@ -141,7 +141,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 					})
 					return nil
 				}).
-				To(echotest.SingleSimplePodServiceAndAllSpecial(1)).
+				To(echotest.SingleSimplePodServiceAndAllSpecial()).
 				RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, _ echo.Target) {
 					// Add two kubernetes secrets to provision server key/cert and client CA cert for ingress gateway.
 					ingressutil.CreateIngressKubeSecret(t, credCaName, ingressutil.Mtls,
@@ -209,7 +209,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 					})
 					return nil
 				}).
-				To(echotest.SingleSimplePodServiceAndAllSpecial(1)).
+				To(echotest.SingleSimplePodServiceAndAllSpecial()).
 				RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, to echo.Target) {
 					// Add kubernetes secret to provision key/cert for ingress gateway.
 					ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.Mtls,
@@ -273,7 +273,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 					})
 					return nil
 				}).
-				To(echotest.SingleSimplePodServiceAndAllSpecial(1)).
+				To(echotest.SingleSimplePodServiceAndAllSpecial()).
 				RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, _ echo.Target) {
 					// Add kubernetes secret to provision key/cert for ingress gateway.
 					ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.Mtls,
@@ -449,7 +449,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 						})
 						return nil
 					}).
-					To(echotest.SingleSimplePodServiceAndAllSpecial(1)).
+					To(echotest.SingleSimplePodServiceAndAllSpecial()).
 					RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, _ echo.Target) {
 						ing := inst.IngressFor(t.Clusters().Default())
 						if ing == nil {
@@ -555,7 +555,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 						})
 						return nil
 					}).
-					To(echotest.SingleSimplePodServiceAndAllSpecial(1)).
+					To(echotest.SingleSimplePodServiceAndAllSpecial()).
 					RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Target) {
 						ing := inst.IngressFor(t.Clusters().Default())
 						if ing == nil {

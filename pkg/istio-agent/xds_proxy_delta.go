@@ -23,11 +23,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/wasm"
 )
@@ -35,24 +37,22 @@ import (
 // sendDeltaRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
 // block forever on
 func (con *ProxyConnection) sendDeltaRequest(req *discovery.DeltaDiscoveryRequest) {
-	select {
-	case con.deltaRequestsChan <- req:
-	case <-con.stopChan:
-	}
+	con.deltaRequestsChan.Put(req)
 }
 
 // DeltaAggregatedResources is an implementation of Delta XDS API used for proxying between Istiod and Envoy.
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
-func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream) error {
 	proxyLog.Debugf("accepted delta xds connection from envoy, forwarding to upstream")
 
 	con := &ProxyConnection{
-		upstreamError:      make(chan error, 2), // can be produced by recv and send
-		downstreamError:    make(chan error, 2), // can be produced by recv and send
-		deltaRequestsChan:  make(chan *discovery.DeltaDiscoveryRequest, 10),
-		deltaResponsesChan: make(chan *discovery.DeltaDiscoveryResponse, 10),
+		upstreamError:     make(chan error, 2), // can be produced by recv and send
+		downstreamError:   make(chan error, 2), // can be produced by recv and send
+		deltaRequestsChan: channels.NewUnbounded(),
+		// Allow a buffer of 1. This ensures we queue up at most 2 (one in process, 1 pending) responses before forwarding.
+		deltaResponsesChan: make(chan *discovery.DeltaDiscoveryResponse, 1),
 		stopChan:           make(chan struct{}),
 		downstreamDeltas:   downstream,
 	}
@@ -64,7 +64,7 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 	go func() {
 		// Send initial request
 		p.connectedMutex.RLock()
-		initialRequest := p.initialDeltaRequest
+		initialRequest := p.initialDeltaHealthRequest
 		p.connectedMutex.RUnlock()
 
 		for {
@@ -193,7 +193,9 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 	}()
 	for {
 		select {
-		case req := <-con.deltaRequestsChan:
+		case requ := <-con.deltaRequestsChan.Get():
+			con.deltaRequestsChan.Load()
+			req := requ.(*discovery.DeltaDiscoveryRequest)
 			proxyLog.Debugf("delta request for type url %s", req.TypeUrl)
 			metrics.XdsProxyRequests.Increment()
 			if req.TypeUrl == v3.ExtensionConfigurationType {
@@ -211,6 +213,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
+	forwardEnvoyCh := make(chan *discovery.DeltaDiscoveryResponse, 1)
 	for {
 		select {
 		case resp := <-con.deltaResponsesChan:
@@ -243,7 +246,14 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			case v3.ExtensionConfigurationType:
 				if features.WasmRemoteLoadConversion {
 					// If Wasm remote load conversion feature is enabled, rewrite and send.
-					go p.deltaRewriteAndForward(con, resp)
+					go p.deltaRewriteAndForward(con, resp, func(resp *discovery.DeltaDiscoveryResponse) {
+						// Forward the response using the thread of `handleUpstreamResponse`
+						// to prevent concurrent access to forwardToEnvoy
+						select {
+						case forwardEnvoyCh <- resp:
+						case <-con.stopChan:
+						}
+					})
 				} else {
 					// Otherwise, forward ECDS resource update directly to Envoy.
 					forwardDeltaToEnvoy(con, resp)
@@ -251,14 +261,16 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			default:
 				forwardDeltaToEnvoy(con, resp)
 			}
+		case resp := <-forwardEnvoyCh:
+			forwardDeltaToEnvoy(con, resp)
 		case <-con.stopChan:
 			return
 		}
 	}
 }
 
-func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
-	resources := make([]*any.Any, 0, len(resp.Resources))
+func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse, forward func(resp *discovery.DeltaDiscoveryResponse)) {
+	resources := make([]*anypb.Any, 0, len(resp.Resources))
 	for i := range resp.Resources {
 		resources = append(resources, resp.Resources[i].Resource)
 	}
@@ -276,7 +288,7 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 		return
 	}
 	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
-	forwardDeltaToEnvoy(con, resp)
+	forward(resp)
 }
 
 func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
@@ -292,35 +304,21 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 	}
 }
 
-func sendUpstreamDelta(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
-	req *discovery.DeltaDiscoveryRequest,
-) error {
+func sendUpstreamDelta(deltaUpstream xds.DeltaDiscoveryClient, req *discovery.DeltaDiscoveryRequest) error {
 	return istiogrpc.Send(deltaUpstream.Context(), func() error { return deltaUpstream.Send(req) })
 }
 
-func sendDownstreamDelta(deltaDownstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
-	res *discovery.DeltaDiscoveryResponse,
-) error {
+func sendDownstreamDelta(deltaDownstream xds.DeltaDiscoveryStream, res *discovery.DeltaDiscoveryResponse) error {
 	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
 }
 
-func (p *XdsProxy) persistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {
-	var ch chan *discovery.DeltaDiscoveryRequest
-	var stop chan struct{}
-
+func (p *XdsProxy) sendDeltaHealthRequest(req *discovery.DeltaDiscoveryRequest) {
 	p.connectedMutex.Lock()
-	if p.connected != nil {
-		ch = p.connected.deltaRequestsChan
-		stop = p.connected.stopChan
+	// Immediately send if we are currently connected.
+	if p.connected != nil && p.connected.deltaRequestsChan != nil {
+		p.connected.deltaRequestsChan.Put(req)
 	}
-	p.initialDeltaRequest = req
+	// Otherwise place it as our initial request for new connections
+	p.initialDeltaHealthRequest = req
 	p.connectedMutex.Unlock()
-
-	// Immediately send if we are currently connect
-	if ch != nil {
-		select {
-		case ch <- req:
-		case <-stop:
-		}
-	}
 }

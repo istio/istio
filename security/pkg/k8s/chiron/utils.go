@@ -57,13 +57,11 @@ func GenCsrName() string {
 // GenKeyCertK8sCA : Generates a key pair and gets public certificate signed by K8s_CA
 // Options are meant to sign DNS certs
 // 1. Generate a CSR
-// 2. Call SignCSRK8sCA to finish rest of the flow
+// 2. Call SignCSRK8s to finish rest of the flow
 func GenKeyCertK8sCA(client clientset.Interface, dnsName,
-	secretName, secretNamespace, caFilePath string,
-	signerName string, approveCsr bool, requestedLifetime time.Duration,
+	caFilePath string, signerName string, approveCsr bool, requestedLifetime time.Duration,
 ) ([]byte, []byte, []byte, error) {
 	// 1. Generate a CSR
-
 	options := util.CertOptions{
 		Host:       dnsName,
 		RSAKeySize: keySize,

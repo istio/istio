@@ -12,5 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package clioptions contains flags which can be added to istiocl commands.
+// Package clioptions contains flags which can be added to istioctl commands.
 package clioptions

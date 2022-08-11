@@ -109,10 +109,11 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	}
 
 	ingressInformer := client.KubeInformer().Networking().V1().Ingresses()
+	_ = ingressInformer.Informer().SetTransform(kube.StripUnusedFields)
 	serviceInformer := client.KubeInformer().Core().V1().Services()
 
 	classes := client.KubeInformer().Networking().V1().IngressClasses()
-	classes.Informer()
+	_ = classes.Informer().SetTransform(kube.StripUnusedFields)
 
 	c := &controller{
 		meshWatcher:     meshWatcher,
@@ -273,7 +274,7 @@ func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 }
 
 // sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortIngressByCreationTime(configs []interface{}) []*knetworking.Ingress {
+func sortIngressByCreationTime(configs []any) []*knetworking.Ingress {
 	ingr := make([]*knetworking.Ingress, 0, len(configs))
 	for _, i := range configs {
 		ingr = append(ingr, i.(*knetworking.Ingress))

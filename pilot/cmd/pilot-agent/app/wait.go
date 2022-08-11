@@ -41,17 +41,21 @@ var (
 			log.Infof("Waiting for Envoy proxy to be ready (timeout: %d seconds)...", timeoutSeconds)
 
 			var err error
-			timeoutAt := time.Now().Add(time.Duration(timeoutSeconds) * time.Second)
-			for time.Now().Before(timeoutAt) {
-				err = checkIfReady(client, url)
-				if err == nil {
-					log.Infof("Envoy is ready!")
-					return nil
+			timeout := time.After(time.Duration(timeoutSeconds) * time.Second)
+
+			for {
+				select {
+				case <-timeout:
+					return fmt.Errorf("timeout waiting for Envoy proxy to become ready. Last error: %v", err)
+				case <-time.After(time.Duration(periodMillis) * time.Millisecond):
+					err = checkIfReady(client, url)
+					if err == nil {
+						log.Infof("Envoy is ready!")
+						return nil
+					}
+					log.Debugf("Not ready yet: %v", err)
 				}
-				log.Debugf("Not ready yet: %v", err)
-				time.Sleep(time.Duration(periodMillis) * time.Millisecond)
 			}
-			return fmt.Errorf("timeout waiting for Envoy proxy to become ready. Last error: %v", err)
 		},
 	}
 )

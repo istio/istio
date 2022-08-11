@@ -70,11 +70,12 @@ func (h Names) Contains(host Name) bool {
 
 // Intersection returns the subset of host names that are covered by both h and other.
 // e.g.:
-//  Names(["foo.com","bar.com"]).Intersection(Names(["*.com"]))         = Names(["foo.com","bar.com"])
-//  Names(["foo.com","*.net"]).Intersection(Names(["*.com","bar.net"])) = Names(["foo.com","bar.net"])
-//  Names(["foo.com","*.net"]).Intersection(Names(["*.bar.net"]))       = Names(["*.bar.net"])
-//  Names(["foo.com"]).Intersection(Names(["bar.com"]))                 = Names([])
-//  Names([]).Intersection(Names(["bar.com"])                           = Names([])
+//
+//	Names(["foo.com","bar.com"]).Intersection(Names(["*.com"]))         = Names(["foo.com","bar.com"])
+//	Names(["foo.com","*.net"]).Intersection(Names(["*.com","bar.net"])) = Names(["foo.com","bar.net"])
+//	Names(["foo.com","*.net"]).Intersection(Names(["*.bar.net"]))       = Names(["*.bar.net"])
+//	Names(["foo.com"]).Intersection(Names(["bar.com"]))                 = Names([])
+//	Names([]).Intersection(Names(["bar.com"])                           = Names([])
 func (h Names) Intersection(other Names) Names {
 	result := make(Names, 0, len(h))
 	for _, hHost := range h {

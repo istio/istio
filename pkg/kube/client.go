@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"reflect"
@@ -69,6 +69,7 @@ import (
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
@@ -87,6 +88,7 @@ import (
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -142,6 +144,9 @@ type Client interface {
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
 
+	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
+	WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
+
 	// GetKubernetesVersion returns the Kubernetes server version
 	GetKubernetesVersion() (*kubeVersion.Info, error)
 }
@@ -154,6 +159,9 @@ type ExtendedClient interface {
 
 	// EnvoyDo makes an http request to the Envoy in the specified pod.
 	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
+
+	// EnvoyDoWithPort makes an http request to the Envoy in the specified pod and port.
+	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
 
 	// AllDiscoveryDo makes an http request to each Istio discovery instance.
 	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
@@ -198,7 +206,12 @@ type ExtendedClient interface {
 
 	// UtilFactory returns a kubectl factory
 	UtilFactory() util.Factory
+
+	// SetPortManager overrides the default port manager to provision local ports
+	SetPortManager(PortManager)
 }
+
+type PortManager func() (uint16, error)
 
 var (
 	_ Client         = &client{}
@@ -288,7 +301,7 @@ func NewFakeClientWithVersion(minor string, objects ...runtime.Object) ExtendedC
 	c := NewFakeClient(objects...).(*client)
 	if minor != "" && minor != "latest" {
 		c.versionOnce.Do(func() {
-			c.version = &kubeVersion.Info{Major: "1", Minor: minor}
+			c.version = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
 		})
 	}
 	return c
@@ -338,6 +351,8 @@ type client struct {
 
 	versionOnce sync.Once
 	version     *kubeVersion.Info
+
+	portManager PortManager
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -406,6 +421,8 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 		return nil, err
 	}
 	c.extInformer = kubeExtInformers.NewSharedInformerFactory(c.extSet, resyncInterval)
+
+	c.portManager = defaultAvailablePort
 
 	return &c, nil
 }
@@ -615,6 +632,19 @@ func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) 
 	}
 }
 
+// WaitForCacheSync is a specialized version of the general WaitForCacheSync function which also
+// handles fake client syncing.
+// This is only required in cases where fake clients are used without RunAndWait.
+func (c *client) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+	if c.informerWatchesPending == nil {
+		return WaitForCacheSync(stop, cacheSyncs...)
+	}
+	syncFns := append(cacheSyncs, func() bool {
+		return c.informerWatchesPending.Load() == 0
+	})
+	return WaitForCacheSync(stop, syncFns...)
+}
+
 func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
@@ -744,6 +774,10 @@ func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, pat
 	return c.portForwardRequest(ctx, podName, podNamespace, method, path, 15000)
 }
 
+func (c *client) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
+	return c.portForwardRequest(ctx, podName, podNamespace, method, path, port)
+}
+
 func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
 	formatError := func(err error) error {
 		return fmt.Errorf("failure running port forward process: %v", err)
@@ -800,18 +834,6 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
 	}
 	return list.Items, nil
-}
-
-// ExtractExecResult wraps PodExec and return the execution result and error if has any.
-func (c *client) extractExecResult(podName, podNamespace, container, cmd string) (string, error) {
-	stdout, stderr, err := c.PodExec(podName, podNamespace, container, cmd)
-	if err != nil {
-		if stderr != "" {
-			return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s", podNamespace, podName, container, err, stderr)
-		}
-		return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w", podNamespace, podName, container, err)
-	}
-	return stdout, nil
 }
 
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
@@ -905,7 +927,7 @@ func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, erro
 }
 
 func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort int, podPort int) (PortForwarder, error) {
-	return newPortForwarder(c.config, podName, ns, localAddress, localPort, podPort)
+	return newPortForwarder(c, podName, ns, localAddress, localPort, podPort)
 }
 
 func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.PodList, error) {
@@ -1009,7 +1031,10 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 	}
 	// If we are changing CRDs, invalidate the discovery client so future calls will not fail
 	if !dryRun {
-		f, _ := ioutil.ReadFile(file)
+		f, err := os.ReadFile(file)
+		if err != nil {
+			log.Warnf("Failed to read %s: %v", file, err)
+		}
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
 			c.discoveryClient.Invalidate()
 		}
@@ -1112,6 +1137,10 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 	return nil
 }
 
+func (c *client) SetPortManager(manager PortManager) {
+	c.portManager = manager
+}
+
 func closeQuietly(c io.Closer) {
 	_ = c.Close()
 }
@@ -1158,6 +1187,7 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
+	utilruntime.Must(gatewayapibeta.AddToScheme(scheme))
 	utilruntime.Must(apis.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
@@ -1178,4 +1208,18 @@ func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo
 	} else {
 		serverInfo.Version = istioInfo
 	}
+}
+
+func defaultAvailablePort() (uint16, error) {
+	addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort("127.0.0.1", "0"))
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	return uint16(port), l.Close()
 }

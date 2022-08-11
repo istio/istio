@@ -35,8 +35,8 @@ type Environment interface {
 	Stdout() io.Writer
 	Stderr() io.Writer
 	ReadFile(filename string) ([]byte, error)
-	Printf(format string, a ...interface{})
-	Errorf(format string, a ...interface{})
+	Printf(format string, a ...any)
+	Errorf(format string, a ...any)
 	Poll(interval, timeout time.Duration, condition ConditionFunc) error
 }
 
@@ -55,11 +55,11 @@ func (e *KubeEnvironment) CreateClient(context string) (kube.ExtendedClient, err
 	return kube.NewExtendedClient(kube.NewClientConfigForRestConfig(cfg), "")
 }
 
-func (e *KubeEnvironment) Printf(format string, a ...interface{}) {
+func (e *KubeEnvironment) Printf(format string, a ...any) {
 	_, _ = fmt.Fprintf(e.stdout, format, a...)
 }
 
-func (e *KubeEnvironment) Errorf(format string, a ...interface{}) {
+func (e *KubeEnvironment) Errorf(format string, a ...any) {
 	_, _ = fmt.Fprintf(e.stderr, format, a...)
 }
 

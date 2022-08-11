@@ -17,11 +17,15 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -144,22 +148,59 @@ func (m *Multicluster) close() (err error) {
 // to watch for resources being added, deleted or changed on remote clusters.
 func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}) error {
 	m.m.Lock()
-
-	if m.closing {
+	kubeRegistry, options, configCluster, err := m.addCluster(cluster)
+	if err != nil {
 		m.m.Unlock()
-		return fmt.Errorf("failed adding member cluster %s: server shutting down", cluster.ID)
+		return err
+	}
+	m.m.Unlock()
+	// clusterStopCh is a channel that will be closed when this cluster removed.
+	return m.initializeCluster(cluster, kubeRegistry, *options, configCluster, clusterStopCh)
+}
+
+// ClusterUpdated is passed to the secret controller as a callback to be called
+// when a remote cluster is updated.
+func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
+	m.m.Lock()
+	m.deleteCluster(cluster.ID)
+	kubeRegistry, options, configCluster, err := m.addCluster(cluster)
+	if err != nil {
+		m.m.Unlock()
+		return err
+	}
+	m.m.Unlock()
+	// clusterStopCh is a channel that will be closed when this cluster removed.
+	return m.initializeCluster(cluster, kubeRegistry, *options, configCluster, stop)
+}
+
+// ClusterDeleted is passed to the secret controller as a callback to be called
+// when a remote cluster is deleted.  Also must clear the cache so remote resources
+// are removed.
+func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
+	m.m.Lock()
+	m.deleteCluster(clusterID)
+	m.m.Unlock()
+	if m.XDSUpdater != nil {
+		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
+	}
+	return nil
+}
+
+// addCluster adds cluster related resources and updates internal structures.
+// This is not thread safe.
+func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*Controller, *Options, bool, error) {
+	if m.closing {
+		return nil, nil, false, fmt.Errorf("failed adding member cluster %s: server shutting down", cluster.ID)
 	}
 
 	client := cluster.Client
-	// localCluster may also be the "config" cluster, in an external-istiod setup.
-	localCluster := m.opts.ClusterID == cluster.ID
+	configCluster := m.opts.ClusterID == cluster.ID
 
-	// clusterStopCh is a channel that will be closed when this cluster removed.
 	options := m.opts
 	options.ClusterID = cluster.ID
 	// different clusters may have different k8s version, re-apply conditional default
 	options.EndpointMode = DetectEndpointMode(client)
-	if !localCluster {
+	if !configCluster {
 		options.SyncTimeout = features.RemoteClusterTimeout
 	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
@@ -167,8 +208,14 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	m.remoteKubeControllers[cluster.ID] = &kubeController{
 		Controller: kubeRegistry,
 	}
+	return kubeRegistry, &options, configCluster, nil
+}
 
-	m.m.Unlock()
+// initializeCluster initializes the cluster by setting various handlers.
+func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegistry *Controller, options Options,
+	configCluster bool, clusterStopCh <-chan struct{},
+) error {
+	client := cluster.Client
 
 	if m.serviceEntryController != nil && features.EnableServiceEntrySelectPods {
 		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
@@ -176,7 +223,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	}
 
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
-	if m.serviceEntryController != nil && localCluster {
+	if m.serviceEntryController != nil && configCluster {
 		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
 		m.serviceEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 	} else if features.WorkloadEntryCrossCluster {
@@ -200,13 +247,16 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
 
-	if m.startNsController && (features.ExternalIstiod || localCluster) {
+	shouldLead := m.checkShouldLead(client, options.SystemNamespace)
+	log.Infof("should join leader-election for cluster %s: %t", cluster.ID, shouldLead)
+
+	if m.startNsController && (shouldLead || configCluster) {
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			log.Infof("joining leader-election for %s in %s on cluster %s",
 				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
 			election := leaderelection.
-				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !localCluster, client).
+				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting namespace controller for cluster %s", cluster.ID)
 					nc := NewNamespaceController(client, m.caBundleWatcher)
@@ -218,28 +268,27 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 					client.RunAndWait(clusterStopCh)
 					nc.Run(leaderStop)
 				})
-			// Set up injection webhook patching for remote clusters we are controlling.
-			// The local cluster has this patching set up elsewhere. We may eventually want to move it here.
-			if features.ExternalIstiod && !localCluster && m.caBundleWatcher != nil {
-				// Patch injection webhook cert
-				// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
-				// operator or CI/CD
-				if features.InjectionWebhookConfigName != "" {
-					election = election.
-						AddRunFunction(func(leaderStop <-chan struct{}) {
-							log.Infof("initializing webhook cert patch for cluster %s", cluster.ID)
-							patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
-							if err != nil {
-								log.Errorf("could not initialize webhook cert patcher: %v", err)
-							} else {
-								patcher.Run(leaderStop)
-							}
-						})
-				}
-			}
 			election.Run(clusterStopCh)
 			return nil
 		})
+	}
+	// Set up injection webhook patching for remote clusters we are controlling.
+	// The config cluster has this patching set up elsewhere. We may eventually want to move it here.
+	// We can not use leader election for webhook patching because each revision needs to patch its own
+	// webhook.
+	if shouldLead && !configCluster && m.caBundleWatcher != nil {
+		// Patch injection webhook cert
+		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
+		// operator or CI/CD
+		if features.InjectionWebhookConfigName != "" {
+			log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
+			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
+			if err != nil {
+				log.Errorf("could not initialize webhook cert patcher: %v", err)
+			} else {
+				go patcher.Run(clusterStopCh)
+			}
+		}
 	}
 
 	// setting up the serviceexport controller if and only if it is turned on in the meshconfig.
@@ -249,7 +298,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, !localCluster, client).
+				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, !configCluster, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					serviceExportController := newAutoServiceExportController(autoServiceExportOptions{
 						Client:       client,
@@ -272,27 +321,41 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	return nil
 }
 
-// ClusterUpdated is passed to the secret controller as a callback to be called
-// when a remote cluster is updated.
-func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
-	if err := m.ClusterDeleted(cluster.ID); err != nil {
-		return err
+// checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
+func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace string) bool {
+	if features.ExternalIstiod {
+		namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
+		if err == nil {
+			// found same system namespace on the remote cluster so check if we are a selected istiod to lead
+			istiodCluster, found := namespace.Annotations[annotation.TopologyControlPlaneClusters.Name]
+			if found {
+				localCluster := string(m.opts.ClusterID)
+				for _, cluster := range strings.Split(istiodCluster, ",") {
+					if cluster == "*" || cluster == localCluster {
+						return true
+					}
+				}
+			}
+		} else if !errors.IsNotFound(err) {
+			// TODO use a namespace informer to handle transient errors and to also allow dynamic updates
+			log.Errorf("failed to access system namespace %s: %v", systemNamespace, err)
+			// For now, fail open in case it's just a transient error. This may result in some unexpected error messages in istiod
+			// logs and/or some unnecessary attempts at leader election, but a local istiod will always win in those cases.
+			return true
+		}
 	}
-	return m.ClusterAdded(cluster, stop)
+	return false
 }
 
-// ClusterDeleted is passed to the secret controller as a callback to be called
-// when a remote cluster is deleted.  Also must clear the cache so remote resources
-// are removed.
-func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
-	m.m.Lock()
-	defer m.m.Unlock()
+// deleteCluster deletes cluster resources and does not trigger push.
+// This call is not thread safe.
+func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
 	m.opts.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
 	m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
 	if !ok {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
-		return nil
+		return
 	}
 	if kc.workloadEntryController != nil {
 		m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.External)
@@ -301,11 +364,6 @@ func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	delete(m.remoteKubeControllers, clusterID)
-	if m.XDSUpdater != nil {
-		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
-	}
-
-	return nil
 }
 
 func createWleConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreController, error) {

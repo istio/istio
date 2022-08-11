@@ -52,8 +52,14 @@ func (s Set) InsertAll(items ...string) Set {
 	return s
 }
 
+// Delete removes an item from the set.
+func (s Set) Delete(item string) Set {
+	delete(s, item)
+	return s
+}
+
 // Delete removes items from the set.
-func (s Set) Delete(items ...string) Set {
+func (s Set) DeleteAll(items ...string) Set {
 	for _, item := range items {
 		delete(s, item)
 	}
@@ -109,6 +115,21 @@ func (s Set) Difference(s2 Set) Set {
 		}
 	}
 	return result
+}
+
+// Diff takes a pair of Sets, and returns the elements that occur only on the left and right set.
+func (s Set) Diff(other Set) (left []string, right []string) {
+	for k := range s {
+		if _, f := other[k]; !f {
+			left = append(left, k)
+		}
+	}
+	for k := range other {
+		if _, f := s[k]; !f {
+			right = append(right, k)
+		}
+	}
+	return
 }
 
 // Intersection returns a set of objects that are common between s and s2
@@ -181,19 +202,4 @@ func (s Set) Len() int {
 // IsEmpty indicates whether the set is the empty set.
 func (s Set) IsEmpty() bool {
 	return len(s) == 0
-}
-
-// Diff takes a pair of Sets, and returns the elements that occur only on the left and right set.
-func (s Set) Diff(other Set) (left []string, right []string) {
-	for k := range s {
-		if _, f := other[k]; !f {
-			left = append(left, k)
-		}
-	}
-	for k := range other {
-		if _, f := s[k]; !f {
-			right = append(right, k)
-		}
-	}
-	return
 }

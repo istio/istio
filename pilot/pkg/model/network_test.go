@@ -39,11 +39,18 @@ func TestGatewayHostnames(t *testing.T) {
 	test.SetDurationForTest(t, &model.MinGatewayTTL, 30*time.Millisecond)
 
 	gwHost := "test.gw.istio.io"
-	dnsServer := newFakeDNSServer(":0", 1, sets.New(gwHost))
-	model.NetworkGatewayTestDNSServers = []string{dnsServer.Server.PacketConn.LocalAddr().String()}
+	workingDNSServer := newFakeDNSServer(":15353", 1, sets.New(gwHost))
+	failingDNSServer := newFakeDNSServer(":25353", 1, sets.NewWithLength(0))
+	model.NetworkGatewayTestDNSServers = []string{
+		// try resolving with the failing server first to make sure the next upstream is retried
+		failingDNSServer.Server.PacketConn.LocalAddr().String(),
+		workingDNSServer.Server.PacketConn.LocalAddr().String(),
+	}
 	t.Cleanup(func() {
-		if err := dnsServer.Shutdown(); err != nil {
-			t.Logf("failed shutting down fake dns server")
+		errW := workingDNSServer.Shutdown()
+		errF := failingDNSServer.Shutdown()
+		if errW != nil || errF != nil {
+			t.Logf("failed shutting down fake dns servers")
 		}
 	})
 
@@ -66,8 +73,9 @@ func TestGatewayHostnames(t *testing.T) {
 		}})
 		xdsUpdater.WaitDurationOrFail(t, model.MinGatewayTTL+5*time.Second, "xds")
 		gws := env.NetworkManager.AllGateways()
-		if len(gws) != 1 {
-			t.Fatalf("expected 1 IP")
+		// A and AAAA
+		if len(gws) != 2 {
+			t.Fatalf("expected 2 IPs")
 		}
 		if gws[0].Network != "nw0" {
 			t.Fatalf("unexpected network: %v", gws)
@@ -98,15 +106,15 @@ type fakeDNSServer struct {
 	ttl uint32
 
 	mu sync.Mutex
-	// map fqdn hostname -> query count
+	// map fqdn hostname -> successful query count
 	hosts map[string]int
 }
 
 func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set) *fakeDNSServer {
-	waitLock := sync.Mutex{}
-	waitLock.Lock()
+	var wg sync.WaitGroup
+	wg.Add(1)
 	s := &fakeDNSServer{
-		Server: &dns.Server{Addr: addr, Net: "udp", NotifyStartedFunc: waitLock.Unlock},
+		Server: &dns.Server{Addr: addr, Net: "udp", NotifyStartedFunc: wg.Done},
 		ttl:    ttl,
 		hosts:  make(map[string]int, len(hosts)),
 	}
@@ -121,7 +129,7 @@ func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set) *fakeDNSServer {
 			scopes.Framework.Errorf("fake dns server error: %v", err)
 		}
 	}()
-	waitLock.Lock()
+	wg.Wait()
 	return s
 }
 
@@ -130,17 +138,29 @@ func (s *fakeDNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	defer s.mu.Unlock()
 
 	msg := (&dns.Msg{}).SetReply(r)
-	switch r.Question[0].Qtype {
-	case dns.TypeA, dns.TypeANY:
-		domain := msg.Question[0].Name
-		c, ok := s.hosts[domain]
-		if ok {
-			s.hosts[domain]++
+	domain := msg.Question[0].Name
+	c, ok := s.hosts[domain]
+	if ok {
+		s.hosts[domain]++
+		switch r.Question[0].Qtype {
+		case dns.TypeA:
 			msg.Answer = append(msg.Answer, &dns.A{
 				Hdr: dns.RR_Header{Name: domain, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: s.ttl},
 				A:   net.ParseIP(fmt.Sprintf("10.0.0.%d", c)),
 			})
+		case dns.TypeAAAA:
+			msg.Answer = append(msg.Answer, &dns.AAAA{
+				Hdr:  dns.RR_Header{Name: domain, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.ttl},
+				AAAA: net.ParseIP(fmt.Sprintf("fd00::%x", c)),
+			})
+		// simulate behavior of some public/cloud DNS like Cloudflare or DigitalOcean
+		case dns.TypeANY:
+			msg.Rcode = dns.RcodeRefused
+		default:
+			msg.Rcode = dns.RcodeNotImplemented
 		}
+	} else {
+		msg.Rcode = dns.RcodeNameError
 	}
 	if err := w.WriteMsg(msg); err != nil {
 		scopes.Framework.Errorf("failed writing fake DNS response: %v", err)

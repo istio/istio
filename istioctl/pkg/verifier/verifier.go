@@ -214,8 +214,11 @@ func (v *StatusVerifier) verifyInstall() error {
 
 func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOperator, filename string) (int, int, error) {
 	t := translate.NewTranslator()
-
-	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t, nil)
+	ver, err := v.client.GetKubernetesVersion()
+	if err != nil {
+		return 0, 0, err
+	}
+	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t, nil, ver)
 	if err != nil {
 		return 0, 0, err
 	}

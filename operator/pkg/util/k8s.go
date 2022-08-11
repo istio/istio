@@ -65,7 +65,7 @@ func GKString(gvk schema.GroupKind) string {
 // ValidateIOPCAConfig validates if the IstioOperator CA configs are applicable to the K8s cluster
 func ValidateIOPCAConfig(client kube.Client, iop *iopv1alpha1.IstioOperator) error {
 	globalI := iop.Spec.Values.AsMap()["global"]
-	global, ok := globalI.(map[string]interface{})
+	global, ok := globalI.(map[string]any)
 	if !ok {
 		// This means no explicit global configuration. Still okay
 		return nil

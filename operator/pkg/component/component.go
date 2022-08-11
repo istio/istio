@@ -22,6 +22,7 @@ package component
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
@@ -53,6 +54,8 @@ type Options struct {
 	Namespace string
 	// Filter is the filenames to render
 	Filter sets.Set
+	// Version is the Kubernetes version information.
+	Version *version.Info
 }
 
 // IstioComponent defines the interface for a component.
@@ -80,7 +83,7 @@ type CommonComponentFields struct {
 	// index is the index of the component (only used for components with multiple instances like gateways).
 	index int
 	// componentSpec for the actual component e.g. GatewaySpec, ComponentSpec.
-	componentSpec interface{}
+	componentSpec any
 	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer
@@ -478,7 +481,7 @@ func createHelmRenderer(c *CommonComponentFields) helm.TemplateRenderer {
 	iop := c.InstallSpec
 	cns := string(c.ComponentName)
 	helmSubdir := c.Translator.ComponentMap(cns).HelmSubdir
-	return helm.NewHelmRenderer(iop.InstallPackagePath, helmSubdir, cns, c.Namespace)
+	return helm.NewHelmRenderer(iop.InstallPackagePath, helmSubdir, cns, c.Namespace, c.Version)
 }
 
 func isCoreComponentEnabled(c *CommonComponentFields) bool {

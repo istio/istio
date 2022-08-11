@@ -33,9 +33,6 @@ import (
 	"istio.io/istio/pkg/test/util/yml"
 )
 
-// callCountMultiplier is used to ensure cross-cluster load balancing has a chance to work
-const callCountMultiplier = 5
-
 type TrafficCall struct {
 	name string
 	call func(t test.Failer, options echo.CallOptions) echo.CallResult
@@ -84,7 +81,7 @@ type TrafficTestCase struct {
 	// comboFilters allows conditionally filtering based on pairs of apps
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
-	templateVars func(src echo.Callers, dest echo.Instances) map[string]interface{}
+	templateVars func(src echo.Callers, dest echo.Instances) map[string]any
 
 	// minIstioVersion allows conditionally skipping based on required version
 	minIstioVersion string
@@ -115,7 +112,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 	job := func(t framework.TestContext) {
 		echoT := echotest.New(t, apps).
 			SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
-				tmplData := map[string]interface{}{
+				tmplData := map[string]any{
 					// tests that use simple Run only need the first
 					"dst":    dsts[0],
 					"dstSvc": dsts[0][0].Config().Service,
@@ -153,9 +150,6 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				if c.checkForN != nil {
 					opts.Check = c.checkForN(from, to, &opts)
-				}
-				if opts.Count == 0 {
-					opts.Count = callCountMultiplier * opts.To.WorkloadsOrFail(t).Len()
 				}
 				if c.setupOpts != nil {
 					c.setupOpts(from, &opts)

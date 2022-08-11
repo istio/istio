@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -71,9 +71,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	// Prepare a working XDS server, with aggregate config and registry stores and a memory store for each.
 	// TODO: refactor bootstrap code to use this server, and add more registries.
 
-	env := &model.Environment{
-		PushContext: model.NewPushContext(),
-	}
+	env := model.NewEnvironment()
 	env.Watcher = mesh.NewFixedWatcher(mesh.DefaultMeshConfig())
 	env.PushContext.Mesh = env.Watcher.Mesh()
 	env.Init()
@@ -106,7 +104,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	serviceControllers.AddRegistry(serviceEntryController)
 
 	sd := controllermemory.NewServiceDiscovery()
-	sd.EDSUpdater = ds
+	sd.XdsUpdater = ds
 	ds.MemRegistry = sd
 	serviceControllers.AddRegistry(serviceregistry.Simple{
 		ProviderID:       "Mem",

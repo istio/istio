@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
@@ -62,8 +63,14 @@ func GenManifests(inFilename []string, setFlags []string, force bool, filter []s
 	}
 
 	t := translate.NewTranslator()
-
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t, filter)
+	var ver *version.Info
+	if client != nil {
+		ver, err = client.GetKubernetesVersion()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t, filter, ver)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -452,7 +459,7 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 	if len(setOverlay) == 0 {
 		return "", nil
 	}
-	tree := make(map[string]interface{})
+	tree := make(map[string]any)
 	for _, kv := range setOverlay {
 		kvv := strings.Split(kv, "=")
 		if len(kvv) != 2 {
@@ -522,13 +529,13 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 
 // overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
 func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
-	iop := make(map[string]interface{})
+	iop := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(iopYAML), &iop); err != nil {
 		return "", err
 	}
 	// Unmarshal returns nil for empty manifests but we need something to insert into.
 	if iop == nil {
-		iop = make(map[string]interface{})
+		iop = make(map[string]any)
 	}
 
 	for _, sf := range setFlags {

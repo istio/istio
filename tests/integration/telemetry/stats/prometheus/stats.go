@@ -19,6 +19,7 @@ package prometheus
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -26,10 +27,12 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	cdeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -38,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 )
@@ -147,23 +151,26 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			}
 
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
-			for _, prom := range mockProm {
-				st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, GetTarget().Instances())
-				prom.CallOrFail(t, echo.CallOptions{
-					ToWorkload: st,
-					Scheme:     scheme.HTTPS,
-					Port:       echo.Port{ServicePort: 15014},
-					HTTP: echo.HTTP{
-						Path: "/metrics",
-					},
-					TLS: echo.TLS{
-						CertFile:           "/etc/certs/custom/cert-chain.pem",
-						KeyFile:            "/etc/certs/custom/key.pem",
-						CaCertFile:         "/etc/certs/custom/root-cert.pem",
-						InsecureSkipVerify: true,
-					},
+			t.NewSubTest("mockprom-to-metrics").Run(
+				func(t framework.TestContext) {
+					for _, prom := range mockProm {
+						st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, GetTarget().Instances())
+						prom.CallOrFail(t, echo.CallOptions{
+							ToWorkload: st,
+							Scheme:     scheme.HTTPS,
+							Port:       echo.Port{ServicePort: 15014},
+							HTTP: echo.HTTP{
+								Path: "/metrics",
+							},
+							TLS: echo.TLS{
+								CertFile:           "/etc/certs/custom/cert-chain.pem",
+								KeyFile:            "/etc/certs/custom/key.pem",
+								CaCertFile:         "/etc/certs/custom/root-cert.pem",
+								InsecureSkipVerify: true,
+							},
+						})
+					}
 				})
-			}
 		})
 }
 
@@ -196,6 +203,79 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						return err
+					}
+					return nil
+				})
+			}
+			if err := g.Wait(); err != nil {
+				t.Fatalf("test failed: %v", err)
+			}
+		})
+}
+
+func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
+	framework.NewTest(t).
+		Features(feature).
+		Run(func(t framework.TestContext) {
+			base := filepath.Join(env.IstioSrc, "tests/integration/telemetry/stats/prometheus/testdata/")
+			// Following resources are being deployed to test sidecar->gateway communication. With following resources,
+			// routing is being setup from sidecar to external site, via egress gateway.
+			// clt(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway-> vs(tcp:443) -> cnn.com
+			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-dest-rule.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-gateway.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-vs.yaml")).ApplyOrFail(t)
+
+			// The main SE is available only to app namespace, make one the egress can access.
+			t.ConfigIstio().Eval(ist.Settings().SystemNamespace, map[string]any{
+				"Namespace": apps.External.Namespace.Name(),
+				"Hostname":  cdeployment.ExternalHostname,
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-service
+spec:
+  exportTo: [.]
+  hosts:
+  - {{.Hostname}}
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: external.{{.Namespace}}.svc.cluster.local
+  ports:
+  - name: https
+    number: 443
+    protocol: HTTPS
+`).ApplyOrFail(t, apply.NoCleanup)
+			g, _ := errgroup.WithContext(context.Background())
+			for _, cltInstance := range GetClientInstances() {
+				cltInstance := cltInstance
+				g.Go(func() error {
+					err := retry.UntilSuccess(func() error {
+						if _, err := cltInstance.Call(echo.CallOptions{
+							Address: "fake.external.com",
+							Scheme:  scheme.HTTPS,
+							Port:    echo.Port{ServicePort: ports.All().MustForName(ports.HTTPS).ServicePort},
+							Count:   1,
+							Retry:   echo.Retry{NoRetry: true}, // we do retry in outer loop
+							Check:   check.OK(),
+						}); err != nil {
+							return err
+						}
+
+						c := cltInstance.Config().Cluster
+						sourceCluster := "Kubernetes"
+						if len(t.AllClusters()) > 1 {
+							sourceCluster = c.Name()
+						}
+						destinationQuery := buildGatewayTCPServerQuery(sourceCluster)
+						if _, err := GetPromInstance().Query(c, destinationQuery); err != nil {
+							util.PromDiff(t, promInst, c, destinationQuery)
+							return err
+						}
+						return nil
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
+					if err != nil {
+						t.Fatalf("test failed: %v", err)
 					}
 					return nil
 				})
@@ -267,7 +347,6 @@ func SendTraffic(from echo.Instance) error {
 		Port: echo.Port{
 			Name: "http",
 		},
-		Count: util.RequestCountMultipler * GetTarget().MustWorkloads().Len(),
 		Check: check.OK(),
 		Retry: echo.Retry{
 			NoRetry: true,
@@ -281,7 +360,6 @@ func SendTraffic(from echo.Instance) error {
 		Port: echo.Port{
 			Name: "http",
 		},
-		Count: util.RequestCountMultipler * apps.Naked.MustWorkloads().Len(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -298,7 +376,6 @@ func SendTrafficOrFail(t test.Failer, from echo.Instance) {
 		Port: echo.Port{
 			Name: "http",
 		},
-		Count: util.RequestCountMultipler * GetTarget().MustWorkloads().Len(),
 		Check: check.OK(),
 	})
 	from.CallOrFail(t, echo.CallOptions{
@@ -306,7 +383,6 @@ func SendTrafficOrFail(t test.Failer, from echo.Instance) {
 		Port: echo.Port{
 			Name: "http",
 		},
-		Count: util.RequestCountMultipler * apps.Naked.MustWorkloads().Len(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -320,7 +396,6 @@ func SendTCPTraffic(from echo.Instance) error {
 		Port: echo.Port{
 			Name: "tcp",
 		},
-		Count: util.RequestCountMultipler * GetTarget().MustWorkloads().Len(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -419,6 +494,30 @@ func buildTCPQuery(sourceCluster string) (destinationQuery prometheus.Query) {
 		"source_workload_namespace":      ns.Name(),
 		"source_cluster":                 sourceCluster,
 		"reporter":                       "destination",
+	}
+	return prometheus.Query{
+		Metric: "istio_tcp_connections_opened_total",
+		Labels: labels,
+	}
+}
+
+func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery prometheus.Query) {
+	ns := GetAppNamespace()
+	labels := map[string]string{
+		"request_protocol":               "tcp",
+		"destination_service_name":       "istio-egressgateway",
+		"destination_canonical_revision": "latest",
+		"destination_canonical_service":  "istio-egressgateway",
+		"destination_app":                "istio-egressgateway",
+		"destination_version":            "unknown",
+		"destination_workload_namespace": "istio-system",
+		"destination_service_namespace":  "istio-system",
+		"source_app":                     "a",
+		"source_version":                 "v1",
+		"source_workload":                "a-v1",
+		"source_workload_namespace":      ns.Name(),
+		"source_cluster":                 sourceCluster,
+		"reporter":                       "source",
 	}
 	return prometheus.Query{
 		Metric: "istio_tcp_connections_opened_total",

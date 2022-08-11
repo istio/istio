@@ -51,10 +51,15 @@ type kubeNamespace struct {
 	prefix       string
 	cleanupMutex sync.Mutex
 	cleanupFuncs []func() error
+	skipDump     bool
 }
 
 func (n *kubeNamespace) Dump(ctx resource.Context) {
-	scopes.Framework.Errorf("=== Dumping Namespace %s State...", n.name)
+	if n.skipDump {
+		scopes.Framework.Debugf("=== Skip dumping Namespace %s State for %v...", n.name, ctx.ID())
+		return
+	}
+	scopes.Framework.Errorf("=== Dumping Namespace %s State for %v...", n.name, ctx.ID())
 
 	d, err := ctx.CreateTmpDirectory(n.name + "-state")
 	if err != nil {
@@ -140,12 +145,13 @@ func (n *kubeNamespace) Close() error {
 	return err
 }
 
-func claimKube(ctx resource.Context, cfg *Config) (Instance, error) {
+func claimKube(ctx resource.Context, cfg Config) (Instance, error) {
 	name := cfg.Prefix
 	n := &kubeNamespace{
-		ctx:    ctx,
-		prefix: name,
-		name:   name,
+		ctx:      ctx,
+		prefix:   name,
+		name:     name,
+		skipDump: cfg.SkipDump,
 	}
 
 	id := ctx.TrackResource(n)
@@ -189,7 +195,7 @@ func (n *kubeNamespace) removeNamespaceLabel(key string) error {
 }
 
 // NewNamespace allocates a new testing namespace.
-func newKube(ctx resource.Context, cfg *Config) (Instance, error) {
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	mu.Lock()
 	idctr++
 	nsid := idctr
@@ -214,7 +220,7 @@ func newKube(ctx resource.Context, cfg *Config) (Instance, error) {
 	return n, nil
 }
 
-func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg *Config) error {
+func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 	if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   n.name,
@@ -255,7 +261,7 @@ func (n *kubeNamespace) addCleanup(fn func() error) {
 }
 
 // createNamespaceLabels will take a namespace config and generate the proper k8s labels
-func createNamespaceLabels(ctx resource.Context, cfg *Config) map[string]string {
+func createNamespaceLabels(ctx resource.Context, cfg Config) map[string]string {
 	l := make(map[string]string)
 	l["istio-testing"] = "istio-test"
 	if cfg.Inject {

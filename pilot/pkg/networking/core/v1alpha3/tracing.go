@@ -140,7 +140,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Datadog.Service, provider.Datadog.Port, provider.Datadog.MaxTagLength, datadogConfigGen)
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
 		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Lightstep.Service, provider.Lightstep.Port, provider.Lightstep.MaxTagLength,
-			func(clusterName string) (*anypb.Any, error) {
+			func(hostname, clusterName string) (*anypb.Any, error) {
 				lc := &tracingcfg.LightstepConfig{
 					CollectorCluster: clusterName,
 					AccessTokenFile:  provider.Lightstep.AccessToken,
@@ -162,12 +162,13 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Skywalking.Service,
-			provider.Skywalking.Port, 0, func(clusterName string) (*anypb.Any, error) {
+			provider.Skywalking.Port, 0, func(hostname, clusterName string) (*anypb.Any, error) {
 				s := &tracingcfg.SkyWalkingConfig{
 					GrpcService: &envoy_config_core_v3.GrpcService{
 						TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
 							EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
 								ClusterName: clusterName,
+								Authority:   hostname,
 							},
 						},
 					},
@@ -257,22 +258,21 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 	return tracing, rfCtx, err
 }
 
-type typedConfigGenFromClusterFn func(clusterName string) (*anypb.Any, error)
+type typedConfigGenFromClusterFn func(hostname, clusterName string) (*anypb.Any, error)
 
-func zipkinConfigGen(cluster string) (*anypb.Any, error) {
-	_, _, hostname, _ := model.ParseSubsetKey(cluster)
+func zipkinConfigGen(hostname, cluster string) (*anypb.Any, error) {
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         cluster,
 		CollectorEndpoint:        "/api/v2/spans",                   // envoy deprecated v1 support
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
-		CollectorHostname:        string(hostname),                  // http host header
+		CollectorHostname:        hostname,                          // http host header
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
 	return anypb.New(zc)
 }
 
-func datadogConfigGen(cluster string) (*anypb.Any, error) {
+func datadogConfigGen(hostname, cluster string) (*anypb.Any, error) {
 	dc := &tracingcfg.DatadogConfig{
 		CollectorCluster: cluster,
 	}
@@ -286,12 +286,12 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 ) (*hpb.HttpConnectionManager_Tracing, error) {
 	config := &hpb.HttpConnectionManager_Tracing{}
 
-	_, cluster, err := clusterLookupFn(pushCtx, svc, int(port))
+	hostname, cluster, err := clusterLookupFn(pushCtx, svc, int(port))
 	if err != nil {
 		return config, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 	}
 
-	cfg, err := anyFn(cluster)
+	cfg, err := anyFn(hostname, cluster)
 	if err != nil {
 		return config, fmt.Errorf("could not configure tracing provider %q: %v", provider, err)
 	}

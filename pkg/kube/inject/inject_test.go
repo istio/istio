@@ -752,11 +752,11 @@ func TestSkipUDPPorts(t *testing.T) {
 		expectPorts := cases[i].ports
 		ports := getPortsForContainer(cases[i].c)
 		if len(ports) != len(expectPorts) {
-			t.Fatalf("unexpect ports result for case %d", i)
+			t.Fatalf("unexpected ports result for case %d", i)
 		}
 		for j := 0; j < len(ports); j++ {
 			if ports[j] != expectPorts[j] {
-				t.Fatalf("unexpect ports result for case %d: expect %v, got %v", i, expectPorts, ports)
+				t.Fatalf("unexpected ports result for case %d: expect %v, got %v", i, expectPorts, ports)
 			}
 		}
 	}
@@ -969,7 +969,7 @@ func TestQuantityConversion(t *testing.T) {
 }
 
 func TestProxyImage(t *testing.T) {
-	val := func(hub string, tag interface{}) *opconfig.Values {
+	val := func(hub string, tag any) *opconfig.Values {
 		t, _ := structpb.NewValue(tag)
 		return &opconfig.Values{
 			Global: &opconfig.GlobalConfig{

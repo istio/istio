@@ -674,10 +674,10 @@ func xdsConnection(nw network.ID, c cluster.ID) *Connection {
 }
 
 // environment defines the networks with:
-//  - 1 gateway for network1
-//  - 3 gateway for network2
-//  - 1 gateway for network3
-//  - 0 gateways for network4
+//   - 1 gateway for network1
+//   - 3 gateway for network2
+//   - 1 gateway for network3
+//   - 0 gateways for network4
 func environment(t test.Failer, c ...config.Config) *FakeDiscoveryServer {
 	ds := NewFakeDiscoveryServer(t, FakeOptions{
 		Configs: c,
@@ -730,10 +730,10 @@ func environment(t test.Failer, c ...config.Config) *FakeDiscoveryServer {
 }
 
 // testShards creates endpoints to be handed to the filter:
-//  - 2 endpoints in network1
-//  - 1 endpoints in network2
-//  - 0 endpoints in network3
-//  - 1 endpoints in network4
+//   - 2 endpoints in network1
+//   - 1 endpoints in network2
+//   - 0 endpoints in network3
+//   - 1 endpoints in network4
 //
 // All endpoints are part of service example.ns.svc.cluster.local on port 80 (http).
 func testShards() *model.EndpointShards {

@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 
 	kubelib "istio.io/istio/pkg/kube"
@@ -97,9 +98,13 @@ type Suite interface {
 	Skip(reason string) Suite
 	// RequireMinClusters ensures that the current environment contains at least the given number of clusters.
 	// Otherwise it stops test execution.
+	//
+	// Deprecated: Tests should not make assumptions about number of clusters.
 	RequireMinClusters(minClusters int) Suite
 	// RequireMaxClusters ensures that the current environment contains at least the given number of clusters.
 	// Otherwise it stops test execution.
+	//
+	// Deprecated: Tests should not make assumptions about number of clusters.
 	RequireMaxClusters(maxClusters int) Suite
 	// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
 	//
@@ -109,12 +114,18 @@ type Suite interface {
 	//
 	// Deprecated: All new tests should work for any control plane topology.
 	RequireMultiPrimary() Suite
+	// SkipExternalControlPlaneTopology skips the tests in external plane and config cluster topology
+	SkipExternalControlPlaneTopology() Suite
+	// RequireExternalControlPlaneTopology requires the environment to be external control plane topology
+	RequireExternalControlPlaneTopology() Suite
 	// RequireMinVersion validates the environment meets a minimum version
 	RequireMinVersion(minorVersion uint) Suite
 	// RequireMaxVersion validates the environment meets a maximum version
 	RequireMaxVersion(minorVersion uint) Suite
 	// Setup runs enqueues the given setup function to run before test execution.
 	Setup(fn resource.SetupFn) Suite
+	// SetupParallel runs the given setup functions in parallel before test execution.
+	SetupParallel(fns ...resource.SetupFn) Suite
 	// Run the suite. This method calls os.Exit and does not return.
 	Run()
 }
@@ -250,6 +261,7 @@ func (s *suiteImpl) RequireMaxClusters(maxClusters int) Suite {
 }
 
 func (s *suiteImpl) RequireSingleCluster() Suite {
+	// nolint: staticcheck
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
@@ -264,6 +276,36 @@ func (s *suiteImpl) RequireMultiPrimary() Suite {
 		return nil
 	}
 
+	s.requireFns = append(s.requireFns, fn)
+	return s
+}
+
+func (s *suiteImpl) SkipExternalControlPlaneTopology() Suite {
+	fn := func(ctx resource.Context) error {
+		for _, c := range ctx.Clusters() {
+			if c.IsConfig() && !c.IsPrimary() {
+				s.Skip(fmt.Sprintf("Cluster %s is a config cluster, we can't run external control plane topology",
+					c.Name()))
+			}
+		}
+		return nil
+	}
+	s.requireFns = append(s.requireFns, fn)
+	return s
+}
+
+func (s *suiteImpl) RequireExternalControlPlaneTopology() Suite {
+	fn := func(ctx resource.Context) error {
+		for _, c := range ctx.Clusters() {
+			if c.IsConfig() && !c.IsPrimary() {
+				// the test environment is an external control plane topology, the test can go on
+				return nil
+			}
+		}
+		// the test environment is not an external control plane topology, skip the test
+		s.Skip("Not an external control plane topology, skip this test")
+		return nil
+	}
 	s.requireFns = append(s.requireFns, fn)
 	return s
 }
@@ -308,6 +350,20 @@ func (s *suiteImpl) RequireMaxVersion(minorVersion uint) Suite {
 
 func (s *suiteImpl) Setup(fn resource.SetupFn) Suite {
 	s.setupFns = append(s.setupFns, fn)
+	return s
+}
+
+func (s *suiteImpl) SetupParallel(fns ...resource.SetupFn) Suite {
+	s.setupFns = append(s.setupFns, func(ctx resource.Context) error {
+		g := multierror.Group{}
+		for _, fn := range fns {
+			fn := fn
+			g.Go(func() error {
+				return fn(ctx)
+			})
+		}
+		return g.Wait().ErrorOrNil()
+	})
 	return s
 }
 

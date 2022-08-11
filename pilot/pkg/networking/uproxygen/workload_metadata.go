@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/kube/labels"
 	wmpb "istio.io/istio/pkg/workloadmetadata/proto"
 )
@@ -91,10 +91,10 @@ func (g *WorkloadMetadataGenerator) Generate(proxy *model.Proxy, w *model.Watche
 
 	tec := &corev3.TypedExtensionConfig{
 		Name:        WorkloadMetadataListenerFilterName,
-		TypedConfig: util.MessageToAny(wmd),
+		TypedConfig: protoconv.MessageToAny(wmd),
 	}
 
-	resources := model.Resources{&discovery.Resource{Resource: util.MessageToAny(tec)}}
+	resources := model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(tec)}}
 	return resources, model.DefaultXdsLogDetails, nil
 }
 

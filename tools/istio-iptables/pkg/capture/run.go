@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
@@ -270,9 +271,28 @@ func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
 		return nil
 	}
 	if ext != nil && cfg.CNIMode {
-		command := os.Args[0]
-		return ext.Run(command, constants.CommandConfigureRoutes)
+		if cfg.HostNSEnterExec {
+			command := os.Args[0]
+			return ext.Run(command, constants.CommandConfigureRoutes)
+		}
+
+		nsContainer, err := ns.GetNS(cfg.NetworkNamespace)
+		if err != nil {
+			return err
+		}
+		defer nsContainer.Close()
+
+		return nsContainer.Do(func(ns.NetNS) error {
+			if err := configureIPv6Addresses(cfg); err != nil {
+				return err
+			}
+			if err := configureTProxyRoutes(cfg); err != nil {
+				return err
+			}
+			return nil
+		})
 	}
+	// called through 'nsenter -- istio-cni configure-routes'
 	if err := configureIPv6Addresses(cfg); err != nil {
 		return err
 	}

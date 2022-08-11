@@ -18,6 +18,7 @@ import (
 	"os"
 	"time"
 
+	"go.uber.org/atomic"
 	"golang.org/x/net/context"
 )
 
@@ -45,6 +46,24 @@ func SetStringForTest(t Failer, vv *string, v string) {
 
 // SetBoolForTest sets a variable for the duration of a test, then resets it once the test is complete.
 func SetBoolForTest(t Failer, vv *bool, v bool) {
+	old := *vv
+	*vv = v
+	t.Cleanup(func() {
+		*vv = old
+	})
+}
+
+// SetAtomicBoolForTest sets a variable for the duration of a test, then resets it once the test is complete atomically.
+func SetAtomicBoolForTest(t Failer, vv *atomic.Bool, v bool) {
+	old := vv.Load()
+	vv.Store(v)
+	t.Cleanup(func() {
+		vv.Store(old)
+	})
+}
+
+// SetIntForTest sets a variable for the duration of a test, then resets it once the test is complete.
+func SetIntForTest(t Failer, vv *int, v int) {
 	old := *vv
 	*vv = v
 	t.Cleanup(func() {

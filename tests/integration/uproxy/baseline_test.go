@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/integration/security/util/reachability"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 func IsL7() echo.Checker {
@@ -73,10 +72,9 @@ var (
 	tcpValidator  = check.And(check.OK(), IsL4())
 	callOptions   = []echo.CallOptions{
 		{
-			Port:    echo.Port{Name: "http"},
-			Scheme:  scheme.HTTP,
-			Count:   10, // TODO use more
-			Timeout: time.Second * 2,
+			Port:   echo.Port{Name: "http"},
+			Scheme: scheme.HTTP,
+			Count:  10, // TODO use more
 		},
 		//{
 		//	Port: echo.Port{Name: "http"},
@@ -85,10 +83,9 @@ var (
 		//	Timeout:  time.Second * 2,
 		//},
 		{
-			Port:    echo.Port{Name: "tcp"},
-			Scheme:  scheme.TCP,
-			Count:   1,
-			Timeout: time.Second * 2,
+			Port:   echo.Port{Name: "tcp"},
+			Scheme: scheme.TCP,
+			Count:  1,
 		},
 		//{
 		//	Port: echo.Port{Name: "grpc"},
@@ -727,7 +724,7 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		t.NewSubTest(testName).Run(func(t framework.TestContext) {
 			// Apply the policy.
-			cfg := t.ConfigIstio().File(c.Namespace.Name(), filepath.Join("../security/testdata", c.ConfigFile))
+			cfg := t.ConfigIstio().File(c.Namespace.Name(), filepath.Join("testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(t, func() error {
 				t.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
@@ -742,14 +739,14 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 					tpe = "positive"
 					opt.Check = check.And(
 						check.OK(),
-						scheck.ReachedClusters(t.AllClusters(), &opt))
+						check.ReachedTargetClusters(t))
 					if expectMTLS {
 						// TODO(https://github.com/solo-io/istio-sidecarless/issues/150)
 						_ = expectMTLS
 					}
 				} else {
 					tpe = "negative"
-					opt.Check = scheck.NotOK()
+					opt.Check = check.NotOK()
 				}
 				_ = tpe
 

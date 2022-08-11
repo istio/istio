@@ -124,10 +124,10 @@ func setupK8Sfake() *fake.FakeDynamicClient {
 
 func newUnstructured(apiVersion, kind, namespace, name string, generation int64) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": apiVersion,
 			"kind":       kind,
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"namespace":  namespace,
 				"name":       name,
 				"generation": generation,

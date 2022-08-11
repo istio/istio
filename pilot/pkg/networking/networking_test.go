@@ -98,8 +98,32 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			ListenerProtocolAuto,
 		},
 		{
+			"Outbound unknown to Auto (disable sniffing for outbound)",
+			protocol.Unsupported,
+			core.TrafficDirection_OUTBOUND,
+			true,
+			false,
+			ListenerProtocolTCP,
+		},
+		{
 			"Inbound unknown to Auto (disable sniffing for outbound)",
 			protocol.Unsupported,
+			core.TrafficDirection_INBOUND,
+			true,
+			false,
+			ListenerProtocolAuto,
+		},
+		{
+			"UDP to UDP",
+			protocol.UDP,
+			core.TrafficDirection_INBOUND,
+			true,
+			false,
+			ListenerProtocolUnknown,
+		},
+		{
+			"Unknown Protocol",
+			"Bad Protocol",
 			core.TrafficDirection_INBOUND,
 			true,
 			false,
@@ -113,6 +137,38 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			test.SetBoolForTest(t, &features.EnableProtocolSniffingForInbound, tt.sniffingEnabledForInbound)
 			if got := ModelProtocolToListenerProtocol(tt.protocol, tt.direction); got != tt.want {
 				t.Errorf("ModelProtocolToListenerProtocol() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestString(t *testing.T) {
+	tests := []struct {
+		name  string
+		value uint
+		want  string
+	}{
+		{
+			"test String method for tcp transport protocol",
+			TransportProtocolTCP,
+			"tcp",
+		},
+		{
+			"test String method for quic transport protocol",
+			TransportProtocolQUIC,
+			"quic",
+		},
+		{
+			"test String method for invalid transport protocol",
+			3,
+			"unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TransportProtocol(tt.value).String(); got != tt.want {
+				t.Errorf("Failed to get TransportProtocol.String :: got = %v, want %v", got, tt.want)
 			}
 		})
 	}

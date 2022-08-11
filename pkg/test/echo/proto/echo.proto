@@ -19,6 +19,8 @@ import "google/protobuf/wrappers.proto";
 // Generate with protoc --go_out=. echo.proto -I /work/common-protos/ -I.
 package proto;
 option go_package="../proto";
+option java_package = "io.istio.test";
+option java_outer_classname = "Echo";
 
 service EchoTestService {
   rpc Echo (EchoRequest) returns (EchoResponse);

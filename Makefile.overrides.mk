@@ -18,6 +18,8 @@
 # test cases fail within Docker, and Mac + Docker isn't quite perfect.
 # For more information see: https://github.com/istio/istio/pull/19322/
 
+export ISTIO_ENVOY_BASE_URL := https://storage.googleapis.com/solo-istio-build/proxy
+
 BUILD_WITH_CONTAINER ?= 1
 CONTAINER_OPTIONS = --mount type=bind,source=/tmp,destination=/tmp --net=host
 

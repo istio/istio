@@ -32,6 +32,7 @@ import (
 	udsLog "istio.io/istio/cni/pkg/log"
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/repair"
+	"istio.io/istio/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
@@ -49,11 +50,15 @@ var rootCmd = &cobra.Command{
 	Use:          "install-cni",
 	Short:        "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
 	SilenceUsage: true,
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
+	PreRunE: func(c *cobra.Command, args []string) error {
 		if err := log.Configure(logOptions); err != nil {
 			log.Errorf("Failed to configure log %v", err)
 		}
-		ctx := cmd.Context()
+		return nil
+	},
+	RunE: func(c *cobra.Command, args []string) (err error) {
+		cmd.PrintFlags(c.Flags())
+		ctx := c.Context()
 
 		// Start controlz server
 		_, _ = ctrlz.Run(ctrlzOptions, nil)
