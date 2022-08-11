@@ -1539,11 +1539,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 		Labels: map[string]string{
 			"app": "foo",
 		},
-		Metadata: &model.NodeMetadata{
-			Labels: map[string]string{
-				"app": "foo",
-			},
-		},
+		Metadata: &model.NodeMetadata{},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
