@@ -395,7 +395,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			for _, service := range services {
 				listenerOpts.service = service
 				// Set service specific attributes here.
-				lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+				lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard, nil)
 			}
 		} else {
 			// This is a catch all egress listener with no port. This
@@ -471,9 +471,10 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// selected or scaled down, so we skip these as well. This leaves us with
 							// only a plain ServiceEntry with resolution NONE. In this case, we will
 							// fallback to a wildcard listener.
-							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard, nil)
 							continue
 						}
+						var addresses []string
 						for _, instance := range instances {
 							// Make sure each endpoint address is a valid address
 							// as service entries could have NONE resolution with label selectors for workload
@@ -487,12 +488,13 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							if instance.Endpoint.Address == node.IPAddresses[0] {
 								continue
 							}
-							listenerOpts.bind = instance.Endpoint.Address
-							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+							addresses = append(addresses, instance.Endpoint.Address)
 						}
+						listenerOpts.bind = addresses[0]
+						lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard, nil)
 					} else {
 						// Standard logic for headless and non headless services
-						lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+						lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard, nil)
 					}
 				}
 			}
@@ -787,9 +789,7 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 // if one doesn't already exist. HTTP listeners on same port are ignored
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
-func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
-	listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcard string,
-) {
+func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts, listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcard string, additionalAddresses []string, ) {
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
 	var ret bool
@@ -933,7 +933,9 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts, core.TrafficDirection_OUTBOUND)
-
+	for _, addr := range additionalAddresses {
+		l.AdditionalAddresses = append(l.AdditionalAddresses, &listener.AdditionalAddress{Address: util.BuildAddress(addr, uint32(listenerOpts.port.Port))})
+	}
 	mutable := &MutableListener{
 		MutableObjects: istionetworking.MutableObjects{
 			Listener:     l,
