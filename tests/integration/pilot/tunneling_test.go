@@ -107,7 +107,6 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 		NewTest(t).
 		Features("traffic.tunneling").
 		Run(func(ctx framework.TestContext) {
-			ctx.Skip("https://github.com/istio/istio/issues/39586")
 			meshNs := apps.A.NamespaceName()
 			externalNs := apps.External.Namespace.Name()
 
@@ -118,7 +117,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 			externalForwardProxyIP := getPodIP(ctx, externalNs, "external-forward-proxy")
 
 			for _, proxyConfig := range forwardProxyConfigurations {
-				templateParams := map[string]interface{}{
+				templateParams := map[string]any{
 					"externalNamespace":  externalNs,
 					"forwardProxyPort":   proxyConfig.Port,
 					"tlsEnabled":         proxyConfig.TLSEnabled,

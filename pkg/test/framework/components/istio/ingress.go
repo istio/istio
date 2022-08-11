@@ -94,7 +94,7 @@ func (c *ingressImpl) Close() error {
 // the returned net.Addr will have the externally reachable NodePort address and port.
 func (c *ingressImpl) getAddressInner(port int) (string, int, error) {
 	attempts := 0
-	addr, err := retry.UntilComplete(func() (result interface{}, completed bool, err error) {
+	addr, err := retry.UntilComplete(func() (result any, completed bool, err error) {
 		attempts++
 		result, completed, err = getRemoteServiceAddress(c.env.Settings(), c.cluster, c.service.Namespace, c.labelSelector, c.service.Name, port)
 		if err != nil && attempts > 1 {
@@ -224,7 +224,7 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 	if host := opts.GetHost(); len(host) > 0 {
 		opts.HTTP.Headers.Set(headers.Host, host)
 	}
-	if len(c.cluster.HTTPProxy()) > 0 {
+	if len(c.cluster.HTTPProxy()) > 0 && !c.cluster.ProxyKubectlOnly() {
 		opts.HTTP.HTTPProxy = c.cluster.HTTPProxy()
 	}
 	return c.caller.CallEcho(c, opts)

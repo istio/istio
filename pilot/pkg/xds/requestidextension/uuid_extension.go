@@ -19,11 +19,11 @@ import (
 	uuid_extension "github.com/envoyproxy/go-control-plane/envoy/extensions/request_id/uuid/v3"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 var UUIDRequestIDExtension = &hcm.RequestIDExtension{
-	TypedConfig: util.MessageToAny(&uuid_extension.UuidRequestIdConfig{
+	TypedConfig: protoconv.MessageToAny(&uuid_extension.UuidRequestIdConfig{
 		UseRequestIdForTraceSampling: &wrapperspb.BoolValue{
 			Value: true,
 		},
@@ -35,7 +35,7 @@ func BuildUUIDRequestIDExtension(ctx *UUIDRequestIDExtensionContext) *hcm.Reques
 		return UUIDRequestIDExtension
 	}
 	return &hcm.RequestIDExtension{
-		TypedConfig: util.MessageToAny(&uuid_extension.UuidRequestIdConfig{
+		TypedConfig: protoconv.MessageToAny(&uuid_extension.UuidRequestIdConfig{
 			UseRequestIdForTraceSampling: &wrapperspb.BoolValue{
 				Value: ctx.UseRequestIDForTraceSampling,
 			},

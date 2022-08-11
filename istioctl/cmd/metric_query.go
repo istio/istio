@@ -111,6 +111,7 @@ func (ls Labels) String() string {
 }
 
 // common example:
+//
 //	histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))
 //	quantile, reqDur, destWorkloadLabel, workloadName, destWorkloadNamespaceLabel, workloadNamespace, duration
 func getLatencyQuery(quantile float64, queryParams prometheusQueryParams) string {
@@ -119,11 +120,14 @@ func getLatencyQuery(quantile float64, queryParams prometheusQueryParams) string
 }
 
 // common RPS:
-// 	sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s]))
-// 	reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration
+//
+//	sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s]))
+//	reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration
+//
 // error RPS:
-// 	sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code=~"[45][0-9]{2}"}[%s]))
-//  reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration
+//
+//	sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code=~"[45][0-9]{2}"}[%s]))
+//	reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration
 func getRpsQuery(queryParams prometheusQueryParams) string {
 	rpsQueryTemplate := `sum(rate(%s{%s}[%s]))%s`
 	return fmt.Sprintf(rpsQueryTemplate, reqTot, queryParams.LabelSelectorString(), queryParams.Duration, queryParams.ByLabelsString())

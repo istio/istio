@@ -114,13 +114,27 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 		}
 	}
 	res, logdata, err := gen.Generate(con.proxy, w, req)
+	info := ""
+	if len(logdata.AdditionalInfo) > 0 {
+		info = " " + logdata.AdditionalInfo
+	}
+	if len(logFiltered) > 0 {
+		info += logFiltered
+	}
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
 			s.StatusReporter.RegisterEvent(con.conID, w.TypeUrl, req.Push.LedgerVersion)
 		}
 		if log.DebugEnabled() {
-			log.Debugf("%s: SKIP%s for node:%s", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID)
+			log.Debugf("%s: SKIP%s for node:%s%s", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, info)
+		}
+
+		// If we are sending a request, we must respond or we can get Envoy stuck. Assert we do.
+		// One exception is if Envoy is simply unsubscribing from some resources, in which case we can skip.
+		isUnsubscribe := features.PartialFullPushes && !req.Delta.IsEmpty() && req.Delta.Subscribed.IsEmpty()
+		if features.EnableUnsafeAssertions && err == nil && res == nil && req.IsRequest() && !isUnsubscribe {
+			log.Fatalf("%s: SKIPPED%s for node:%s%s but expected a response for request", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, info)
 		}
 		return err
 	}
@@ -139,15 +153,8 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	configSizeBytes.With(typeTag.Value(w.TypeUrl)).Record(float64(configSize))
 
 	ptype := "PUSH"
-	info := ""
 	if logdata.Incremental {
 		ptype = "PUSH INC"
-	}
-	if len(logdata.AdditionalInfo) > 0 {
-		info = " " + logdata.AdditionalInfo
-	}
-	if len(logFiltered) > 0 {
-		info += logFiltered
 	}
 
 	if err := con.send(resp); err != nil {
@@ -159,7 +166,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	}
 
 	switch {
-	case logdata.Incremental:
+	case !req.Full:
 		if log.DebugEnabled() {
 			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)

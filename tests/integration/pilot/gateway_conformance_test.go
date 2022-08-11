@@ -33,8 +33,11 @@ package pilot
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/conformance/tests"
@@ -65,6 +68,8 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
+var skippedTests = map[string]string{}
+
 func TestGatewayConformance(t *testing.T) {
 	// nolint: staticcheck
 	framework.
@@ -72,19 +77,7 @@ func TestGatewayConformance(t *testing.T) {
 		RequiresSingleCluster().
 		Features("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
-			if !supportsGatewayAPI(ctx) {
-				t.Skip("Not supported; requires CRDv1 support.")
-			}
-			if err := ctx.ConfigIstio().
-				File("", "testdata/gateway-api-crd.yaml").
-				Apply(apply.NoCleanup); err != nil {
-				ctx.Fatal(err)
-			}
-			// Wait until our GatewayClass is ready
-			retry.UntilSuccessOrFail(ctx, func() error {
-				_, err := ctx.Clusters().Default().GatewayAPI().GatewayV1alpha2().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
-				return err
-			})
+			DeployGatewayAPICRD(ctx)
 
 			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
 			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
@@ -120,8 +113,50 @@ func TestGatewayConformance(t *testing.T) {
 
 			for _, ct := range tests.ConformanceTests {
 				t.Run(ct.ShortName, func(t *testing.T) {
+					if reason, f := skippedTests[ct.ShortName]; f {
+						t.Skip(reason)
+					}
 					ct.Run(t, csuite)
 				})
 			}
 		})
+}
+
+func DeployGatewayAPICRD(ctx framework.TestContext) {
+	if !supportsGatewayAPI(ctx) {
+		ctx.Skip("Not supported; requires CRDv1 support.")
+	}
+	if err := ctx.ConfigIstio().
+		File("", "testdata/gateway-api-crd.yaml").
+		Apply(apply.NoCleanup); err != nil {
+		ctx.Fatal(err)
+	}
+	// Wait until our GatewayClass is ready
+	retry.UntilSuccessOrFail(ctx, func() error {
+		for _, c := range ctx.Clusters().Configs() {
+			_, err := c.GatewayAPI().GatewayV1alpha2().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			crdl, err := c.Ext().ApiextensionsV1().CustomResourceDefinitions().List(context.Background(), metav1.ListOptions{})
+			if err != nil {
+				return err
+			}
+			for _, crd := range crdl.Items {
+				if !strings.HasSuffix(crd.Name, "gateway.networking.k8s.io") {
+					continue
+				}
+				found := false
+				for _, c := range crd.Status.Conditions {
+					if c.Type == apiextensions.Established && c.Status == apiextensions.ConditionTrue {
+						found = true
+					}
+				}
+				if !found {
+					return fmt.Errorf("crd %v not ready: %+v", crd.Name, crd.Status)
+				}
+			}
+		}
+		return nil
+	})
 }

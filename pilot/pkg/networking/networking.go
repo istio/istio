@@ -15,19 +15,13 @@
 package networking
 
 import (
-	"fmt"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"google.golang.org/protobuf/encoding/prototext"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/pkg/log"
 )
 
 // ListenerProtocol is the protocol associated with the listener.
@@ -135,44 +129,6 @@ type MutableObjects struct {
 	FilterChains []FilterChain
 }
 
-const (
-	NoTunnelTypeName = "notunnel"
-	H2TunnelTypeName = "H2Tunnel"
-)
-
-type (
-	TunnelType    int
-	TunnelAbility int
-)
-
-const (
-	// Bind the no tunnel support to a name.
-	NoTunnel TunnelType = 0
-	// Enumeration of tunnel type below. Each type should own a unique bit field.
-	H2Tunnel TunnelType = 1 << 0
-)
-
-func MakeTunnelAbility(ttypes ...TunnelType) TunnelAbility {
-	ability := int(NoTunnel)
-	for _, tunnelType := range ttypes {
-		ability |= int(tunnelType)
-	}
-	return TunnelAbility(ability)
-}
-
-func (t TunnelType) ToString() string {
-	switch t {
-	case H2Tunnel:
-		return H2TunnelTypeName
-	default:
-		return NoTunnelTypeName
-	}
-}
-
-func (t TunnelAbility) SupportH2Tunnel() bool {
-	return (int(t) & int(H2Tunnel)) != 0
-}
-
 // ListenerClass defines the class of the listener
 type ListenerClass int
 
@@ -182,26 +138,3 @@ const (
 	ListenerClassSidecarOutbound
 	ListenerClassGateway
 )
-
-// MessageToAnyWithError converts from proto message to proto Any
-func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
-	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-	return &anypb.Any{
-		// nolint: staticcheck
-		TypeUrl: "type.googleapis.com/" + string(proto.MessageName(msg)),
-		Value:   b,
-	}, nil
-}
-
-// MessageToAny converts from proto message to proto Any
-func MessageToAny(msg proto.Message) *anypb.Any {
-	out, err := MessageToAnyWithError(msg)
-	if err != nil {
-		log.Error(fmt.Sprintf("error marshaling Any %s: %v", prototext.Format(msg), err))
-		return nil
-	}
-	return out
-}

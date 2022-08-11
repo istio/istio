@@ -67,6 +67,74 @@ func TestRemoteCerts(t *testing.T) {
 	g.Expect(err).Should(BeNil())
 }
 
+func TestRemoteTLSCerts(t *testing.T) {
+	g := NewWithT(t)
+
+	dir := t.TempDir()
+
+	s := Server{
+		kubeClient: kube.NewFakeClient(),
+	}
+	caOpts := &caOptions{
+		Namespace: namespace,
+	}
+
+	// Should do nothing because cacerts doesn't exist.
+	err := s.loadCACerts(caOpts, dir)
+	g.Expect(err).Should(BeNil())
+
+	_, err = os.Stat(path.Join(dir, "ca.crt"))
+	g.Expect(os.IsNotExist(err)).Should(Equal(true))
+
+	// Should load remote cacerts successfully.
+	err = createCATLSSecret(s.kubeClient)
+	g.Expect(err).Should(BeNil())
+
+	err = s.loadCACerts(caOpts, dir)
+	g.Expect(err).Should(BeNil())
+
+	expectedRoot, err := readSampleCertFromFile("root-cert.pem")
+	g.Expect(err).Should(BeNil())
+
+	g.Expect(os.ReadFile(path.Join(dir, "ca.crt"))).Should(Equal(expectedRoot))
+
+	// Should do nothing because certs already exist locally.
+	err = s.loadCACerts(caOpts, dir)
+	g.Expect(err).Should(BeNil())
+}
+
+func createCATLSSecret(client kube.Client) error {
+	var caCert, caKey, rootCert []byte
+	var err error
+	if caCert, err = readSampleCertFromFile("ca-cert.pem"); err != nil {
+		return err
+	}
+	if caKey, err = readSampleCertFromFile("ca-key.pem"); err != nil {
+		return err
+	}
+	if rootCert, err = readSampleCertFromFile("root-cert.pem"); err != nil {
+		return err
+	}
+
+	secrets := client.Kube().CoreV1().Secrets(namespace)
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      "cacerts",
+		},
+		Type: v1.SecretTypeTLS,
+		Data: map[string][]byte{
+			"tls.crt": caCert,
+			"tls.key": caKey,
+			"ca.crt":  rootCert,
+		},
+	}
+	if _, err = secrets.Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+		return err
+	}
+	return nil
+}
+
 func createCASecret(client kube.Client) error {
 	var caCert, caKey, certChain, rootCert []byte
 	var err error

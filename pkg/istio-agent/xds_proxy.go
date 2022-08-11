@@ -39,7 +39,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -72,7 +72,7 @@ var connectionNumber = atomic.NewUint32(0)
 // ResponseHandler handles a XDS response in the agent. These will not be forwarded to Envoy.
 // Currently, all handlers function on a single resource per type, so the API only exposes one
 // resource.
-type ResponseHandler func(resp *any.Any) error
+type ResponseHandler func(resp *anypb.Any) error
 
 // XdsProxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
@@ -157,7 +157,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		proxy.handlers[v3.NameTableType] = func(resp *any.Any) error {
+		proxy.handlers[v3.NameTableType] = func(resp *anypb.Any) error {
 			var nt dnsProto.NameTable
 			if err := resp.UnmarshalTo(&nt); err != nil {
 				log.Errorf("failed to unmarshal name table: %v", err)
@@ -168,7 +168,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
-		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
+		proxy.handlers[v3.ProxyConfigType] = func(resp *anypb.Any) error {
 			pc := &meshconfig.ProxyConfig{}
 			if err := resp.UnmarshalTo(pc); err != nil {
 				log.Errorf("failed to unmarshal proxy config: %v", err)
@@ -266,15 +266,24 @@ type ProxyConnection struct {
 	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
 	stopChan           chan struct{}
 	downstream         adsStream
-	upstream           discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	downstreamDeltas   discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
-	upstreamDeltas     discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	upstream           xds.DiscoveryClient
+	downstreamDeltas   xds.DeltaDiscoveryStream
+	upstreamDeltas     xds.DeltaDiscoveryClient
 }
 
 // sendRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
 // block forever on
 func (con *ProxyConnection) sendRequest(req *discovery.DiscoveryRequest) {
 	con.requestsChan.Put(req)
+}
+
+func (con *ProxyConnection) isClosed() bool {
+	select {
+	case <-con.stopChan:
+		return true
+	default:
+		return false
+	}
 }
 
 type adsStream interface {
@@ -287,7 +296,7 @@ type adsStream interface {
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
-func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (p *XdsProxy) StreamAggregatedResources(downstream xds.DiscoveryStream) error {
 	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
 	return p.handleStream(downstream)
 }
@@ -584,6 +593,10 @@ func (p *XdsProxy) forwardToTap(resp *discovery.DiscoveryResponse) {
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 	if !v3.IsEnvoyType(resp.TypeUrl) {
 		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
+		return
+	}
+	if con.isClosed() {
+		proxyLog.Errorf("downstream [%d] dropped xds push to Envoy, connection already closed", con.conID)
 		return
 	}
 	if err := sendDownstream(con.downstream, resp); err != nil {

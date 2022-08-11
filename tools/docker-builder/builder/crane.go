@@ -31,6 +31,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"istio.io/pkg/log"
 )
@@ -65,35 +66,50 @@ type Args struct {
 	FilesBase string
 }
 
+type baseKey struct {
+	arch string
+	name string
+}
+
 var (
-	bases   = map[string]v1.Image{}
+	bases   = map[baseKey]v1.Image{}
 	basesMu sync.RWMutex
 )
 
-func WarmBase(baseImages ...string) {
+func WarmBase(architectures []string, baseImages ...string) {
 	basesMu.Lock()
 	wg := sync.WaitGroup{}
-	wg.Add(len(baseImages))
-	resolvedBaseImages := make([]v1.Image, len(baseImages))
+	wg.Add(len(baseImages) * len(architectures))
+	resolvedBaseImages := make([]v1.Image, len(baseImages)*len(architectures))
+	keys := []baseKey{}
+	for _, a := range architectures {
+		for _, b := range baseImages {
+			keys = append(keys, baseKey{toPlatform(a).Architecture, b})
+		}
+	}
 	go func() {
 		wg.Wait()
 		for i, rbi := range resolvedBaseImages {
-			bases[baseImages[i]] = rbi
+			bases[keys[i]] = rbi
 		}
 		basesMu.Unlock()
 	}()
 
 	t0 := time.Now()
-	for i, b := range baseImages {
+	for i, b := range keys {
 		b, i := b, i
 		go func() {
 			defer wg.Done()
-			ref, err := name.ParseReference(b)
+			ref, err := name.ParseReference(b.name)
 			if err != nil {
 				log.WithLabels("image", b).Warnf("base failed: %v", err)
 				return
 			}
-			bi, err := remote.Image(ref, remote.WithProgress(CreateProgress(fmt.Sprintf("base %v", ref))))
+			plat := v1.Platform{
+				Architecture: b.arch,
+				OS:           "linux",
+			}
+			bi, err := remote.Image(ref, remote.WithPlatform(plat), remote.WithProgress(CreateProgress(fmt.Sprintf("base %v", ref))))
 			if err != nil {
 				log.WithLabels("image", b).Warnf("base failed: %v", err)
 				return
@@ -121,7 +137,7 @@ func ByteCount(b int64) string {
 func Build(b BuildSpec) error {
 	t0 := time.Now()
 	lt := t0
-	trace := func(d ...interface{}) {
+	trace := func(d ...any) {
 		log.WithLabels("image", b.Name, "total", time.Since(t0), "step", time.Since(lt)).Infof(d...)
 		lt = time.Now()
 	}
@@ -140,10 +156,11 @@ func Build(b BuildSpec) error {
 
 	var images []v1.Image
 	for _, args := range b.Args {
+		plat := toPlatform(args.Arch)
 		baseImage := empty.Image
 		if args.Base != "" {
 			basesMu.RLock()
-			baseImage = bases[args.Base]
+			baseImage = bases[baseKey{arch: plat.Architecture, name: args.Base}] // todo per-arch base
 			basesMu.RUnlock()
 		}
 		if baseImage == nil {
@@ -152,7 +169,11 @@ func Build(b BuildSpec) error {
 			if err != nil {
 				return err
 			}
-			bi, err := remote.Image(ref, remote.WithProgress(CreateProgress(fmt.Sprintf("base %v", ref))))
+			bi, err := remote.Image(
+				ref,
+				remote.WithPlatform(plat),
+				remote.WithProgress(CreateProgress(fmt.Sprintf("base %v", ref))),
+			)
 			if err != nil {
 				return err
 			}
@@ -166,6 +187,11 @@ func Build(b BuildSpec) error {
 		}
 
 		trace("base config")
+
+		// Set our platform on the image. This is largely for empty.Image only; others should already have correct default.
+		cfgFile = cfgFile.DeepCopy()
+		cfgFile.OS = plat.OS
+		cfgFile.Architecture = plat.Architecture
 
 		cfg := cfgFile.Config
 		for k, v := range args.Env {
@@ -232,6 +258,7 @@ func Build(b BuildSpec) error {
 	} else {
 		// Multiple, we need to create an index
 		var manifest v1.ImageIndex = empty.Index
+		manifest = mutate.IndexMediaType(manifest, types.DockerManifestList)
 		for idx, i := range images {
 			img := i
 			mt, err := img.MediaType()
@@ -248,18 +275,14 @@ func Build(b BuildSpec) error {
 			if err != nil {
 				return fmt.Errorf("failed to compute size: %w", err)
 			}
-			os, arch, _ := strings.Cut(b.Args[idx].Arch, "/")
+			plat := toPlatform(b.Args[idx].Arch)
 			manifest = mutate.AppendManifests(manifest, mutate.IndexAddendum{
 				Add: i,
 				Descriptor: v1.Descriptor{
 					MediaType: mt,
 					Size:      size,
 					Digest:    h,
-					Platform: &v1.Platform{
-						Architecture: arch,
-						OS:           os,
-						Variant:      "", // TODO?
-					},
+					Platform:  &plat,
 				},
 			})
 		}
@@ -297,6 +320,15 @@ func Build(b BuildSpec) error {
 	}
 
 	return nil
+}
+
+func toPlatform(archString string) v1.Platform {
+	os, arch, _ := strings.Cut(archString, "/")
+	return v1.Platform{
+		Architecture: arch,
+		OS:           os,
+		Variant:      "", // TODO?
+	}
 }
 
 func CreateProgress(name string) chan v1.Update {

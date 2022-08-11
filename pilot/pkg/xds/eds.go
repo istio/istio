@@ -19,7 +19,7 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -27,6 +27,7 @@ import (
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -163,7 +164,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	ep.Lock()
 	defer ep.Unlock()
 	newIstioEndpoints := istioEndpoints
-	if features.SendUnhealthyEndpoints {
+	if features.SendUnhealthyEndpoints.Load() {
 		oldIstioEndpoints := ep.Shards[shard]
 		newIstioEndpoints = make([]*model.IstioEndpoint, 0, len(istioEndpoints))
 
@@ -268,10 +269,8 @@ func (s *DiscoveryServer) UpdateServiceAccount(shards *model.EndpointShards, ser
 	return false
 }
 
-// llbEndpointAndOptionsForCluster return the endpoints for a cluster
-// Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
-// perf tests.
-func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]*LocLbEndpointsAndOptions, error) {
+// localityEndpointsForCluster returns the endpoints for a cluster
+func (s *DiscoveryServer) localityEndpointsForCluster(b EndpointBuilder) ([]*LocalityEndpoints, error) {
 	if b.service == nil {
 		// Shouldn't happen here
 		log.Debugf("can not find the service for cluster %s", b.clusterName)
@@ -308,22 +307,22 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 }
 
 func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
-	llbOpts, err := s.llbEndpointAndOptionsForCluster(b)
+	localityLbEndpoints, err := s.localityEndpointsForCluster(b)
 	if err != nil {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
 	// Apply the Split Horizon EDS filter, if applicable.
-	llbOpts = b.EndpointsByNetworkFilter(llbOpts)
+	localityLbEndpoints = b.EndpointsByNetworkFilter(localityLbEndpoints)
 
 	if model.IsDNSSrvSubsetKey(b.clusterName) {
 		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
 		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the
 		// request is a valid mTLS request or not, since its passthrough TLS.
 		// To ensure we allow traffic only to mTLS endpoints, we filter out non-mTLS endpoints for these cluster types.
-		llbOpts = b.EndpointsWithMTLSFilter(llbOpts)
+		localityLbEndpoints = b.EndpointsWithMTLSFilter(localityLbEndpoints)
 	}
-	l := b.createClusterLoadAssignment(llbOpts)
+	l := b.createClusterLoadAssignment(localityLbEndpoints)
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
@@ -333,10 +332,10 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		l = util.CloneClusterLoadAssignment(l)
-		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(llbOpts))
-		for i := range llbOpts {
+		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(localityLbEndpoints))
+		for i := range localityLbEndpoints {
 			wrappedLocalityLbEndpoints[i] = &loadbalancer.WrappedLocalityLbEndpoints{
-				IstioEndpoints:      llbOpts[i].istioEndpoints,
+				IstioEndpoints:      localityLbEndpoints[i].istioEndpoints,
 				LocalityLbEndpoints: l.Endpoints[i],
 			}
 		}
@@ -418,7 +417,7 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*any.Any, version, noncePrefix string) *discovery.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*anypb.Any, version, noncePrefix string) *discovery.DiscoveryResponse {
 	out := &discovery.DiscoveryResponse{
 		TypeUrl: v3.EndpointType,
 		// Pilot does not really care for versioning. It always supplies what's currently
@@ -520,7 +519,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			}
 			resource := &discovery.Resource{
 				Name:     l.ClusterName,
-				Resource: util.MessageToAny(l),
+				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
 			eds.Server.Cache.Add(builder, req, resource)
@@ -573,7 +572,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			}
 			resource := &discovery.Resource{
 				Name:     l.ClusterName,
-				Resource: util.MessageToAny(l),
+				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
 			eds.Server.Cache.Add(builder, req, resource)

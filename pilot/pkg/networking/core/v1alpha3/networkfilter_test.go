@@ -165,6 +165,15 @@ func TestBuildOutboundNetworkFiltersTunnelingConfig(t *testing.T) {
 			},
 		},
 	}
+	tunnelingEnabledWithoutProtocol := &networking.DestinationRule{
+		Host: "tunnel-proxy.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tunnel: &networking.TrafficPolicy_TunnelSettings{
+				TargetHost: "example.com",
+				TargetPort: 8443,
+			},
+		},
+	}
 	tunnelingEnabledForSubset := &networking.DestinationRule{
 		Host: "tunnel-proxy.com",
 		Subsets: []*networking.Subset{
@@ -231,6 +240,15 @@ func TestBuildOutboundNetworkFiltersTunnelingConfig(t *testing.T) {
 			name:              "tunneling_config should be applied when destination rule has specified tunnel settings",
 			routeDestinations: tunnelProxyDestination,
 			destinationRule:   tunnelingEnabled,
+			expectedTunnelingConfig: &tunnelingConfig{
+				hostname: "example.com:8443",
+				usePost:  false,
+			},
+		},
+		{
+			name:              "tunneling_config should be applied with disabled usePost property when tunneling settings does not specify protocol",
+			routeDestinations: tunnelProxyDestination,
+			destinationRule:   tunnelingEnabledWithoutProtocol,
 			expectedTunnelingConfig: &tunnelingConfig{
 				hostname: "example.com:8443",
 				usePost:  false,

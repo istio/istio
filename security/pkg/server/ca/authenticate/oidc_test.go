@@ -1,10 +1,10 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -209,7 +209,7 @@ func TestOIDCAuthenticate(t *testing.T) {
 			}
 			ctx = metadata.NewIncomingContext(ctx, md)
 
-			actualCaller, err := authenticator.Authenticate(ctx)
+			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			gotErr := err != nil
 			if gotErr != tc.expectErr {
 				t.Errorf("gotErr (%v) whereas expectErr (%v)", gotErr, tc.expectErr)

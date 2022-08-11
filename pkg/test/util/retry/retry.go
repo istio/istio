@@ -44,11 +44,12 @@ var defaultConfig = config{
 }
 
 type config struct {
-	error    string
-	timeout  time.Duration
-	delay    time.Duration
-	delayMax time.Duration
-	converge int
+	error       string
+	timeout     time.Duration
+	delay       time.Duration
+	delayMax    time.Duration
+	converge    int
+	maxAttempts int
 }
 
 // Option for a retry operation.
@@ -93,12 +94,19 @@ func Message(errorMessage string) Option {
 	}
 }
 
+// MaxAttempts allows defining a maximum number of attempts. If unset, only timeout is considered.
+func MaxAttempts(attempts int) Option {
+	return func(cfg *config) {
+		cfg.maxAttempts = attempts
+	}
+}
+
 // RetriableFunc a function that can be retried.
-type RetriableFunc func() (result interface{}, completed bool, err error)
+type RetriableFunc func() (result any, completed bool, err error)
 
 // UntilSuccess retries the given function until success, timeout, or until the passed-in function returns nil.
 func UntilSuccess(fn func() error, options ...Option) error {
-	_, e := UntilComplete(func() (interface{}, bool, error) {
+	_, e := UntilComplete(func() (any, bool, error) {
 		err := fn()
 		if err != nil {
 			return nil, false, err
@@ -153,7 +161,7 @@ func getErrorMessage(options []Option) error {
 
 // UntilComplete retries the given function, until there is a timeout, or until the function indicates that it has completed.
 // Once complete, the returned value and error are returned.
-func UntilComplete(fn RetriableFunc, options ...Option) (interface{}, error) {
+func UntilComplete(fn RetriableFunc, options ...Option) (any, error) {
 	cfg := defaultConfig
 	for _, option := range options {
 		option(&cfg)
@@ -165,6 +173,9 @@ func UntilComplete(fn RetriableFunc, options ...Option) (interface{}, error) {
 	to := time.After(cfg.timeout)
 	delay := cfg.delay
 	for {
+		if cfg.maxAttempts > 0 && attempts >= cfg.maxAttempts {
+			return nil, fmt.Errorf("hit max attempts %d attempts (last error: %v)", attempts, lasterr)
+		}
 		select {
 		case <-to:
 			return nil, fmt.Errorf("timeout while waiting after %d attempts (last error: %v)", attempts, lasterr)

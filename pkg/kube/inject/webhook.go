@@ -269,7 +269,7 @@ func ParseTemplates(tmpls RawTemplates) (Templates, error) {
 type ValuesConfig struct {
 	raw      string
 	asStruct *opconfig.Values
-	asMap    map[string]interface{}
+	asMap    map[string]any
 }
 
 func NewValuesConfig(v string) (ValuesConfig, error) {
@@ -280,7 +280,7 @@ func NewValuesConfig(v string) (ValuesConfig, error) {
 	}
 	c.asStruct = valuesStruct
 
-	values := map[string]interface{}{}
+	values := map[string]any{}
 	if err := yaml.Unmarshal([]byte(v), &values); err != nil {
 		return c, fmt.Errorf("could not parse configuration values: %v", err)
 	}
@@ -400,10 +400,11 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 // * templatePod: the rendered injection template. This is needed only to see what containers we injected
 // * finalPod: the current result of injection, roughly equivalent to the merging of originalPod and templatePod
 // There are essentially three cases we cover here:
-// 1. There is no overlap in containers in original and template pod. We will do nothing.
-// 2. There is an overlap (ie, both define istio-proxy), but that is because the pod is being re-injected.
-//    In this case we do nothing, since we want to apply the new settings
-// 3. There is an overlap. We will re-apply the original container.
+//  1. There is no overlap in containers in original and template pod. We will do nothing.
+//  2. There is an overlap (ie, both define istio-proxy), but that is because the pod is being re-injected.
+//     In this case we do nothing, since we want to apply the new settings
+//  3. There is an overlap. We will re-apply the original container.
+//
 // Where "overlap" is a container defined in both the original and template pod. Typically, this would mean
 // the user has defined an `istio-proxy` container in their own pod spec.
 func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod, templatePod *corev1.Pod) (*corev1.Pod, error) {
@@ -760,12 +761,12 @@ func applyInitContainer(target *corev1.Pod, container corev1.Container) (*corev1
 	return applyOverlay(target, overlayJSON)
 }
 
-func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v interface{}) error) (map[string]interface{}, error) {
+func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v any) error) (map[string]any, error) {
 	if j == nil {
 		j = []byte("{}")
 	}
 
-	m := map[string]interface{}{}
+	m := map[string]any{}
 	err := unmarshal(j, &m)
 	if err != nil {
 		return nil, mergepatch.ErrBadJSONDoc
@@ -775,7 +776,7 @@ func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v interface{}) e
 
 // StrategicMergePatchYAML is a small fork of strategicpatch.StrategicMergePatch to allow YAML patches
 // This avoids expensive conversion from YAML to JSON
-func StrategicMergePatchYAML(originalJSON []byte, patchYAML []byte, dataStruct interface{}) ([]byte, error) {
+func StrategicMergePatchYAML(originalJSON []byte, patchYAML []byte, dataStruct any) ([]byte, error) {
 	schema, err := strategicpatch.NewPatchMetaFromStruct(dataStruct)
 	if err != nil {
 		return nil, err
@@ -785,7 +786,7 @@ func StrategicMergePatchYAML(originalJSON []byte, patchYAML []byte, dataStruct i
 	if err != nil {
 		return nil, err
 	}
-	patchMap, err := patchHandleUnmarshal(patchYAML, func(data []byte, v interface{}) error {
+	patchMap, err := patchHandleUnmarshal(patchYAML, func(data []byte, v any) error {
 		return yaml.Unmarshal(data, v)
 	})
 	if err != nil {
@@ -987,21 +988,18 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// parseInjectEnvs parse new envs from inject url path
-// follow format: /inject/k1/v1/k2/v2 when values do not contain slashes,
-// follow format: /inject/:ENV:net=network1:ENV:cluster=cluster1:ENV:rootpage=/foo/bar
-// when values contain slashes.
+// parseInjectEnvs parse new envs from inject url path. format: /inject/k1/v1/k2/v2
+// slash characters in values must be replaced by --slash-- (e.g. /inject/k1/abc--slash--def/k2/v2).
 func parseInjectEnvs(path string) map[string]string {
 	path = strings.TrimSuffix(path, "/")
 	res := func(path string) []string {
 		parts := strings.SplitN(path, "/", 3)
-		// The 3rd part has to start with separator :ENV:
-		// If not, this inject path is considered using slash as separator
-		// If length is less than 3, then the path is simply "/inject",
-		// process just like before :ENV: separator is introduced.
 		var newRes []string
-		if len(parts) == 3 {
+		if len(parts) == 3 { // If length is less than 3, then the path is simply "/inject".
 			if strings.HasPrefix(parts[2], ":ENV:") {
+				// Deprecated, not recommended.
+				//    Note that this systax fails validation when used to set injectionPath (i.e., service.path in mwh).
+				//    It doesn't fail validation when used to set injectionURL, however. K8s bug maybe?
 				pairs := strings.Split(parts[2], ":ENV:")
 				for i := 1; i < len(pairs); i++ { // skip the first part, it is a nil
 					pair := strings.SplitN(pairs[i], "=", 2)
@@ -1015,7 +1013,13 @@ func parseInjectEnvs(path string) map[string]string {
 				}
 				return newRes
 			}
-			return strings.Split(parts[2], "/")
+			newRes = strings.Split(parts[2], "/")
+		}
+		for i, value := range newRes {
+			if i%2 != 0 {
+				// Replace --slash-- with / in values.
+				newRes[i] = strings.ReplaceAll(value, "--slash--", "/")
+			}
 		}
 		return newRes
 	}(path)

@@ -33,6 +33,9 @@ type Instance interface {
 	// Restart restarts the workloads associated with this echo instance
 	Restart() error
 
+	// UpdateWorkloadLabel update pod labels of this echo instance
+	UpdateWorkloadLabel(add map[string]string, remove []string) error
+
 	// WithWorkloads returns a target with only the specified subset of workloads
 	WithWorkloads(wl ...Workload) Instance
 }

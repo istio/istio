@@ -26,7 +26,7 @@ func TestYAMLCmp(t *testing.T) {
 		desc string
 		a    string
 		b    string
-		want interface{}
+		want any
 	}{
 		{
 			desc: "empty string into nil",
@@ -439,7 +439,7 @@ func TestYAMLCmpWithIgnore(t *testing.T) {
 		a    string
 		b    string
 		i    []string
-		want interface{}
+		want any
 	}{
 		{
 			desc: "identical",
@@ -696,7 +696,7 @@ func TestYAMLCmpWithIgnoreTree(t *testing.T) {
 		a    string
 		b    string
 		mask string
-		want interface{}
+		want any
 	}{
 		{
 			desc: "ignore masked",
@@ -787,7 +787,7 @@ func TestYAMLCmpWithYamlInline(t *testing.T) {
 		desc string
 		a    string
 		b    string
-		want interface{}
+		want any
 	}{
 		{
 			desc: "ConfigMap data order changed",

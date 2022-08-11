@@ -22,8 +22,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
 
@@ -189,7 +189,7 @@ func getTLSFilterChainMatchOptions(protocol networking.ListenerProtocol) []Filte
 }
 
 // getFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
-func getFilterChainMatchOptions(settings plugin.MTLSSettings, protocol networking.ListenerProtocol) []FilterChainMatchOptions {
+func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking.ListenerProtocol) []FilterChainMatchOptions {
 	switch protocol {
 	case networking.ListenerProtocolHTTP:
 		switch settings.Mode {
@@ -226,7 +226,7 @@ type fcOpts struct {
 	fc        networking.FilterChain
 }
 
-func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, matchingIP string) fcOpts {
+func (opt fcOpts) populateFilterChain(mtls authn.MTLSSettings, port uint32, matchingIP string) fcOpts {
 	opt.fc.FilterChainMatch = &listener.FilterChainMatch{}
 	opt.fc.FilterChainMatch.ApplicationProtocols = opt.matchOpts.ApplicationProtocols
 	opt.fc.FilterChainMatch.TransportProtocol = opt.matchOpts.TransportProtocol
@@ -245,7 +245,7 @@ func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, mat
 	return opt
 }
 
-func (opt FilterChainMatchOptions) ToTransportSocket(mtls plugin.MTLSSettings) *tls.DownstreamTlsContext {
+func (opt FilterChainMatchOptions) ToTransportSocket(mtls authn.MTLSSettings) *tls.DownstreamTlsContext {
 	if !opt.TLS {
 		return nil
 	}

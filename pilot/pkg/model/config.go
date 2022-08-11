@@ -208,6 +208,10 @@ const (
 // ResolveShortnameToFQDN uses metadata information to resolve a reference
 // to shortname of the service to FQDN
 func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
+	if len(hostname) == 0 {
+		// only happens when the gateway-api BackendRef is invalid
+		return ""
+	}
 	out := hostname
 	// Treat the wildcard hostname as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.
@@ -271,7 +275,7 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 
 // MostSpecificHostMatch compares the map of the stack to the needle, and returns the longest element
 // matching the needle, or false if no element in the map matches the needle.
-func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*consolidatedDestRule) (host.Name, bool) {
+func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*ConsolidatedDestRule) (host.Name, bool) {
 	matches := []host.Name{}
 
 	// exact match first

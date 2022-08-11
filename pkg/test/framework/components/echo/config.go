@@ -170,6 +170,22 @@ type Config struct {
 	IPFamilyPolicy string
 }
 
+// Getter for a custom echo deployment
+type ConfigGetter func() []Config
+
+// Get is a utility method that helps in readability of call sites.
+func (g ConfigGetter) Get() []Config {
+	return g()
+}
+
+// Future creates a Getter for a variable the custom echo deployment that will be set at sometime in the future.
+// This is helpful for configuring a setup chain for a test suite that operates on global variables.
+func ConfigFuture(custom *[]Config) ConfigGetter {
+	return func() []Config {
+		return *custom
+	}
+}
+
 // NamespaceName returns the string name of the namespace.
 func (c Config) NamespaceName() string {
 	return c.NamespacedName().NamespaceName()
@@ -246,17 +262,32 @@ func (c Config) IsStatefulSet() bool {
 }
 
 // IsNaked checks if the config has no sidecar.
-// Note: mixed workloads are considered 'naked'
+// Note: instances that mix subsets with and without sidecars are considered 'naked'.
 func (c Config) IsNaked() bool {
 	for _, s := range c.Subsets {
-		if s.Annotations == nil {
-			continue
-		}
-		if !s.Annotations.GetBool(SidecarInject) {
+		if s.Annotations != nil && !s.Annotations.GetBool(SidecarInject) {
 			return true
 		}
 	}
 	return false
+}
+
+// IsAllNaked checks if every subset is configured with no sidecar.
+func (c Config) IsAllNaked() bool {
+	if len(c.Subsets) == 0 {
+		// No subsets - default to not-naked.
+		return false
+	}
+
+	for _, s := range c.Subsets {
+		if s.Annotations == nil || s.Annotations.GetBool(SidecarInject) {
+			// Sidecar injection is enabled - it's not naked.
+			return false
+		}
+	}
+
+	// All subsets were annotated indicating no sidecar injection.
+	return true
 }
 
 func (c Config) IsProxylessGRPC() bool {
@@ -416,7 +447,7 @@ func (c *Config) addPortIfMissing(protocol protocol.Instance) {
 	}
 }
 
-func copyInternal(v interface{}) interface{} {
+func copyInternal(v any) any {
 	copied, err := copystructure.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
@@ -432,7 +463,7 @@ func copyInternal(v interface{}) interface{} {
 // than attempting to Claim the configured namespace.
 func ParseConfigs(bytes []byte) ([]Config, error) {
 	// parse into flexible type, so we can remove Namespace and parse that ourselves
-	raw := make([]map[string]interface{}, 0)
+	raw := make([]map[string]any, 0)
 	if err := yaml.Unmarshal(bytes, &raw); err != nil {
 		return nil, err
 	}

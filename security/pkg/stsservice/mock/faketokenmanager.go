@@ -62,7 +62,7 @@ func (tm *FakeTokenManager) SetRespStsParam(p stsservice.StsResponseParameters) 
 
 func (tm *FakeTokenManager) SetToken(t stsservice.TokenInfo) {
 	// erase map
-	tm.tokens.Range(func(key interface{}, value interface{}) bool {
+	tm.tokens.Range(func(key any, value any) bool {
 		tm.tokens.Delete(key)
 		return true
 	})
@@ -103,7 +103,7 @@ func (tm *FakeTokenManager) DumpTokenStatus() ([]byte, error) {
 	}
 
 	tokenStatus := make([]stsservice.TokenInfo, 0)
-	tm.tokens.Range(func(k interface{}, v interface{}) bool {
+	tm.tokens.Range(func(k any, v any) bool {
 		token := v.(stsservice.TokenInfo)
 		tokenStatus = append(tokenStatus, token)
 		return true

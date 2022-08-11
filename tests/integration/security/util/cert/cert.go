@@ -194,3 +194,11 @@ func ReadCustomCertFromFile(f string) ([]byte, error) {
 	}
 	return b, nil
 }
+
+func LoadCert(filename string) (string, error) {
+	data, err := ReadSampleCertFromFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}

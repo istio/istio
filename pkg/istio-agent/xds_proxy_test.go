@@ -40,7 +40,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -523,7 +523,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	}
 	wantEcdsConfig := &core.TypedExtensionConfig{
 		Name:        "extension-config",
-		TypedConfig: util.MessageToAny(wasm),
+		TypedConfig: protoconv.MessageToAny(wasm),
 	}
 
 	if !proto.Equal(gotEcdsConfig, wantEcdsConfig) {

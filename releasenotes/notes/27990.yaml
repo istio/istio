@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 27990
+releaseNotes:
+  - |
+    **Added** add a validation warning when protocol is unset and address is also unset.

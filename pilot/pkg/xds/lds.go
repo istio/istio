@@ -18,7 +18,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
@@ -75,7 +75,7 @@ func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	for _, c := range listeners {
 		resources = append(resources, &discovery.Resource{
 			Name:     c.Name,
-			Resource: util.MessageToAny(c),
+			Resource: protoconv.MessageToAny(c),
 		})
 	}
 	return resources, model.DefaultXdsLogDetails, nil

@@ -16,10 +16,8 @@ package deployment
 
 import (
 	"fmt"
-	"strconv"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -65,135 +63,16 @@ type EchoNamespace struct {
 	VM echo.Instances
 	// DeltaXDS echo app uses the delta XDS protocol. This should be functionally equivalent to A.
 	DeltaXDS echo.Instances
-
 	// All echo apps in this namespace
 	All echo.Services
 }
 
-func (n EchoNamespace) build(t resource.Context, b deployment.Builder, cfg Config) deployment.Builder {
-	b = b.WithConfig(echo.Config{
-		Service:         ASvc,
-		Namespace:       n.Namespace,
-		ServiceAccount:  true,
-		Ports:           ports.All(),
-		Subsets:         []echo.SubsetConfig{{}},
-		Locality:        "region.zone.subzone",
-		IncludeExtAuthz: cfg.IncludeExtAuthz,
-	}).
-		WithConfig(echo.Config{
-			Service:         BSvc,
-			Namespace:       n.Namespace,
-			ServiceAccount:  true,
-			Ports:           ports.All(),
-			Subsets:         []echo.SubsetConfig{{}},
-			IncludeExtAuthz: cfg.IncludeExtAuthz,
-		}).
-		WithConfig(echo.Config{
-			Service:         CSvc,
-			Namespace:       n.Namespace,
-			ServiceAccount:  true,
-			Ports:           ports.All(),
-			Subsets:         []echo.SubsetConfig{{}},
-			IncludeExtAuthz: cfg.IncludeExtAuthz,
-		}).
-		WithConfig(echo.Config{
-			Service:         HeadlessSvc,
-			Namespace:       n.Namespace,
-			ServiceAccount:  true,
-			Headless:        true,
-			Ports:           ports.Headless(),
-			Subsets:         []echo.SubsetConfig{{}},
-			IncludeExtAuthz: cfg.IncludeExtAuthz,
-		}).
-		WithConfig(echo.Config{
-			Service:         StatefulSetSvc,
-			Namespace:       n.Namespace,
-			ServiceAccount:  true,
-			Headless:        true,
-			StatefulSet:     true,
-			Ports:           ports.Headless(),
-			Subsets:         []echo.SubsetConfig{{}},
-			IncludeExtAuthz: cfg.IncludeExtAuthz,
-		}).
-		WithConfig(echo.Config{
-			Service:        NakedSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Ports:          ports.All(),
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.SidecarInject: {
-							Value: strconv.FormatBool(false),
-						},
-					},
-				},
-			},
-		}).
-		WithConfig(echo.Config{
-			Service:        TproxySvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Ports:          ports.All(),
-			Subsets: []echo.SubsetConfig{{
-				Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
-			}},
-			IncludeExtAuthz: cfg.IncludeExtAuthz,
-		}).
-		WithConfig(echo.Config{
-			Service:         VMSvc,
-			Namespace:       n.Namespace,
-			ServiceAccount:  true,
-			Ports:           ports.All(),
-			DeployAsVM:      true,
-			AutoRegisterVM:  true,
-			Subsets:         []echo.SubsetConfig{{}},
-			IncludeExtAuthz: cfg.IncludeExtAuthz,
-		})
-
-	if !skipDeltaXDS(t) {
-		b = b.
-			WithConfig(echo.Config{
-				Service:        DeltaSvc,
-				Namespace:      n.Namespace,
-				ServiceAccount: true,
-				Ports:          ports.All(),
-				Subsets: []echo.SubsetConfig{{
-					Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
-  ISTIO_DELTA_XDS: "true"`),
-				}},
-			})
-	}
-
-	if !t.Clusters().IsMulticluster() {
-		b = b.
-			// TODO when agent handles secure control-plane connection for grpc-less, deploy to "remote" clusters
-			WithConfig(echo.Config{
-				Service:        ProxylessGRPCSvc,
-				Namespace:      n.Namespace,
-				ServiceAccount: true,
-				Ports:          ports.All(),
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: map[echo.Annotation]*echo.AnnotationValue{
-							echo.SidecarInjectTemplates: {
-								Value: "grpc-agent",
-							},
-						},
-					},
-				},
-			})
-	}
-
-	// Add any custom deployments.
-	for _, custom := range cfg.Custom {
-		if custom.Namespace == nil {
-			custom.Namespace = n.Namespace
+func (n EchoNamespace) build(b deployment.Builder, cfg Config) deployment.Builder {
+	for _, config := range cfg.Configs.Get() {
+		if config.Namespace == nil {
+			config.Namespace = n.Namespace
 		}
-
-		if custom.NamespaceName() == n.Namespace.Name() {
-			b.WithConfig(custom)
-		}
+		b = b.WithConfig(config)
 	}
 
 	return b
@@ -225,7 +104,7 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 
 	// Restrict egress from this namespace to only those endpoints in the same Echos.
 	cfg := t.ConfigIstio().New()
-	cfg.Eval(ns.Name(), map[string]interface{}{
+	cfg.Eval(ns.Name(), map[string]any{
 		"Namespaces": namespaces,
 	}, `
 apiVersion: networking.istio.io/v1alpha3
@@ -243,7 +122,7 @@ spec:
 
 	// Create a ServiceEntry to allow apps in this namespace to talk to the external service.
 	if d.External.Namespace != nil {
-		cfg.Eval(ns.Name(), map[string]interface{}{
+		cfg.Eval(ns.Name(), map[string]any{
 			"Namespace": d.External.Namespace.Name(),
 			"Hostname":  ExternalHostname,
 			"Ports":     serviceEntryPorts(),
@@ -252,6 +131,7 @@ kind: ServiceEntry
 metadata:
   name: external-service
 spec:
+  exportTo: [.]
   hosts:
   - {{.Hostname}}
   location: MESH_EXTERNAL

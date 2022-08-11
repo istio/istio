@@ -524,45 +524,39 @@ func stringSliceEqual(a, b []string) bool {
 
 // resolve gets all the A and AAAA records for the given name
 func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration) {
-	var resA, resAAAA *dns.Msg
-	resA = n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dns.TypeA))
-	resAAAA = n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dns.TypeAAAA))
-
-	numRRs := 0
-	if resA != nil {
-		numRRs += len(resA.Answer)
-	}
-	if resAAAA != nil {
-		numRRs += len(resAAAA.Answer)
-	}
-	if numRRs == 0 {
-		return nil, 0
-	}
-	allRRs := make([]dns.RR, 0, numRRs)
-	if resA != nil {
-		allRRs = append(allRRs, resA.Answer...)
-	}
-	if resAAAA != nil {
-		allRRs = append(allRRs, resAAAA.Answer...)
-	}
-
 	ttl := uint32(math.MaxUint32)
 	var out []string
-	for _, rr := range allRRs {
-		switch v := rr.(type) {
-		case *dns.A:
-			out = append(out, v.A.String())
-		case *dns.AAAA:
-			// TODO may not always want ipv6t?
-			out = append(out, v.AAAA.String())
-		default:
-			// not a valid record, don't inspect TTL
-			continue
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	doResolve := func(dnsType uint16) {
+		defer wg.Done()
+
+		res := n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dnsType))
+		if len(res.Answer) == 0 {
+			return
 		}
-		if nextTTL := rr.Header().Ttl; nextTTL < ttl {
-			ttl = nextTTL
+
+		mu.Lock()
+		defer mu.Unlock()
+		for _, rr := range res.Answer {
+			switch dnsType {
+			case dns.TypeA:
+				out = append(out, rr.(*dns.A).A.String())
+			case dns.TypeAAAA:
+				out = append(out, rr.(*dns.AAAA).AAAA.String())
+			}
+			if nextTTL := rr.Header().Ttl; nextTTL < ttl {
+				ttl = nextTTL
+			}
 		}
 	}
+
+	wg.Add(2)
+	go doResolve(dns.TypeA)
+	go doResolve(dns.TypeAAAA)
+	wg.Wait()
+
 	sort.Strings(out)
 	return out, time.Duration(ttl) * time.Second
 }

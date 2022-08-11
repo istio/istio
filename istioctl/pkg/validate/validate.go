@@ -81,12 +81,7 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 		Version: un.GroupVersionKind().Version,
 		Kind:    un.GroupVersionKind().Kind,
 	}
-	// TODO(jasonwzm) remove this when multi-version is supported. v1beta1 shares the same
-	// schema as v1lalpha3. Fake conversion and validate against v1alpha3.
-	if gvk.Group == name.NetworkingAPIGroupName && gvk.Version == "v1beta1" {
-		gvk.Version = "v1alpha3"
-	}
-	schema, exists := collections.Pilot.FindByGroupVersionKind(gvk)
+	schema, exists := collections.Pilot.FindByGroupVersionAliasesKind(gvk)
 	if exists {
 		obj, err := convertObjectFromUnstructured(schema, un, "")
 		if err != nil {
@@ -173,11 +168,11 @@ func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstruc
 	if un.GetNamespace() == handleNamespace(istioNamespace) {
 		return nil
 	}
-	spec := un.Object["spec"].(map[string]interface{})
+	spec := un.Object["spec"].(map[string]any)
 	if _, ok := spec["ports"]; ok {
-		ports := spec["ports"].([]interface{})
+		ports := spec["ports"].([]any)
 		for _, port := range ports {
-			p := port.(map[string]interface{})
+			p := port.(map[string]any)
 			if p["protocol"] != nil && strings.EqualFold(p["protocol"].(string), serviceProtocolUDP) {
 				continue
 			}
@@ -218,8 +213,8 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 
 // GetTemplateLabels returns spec.template.metadata.labels from Deployment
 func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) {
-	if spec, ok := u.Object["spec"].(map[string]interface{}); ok {
-		if template, ok := spec["template"].(map[string]interface{}); ok {
+	if spec, ok := u.Object["spec"].(map[string]any); ok {
+		if template, ok := spec["template"].(map[string]any); ok {
 			m, _, err := unstructured.NestedStringMap(template, "metadata", "labels")
 			if err != nil {
 				return nil, err
@@ -237,7 +232,7 @@ func (v *validator) validateFile(istioNamespace *string, defaultNamespace string
 	var warnings validation.Warning
 	for {
 		// YAML allows non-string keys and the produces generic keys for nested fields
-		raw := make(map[interface{}]interface{})
+		raw := make(map[any]any)
 		err := decoder.Decode(&raw)
 		if err == io.EOF {
 			return warnings, errs
@@ -378,27 +373,27 @@ func warningToString(w validation.Warning) string {
 	return w.Error()
 }
 
-func transformInterfaceArray(in []interface{}) []interface{} {
-	out := make([]interface{}, len(in))
+func transformInterfaceArray(in []any) []any {
+	out := make([]any, len(in))
 	for i, v := range in {
 		out[i] = transformMapValue(v)
 	}
 	return out
 }
 
-func transformInterfaceMap(in map[interface{}]interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(in))
+func transformInterfaceMap(in map[any]any) map[string]any {
+	out := make(map[string]any, len(in))
 	for k, v := range in {
 		out[fmt.Sprintf("%v", k)] = transformMapValue(v)
 	}
 	return out
 }
 
-func transformMapValue(in interface{}) interface{} {
+func transformMapValue(in any) any {
 	switch v := in.(type) {
-	case []interface{}:
+	case []any:
 		return transformInterfaceArray(v)
-	case map[interface{}]interface{}:
+	case map[any]any:
 		return transformInterfaceMap(v)
 	default:
 		return v
@@ -444,7 +439,7 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func fromSchemaAndJSONMap(schema collection.Schema, data interface{}) (config.Spec, error) {
+func fromSchemaAndJSONMap(schema collection.Schema, data any) (config.Spec, error) {
 	// Marshal to json bytes
 	str, err := json.Marshal(data)
 	if err != nil {

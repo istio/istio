@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"sigs.k8s.io/yaml"
-
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -88,7 +87,7 @@ func MustApplyNamespace(t test.Failer, yamlText, ns string) string {
 }
 
 func applyNamespace(yamlText, ns string) (string, error) {
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(yamlText), &m); err != nil {
 		return "", err
 	}
@@ -110,13 +109,13 @@ func applyNamespace(yamlText, ns string) (string, error) {
 	return string(by), nil
 }
 
-func ensureChildMap(m map[string]interface{}, name string) (map[string]interface{}, error) {
+func ensureChildMap(m map[string]any, name string) (map[string]any, error) {
 	c, ok := m[name]
 	if !ok {
-		c = make(map[string]interface{})
+		c = make(map[string]any)
 	}
 
-	cm, ok := c.(map[string]interface{})
+	cm, ok := c.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("child %q field is not a map: %v", name, reflect.TypeOf(c))
 	}

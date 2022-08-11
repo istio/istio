@@ -69,7 +69,7 @@ type TestingM interface {
 
 type TestingTB interface {
 	Cleanup(func())
-	Errorf(format string, args ...interface{})
+	Errorf(format string, args ...any)
 }
 
 var gracePeriod = time.Second * 5
@@ -139,9 +139,11 @@ func Check(t TestingTB) {
 
 // CheckMain asserts that no goroutines are leaked after a test package exits.
 // This can be used with the following code:
-//   func TestMain(m *testing.M) {
-//       leak.CheckMain(m)
-//   }
+//
+//	func TestMain(m *testing.M) {
+//	    leak.CheckMain(m)
+//	}
+//
 // Failures here are scoped to the package, not a specific test. To determine the source of the failure,
 // you can use the tool `go test -exec $PWD/tools/go-ordered-test ./my/package`. This runs each test individually.
 // If there are some tests that are leaky, you the Check method can be used on individual tests.
@@ -160,10 +162,10 @@ func CheckMain(m TestingM) {
 
 // MustGarbageCollect asserts than an object was garbage collected by the end of the test.
 // The input must be a pointer to an object.
-func MustGarbageCollect(tb test.Failer, i interface{}) {
+func MustGarbageCollect(tb test.Failer, i any) {
 	tb.Helper()
 	collected := atomic.NewBool(false)
-	runtime.SetFinalizer(i, func(x interface{}) {
+	runtime.SetFinalizer(i, func(x any) {
 		collected.Store(true)
 	})
 	tb.Cleanup(func() {

@@ -270,7 +270,7 @@ func (s *schemaImpl) String() string {
 
 func (s *schemaImpl) NewInstance() (config.Spec, error) {
 	rt := s.reflectType
-	var instance interface{}
+	var instance any
 	if rt == nil {
 		// Use proto
 		t, err := protoMessageType(protoreflect.FullName(s.proto))

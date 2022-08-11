@@ -40,7 +40,7 @@ type EndpointBuilder struct {
 	namespace      string
 
 	// Values used to build dns name tables per pod.
-	// The the hostname of the Pod, by default equals to pod name.
+	// The hostname of the Pod, by default equals to pod name.
 	hostname string
 	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
 	subDomain string

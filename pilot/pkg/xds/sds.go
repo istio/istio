@@ -33,8 +33,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
-	"istio.io/istio/pilot/pkg/networking/util"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 )
@@ -148,7 +148,10 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 			results = append(results, res)
 		}
 	}
-	return results, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
+	return results, model.XdsLogDetails{
+		Incremental:    updatedSecrets != nil,
+		AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated),
+	}, nil
 }
 
 func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {
@@ -292,7 +295,7 @@ func atMostNJoin(data []string, limit int) string {
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
-	res := util.MessageToAny(&envoytls.Secret{
+	res := protoconv.MessageToAny(&envoytls.Secret{
 		Name: name,
 		Type: &envoytls.Secret_ValidationContext{
 			ValidationContext: &envoytls.CertificateValidationContext{
@@ -316,7 +319,7 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 	switch pkpConf.GetProvider().(type) {
 	case *mesh.PrivateKeyProvider_Cryptomb:
 		crypto := pkpConf.GetCryptomb()
-		msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
+		msg := protoconv.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
 			PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
 			PrivateKey: &core.DataSource{
 				Specifier: &core.DataSource_InlineBytes{
@@ -324,7 +327,7 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 				},
 			},
 		})
-		res = util.MessageToAny(&envoytls.Secret{
+		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
 				TlsCertificate: &envoytls.TlsCertificate{
@@ -343,7 +346,7 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 			},
 		})
 	default:
-		res = util.MessageToAny(&envoytls.Secret{
+		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
 				TlsCertificate: &envoytls.TlsCertificate{

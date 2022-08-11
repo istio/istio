@@ -38,7 +38,7 @@ type deprecatedSettings struct {
 	old string
 	new string
 	// In ordered to distinguish between unset for non-pointer values, we need to specify the default value
-	def interface{}
+	def any
 }
 
 // ValidateConfig  calls validation func for every defined element in Values
@@ -187,7 +187,7 @@ func validateFeatures(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperato
 
 // CheckAutoScaleAndReplicaCount warns when autoscaleEnabled is true and k8s replicaCount is set.
 func CheckAutoScaleAndReplicaCount(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
-	if values.GetPilot().GetAutoscaleEnabled().GetValue() && spec.GetComponents().GetPilot().GetK8S().GetReplicaCount() != 0 {
+	if values.GetPilot().GetAutoscaleEnabled().GetValue() && spec.GetComponents().GetPilot().GetK8S().GetReplicaCount() > 1 {
 		warnings = append(warnings,
 			"components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true")
 	}

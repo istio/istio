@@ -241,7 +241,7 @@ func (c *configsVal) Set(s string) error {
 	return nil
 }
 
-func (c *configsVal) SetConfig(m interface{}) error {
+func (c *configsVal) SetConfig(m any) error {
 	bytes, err := yaml.Marshal(m)
 	if err != nil {
 		return err

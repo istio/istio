@@ -156,6 +156,9 @@ type Config struct {
 
 	// custom deployment for ingress and egress gateway on remote clusters.
 	GatewayValues string
+
+	// Custom deploymeny for east-west gateway
+	EastWestGatewayValues string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {
@@ -337,6 +340,8 @@ func ClaimSystemNamespace(ctx resource.Context) (namespace.Instance, error) {
 	nsCfg := namespace.Config{
 		Prefix: istioCfg.SystemNamespace,
 		Inject: false,
+		// Already handled directly
+		SkipDump: true,
 	}
 	return namespace.Claim(ctx, nsCfg)
 }

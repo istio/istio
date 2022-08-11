@@ -87,6 +87,9 @@ public class LibertyRestEndpoint extends Application {
         "x-b3-sampled",
         "x-b3-flags",
 
+        // SkyWalking trace headers.
+        "sw8",
+
         // Application-specific headers to forward.
         "end-user",
         "user-agent",
@@ -117,7 +120,7 @@ public class LibertyRestEndpoint extends Application {
         }
       }
     	result += "},";
-    	
+
     	// reviewer 2:
     	result += "{";
     	result += "  \"reviewer\": \"Reviewer2\",";
@@ -131,13 +134,13 @@ public class LibertyRestEndpoint extends Application {
         }
       }
     	result += "}";
-    	
+
     	result += "]";
     	result += "}";
 
     	return result;
     }
-    
+
     private JsonObject getRatings(String productId, HttpHeaders requestHeaders) {
       ClientBuilder cb = ClientBuilder.newBuilder();
       Integer timeout = star_color.equals("black") ? 10000 : 2500;
@@ -196,7 +199,7 @@ public class LibertyRestEndpoint extends Application {
             }
           }
         }
-      } 
+      }
 
       String jsonResStr = getJsonResponse(Integer.toString(productId), starsReviewer1, starsReviewer2);
       return Response.ok().type(MediaType.APPLICATION_JSON).entity(jsonResStr).build();

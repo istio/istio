@@ -51,8 +51,8 @@ type Bootstrap struct {
 }
 
 type ChannelCreds struct {
-	Type   string      `json:"type,omitempty"`
-	Config interface{} `json:"config,omitempty"`
+	Type   string `json:"type,omitempty"`
+	Config any    `json:"config,omitempty"`
 }
 
 type XdsServer struct {
@@ -62,8 +62,8 @@ type XdsServer struct {
 }
 
 type CertificateProvider struct {
-	PluginName string      `json:"plugin_name,omitempty"`
-	Config     interface{} `json:"config,omitempty"`
+	PluginName string `json:"plugin_name,omitempty"`
+	Config     any    `json:"config,omitempty"`
 }
 
 func (cp *CertificateProvider) UnmarshalJSON(data []byte) error {
@@ -209,7 +209,7 @@ func extractMeta(node *model.Node) (*structpb.Struct, error) {
 	if err != nil {
 		return nil, err
 	}
-	rawMeta := map[string]interface{}{}
+	rawMeta := map[string]any{}
 	if err := json.Unmarshal(bytes, &rawMeta); err != nil {
 		return nil, err
 	}

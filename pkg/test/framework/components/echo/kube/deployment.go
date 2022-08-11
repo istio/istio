@@ -31,16 +31,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pkg/test/util/file"
-
-	"istio.io/istio/pkg/test/env"
-
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istioctlcmd "istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -50,6 +47,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -63,32 +61,14 @@ const (
 	grpcFallbackPort = 17777
 )
 
-var (
-	serviceTemplate      *template.Template
-	deploymentTemplate   *template.Template
-	vmDeploymentTemplate *template.Template
+var echoKubeTemplatesDir = path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates")
 
-	echoKubeTemplatesDir = path.Join(env.IstioSrc, "pkg/test/framework/components/echo/kube/templates")
-)
-
-func init() {
-	serviceYAMLPath := path.Join(echoKubeTemplatesDir, serviceTemplateFile)
-	if filepath.IsAbs(serviceTemplateFile) {
-		serviceYAMLPath = serviceTemplateFile
+func getTemplate(tmplFilePath string) *template.Template {
+	yamlPath := path.Join(echoKubeTemplatesDir, tmplFilePath)
+	if filepath.IsAbs(tmplFilePath) {
+		yamlPath = tmplFilePath
 	}
-	serviceTemplate = tmpl.MustParse(file.MustAsString(serviceYAMLPath))
-
-	deploymentYAMLPath := path.Join(echoKubeTemplatesDir, deploymentTemplateFile)
-	if filepath.IsAbs(deploymentTemplateFile) {
-		deploymentYAMLPath = deploymentTemplateFile
-	}
-	deploymentTemplate = tmpl.MustParse(file.MustAsString(deploymentYAMLPath))
-
-	vmDeploymentYAMLPath := path.Join(echoKubeTemplatesDir, vmDeploymentTemplateFile)
-	if filepath.IsAbs(vmDeploymentTemplateFile) {
-		vmDeploymentYAMLPath = vmDeploymentTemplateFile
-	}
-	vmDeploymentTemplate = tmpl.MustParse(file.MustAsString(vmDeploymentYAMLPath))
+	return tmpl.MustParse(file.MustAsString(yamlPath))
 }
 
 var _ workloadHandler = &deployment{}
@@ -237,9 +217,9 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 		return "", err
 	}
 
-	deploy := deploymentTemplate
+	deploy := getTemplate(deploymentTemplateFile)
 	if cfg.DeployAsVM {
-		deploy = vmDeploymentTemplate
+		deploy = getTemplate(vmDeploymentTemplateFile)
 	}
 
 	return tmpl.Execute(deploy, params)
@@ -247,7 +227,7 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 
 func GenerateService(cfg echo.Config) (string, error) {
 	params := serviceParams(cfg)
-	return tmpl.Execute(serviceTemplate, params)
+	return tmpl.Execute(getTemplate(serviceTemplateFile), params)
 }
 
 var VMImages = map[echo.VMDistro]string{
@@ -292,7 +272,7 @@ func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost
 	return
 }
 
-func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]interface{}, error) {
+func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]any, error) {
 	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 	imagePullSecretName, err := settings.Image.PullSecretName()
 	if err != nil {
@@ -300,7 +280,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	}
 
 	containerPorts := getContainerPorts(cfg)
-	appContainers := []map[string]interface{}{{
+	appContainers := []map[string]any{{
 		"Name":           appContainerName,
 		"ImageFullPath":  settings.EchoImage, // This overrides image hub/tag if it's not empty.
 		"ContainerPorts": getContainerPorts(cfg),
@@ -324,7 +304,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 			Port:     grpcFallbackPort,
 		})
 		appContainers[0]["ContainerPorts"] = otherPorts
-		appContainers = append(appContainers, map[string]interface{}{
+		appContainers = append(appContainers, map[string]any{
 			"Name":           "custom-grpc-" + appContainerName,
 			"ImageFullPath":  settings.CustomGRPCEchoImage, // This overrides image hub/tag if it's not empty.
 			"ContainerPorts": grpcPorts,
@@ -332,7 +312,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		})
 	}
 
-	params := map[string]interface{}{
+	params := map[string]any{
 		"ImageHub":            settings.Image.Hub,
 		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
 		"ImagePullPolicy":     settings.Image.PullPolicy,
@@ -373,7 +353,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 
 		vmIstioHost, vmIstioIP = getVMOverrideForIstiodDNS(ctx, cfg)
 
-		params["VM"] = map[string]interface{}{
+		params["VM"] = map[string]any{
 			"Image":     vmImage,
 			"IstioHost": vmIstioHost,
 			"IstioIP":   vmIstioIP,
@@ -383,8 +363,8 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	return params, nil
 }
 
-func serviceParams(cfg echo.Config) map[string]interface{} {
-	return map[string]interface{}{
+func serviceParams(cfg echo.Config) map[string]any {
+	return map[string]any{
 		"Service":            cfg.Service,
 		"Headless":           cfg.Headless,
 		"ServiceAccount":     cfg.ServiceAccount,

@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/atomic"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/config/constants"
@@ -104,11 +105,13 @@ var (
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	).Get()
 
-	SendUnhealthyEndpoints = env.RegisterBoolVar(
+	SendUnhealthyEndpoints = atomic.NewBool(env.RegisterBoolVar(
 		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
-		true,
-		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing.",
-	).Get()
+		false,
+		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing."+
+			"  To avoid, sending traffic to non ready endpoints, enabling this flag, disables panic threshold in Envoy i.e. Envoy does not load balance requests"+
+			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
+	).Get())
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	HTTP10 = env.RegisterBoolVar(
@@ -403,6 +406,18 @@ var (
 		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
 	).Get()
 
+	// TODO: Move this to proper API.
+	trustedGatewayCIDR = env.RegisterStringVar(
+		"TRUSTED_GATEWAY_CIDR",
+		"",
+		"If set, any connections from gateway to Istiod with this CIDR range are treated as trusted for using authentication mechanisms like XFCC."+
+			" This can only be used when the network where Istiod and the authenticating gateways are running in a trusted/secure network",
+	)
+
+	TrustedGatewayCIDR = func() []string {
+		return strings.Split(trustedGatewayCIDR.Get(), ",")
+	}()
+
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
@@ -543,10 +558,6 @@ var (
 	PartialFullPushes = env.RegisterBoolVar("PILOT_PARTIAL_FULL_PUSHES", true,
 		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
 			"This occurs for EDS in many cases regardless of this setting.").Get()
-
-	// PushOnRepeatNonce is feature flag only, can be cleaned up once stabilized.
-	PushOnRepeatNonce = env.RegisterBoolVar("PILOT_PUSH_REPEATED_NONCES", true,
-		"If enabled, pilot will send responses to XDS requests that have an already requested nonce.").Get()
 
 	EnableLegacyIstioMutualCredentialName = env.RegisterBoolVar("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,

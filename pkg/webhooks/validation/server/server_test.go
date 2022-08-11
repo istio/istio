@@ -116,7 +116,7 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 		t.Fatalf("Marshal(%v) failed: %v", name, err)
 	}
 	if includeBogusKey {
-		trial := make(map[string]interface{})
+		trial := make(map[string]any)
 		if err := json.Unmarshal(raw, &trial); err != nil {
 			t.Fatalf("Unmarshal(%v) failed: %v", name, err)
 		}

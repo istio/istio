@@ -155,7 +155,7 @@ func TestImagePullPolicy(t *testing.T) {
 }
 
 func installWasmExtension(ctx framework.TestContext, pluginName, wasmModuleURL, imagePullPolicy, pluginVersion string) error {
-	args := map[string]interface{}{
+	args := map[string]any{
 		"WasmPluginName":    pluginName,
 		"TestWasmModuleURL": wasmModuleURL,
 		"WasmPluginVersion": pluginVersion,
@@ -175,7 +175,7 @@ func installWasmExtension(ctx framework.TestContext, pluginName, wasmModuleURL, 
 }
 
 func uninstallWasmExtension(ctx framework.TestContext, pluginName string) error {
-	args := map[string]interface{}{
+	args := map[string]any{
 		"WasmPluginName": pluginName,
 	}
 	if err := ctx.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, wasmConfigFile).Delete(); err != nil {

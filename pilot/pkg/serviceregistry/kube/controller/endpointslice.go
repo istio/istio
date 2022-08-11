@@ -87,18 +87,18 @@ func (esc *endpointSliceController) getInformer() filter.FilteredSharedIndexInfo
 	return esc.informer
 }
 
-func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selector) (slices []interface{}, err error) {
+func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selector) (slices []any, err error) {
 	if esc.useV1Resource {
 		var eps []*v1.EndpointSlice
 		eps, err = listerv1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
-		slices = make([]interface{}, len(eps))
+		slices = make([]any, len(eps))
 		for i, ep := range eps {
 			slices[i] = ep
 		}
 	} else {
 		var eps []*v1beta1.EndpointSlice
 		eps, err = listerv1beta1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
-		slices = make([]interface{}, len(eps))
+		slices = make([]any, len(eps))
 		for i, ep := range eps {
 			slices[i] = ep
 		}
@@ -106,7 +106,7 @@ func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selec
 	return
 }
 
-func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
+func (esc *endpointSliceController) onEvent(curr any, event model.Event) error {
 	ep, ok := curr.(metav1.Object)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
@@ -150,7 +150,7 @@ func serviceNameForEndpointSlice(labels map[string]string) string {
 	return labels[v1beta1.LabelServiceName]
 }
 
-func (esc *endpointSliceController) sliceServiceInstances(c *Controller, slice interface{}, proxy *model.Proxy) []*model.ServiceInstance {
+func (esc *endpointSliceController) sliceServiceInstances(c *Controller, slice any, proxy *model.Proxy) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 	ep := wrapEndpointSlice(slice)
 	if ep.AddressType() == v1.AddressTypeFQDN {
@@ -196,7 +196,7 @@ func (esc *endpointSliceController) sliceServiceInstances(c *Controller, slice i
 	return out
 }
 
-func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) map[host.Name][]*model.IstioEndpoint {
+func (esc *endpointSliceController) forgetEndpoint(endpoint any) map[host.Name][]*model.IstioEndpoint {
 	slice := wrapEndpointSlice(endpoint)
 	key := kube.KeyFunc(slice.Name, slice.Namespace)
 	for _, e := range slice.Endpoints() {
@@ -216,12 +216,12 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) map[hos
 	return out
 }
 
-func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, hostName host.Name) []*model.IstioEndpoint {
+func (esc *endpointSliceController) buildIstioEndpoints(es any, hostName host.Name) []*model.IstioEndpoint {
 	esc.updateEndpointCacheForSlice(hostName, es)
 	return esc.endpointCache.Get(hostName)
 }
 
-func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, ep interface{}) {
+func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, ep any) {
 	var endpoints []*model.IstioEndpoint
 	slice := wrapEndpointSlice(ep)
 	if slice.AddressType() == v1.AddressTypeFQDN {
@@ -231,7 +231,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
 	for _, e := range slice.Endpoints() {
-		if !features.SendUnhealthyEndpoints {
+		if !features.SendUnhealthyEndpoints.Load() {
 			if e.Conditions.Ready != nil && !*e.Conditions.Ready {
 				// Ignore not ready endpoints
 				continue
@@ -286,7 +286,7 @@ func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespa
 	return esc.endpointCache.Get(hostName)
 }
 
-func (esc *endpointSliceController) getServiceNamespacedName(es interface{}) types.NamespacedName {
+func (esc *endpointSliceController) getServiceNamespacedName(es any) types.NamespacedName {
 	slice := es.(metav1.Object)
 	return types.NamespacedName{
 		Namespace: slice.GetNamespace(),
@@ -439,7 +439,7 @@ func endpointSliceSelectorForService(name string) klabels.Selector {
 	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
 }
 
-func wrapEndpointSlice(slice interface{}) *endpointSliceWrapper {
+func wrapEndpointSlice(slice any) *endpointSliceWrapper {
 	switch es := slice.(type) {
 	case *v1.EndpointSlice:
 		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1: es}

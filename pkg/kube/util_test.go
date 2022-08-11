@@ -86,12 +86,7 @@ func TestBuildClientConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			currentEnv := os.Getenv("KUBECONFIG")
-			err := os.Setenv("KUBECONFIG", tt.envKubeconfig)
-			if err != nil {
-				t.Fatalf("Failed to set KUBECONFIG environment variable")
-			}
-			defer os.Setenv("KUBECONFIG", currentEnv)
+			t.Setenv("KUBECONFIG", tt.envKubeconfig)
 
 			resp, err := BuildClientConfig(tt.explicitKubeconfig, tt.context)
 			if (err != nil) != tt.wantErr {
@@ -303,8 +298,8 @@ func podForDeploymentConfig(deployConfigName string, hasDeployConfigLabel bool) 
 func TestStripUnusedFields(t *testing.T) {
 	tests := []struct {
 		name string
-		obj  interface{}
-		want interface{}
+		obj  any
+		want any
 	}{
 		{
 			name: "transform pods",

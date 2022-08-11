@@ -41,7 +41,8 @@ class ApplianceTest(unittest.TestCase):
             'x-request-id': '34eeb41d-d267-9e49-8b84-dde403fc5b72',
             'x-b3-traceid': '40c7fdf104e3de67',
             'x-b3-spanid': '40c7fdf104e3de67',
-            'x-b3-sampled': '1'
+            'x-b3-sampled': '1',
+            'sw8': '40c7fdf104e3de67'
         }
         m.get("http://reviews:9080/reviews/%d" % product_id, text='{}',
               request_headers=expected_headers)
@@ -51,7 +52,8 @@ class ApplianceTest(unittest.TestCase):
             'x-request-id': '34eeb41d-d267-9e49-8b84-dde403fc5b72',
             'x-b3-traceid': '40c7fdf104e3de67',
             'x-b3-spanid': '40c7fdf104e3de67',
-            'x-b3-sampled': '1'
+            'x-b3-sampled': '1',
+            'sw8': '40c7fdf104e3de67'
         }
         actual = self.app.get(uri, headers=headers)
         self.assertEqual(200, actual.status_code)
@@ -67,7 +69,8 @@ class ApplianceTest(unittest.TestCase):
             'x-request-id': '34eeb41d-d267-9e49-8b84-dde403fc5b73',
             'x-b3-traceid': '30c7fdf104e3de66',
             'x-b3-spanid': '30c7fdf104e3de66',
-            'x-b3-sampled': '1'
+            'x-b3-sampled': '1',
+            'sw8': '40c7fdf104e3de67'
         }
         m.get("http://ratings:9080/ratings/%d" % product_id, text='{}',
               request_headers=expected_headers)
@@ -77,7 +80,8 @@ class ApplianceTest(unittest.TestCase):
             'x-request-id': '34eeb41d-d267-9e49-8b84-dde403fc5b73',
             'x-b3-traceid': '30c7fdf104e3de66',
             'x-b3-spanid': '30c7fdf104e3de66',
-            'x-b3-sampled': '1'
+            'x-b3-sampled': '1',
+            'sw8': '40c7fdf104e3de67'
         }
         actual = self.app.get(uri, headers=headers)
         self.assertEqual(200, actual.status_code)

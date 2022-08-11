@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/jsonpb"
-	legacyproto "github.com/golang/protobuf/proto"
+	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"sigs.k8s.io/yaml"
@@ -109,14 +109,14 @@ func ToYAML(msg proto.Message) (string, error) {
 
 // ToJSONMap converts a proto message to a generic map using canonical JSON encoding
 // JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
-func ToJSONMap(msg proto.Message) (map[string]interface{}, error) {
+func ToJSONMap(msg proto.Message) (map[string]any, error) {
 	js, err := ToJSON(msg)
 	if err != nil {
 		return nil, err
 	}
 
 	// Unmarshal from json bytes to go map
-	var data map[string]interface{}
+	var data map[string]any
 	err = json.Unmarshal([]byte(js), &data)
 	if err != nil {
 		return nil, err

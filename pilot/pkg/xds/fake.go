@@ -80,7 +80,7 @@ type FakeOptions struct {
 	// If provided, the yaml string will be parsed and used as configs
 	ConfigString string
 	// If provided, the ConfigString will be treated as a go template, with this as input params
-	ConfigTemplateInput interface{}
+	ConfigTemplateInput any
 	// If provided, this mesh config will be used
 	MeshConfig      *meshconfig.MeshConfig
 	NetworksWatcher mesh.NetworksWatcher
@@ -126,7 +126,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", map[string]string{})
-	s.InitGenerators(s.Env, "istio-system")
+	s.InitGenerators(s.Env, "istio-system", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
 		s.pushQueue.ShutDown()
@@ -534,6 +534,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 }
 
 func (fx *FakeXdsUpdater) ProxyUpdate(c cluster.ID, p string) {
+	fx.Events <- FakeXdsEvent{Kind: "proxy update"}
 	if fx.Delegate != nil {
 		fx.Delegate.ProxyUpdate(c, p)
 	}

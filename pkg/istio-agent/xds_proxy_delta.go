@@ -23,10 +23,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/istio-agent/metrics"
@@ -43,7 +44,7 @@ func (con *ProxyConnection) sendDeltaRequest(req *discovery.DeltaDiscoveryReques
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
-func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream) error {
 	proxyLog.Debugf("accepted delta xds connection from envoy, forwarding to upstream")
 
 	con := &ProxyConnection{
@@ -269,7 +270,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse, forward func(resp *discovery.DeltaDiscoveryResponse)) {
-	resources := make([]*any.Any, 0, len(resp.Resources))
+	resources := make([]*anypb.Any, 0, len(resp.Resources))
 	for i := range resp.Resources {
 		resources = append(resources, resp.Resources[i].Resource)
 	}
@@ -303,15 +304,11 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 	}
 }
 
-func sendUpstreamDelta(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
-	req *discovery.DeltaDiscoveryRequest,
-) error {
+func sendUpstreamDelta(deltaUpstream xds.DeltaDiscoveryClient, req *discovery.DeltaDiscoveryRequest) error {
 	return istiogrpc.Send(deltaUpstream.Context(), func() error { return deltaUpstream.Send(req) })
 }
 
-func sendDownstreamDelta(deltaDownstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
-	res *discovery.DeltaDiscoveryResponse,
-) error {
+func sendDownstreamDelta(deltaDownstream xds.DeltaDiscoveryStream, res *discovery.DeltaDiscoveryResponse) error {
 	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
 }
 

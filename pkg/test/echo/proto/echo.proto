@@ -82,6 +82,26 @@ message ForwardEchoRequest {
   bool newConnectionPerRequest = 22;
   // If set, each request will force a DNS lookup. Only applies if newConnectionPerRequest is set.
   bool forceDNSLookup = 23;
+
+  // HBONE communication settings. If provided, requests will be tunnelled.
+  HBONE hbone = 24;
+}
+
+message HBONE {
+  string address = 9;
+  repeated Header headers = 1;
+  // If non-empty, make the request with the corresponding cert and key.
+  string cert = 2;
+  string key = 3;
+  // If non-empty, verify the server CA
+  string caCert = 4;
+  // If non-empty, make the request with the corresponding cert and key file.
+  string certFile = 5;
+  string keyFile = 6;
+  // If non-empty, verify the server CA with the ca cert file.
+  string caCertFile = 7;
+  // Skip verifying peer's certificate.
+  bool insecureSkipVerify = 8;
 }
 
 message Alpn {

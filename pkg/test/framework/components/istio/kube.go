@@ -94,10 +94,11 @@ type iopInfo struct {
 }
 
 type iopFiles struct {
-	primaryIOP iopInfo
-	configIOP  iopInfo
-	remoteIOP  iopInfo
-	gatewayIOP iopInfo
+	primaryIOP  iopInfo
+	configIOP   iopInfo
+	remoteIOP   iopInfo
+	gatewayIOP  iopInfo
+	eastwestIOP iopInfo
 }
 
 // ID implements resource.Instance
@@ -158,7 +159,7 @@ func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPA
 	if !primary.IsConfig() {
 		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
 		// a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
-		address, err := retry.UntilComplete(func() (interface{}, bool, error) {
+		address, err := retry.UntilComplete(func() (any, bool, error) {
 			return getRemoteServiceAddress(i.env.Settings(), primary, i.cfg.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)
 		}, getAddressTimeout, getAddressDelay)
@@ -332,7 +333,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 			if c.IsConfig() {
 				spec = i.configIOP.spec
 			}
-			if err := i.deployEastWestGateway(c, spec.Revision); err != nil {
+			if err := i.deployEastWestGateway(c, spec.Revision, i.eastwestIOP.file); err != nil {
 				return i, err
 			}
 
@@ -422,7 +423,7 @@ func (i *istioImpl) installControlPlaneCluster(c cluster.Cluster) error {
 			return nil
 		}
 
-		if err := i.deployEastWestGateway(c, i.primaryIOP.spec.Revision); err != nil {
+		if err := i.deployEastWestGateway(c, i.primaryIOP.spec.Revision, i.eastwestIOP.file); err != nil {
 			return err
 		}
 		// Other clusters should only use this for discovery if its a config cluster.
@@ -582,7 +583,7 @@ func waitForIstioReady(ctx resource.Context, c cluster.Cluster, cfg Config) erro
 	return nil
 }
 
-// configureDirectAPIServiceAccessBetweenClusters - create a remote secret of cluster `c`` and place
+// configureDirectAPIServiceAccessBetweenClusters - create a remote secret of cluster `c` and place
 // the secret in all `from` clusters
 func (i *istioImpl) configureDirectAPIServiceAccessBetweenClusters(c cluster.Cluster, from ...cluster.Cluster) error {
 	// Create a secret.
@@ -830,6 +831,14 @@ func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i
 			return iopFiles{}, err
 		}
 	}
+	if cfg.EastWestGatewayValues != "" {
+		i.eastwestIOP.file = filepath.Join(workDir, "eastwest.yaml")
+		_, err = initIOPFile(ctx, cfg, i.eastwestIOP.file, cfg.EastWestGatewayValues)
+		if err != nil {
+			return iopFiles{}, err
+		}
+	}
+
 	return
 }
 

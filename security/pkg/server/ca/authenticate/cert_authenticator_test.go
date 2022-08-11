@@ -106,7 +106,7 @@ func TestAuthenticate_clientCertAuthenticator(t *testing.T) {
 			ctx = peer.NewContext(ctx, &peer.Peer{AuthInfo: tc.fakeAuthInfo})
 		}
 
-		result, err := auth.Authenticate(ctx)
+		result, err := auth.Authenticate(security.AuthContext{GrpcContext: ctx})
 		if len(tc.authenticateErrMsg) > 0 {
 			if err == nil {
 				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)

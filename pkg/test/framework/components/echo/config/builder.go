@@ -56,7 +56,7 @@ func NewWithOutput(t framework.TestContext, out config.Plan) *Builder {
 	}
 }
 
-func checkNotNil(name string, value interface{}) {
+func checkNotNil(name string, value any) {
 	if value == nil {
 		panic(fmt.Sprintf("%s must not be nil", name))
 	}

@@ -21,56 +21,71 @@ FILES=("${INPUTS[@]:0:${#INPUTS[@]}-1}")
 
 set -eu;
 
-function may_copy_into_arch_named_sub_dir() {
+# detect_arch returns "amd64", "arm64", or "" depending on if the file is arch specific
+function detect_arch() {
   FILE=${1}
-  COPY_ARCH_RELATED=${COPY_ARCH_RELATED:-1}
-
+  extension="${FILE##*.}"
+  if [[ "${extension}" == "deb" ]]; then
+    arch="$(dpkg-deb --info "${FILE}" | grep Arch | cut -d: -f 2 | cut -c 2-)"
+    echo "${arch}"
+    return 0
+  fi
   FILE_INFO=$(file "${FILE}" || true)
-  # when file is an `ELF 64-bit LSB`,
-  # will put an arch named sub dir
-  # like
-  #   arm64/
-  #   amd64/
   if [[ ${FILE_INFO} == *"ELF 64-bit LSB"* ]]; then
     case ${FILE_INFO} in
       *x86-64*)
-        mkdir -p "${DOCKER_WORKING_DIR}/amd64/" && cp -rp "${FILE}" "${DOCKER_WORKING_DIR}/amd64/"
-        chmod 755 "${DOCKER_WORKING_DIR}/amd64/$(basename "${FILE}")"
+        echo "amd64"
+        return 0
         ;;
       *aarch64*)
-        mkdir -p "${DOCKER_WORKING_DIR}/arm64/" && cp -rp "${FILE}" "${DOCKER_WORKING_DIR}/arm64/"
-        chmod 755 "${DOCKER_WORKING_DIR}/arm64/$(basename "${FILE}")"
-        ;;
-      *)
-        cp -rp "${FILE}" "${DOCKER_WORKING_DIR}"
-        chmod 755 "${DOCKER_WORKING_DIR}/$(basename "${FILE}")"
+        echo "arm64"
+        return 0
         ;;
     esac
+  fi
+}
 
+function may_copy_into_arch_named_sub_dir() {
+  local FILE=${1}
+  local COPY_ARCH_RELATED=${COPY_ARCH_RELATED:-1}
 
-    if [[ ${COPY_ARCH_RELATED} == 1 ]]; then
-      # if other arch files exists, should copy too.
-      for ARCH in "amd64" "arm64"; do
-        # like file `out/linux_amd64/pilot-discovery`
-        # should check  `out/linux_arm64/pilot-discovery` exists then do copy
+  local arch
+  arch="$(detect_arch "${FILE}")"
+  local FILE_INFO
+  FILE_INFO=$(file "${FILE}" || true)
 
-        FILE_ARCH_RELATED=${FILE/linux_${TARGET_ARCH}/linux_${ARCH}}
+  if [[ "${arch}" != "" && ${COPY_ARCH_RELATED} == 1 ]]; then
+    # if other arch files exists, should copy too.
+    for ARCH in "amd64" "arm64"; do
+      # like file `out/linux_amd64/pilot-discovery`
+      # should check  `out/linux_arm64/pilot-discovery` exists then do copy
 
-        if [[ ${FILE_ARCH_RELATED} != "${FILE}" && -f ${FILE_ARCH_RELATED} ]]; then
-          COPY_ARCH_RELATED=0 may_copy_into_arch_named_sub_dir "${FILE_ARCH_RELATED}"
-        fi
-      done
-    fi
+      local FILE_ARCH_RELATED=${FILE/linux_${TARGET_ARCH}/linux_${ARCH}}
 
+      if [[ ${FILE_ARCH_RELATED} != "${FILE}" && -f ${FILE_ARCH_RELATED} ]]; then
+        COPY_ARCH_RELATED=0 may_copy_into_arch_named_sub_dir "${FILE_ARCH_RELATED}"
+      fi
+    done
+  fi
+
+  # For arch specific, will put an arch named sub dir like
+  #   arm64/
+  #   amd64/
+  dst="${DOCKER_WORKING_DIR}"
+  if [[ "${arch}" != "" ]]; then
+    dst+="/${arch}/"
+  fi
+  mkdir -p "${dst}"
+  cp -rp "${FILE}" "${dst}"
+
+  # Based on type, explicit set permissions. These may differ on host machine due to umask, so always override.
+  out="${dst}/$(basename "${FILE}")"
+  if [[ -d "${out}" ]]; then
+    chmod -R a+r "${out}"
+  elif [[ -x "${out}" ]]; then
+    chmod 755 "${out}"
   else
-    cp -rp "${FILE}" "${DOCKER_WORKING_DIR}"
-    file="${DOCKER_WORKING_DIR}/$(basename "${FILE}")"
-    if [[ -d ${file} ]]
-    then
-      chmod -R a+r "${file}"
-    else
-      chmod a+r "${file}"
-    fi
+    chmod a+r "${out}"
   fi
 }
 

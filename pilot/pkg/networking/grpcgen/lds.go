@@ -32,10 +32,10 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/util/sets"
@@ -112,7 +112,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		}
 		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
-			Resource: util.MessageToAny(ll),
+			Resource: protoconv.MessageToAny(ll),
 		})
 	}
 	return out
@@ -177,7 +177,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 			fc = append(fc,
 				&hcm.HttpFilter{
 					Name:       RBACHTTPFilterNameDeny,
-					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 				})
 		}
 		arules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_ALLOW, policies.Allow)
@@ -188,7 +188,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 			fc = append(fc,
 				&hcm.HttpFilter{
 					Name:       RBACHTTPFilterName,
-					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 				})
 		}
 	}
@@ -202,7 +202,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 		Filters: []*listener.Filter{{
 			Name: "inbound-hcm" + nameSuffix,
 			ConfigType: &listener.Filter_TypedConfig{
-				TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
+				TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
 					RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 						// https://github.com/grpc/grpc-go/issues/4924
 						RouteConfig: &route.RouteConfiguration{
@@ -226,7 +226,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	if tlsContext != nil {
 		out.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
 	}
 	return out
@@ -294,7 +294,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 						},
 					},
 					ApiListener: &listener.ApiListener{
-						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
+						ApiListener: protoconv.MessageToAny(&hcm.HttpConnectionManager{
 							HttpFilters: supportedFilters,
 							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
@@ -312,7 +312,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				out = append(out, &discovery.Resource{
 					Name:     ll.Name,
-					Resource: util.MessageToAny(ll),
+					Resource: protoconv.MessageToAny(ll),
 				})
 			}
 		}

@@ -142,7 +142,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	gatewayNameForServer := make(map[*networking.Server]string)
 	verifiedCertificateReferences := sets.New()
 	http3AdvertisingRoutes := sets.New()
-	tlsHostsByPort := map[uint32]sets.Set{} // port -> host set
+	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
 	autoPassthrough := false
 
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
@@ -189,10 +189,14 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					// Envoy will reject config that has multiple filter chain matches with the same matching rules.
 					// To avoid this, we need to make sure we don't have duplicated hosts, which will become
 					// SNI filter chain matches.
+
+					// When there is Bind specified in the Gateway, the listener is built per IP instead of
+					// sharing one wildcard listener. So different Gateways can
+					// have same host as long as they have different Bind.
 					if tlsHostsByPort[resolvedPort] == nil {
-						tlsHostsByPort[resolvedPort] = sets.New()
+						tlsHostsByPort[resolvedPort] = map[string]string{}
 					}
-					if duplicateHosts := CheckDuplicates(s.Hosts, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
+					if duplicateHosts := CheckDuplicates(s.Hosts, s.Bind, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
 						log.Debugf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
 						RecordRejectedConfig(gatewayName)
 						continue
@@ -415,17 +419,17 @@ func GetSNIHostsForServer(server *networking.Server) []string {
 
 // CheckDuplicates returns all of the hosts provided that are already known
 // If there were no duplicates, all hosts are added to the known hosts.
-func CheckDuplicates(hosts []string, knownHosts sets.Set) []string {
+func CheckDuplicates(hosts []string, bind string, knownHosts map[string]string) []string {
 	var duplicates []string
 	for _, h := range hosts {
-		if knownHosts.Contains(h) {
+		if existingBind, ok := knownHosts[h]; ok && bind == existingBind {
 			duplicates = append(duplicates, h)
 		}
 	}
 	// No duplicates found, so we can mark all of these hosts as known
 	if len(duplicates) == 0 {
 		for _, h := range hosts {
-			knownHosts.Insert(h)
+			knownHosts[h] = bind
 		}
 	}
 	return duplicates
@@ -435,8 +439,10 @@ func CheckDuplicates(hosts []string, knownHosts sets.Set) []string {
 // Unlike sidecars where the RDS route name is the listener port number, gateways have a different
 // structure for RDS.
 // HTTP servers have route name set to http.<portNumber>.
-//   Multiple HTTP servers can exist on the same port and the code will combine all of them into
-//   one single RDS payload for http.<portNumber>
+//
+//	Multiple HTTP servers can exist on the same port and the code will combine all of them into
+//	one single RDS payload for http.<portNumber>
+//
 // HTTPS servers with TLS termination (i.e. envoy decoding the content, and making outbound http calls to backends)
 // will use route name https.<portNumber>.<portName>.<gatewayName>.<namespace>. HTTPS servers using SNI passthrough or
 // non-HTTPS servers (e.g., TCP+TLS) with SNI passthrough will be setup as opaque TCP proxies without terminating

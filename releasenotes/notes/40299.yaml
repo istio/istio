@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 40299
+
+releaseNotes:
+- |
+  **Fixed** an issue where a service with and witout Virtual Service with no timeouts specified,
+  is incorrectly setting the timeouts.

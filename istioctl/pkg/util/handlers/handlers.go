@@ -78,7 +78,7 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 	}
 
 	// Pod is referred to using something like "deployment/httpbin".  Use the kubectl
-	// libraries to look up the the resource name, find the pods it selects, and return
+	// libraries to look up the resource name, find the pods it selects, and return
 	// one of those pods.
 	builder := factory.NewBuilder().
 		WithScheme(kubelib.IstioScheme, kubelib.IstioScheme.PrioritizedVersionsAllGroups()...).

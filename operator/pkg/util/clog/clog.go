@@ -24,12 +24,12 @@ import (
 
 // Logger provides optional log taps for console and test buffer outputs.
 type Logger interface {
-	LogAndPrint(v ...interface{})
-	LogAndError(v ...interface{})
-	LogAndFatal(a ...interface{})
-	LogAndPrintf(format string, a ...interface{})
-	LogAndErrorf(format string, a ...interface{})
-	LogAndFatalf(format string, a ...interface{})
+	LogAndPrint(v ...any)
+	LogAndError(v ...any)
+	LogAndFatal(a ...any)
+	LogAndPrintf(format string, a ...any)
+	LogAndErrorf(format string, a ...any)
+	LogAndFatalf(format string, a ...any)
 	Print(s string)
 	PrintErr(s string)
 }
@@ -60,7 +60,7 @@ func NewDefaultLogger() *ConsoleLogger {
 	return NewConsoleLogger(os.Stdout, os.Stderr, nil)
 }
 
-func (l *ConsoleLogger) LogAndPrint(v ...interface{}) {
+func (l *ConsoleLogger) LogAndPrint(v ...any) {
 	if len(v) == 0 {
 		return
 	}
@@ -69,7 +69,7 @@ func (l *ConsoleLogger) LogAndPrint(v ...interface{}) {
 	l.scope.Infof(s)
 }
 
-func (l *ConsoleLogger) LogAndError(v ...interface{}) {
+func (l *ConsoleLogger) LogAndError(v ...any) {
 	if len(v) == 0 {
 		return
 	}
@@ -78,24 +78,24 @@ func (l *ConsoleLogger) LogAndError(v ...interface{}) {
 	l.scope.Infof(s)
 }
 
-func (l *ConsoleLogger) LogAndFatal(a ...interface{}) {
+func (l *ConsoleLogger) LogAndFatal(a ...any) {
 	l.LogAndError(a...)
 	os.Exit(-1)
 }
 
-func (l *ConsoleLogger) LogAndPrintf(format string, a ...interface{}) {
+func (l *ConsoleLogger) LogAndPrintf(format string, a ...any) {
 	s := fmt.Sprintf(format, a...)
 	l.Print(s + "\n")
 	l.scope.Infof(s)
 }
 
-func (l *ConsoleLogger) LogAndErrorf(format string, a ...interface{}) {
+func (l *ConsoleLogger) LogAndErrorf(format string, a ...any) {
 	s := fmt.Sprintf(format, a...)
 	l.PrintErr(s + "\n")
 	l.scope.Infof(s)
 }
 
-func (l *ConsoleLogger) LogAndFatalf(format string, a ...interface{}) {
+func (l *ConsoleLogger) LogAndFatalf(format string, a ...any) {
 	l.LogAndErrorf(format, a...)
 	os.Exit(-1)
 }

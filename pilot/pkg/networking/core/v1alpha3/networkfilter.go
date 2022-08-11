@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -74,7 +75,7 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, c
 
 	tcpFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(config)},
 	}
 	return tcpFilter
 }
@@ -92,6 +93,10 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
 	if err == nil {
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
+	}
+	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
+	if maxConnectionDuration != nil {
+		tcpProxy.MaxDownstreamConnectionDuration = maxConnectionDuration
 	}
 	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
 	applyTunnelingConfig(tcpProxy, destinationRule, subsetName)
@@ -123,6 +128,10 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
 	if err == nil {
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
+	}
+	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
+	if maxConnectionDuration != nil {
+		tcpProxy.MaxDownstreamConnectionDuration = maxConnectionDuration
 	}
 
 	for _, route := range routes {
@@ -221,7 +230,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
 	var destinationRule *networking.DestinationRule
 	if service != nil {
-		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, service.Hostname))
+		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
 	}
 	if len(routes) == 1 {
 		clusterName := istioroute.GetDestinationCluster(routes[0].Destination, service, port.Port)
@@ -250,7 +259,7 @@ func buildMongoFilter(statPrefix string) *listener.Filter {
 
 	out := &listener.Filter{
 		Name:       wellknown.MongoProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mongoProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(mongoProxy)},
 	}
 
 	return out
@@ -291,7 +300,7 @@ func buildRedisFilter(statPrefix, clusterName string) *listener.Filter {
 
 	out := &listener.Filter{
 		Name:       wellknown.RedisProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(redisProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(redisProxy)},
 	}
 
 	return out
@@ -305,7 +314,7 @@ func buildMySQLFilter(statPrefix string) *listener.Filter {
 
 	out := &listener.Filter{
 		Name:       wellknown.MySQLProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mySQLProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(mySQLProxy)},
 	}
 
 	return out

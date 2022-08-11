@@ -24,6 +24,7 @@ import (
 )
 
 // Templates embeds the templates
+//
 //go:embed templates/*
 var Templates embed.FS
 

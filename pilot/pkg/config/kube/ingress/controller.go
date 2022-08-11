@@ -323,7 +323,7 @@ func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 }
 
 // sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortIngressByCreationTime(configs []interface{}) []*ingress.Ingress {
+func sortIngressByCreationTime(configs []any) []*ingress.Ingress {
 	ingr := make([]*ingress.Ingress, 0, len(configs))
 	for _, i := range configs {
 		ingr = append(ingr, i.(*ingress.Ingress))

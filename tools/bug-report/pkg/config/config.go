@@ -37,7 +37,7 @@ const (
 // SelectionSpec is a spec for pods that will be Include in the capture
 // archive. The format is:
 //
-//   Namespace1,Namespace2../Deployments/Pods/Label1,Label2.../Annotation1,Annotation2.../ContainerName1,ContainerName2...
+//	Namespace1,Namespace2../Deployments/Pods/Label1,Label2.../Annotation1,Annotation2.../ContainerName1,ContainerName2...
 //
 // Namespace, pod and container names are pattern matching while labels
 // and annotations may have pattern in the values with exact match for keys.
@@ -51,27 +51,30 @@ const (
 // Examples:
 //
 // 1. All pods in test-namespace with label "test=foo" but without label "private" (with any value):
-//      include:
-//        test-namespace/*/*/test=foo
-//      exclude:
-//        test-namespace/*/*/private
+//
+//	include:
+//	  test-namespace/*/*/test=foo
+//	exclude:
+//	  test-namespace/*/*/private
 //
 // 2. Pods in all namespaces except "kube-system" with annotation "revision"
 // matching wildcard 1.6*:
-//      exclude:
-//        kube-system/*/*/*/revision=1.6*
+//
+//	exclude:
+//	  kube-system/*/*/*/revision=1.6*
 //
 // 3. Pods with "prometheus" in the name, except those with
 // the annotation "internal=true":
-//      include:
-//        */*/*prometheus*
-//      exclude:
-//        */*/*prometheus*/*/internal=true
+//
+//	include:
+//	  */*/*prometheus*
+//	exclude:
+//	  */*/*prometheus*/*/internal=true
 //
 // 4. Container logs for all containers called "istio-proxy":
-//      include:
-//        */*/*/*/*/istio-proxy
 //
+//	include:
+//	  */*/*/*/*/istio-proxy
 type SelectionSpec struct {
 	Namespaces  []string          `json:"namespaces,omitempty"`
 	Deployments []string          `json:"deployments,omitempty"`
@@ -147,13 +150,13 @@ type BugReportConfig struct {
 	// Exclude is a list of SelectionSpec entries for resources t0 exclude.
 	Exclude SelectionSpecs `json:"exclude,omitempty"`
 
-	// StartTime is the start time the the log capture time range.
+	// StartTime is the start time the log capture time range.
 	// If set, Since must be unset.
 	StartTime time.Time `json:"startTime,omitempty"`
-	// EndTime is the end time the the log capture time range.
+	// EndTime is the end time the log capture time range.
 	// Default is now.
 	EndTime time.Time `json:"endTime,omitempty"`
-	// Since defines the start time the the log capture time range.
+	// Since defines the start time the log capture time range.
 	// StartTime is set to EndTime - Since.
 	// If set, StartTime must be unset.
 	Since Duration `json:"since,omitempty"`
@@ -273,7 +276,7 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 }
 
 func (d *Duration) UnmarshalJSON(b []byte) error {
-	var v interface{}
+	var v any
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
 	}
