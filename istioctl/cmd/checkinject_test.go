@@ -258,11 +258,8 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			checkResults, err := analyzeRunningWebhooks([]admit_v1.MutatingWebhookConfiguration{*defaultWh, *revWh},
+			checkResults := analyzeRunningWebhooks([]admit_v1.MutatingWebhookConfiguration{*defaultWh, *revWh},
 				c.pod.Labels, c.ns.Labels)
-			if err != nil {
-				t.Fatal(err)
-			}
 			assert.Equal(t, c.expectedMessages, checkResults)
 		})
 	}

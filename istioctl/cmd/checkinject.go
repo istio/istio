@@ -23,12 +23,13 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"istio.io/api/label"
-	"istio.io/istio/istioctl/pkg/util/handlers"
-	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/util/handlers"
+	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 )
 
 var labelPairs string
@@ -101,10 +102,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 			if err != nil {
 				return err
 			}
-			checkResults, err := analyzeRunningWebhooks(whs.Items, podLabels, nsLabels)
-			if err != nil {
-				return err
-			}
+			checkResults := analyzeRunningWebhooks(whs.Items, podLabels, nsLabels)
 			return printCheckInjectorResults(cmd.OutOrStdout(), checkResults)
 		},
 	}
@@ -143,7 +141,7 @@ type webhookAnalysis struct {
 	Reason   string
 }
 
-func analyzeRunningWebhooks(whs []admit_v1.MutatingWebhookConfiguration, podLabels, nsLabels map[string]string) ([]webhookAnalysis, error) {
+func analyzeRunningWebhooks(whs []admit_v1.MutatingWebhookConfiguration, podLabels, nsLabels map[string]string) []webhookAnalysis {
 	results := make([]webhookAnalysis, 0)
 	for _, mwc := range whs {
 		if !isIstioWebhook(&mwc) {
@@ -161,7 +159,7 @@ func analyzeRunningWebhooks(whs []admit_v1.MutatingWebhookConfiguration, podLabe
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Name < results[j].Name
 	})
-	return results, nil
+	return results
 }
 
 func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, podLabels, nsLabels map[string]string) (reason string, injected bool) {
