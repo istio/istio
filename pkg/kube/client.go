@@ -151,8 +151,10 @@ type Client interface {
 	GetKubernetesVersion() (*kubeVersion.Info, error)
 }
 
-// ExtendedClient is an extended client with additional helpers/functionality for Istioctl and testing.
-type ExtendedClient interface {
+// CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
+// CLIClient is not appropriate for controllers, as it does a number of highly privileged or highly risky operations
+// such as `exec`, `port-forward`, etc.
+type CLIClient interface {
 	Client
 	// Revision of the Istio control plane.
 	Revision() string
@@ -214,14 +216,14 @@ type ExtendedClient interface {
 type PortManager func() (uint16, error)
 
 var (
-	_ Client         = &client{}
-	_ ExtendedClient = &client{}
+	_ Client    = &client{}
+	_ CLIClient = &client{}
 )
 
 const resyncInterval = 0
 
 // NewFakeClient creates a new, fake, client
-func NewFakeClient(objects ...runtime.Object) ExtendedClient {
+func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
 	}
@@ -297,7 +299,7 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	return c
 }
 
-func NewFakeClientWithVersion(minor string, objects ...runtime.Object) ExtendedClient {
+func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient {
 	c := NewFakeClient(objects...).(*client)
 	if minor != "" && minor != "latest" {
 		c.versionOnce.Do(func() {
@@ -437,7 +439,7 @@ func NewDefaultClient() (Client, error) {
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
 // This is appropriate for use in CLI libraries because it exposes functionality unsafe for in-cluster controllers,
 // and uses standard CLI (kubectl) caching.
-func NewCLIClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
+func NewCLIClient(clientConfig clientcmd.ClientConfig, revision string) (CLIClient, error) {
 	return newClientInternal(newClientFactory(clientConfig, true), revision)
 }
 

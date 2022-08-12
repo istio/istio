@@ -66,7 +66,7 @@ const (
 )
 
 type ExternalInjector struct {
-	client          kube.ExtendedClient
+	client          kube.CLIClient
 	clientConfig    *admissionregistration.WebhookClientConfig
 	injectorAddress string
 }

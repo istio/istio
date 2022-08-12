@@ -55,7 +55,7 @@ import (
 // The upstream build requires using `testing.T` types, which we cannot pass using our framework.
 // To workaround this, we set up the inputs it TestMain.
 type GatewayConformanceInputs struct {
-	Client  kube.ExtendedClient
+	Client  kube.CLIClient
 	Cleanup bool
 }
 

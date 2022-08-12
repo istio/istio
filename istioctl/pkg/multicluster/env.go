@@ -31,7 +31,7 @@ type ConditionFunc func() (done bool, err error)
 
 type Environment interface {
 	GetConfig() *api.Config
-	CreateClient(context string) (kube.ExtendedClient, error)
+	CreateClient(context string) (kube.CLIClient, error)
 	Stdout() io.Writer
 	Stderr() io.Writer
 	ReadFile(filename string) ([]byte, error)
@@ -47,7 +47,7 @@ type KubeEnvironment struct {
 	kubeconfig string
 }
 
-func (e *KubeEnvironment) CreateClient(context string) (kube.ExtendedClient, error) {
+func (e *KubeEnvironment) CreateClient(context string) (kube.CLIClient, error) {
 	cfg, err := kube.BuildClientConfig(e.kubeconfig, context)
 	if err != nil {
 		return nil, err

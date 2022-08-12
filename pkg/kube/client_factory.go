@@ -65,6 +65,8 @@ func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool) *clie
 		}
 		// Setup cached discovery. CLIs uses disk cache, controllers use memory cache.
 		if diskCache {
+			// From https://github.com/kubernetes/cli-runtime/blob/4fdf49ae46a0caa7fafdfe97825c6129d5153f06/pkg/genericclioptions/config_flags.go#L288
+
 			cacheDir := filepath.Join(homedir.HomeDir(), ".kube", "cache")
 
 			httpCacheDir := filepath.Join(cacheDir, "http")

@@ -881,7 +881,7 @@ func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, 
 	}
 }
 
-func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient istioclient.Interface, client kube.ExtendedClient) error { // nolint: lll
+func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient istioclient.Interface, client kube.CLIClient) error { // nolint: lll
 
 	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
@@ -1124,7 +1124,7 @@ the configuration objects that affect that service.`,
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
+func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
 	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump")
 	if err != nil {
 		if ignoreUnmeshed {
@@ -1216,7 +1216,7 @@ func containerReady(pod *v1.Pod, containerName string) (bool, error) {
 // describePeerAuthentication fetches all PeerAuthentication in workload and root namespace.
 // It lists the ones applied to the pod, and the current active mTLS mode.
 // When the client doesn't have access to root namespace, it will only show workload namespace Peerauthentications.
-func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, workloadNamespace string, podsLabels k8s_labels.Set) error { // nolint: lll
+func describePeerAuthentication(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, workloadNamespace string, podsLabels k8s_labels.Set) error { // nolint: lll
 	meshCfg, err := getMeshConfig(kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to fetch mesh config: %v", err)
@@ -1305,7 +1305,7 @@ func printPeerAuthentication(writer io.Writer, pa *v1beta1.PeerAuthentication) {
 	}
 }
 
-func getMeshConfig(kubeClient kube.ExtendedClient) (*meshconfig.MeshConfig, error) {
+func getMeshConfig(kubeClient kube.CLIClient) (*meshconfig.MeshConfig, error) {
 	rev := kubeClient.Revision()
 	meshConfigMapName := defaultMeshConfigMapName
 

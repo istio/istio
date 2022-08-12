@@ -326,7 +326,7 @@ func savedIOPName(iop *v1alpha12.IstioOperator) string {
 
 // detectIstioVersionDiff will show warning if istioctl version and control plane version are different
 // nolint: interfacer
-func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.ExtendedClient, setFlags []string) error {
+func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CLIClient, setFlags []string) error {
 	warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
 	icps, err := kubeClient.GetIstioVersions(context.TODO(), ns)
 	if err != nil {

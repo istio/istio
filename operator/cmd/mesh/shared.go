@@ -116,7 +116,7 @@ func confirm(msg string, writer io.Writer) bool {
 	return false
 }
 
-func KubernetesClients(kubeConfigPath, context string, l clog.Logger) (kube.ExtendedClient, client.Client, error) {
+func KubernetesClients(kubeConfigPath, context string, l clog.Logger) (kube.CLIClient, client.Client, error) {
 	rc, err := kube.DefaultRestConfig(kubeConfigPath, context, func(config *rest.Config) {
 		// We are running a one-off command locally, so we don't need to worry too much about rate limitting
 		// Bumping this up greatly decreases install time

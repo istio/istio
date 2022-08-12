@@ -62,7 +62,7 @@ type StatusVerifier struct {
 	iop              *v1alpha1.IstioOperator
 	successMarker    string
 	failureMarker    string
-	client           kube.ExtendedClient
+	client           kube.CLIClient
 }
 
 type StatusVerifierOptions func(*StatusVerifier)

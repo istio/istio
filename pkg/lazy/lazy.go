@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package lazy is a package to expose lazily computed values.
+// The concepts and code are heavily influenced by https://cs.opensource.google/go/go/+/go1.19:src/sync/once.go.
 package lazy
 
 import (
@@ -27,10 +29,13 @@ type Lazy[T any] interface {
 
 type lazyImpl[T any] struct {
 	getter func() (T, error)
+	// retry, if true, will ensure getter() is called for each Get() until a non-nil error is returned.
 	retry  bool
 
+	// Cached responses. Note: with retry enabled, this will be unset until a non-nil error
 	res T
 	err error
+
 
 	done uint32
 	m    sync.Mutex
