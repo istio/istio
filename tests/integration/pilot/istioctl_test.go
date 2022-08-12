@@ -431,12 +431,6 @@ func TestXdsProxyStatus(t *testing.T) {
 
 			g := gomega.NewWithT(t)
 
-			args := []string{"x", "proxy-status"}
-			output, _ := istioCtl.InvokeOrFail(t, args)
-			// Just verify pod A is known to Pilot; implicitly this verifies that
-			// the printing code printed it.
-			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())))
-
 			expectSubstrings := func(have string, wants ...string) error {
 				for _, want := range wants {
 					if !strings.Contains(have, want) {
@@ -447,10 +441,21 @@ func TestXdsProxyStatus(t *testing.T) {
 			}
 
 			retry.UntilSuccessOrFail(t, func() error {
-				args = []string{
+				args := []string{"x", "proxy-status"}
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
+				// Just verify pod A is known to Pilot; implicitly this verifies that
+				// the printing code printed it.
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
+			})
+
+			retry.UntilSuccessOrFail(t, func() error {
+				args := []string{
 					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
 				}
-				output, _, err = istioCtl.Invoke(args)
+				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err
 				}
@@ -466,10 +471,10 @@ func TestXdsProxyStatus(t *testing.T) {
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				err = os.WriteFile(filename, dump, os.ModePerm)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				args = []string{
+				args := []string{
 					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
 				}
-				output, _, err = istioCtl.Invoke(args)
+				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err
 				}
