@@ -30,12 +30,11 @@ type Lazy[T any] interface {
 type lazyImpl[T any] struct {
 	getter func() (T, error)
 	// retry, if true, will ensure getter() is called for each Get() until a non-nil error is returned.
-	retry  bool
+	retry bool
 
 	// Cached responses. Note: with retry enabled, this will be unset until a non-nil error
 	res T
 	err error
-
 
 	done uint32
 	m    sync.Mutex
