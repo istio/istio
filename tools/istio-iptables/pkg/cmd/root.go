@@ -87,7 +87,7 @@ var rootCmd = &cobra.Command{
 			validator := validation.NewValidator(cfg, hostIP)
 
 			if err := validator.Run(); err != nil {
-				// nolint: revive
+				// nolint: revive, stylecheck
 				msg := fmt.Errorf(`iptables validation failed; workload is not ready for Istio.
 When using Istio CNI, this can occur if a pod is scheduled before the node is ready.
 
