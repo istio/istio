@@ -3,9 +3,6 @@ kind: IstioOperator
 metadata:
   namespace: istio-system
 spec:
-  hub: gcr.io/istio-testing
-  tag: latest
-
   unvalidatedValues:
     uproxyType: aws
 
@@ -13,6 +10,9 @@ spec:
   meshConfig:
     ambientMesh:
       mode: DEFAULT
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_ENABLE_HBONE: "true"
     defaultProviders:
       metrics:
       - prometheus
@@ -26,7 +26,7 @@ spec:
     # Istio Gateway feature
     ingressGateways:
       - name: istio-ingressgateway
-        enabled: false
+        enabled: true
     egressGateways:
       - name: istio-egressgateway
         enabled: false
