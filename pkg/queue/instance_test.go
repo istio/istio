@@ -24,6 +24,24 @@ import (
 	"go.uber.org/atomic"
 )
 
+func BenchmarkQueue(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		q := NewQueue(1 * time.Microsecond)
+		s := make(chan struct{})
+		go q.Run(s)
+		wg := sync.WaitGroup{}
+		wg.Add(1000)
+		for i := 0; i < 1000; i++ {
+			q.Push(func() error {
+				wg.Done()
+				return nil
+			})
+		}
+		wg.Wait()
+		close(s)
+	}
+}
+
 func TestOrdering(t *testing.T) {
 	numValues := 1000
 
