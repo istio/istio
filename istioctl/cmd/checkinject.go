@@ -23,13 +23,13 @@ import (
 
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/writer/table"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/istioctl/pkg/writer/table"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 )
 
@@ -123,8 +123,7 @@ func printCheckInjectorResults(writer io.Writer, was []webhookAnalysis) error {
 		row := table.Row{
 			Cells: make([]table.Cell, 0),
 		}
-		row.Cells = append(row.Cells, table.NewCell(wa.Name))
-		row.Cells = append(row.Cells, table.NewCell(wa.Revision))
+		row.Cells = append(row.Cells, table.NewCell(wa.Name), table.NewCell(wa.Revision))
 		if wa.Injected {
 			row.Cells = append(row.Cells, table.NewCell("✔", aurora.Green))
 		} else {

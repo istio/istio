@@ -112,7 +112,6 @@ func (c *coloredTableWriter) Flush() {
 			}
 		}
 	}
-	return
 }
 
 func max(x, y int) int {
