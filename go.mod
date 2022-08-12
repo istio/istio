@@ -47,6 +47,7 @@ require (
 	github.com/kr/pretty v0.3.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.2.25
+	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lucas-clemente/quic-go v0.27.1
 	github.com/mattn/go-isatty v0.0.14
 	github.com/miekg/dns v1.1.49

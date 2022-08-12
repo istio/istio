@@ -20,9 +20,10 @@ import (
 	"io"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/writer/table"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -116,22 +117,36 @@ func printCheckInjectorResults(writer io.Writer, was []webhookAnalysis) error {
 		fmt.Fprintf(writer, "ERROR: no Istio injection hooks present.\n")
 		return nil
 	}
-	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
-	fmt.Fprintln(w, "WEBHOOK\tREVISION\tINJECTED\tREASON")
+	w := table.NewStyleWriter(writer)
+	w.SetAddRowFunc(func(obj interface{}) table.Row {
+		wa := obj.(webhookAnalysis)
+		row := table.Row{
+			Cells: make([]table.Cell, 0),
+		}
+		row.Cells = append(row.Cells, table.NewCell(wa.Name))
+		row.Cells = append(row.Cells, table.NewCell(wa.Revision))
+		if wa.Injected {
+			row.Cells = append(row.Cells, table.NewCell("✔", aurora.Green))
+		} else {
+			row.Cells = append(row.Cells, table.NewCell("✘", aurora.Red))
+		}
+		row.Cells = append(row.Cells, table.NewCell(wa.Reason))
+		return row
+	})
+	w.AddHeader("WEBHOOK", "REVISION", "INJECTED", "REASON")
 	injectedTotal := 0
 	for _, ws := range was {
 		// TODO investigate to use colors for mark and x chars, tabwriter format will be messed up using color package
-		injected := "✘"
 		if ws.Injected {
-			injected = "✔"
 			injectedTotal++
 		}
-		fmt.Fprintf(w, "%s\t%s\t%+v\t%s\n", ws.Name, ws.Revision, injected, ws.Reason)
+		w.AddRow(ws)
 	}
+	w.Flush()
 	if injectedTotal > 1 {
-		fmt.Fprintf(w, "ERROR: multiple webhooks will inject, which can lead to errors")
+		fmt.Fprintf(writer, "ERROR: multiple webhooks will inject, which can lead to errors")
 	}
-	return w.Flush()
+	return nil
 }
 
 type webhookAnalysis struct {
