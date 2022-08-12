@@ -221,6 +221,8 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(injectorCommand())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
+	rootCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
+
 	experimentalCmd.AddCommand(AuthZ())
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(uninjectCommand())
@@ -229,7 +231,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(waitCmd())
-	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
+	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(loggingOptions)))
 	experimentalCmd.AddCommand(configCmd())
 	experimentalCmd.AddCommand(workloadCommands())
 	experimentalCmd.AddCommand(revisionCommand())
@@ -366,6 +368,20 @@ func getDefaultNamespace(kubeconfig string) string {
 		return v1.NamespaceDefault
 	}
 	return context.Namespace
+}
+
+// softGraduatedCmd is used for commands that have graduated, but we still want the old invocation to work.
+func softGraduatedCmd(cmd *cobra.Command) *cobra.Command {
+	msg := fmt.Sprintf("(%s has graduated. Use `istioctl %s`)", cmd.Name(), cmd.Name())
+
+	newCmd := *cmd
+	newCmd.Short = fmt.Sprintf("%s %s", cmd.Short, msg)
+	newCmd.RunE = func(c *cobra.Command, args []string) error {
+		fmt.Fprintln(cmd.ErrOrStderr(), msg)
+		return cmd.RunE(c, args)
+	}
+
+	return &newCmd
 }
 
 // seeExperimentalCmd is used for commands that have been around for a release but not graduated from
