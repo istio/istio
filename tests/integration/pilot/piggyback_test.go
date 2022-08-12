@@ -18,11 +18,13 @@
 package pilot
 
 import (
+	"fmt"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -34,26 +36,30 @@ func TestPiggyback(t *testing.T) {
 		RequiresLocalControlPlane().
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
-			out, _, err := t.Clusters()[0].PodExec(
-				apps.A[0].WorkloadsOrFail(t)[0].PodName(),
-				apps.A.Config().Namespace.Name(),
-				"istio-proxy",
-				"pilot-agent request --debug-port 15004 GET /debug/syncz")
-			if err != nil {
-				t.Fatalf("couldn't curl sidecar: %v", err)
-			}
-			dr := xdsapi.DiscoveryResponse{}
-			if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
-				t.Fatal(err)
-			}
-			if dr.TypeUrl != "istio.io/debug/syncz" {
-				t.Fatalf("the output doesn't contain expected typeURL: %s", out)
-			}
-			if len(dr.Resources) < 1 {
-				t.Fatalf("the output didn't unmarshal as expected (no resources): %s", out)
-			}
-			if dr.Resources[0].TypeUrl != "type.googleapis.com/envoy.service.status.v3.ClientConfig" {
-				t.Fatalf("Resources[0] doesn't contain expected typeURL: %s", out)
-			}
+			// Add retry loop to handle case when the pod has disconnected from Istio temporarily
+			retry.UntilSuccessOrFail(t, func() error {
+				out, _, err := t.Clusters()[0].PodExec(
+					apps.A[0].WorkloadsOrFail(t)[0].PodName(),
+					apps.A.Config().Namespace.Name(),
+					"istio-proxy",
+					"pilot-agent request --debug-port 15004 GET /debug/syncz")
+				if err != nil {
+					return fmt.Errorf("couldn't curl sidecar: %v", err)
+				}
+				dr := xdsapi.DiscoveryResponse{}
+				if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
+					return fmt.Errorf("unmarshal: %v", err)
+				}
+				if dr.TypeUrl != "istio.io/debug/syncz" {
+					return fmt.Errorf("the output doesn't contain expected typeURL: %s", out)
+				}
+				if len(dr.Resources) < 1 {
+					return fmt.Errorf("the output didn't unmarshal as expected (no resources): %s", out)
+				}
+				if dr.Resources[0].TypeUrl != "type.googleapis.com/envoy.service.status.v3.ClientConfig" {
+					return fmt.Errorf("resources[0] doesn't contain expected typeURL: %s", out)
+				}
+				return nil
+			})
 		})
 }
