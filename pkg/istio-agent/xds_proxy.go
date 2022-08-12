@@ -453,7 +453,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 			// TODO: if we want to regenerate all metadata, use `GetNodeMetaData`
 			if !initialRequestsSent.Load() {
 				if req.Node != nil {
-					meta, _ := model.ParseMetadata(req.Node.Metadata)
+					meta, _ := model.ParseBootstrapNodeMetadata(req.Node.Metadata)
 					if meta != nil {
 						meta.Labels, _ = bootstrap.GetNodeMetaDataLabels(p.platform)
 						req.Node.Metadata = meta.ToStruct()
