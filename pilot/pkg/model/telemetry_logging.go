@@ -208,6 +208,10 @@ func buildFileAccessTextLogFormat(text string) (*fileaccesslog.FileAccessLog_Log
 	formatString := EnvoyTextLogFormat
 	if text != "" {
 		formatString = text
+		// From the spec: "NOTE: Istio will insert a newline ('\n') on all formats (if missing)."
+		if !strings.HasSuffix(formatString, "\n") {
+			formatString += "\n"
+		}
 	}
 	needsFormatter := strings.Contains(formatString, requestWithoutQuery)
 	return &fileaccesslog.FileAccessLog_LogFormat{
