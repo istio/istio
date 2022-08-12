@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/logrusorgru/aurora"
+	"github.com/fatih/color"
 )
 
 type testObject struct {
@@ -44,7 +44,7 @@ func TestWriter(t *testing.T) {
 		return Row{
 			Cells: []Cell{
 				NewCell(o.name),
-				NewCell(o.namespace, aurora.Green),
+				NewCell(o.namespace, color.FgGreen),
 				NewCell(o.version),
 			},
 		}

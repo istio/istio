@@ -19,7 +19,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/logrusorgru/aurora"
+	"github.com/fatih/color"
 )
 
 type coloredTableWriter struct {
@@ -37,35 +37,31 @@ func NewStyleWriter(writer io.Writer) *coloredTableWriter {
 	}
 }
 
-type StyleFunc func(arg interface{}) aurora.Value
-
 type BuildRowFunc func(obj interface{}) Row
 
 type Cell struct {
-	Value  string
-	Styles []StyleFunc
+	Value      string
+	Attributes []color.Attribute
 }
 
 type Row struct {
 	Cells []Cell
 }
 
-func NewCell(value string, styles ...StyleFunc) Cell {
-	filtered := make([]StyleFunc, 0)
-	for _, s := range styles {
-		if s != nil {
-			filtered = append(filtered, s)
-		}
+func NewCell(value string, attributes ...color.Attribute) Cell {
+	attrs := make([]color.Attribute, 0)
+	for _, a := range attributes {
+		attrs = append(attrs, a)
 	}
-	return Cell{value, filtered}
+	return Cell{value, attrs}
 }
 
 func (cell Cell) String() string {
-	out := aurora.Reset(cell.Value)
-	for _, s := range cell.Styles {
-		out = s(out)
+	if len(cell.Attributes) == 0 {
+		return cell.Value
 	}
-	return out.String()
+	cell.Value = color.New(cell.Attributes...).Sprint(cell.Value)
+	return cell.Value
 }
 
 func (c *coloredTableWriter) getTableOutput(allRows []Row) [][]Cell {

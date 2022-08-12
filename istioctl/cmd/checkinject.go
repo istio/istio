@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/logrusorgru/aurora"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,9 +125,9 @@ func printCheckInjectorResults(writer io.Writer, was []webhookAnalysis) error {
 		}
 		row.Cells = append(row.Cells, table.NewCell(wa.Name), table.NewCell(wa.Revision))
 		if wa.Injected {
-			row.Cells = append(row.Cells, table.NewCell("✔", aurora.Green))
+			row.Cells = append(row.Cells, table.NewCell("✔", color.FgGreen))
 		} else {
-			row.Cells = append(row.Cells, table.NewCell("✘", aurora.Red))
+			row.Cells = append(row.Cells, table.NewCell("✘", color.FgRed))
 		}
 		row.Cells = append(row.Cells, table.NewCell(wa.Reason))
 		return row
