@@ -102,7 +102,7 @@ func waitCmd() *cobra.Command {
 				if err != nil {
 					return err
 				} else if float32(present)/float32(present+notpresent) >= threshold {
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resource %s present on %d out of %d configurations for totally %d sidecars\n",
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resource %s present on %d out of %d configurations across %d sidecars\n",
 						targetResource, present, present+notpresent, sdcnum)
 					return nil
 				}
