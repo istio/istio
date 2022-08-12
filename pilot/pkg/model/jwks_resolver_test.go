@@ -378,7 +378,7 @@ func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 	r.Close()
 
 	i := 0
-	r.keyEntries.Range(func(_ interface{}, _ interface{}) bool {
+	r.keyEntries.Range(func(_ any, _ any) bool {
 		i++
 		return true
 	})

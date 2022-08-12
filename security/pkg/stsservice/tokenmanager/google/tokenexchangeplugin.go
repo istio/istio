@@ -196,14 +196,15 @@ func (p *Plugin) constructAudience(subjectToken string) string {
 // Example of a federated token request:
 // POST https://sts.googleapis.com/v1/token
 // Content-Type: application/json
-// {
-//    audience: <trust domain>:<provider>
-//    grantType: urn:ietf:params:oauth:grant-type:token-exchange
-//    requestedTokenType: urn:ietf:params:oauth:token-type:access_token
-//    subjectTokenType: urn:ietf:params:oauth:token-type:jwt
-//    subjectToken: <jwt token>
-//    Scope: https://www.googleapis.com/auth/cloud-platform
-// }
+//
+//	{
+//	   audience: <trust domain>:<provider>
+//	   grantType: urn:ietf:params:oauth:grant-type:token-exchange
+//	   requestedTokenType: urn:ietf:params:oauth:token-type:access_token
+//	   subjectTokenType: urn:ietf:params:oauth:token-type:jwt
+//	   subjectToken: <jwt token>
+//	   Scope: https://www.googleapis.com/auth/cloud-platform
+//	}
 func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestParameters) (*http.Request, error) {
 	reqScope := scope
 	if len(parameters.Scope) != 0 {
@@ -351,12 +352,13 @@ type accessTokenResponse struct {
 // service-<GCP project number>@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken
 // Content-Type: application/json
 // Authorization: Bearer <federated token>
-// {
-//  "Delegates": [],
-//  "Scope": [
-//      https://www.googleapis.com/auth/cloud-platform
-//  ],
-// }
+//
+//	{
+//	 "Delegates": [],
+//	 "Scope": [
+//	     https://www.googleapis.com/auth/cloud-platform
+//	 ],
+//	}
 func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) (*http.Request, error) {
 	// Request for access token with a lifetime of 3600 seconds.
 	query := accessTokenRequest{
@@ -478,7 +480,7 @@ func (p *Plugin) generateSTSRespInner(token string, expire int64) ([]byte, error
 // DumpTokenStatus dumps all token status in JSON
 func (p *Plugin) DumpPluginStatus() ([]byte, error) {
 	tokenStatus := make([]stsservice.TokenInfo, 0)
-	p.tokens.Range(func(k interface{}, v interface{}) bool {
+	p.tokens.Range(func(k any, v any) bool {
 		token := v.(stsservice.TokenInfo)
 		tokenStatus = append(tokenStatus, stsservice.TokenInfo{
 			TokenType: token.TokenType, IssueTime: token.IssueTime, ExpireTime: token.ExpireTime,

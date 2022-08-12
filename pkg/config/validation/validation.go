@@ -35,7 +35,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
@@ -86,6 +86,8 @@ const (
 	regionIndex int = iota
 	zoneIndex
 	subZoneIndex
+	kb = 1024
+	mb = 1024 * kb
 )
 
 var (
@@ -147,7 +149,7 @@ type Validation struct {
 type AnalysisAwareError struct {
 	Type       string
 	Msg        string
-	Parameters []interface{}
+	Parameters []any
 }
 
 // OverlappingMatchValidationForHTTPRoute holds necessary information from virtualservice
@@ -178,7 +180,7 @@ func WrapWarning(e error) Validation {
 
 // Warningf formats according to a format specifier and returns the string as a
 // value that satisfies error. Like Errorf, but for warnings.
-func Warningf(format string, a ...interface{}) Validation {
+func Warningf(format string, a ...any) Validation {
 	return WrapWarning(fmt.Errorf(format, a...))
 }
 
@@ -377,6 +379,14 @@ func ValidateHTTPHeaderOperationName(name string) error {
 func ValidateHTTPHeaderValue(value string) error {
 	if strings.Count(value, "%")%2 != 0 {
 		return errors.New("single % not allowed.  Escape by doubling to %% or encase Envoy variable name in pair of %")
+	}
+	return nil
+}
+
+// validateWeight checks if weight is valid
+func validateWeight(weight int32) error {
+	if weight < 0 {
+		return fmt.Errorf("weight %d < 0", weight)
 	}
 	return nil
 }
@@ -917,7 +927,7 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 	message.Range(func(descriptor protoreflect.FieldDescriptor, value protoreflect.Value) bool {
 		m, isMessage := value.Interface().(protoreflect.Message)
 		if isMessage {
-			anyMessage, isAny := m.Interface().(*any.Any)
+			anyMessage, isAny := m.Interface().(*anypb.Any)
 			if isAny {
 				mt, err := protoregistry.GlobalTypes.FindMessageByURL(anyMessage.TypeUrl)
 				if err != nil {
@@ -965,15 +975,22 @@ func recurseMissingTypedConfig(message protoreflect.Message) []string {
 		}
 	}
 
+	hasTypedConfig := false
+	requiresTypedConfig := false
 	// Now go through fields again
 	for i := 0; i < message.Type().Descriptor().Fields().Len(); i++ {
 		field := message.Type().Descriptor().Fields().Get(i)
 		set := message.Has(field)
 		// If it has a typedConfig field, it must be set.
+		requiresTypedConfig = requiresTypedConfig || field.JSONName() == "typedConfig"
 		// Note: it is possible there is some API that has typedConfig but has a non-deprecated alternative,
 		// but I couldn't find any. Worst case, this is a warning, not an error, so a false positive is not so bad.
-		if field.JSONName() == "typedConfig" && !set {
-			deprecatedTypes = append(deprecatedTypes, name)
+		// The one exception is configDiscovery (used for ECDS)
+		if field.JSONName() == "typedConfig" && set {
+			hasTypedConfig = true
+		}
+		if field.JSONName() == "configDiscovery" && set {
+			hasTypedConfig = true
 		}
 		if set {
 			// If the field was set and is a message, recurse into it to check children
@@ -982,6 +999,9 @@ func recurseMissingTypedConfig(message protoreflect.Message) []string {
 				deprecatedTypes = append(deprecatedTypes, recurseMissingTypedConfig(m)...)
 			}
 		}
+	}
+	if requiresTypedConfig && !hasTypedConfig {
+		deprecatedTypes = append(deprecatedTypes, name)
 	}
 	return deprecatedTypes
 }
@@ -1101,21 +1121,20 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
 					errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
 				} else {
-					// format should be 127.0.0.1:port or :port
-					parts := strings.Split(i.DefaultEndpoint, ":")
-					if len(parts) < 2 {
-						errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
+					// format should be 127.0.0.1:port, [::1]:port or :port
+					sHost, sPort, sErr := net.SplitHostPort(i.DefaultEndpoint)
+					if sErr != nil {
+						errs = appendValidation(errs, sErr)
+					}
+					if sHost != "" && sHost != "127.0.0.1" && sHost != "0.0.0.0" && sHost != "::1" && sHost != "::" {
+						errMsg := "sidecar: defaultEndpoint must be of form 127.0.0.1:<port>,0.0.0.0:<port>,[::1]:port,[::]:port,unix://filepath or unset"
+						errs = appendValidation(errs, fmt.Errorf(errMsg))
+					}
+					port, err := strconv.Atoi(sPort)
+					if err != nil {
+						errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", sPort, err))
 					} else {
-						if len(parts[0]) > 0 && parts[0] != "127.0.0.1" && parts[0] != "0.0.0.0" {
-							errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
-						}
-
-						port, err := strconv.Atoi(parts[1])
-						if err != nil {
-							errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
-						} else {
-							errs = appendValidation(errs, ValidatePort(port))
-						}
+						errs = appendValidation(errs, ValidatePort(port))
 					}
 				}
 			}
@@ -1324,10 +1343,7 @@ func validateTunnelSettings(tunnel *networking.TrafficPolicy_TunnelSettings) (er
 	if tunnel == nil {
 		return
 	}
-	if tunnel.Protocol == "" {
-		errs = appendErrors(errs, fmt.Errorf("tunnel protocol must be specified"))
-	}
-	if tunnel.Protocol != "CONNECT" && tunnel.Protocol != "POST" {
+	if tunnel.Protocol != "" && tunnel.Protocol != "CONNECT" && tunnel.Protocol != "POST" {
 		errs = appendErrors(errs, fmt.Errorf("tunnel protocol must be \"CONNECT\" or \"POST\""))
 	}
 	fqdnErr := ValidateFQDN(tunnel.TargetHost)
@@ -1402,6 +1418,9 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		}
 		if tcp.ConnectTimeout != nil {
 			errs = appendErrors(errs, ValidateDuration(tcp.ConnectTimeout))
+		}
+		if tcp.MaxConnectionDuration != nil {
+			errs = appendErrors(errs, ValidateDuration(tcp.MaxConnectionDuration))
 		}
 	}
 
@@ -2208,7 +2227,8 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 				errs = appendValidation(errs, errors.New("http route may not be null"))
 				continue
 			}
-			errs = appendValidation(errs, validateHTTPRoute(httpRoute, len(virtualService.Hosts) == 0))
+			gatewaySemantics := cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
+			errs = appendValidation(errs, validateHTTPRoute(httpRoute, len(virtualService.Hosts) == 0, gatewaySemantics))
 		}
 		for _, tlsRoute := range virtualService.Tls {
 			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService))
@@ -2223,14 +2243,14 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
 				Type:       "VirtualServiceUnreachableRule",
 				Msg:        fmt.Sprintf("virtualService rule %v not used (%s)", ruleno, reason),
-				Parameters: []interface{}{ruleno, reason},
+				Parameters: []any{ruleno, reason},
 			}))
 		}
 		warnIneffective := func(ruleno, matchno, dupno string) {
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
 				Type:       "VirtualServiceIneffectiveMatch",
 				Msg:        fmt.Sprintf("virtualService rule %v match %v is not used (duplicate/overlapping match in rule %v)", ruleno, matchno, dupno),
-				Parameters: []interface{}{ruleno, matchno, dupno},
+				Parameters: []any{ruleno, matchno, dupno},
 			}))
 		}
 
@@ -2533,7 +2553,7 @@ func analyzeUnreachableTLSRules(routes []*networking.TLSRoute,
 }
 
 // asJSON() creates a JSON serialization of a match, to use for match comparison.  We don't use the JSON itself.
-func asJSON(data interface{}) string {
+func asJSON(data any) string {
 	// Remove the name, so we can create a serialization that only includes traffic routing config
 	switch mr := data.(type) {
 	case *networking.HTTPMatchRequest:
@@ -2552,7 +2572,7 @@ func asJSON(data interface{}) string {
 	return string(b)
 }
 
-func routeName(route interface{}, routen int) string {
+func routeName(route any, routen int) string {
 	switch r := route.(type) {
 	case *networking.HTTPRoute:
 		if r.Name != "" {
@@ -2564,7 +2584,7 @@ func routeName(route interface{}, routen int) string {
 	return fmt.Sprintf("#%d", routen)
 }
 
-func requestName(match interface{}, matchn int) string {
+func requestName(match any, matchn int) string {
 	switch mr := match.(type) {
 	case *networking.HTTPMatchRequest:
 		if mr != nil && mr.Name != "" {
@@ -2728,7 +2748,7 @@ func validateGatewayNames(gatewayNames []string) (errs Validation) {
 	return
 }
 
-func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (errs error) {
+func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination, gatewaySemantics bool) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
 		if weight == nil {
@@ -2763,12 +2783,14 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
 		}
 
-		errs = appendErrors(errs, validateDestination(weight.Destination))
-		errs = appendErrors(errs, ValidatePercent(weight.Weight))
+		if !gatewaySemantics {
+			errs = appendErrors(errs, validateDestination(weight.Destination))
+		}
+		errs = appendErrors(errs, validateWeight(weight.Weight))
 		totalWeight += weight.Weight
 	}
-	if len(weights) > 1 && totalWeight != 100 {
-		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
+	if len(weights) > 1 && totalWeight == 0 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight = 0"))
 	}
 	return
 }
@@ -2784,11 +2806,11 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
 		errs = appendErrors(errs, validateDestination(weight.Destination))
-		errs = appendErrors(errs, ValidatePercent(weight.Weight))
+		errs = appendErrors(errs, validateWeight(weight.Weight))
 		totalWeight += weight.Weight
 	}
-	if len(weights) > 1 && totalWeight != 100 {
-		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
+	if len(weights) > 1 && totalWeight == 0 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight = 0"))
 	}
 	return
 }
@@ -3013,6 +3035,31 @@ func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
 	return nil
 }
 
+func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) (errs Validation) {
+	if directResponse == nil {
+		return
+	}
+
+	if directResponse.Body != nil {
+		size := 0
+		switch op := directResponse.Body.Specifier.(type) {
+		case *networking.HTTPBody_String_:
+			size = len(op.String_)
+		case *networking.HTTPBody_Bytes:
+			size = len(op.Bytes)
+		}
+
+		if size > 1*mb {
+			errs = appendValidation(errs, WrapError(fmt.Errorf("large direct_responses may impact control plane performance, must be less than 1MB")))
+		} else if size > 100*kb {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("large direct_responses may impact control plane performance")))
+		}
+	}
+
+	errs = appendValidation(errs, WrapError(validateHTTPStatus(int32(directResponse.Status))))
+	return
+}
+
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
 		return errors.New("rewrite must specify URI, authority, or both")
@@ -3208,6 +3255,11 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			if port.TargetPort != 0 {
 				errs = appendValidation(errs, ValidatePort(int(port.TargetPort)))
 			}
+			if len(serviceEntry.Addresses) == 0 {
+				if port.Protocol == "" || port.Protocol == "TCP" {
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf("addresses are required for ports serving TCP (or unset) protocol")))
+				}
+			}
 			errs = appendValidation(errs,
 				ValidatePortName(port.Name),
 				ValidateProtocol(port.Protocol),
@@ -3354,13 +3406,13 @@ func appendValidation(v Validation, vs ...error) Validation {
 
 // appendErrorf appends a formatted error string
 // nolint: unparam
-func appendErrorf(v Validation, format string, a ...interface{}) Validation {
+func appendErrorf(v Validation, format string, a ...any) Validation {
 	return appendValidation(v, fmt.Errorf(format, a...))
 }
 
 // appendWarningf appends a formatted warning string
 // nolint: unparam
-func appendWarningf(v Validation, format string, a ...interface{}) Validation {
+func appendWarningf(v Validation, format string, a ...any) Validation {
 	return appendValidation(v, Warningf(format, a...))
 }
 

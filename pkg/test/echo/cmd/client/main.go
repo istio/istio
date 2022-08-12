@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
 	// To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -56,10 +55,17 @@ var (
 	followRedirects         bool
 	newConnectionPerRequest bool
 	forceDNSLookup          bool
-	clientCert              string
-	clientKey               string
+
+	clientCert string
+	clientKey  string
 
 	caFile string
+
+	hboneAddress    string
+	hboneHeaders    []string
+	hboneClientCert string
+	hboneClientKey  string
+	hboneCaFile     string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -151,6 +157,13 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceVarP(&alpn, "alpn", "", nil, "alpn to set")
 	rootCmd.PersistentFlags().StringVarP(&serverName, "server-name", "", serverName, "server name to set")
 
+	rootCmd.PersistentFlags().StringVar(&hboneAddress, "hbone", "", "address to send HBONE request to")
+	rootCmd.PersistentFlags().StringSliceVarP(&hboneHeaders, "hbone-header", "M", hboneHeaders,
+		"A list of http headers for HBONE connection (use Host for authority) - 'name: value', following curl syntax")
+	rootCmd.PersistentFlags().StringVar(&hboneCaFile, "hbone-ca", "", "CA root cert file used for the HBONE request")
+	rootCmd.PersistentFlags().StringVar(&hboneClientCert, "hbone-client-cert", "", "client certificate file used for the HBONE request")
+	rootCmd.PersistentFlags().StringVar(&hboneClientKey, "hbone-client-key", "", "client certificate key file used for the HBONE request")
+
 	loggingOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
@@ -184,6 +197,27 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		InsecureSkipVerify:      insecureSkipVerify,
 		NewConnectionPerRequest: newConnectionPerRequest,
 		ForceDNSLookup:          forceDNSLookup,
+	}
+	if len(hboneAddress) > 0 {
+		request.Hbone = &proto.HBONE{
+			Address:            hboneAddress,
+			CertFile:           hboneClientCert,
+			KeyFile:            hboneClientKey,
+			CaCertFile:         hboneCaFile,
+			InsecureSkipVerify: false,
+		}
+		for _, header := range hboneHeaders {
+			parts := strings.SplitN(header, ":", 2)
+			// require name:value format
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
+			}
+
+			request.Hbone.Headers = append(request.Hbone.Headers, &proto.Header{
+				Key:   parts[0],
+				Value: strings.Trim(parts[1], " "),
+			})
+		}
 	}
 
 	if expectSet {

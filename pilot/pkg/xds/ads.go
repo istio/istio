@@ -35,7 +35,7 @@ import (
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
@@ -189,8 +189,8 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	stype := v3.GetShortType(req.TypeUrl)
-	log.Debugf("ADS:%s: REQUEST %s verson received, %s nonce received %s", stype,
-		con.conID, req.VersionInfo, req.ResponseNonce)
+	log.Debugf("ADS:%s: REQ %s resources:%d nonce:%s version:%s ", stype,
+		con.conID, len(req.ResourceNames), req.ResponseNonce, req.VersionInfo)
 	if req.TypeUrl == v3.HealthInfoType {
 		s.handleWorkloadHealthcheck(con.proxy, req)
 		return nil
@@ -233,7 +233,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 }
 
 // StreamAggregatedResources implements the ADS interface.
-func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (s *DiscoveryServer) StreamAggregatedResources(stream DiscoveryStream) error {
 	return s.Stream(stream)
 }
 
@@ -365,11 +365,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		if s.StatusGen != nil {
 			s.StatusGen.OnNack(con.proxy, request)
 		}
-		con.proxy.Lock()
-		if w, f := con.proxy.WatchedResources[request.TypeUrl]; f {
-			w.NonceNacked = request.ResponseNonce
-		}
-		con.proxy.Unlock()
 		return false, emptyResourceDelta
 	}
 
@@ -386,47 +381,72 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.RUnlock()
 
 	// This can happen in two cases:
-	// 1. Envoy initially send request to Istiod
-	// 2. Envoy reconnect to Istiod i.e. Istiod does not have
-	// information about this typeUrl, but Envoy sends response nonce - either
-	// because Istiod is restarted or Envoy disconnects and reconnects.
+	// 1. When Envoy starts for the first time, it sends an initial Discovery request to Istiod.
+	// 2. When Envoy reconnects to a new Istiod that does not have information about this typeUrl
+	// i.e. non empty response nonce.
 	// We should always respond with the current resource names.
 	if request.ResponseNonce == "" || previousInfo == nil {
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		// For all EDS requests that we have already responded with in the same stream let us
+		// force the response. It is important to respond to those requests for Envoy to finish
+		// warming of those resources(Clusters).
+		// This can happen with the following sequence
+		// 1. Envoy disconnects and reconnects to Istiod.
+		// 2. Envoy sends EDS request and we respond with it.
+		// 3. Envoy sends CDS request and we respond with clusters.
+		// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
+		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
+		// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
+		for _, dependent := range warmingDependencies(request.TypeUrl) {
+			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
+				dwr.AlwaysRespond = true
+			}
+		}
 		con.proxy.Unlock()
 		return true, emptyResourceDelta
 	}
 
 	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
+	// previousInfo.NonceSent can be empty if we previously had shouldRespond=true but didn't send any resources.
 	if request.ResponseNonce != previousInfo.NonceSent {
+		if features.EnableUnsafeAssertions && previousInfo.NonceSent == "" {
+			// Assert we do not end up in an invalid state
+			log.Fatalf("ADS:%s: REQ %s Expired nonce received %s, but we never sent any nonce", stype,
+				con.conID, request.ResponseNonce)
+		}
 		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
-		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
-		con.proxy.Unlock()
 		return false, emptyResourceDelta
 	}
 
-	// If it comes here, that means nonce match. This an ACK. We should record
-	// the ack details and respond if there is a change in resource names.
+	// If it comes here, that means nonce match.
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
-	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
+	alwaysRespond := previousInfo.AlwaysRespond
+	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
+	// Envoy can send two DiscoveryRequests with same version and nonce.
+	// when it detects a new resource. We should respond if they change.
 	prev := sets.New(previousResources...)
 	cur := sets.New(request.ResourceNames...)
 	removed := prev.Difference(cur)
 	added := cur.Difference(prev)
-	// Envoy can send two DiscoveryRequests with same version and nonce
-	// when it detects a new resource. We should respond if they change.
+
 	if len(removed) == 0 && len(added) == 0 {
+		// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
+		// even though Nonce match and it looks like an ACK.
+		if alwaysRespond {
+			log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
+			return true, emptyResourceDelta
+		}
+
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
 	}
@@ -466,6 +486,17 @@ func isWildcardTypeURL(typeURL string) bool {
 	default:
 		// All of our internal types use wildcard semantics
 		return true
+	}
+}
+
+// warmingDependencies returns the dependent typeURLs that need to be responded with
+// for warming of this typeURL.
+func warmingDependencies(typeURL string) []string {
+	switch typeURL {
+	case v3.ClusterType:
+		return []string{v3.EndpointType}
+	default:
+		return nil
 	}
 }
 
@@ -523,7 +554,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	defer close(con.initialized)
 
 	// Complete full initialization of the proxy
-	if err := s.initializeProxy(node, con); err != nil {
+	if err := s.initializeProxy(con); err != nil {
 		s.closeConnection(con)
 		return err
 	}
@@ -571,9 +602,40 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	return proxy, nil
 }
 
+// setTopologyLabels sets locality, cluster, network label
+// must be called after `SetWorkloadLabels` and `SetServiceInstances`.
+func setTopologyLabels(proxy *model.Proxy) {
+	var localityStr string
+	// Get the locality from the proxy's service instances.
+	// We expect all instances to have the same IP and therefore the same locality.
+	// So its enough to look at the first instance.
+	if len(proxy.ServiceInstances) > 0 {
+		localityStr = proxy.ServiceInstances[0].Endpoint.Locality.Label
+	} else {
+		// If no service instances(this maybe common for a pure client), respect LocalityLabel
+		localityStr = proxy.Metadata.Labels[model.LocalityLabel]
+	}
+	if localityStr != "" {
+		proxy.Locality = util.ConvertLocality(localityStr)
+	} else {
+		// If there is no locality in the registry then use the one sent as part of the discovery request.
+		// This is not preferable as only the connected Pilot is aware of this proxies location, but it
+		// can still help provide some client-side Envoy context when load balancing based on location.
+		proxy.Locality = &core.Locality{
+			Region:  proxy.XdsNode.Locality.GetRegion(),
+			Zone:    proxy.XdsNode.Locality.GetZone(),
+			SubZone: proxy.XdsNode.Locality.GetSubZone(),
+		}
+	}
+
+	locality := util.LocalityToString(proxy.Locality)
+	// add topology labels to proxy metadata labels
+	proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
+}
+
 // initializeProxy completes the initialization of a proxy. It is expected to be called only after
 // initProxyMetadata.
-func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) error {
+func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 	proxy := con.proxy
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
@@ -581,28 +643,6 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 		return err
 	}
 	s.computeProxyState(proxy, nil)
-
-	// Get the locality from the proxy's service instances.
-	// We expect all instances to have the same IP and therefore the same locality.
-	// So its enough to look at the first instance.
-	if len(proxy.ServiceInstances) > 0 {
-		proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
-	}
-
-	// If there is no locality in the registry then use the one sent as part of the discovery request.
-	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
-	// can still help provide some client-side Envoy context when load balancing based on location.
-	if util.IsLocalityEmpty(proxy.Locality) {
-		proxy.Locality = &core.Locality{
-			Region:  node.Locality.GetRegion(),
-			Zone:    node.Locality.GetZone(),
-			SubZone: node.Locality.GetSubZone(),
-		}
-	}
-
-	locality := util.LocalityToString(proxy.Locality)
-	// add topology labels to proxy metadata labels
-	proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
 	proxy.DiscoverIPMode()
 
@@ -615,24 +655,17 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	return nil
 }
 
-func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushRequest) {
-	s.computeProxyState(proxy, request)
-	if util.IsLocalityEmpty(proxy.Locality) {
-		// Get the locality from the proxy's service instances.
-		// We expect all instances to have the same locality.
-		// So its enough to look at the first instance.
-		if len(proxy.ServiceInstances) > 0 {
-			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
-			locality := proxy.ServiceInstances[0].Endpoint.Locality.Label
-			// add topology labels to proxy metadata labels
-			proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
-		}
-	}
-}
-
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
-	proxy.SetWorkloadLabels(s.Env)
 	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
+	// only recompute workload labels when
+	// 1. stream established and proxy first time initialization
+	// 2. proxy request
+	// 3. proxy update
+	recomputeLabels := request == nil || request.IsRequest() || request.IsProxyUpdate()
+	if recomputeLabels {
+		proxy.SetWorkloadLabels(s.Env, request)
+		setTopologyLabels(proxy)
+	}
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
@@ -650,11 +683,11 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
-			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar, gvk.HTTPRoute, gvk.TCPRoute:
+			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar, kind.HTTPRoute, kind.TCPRoute:
 				sidecar = true
-			case gvk.Gateway, gvk.KubernetesGateway, gvk.GatewayClass, gvk.ReferencePolicy:
+			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferencePolicy, kind.ReferenceGrant:
 				gateway = true
-			case gvk.Ingress:
+			case kind.Ingress:
 				sidecar = true
 				gateway = true
 			}
@@ -706,7 +739,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		s.updateProxy(con.proxy, pushRequest)
+		s.computeProxyState(con.proxy, pushRequest)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
@@ -883,8 +916,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
-			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
 			conn.proxy.Unlock()
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {

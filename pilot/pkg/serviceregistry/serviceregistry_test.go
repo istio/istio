@@ -76,7 +76,7 @@ func setupTest(t *testing.T) (
 			XDSUpdater:            xdsUpdater,
 			DomainSuffix:          "cluster.local",
 			MeshWatcher:           meshWatcher,
-			MeshServiceController: aggregate.NewController(aggregate.Options{meshWatcher}),
+			MeshServiceController: aggregate.NewController(aggregate.Options{MeshHolder: meshWatcher}),
 		},
 	)
 	configController := memory.NewController(memory.Make(collections.Pilot))
@@ -208,6 +208,18 @@ func TestWorkloadInstances(t *testing.T) {
 			Port:       80,
 		}}
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Kubernetes pod labels update", func(t *testing.T) {
+		_, _, _, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, service)
+		xdsUpdater.WaitOrFail(t, "svcupdate")
+		makePod(t, kube, pod)
+		xdsUpdater.WaitOrFail(t, "proxy update")
+		newPod := pod.DeepCopy()
+		newPod.Labels["newlabel"] = "new"
+		makePod(t, kube, newPod)
+		xdsUpdater.WaitOrFail(t, "proxy update")
 	})
 
 	t.Run("Kubernetes only: headless service", func(t *testing.T) {
@@ -448,8 +460,8 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("Service selects WorkloadEntry: wle occur earlier", func(t *testing.T) {
 		kc, _, store, kube, xdsUpdater := setupTest(t)
 		makeIstioObject(t, store, workloadEntry)
-
-		// Wait no event pushed when workload entry created as no service entry
+		// 	Other than proxy update, no event pushed when workload entry created as no service entry
+		xdsUpdater.WaitOrFail(t, "proxy update")
 		select {
 		case ev := <-xdsUpdater.Events:
 			t.Fatalf("Got %s event, expect none", ev.Kind)
@@ -504,7 +516,8 @@ func TestWorkloadInstances(t *testing.T) {
 		kc, _, store, kube, xdsUpdater := setupTest(t)
 		makeIstioObject(t, store, workloadEntry)
 
-		// Wait no event pushed when workload entry created as no service entry
+		// 	Other than proxy update, no event pushed when workload entry created as no service entry
+		xdsUpdater.WaitOrFail(t, "proxy update")
 		select {
 		case ev := <-xdsUpdater.Events:
 			t.Fatalf("Got %s event, expect none", ev.Kind)
@@ -1205,7 +1218,7 @@ func expectServiceInstances(t *testing.T, sd serviceregistry.Instance, svc *mode
 	}, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
 }
 
-func compare(t *testing.T, actual, expected interface{}) error {
+func compare(t *testing.T, actual, expected any) error {
 	return util.Compare(jsonBytes(t, actual), jsonBytes(t, expected))
 }
 
@@ -1218,7 +1231,7 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 	})
 }
 
-func jsonBytes(t *testing.T, v interface{}) []byte {
+func jsonBytes(t *testing.T, v any) []byte {
 	data, err := json.MarshalIndent(v, "", " ")
 	if err != nil {
 		t.Fatal(t)

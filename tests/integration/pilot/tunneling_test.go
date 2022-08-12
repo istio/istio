@@ -117,7 +117,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 			externalForwardProxyIP := getPodIP(ctx, externalNs, "external-forward-proxy")
 
 			for _, proxyConfig := range forwardProxyConfigurations {
-				templateParams := map[string]interface{}{
+				templateParams := map[string]any{
 					"externalNamespace":  externalNs,
 					"forwardProxyPort":   proxyConfig.Port,
 					"tlsEnabled":         proxyConfig.TLSEnabled,

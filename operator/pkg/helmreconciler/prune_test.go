@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -55,7 +56,8 @@ func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 		iop.Spec.InstallPackagePath = filepath.Join(env.IstioSrc, "manifests")
 
 		h := &HelmReconciler{
-			client: cl,
+			client:     cl,
+			kubeClient: kube.NewFakeClientWithVersion("24"),
 			opts: &Options{
 				ProgressLog: progress.NewLog(),
 				Log:         clog.NewDefaultLogger(),
@@ -72,7 +74,7 @@ func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 		if err := h.DeleteControlPlaneByManifests(manifestMap, testRevision, false); err != nil {
 			t.Fatalf("HelmReconciler.DeleteControlPlaneByManifests() error = %v", err)
 		}
-		for _, gvk := range append(NamespacedResources, ClusterCPResources...) {
+		for _, gvk := range append(h.NamespacedResources(), ClusterCPResources...) {
 			receiver := &unstructured.Unstructured{}
 			receiver.SetGroupVersionKind(schema.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind})
 			objKey := client.ObjectKey{Namespace: "istio-system", Name: "istiod-test"}

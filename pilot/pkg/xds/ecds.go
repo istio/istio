@@ -23,9 +23,9 @@ import (
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -48,11 +48,11 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 	// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, or Secret.
 	for config := range req.ConfigsUpdated {
 		switch config.Kind {
-		case gvk.EnvoyFilter:
+		case kind.EnvoyFilter:
 			return true
-		case gvk.WasmPlugin:
+		case kind.WasmPlugin:
 			return true
-		case gvk.Secret:
+		case kind.Secret:
 			return true
 		}
 	}
@@ -66,15 +66,14 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	}
 
 	secretResources := referencedSecrets(proxy, req.Push, w.ResourceNames)
-	var updatedSecrets map[model.ConfigKey]struct{}
 	// Check if the secret updates is relevant to Wasm image pull. If not relevant, skip pushing ECDS.
-	if !model.ConfigsHaveKind(req.ConfigsUpdated, gvk.WasmPlugin) && !model.ConfigsHaveKind(req.ConfigsUpdated, gvk.EnvoyFilter) &&
-		model.ConfigsHaveKind(req.ConfigsUpdated, gvk.Secret) {
+	if !model.ConfigsHaveKind(req.ConfigsUpdated, kind.WasmPlugin) && !model.ConfigsHaveKind(req.ConfigsUpdated, kind.EnvoyFilter) &&
+		model.ConfigsHaveKind(req.ConfigsUpdated, kind.Secret) {
 		// Get the updated secrets
-		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret)
+		updatedSecrets := model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
 		needsPush := false
 		for _, sr := range secretResources {
-			if _, found := updatedSecrets[model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
+			if _, found := updatedSecrets[model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
 				needsPush = true
 				break
 			}
@@ -98,7 +97,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 		}
 		// Inserts Wasm pull secrets in ECDS response, which will be used at xds proxy for image pull.
 		// Before forwarding to Envoy, xds proxy will remove the secret from ECDS response.
-		secrets = e.GeneratePullSecrets(proxy, updatedSecrets, secretResources, secretController, req)
+		secrets = e.GeneratePullSecrets(proxy, secretResources, secretController)
 	}
 
 	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames, secrets)
@@ -111,15 +110,15 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	for _, c := range ec {
 		resources = append(resources, &discovery.Resource{
 			Name:     c.Name,
-			Resource: util.MessageToAny(c),
+			Resource: protoconv.MessageToAny(c),
 		})
 	}
 
 	return resources, model.DefaultXdsLogDetails, nil
 }
 
-func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets map[model.ConfigKey]struct{}, secretResources []SecretResource,
-	secretController credscontroller.Controller, req *model.PushRequest,
+func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, secretResources []SecretResource,
+	secretController credscontroller.Controller,
 ) map[string][]byte {
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %s is not authorized to receive secret. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
@@ -128,13 +127,6 @@ func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets m
 
 	results := make(map[string][]byte)
 	for _, sr := range secretResources {
-		if updatedSecrets != nil {
-			if _, found := updatedSecrets[model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}]; !found {
-				// This is an incremental update, filter out credscontroller that are not updated.
-				continue
-			}
-		}
-
 		cred, err := secretController.GetDockerCredential(sr.Name, sr.Namespace)
 		if err != nil {
 			log.Warnf("Failed to fetch docker credential %s: %v", sr.ResourceName, err)

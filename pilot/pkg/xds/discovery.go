@@ -17,6 +17,7 @@ package xds
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -108,10 +109,6 @@ type DiscoveryServer struct {
 	// the push context, which means that the next push to a proxy will receive this configuration.
 	CommittedUpdates *atomic.Int64
 
-	// EndpointShards for a service. This is a global (per-server) list, built from
-	// incremental updates. This is keyed by service and namespace
-	EndpointIndex *model.EndpointIndex
-
 	// pushChannel is the buffer used for debouncing.
 	// after debouncing the pushRequest will be sent to pushQueue
 	pushChannel chan *model.PushRequest
@@ -165,7 +162,6 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterAliase
 		Env:                 env,
 		Generators:          map[string]model.XdsResourceGenerator{},
 		ProxyNeedsPush:      DefaultProxyNeedsPush,
-		EndpointIndex:       model.NewEndpointIndex(),
 		concurrentPushLimit: make(chan struct{}, features.PushThrottle),
 		requestRateLimit:    rate.NewLimiter(rate.Limit(features.RequestLimit), 1),
 		InboundUpdates:      atomic.NewInt64(0),
@@ -193,7 +189,7 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterAliase
 	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
 		// clear the cache as endpoint shards are modified to avoid cache write race
-		out.EndpointIndex.SetCache(out.Cache)
+		out.Env.EndpointIndex.SetCache(out.Cache)
 	}
 
 	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
@@ -567,7 +563,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // InitGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string) {
+func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, internalDebugMux *http.ServeMux) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
@@ -590,7 +586,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
-	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace)
+	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace, internalDebugMux)
 	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
 

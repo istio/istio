@@ -135,11 +135,6 @@ func TestGoodOptions(t *testing.T) {
 			options:      envoy.Options{envoy.ConfigYaml("{}"), envoy.LogFormat("some format")},
 		},
 		{
-			name:         "restart-epoch",
-			expectedArgs: []string{"--config-yaml", "{}", "--restart-epoch", "123"},
-			options:      envoy.Options{envoy.ConfigYaml("{}"), envoy.Epoch(123)},
-		},
-		{
 			name:         "service-cluster",
 			expectedArgs: []string{"--config-yaml", "{}", "--service-cluster", "fake-cluster"},
 			options:      envoy.Options{envoy.ConfigYaml("{}"), envoy.ServiceCluster("fake-cluster")},
@@ -210,13 +205,6 @@ func TestInvalidBaseID(t *testing.T) {
 func TestInvalidConcurrency(t *testing.T) {
 	g := NewWithT(t)
 	actuals, err := envoy.NewOptions("--config-path", testConfigPath, "--concurrency", "bad-int-value")
-	g.Expect(err).To(BeNil())
-	g.Expect(actuals.Validate()).ToNot(BeNil())
-}
-
-func TestInvalidRestartEpoch(t *testing.T) {
-	g := NewWithT(t)
-	actuals, err := envoy.NewOptions("--config-path", testConfigPath, "--restart-epoch", "bad-int-value")
 	g.Expect(err).To(BeNil())
 	g.Expect(actuals.Validate()).ToNot(BeNil())
 }

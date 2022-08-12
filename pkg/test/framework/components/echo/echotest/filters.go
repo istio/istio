@@ -17,7 +17,6 @@ package echotest
 import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/pkg/util/sets"
 )
 
 type (
@@ -27,9 +26,10 @@ type (
 
 // From applies each of the filter functions in order to allow removing workloads from the set of clients.
 // Example:
-//     echotest.New(t, apps).
-//       From(echotest.SingleSimplePodServiceAndAllSpecial, echotest.NoExternalServices).
-//       Run()
+//
+//	echotest.New(t, apps).
+//	  From(echotest.SimplePodServiceAndAllSpecial, echotest.NoExternalServices).
+//	  Run()
 func (t *T) From(filters ...Filter) *T {
 	for _, filter := range filters {
 		t.sources = filter(t.sources)
@@ -43,9 +43,10 @@ func (t *T) FromMatch(m match.Matcher) *T {
 
 // To applies each of the filter functions in order to allow removing workloads from the set of destinations.
 // Example:
-//     echotest.New(t, apps).
-//       To(echotest.SingleSimplePodServiceAndAllSpecial).
-//       Run()
+//
+//	echotest.New(t, apps).
+//	  To(echotest.SimplePodServiceAndAllSpecial).
+//	  Run()
 func (t *T) To(filters ...Filter) *T {
 	for _, filter := range filters {
 		t.destinations = filter(t.destinations)
@@ -61,9 +62,10 @@ func (t *T) ToMatch(m match.Matcher) *T {
 // to change behavior based on the client. For example, naked services can't be reached cross-network, so
 // the client matters.
 // Example:
-//     echotest.New(t, apps).
-//       ConditionallyTo(echotest.ReachableDestinations).
-//       Run()
+//
+//	echotest.New(t, apps).
+//	  ConditionallyTo(echotest.ReachableDestinations).
+//	  Run()
 func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 	t.destinationFilters = append(t.destinationFilters, filters...)
 	return t
@@ -71,15 +73,16 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 
 // WithDefaultFilters applies common filters that work for most tests.
 // Example:
-//   The full set of apps is a, b, c, headless, naked, and vm (one simple pod).
-//   Only a, headless, naked and vm are used as sources.
-//   Subtests are generated only for reachable destinations.
-//   Pod a will not be in destinations, but b will (one simpe pod not in sources)
-func (t *T) WithDefaultFilters() *T {
+//   - The full set of apps is a, b, c, headless, naked, and vm (one simple pod).
+//   - Only a, headless, naked and vm are used as sources.
+//   - Subtests are generated only for reachable destinations.
+//   - Pod a will not be in destinations, but b will (one simpe pod not in sources)
+func (t *T) WithDefaultFilters(minimumFrom, minimumTo int) *T {
 	return t.
-		From(SingleSimplePodServiceAndAllSpecial(), FilterMatch(match.NotExternal)).
+		From(FilterMatch(match.NotExternal)).
+		From(SimplePodServiceAndAllSpecial(minimumFrom)).
 		ConditionallyTo(ReachableDestinations).
-		To(SingleSimplePodServiceAndAllSpecial(t.sources...))
+		To(SimplePodServiceAndAllSpecial(minimumTo, t.sources...))
 }
 
 func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.Instances {
@@ -89,21 +92,32 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 	return to
 }
 
-// SingleSimplePodServiceAndAllSpecial finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
+// SimplePodServiceAndAllSpecial finds the first Pod deployment that has a sidecar and doesn't use a headless service and removes all
 // other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
 // different cluster or revision will still be included.
 // Example:
-//     The full set of apps is a, b, c, headless, naked, and vm.
-//     The plain-pods are a, b and c.
-//     This filter would result in a, headless, naked and vm.
+//   - The full set of apps is a, b, c, headless, naked, and vm.
+//   - The plain-pods are a, b and c.
+//   - This filter would result in a, headless, naked and vm.
+//
 // TODO this name is not good
-func SingleSimplePodServiceAndAllSpecial(exclude ...echo.Instance) Filter {
+func SimplePodServiceAndAllSpecial(min int, exclude ...echo.Instance) Filter {
 	return func(instances echo.Instances) echo.Instances {
-		return oneRegularPodPerNamespace(exclude)(instances).Append(notRegularPods()(instances))
+		nonRegular := notRegularPods()(instances)
+		needed := min - len(nonRegular)
+		if needed <= 0 {
+			needed = 1
+		}
+
+		return nRegularPodPerNamespace(needed, exclude)(instances).Append(nonRegular)
 	}
 }
 
-func oneRegularPodPerNamespace(exclude echo.Instances) Filter {
+func SingleSimplePodServiceAndAllSpecial(exclude ...echo.Instance) Filter {
+	return SimplePodServiceAndAllSpecial(1, exclude...)
+}
+
+func nRegularPodPerNamespace(needed int, exclude echo.Instances) Filter {
 	return func(instances echo.Instances) echo.Instances {
 		// Apply the filters.
 		regularPods := match.And(
@@ -114,13 +128,13 @@ func oneRegularPodPerNamespace(exclude echo.Instances) Filter {
 			return regularPods
 		}
 
-		// Pick a single regular pod per namespace.
-		namespaces := sets.New()
+		// Pick regular pods per namespace, up to needed
+		namespaces := map[string]int{}
 		var outServices echo.Services
 		for _, svc := range regularPods.Services() {
 			ns := svc.Config().Namespace.Name()
-			if !namespaces.Contains(ns) {
-				namespaces.Insert(ns)
+			if namespaces[ns] < needed {
+				namespaces[ns]++
 				outServices = append(outServices, svc)
 			}
 		}
@@ -181,7 +195,10 @@ func reachableHeadlessDestinations(from echo.Instance) match.Matcher {
 func reachableNakedDestinations(from echo.Instance) match.Matcher {
 	srcNw := from.Config().Cluster.NetworkName()
 	excluded := match.And(
-		match.Naked,
+		// Only exclude naked if all subsets are naked. If an echo instance contains a mix of
+		// subsets with and without sidecars, we'll leave it up to the test to determine what
+		// is reachable.
+		match.AllNaked,
 		// TODO we probably don't actually reach all external, but for now maintaining what the tests did
 		match.NotExternal,
 		match.Not(match.Network(srcNw)))

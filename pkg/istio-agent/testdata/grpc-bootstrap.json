@@ -15,6 +15,7 @@
   "node": {
     "id": "sidecar~127.0.0.1~pod1.fake-namespace~fake-namespace.svc.cluster.local",
     "metadata": {
+      "GENERATOR": "grpc",
       "INSTANCE_IPS": "127.0.0.1",
       "PILOT_SAN": [
         "istiod.istio-system.svc"

@@ -65,7 +65,7 @@ type GenerateOptions struct {
 	// TODO(Monkeyanator) once we stop using Helm templating remove this.
 	ManifestsPath string
 	// Generate determines whether we should just generate the webhooks without applying. This
-	// applying is not done here but we are looser with checks when doing generate.
+	// applying is not done here, but we are looser with checks when doing generate.
 	Generate bool
 	// Overwrite removes analysis checks around existing webhooks.
 	Overwrite bool
@@ -166,7 +166,7 @@ func Create(client kube.ExtendedClient, manifests string) error {
 
 // generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
 func generateValidatingWebhook(config *tagWebhookConfig, chartPath string) (string, error) {
-	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace)
+	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
@@ -216,7 +216,7 @@ base:
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
 func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string, autoInjectNamespaces bool) (string, error) {
-	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace)
+	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)

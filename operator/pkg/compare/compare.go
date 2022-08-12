@@ -35,7 +35,7 @@ import (
 // YAMLCmpReporter is a custom reporter to generate tree based diff for YAMLs, used by cmp.Equal().
 type YAMLCmpReporter struct {
 	path     cmp.Path
-	diffTree map[string]interface{}
+	diffTree map[string]any
 }
 
 // PushStep implements interface to keep track of current path by pushing.
@@ -68,7 +68,7 @@ func (r *YAMLCmpReporter) Report(rs cmp.Result) {
 			return
 		}
 		if r.diffTree == nil {
-			r.diffTree = make(map[string]interface{})
+			r.diffTree = make(map[string]any)
 		}
 		if err := tpath.WriteNode(r.diffTree, pathToStringList(r.path), dm); err != nil {
 			panic(err)
@@ -109,7 +109,7 @@ func YAMLCmp(a, b string) string {
 
 // YAMLCmpWithIgnore compares two yaml texts, and ignores paths in ignorePaths.
 func YAMLCmpWithIgnore(a, b string, ignorePaths []string, ignoreYaml string) string {
-	ao, bo := make(map[string]interface{}), make(map[string]interface{})
+	ao, bo := make(map[string]any), make(map[string]any)
 	if err := yaml.Unmarshal([]byte(a), &ao); err != nil {
 		return err.Error()
 	}
@@ -140,7 +140,7 @@ func YAMLCmpWithIgnore(a, b string, ignorePaths []string, ignoreYaml string) str
 
 // UnmarshalInlineYaml tries to unmarshal string values in obj into YAML objects
 // at a given targetPath. Side effect: this will mutate obj in place.
-func UnmarshalInlineYaml(obj map[string]interface{}, targetPath string) (err error) {
+func UnmarshalInlineYaml(obj map[string]any, targetPath string) (err error) {
 	nodeList := strings.Split(targetPath, ".")
 	if len(nodeList) == 0 {
 		return fmt.Errorf("targetPath '%v' length is zero after split", targetPath)
@@ -154,7 +154,7 @@ func UnmarshalInlineYaml(obj map[string]interface{}, targetPath string) (err err
 				targetPath, nname)
 		}
 		switch nnode := ndata.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			cur = nnode
 		default: // target path type does not match
 			return fmt.Errorf("targetPath '%v' doest not exist in obj: "+
@@ -165,7 +165,7 @@ func UnmarshalInlineYaml(obj map[string]interface{}, targetPath string) (err err
 	for dk, dv := range cur {
 		switch vnode := dv.(type) {
 		case string:
-			vo := make(map[string]interface{})
+			vo := make(map[string]any)
 			if err := yaml.Unmarshal([]byte(vnode), &vo); err != nil {
 				continue
 			}
@@ -178,7 +178,7 @@ func UnmarshalInlineYaml(obj map[string]interface{}, targetPath string) (err err
 
 // genPathIgnoreOpt returns a cmp.Option to ignore paths specified in parameter ignorePaths.
 func genYamlIgnoreOpt(yamlStr string) (cmp.Option, error) {
-	tree := make(map[string]interface{})
+	tree := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(yamlStr), &tree); err != nil {
 		return nil, err
 	}
@@ -499,6 +499,6 @@ func writeStringSafe(sb io.StringWriter, s string) {
 }
 
 // IsLeafNode reports whether the given node is a leaf, assuming internal nodes can only be maps or slices.
-func IsLeafNode(node interface{}) bool {
+func IsLeafNode(node any) bool {
 	return !util.IsMap(node) && !util.IsSlice(node)
 }

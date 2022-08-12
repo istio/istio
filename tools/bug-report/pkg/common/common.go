@@ -121,7 +121,7 @@ func getVersionKey(clusterVersion string) string {
 	return clusterVersion
 }
 
-func LogAndPrintf(format string, a ...interface{}) {
+func LogAndPrintf(format string, a ...any) {
 	fmt.Printf(format, a...)
 	log.Info(fmt.Sprintf(format, a...))
 }

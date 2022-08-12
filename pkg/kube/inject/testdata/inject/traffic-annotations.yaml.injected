@@ -24,7 +24,7 @@ spec:
             FOO: bar
             ISTIO_META_TLS_CLIENT_KEY: /etc/identity2/client/keys/client-key.pem
         sidecar.istio.io/proxyCPU: 4000m
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/excludeOutboundPorts: 7,8,9
@@ -137,6 +137,8 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket
+        - mountPath: /var/run/secrets/credential-uds
+          name: credential-socket
         - mountPath: /var/run/secrets/workload-spiffe-credentials
           name: workload-certs
         - mountPath: /var/run/secrets/istio
@@ -198,6 +200,7 @@ spec:
         fsGroup: 1337
       volumes:
       - name: workload-socket
+      - name: credential-socket
       - name: workload-certs
       - emptyDir:
           medium: Memory

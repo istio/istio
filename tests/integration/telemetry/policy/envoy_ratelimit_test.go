@@ -174,7 +174,7 @@ func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
 		ctx.Fatal(err)
 	}
 
-	con, err := tmpl.Evaluate(string(content), map[string]interface{}{
+	con, err := tmpl.Evaluate(string(content), map[string]any{
 		"EchoNamespace":      echoNsInst.Name(),
 		"RateLimitNamespace": ratelimitNs.Name(),
 	})

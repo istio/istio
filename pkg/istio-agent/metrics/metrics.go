@@ -18,6 +18,11 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
+const (
+	Cancel = "cancelled"
+	Error  = "error"
+)
+
 var (
 	disconnectionTypeTag = monitoring.MustCreateLabel("type")
 
@@ -59,11 +64,6 @@ var (
 	IstiodConnectionErrors        = istiodDisconnections.With(disconnectionTypeTag.Value(Error))
 	EnvoyConnectionCancellations  = envoyDisconnections.With(disconnectionTypeTag.Value(Cancel))
 	EnvoyConnectionErrors         = envoyDisconnections.With(disconnectionTypeTag.Value(Error))
-)
-
-var (
-	Cancel = "cancelled"
-	Error  = "error"
 )
 
 func init() {

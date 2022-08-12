@@ -47,7 +47,6 @@ func NewUDSLogger() *UDSLogger {
 		Handler: mux,
 	}
 	l.loggingServer = loggingServer
-	pluginLog.SetOutputLevel(log.DebugLevel)
 	return l
 }
 

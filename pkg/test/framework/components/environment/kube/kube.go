@@ -67,12 +67,12 @@ func (e *Environment) EnvironmentName() string {
 	return "Kube"
 }
 
-func (e *Environment) IsMulticluster() bool {
+func (e *Environment) IsMultiCluster() bool {
 	return len(e.clusters) > 1
 }
 
 // IsMultinetwork returns true if there is more than one network name in networkTopology.
-func (e *Environment) IsMultinetwork() bool {
+func (e *Environment) IsMultiNetwork() bool {
 	return len(e.ClustersByNetwork()) > 1
 }
 

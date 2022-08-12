@@ -28,7 +28,8 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	any "google.golang.org/protobuf/types/known/anypb"
+	"github.com/golang/protobuf/ptypes/duration"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/constant"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -63,6 +65,8 @@ const DefaultRouteName = "default"
 // prefixMatchRegex optionally matches "/..." at the end of a path.
 // regex taken from https://github.com/projectcontour/contour/blob/2b3376449bedfea7b8cea5fbade99fb64009c0f6/internal/envoy/v3/route.go#L59
 const prefixMatchRegex = `((\/).*)?`
+
+var notimeout = durationpb.New(0)
 
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
 // Note: Currently we are not fully utilizing this structure. We could invoke this logic
@@ -97,7 +101,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	out := make([]VirtualHostWrapper, 0)
 
 	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
-	dependentDestinationRules := []*config.Config{}
+	dependentDestinationRules := []*model.ConsolidatedDestRule{}
 	// consistent hash policies for the http route destinations
 	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
 	for _, virtualService := range virtualServices {
@@ -296,6 +300,10 @@ func buildSidecarVirtualHostsForService(
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	if len(destination.GetHost()) == 0 {
+		// only happens when the gateway-api BackendRef is invalid
+		return "UnknownService"
+	}
 	port := listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
@@ -438,16 +446,18 @@ func translateRoute(
 
 	if in.Redirect != nil {
 		applyRedirect(out, in.Redirect, listenPort)
+	} else if in.DirectResponse != nil {
+		applyDirectResponse(out, in.DirectResponse)
 	} else {
-		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		applyHTTPRouteDestination(out, node, virtualService, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
 		Operation: getRouteOperation(out, virtualService.Name, listenPort),
 	}
 	if in.Fault != nil {
-		out.TypedPerFilterConfig = make(map[string]*any.Any)
-		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
+		out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(translateFault(in.Fault))
 	}
 
 	if isHTTP3AltSvcHeaderNeeded {
@@ -464,6 +474,7 @@ func translateRoute(
 func applyHTTPRouteDestination(
 	out *route.Route,
 	node *model.Proxy,
+	vs config.Config,
 	in *networking.HTTPRoute,
 	mesh *meshconfig.MeshConfig,
 	authority string,
@@ -481,18 +492,12 @@ func applyHTTPRouteDestination(
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
-	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-	action.Timeout = features.DefaultRequestTimeout
-	if in.Timeout != nil {
-		action.Timeout = in.Timeout
-	}
-	if node.IsProxylessGrpc() {
-		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
-		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: action.Timeout}
-	} else {
-		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-		// nolint: staticcheck
-		action.MaxGrpcTimeout = action.Timeout
+	setTimeout(action, in.Timeout, node)
+
+	if model.UseGatewaySemantics(vs) && util.IsIstioVersionGE115(node.IstioVersion) {
+		// return 500 for invalid backends
+		// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L204
+		action.ClusterNotFoundResponseCode = route.RouteAction_INTERNAL_SERVER_ERROR
 	}
 
 	out.Action = &route.Route_Route{Route: action}
@@ -519,6 +524,7 @@ func applyHTTPRouteDestination(
 		}
 	}
 
+	var totalWeight uint32
 	// TODO: eliminate this logic and use the total_weight option in envoy route
 	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 	for _, dst := range in.Route {
@@ -538,6 +544,7 @@ func applyHTTPRouteDestination(
 			Name:   n,
 			Weight: weight,
 		}
+		totalWeight += weight.GetValue()
 		if dst.Headers != nil {
 			operations := translateHeadersOperations(dst.Headers)
 			clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
@@ -579,7 +586,8 @@ func applyHTTPRouteDestination(
 	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
-				Clusters: weighted,
+				Clusters:    weighted,
+				TotalWeight: wrappers.UInt32(totalWeight),
 			},
 		}
 	}
@@ -628,6 +636,33 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 	default:
 		log.Warnf("Redirect Code %d is not yet supported", redirect.RedirectCode)
 		action = nil
+	}
+
+	out.Action = action
+}
+
+func applyDirectResponse(out *route.Route, directResponse *networking.HTTPDirectResponse) {
+	action := &route.Route_DirectResponse{
+		DirectResponse: &route.DirectResponseAction{
+			Status: directResponse.Status,
+		},
+	}
+
+	if directResponse.Body != nil {
+		switch op := directResponse.Body.Specifier.(type) {
+		case *networking.HTTPBody_String_:
+			action.DirectResponse.Body = &core.DataSource{
+				Specifier: &core.DataSource_InlineString{
+					InlineString: op.String_,
+				},
+			}
+		case *networking.HTTPBody_Bytes:
+			action.DirectResponse.Body = &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: op.Bytes,
+				},
+			}
+		}
 	}
 
 	out.Action = action
@@ -785,8 +820,6 @@ func translateHeadersOperations(headers *networking.Headers) headersOperations {
 	}
 }
 
-const singleDNSLabelWildcardRegex = "^[-a-zA-Z]*"
-
 // translateRouteMatch translates match condition
 func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
@@ -812,25 +845,6 @@ func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 			matcher := translateHeaderMatch(name, stringMatch)
 			matcher.InvertMatch = true
 			out.Headers = append(out.Headers, matcher)
-		}
-	}
-	if model.UseGatewaySemantics(vs) {
-		hosts := vs.Spec.(*networking.VirtualService).Hosts
-		// If we have a wildcard match, add a header match regex rule to match the
-		// hostname, so we can be sure to only match one DNS label. This is required
-		// as Envoy's virtualhost hostname wildcard matching can match multiple
-		// labels. This match ignores a port in the hostname in case it is present.
-		// Conversion guarantees a single host
-		if len(hosts) == 1 && strings.HasPrefix(hosts[0], "*.") {
-			mm := &route.HeaderMatcher{
-				Name: HeaderAuthority,
-				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
-					StringMatch: util.ConvertToEnvoyMatch(&networking.StringMatch{
-						MatchType: &networking.StringMatch_Regex{Regex: singleDNSLabelWildcardRegex + regexp.QuoteMeta(hosts[0][1:])},
-					}),
-				},
-			}
-			out.Headers = append(out.Headers, mm)
 		}
 	}
 
@@ -1043,16 +1057,21 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
-	notimeout := durationpb.New(0)
-	routeAction := &route.RouteAction{
-		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-		Timeout:          notimeout,
-	}
-	routeAction.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+	out := buildDefaultHTTPRoute(clusterName, operation)
+	// For inbound, configure with notimeout.
+	out.GetRoute().Timeout = notimeout
+	out.GetRoute().MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
 		MaxStreamDuration: notimeout,
 		// If not configured at all, the grpc-timeout header is not used and
 		// gRPC requests time out like any other requests using timeout or its default.
 		GrpcTimeoutHeaderMax: notimeout,
+	}
+	return out
+}
+
+func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
+	routeAction := &route.RouteAction{
+		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 	}
 	val := &route.Route{
 		Match: translateRouteMatch(nil, config.Config{}, nil),
@@ -1068,13 +1087,38 @@ func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.R
 	return val
 }
 
+// setTimeout sets timeout for a route.
+func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *model.Proxy) {
+	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
+	action.Timeout = features.DefaultRequestTimeout
+	if vsTimeout != nil {
+		action.Timeout = vsTimeout
+	}
+	action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{}
+	if node != nil && node.IsProxylessGrpc() {
+		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
+		action.MaxStreamDuration.MaxStreamDuration = action.Timeout
+	} else {
+		// Set MaxStreamDuration only for notimeout cases otherwise it wont be honored.
+		if action.Timeout.AsDuration().Nanoseconds() == 0 {
+			action.MaxStreamDuration.MaxStreamDuration = action.Timeout
+			action.MaxStreamDuration.GrpcTimeoutHeaderMax = action.Timeout
+		} else {
+			// If not configured at all, the grpc-timeout header is not used and
+			// gRPC requests time out like any other requests using timeout or its default.
+			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+			// nolint: staticcheck
+			action.MaxGrpcTimeout = action.Timeout
+		}
+	}
+}
+
 // BuildDefaultHTTPOutboundRoute builds a default outbound route, including a retry policy.
 func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *meshconfig.MeshConfig) *route.Route {
-	// Start with the same configuration as for inbound.
-	out := BuildDefaultHTTPInboundRoute(clusterName, operation)
-
+	out := buildDefaultHTTPRoute(clusterName, operation)
 	// Add a default retry policy for outbound routes.
 	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy())
+	setTimeout(out.GetRoute(), nil, nil)
 	return out
 }
 
@@ -1214,11 +1258,12 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 
 func getHashForService(node *model.Proxy, push *model.PushContext,
 	svc *model.Service, port *model.Port,
-) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil
 	}
-	destinationRule := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
+	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
+	destinationRule := mergedDR.GetRule()
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1235,7 +1280,7 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 		}
 	}
 
-	return consistentHash, destinationRule
+	return consistentHash, mergedDR
 }
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
@@ -1265,13 +1310,14 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 // GetHashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
 func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
 	configNamespace string,
-) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil
 	}
 
 	destination := dst.GetDestination()
-	destinationRule := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
+	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
+	destinationRule := mergedDR.GetRule()
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1300,7 +1346,7 @@ func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *
 	case plsHash != nil:
 		consistentHash = plsHash
 	}
-	return consistentHash, destinationRule
+	return consistentHash, mergedDR
 }
 
 // isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise

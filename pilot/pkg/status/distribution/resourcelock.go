@@ -14,4 +14,4 @@
 
 package distribution
 
-type ResourceStatus interface{}
+type ResourceStatus any

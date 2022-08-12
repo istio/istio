@@ -60,6 +60,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -125,6 +126,8 @@ type Server struct {
 	// monitoringMux listens on monitoringAddr(:15014).
 	// Currently runs prometheus monitoring and debug (if enabled).
 	monitoringMux *http.ServeMux
+	// internalDebugMux is a mux for *internal* calls to the debug interface. That is, authentication is disabled.
+	internalDebugMux *http.ServeMux
 
 	// httpMux listens on the httpAddr (8080).
 	// If a Gateway is used in front and https is off it is also multiplexing
@@ -176,10 +179,8 @@ type Server struct {
 
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
-	e := &model.Environment{
-		PushContext:  model.NewPushContext(),
-		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
-	}
+	e := model.NewEnvironment()
+	e.DomainSuffix = args.RegistryOptions.KubeOptions.DomainSuffix
 	e.SetLedger(buildLedger(args.RegistryOptions))
 
 	ac := aggregate.NewController(aggregate.Options{
@@ -200,6 +201,21 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		internalStop:            make(chan struct{}),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 	}
+
+	// Used for readiness, monitoring and debug handlers.
+	var (
+		whMu sync.RWMutex
+		wh   *inject.Webhook
+	)
+	whc := func() map[string]string {
+		whMu.RLock()
+		defer whMu.RUnlock()
+		if wh != nil {
+			return wh.Config.RawTemplates
+		}
+		return map[string]string{}
+	}
+
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
 		fn(s)
@@ -209,6 +225,17 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	s.XDSServer = xds.NewDiscoveryServer(e, args.PodName, args.RegistryOptions.KubeOptions.ClusterAliases)
 
 	prometheus.EnableHandlingTimeHistogram()
+
+	// make sure we have a readiness probe before serving HTTP to avoid marking ready too soon
+	s.addReadinessProbe("discovery", func() (bool, error) {
+		return s.XDSServer.IsServerReady(), nil
+	})
+	if err := s.initIstiodAdminServer(args, whc); err != nil {
+		return nil, fmt.Errorf("error initializing debug server: %v", err)
+	}
+	if err := s.serveHTTP(); err != nil {
+		return nil, fmt.Errorf("error serving http: %v", err)
+	}
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {
@@ -249,7 +276,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
-	s.XDSServer.InitGenerators(e, args.Namespace)
+	s.XDSServer.InitGenerators(e, args.Namespace, s.internalDebugMux)
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
@@ -272,11 +299,12 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
-	var wh *inject.Webhook
 	// common https server for webhooks (e.g. injection, validation)
 	if s.kubeClient != nil {
 		s.initSecureWebhookServer(args)
+		whMu.Lock()
 		wh, err = s.initSidecarInjector(args)
+		whMu.Unlock()
 		if err != nil {
 			return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 		}
@@ -285,17 +313,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		}
 	}
 
-	whc := func() map[string]string {
-		if wh != nil {
-			return wh.Config.RawTemplates
-		}
-		return map[string]string{}
-	}
-
-	// Used for readiness, monitoring and debug handlers.
-	if err := s.initIstiodAdminServer(args, whc); err != nil {
-		return nil, fmt.Errorf("error initializing debug server: %v", err)
-	}
 	// This should be called only after controllers are initialized.
 	s.initRegistryEventHandlers()
 
@@ -323,6 +340,9 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// so we build it later.
 	authenticators = append(authenticators,
 		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+	if len(features.TrustedGatewayCIDR) > 0 {
+		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
+	}
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
@@ -343,10 +363,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 			return nil
 		})
 	}
-
-	s.addReadinessProbe("discovery", func() (bool, error) {
-		return s.XDSServer.IsServerReady(), nil
-	})
 
 	return s, nil
 }
@@ -462,18 +478,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		s.httpServer.Handler = multiplexHandler
 	}
 
-	// At this point we are ready - start Http Listener so that it can respond to readiness events.
-	httpListener, err := net.Listen("tcp", s.httpServer.Addr)
-	if err != nil {
-		return err
-	}
-	go func() {
-		log.Infof("starting HTTP service at %s", httpListener.Addr())
-		if err := s.httpServer.Serve(httpListener); isUnexpectedListenerError(err) {
-			log.Errorf("error serving http server: %v", err)
-		}
-	}()
-
 	if s.httpsServer != nil {
 		httpsListener, err := net.Listen("tcp", s.httpsServer.Addr)
 		if err != nil {
@@ -513,7 +517,7 @@ func (s *Server) initSDSServer() {
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
 					{
-						Kind:      gvk.Secret,
+						Kind:      kind.Secret,
 						Name:      name,
 						Namespace: namespace,
 					}: {},
@@ -612,7 +616,8 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 	}
 
 	// Debug Server.
-	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	internalMux := s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	s.internalDebugMux = internalMux
 
 	// Debug handlers are currently added on monitoring mux and readiness mux.
 	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
@@ -856,7 +861,7 @@ func (s *Server) initRegistryEventHandlers() {
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
@@ -875,6 +880,7 @@ func (s *Server) initRegistryEventHandlers() {
 					s.statusReporter.DeleteInProgressResource(curr)
 				}
 			}()
+			log.Debugf("Handle event %s for configuration %s", event, curr.Key())
 			// For update events, trigger push only if spec has changed.
 			if event == model.EventUpdate && !needsPush(prev, curr) {
 				log.Debugf("skipping push for %s as spec has not changed", prev.Key())
@@ -883,7 +889,7 @@ func (s *Server) initRegistryEventHandlers() {
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
-					Kind:      curr.GroupVersionKind,
+					Kind:      kind.FromGvk(curr.GroupVersionKind),
 					Name:      curr.Name,
 					Namespace: curr.Namespace,
 				}: {}},
@@ -1274,4 +1280,19 @@ func (s *Server) initStatusManager(_ *PilotArgs) {
 		s.statusManager.Start(stop)
 		return nil
 	})
+}
+
+func (s *Server) serveHTTP() error {
+	// At this point we are ready - start Http Listener so that it can respond to readiness events.
+	httpListener, err := net.Listen("tcp", s.httpServer.Addr)
+	if err != nil {
+		return err
+	}
+	go func() {
+		log.Infof("starting HTTP service at %s", httpListener.Addr())
+		if err := s.httpServer.Serve(httpListener); isUnexpectedListenerError(err) {
+			log.Errorf("error serving http server: %v", err)
+		}
+	}()
+	return nil
 }

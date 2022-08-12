@@ -63,8 +63,8 @@ func (f FileParseError) Error() string {
 var (
 	listAnalyzers     bool
 	useKube           bool
-	failureThreshold  = formatting.MessageThreshold{diag.Error} // messages at least this level will generate an error exit code
-	outputThreshold   = formatting.MessageThreshold{diag.Info}  // messages at least this level will be included in the output
+	failureThreshold  = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
+	outputThreshold   = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
 	colorize          bool
 	msgOutputFormat   string
 	meshCfgFile       string
@@ -376,7 +376,7 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		if err != nil {
 			return err
 		}
-		// If we encounter a directory, recurse only if the --recursve option
+		// If we encounter a directory, recurse only if the --recursive option
 		// was provided and the directory is not the same as dir.
 		if info.IsDir() {
 			if !recursive && dir != path {

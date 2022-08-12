@@ -153,7 +153,7 @@ cni:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			root := make(map[string]interface{})
+			root := make(map[string]any)
 			err := yaml.Unmarshal([]byte(tt.yamlStr), &root)
 			if err != nil {
 				t.Fatalf("yaml.Unmarshal(%s): got error %s", tt.desc, err)
@@ -220,7 +220,7 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		valuesTree := make(map[string]interface{})
+		valuesTree := make(map[string]any)
 		if err := yaml.Unmarshal([]byte(valuesYAML), &valuesTree); err != nil {
 			t.Fatal(err.Error())
 		}

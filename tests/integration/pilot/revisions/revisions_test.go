@@ -119,7 +119,7 @@ func TestMultiRevision(t *testing.T) {
 							},
 							Check: check.And(
 								check.OK(),
-								check.ReachedTargetClusters(t.AllClusters()),
+								check.ReachedTargetClusters(t),
 							),
 						})
 						return check.And(

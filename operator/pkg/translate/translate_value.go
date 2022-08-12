@@ -158,13 +158,13 @@ func NewReverseTranslator() *ReverseTranslator {
 
 // TranslateFromValueToSpec translates from values.yaml value to IstioOperatorSpec.
 func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte, force bool) (controlPlaneSpec *v1alpha1.IstioOperatorSpec, err error) {
-	yamlTree := make(map[string]interface{})
+	yamlTree := make(map[string]any)
 	err = yaml.Unmarshal(values, &yamlTree)
 	if err != nil {
 		return nil, fmt.Errorf("error when unmarshalling into untype tree %v", err)
 	}
 
-	outputTree := make(map[string]interface{})
+	outputTree := make(map[string]any)
 	err = t.TranslateTree(yamlTree, outputTree, nil)
 	if err != nil {
 		return nil, err
@@ -185,7 +185,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte, force bool) 
 }
 
 // TranslateTree translates input value.yaml Tree to ControlPlaneSpec Tree.
-func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSpecTree map[string]interface{}, path util.Path) error {
+func (t *ReverseTranslator) TranslateTree(valueTree map[string]any, cpSpecTree map[string]any, path util.Path) error {
 	// translate enablement and namespace
 	err := t.setEnablementFromValue(valueTree, cpSpecTree)
 	if err != nil {
@@ -214,7 +214,7 @@ func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSp
 }
 
 // TranslateK8S is a helper function to translate k8s settings from values.yaml to IstioOperator, except for gateways.
-func (t *ReverseTranslator) TranslateK8S(valueTree map[string]interface{}, cpSpecTree map[string]interface{}) error {
+func (t *ReverseTranslator) TranslateK8S(valueTree map[string]any, cpSpecTree map[string]any) error {
 	// translate with k8s mapping
 	if err := t.initK8SMapping(); err != nil {
 		return fmt.Errorf("error when initiating k8s mapping: %v", err)
@@ -227,7 +227,7 @@ func (t *ReverseTranslator) TranslateK8S(valueTree map[string]interface{}, cpSpe
 
 // setEnablementFromValue translates the enablement value of components in the values.yaml
 // tree, based on feature/component inheritance relationship.
-func (t *ReverseTranslator) setEnablementFromValue(valueSpec map[string]interface{}, root map[string]interface{}) error {
+func (t *ReverseTranslator) setEnablementFromValue(valueSpec map[string]any, root map[string]any) error {
 	for _, cni := range t.ValuesToComponentName {
 		enabled, pathExist, err := IsComponentEnabledFromValue(cni, valueSpec)
 		if err != nil {
@@ -291,7 +291,7 @@ func (t *ReverseTranslator) WarningForGatewayK8SSettings(valuesOverlay string) (
 }
 
 // translateGateway handles translation for gateways specific configuration
-func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, root map[string]interface{}) error {
+func (t *ReverseTranslator) translateGateway(valueSpec map[string]any, root map[string]any) error {
 	for inPath, outPath := range gatewayPathMapping {
 		enabled, pathExist, err := IsComponentEnabledFromValue(outPath, valueSpec)
 		if err != nil {
@@ -300,8 +300,8 @@ func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, r
 		if !pathExist && !enabled {
 			continue
 		}
-		gwSpecs := make([]map[string]interface{}, 1)
-		gwSpec := make(map[string]interface{})
+		gwSpecs := make([]map[string]any, 1)
+		gwSpec := make(map[string]any)
 		gwSpecs[0] = gwSpec
 		gwSpec["enabled"] = enabled
 		gwSpec["name"] = util.ToYAMLPath(inPath)[1]
@@ -334,12 +334,12 @@ func (t *ReverseTranslator) TranslateK8SfromValueToIOP(userOverlayYaml string) (
 		scope.Debugf("no spec.values section from userOverlayYaml %v", err)
 		return "", nil
 	}
-	valuesOverlayTree := make(map[string]interface{})
+	valuesOverlayTree := make(map[string]any)
 	err = yaml.Unmarshal([]byte(valuesOverlay), &valuesOverlayTree)
 	if err != nil {
 		return "", fmt.Errorf("error unmarshalling values overlay yaml into untype tree %v", err)
 	}
-	iopSpecTree := make(map[string]interface{})
+	iopSpecTree := make(map[string]any)
 	iopSpecOverlay, err := tpath.GetConfigSubtree(userOverlayYaml, "spec")
 	if err != nil {
 		return "", fmt.Errorf("error getting iop spec subtree from overlay yaml %v", err)
@@ -375,7 +375,7 @@ func (t *ReverseTranslator) TranslateK8SfromValueToIOP(userOverlayYaml string) (
 }
 
 // translateStrategy translates Deployment Strategy related configurations from helm values.yaml tree.
-func translateStrategy(fieldName string, outPath string, value interface{}, cpSpecTree map[string]interface{}) error {
+func translateStrategy(fieldName string, outPath string, value any, cpSpecTree map[string]any) error {
 	fieldMap := map[string]string{
 		"rollingMaxSurge":       "maxSurge",
 		"rollingMaxUnavailable": "maxUnavailable",
@@ -395,7 +395,7 @@ func translateStrategy(fieldName string, outPath string, value interface{}, cpSp
 
 // translateHPASpec translates HPA related configurations from helm values.yaml tree.
 // do not translate if autoscaleEnabled is explicitly set to false
-func translateHPASpec(inPath string, outPath string, valueTree map[string]interface{}, cpSpecTree map[string]interface{}) error {
+func translateHPASpec(inPath string, outPath string, valueTree map[string]any, cpSpecTree map[string]any) error {
 	m, found, err := tpath.Find(valueTree, util.ToYAMLPath(inPath))
 	if err != nil {
 		return err
@@ -429,7 +429,7 @@ func translateHPASpec(inPath string, outPath string, valueTree map[string]interf
 	valPath := newPS + ".cpu.targetAverageUtilization"
 	asVal, found, err := tpath.Find(valueTree, util.ToYAMLPath(valPath))
 	if found && err == nil {
-		rs := make([]interface{}, 1)
+		rs := make([]any, 1)
 		rsVal := `
 - type: Resource
   resource:
@@ -454,7 +454,7 @@ func translateHPASpec(inPath string, outPath string, valueTree map[string]interf
 		if ok {
 			revision = rev.(string)
 		}
-		st := make(map[string]interface{})
+		st := make(map[string]any)
 		stVal := `
 apiVersion: apps/v1
 kind: Deployment
@@ -483,7 +483,7 @@ name: %s`
 }
 
 // setOutputAndClean is helper function to set value of iscp tree and clean the original value from value.yaml tree.
-func setOutputAndClean(valPath, outPath string, outVal interface{}, valueTree, cpSpecTree map[string]interface{}, clean bool) error {
+func setOutputAndClean(valPath, outPath string, outVal any, valueTree, cpSpecTree map[string]any, clean bool) error {
 	scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
 
 	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), outVal); err != nil {
@@ -499,8 +499,8 @@ func setOutputAndClean(valPath, outPath string, outVal interface{}, valueTree, c
 }
 
 // translateEnv translates env value from helm values.yaml tree.
-func translateEnv(outPath string, value interface{}, cpSpecTree map[string]interface{}) error {
-	envMap, ok := value.(map[string]interface{})
+func translateEnv(outPath string, value any, cpSpecTree map[string]any) error {
+	envMap, ok := value.(map[string]any)
 	if !ok {
 		return fmt.Errorf("expect env node type to be map[string]interface{} but got: %T", value)
 	}
@@ -515,14 +515,14 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 	}
 	if !found || strings.TrimSpace(string(envValStr)) == "{}" {
 		scope.Debugf("path doesn't have value in k8s setting with output path %s, override with helm Value.yaml tree", outPath)
-		outEnv := make([]map[string]interface{}, len(envMap))
+		outEnv := make([]map[string]any, len(envMap))
 		keys := make([]string, 0, len(envMap))
 		for k := range envMap {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
 		for i, k := range keys {
-			outEnv[i] = make(map[string]interface{})
+			outEnv[i] = make(map[string]any)
 			outEnv[i]["name"] = k
 			outEnv[i]["value"] = fmt.Sprintf("%v", envMap[k])
 		}
@@ -537,7 +537,7 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			outEnv := make(map[string]interface{})
+			outEnv := make(map[string]any)
 			outEnv["name"] = k
 			outEnv["value"] = fmt.Sprintf("%v", envMap[k])
 			if err := tpath.MergeNode(cpSpecTree, util.ToYAMLPath(outPath), outEnv); err != nil {
@@ -549,8 +549,8 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 }
 
 // translateK8sTree is internal method for translating K8s configurations from value.yaml tree.
-func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
-	cpSpecTree map[string]interface{}, mapping map[string]*Translation,
+func (t *ReverseTranslator) translateK8sTree(valueTree map[string]any,
+	cpSpecTree map[string]any, mapping map[string]*Translation,
 ) error {
 	for inPath, v := range mapping {
 		scope.Debugf("Checking for k8s path %s in helm Value.yaml tree", inPath)
@@ -620,8 +620,8 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 }
 
 // translateRemainingPaths translates remaining paths that are not available in existing mappings.
-func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interface{},
-	cpSpecTree map[string]interface{}, path util.Path,
+func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]any,
+	cpSpecTree map[string]any, path util.Path,
 ) error {
 	for key, val := range valueTree {
 		newPath := append(path, key)
@@ -630,12 +630,12 @@ func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interfa
 			continue
 		}
 		switch node := val.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			err := t.translateRemainingPaths(node, cpSpecTree, newPath)
 			if err != nil {
 				return err
 			}
-		case []interface{}:
+		case []any:
 			if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath("Values."+newPath.String()), node); err != nil {
 				return err
 			}
@@ -653,8 +653,8 @@ func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interfa
 }
 
 // translateAPI is internal method for translating value.yaml tree based on API mapping.
-func (t *ReverseTranslator) translateAPI(valueTree map[string]interface{},
-	cpSpecTree map[string]interface{},
+func (t *ReverseTranslator) translateAPI(valueTree map[string]any,
+	cpSpecTree map[string]any,
 ) error {
 	for inPath, v := range t.APIMapping {
 		scope.Debugf("Checking for path %s in helm Value.yaml tree", inPath)

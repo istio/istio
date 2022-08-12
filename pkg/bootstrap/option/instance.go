@@ -23,8 +23,8 @@ import (
 )
 
 // NewTemplateParams creates a new golang template parameter map from the given list of options.
-func NewTemplateParams(is ...Instance) (map[string]interface{}, error) {
-	params := make(map[string]interface{})
+func NewTemplateParams(is ...Instance) (map[string]any, error) {
+	params := make(map[string]any)
 
 	for _, i := range is {
 		if err := i.apply(params); err != nil {
@@ -47,14 +47,14 @@ type Instance interface {
 	Name() Name
 
 	// apply this option to the given template parameter map.
-	apply(map[string]interface{}) error
+	apply(map[string]any) error
 }
 
 var _ Instance = &instance{}
 
 type (
-	convertFunc func(*instance) (interface{}, error)
-	applyFunc   func(map[string]interface{}, *instance) error
+	convertFunc func(*instance) (any, error)
+	applyFunc   func(map[string]any, *instance) error
 )
 
 type instance struct {
@@ -73,17 +73,17 @@ func (i *instance) withConvert(fn convertFunc) *instance {
 	return &out
 }
 
-func (i *instance) apply(params map[string]interface{}) error {
+func (i *instance) apply(params map[string]any) error {
 	return i.applyFn(params, i)
 }
 
-func newOption(name Name, value interface{}) *instance {
+func newOption(name Name, value any) *instance {
 	return &instance{
 		name: name,
-		convertFn: func(i *instance) (interface{}, error) {
+		convertFn: func(i *instance) (any, error) {
 			return value, nil
 		},
-		applyFn: func(params map[string]interface{}, o *instance) error {
+		applyFn: func(params map[string]any, o *instance) error {
 			convertedValue, err := o.convertFn(o)
 			if err != nil {
 				return err
@@ -98,10 +98,10 @@ func newOption(name Name, value interface{}) *instance {
 func skipOption(name Name) *instance {
 	return &instance{
 		name: name,
-		convertFn: func(*instance) (interface{}, error) {
+		convertFn: func(*instance) (any, error) {
 			return nil, nil
 		},
-		applyFn: func(map[string]interface{}, *instance) error {
+		applyFn: func(map[string]any, *instance) error {
 			// Don't apply the option.
 			return nil
 		},
@@ -115,7 +115,7 @@ func newStringArrayOptionOrSkipIfEmpty(name Name, value []string) *instance {
 	return newOption(name, value)
 }
 
-func newOptionOrSkipIfZero(name Name, value interface{}) *instance {
+func newOptionOrSkipIfZero(name Name, value any) *instance {
 	v := reflect.ValueOf(value)
 	if v.IsZero() {
 		return skipOption(name)

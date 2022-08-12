@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -297,6 +298,30 @@ func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.TCP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.HTTP, tnow),
 		buildService("test3.com", wildcardIP, protocol.TCP, tnow.Add(2*time.Second)))
+}
+
+func TestOutboundListenerConflict(t *testing.T) {
+	run := func(t *testing.T, s []*model.Service) {
+		proxy := getProxy()
+		proxy.DiscoverIPMode()
+		listeners := buildOutboundListeners(t, getProxy(), nil, nil, s...)
+		if len(listeners) != 1 {
+			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+		}
+	}
+	// Iterate over all protocol pairs and generate listeners
+	// ValidateListeners will be called on all of them ensuring they are valid
+	protos := []protocol.Instance{protocol.TCP, protocol.TLS, protocol.HTTP, protocol.Unsupported}
+	for _, older := range protos {
+		for _, newer := range protos {
+			t.Run(fmt.Sprintf("%v then %v", older, newer), func(t *testing.T) {
+				run(t, []*model.Service{
+					buildService("test1.com", wildcardIP, older, tnow.Add(-1*time.Second)),
+					buildService("test2.com", wildcardIP, newer, tnow),
+				})
+			})
+		}
+	}
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
@@ -2636,7 +2661,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	tcpProxyFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpProxy)},
 	}
 
 	tcpProxy = &tcp.TcpProxy{
@@ -2646,7 +2671,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	tcpProxyFilter2 := &listener.Filter{
 		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpProxy)},
 	}
 
 	svcPort := &model.Port{

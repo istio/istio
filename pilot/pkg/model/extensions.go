@@ -28,7 +28,7 @@ import (
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/credentials"
-	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -73,7 +73,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
 			return nil
 		}
-		cfg = networking.MessageToAny(&wrapperspb.StringValue{
+		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
 			Value: cfgJSON,
 		})
 	}

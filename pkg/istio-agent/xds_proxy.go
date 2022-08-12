@@ -39,7 +39,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -72,7 +72,7 @@ var connectionNumber = atomic.NewUint32(0)
 // ResponseHandler handles a XDS response in the agent. These will not be forwarded to Envoy.
 // Currently, all handlers function on a single resource per type, so the API only exposes one
 // resource.
-type ResponseHandler func(resp *any.Any) error
+type ResponseHandler func(resp *anypb.Any) error
 
 // XdsProxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
@@ -100,10 +100,10 @@ type XdsProxy struct {
 	tapResponseChannel chan *discovery.DiscoveryResponse
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
-	connected           *ProxyConnection
-	initialRequest      *discovery.DiscoveryRequest
-	initialDeltaRequest *discovery.DeltaDiscoveryRequest
-	connectedMutex      sync.RWMutex
+	connected                 *ProxyConnection
+	initialHealthRequest      *discovery.DiscoveryRequest
+	initialDeltaHealthRequest *discovery.DeltaDiscoveryRequest
+	connectedMutex            sync.RWMutex
 
 	// Wasm cache and ecds channel are used to replace wasm remote load with local file.
 	wasmCache wasm.Cache
@@ -124,7 +124,7 @@ var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
 
 const (
 	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
+	localHostIPv6 = "::1"
 )
 
 func initXdsProxy(ia *Agent) (*XdsProxy, error) {
@@ -157,7 +157,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		proxy.handlers[v3.NameTableType] = func(resp *any.Any) error {
+		proxy.handlers[v3.NameTableType] = func(resp *anypb.Any) error {
 			var nt dnsProto.NameTable
 			if err := resp.UnmarshalTo(&nt); err != nil {
 				log.Errorf("failed to unmarshal name table: %v", err)
@@ -168,7 +168,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
-		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
+		proxy.handlers[v3.ProxyConfigType] = func(resp *anypb.Any) error {
 			pc := &meshconfig.ProxyConfig{}
 			if err := resp.UnmarshalTo(pc); err != nil {
 				log.Errorf("failed to unmarshal proxy config: %v", err)
@@ -202,47 +202,37 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 
 	go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
 		// Store the same response as Delta and SotW. Depending on how Envoy connects we will use one or the other.
-		var req *discovery.DiscoveryRequest
-		if healthEvent.Healthy {
-			req = &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
-		} else {
-			req = &discovery.DiscoveryRequest{
-				TypeUrl: v3.HealthInfoType,
-				ErrorDetail: &google_rpc.Status{
-					Code:    int32(codes.Internal),
-					Message: healthEvent.UnhealthyMessage,
-				},
+		req := &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
+		if !healthEvent.Healthy {
+			req.ErrorDetail = &google_rpc.Status{
+				Code:    int32(codes.Internal),
+				Message: healthEvent.UnhealthyMessage,
 			}
 		}
-		proxy.PersistRequest(req)
-		var deltaReq *discovery.DeltaDiscoveryRequest
-		if healthEvent.Healthy {
-			deltaReq = &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
-		} else {
-			deltaReq = &discovery.DeltaDiscoveryRequest{
-				TypeUrl: v3.HealthInfoType,
-				ErrorDetail: &google_rpc.Status{
-					Code:    int32(codes.Internal),
-					Message: healthEvent.UnhealthyMessage,
-				},
+		proxy.sendHealthCheckRequest(req)
+		deltaReq := &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
+		if !healthEvent.Healthy {
+			deltaReq.ErrorDetail = &google_rpc.Status{
+				Code:    int32(codes.Internal),
+				Message: healthEvent.UnhealthyMessage,
 			}
 		}
-		proxy.persistDeltaRequest(deltaReq)
+		proxy.sendDeltaHealthRequest(deltaReq)
 	}, proxy.stopChan)
 
 	return proxy, nil
 }
 
-// PersistRequest sends a request to the currently connected proxy. Additionally, on any reconnection
+// sendHealthCheckRequest sends a request to the currently connected proxy. Additionally, on any reconnection
 // to the upstream XDS request we will resend this request.
-func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
+func (p *XdsProxy) sendHealthCheckRequest(req *discovery.DiscoveryRequest) {
 	p.connectedMutex.Lock()
-	// Immediately send if we are currently connect
+	// Immediately send if we are currently connected.
 	if p.connected != nil && p.connected.requestsChan != nil {
 		p.connected.requestsChan.Put(req)
 	}
 	// Otherwise place it as our initial request for new connections
-	p.initialRequest = req
+	p.initialHealthRequest = req
 	p.connectedMutex.Unlock()
 }
 
@@ -276,15 +266,24 @@ type ProxyConnection struct {
 	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
 	stopChan           chan struct{}
 	downstream         adsStream
-	upstream           discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	downstreamDeltas   discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
-	upstreamDeltas     discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	upstream           xds.DiscoveryClient
+	downstreamDeltas   xds.DeltaDiscoveryStream
+	upstreamDeltas     xds.DeltaDiscoveryClient
 }
 
 // sendRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
 // block forever on
 func (con *ProxyConnection) sendRequest(req *discovery.DiscoveryRequest) {
 	con.requestsChan.Put(req)
+}
+
+func (con *ProxyConnection) isClosed() bool {
+	select {
+	case <-con.stopChan:
+		return true
+	default:
+		return false
+	}
 }
 
 type adsStream interface {
@@ -297,7 +296,7 @@ type adsStream interface {
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
-func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (p *XdsProxy) StreamAggregatedResources(downstream xds.DiscoveryStream) error {
 	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
 	return p.handleStream(downstream)
 }
@@ -308,9 +307,9 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
 		downstreamError: make(chan error, 2), // can be produced by recv and send
 		// Requests channel is unbounded. The Envoy<->XDS Proxy<->Istiod system produces a natural
-		// looping of Recv and Send. Due to backpressure introduce by gRPC natively (that is, Send() can
+		// looping of Recv and Send. Due to backpressure introduced by gRPC natively (that is, Send() can
 		// only send so much data without being Recv'd before it starts blocking), along with the
-		// backpressure provided by our channels, we have a risk of deadlock where both xdsproxy and
+		// backpressure provided by our channels, we have a risk of deadlock where both Xdsproxy and
 		// Istiod are trying to Send, but both are blocked by gRPC backpressure until Recv() is called.
 		// However, Recv can fail to be called by Send being blocked. This can be triggered by the two
 		// sources in our system (Envoy request and Istiod pushes) producing more events than we can keep
@@ -464,7 +463,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				initialRequestsSent.Store(true)
 				// Fire of a configured initial request, if there is one
 				p.connectedMutex.RLock()
-				initialRequest := p.initialRequest
+				initialRequest := p.initialHealthRequest
 				if initialRequest != nil {
 					con.sendRequest(initialRequest)
 				}
@@ -594,6 +593,10 @@ func (p *XdsProxy) forwardToTap(resp *discovery.DiscoveryResponse) {
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 	if !v3.IsEnvoyType(resp.TypeUrl) {
 		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
+		return
+	}
+	if con.isClosed() {
+		proxyLog.Errorf("downstream [%d] dropped xds push to Envoy, connection already closed", con.conID)
 		return
 	}
 	if err := sendDownstream(con.downstream, resp); err != nil {

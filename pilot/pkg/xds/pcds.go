@@ -20,8 +20,8 @@ import (
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 // PcdsGenerator generates proxy configuration for proxies to consume
@@ -65,5 +65,5 @@ func (e *PcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	pc := &mesh.ProxyConfig{
 		CaCertificatesPem: e.TrustBundle.GetTrustBundle(),
 	}
-	return model.Resources{&discovery.Resource{Resource: util.MessageToAny(pc)}}, model.DefaultXdsLogDetails, nil
+	return model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(pc)}}, model.DefaultXdsLogDetails, nil
 }

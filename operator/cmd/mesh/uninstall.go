@@ -96,13 +96,13 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 		Short: "Uninstall Istio from a cluster",
 		Long:  "The uninstall command uninstalls Istio from a cluster",
 		Example: `  # Uninstall a single control plane by revision
-  istioctl x uninstall --revision foo
+  istioctl uninstall --revision foo
 
   # Uninstall a single control plane by iop file
-  istioctl x uninstall -f iop.yaml
+  istioctl uninstall -f iop.yaml
   
   # Uninstall all control planes and shared resources
-  istioctl x uninstall --purge`,
+  istioctl uninstall --purge`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if uiArgs.revision == "" && manifest.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
 				return fmt.Errorf("at least one of the --revision (or --set revision=<revision>), --filename or --purge flags must be set")

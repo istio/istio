@@ -236,6 +236,7 @@ values:
              - %s
 `
 	cfg.ControlPlaneValues = fmt.Sprintf(cfValue, removedTag)
+	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 }
 
 func setupWasmExtension(ctx resource.Context) error {
@@ -251,7 +252,7 @@ func setupWasmExtension(ctx resource.Context) error {
 		useRemoteWasmModule = true
 	}
 
-	args := map[string]interface{}{
+	args := map[string]any{
 		"WasmRemoteLoad":  useRemoteWasmModule,
 		"AttributeGenURL": attrGenImageURL,
 		"DockerConfigJson": base64.StdEncoding.EncodeToString(

@@ -27,14 +27,14 @@ import (
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
 )
 
@@ -43,37 +43,17 @@ var (
 	Slash     = []byte{'/'}
 )
 
-// Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
-// collection includes only the endpoints which support H2 tunnel and the non-tunnel endpoints. The latter case is to
-// support multi-cluster service.
-// Revisit non-tunnel endpoint decision once the gateways supports tunnel.
-// TODO(lambdai): Propose to istio api.
-func GetTunnelBuilderType(_ string, proxy *model.Proxy, _ *model.PushContext) networking.TunnelType {
-	if proxy == nil || proxy.Metadata == nil || proxy.Metadata.ProxyConfig == nil {
-		return networking.NoTunnel
-	}
-	if outTunnel, ok := proxy.Metadata.ProxyConfig.ProxyMetadata["tunnel"]; ok {
-		switch outTunnel {
-		case networking.H2TunnelTypeName:
-			return networking.H2Tunnel
-		default:
-			// passthrough
-		}
-	}
-	return networking.NoTunnel
-}
-
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
-	clusterName     string
-	network         network.ID
-	proxyView       model.ProxyView
-	clusterID       cluster.ID
-	locality        *core.Locality
-	destinationRule *config.Config
-	service         *model.Service
-	clusterLocal    bool
-	tunnelType      networking.TunnelType
+	clusterName            string
+	network                network.ID
+	proxyView              model.ProxyView
+	clusterID              cluster.ID
+	locality               *core.Locality
+	destinationRule        *model.ConsolidatedDestRule
+	service                *model.Service
+	clusterLocal           bool
+	failoverPriorityLabels []byte
 
 	// These fields are provided for convenience only
 	subsetName string
@@ -89,7 +69,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	svc := push.ServiceForHostname(proxy, hostname)
 
-	var dr *config.Config
+	var dr *model.ConsolidatedDestRule
 	if svc != nil {
 		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 	}
@@ -102,7 +82,6 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		service:         svc,
 		clusterLocal:    push.IsClusterLocal(svc),
 		destinationRule: dr,
-		tunnelType:      GetTunnelBuilderType(clusterName, proxy, push),
 
 		push:       push,
 		proxy:      proxy,
@@ -111,19 +90,21 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		port:       port,
 	}
 
+	b.populateFailoverPriorityLabels()
+
 	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
 	if features.EnableAutomTLSCheckPolicies ||
 		b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		b.mtlsChecker = newMtlsChecker(push, port, dr)
+		b.mtlsChecker = newMtlsChecker(push, port, dr.GetRule())
 	}
 	return b
 }
 
 func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
-	if b.destinationRule == nil {
-		return nil
+	if dr := b.destinationRule.GetRule(); dr != nil {
+		return dr.Spec.(*networkingapi.DestinationRule)
 	}
-	return b.destinationRule.Spec.(*networkingapi.DestinationRule)
+	return nil
 }
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
@@ -139,18 +120,20 @@ func (b EndpointBuilder) Key() string {
 	hash.Write(Separator)
 	hash.Write([]byte(util.LocalityToString(b.locality)))
 	hash.Write(Separator)
-	hash.Write([]byte(b.tunnelType.ToString()))
-	hash.Write(Separator)
+	if len(b.failoverPriorityLabels) > 0 {
+		hash.Write(b.failoverPriorityLabels)
+		hash.Write(Separator)
+	}
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
 		hash.Write([]byte(b.push.AuthnPolicies.GetVersion()))
 	}
 	hash.Write(Separator)
 
-	if b.destinationRule != nil {
-		hash.Write([]byte(b.destinationRule.Name))
+	for _, dr := range b.destinationRule.GetFrom() {
+		hash.Write([]byte(dr.Name))
 		hash.Write(Slash)
-		hash.Write([]byte(b.destinationRule.Namespace))
+		hash.Write([]byte(dr.Namespace))
 	}
 	hash.Write(Separator)
 
@@ -177,35 +160,44 @@ func (b EndpointBuilder) Cacheable() bool {
 	return b.service != nil
 }
 
-func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
-	configs := []model.ConfigKey{}
+func (b EndpointBuilder) DependentConfigs() []model.ConfigHash {
+	drs := b.destinationRule.GetFrom()
+	configs := make([]model.ConfigHash, 0, len(drs)+1)
 	if b.destinationRule != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace})
+		for _, dr := range drs {
+			configs = append(configs, model.ConfigKey{
+				Kind: kind.DestinationRule,
+				Name: dr.Name, Namespace: dr.Namespace,
+			}.HashCode())
+		}
 	}
 	if b.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{
+			Kind: kind.ServiceEntry,
+			Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace,
+		}.HashCode())
 	}
 	return configs
 }
 
-var edsDependentTypes = []config.GroupVersionKind{gvk.PeerAuthentication}
+var edsDependentTypes = []kind.Kind{kind.PeerAuthentication}
 
-func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
+func (b EndpointBuilder) DependentTypes() []kind.Kind {
 	return edsDependentTypes
 }
 
-type LocLbEndpointsAndOptions struct {
+type LocalityEndpoints struct {
 	istioEndpoints []*model.IstioEndpoint
 	// The protobuf message which contains LbEndpoint slice.
 	llbEndpoints endpoint.LocalityLbEndpoints
 }
 
-func (e *LocLbEndpointsAndOptions) append(ep *model.IstioEndpoint, le *endpoint.LbEndpoint) {
+func (e *LocalityEndpoints) append(ep *model.IstioEndpoint, le *endpoint.LbEndpoint) {
 	e.istioEndpoints = append(e.istioEndpoints, ep)
 	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
 }
 
-func (e *LocLbEndpointsAndOptions) refreshWeight() {
+func (e *LocalityEndpoints) refreshWeight() {
 	var weight *wrappers.UInt32Value
 	if len(e.llbEndpoints.LbEndpoints) == 0 {
 		weight = nil
@@ -218,9 +210,20 @@ func (e *LocLbEndpointsAndOptions) refreshWeight() {
 	e.llbEndpoints.LoadBalancingWeight = weight
 }
 
-func (e *LocLbEndpointsAndOptions) AssertInvarianceInTest() {
+func (e *LocalityEndpoints) AssertInvarianceInTest() {
 	if len(e.llbEndpoints.LbEndpoints) != len(e.istioEndpoints) {
 		panic(" len(e.llbEndpoints.LbEndpoints) != len(e.tunnelMetadata)")
+	}
+}
+
+func (b *EndpointBuilder) populateFailoverPriorityLabels() {
+	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
+	if enableFailover {
+		lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+		if lbSetting != nil && lbSetting.Distribute == nil &&
+			len(lbSetting.FailoverPriority) > 0 && (lbSetting.Enabled == nil || lbSetting.Enabled.Value) {
+			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Metadata.Labels, lbSetting.FailoverPriority)
+		}
 	}
 }
 
@@ -228,8 +231,8 @@ func (e *LocLbEndpointsAndOptions) AssertInvarianceInTest() {
 func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	shards *model.EndpointShards,
 	svcPort *model.Port,
-) []*LocLbEndpointsAndOptions {
-	localityEpMap := make(map[string]*LocLbEndpointsAndOptions)
+) []*LocalityEndpoints {
+	localityEpMap := make(map[string]*LocalityEndpoints)
 	// get the subset labels
 	epLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
 
@@ -263,7 +266,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 
 			locLbEps, found := localityEpMap[ep.Locality.Label]
 			if !found {
-				locLbEps = &LocLbEndpointsAndOptions{
+				locLbEps = &LocalityEndpoints{
 					llbEndpoints: endpoint.LocalityLbEndpoints{
 						Locality:    util.ConvertLocality(ep.Locality.Label),
 						LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
@@ -293,7 +296,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	}
 	shards.Unlock()
 
-	locEps := make([]*LocLbEndpointsAndOptions, 0, len(localityEpMap))
+	locEps := make([]*LocalityEndpoints, 0, len(localityEpMap))
 	locs := make([]string, 0, len(localityEpMap))
 	for k := range localityEpMap {
 		locs = append(locs, k)
@@ -321,7 +324,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 }
 
 // Create the CLusterLoadAssignment. At this moment the options must have been applied to the locality lb endpoints.
-func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsAndOptions) *endpoint.ClusterLoadAssignment {
+func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoints) *endpoint.ClusterLoadAssignment {
 	llbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(llbOpts))
 	for _, l := range llbOpts {
 		llbEndpoints = append(llbEndpoints, &l.llbEndpoints)

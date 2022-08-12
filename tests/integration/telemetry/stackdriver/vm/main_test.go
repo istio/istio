@@ -171,7 +171,7 @@ func testSetup(ctx resource.Context) error {
 	}
 	sdtest.SDInst = sdInst
 
-	if err = ctx.ConfigKube().EvalFile(ns.Name(), map[string]interface{}{
+	if err = ctx.ConfigKube().EvalFile(ns.Name(), map[string]any{
 		"StackdriverAddress": sdInst.Address(),
 		"EchoNamespace":      ns.Name(),
 	}, stackdriverBootstrapOverride).Apply(); err != nil {
@@ -258,7 +258,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	if err != nil {
 		return
 	}
-	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]interface{}{
+	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
 	})
@@ -274,7 +274,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	if err != nil {
 		return
 	}
-	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]interface{}{
+	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
 	})
@@ -290,7 +290,7 @@ func goldenLogEntry(trustDomain string) (srvLogEntry *loggingpb.LogEntry, err er
 	if err != nil {
 		return
 	}
-	sr, err := tmpl.Evaluate(string(srvlogEntryTmpl), map[string]interface{}{
+	sr, err := tmpl.Evaluate(string(srvlogEntryTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
 	})
@@ -309,7 +309,7 @@ func goldenTrace(trustDomain string) (*cloudtrace.Trace, error) {
 	if err != nil {
 		return nil, err
 	}
-	traceStr, err := tmpl.Evaluate(string(traceTmpl), map[string]interface{}{
+	traceStr, err := tmpl.Evaluate(string(traceTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
 	})

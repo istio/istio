@@ -21,11 +21,12 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/proto/merge"
@@ -40,7 +41,7 @@ func ApplyListenerPatches(
 	listeners []*xdslistener.Listener,
 	skipAdds bool,
 ) (out []*xdslistener.Listener) {
-	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Listener)
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
@@ -383,7 +384,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 			if userFilter.Name != "" {
 				filterName = userFilter.Name
 			}
-			var retVal *any.Any
+			var retVal *anypb.Any
 			if userFilter.GetTypedConfig() != nil {
 				IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, true)
 				// user has any typed struct
@@ -527,7 +528,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 	}
 	if filter.GetTypedConfig() != nil {
 		// convert to any type
-		filter.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpconn)}
+		filter.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(httpconn)}
 	}
 }
 
@@ -569,7 +570,7 @@ func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 			if userHTTPFilter.Name != "" {
 				httpFilterName = userHTTPFilter.Name
 			}
-			var retVal *any.Any
+			var retVal *anypb.Any
 			if userHTTPFilter.GetTypedConfig() != nil {
 				// user has any typed struct
 				// The type may not match up exactly. For example, if we use v2 internally but they use v3.

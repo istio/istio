@@ -68,7 +68,7 @@ type testCase struct {
 // * The resources in the input files don't necessarily need to be completely defined, just defined enough for the analyzer being tested.
 // * Please keep this list sorted alphabetically by the pkg.name of the analyzer for convenience
 // * Expected messages are in the format {msg.ValidationMessageType, "<ResourceKind>/<Namespace>/<ResourceName>"}.
-//     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
+//   - Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
 	{
 		name: "misannoted",
@@ -288,6 +288,20 @@ var testGrid = []testCase{
 			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/ratings"},
 			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage"},
 			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/bogus-productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService team2/ratings"},
+		},
+	},
+	{
+		name:       "virtualServiceConflictingMeshGatewayHostsWithExportTo",
+		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts_with_exportto.yaml"},
+		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
+		expected: []message{
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage-c"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/productpage-c"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage-d"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/productpage-d"},
 		},
 	},
 	{
@@ -301,6 +315,7 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogusport"},
 			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService default/reviews-2port-missing"},
 			{msg.ReferencedResourceNotFound, "VirtualService istio-system/cross-namespace-details"},
+			{msg.ReferencedResourceNotFound, "VirtualService hello/hello-export-to-bogus"},
 		},
 	},
 	{
@@ -544,7 +559,7 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/serviceentry-missing-addresses-protocol.yaml",
 		},
-		analyzer: &serviceentry.ProtocolAdressesAnalyzer{},
+		analyzer: &serviceentry.ProtocolAddressesAnalyzer{},
 		expected: []message{
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry default/service-entry-test-03"},
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry default/service-entry-test-04"},
@@ -557,7 +572,7 @@ var testGrid = []testCase{
 			"testdata/serviceentry-missing-addresses-protocol.yaml",
 		},
 		meshConfigFile: "testdata/serviceentry-missing-addresses-protocol-mesh-cfg.yaml",
-		analyzer:       &serviceentry.ProtocolAdressesAnalyzer{},
+		analyzer:       &serviceentry.ProtocolAddressesAnalyzer{},
 		expected:       []message{},
 	},
 	{
@@ -714,13 +729,13 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "EnvoyFilterUsesMergeOperation",
-		inputFiles: []string{"testdata/envoy-filter-merge-operation.yaml"},
-		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		name:       "Analyze conflicting gateway with list type",
+		inputFiles: []string{"testdata/analyze-list-type.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
 		expected: []message{
-			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-merge-1"},
-			{msg.EnvoyFilterUsesRelativeOperation, "EnvoyFilter bookinfo/test-merge-3"},
-			{msg.EnvoyFilterUsesRelativeOperationWithProxyVersion, "EnvoyFilter bookinfo/test-merge-3"},
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway alpha-l"},
+			{msg.ConflictingGateways, "Gateway beta-l"},
 		},
 	},
 }

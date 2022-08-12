@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 const (
@@ -56,7 +55,9 @@ spec:
 //
 // Setup:
 // 1. Setup Istio with custom CA cert. This is because we need to use that root cert to sign customized
-//    certificate for server workloads to give them different trust domains.
+//
+//	certificate for server workloads to give them different trust domains.
+//
 // 2. One client workload with sidecar injected.
 // 3. Two naked server workloads with custom certs whose URI SAN have different SPIFFE trust domains.
 // 4. PeerAuthentication with strict mtls, to enforce the mtls connection.
@@ -70,7 +71,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.trust-domain-alias-secure-naming").
 		Run(func(t framework.TestContext) {
-			testNS := apps.Namespace
+			testNS := apps.EchoNamespace.Namespace
 
 			t.ConfigIstio().YAML(testNS.Name(), POLICY).ApplyOrFail(t)
 
@@ -94,16 +95,16 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 								Scheme:  s,
 							}
 							if success {
-								opts.Check = check.And(check.OK(), scheck.ReachedClusters(t.AllClusters(), &opts))
+								opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 							} else {
-								opts.Check = scheck.NotOK()
+								opts.Check = check.NotOK()
 							}
 
 							from.CallOrFail(t, opts)
 						})
 					}
 
-					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
+					client := match.Cluster(cluster).FirstOrFail(t, client)
 					cases := []struct {
 						src    echo.Instance
 						dest   echo.Instances
@@ -111,12 +112,12 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 					}{
 						{
 							src:    client,
-							dest:   apps.ServerNakedFoo,
+							dest:   serverNakedFoo,
 							expect: true,
 						},
 						{
 							src:    client,
-							dest:   apps.ServerNakedBar,
+							dest:   serverNakedBar,
 							expect: false,
 						},
 					}

@@ -28,7 +28,7 @@ import (
 	"github.com/Masterminds/sprig/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
@@ -282,10 +283,10 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				loadAssignments := make([]*any.Any, 0)
+				loadAssignments := make([]*anypb.Any, 0)
 				for svc := 0; svc < tt.services; svc++ {
 					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
-					loadAssignments = append(loadAssignments, util.MessageToAny(l))
+					loadAssignments = append(loadAssignments, protoconv.MessageToAny(l))
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.LedgerVersion)
 			}
@@ -363,7 +364,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.15.0",
+			IstioVersion: "1.16.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
@@ -371,12 +372,25 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 
 	configs, k8sConfig := getConfigsWithCache(t, config)
+	m := mesh.DefaultMeshConfig()
+	m.ExtensionProviders = append(m.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy-json",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: "/dev/stdout",
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{},
+				},
+			},
+		},
+	})
 	s := NewFakeDiscoveryServer(t, FakeOptions{
 		Configs:                configs,
 		KubernetesObjectString: k8sConfig,
 		// Allow debounce to avoid overwhelming with writes
 		DebounceTime:               time.Millisecond * 10,
 		DisableSecretAuthorization: true,
+		MeshConfig:                 m,
 	})
 
 	return s, proxy
@@ -548,7 +562,7 @@ func BenchmarkPushRequest(b *testing.B) {
 				Reason:         []model.TriggerReason{trigger},
 			}
 			for c := 0; c < configs; c++ {
-				nreq.ConfigsUpdated[model.ConfigKey{Kind: gvk.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
+				nreq.ConfigsUpdated[model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
 			}
 			req = req.Merge(nreq)
 		}
@@ -560,22 +574,30 @@ func BenchmarkPushRequest(b *testing.B) {
 
 func makeCacheKey(n int) model.XdsCacheEntry {
 	ns := strconv.Itoa(n)
+
+	// 100 services
+	services := make([]*model.Service, 0, 100)
+	// 100 destinationrules
+	drs := make([]*model.ConsolidatedDestRule, 0, 100)
+	for i := 0; i < 100; i++ {
+		index := strconv.Itoa(i)
+		services = append(services, &model.Service{
+			Hostname:   host.Name(ns + "some" + index + ".example.com"),
+			Attributes: model.ServiceAttributes{Namespace: "test" + index},
+		})
+		drs = append(drs, model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: index, Namespace: index}}))
+	}
+
 	key := &route.Cache{
-		RouteName:       "something",
-		ClusterID:       "my-cluster",
-		DNSDomain:       "some.domain.example.com",
-		DNSCapture:      true,
-		DNSAutoAllocate: false,
-		ListenerPort:    1234,
-		Services: []*model.Service{
-			{Hostname: host.Name(ns + "some1.example.com"), Attributes: model.ServiceAttributes{Namespace: "test1"}},
-			{Hostname: host.Name(ns + "some2.example.com"), Attributes: model.ServiceAttributes{Namespace: "test2"}},
-		},
-		DestinationRules: []*config.Config{
-			{Meta: config.Meta{Name: ns + "a", Namespace: "b"}},
-			{Meta: config.Meta{Name: ns + "d", Namespace: "e"}},
-		},
-		EnvoyFilterKeys: []string{ns + "1/a", ns + "2/b", ns + "3/c"},
+		RouteName:        "something",
+		ClusterID:        "my-cluster",
+		DNSDomain:        "some.domain.example.com",
+		DNSCapture:       true,
+		DNSAutoAllocate:  false,
+		ListenerPort:     1234,
+		Services:         services,
+		DestinationRules: drs,
+		EnvoyFilterKeys:  []string{ns + "1/a", ns + "2/b", ns + "3/c"},
 	}
 	return key
 }

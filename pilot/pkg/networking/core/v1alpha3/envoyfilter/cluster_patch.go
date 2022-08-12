@@ -34,7 +34,7 @@ import (
 func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper,
 	c *cluster.Cluster, hosts []host.Name,
 ) (out *cluster.Cluster) {
-	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 		IncrementEnvoyFilterErrorMetric(Cluster)
 	})
@@ -123,7 +123,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 	return true, nil
 }
 
-// ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is on so that it is removed.
+// ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is one so that it is removed.
 func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, hosts []host.Name) bool {
 	if efw == nil {
 		return true

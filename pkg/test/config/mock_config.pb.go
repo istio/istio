@@ -24,10 +24,11 @@
 package config
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -177,7 +178,7 @@ func file_pkg_test_config_mock_config_proto_rawDescGZIP() []byte {
 }
 
 var file_pkg_test_config_mock_config_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_pkg_test_config_mock_config_proto_goTypes = []interface{}{
+var file_pkg_test_config_mock_config_proto_goTypes = []any{
 	(*MockConfig)(nil), // 0: config.MockConfig
 	(*ConfigPair)(nil), // 1: config.ConfigPair
 }
@@ -196,7 +197,7 @@ func file_pkg_test_config_mock_config_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_pkg_test_config_mock_config_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_pkg_test_config_mock_config_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*MockConfig); i {
 			case 0:
 				return &v.state
@@ -208,7 +209,7 @@ func file_pkg_test_config_mock_config_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_test_config_mock_config_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_pkg_test_config_mock_config_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*ConfigPair); i {
 			case 0:
 				return &v.state

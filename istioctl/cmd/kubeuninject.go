@@ -236,7 +236,7 @@ func handleAnnotations(annotations map[string]string) map[string]string {
 }
 
 // extractObject extras the sidecar injection and return the uninjected object.
-func extractObject(in runtime.Object) (interface{}, error) {
+func extractObject(in runtime.Object) (any, error) {
 	out := in.DeepCopyObject()
 
 	var metadata *metav1.ObjectMeta

@@ -37,7 +37,7 @@ import (
 // PathValue is a path/value type.
 type PathValue struct {
 	path  string
-	value interface{}
+	value any
 }
 
 // String implements the Stringer interface.
@@ -167,7 +167,7 @@ func hasLabel(o *object.K8sObject, label, value string) bool {
 	if !found {
 		return false
 	}
-	return got.(map[string]interface{})[label] == value
+	return got.(map[string]any)[label] == value
 }
 
 // mustGetService returns the service with the given name or fails if it's not found in objs.
@@ -199,7 +199,7 @@ func mustGetRole(g *gomega.WithT, objs *ObjectSet, name string) *object.K8sObjec
 }
 
 // mustGetContainer returns the container tree with the given name in the deployment with the given name.
-func mustGetContainer(g *gomega.WithT, objs *ObjectSet, deploymentName, containerName string) map[string]interface{} {
+func mustGetContainer(g *gomega.WithT, objs *ObjectSet, deploymentName, containerName string) map[string]any {
 	obj := mustGetDeployment(g, objs, deploymentName)
 	container := obj.Container(containerName)
 	g.Expect(container).Should(gomega.Not(gomega.BeNil()), fmt.Sprintf("Expected to get container %s in deployment %s", containerName, deploymentName))
@@ -224,7 +224,7 @@ func mustGetMutatingWebhookConfiguration(g *gomega.WithT, objs *ObjectSet, mutat
 }
 
 // HavePathValueEqual matches map[string]interface{} tree against a PathValue.
-func HavePathValueEqual(expected interface{}) types.GomegaMatcher {
+func HavePathValueEqual(expected any) types.GomegaMatcher {
 	return &HavePathValueEqualMatcher{
 		expected: expected,
 	}
@@ -232,13 +232,13 @@ func HavePathValueEqual(expected interface{}) types.GomegaMatcher {
 
 // HavePathValueEqualMatcher is a matcher type for HavePathValueEqual.
 type HavePathValueEqualMatcher struct {
-	expected interface{}
+	expected any
 }
 
 // Match implements the Matcher interface.
-func (m *HavePathValueEqualMatcher) Match(actual interface{}) (bool, error) {
+func (m *HavePathValueEqualMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]interface{})
+	node := actual.(map[string]any)
 	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
 	if err != nil || !f {
 		return false, err
@@ -253,21 +253,21 @@ func (m *HavePathValueEqualMatcher) Match(actual interface{}) (bool, error) {
 }
 
 // FailureMessage implements the Matcher interface.
-func (m *HavePathValueEqualMatcher) FailureMessage(actual interface{}) string {
+func (m *HavePathValueEqualMatcher) FailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]interface{})
+	node := actual.(map[string]any)
 	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
-func (m *HavePathValueEqualMatcher) NegatedFailureMessage(actual interface{}) string {
+func (m *HavePathValueEqualMatcher) NegatedFailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]interface{})
+	node := actual.(map[string]any)
 	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 // HavePathValueMatchRegex matches map[string]interface{} tree against a PathValue.
-func HavePathValueMatchRegex(expected interface{}) types.GomegaMatcher {
+func HavePathValueMatchRegex(expected any) types.GomegaMatcher {
 	return &HavePathValueMatchRegexMatcher{
 		expected: expected,
 	}
@@ -275,13 +275,13 @@ func HavePathValueMatchRegex(expected interface{}) types.GomegaMatcher {
 
 // HavePathValueMatchRegexMatcher is a matcher type for HavePathValueMatchRegex.
 type HavePathValueMatchRegexMatcher struct {
-	expected interface{}
+	expected any
 }
 
 // Match implements the Matcher interface.
-func (m *HavePathValueMatchRegexMatcher) Match(actual interface{}) (bool, error) {
+func (m *HavePathValueMatchRegexMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]interface{})
+	node := actual.(map[string]any)
 	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
 	if err != nil || !f {
 		return false, err
@@ -302,21 +302,21 @@ func (m *HavePathValueMatchRegexMatcher) Match(actual interface{}) (bool, error)
 }
 
 // FailureMessage implements the Matcher interface.
-func (m *HavePathValueMatchRegexMatcher) FailureMessage(actual interface{}) string {
+func (m *HavePathValueMatchRegexMatcher) FailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]interface{})
+	node := actual.(map[string]any)
 	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to regex match path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
-func (m *HavePathValueMatchRegexMatcher) NegatedFailureMessage(actual interface{}) string {
+func (m *HavePathValueMatchRegexMatcher) NegatedFailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]interface{})
+	node := actual.(map[string]any)
 	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to regex match path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 // HavePathValueContain matches map[string]interface{} tree against a PathValue.
-func HavePathValueContain(expected interface{}) types.GomegaMatcher {
+func HavePathValueContain(expected any) types.GomegaMatcher {
 	return &HavePathValueContainMatcher{
 		expected: expected,
 	}
@@ -324,13 +324,13 @@ func HavePathValueContain(expected interface{}) types.GomegaMatcher {
 
 // HavePathValueContainMatcher is a matcher type for HavePathValueContain.
 type HavePathValueContainMatcher struct {
-	expected interface{}
+	expected any
 }
 
 // Match implements the Matcher interface.
-func (m *HavePathValueContainMatcher) Match(actual interface{}) (bool, error) {
+func (m *HavePathValueContainMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]interface{})
+	node := actual.(map[string]any)
 	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
 	if err != nil || !f {
 		return false, err
@@ -351,16 +351,16 @@ func (m *HavePathValueContainMatcher) Match(actual interface{}) (bool, error) {
 }
 
 // FailureMessage implements the Matcher interface.
-func (m *HavePathValueContainMatcher) FailureMessage(actual interface{}) string {
+func (m *HavePathValueContainMatcher) FailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]interface{})
+	node := actual.(map[string]any)
 	return fmt.Sprintf("Expected path %s with value \n\n%v\nto be a subset of \n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
-func (m *HavePathValueContainMatcher) NegatedFailureMessage(actual interface{}) string {
+func (m *HavePathValueContainMatcher) NegatedFailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]interface{})
+	node := actual.(map[string]any)
 	return fmt.Sprintf("Expected path %s with value \n\n%v\nto NOT be a subset of \n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
@@ -383,7 +383,7 @@ func mustNotSelect(t test.Failer, selector map[string]string, labels map[string]
 func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]string {
 	t.Helper()
 	got := mustGetPath(t, obj, path)
-	conv, ok := got.(map[string]interface{})
+	conv, ok := got.(map[string]any)
 	if !ok {
 		t.Fatalf("could not convert %v", got)
 	}
@@ -398,7 +398,7 @@ func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]
 	return ret
 }
 
-func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
+func mustGetPath(t test.Failer, obj object.K8sObject, path string) any {
 	t.Helper()
 	got, f, err := tpath.Find(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
 	if err != nil {
@@ -431,7 +431,7 @@ func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
 
 // mustGetValueAtPath returns the value at the given path in the unstructured tree t. Fails if the path is not found
 // in the tree.
-func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) interface{} {
+func mustGetValueAtPath(g *gomega.WithT, t map[string]any, path string) any {
 	got, f, err := tpath.GetPathContext(t, util.PathFromString(path), false)
 	g.Expect(err).Should(gomega.BeNil(), "path %s should exist (%s)", path, err)
 	g.Expect(f).Should(gomega.BeTrue(), "path %s should exist", path)
@@ -454,8 +454,8 @@ func removeDirOrFail(t *testing.T, path string) {
 }
 
 // toMap transforms a comma separated key:value list (e.g. "a:aval, b:bval") to a map.
-func toMap(s string) map[string]interface{} {
-	out := make(map[string]interface{})
+func toMap(s string) map[string]any {
+	out := make(map[string]any)
 	for _, l := range strings.Split(s, ",") {
 		l = strings.TrimSpace(l)
 		kv := strings.Split(l, ":")
@@ -471,8 +471,8 @@ func toMap(s string) map[string]interface{} {
 }
 
 // endpointSubsetAddressVal returns a map having subset address type for an endpint.
-func endpointSubsetAddressVal(hostname, ip, nodeName string) map[string]interface{} {
-	out := make(map[string]interface{})
+func endpointSubsetAddressVal(hostname, ip, nodeName string) map[string]any {
+	out := make(map[string]any)
 	if hostname != "" {
 		out["hostname"] = hostname
 	}
@@ -486,8 +486,8 @@ func endpointSubsetAddressVal(hostname, ip, nodeName string) map[string]interfac
 }
 
 // portVal returns a map having service port type. A value of -1 for port or targetPort leaves those keys unset.
-func portVal(name string, port, targetPort int64) map[string]interface{} {
-	out := make(map[string]interface{})
+func portVal(name string, port, targetPort int64) map[string]any {
+	out := make(map[string]any)
 	if name != "" {
 		out["name"] = name
 	}

@@ -18,9 +18,8 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 type LdsGenerator struct {
@@ -30,20 +29,20 @@ type LdsGenerator struct {
 var _ model.XdsResourceGenerator = &LdsGenerator{}
 
 // Map of all configs that do not impact LDS
-var skippedLdsConfigs = map[model.NodeType]map[config.GroupVersionKind]struct{}{
+var skippedLdsConfigs = map[model.NodeType]map[kind.Kind]struct{}{
 	model.Router: {
 		// for autopassthrough gateways, we build filterchains per-dr subset
-		gvk.WorkloadGroup: {},
-		gvk.WorkloadEntry: {},
-		gvk.Secret:        {},
-		gvk.ProxyConfig:   {},
+		kind.WorkloadGroup: {},
+		kind.WorkloadEntry: {},
+		kind.Secret:        {},
+		kind.ProxyConfig:   {},
 	},
 	model.SidecarProxy: {
-		gvk.Gateway:       {},
-		gvk.WorkloadGroup: {},
-		gvk.WorkloadEntry: {},
-		gvk.Secret:        {},
-		gvk.ProxyConfig:   {},
+		kind.Gateway:       {},
+		kind.WorkloadGroup: {},
+		kind.WorkloadEntry: {},
+		kind.Secret:        {},
+		kind.ProxyConfig:   {},
 	},
 }
 
@@ -76,7 +75,7 @@ func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	for _, c := range listeners {
 		resources = append(resources, &discovery.Resource{
 			Name:     c.Name,
-			Resource: util.MessageToAny(c),
+			Resource: protoconv.MessageToAny(c),
 		})
 	}
 	return resources, model.DefaultXdsLogDetails, nil

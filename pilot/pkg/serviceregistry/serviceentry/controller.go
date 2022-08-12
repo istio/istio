@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -248,6 +249,8 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		if labels.Instance(oldWle.Labels).Equals(curr.Labels) {
 			oldSes = currSes
 		} else {
+			// labels update should trigger proxy update
+			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address)
 			oldSes = getWorkloadServiceEntries(cfgs, oldWle)
 		}
 	}
@@ -264,6 +267,11 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesUpdated = append(instancesUpdated, instance...)
+		if event == model.EventDelete {
+			s.serviceInstances.deleteServiceEntryInstances(namespacedName, key)
+		} else {
+			s.serviceInstances.updateServiceEntryInstancesPerConfig(namespacedName, key, instance)
+		}
 		addConfigs(se, services)
 	}
 
@@ -278,6 +286,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesDeleted = append(instancesDeleted, instance...)
+		s.serviceInstances.deleteServiceEntryInstances(namespacedName, key)
 		addConfigs(se, services)
 	}
 
@@ -318,7 +327,7 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 	configsUpdated := map[model.ConfigKey]struct{}{}
 	for _, svc := range services {
 		configsUpdated[model.ConfigKey{
-			Kind:      gvk.ServiceEntry,
+			Kind:      kind.ServiceEntry,
 			Name:      string(svc.Hostname),
 			Namespace: svc.Attributes.Namespace,
 		}] = struct{}{}
@@ -328,6 +337,7 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 
 // serviceEntryHandler defines the handler for service entries
 func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Event) {
+	log.Debugf("Handle event %s for service entry %s/%s", event, curr.Namespace, curr.Name)
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}
@@ -485,6 +495,8 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 
 	instances := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
+	configsUpdated := map[model.ConfigKey]struct{}{}
+	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
 		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
@@ -507,6 +519,20 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		} else {
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
 		}
+		// If serviceentry's resolution is DNS, make a full push
+		// TODO: maybe cds?
+		if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
+			se.WorkloadSelector != nil {
+
+			fullPush = true
+			for _, inst := range instance {
+				configsUpdated[model.ConfigKey{
+					Kind:      kind.ServiceEntry,
+					Name:      string(inst.Service.Hostname),
+					Namespace: cfg.Namespace,
+				}] = struct{}{}
+			}
+		}
 	}
 	if len(instancesDeleted) > 0 {
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
@@ -520,6 +546,20 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	s.mutex.Unlock()
 
 	s.edsUpdate(instances)
+
+	// ServiceEntry with WorkloadEntry results in STRICT_DNS cluster with hardcoded endpoints
+	// need to update CDS to refresh endpoints
+	// https://github.com/istio/istio/issues/39505
+	if fullPush {
+		log.Debugf("Full push triggered during event %s for workload instance (%s/%s) in namespace %s", event,
+			wi.Kind, wi.Endpoint.Address, wi.Namespace)
+		pushReq := &model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: configsUpdated,
+			Reason:         []model.TriggerReason{model.EndpointUpdate},
+		}
+		s.XdsUpdater.ConfigUpdate(pushReq)
+	}
 }
 
 func (s *Controller) Provider() provider.ID {
@@ -762,15 +802,6 @@ func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 	return nil
 }
 
-// GetIstioServiceAccounts implements model.ServiceAccounts operation
-// For service entries using workload entries or mix of workload entries and pods,
-// this function returns the appropriate service accounts used by these.
-func (s *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	// service entries with built in endpoints have SANs as a dedicated field.
-	// Those with selector labels will have service accounts embedded inside workloadEntries and pods as well.
-	return model.GetServiceAccounts(svc, ports, s)
-}
-
 func (s *Controller) NetworkGateways() []model.NetworkGateway {
 	// TODO implement mesh networks loading logic from kube controller if needed
 	return nil
@@ -882,7 +913,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 
 func makeConfigKey(svc *model.Service) model.ConfigKey {
 	return model.ConfigKey{
-		Kind:      gvk.ServiceEntry,
+		Kind:      kind.ServiceEntry,
 		Name:      string(svc.Hostname),
 		Namespace: svc.Attributes.Namespace,
 	}

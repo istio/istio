@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/mcs"
 )
@@ -139,7 +139,7 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 	})
 }
 
-func (ic *serviceImportCacheImpl) onServiceImportEvent(obj interface{}, event model.Event) error {
+func (ic *serviceImportCacheImpl) onServiceImportEvent(obj any, event model.Event) error {
 	si, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -219,7 +219,7 @@ func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
 	pushReq := &model.PushRequest{
 		Full: true,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind:      gvk.ServiceEntry,
+			Kind:      kind.ServiceEntry,
 			Name:      mcsHost.String(),
 			Namespace: ns,
 		}: {}},
@@ -232,8 +232,8 @@ func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
 // Exported for testing only.
 func GetServiceImportIPs(si *unstructured.Unstructured) []string {
 	var ips []string
-	if spec, ok := si.Object["spec"].(map[string]interface{}); ok {
-		if rawIPs, ok := spec["ips"].([]interface{}); ok {
+	if spec, ok := si.Object["spec"].(map[string]any); ok {
+		if rawIPs, ok := spec["ips"].([]any); ok {
 			for _, rawIP := range rawIPs {
 				ip := rawIP.(string)
 				if net.ParseIP(ip) != nil {

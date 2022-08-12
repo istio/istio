@@ -108,6 +108,7 @@ const (
 	OutputPath                = "output-paths"
 	NetworkNamespace          = "network-namespace"
 	CNIMode                   = "cni-mode"
+	HostNSEnterExec           = "host-nsenter-exec"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.

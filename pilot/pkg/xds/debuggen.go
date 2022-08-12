@@ -23,7 +23,7 @@ import (
 	"strconv"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -76,10 +76,11 @@ func NewResponseCapture() *ResponseCapture {
 	}
 }
 
-func NewDebugGen(s *DiscoveryServer, systemNamespace string) *DebugGen {
+func NewDebugGen(s *DiscoveryServer, systemNamespace string, debugMux *http.ServeMux) *DebugGen {
 	return &DebugGen{
 		Server:          s,
 		SystemNamespace: systemNamespace,
+		DebugMux:        debugMux,
 	}
 }
 
@@ -122,7 +123,7 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	buffer.Write(response.body.Bytes())
 	res = append(res, &discovery.Resource{
 		Name: resourceName,
-		Resource: &any.Any{
+		Resource: &anypb.Any{
 			TypeUrl: TypeDebug,
 			Value:   buffer.Bytes(),
 		},

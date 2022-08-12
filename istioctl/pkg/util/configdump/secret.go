@@ -20,7 +20,7 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	extapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 // GetSecretsConfigDump retrieves a secret dump from a config dump wrapper
@@ -38,7 +38,7 @@ func (w *Wrapper) GetSecretConfigDump() (*adminapi.SecretsConfigDump, error) {
 }
 
 // GetRootCAFromSecretConfigDump retrieves root CA from a secret config dump wrapper
-func (w *Wrapper) GetRootCAFromSecretConfigDump(anySec *any.Any) (string, error) {
+func (w *Wrapper) GetRootCAFromSecretConfigDump(anySec *anypb.Any) (string, error) {
 	var secret extapi.Secret
 	if err := anySec.UnmarshalTo(&secret); err != nil {
 		return "", fmt.Errorf("failed to unmarshall ROOTCA secret: %v", err)

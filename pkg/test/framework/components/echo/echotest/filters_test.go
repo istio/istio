@@ -133,7 +133,7 @@ func TestFilters(t *testing.T) {
 		filter func(echo.Instances) echo.Instances
 		expect echo.Instances
 	}{
-		"SingleSimplePodServiceAndAllSpecial": {
+		"SimplePodServiceAndAllSpecial": {
 			filter: echotest.SingleSimplePodServiceAndAllSpecial(),
 			expect: echo.Instances{
 				// Keep pods for one regular service per namespace.
@@ -223,7 +223,7 @@ func TestRun(t *testing.T) {
 			"Run_WithDefaultFilters": {
 				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
 					echotest.New(t, all).
-						WithDefaultFilters().
+						WithDefaultFilters(1, 1).
 						Run(func(ctx framework.TestContext, from echo.Instance, to echo.Target) {
 							// TODO if the destinations would change based on which cluster then add cluster to srCkey
 							fromKey := from.Config().ClusterLocalFQDN()
@@ -273,7 +273,7 @@ func TestRun(t *testing.T) {
 			"RunToN": {
 				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
 					echotest.New(t, all).
-						WithDefaultFilters().
+						WithDefaultFilters(1, 1).
 						FromMatch(match.And(match.NotNaked, match.NotHeadless)).
 						ToMatch(match.NotHeadless).
 						RunToN(3, func(ctx framework.TestContext, from echo.Instance, dsts echo.Services) {
@@ -403,6 +403,10 @@ func (f fakeInstance) Call(echo.CallOptions) (echo.CallResult, error) {
 }
 
 func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echo.CallResult {
+	panic("implement me")
+}
+
+func (f fakeInstance) UpdateWorkloadLabel(add map[string]string, remove []string) error {
 	panic("implement me")
 }
 

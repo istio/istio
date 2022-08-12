@@ -101,7 +101,7 @@ func verifySyncStatus(t *testing.T, s *xds.DiscoveryServer, nodeID string, wantS
 	attempts := 5
 	for i := 0; i < attempts; i++ {
 		gotStatus := getSyncStatus(t, s)
-		var errorHandler func(string, ...interface{})
+		var errorHandler func(string, ...any)
 		if i == attempts-1 {
 			errorHandler = t.Errorf
 		} else {

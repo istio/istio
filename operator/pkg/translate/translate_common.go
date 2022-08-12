@@ -49,7 +49,7 @@ func IsComponentEnabledInSpec(componentName name.ComponentName, controlPlaneSpec
 
 // IsComponentEnabledFromValue get whether component is enabled in helm value.yaml tree.
 // valuePath points to component path in the values tree.
-func IsComponentEnabledFromValue(cn name.ComponentName, valueSpec map[string]interface{}) (enabled bool, pathExist bool, err error) {
+func IsComponentEnabledFromValue(cn name.ComponentName, valueSpec map[string]any) (enabled bool, pathExist bool, err error) {
 	t := NewTranslator()
 	cnMap, ok := t.ComponentMaps[cn]
 	if !ok {

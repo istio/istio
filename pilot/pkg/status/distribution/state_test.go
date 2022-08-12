@@ -151,7 +151,7 @@ func Test_getTypedStatus(t *testing.T) {
 	b, _ := json.Marshal(statusStillPropagating)
 	_ = json.Unmarshal(b, &x)
 	type args struct {
-		in interface{}
+		in any
 	}
 	tests := []struct {
 		name    string

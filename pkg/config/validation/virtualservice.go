@@ -42,7 +42,7 @@ func getHTTPRouteType(http *networking.HTTPRoute, isDelegate bool) HTTPRouteType
 	return IndependentRoute
 }
 
-func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validation) {
+func validateHTTPRoute(http *networking.HTTPRoute, delegate, gatewaySemantics bool) (errs Validation) {
 	routeType := getHTTPRouteType(http, delegate)
 	// check for conflicts
 	errs = WrapError(validateHTTPRouteConflict(http, routeType))
@@ -97,10 +97,11 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validati
 
 	errs = appendValidation(errs, validateDestination(http.Mirror))
 	errs = appendValidation(errs, validateHTTPRedirect(http.Redirect))
+	errs = appendValidation(errs, validateHTTPDirectResponse(http.DirectResponse))
 	errs = appendValidation(errs, validateHTTPRetry(http.Retries))
 	errs = appendValidation(errs, validateHTTPRewrite(http.Rewrite))
 	errs = appendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
-	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route))
+	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route, gatewaySemantics))
 	if http.Timeout != nil {
 		errs = appendValidation(errs, ValidateDuration(http.Timeout))
 	}
@@ -229,8 +230,28 @@ func validateHTTPRouteConflict(http *networking.HTTPRoute, routeType HTTPRouteTy
 		if http.Rewrite != nil {
 			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and redirect"))
 		}
+
+		if http.DirectResponse != nil {
+			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both direct_response and redirect"))
+		}
+	} else if http.DirectResponse != nil {
+		if len(http.Route) > 0 {
+			errs = appendErrors(errs, errors.New("HTTP route cannot contain both route and direct_response"))
+		}
+
+		if http.Fault != nil {
+			errs = appendErrors(errs, errors.New("HTTP route cannot contain both fault and direct_response"))
+		}
+
+		if http.Rewrite != nil {
+			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and direct_response"))
+		}
+
+		if http.Redirect != nil {
+			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both redirect and direct_response"))
+		}
 	} else if len(http.Route) == 0 {
-		errs = appendErrors(errs, errors.New("HTTP route or redirect is required"))
+		errs = appendErrors(errs, errors.New("HTTP route, redirect or direct_response is required"))
 	}
 
 	return errs

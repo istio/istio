@@ -90,7 +90,7 @@ spec:
 func TestTrustDomainValidation(t *testing.T) {
 	framework.NewTest(t).Features("security.peer.trust-domain-validation").Run(
 		func(ctx framework.TestContext) {
-			testNS := apps.Namespace
+			testNS := apps.EchoNamespace.Namespace
 
 			ctx.ConfigIstio().YAML(testNS.Name(), fmt.Sprintf(policy, testNS.Name())).ApplyOrFail(ctx)
 
@@ -113,9 +113,9 @@ func TestTrustDomainValidation(t *testing.T) {
 					// naked: only test app without sidecar, send requests from trust domain aliases
 					// client: app with sidecar, send request from cluster.local
 					// server: app with sidecar, verify requests from cluster.local or trust domain aliases
-					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
+					client := match.Cluster(cluster).FirstOrFail(t, client)
 					naked := match.Cluster(cluster).FirstOrFail(t, apps.Naked)
-					server := match.Cluster(cluster).FirstOrFail(t, apps.Server)
+					server := match.Cluster(cluster).FirstOrFail(t, server)
 					verify := func(ctx framework.TestContext, from echo.Instance, td, port string, s scheme.Instance, allow bool) {
 						ctx.Helper()
 						want := "allow"
@@ -126,7 +126,7 @@ func TestTrustDomainValidation(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opt := echo.CallOptions{
-								To:    apps.Server,
+								To:    server,
 								Count: 1,
 								Port: echo.Port{
 									Name: port,

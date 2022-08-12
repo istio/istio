@@ -159,7 +159,7 @@ func applyProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshco
 	return proxyConfig, nil
 }
 
-func extractYamlField(key string, mp map[string]interface{}) (string, error) {
+func extractYamlField(key string, mp map[string]any) (string, error) {
 	proxyConfig := mp[key]
 	if proxyConfig == nil {
 		return "", nil
@@ -171,8 +171,8 @@ func extractYamlField(key string, mp map[string]interface{}) (string, error) {
 	return string(bytes), nil
 }
 
-func toMap(yamlText string) (map[string]interface{}, error) {
-	mp := map[string]interface{}{}
+func toMap(yamlText string) (map[string]any, error) {
+	mp := map[string]any{}
 	if err := yaml.Unmarshal([]byte(yamlText), &mp); err != nil {
 		return nil, err
 	}
