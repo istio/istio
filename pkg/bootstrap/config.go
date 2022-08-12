@@ -631,6 +631,39 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}, nil
 }
 
+func GetNodeMetaDataLabels(platform platform.Environment) (map[string]string, error) {
+	meta := &model.BootstrapNodeMetadata{}
+
+	// extract ISTIO_METAJSON_LABELS
+	extractAttributesMetadata(os.Environ(), platform, meta)
+	// Add all instance labels with lower precedence than pod labels
+	extractInstanceLabels(platform, meta)
+
+	// Add all pod labels found from filesystem
+	// These are typically volume mounted by the downward API
+	lbls, err := readPodLabels()
+	if err == nil {
+		if meta.Labels == nil {
+			meta.Labels = map[string]string{}
+		}
+		for k, v := range lbls {
+			// ignore `pod-template-hash` label
+			if k == DefaultDeploymentUniqueLabelKey {
+				continue
+			}
+			meta.Labels[k] = v
+		}
+	} else {
+		if os.IsNotExist(err) {
+			log.Debugf("failed to read pod labels: %v", err)
+		} else {
+			log.Warnf("failed to read pod labels: %v", err)
+		}
+	}
+
+	return meta.Labels, nil
+}
+
 // ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.
 func ConvertNodeToXDSNode(node *model.Node) *core.Node {
 	// First pass translates typed metadata
