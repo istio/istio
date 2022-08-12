@@ -456,6 +456,9 @@ var (
 	XDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 60000,
 		"The maximum number of cache entries for the XDS cache.").Get()
 
+	EnableQueueMetrics = env.RegisterBoolVar("PILOT_QUEUE_STATS", false,
+		"If true, Pilot will collect metrics for internal queues.").Get()
+
 	// Note: while this appears unused in the go code, this sets a default which is used in the injection template.
 	EnableLegacyFSGroupInjection = env.RegisterBoolVar("ENABLE_LEGACY_FSGROUP_INJECTION", false,
 		"If true, Istiod will set the pod fsGroup to 1337 on injection. This is required for Kubernetes 1.18 and older "+
