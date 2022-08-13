@@ -59,15 +59,26 @@ popd
 pushd "$SCRIPTDIR/reviews"
   #java build the app.
   docker run --rm -u root -v "$(pwd)":/home/gradle/project -w /home/gradle/project gradle:4.8.1 gradle clean build
+  
+  # Temporarily clone https://github.com/OpenLiberty/ci.docker
+  # to allow this project to build multiarch(linux/arm64) images not provided by the OpenLiberty CI
+  # Remove this workaround once https://github.com/OpenLiberty/ci.docker/issues/241 is fixed
+  git clone https://github.com/OpenLiberty/ci.docker.git openliberty-base
+  pushd openliberty-base
+    ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/websphere-liberty:22.0.0.8-full-java8-ibmjava" -f releases/22.0.0.8/full/Dockerfile.ubuntu.openjdk8 releases/22.0.0.8/full 
+  popd
+  rm -rf openliberty-base 
+  
   pushd reviews-wlpcfg
     #plain build -- no ratings
-    ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-reviews-v1:${VERSION}" -t "${PREFIX}/examples-bookinfo-reviews-v1:latest" --build-arg service_version=v1 .
+    ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-reviews-v1:${VERSION}" -t "${PREFIX}/examples-bookinfo-reviews-v1:latest" --build-arg service_version=v1 \
+	    --build-arg REPO=${PREFIX} .
     #with ratings black stars
     ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-reviews-v2:${VERSION}" -t "${PREFIX}/examples-bookinfo-reviews-v2:latest" --build-arg service_version=v2 \
-	   --build-arg enable_ratings=true .
+	   --build-arg enable_ratings=true --build-arg REPO=${PREFIX} .
     #with ratings red stars
     ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-reviews-v3:${VERSION}" -t "${PREFIX}/examples-bookinfo-reviews-v3:latest" --build-arg service_version=v3 \
-	   --build-arg enable_ratings=true --build-arg star_color=red .
+	   --build-arg enable_ratings=true --build-arg star_color=red --build-arg REPO=${PREFIX} .
   popd
 popd
 
