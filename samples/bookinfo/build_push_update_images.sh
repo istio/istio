@@ -100,7 +100,7 @@ function run_vulnerability_scanning() {
 for IMAGE in ${IMAGES};
 do
   # Multiarch images have already been pushed using buildx build	
-  if [[ "ENABLE_MULTIARCH_IMAGES" == "false" ]]; then	
+  if [[ "${ENABLE_MULTIARCH_IMAGES}" == "false" ]]; then	
   	echo "Pushing: ${IMAGE}"
   	docker push "${IMAGE}";
   fi
