@@ -44,8 +44,6 @@ const (
 	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
 	// This cluster is created in bootstrap.
 	EnvoyAccessLogCluster = "envoy_accesslog_service"
-
-	requestWithoutQuery = "%REQ_WITHOUT_QUERY"
 )
 
 var (
