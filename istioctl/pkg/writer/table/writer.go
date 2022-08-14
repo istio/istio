@@ -49,10 +49,7 @@ type Row struct {
 }
 
 func NewCell(value string, attributes ...color.Attribute) Cell {
-	attrs := make([]color.Attribute, 0)
-	for _, a := range attributes {
-		attrs = append(attrs, a)
-	}
+	attrs := append([]color.Attribute{}, attributes...)
 	return Cell{value, attrs}
 }
 
@@ -60,8 +57,9 @@ func (cell Cell) String() string {
 	if len(cell.Attributes) == 0 {
 		return cell.Value
 	}
-	cell.Value = color.New(cell.Attributes...).Sprint(cell.Value)
-	return cell.Value
+	s := color.New(cell.Attributes...)
+	s.EnableColor()
+	return s.Sprintf("%s", cell.Value)
 }
 
 func (c *coloredTableWriter) getTableOutput(allRows []Row) [][]Cell {
@@ -121,7 +119,7 @@ func getMaxWidths(output [][]Cell) []int {
 	widths := make([]int, len(output[0]))
 	for _, row := range output {
 		for i, col := range row {
-			widths[i] = max(widths[i], len(col.Value))
+			widths[i] = max(widths[i], len(col.String()))
 		}
 	}
 	return widths

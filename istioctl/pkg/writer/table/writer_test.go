@@ -53,10 +53,10 @@ func TestWriter(t *testing.T) {
 	w.AddRow(newTestObject("baz", "qux", "2.0"))
 	w.AddRow(newTestObject("qux", "quux", "3"))
 	w.Flush()
-	expected := "NAME  NAMESPACE  VERSION\n" +
-		"foo   \x1b[32mbar\x1b[0m        1.0\n" +
-		"baz   \x1b[32mqux\x1b[0m        2.0\n" +
-		"qux   \x1b[32mquux\x1b[0m       3\n"
+	expected := "NAME  NAMESPACE      VERSION\n" +
+		"foo   \x1b[32mbar\x1b[0m            1.0\n" +
+		"baz   \x1b[32mqux\x1b[0m            2.0\n" +
+		"qux   \x1b[32mquux\x1b[0m           3\n"
 	if got.String() != expected {
 		t.Errorf("got %q, want %q", got.String(), expected)
 	}
