@@ -812,8 +812,9 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 	// unable to distinguish between set and unset case currently GregHanson
 	// 1024 is the default value for envoy
 	minRingSize := &wrappers.UInt64Value{Value: 1024}
-	if consistentHash.MinimumRingSize != 0 {
-		minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
+
+	if consistentHash.MinimumRingSize != 0 { //nolint: staticcheck
+		minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()} //nolint: staticcheck
 	}
 	c.LbPolicy = cluster.Cluster_RING_HASH
 	c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
