@@ -24,7 +24,6 @@ import (
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -87,14 +86,6 @@ var (
 
 	// accessLogBuilder is used to set accessLog to filters
 	accessLogBuilder = newAccessLogBuilder()
-
-	// accessLogFormatters configures additional formatters needed for some of the format strings like "REQ_WITHOUT_QUERY"
-	accessLogFormatters = []*core.TypedExtensionConfig{
-		{
-			Name:        "envoy.formatter.req_without_query",
-			TypedConfig: protoconv.MessageToAny(&formatters.ReqWithoutQuery{}),
-		},
-	}
 )
 
 type AccessLogBuilder struct {
