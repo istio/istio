@@ -18,12 +18,10 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -35,6 +33,7 @@ import (
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
 
@@ -128,7 +127,7 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 			key, cert := c.tlsOpts.Key, c.tlsOpts.Cert
 			if cert != "" {
 				var isExpired bool
-				isExpired, err = c.isCertExpired(cert)
+				isExpired, err = util.IsCertExpired(cert)
 				if err != nil {
 					citadelClientLog.Warnf("cannot parse the cert chain, using token instead: %v", err)
 					return &certificate, nil
@@ -185,25 +184,6 @@ func getRootCertificate(rootCertFile string) (*x509.CertPool, error) {
 	}
 	citadelClientLog.Info("Citadel client using custom root cert: ", rootCertFile)
 	return certPool, nil
-}
-
-func (c *CitadelClient) isCertExpired(filepath string) (bool, error) {
-	var err error
-	var certPEMBlock []byte
-	certPEMBlock, err = os.ReadFile(filepath)
-	if err != nil {
-		return true, fmt.Errorf("failed to read the cert, error is %v", err)
-	}
-	var certDERBlock *pem.Block
-	certDERBlock, _ = pem.Decode(certPEMBlock)
-	if certDERBlock == nil {
-		return true, fmt.Errorf("failed to decode certificate")
-	}
-	x509Cert, err := x509.ParseCertificate(certDERBlock.Bytes)
-	if err != nil {
-		return true, fmt.Errorf("failed to parse the cert, err is %v", err)
-	}
-	return x509Cert.NotAfter.Before(time.Now()), nil
 }
 
 func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
