@@ -15,18 +15,15 @@
 package v1alpha3
 
 import (
-	"strings"
 	"sync"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	cel "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/filters/cel/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -34,8 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -48,8 +43,6 @@ const (
 	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
 	// This cluster is created in bootstrap.
 	EnvoyAccessLogCluster = "envoy_accesslog_service"
-
-	requestWithoutQuery = "%REQ_WITHOUT_QUERY"
 )
 
 var (
@@ -93,14 +86,6 @@ var (
 
 	// accessLogBuilder is used to set accessLog to filters
 	accessLogBuilder = newAccessLogBuilder()
-
-	// accessLogFormatters configures additional formatters needed for some of the format strings like "REQ_WITHOUT_QUERY"
-	accessLogFormatters = []*core.TypedExtensionConfig{
-		{
-			Name:        "envoy.formatter.req_without_query",
-			TypedConfig: protoconv.MessageToAny(&formatters.ReqWithoutQuery{}),
-		},
-	}
 )
 
 type AccessLogBuilder struct {
@@ -241,74 +226,13 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	}
 }
 
-func fileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
-	// We need to build access log. This is needed either on first access or when mesh config changes.
-	fl := &fileaccesslog.FileAccessLog{
-		Path: path,
-	}
-	needsFormatter := false
-	switch mesh.AccessLogEncoding {
-	case meshconfig.MeshConfig_TEXT:
-		formatString := model.EnvoyTextLogFormat
-		if mesh.AccessLogFormat != "" {
-			formatString = mesh.AccessLogFormat
-		}
-		needsFormatter = strings.Contains(formatString, requestWithoutQuery)
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_TextFormatSource{
-					TextFormatSource: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							InlineString: formatString,
-						},
-					},
-				},
-			},
-		}
-	case meshconfig.MeshConfig_JSON:
-		jsonLogStruct := EnvoyJSONLogFormatIstio
-		if len(mesh.AccessLogFormat) > 0 {
-			parsedJSONLogStruct := structpb.Struct{}
-			if err := protomarshal.UnmarshalAllowUnknown([]byte(mesh.AccessLogFormat), &parsedJSONLogStruct); err != nil {
-				log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
-			} else {
-				jsonLogStruct = &parsedJSONLogStruct
-			}
-		}
-		for _, value := range jsonLogStruct.Fields {
-			if strings.Contains(value.GetStringValue(), requestWithoutQuery) {
-				needsFormatter = true
-				break
-			}
-		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_JsonFormat{
-					JsonFormat: jsonLogStruct,
-				},
-			},
-		}
-	default:
-		log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)
-	}
-	if needsFormatter {
-		fl.GetLogFormat().Formatters = accessLogFormatters
-	}
-	al := &accesslog.AccessLog{
-		Name:       wellknown.FileAccessLog,
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
-	}
-
-	return al
-}
-
 func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	if cal := b.cachedFileAccessLog(); cal != nil {
 		return cal
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	al := fileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
+	al := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -349,7 +273,7 @@ func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfi
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	lal := fileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
+	lal := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
 	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 	// not get filter Access Logs like in cases like NR to upstream.
 	lal.Filter = addAccessLogFilter()
