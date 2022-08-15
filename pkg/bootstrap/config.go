@@ -533,6 +533,12 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta := &model.BootstrapNodeMetadata{}
 	untypedMeta := map[string]any{}
 
+	for k, v := range options.ProxyConfig.GetProxyMetadata() {
+		if strings.HasPrefix(k, IstioMetaPrefix) {
+			untypedMeta[strings.TrimPrefix(k, IstioMetaPrefix)] = v
+		}
+	}
+
 	extractMetadata(options.Envs, IstioMetaPrefix, func(m map[string]any, key string, val string) {
 		m[key] = val
 	}, untypedMeta)
@@ -543,12 +549,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
 		}
 	}, untypedMeta)
-
-	for k, v := range options.ProxyConfig.GetProxyMetadata() {
-		if strings.HasPrefix(k, IstioMetaPrefix) {
-			untypedMeta[strings.TrimPrefix(k, IstioMetaPrefix)] = v
-		}
-	}
 
 	j, err := json.Marshal(untypedMeta)
 	if err != nil {
