@@ -33,6 +33,8 @@ spec:
       envoyHttpAls:
     - name: envoyTcpAls
       envoyTcpAls:
+    - name: opentelemetry
+      opentelemetry:
   components:
     egressGateways:
     - name: istio-egressgateway
