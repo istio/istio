@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue: []
+
+docs: []
+
+releaseNotes:
+- |
+  **Added** values to the Istio Gateway Helm chart for configuring [terminationGracePeriodSeconds](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/) on the Deployment. Can be used to allow graceful termination of connections before pods are terminated.
+
+upgradeNotes: []
+
+securityNotes: []

@@ -195,6 +195,12 @@
           }
         }
       }
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer"
+    },
+    "lifecycle": {
+      "type": "object"
     }
   }
 }
