@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: feature
-area: samples 
+area: documentation
 issue:
   - 40405
 
