@@ -84,9 +84,10 @@ func httpVirtualService(gateway, host string, port int) string {
 	return tmpl.MustEvaluate(httpVirtualServiceTmpl, struct {
 		Gateway            string
 		VirtualServiceHost string
+		DestinationHost    string
 		Port               int
 		MatchScheme        string
-	}{gateway, host, port, ""})
+	}{gateway, host, "", port, ""})
 }
 
 const gatewayTmpl = `
@@ -1819,6 +1820,11 @@ func hostCases(t TrafficContext) {
 		}
 		for _, h := range hosts {
 			name := strings.Replace(h, address, "ip", -1) + "/http"
+			assertion := check.And(check.OK(), check.MTLSForHTTP())
+			if strings.Contains(name, "ip") {
+				// we expect to actually do passthrough for the IP case
+				assertion = check.OK()
+			}
 			t.RunTraffic(TrafficTestCase{
 				name: name,
 				call: c.CallOrFail,
@@ -1831,7 +1837,7 @@ func hostCases(t TrafficContext) {
 						Headers: HostHeader(h),
 					},
 					// check mTLS to ensure we are not hitting pass-through cluster
-					Check: check.And(check.OK(), check.MTLSForHTTP()),
+					Check: assertion,
 				},
 			})
 		}
