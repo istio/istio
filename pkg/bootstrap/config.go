@@ -545,6 +545,12 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		}
 	}, untypedMeta)
 
+	for k, v := range options.ProxyConfig.ProxyMetadata {
+		if strings.HasPrefix(k, IstioMetaPrefix) {
+			untypedMeta[strings.TrimPrefix(k, IstioMetaPrefix)] = v
+		}
+	}
+
 	j, err := json.Marshal(untypedMeta)
 	if err != nil {
 		return nil, err
