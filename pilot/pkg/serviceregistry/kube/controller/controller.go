@@ -1220,7 +1220,7 @@ func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
 // from the Pod. This allows retrieving Instances immediately, regardless of delays in Kubernetes.
 // If the proxy doesn't have enough metadata, an error is returned
 func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	if len(proxy.Metadata.Labels) == 0 {
+	if len(proxy.Labels) == 0 {
 		return nil, nil
 	}
 
@@ -1232,7 +1232,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	dummyPod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: proxy.ConfigNamespace,
-			Labels:    proxy.Metadata.Labels,
+			Labels:    proxy.Labels,
 		},
 	}
 

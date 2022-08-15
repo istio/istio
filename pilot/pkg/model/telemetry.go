@@ -419,7 +419,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 			continue
 		}
 		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-		if selector.SubsetOf(proxy.Metadata.Labels) {
+		if selector.SubsetOf(proxy.Labels) {
 			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
 			ls = append(ls, &computedAccessLogging{
