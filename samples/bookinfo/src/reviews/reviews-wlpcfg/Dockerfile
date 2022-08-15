@@ -12,8 +12,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-ARG REPO=istio
-FROM $REPO/websphere-liberty:22.0.0.8-full-java8-ibmjava
+ARG REGISTRY=istio
+FROM $REGISTRY/websphere-liberty:22.0.0.8-full-java8-ibmjava
 
 ENV SERVERDIRNAME reviews
 
