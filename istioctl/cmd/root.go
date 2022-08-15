@@ -222,8 +222,7 @@ debug and diagnose their Istio mesh.
 	group.Commands = append(group.Commands, experimentalCmd, proxyConfig(), adminCmd())
 	experimentalCmd.AddCommand(injectorCommand())
 
-	group.Commands = append(group.Commands, install.NewVerifyCommand())
-	group.Commands = append(group.Commands, mesh.UninstallCmd(loggingOptions))
+	group.Commands = append(group.Commands, install.NewVerifyCommand(), mesh.UninstallCmd(loggingOptions))
 	experimentalCmd.AddCommand(AuthZ())
 	group.Commands = append(group.Commands, seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(uninjectCommand())
