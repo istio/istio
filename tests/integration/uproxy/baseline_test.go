@@ -460,12 +460,28 @@ func TestMTLS(t *testing.T) {
 					Namespace:  systemNM,
 					Include:    Always,
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
-						if from.Config().IsUncaptured() || opts.To.Config().IsUncaptured() {
-							// naked->naked should always succeed.
-							return true
+						if from.Config().HasProxyCapabilities() != opts.To.Config().HasProxyCapabilities() {
+							if from.Config().HasProxyCapabilities() && !from.Config().IsRemote() {
+								if from.Config().HasSidecar() && !opts.To.Config().HasProxyCapabilities() {
+									// Sidecar respects it ISTIO_MUTUAL, will only send mTLS
+									return false
+								}
+								return true
+							}
+							if !from.Config().HasProxyCapabilities() && opts.To.Config().IsRemote() {
+								// TODO: support hairpin
+								return true
+							}
+							if !from.Config().HasProxyCapabilities() && !opts.To.Config().HasSidecar() {
+								// TODO: https://github.com/solo-io/istio-sidecarless/issues/243
+								return true
+							}
+							return false
 						}
-						// If one of the two endpoints is naked, expect failure.
-						return !from.Config().IsUncaptured() && !opts.To.Config().IsUncaptured()
+						if !from.Config().HasProxyCapabilities() && opts.To.Config().HasSidecar() {
+							return false
+						}
+						return true
 					},
 					ExpectMTLS: mtlsOnExpect,
 				},
@@ -476,8 +492,13 @@ func TestMTLS(t *testing.T) {
 						// Exclude calls to naked since we are applying ISTIO_MUTUAL
 						return !opts.To.Config().IsNaked()
 					},
-					ExpectSuccess: Always,
-					ExpectMTLS:    mtlsOnExpect,
+					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
+						if (from.Config().IsRemote() || from.Config().HasSidecar()) && !opts.To.Config().HasProxyCapabilities() {
+							return false
+						}
+						return true
+					},
+					ExpectMTLS: mtlsOnExpect,
 				},
 				{
 					ConfigFile:    "beta-mtls-off.yaml",
@@ -503,10 +524,14 @@ func TestMTLS(t *testing.T) {
 					Namespace:  apps.Namespace,
 					Include:    Always,
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
+						if !from.Config().HasProxyCapabilities() && !opts.To.Config().HasSidecar() {
+							// TODO: https://github.com/solo-io/istio-sidecarless/issues/243
+							return true
+						}
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
 						// have proxy neither.
-						if from.Config().IsNaked() {
-							return opts.To.Config().IsNaked()
+						if !from.Config().HasProxyCapabilities() {
+							return !opts.To.Config().HasProxyCapabilities()
 						}
 						return true
 					},
@@ -519,8 +544,18 @@ func TestMTLS(t *testing.T) {
 						// Exclude calls to naked since we are applying ISTIO_MUTUAL
 						return !opts.To.Config().IsNaked()
 					},
-					ExpectSuccess: Always, // No PeerAuthN should default to a PERMISSIVE.
-					ExpectMTLS:    mtlsOnExpect,
+					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
+						if from.Config().HasSidecar() && !opts.To.Config().HasProxyCapabilities() {
+							// Sidecar respects it
+							return false
+						}
+						if from.Config().IsRemote() && !opts.To.Config().HasProxyCapabilities() {
+							// Remote respects it
+							return false
+						}
+						return true
+					},
+					ExpectMTLS: mtlsOnExpect,
 				},
 				{
 					ConfigFile: "global-plaintext.yaml",
@@ -541,7 +576,17 @@ func TestMTLS(t *testing.T) {
 						// EndpointSlice's for VMs this might work.
 						return !opts.To.Config().IsVM()
 					},
-					ExpectSuccess: Always,
+					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
+						// nolint: gosimple
+						if from.Config().IsRemote() {
+							if opts.To.Config().IsRemote() {
+								return true
+							}
+							// TODO: https://github.com/solo-io/istio-sidecarless/issues/244
+							return false
+						}
+						return true
+					},
 					ExpectMTLS: func(from echo.Instance, opts echo.CallOptions) bool {
 						return mtlsOnExpect(from, opts)
 					},
@@ -701,12 +746,14 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 	runTest := func(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
 		svcs := apps.All
 		for _, src := range svcs {
-			t.NewSubTestf("from %v", src.Config().Service).RunParallel(func(t framework.TestContext) {
+			src := src
+			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
 				for _, dst := range svcs {
-					t.NewSubTestf("to %v", dst.Config().Service).RunParallel(func(t framework.TestContext) {
+					dst := dst
+					t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
 						for _, opt := range callOptions {
-							src, dst, opt := src, dst, opt
-							t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
+							opt := opt
+							t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
 								opt = opt.DeepCopy()
 								opt.To = dst
 								opt.Check = check.OK()
@@ -748,7 +795,7 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 					tpe = "negative"
 					opt.Check = check.NotOK()
 				}
-				_ = tpe
+				t.Logf("expected result: %v", tpe)
 
 				include := c.Include
 				if include == nil {

@@ -87,6 +87,9 @@ type FakeOptions struct {
 	MeshConfig      *meshconfig.MeshConfig
 	NetworksWatcher mesh.NetworksWatcher
 
+	// If set, the ambient auto-labeler and controller will be disabled.
+	DisableAmbient bool
+
 	// Callback to modify the server before it is started
 	DiscoveryServerModifier func(s *DiscoveryServer)
 	// Callback to modify the kube client before it is started
@@ -170,7 +173,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Delegate: s,
 		}
 	}
-	ambient := controller.NewAggregate("istio-system", opts.DefaultClusterName, webhookConfigNoop, s)
+	var ambient *controller.Aggregate
+	if !opts.DisableAmbient {
+		ambient = controller.NewAggregate("istio-system", opts.DefaultClusterName, webhookConfigNoop, s, true)
+	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
@@ -189,6 +195,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Mode:            opts.KubernetesEndpointMode,
 			Stop:            stop,
 			SkipRun:         true,
+			MeshWatcher:     mesh.NewFixedWatcher(m),
 		})
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
@@ -201,8 +208,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop); err != nil {
 			t.Fatal(err)
 		}
-		if err := ambient.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop); err != nil {
-			t.Fatal(err)
+		if ambient != nil {
+			if err := ambient.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 
@@ -219,7 +228,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Configs:             opts.Configs,
 		ConfigString:        opts.ConfigString,
 		ConfigTemplateInput: opts.ConfigTemplateInput,
-		MeshConfig:          opts.MeshConfig,
+		MeshConfig:          m,
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
 		PushContextLock:     &s.updateMutex,

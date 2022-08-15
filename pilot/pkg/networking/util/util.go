@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	typev3 "github.com/cncf/xds/go/xds/type/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -174,12 +176,17 @@ func BuildAddress(bind string, port uint32) *core.Address {
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
 func BuildInternalAddress(name string) *core.Address {
+	return BuildInternalAddressWithIdentifier(name, "")
+}
+
+func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
 	return &core.Address{
 		Address: &core.Address_EnvoyInternalAddress{
 			EnvoyInternalAddress: &core.EnvoyInternalAddress{
 				AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
 					ServerListenerName: name,
 				},
+				EndpointId: identifier,
 			},
 		},
 	}
@@ -685,11 +692,68 @@ func DomainName(host string, port int) string {
 	return net.JoinHostPort(host, strconv.Itoa(port))
 }
 
-func BuildTunnelMetadata(m map[string]interface{}) *core.Metadata {
-	st, _ := structpb.NewStruct(m)
+// BuildInternalLbEndpoint builds an lb endpoint pointing to the internal listener named dest.
+// If the metadata contains "tunnel.destination" that will become the "endpointId" to prevent deduplication.
+func BuildInternalEndpoint(dest string, meta *core.Metadata) []*endpoint.LocalityLbEndpoints {
+	llb := []*endpoint.LocalityLbEndpoints{{
+		LbEndpoints: []*endpoint.LbEndpoint{BuildInternalLbEndpoint(dest, meta)},
+	}}
+	return llb
+}
+
+// BuildInternalLbEndpoint builds an lb endpoint pointing to the internal listener named dest.
+// If the metadata contains "tunnel.destination" that will become the "endpointId" to prevent deduplication.
+func BuildInternalLbEndpoint(dest string, meta *core.Metadata) *endpoint.LbEndpoint {
+	var endpointID string
+	if tunnel, ok := meta.GetFilterMetadata()["tunnel"]; ok {
+		if dest, ok := tunnel.GetFields()["destination"]; ok {
+			endpointID = dest.GetStringValue()
+		}
+	}
+	address := BuildInternalAddressWithIdentifier(dest, endpointID)
+
+	return &endpoint.LbEndpoint{
+		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+			Endpoint: &endpoint.Endpoint{
+				Address: address,
+			},
+		},
+		Metadata: meta,
+	}
+}
+
+func BuildTunnelMetadata(address string, port, tunnelPort int) *core.Metadata {
 	return &core.Metadata{
 		FilterMetadata: map[string]*structpb.Struct{
-			"tunnel": st,
+			"tunnel": BuildTunnelMetadataStruct(address, port, tunnelPort),
+		},
+	}
+}
+
+func BuildTunnelMetadataStruct(address string, port, tunnelPort int) *structpb.Struct {
+	st, _ := structpb.NewStruct(map[string]interface{}{
+		// ORIGINAL_DST destination address to tunnel on (usually only differs from "destination" by port)
+		"address": net.JoinHostPort(address, strconv.Itoa(tunnelPort)),
+		// logical destination behind the tunnel, on which policy and telemetry will be applied
+		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
+		// detunnel_ip/port are parts of "destination" split for easy use in %DYNAMIC_METADATA% (usually headers)
+		"detunnel_ip":   address,
+		"detunnel_port": strconv.Itoa(port),
+	})
+	return st
+}
+
+// InternalListenerSetAddressFilter is a filter for internal listeners that overrides the address based on the metadata
+// from BuildTunnelMetadata
+func InternalListenerSetAddressFilter() *listener.ListenerFilter {
+	v, _ := structpb.NewStruct(map[string]interface{}{})
+	return &listener.ListenerFilter{
+		Name: "set_dst_address",
+		ConfigType: &listener.ListenerFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&typev3.TypedStruct{
+				TypeUrl: "type.googleapis.com/istio.set_internal_dst_address.v1.Config",
+				Value:   v,
+			}),
 		},
 	}
 }

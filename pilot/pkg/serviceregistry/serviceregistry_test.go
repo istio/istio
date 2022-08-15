@@ -850,74 +850,87 @@ func TestWorkloadInstances(t *testing.T) {
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 	})
 
-	t.Run("ServiceEntry selects Pod: update service entry", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		makeIstioObject(t, s.Store(), serviceEntry)
-		makePod(t, s.KubeClient().Kube(), pod)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
-
-		newSE := serviceEntry.DeepCopy()
-		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.Port{{
-			Name:       "http",
-			Number:     80,
-			Protocol:   "http",
-			TargetPort: 8080,
-		}}
-		makeIstioObject(t, s.Store(), newSE)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:8080"})
-
-		newSE = newSE.DeepCopy()
-		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.Port{{
-			Name:       "http",
-			Number:     9090,
-			Protocol:   "http",
-			TargetPort: 9091,
-		}}
-		makeIstioObject(t, s.Store(), newSE)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-		expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", []string{"1.2.3.4:9091"})
-
-		if err := s.Store().Delete(gvk.ServiceEntry, newSE.Name, newSE.Namespace, nil); err != nil {
-			t.Fatal(err)
+	for _, ambient := range []bool{false, true} {
+		name := "disabled"
+		if ambient {
+			name = "enabled"
 		}
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-		expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", nil)
-	})
-
-	t.Run("ServiceEntry selects Pod: update pod", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		makeIstioObject(t, s.Store(), serviceEntry)
-		makePod(t, s.KubeClient().Kube(), pod)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
-
-		newPod := pod.DeepCopy()
-		newPod.Status.PodIP = "2.3.4.5"
-		makePod(t, s.KubeClient().Kube(), newPod)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"})
-
-		if err := s.KubeClient().Kube().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
-			t.Fatal(err)
+		m := mesh.DefaultMeshConfig()
+		if ambient {
+			m.AmbientMesh = &meshconfig.MeshConfig_AmbientMeshConfig{Mode: meshconfig.MeshConfig_AmbientMeshConfig_ON}
 		}
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-	})
+		opts := xds.FakeOptions{DisableAmbient: !ambient, MeshConfig: m}
+		t.Run("ambient "+name, func(t *testing.T) {
+			t.Run("ServiceEntry selects Pod: update service entry", func(t *testing.T) {
+				s := xds.NewFakeDiscoveryServer(t, opts)
+				makeIstioObject(t, s.Store(), serviceEntry)
+				makePod(t, s.KubeClient().Kube(), pod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:80"}, ambient))
 
-	t.Run("ServiceEntry selects Pod: deleting pod", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		makeIstioObject(t, s.Store(), serviceEntry)
-		makePod(t, s.KubeClient().Kube(), pod)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+				newSE := serviceEntry.DeepCopy()
+				newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.Port{{
+					Name:       "http",
+					Number:     80,
+					Protocol:   "http",
+					TargetPort: 8080,
+				}}
+				makeIstioObject(t, s.Store(), newSE)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:8080"}, ambient))
 
-		// Simulate pod being deleted by setting deletion timestamp
-		newPod := pod.DeepCopy()
-		newPod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-		makePod(t, s.KubeClient().Kube(), newPod)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+				newSE = newSE.DeepCopy()
+				newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.Port{{
+					Name:       "http",
+					Number:     9090,
+					Protocol:   "http",
+					TargetPort: 9091,
+				}}
+				makeIstioObject(t, s.Store(), newSE)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+				expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:9091"}, ambient))
 
-		if err := s.KubeClient().Kube().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
-			t.Fatal(err)
-		}
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-	})
+				if err := s.Store().Delete(gvk.ServiceEntry, newSE.Name, newSE.Namespace, nil); err != nil {
+					t.Fatal(err)
+				}
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+				expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", nil)
+			})
+
+			t.Run("ServiceEntry selects Pod: update pod", func(t *testing.T) {
+				s := xds.NewFakeDiscoveryServer(t, opts)
+				makeIstioObject(t, s.Store(), serviceEntry)
+				makePod(t, s.KubeClient().Kube(), pod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:80"}, ambient))
+
+				newPod := pod.DeepCopy()
+				newPod.Status.PodIP = "2.3.4.5"
+				makePod(t, s.KubeClient().Kube(), newPod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"2.3.4.5:80"}, ambient))
+
+				if err := s.KubeClient().Kube().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
+					t.Fatal(err)
+				}
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+			})
+
+			t.Run("ServiceEntry selects Pod: deleting pod", func(t *testing.T) {
+				s := xds.NewFakeDiscoveryServer(t, opts)
+				makeIstioObject(t, s.Store(), serviceEntry)
+				makePod(t, s.KubeClient().Kube(), pod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:80"}, ambient))
+
+				// Simulate pod being deleted by setting deletion timestamp
+				newPod := pod.DeepCopy()
+				newPod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+				makePod(t, s.KubeClient().Kube(), newPod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+
+				if err := s.KubeClient().Kube().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
+					t.Fatal(err)
+				}
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+			})
+		})
+	}
 
 	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
 		kc, _, store, kube, _ := setupTest(t)
@@ -953,6 +966,17 @@ func TestWorkloadInstances(t *testing.T) {
 		}}
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
+}
+
+func expectAmbient(strings []string, ambient bool) []string {
+	if !ambient {
+		return strings
+	}
+	var out []string
+	for _, s := range strings {
+		out = append(out, "tunnel;"+s)
+	}
+	return out
 }
 
 func setHealth(cfg config.Config, healthy bool) config.Config {

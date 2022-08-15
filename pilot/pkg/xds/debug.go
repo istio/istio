@@ -710,7 +710,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 
 	clusters, err := generate(v3.ClusterType)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cluster generate: %v", err)
 	}
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
 	for _, cs := range clusters {
@@ -721,7 +721,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 		DynamicActiveClusters: dynamicActiveClusters,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cluster marshal: %v", err)
 	}
 
 	listeners, err := generate(v3.ListenerType)

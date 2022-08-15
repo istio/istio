@@ -40,6 +40,8 @@ type Options struct {
 
 	LocalCluster  bool
 	WebhookConfig func() inject.WebhookConfig
+
+	forceAutoLabel bool
 }
 
 var (
@@ -52,6 +54,7 @@ func NewAggregate(
 	localCluster cluster.ID,
 	webhookConfig func() inject.WebhookConfig,
 	xdsUpdater model.XDSUpdater,
+	forceAutoLabel bool,
 ) *Aggregate {
 	return &Aggregate{
 		localCluster: localCluster,
@@ -59,6 +62,7 @@ func NewAggregate(
 			SystemNamespace: systemNamespace,
 			WebhookConfig:   webhookConfig,
 			xds:             xdsUpdater,
+			forceAutoLabel:  forceAutoLabel,
 		},
 
 		clusters: make(map[cluster.ID]*ambientController),
@@ -79,6 +83,9 @@ func (a *Aggregate) SidecarlessWorkloads() ambient.Indexes {
 		PEPs:      ambient.NewWorkloadIndex(),
 		UProxies:  ambient.NewWorkloadIndex(),
 		None:      ambient.NewWorkloadIndex(),
+	}
+	if a == nil {
+		return out
 	}
 
 	// consistent ordering should be handled somewhere (config gen, workload index), but not in the cluster iteration

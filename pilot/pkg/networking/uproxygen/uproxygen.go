@@ -53,7 +53,6 @@ package uproxygen
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -860,7 +859,13 @@ func (g *UProxyConfigGenerator) upstreamLbEndpointsFromShards(
 		}
 		if al := istioEndpoint.Labels[model.TunnelLabel]; al == model.TunnelH2 && istioEndpoint.EndpointPort == UproxyInboundCapturePort {
 			// Even if it is in the mesh, if it supports tunnel directly then we should pass through the traffic if its already tunneled
+			// TODO this assumes it gets captured and server uproxy inits the tunnel
 			supportsTunnel = false
+		}
+		if al := istioEndpoint.Labels[model.TunnelLabel]; al == model.TunnelH2 {
+			// if the pod natively supports tunnel, node local doesn't change the port since we're not relying on redirection here
+			capturePort = UproxyInboundCapturePort // TODO should this be if tunnel: h2 && !captured?
+			supportsTunnel = true
 		}
 		// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
 		// Instead, just go direct
@@ -869,19 +874,11 @@ func (g *UProxyConfigGenerator) upstreamLbEndpointsFromShards(
 		}
 		if supportsTunnel {
 			// TODO re-use some eds code; stable eds ordering, support multi-cluster cluster local rules, and multi-network stuff
-			metadata, err := structpb.NewStruct(map[string]interface{}{
-				"target":           outboundTunnelListenerName(sa),
-				"tunnel_address":   net.JoinHostPort(istioEndpoint.Address, strconv.Itoa(int(capturePort))), // TODO tunnel address changes if we have a Server PEP
-				"detunnel_address": net.JoinHostPort(istioEndpoint.Address, strconv.Itoa(int(istioEndpoint.EndpointPort))),
-				"detunnel_ip":      istioEndpoint.Address,
-				"detunnel_port":    strconv.Itoa(int(istioEndpoint.EndpointPort)),
-			})
-			if err != nil {
-				log.Warnf("error building metadata for %s: %v", err)
-			}
-			lbe.Metadata = &core.Metadata{FilterMetadata: map[string]*structpb.Struct{
-				"tunnel": metadata,
-			}}
+			tunnelLis := outboundTunnelListenerName(sa)
+			lbe = util.BuildInternalLbEndpoint(tunnelLis, util.BuildTunnelMetadata(
+				istioEndpoint.Address,
+				int(istioEndpoint.EndpointPort),
+				int(capturePort)))
 			lbe.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
@@ -932,7 +929,7 @@ func outboundTunnelListener(name string, sa string) *discovery.Resource {
 		Name:              name,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		Address:           util.BuildInternalAddress(name),
+		ListenerFilters:   []*listener.ListenerFilter{util.InternalListenerSetAddressFilter()},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
@@ -942,9 +939,9 @@ func outboundTunnelListener(name string, sa string) *discovery.Resource {
 						AccessLog:        accessLogString("outbound tunnel"),
 						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: outboundTunnelClusterName(sa)},
 						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-							Hostname: "%DYNAMIC_METADATA(tunnel:detunnel_address)%",
+							Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
 							HeadersToAdd: []*core.HeaderValueOption{
-								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_address\"])%"}},
+								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"destination\"])%"}},
 							},
 						},
 					}),
@@ -987,7 +984,7 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa strin
 		ConnectTimeout:       durationpb.New(2 * time.Second),
 		CleanupInterval:      durationpb.New(60 * time.Second),
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
-			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{UseHttpHeader: true},
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{},
 		},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket: &core.TransportSocket{
@@ -1065,12 +1062,14 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 	l := &listener.Listener{
 		Name:           "uproxy_inbound",
 		UseOriginalDst: wrappers.Bool(true),
-		ListenerFilters: []*listener.ListenerFilter{{
-			Name: wellknown.OriginalDestination,
-			ConfigType: &listener.ListenerFilter_TypedConfig{
-				TypedConfig: protoconv.MessageToAny(&originaldst.OriginalDst{}),
+		ListenerFilters: []*listener.ListenerFilter{
+			{
+				Name: wellknown.OriginalDestination,
+				ConfigType: &listener.ListenerFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&originaldst.OriginalDst{}),
+				},
 			},
-		}},
+		},
 		AccessLog: accessLogString("capture inbound listener"),
 		SocketOptions: []*core.SocketOption{{
 			Description: "Set socket mark to packets coming back from inbound listener",

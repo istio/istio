@@ -31,6 +31,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/cni/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -199,6 +201,7 @@ type controllerInterface interface {
 	getPodLocality(pod *v1.Pod) string
 	Network(endpointIP string, labels labels.Instance) network.ID
 	Cluster() cluster.ID
+	AmbientEnabled(pod *v1.Pod) bool
 }
 
 var (
@@ -272,6 +275,29 @@ type Controller struct {
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
 	initialSync *atomic.Bool
+	meshWatcher mesh.Watcher
+}
+
+func (c *Controller) AmbientEnabled(pod *v1.Pod) bool {
+	if pod == nil {
+		return false
+	}
+	ambientConfig := c.meshWatcher.Mesh().AmbientMesh
+	if ambientConfig.GetMode() == meshconfig.MeshConfig_AmbientMeshConfig_OFF {
+		return false
+	}
+
+	ns, _ := c.nsLister.Get(pod.Namespace) // Nil namespace is valid, we may not care if mode is ON
+
+	if pod.Name == "frontend-749ff9dc4f-b8zpv" {
+		log.WithLabels(
+			"mode", ambientConfig.GetMode(),
+			"legacy pod", ambient.HasLegacyLabel(pod.GetLabels()),
+			"opt out", ambient.PodHasOptOut(pod),
+			"namespace active", ambient.IsNamespaceActive(ns, ambientConfig.GetMode().String()),
+		).Infof("enabled? %v", ambient.ShouldPodBeInIpset(ns, pod, ambientConfig.GetMode().String(), true))
+	}
+	return ambient.ShouldPodBeInIpset(ns, pod, ambientConfig.GetMode().String(), true)
 }
 
 func (c *Controller) PodInformation() []*v1.Pod {
@@ -351,6 +377,16 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		}, c.nsInformer)
 		c.registerHandlers(nsInformer, "Namespaces", c.onSystemNamespaceEvent, nil)
 	}
+	c.registerHandlers(c.nsInformer, "Namespaces", func(a any, event model.Event) error {
+		return nil
+	}, func(old, cur any) bool {
+		oldLabel := getNamespaceLabel(old, "istio.io/dataplane-mode")
+		newLabel := getNamespaceLabel(cur, "istio.io/dataplane-mode")
+		if oldLabel != newLabel {
+			c.handleSelectedNamespace(c.opts.EndpointMode, getNamespaceName(old, cur))
+		}
+		return true
+	})
 
 	if c.opts.DiscoveryNamespacesFilter == nil {
 		c.opts.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(c.nsLister, options.MeshWatcher.Mesh().DiscoverySelectors)
@@ -398,7 +434,29 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
+	c.meshWatcher = options.MeshWatcher
+
 	return c
+}
+
+func getNamespaceLabel(old any, s string) string {
+	nsOld, ok := old.(*v1.Namespace)
+	if !ok {
+		return ""
+	}
+	return nsOld.GetLabels()[s]
+}
+
+func getNamespaceName(old, cur any) string {
+	nsOld, ok := old.(*v1.Namespace)
+	if ok && nsOld != nil {
+		return nsOld.GetName()
+	}
+	nsNew, ok := cur.(*v1.Namespace)
+	if ok && nsNew != nil {
+		return nsNew.GetName()
+	}
+	panic("neither objects were namespaces")
 }
 
 func (c *Controller) Provider() provider.ID {

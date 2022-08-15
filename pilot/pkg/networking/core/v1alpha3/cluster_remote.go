@@ -16,8 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"net"
-	"strconv"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -87,13 +85,8 @@ func (cb *ClusterBuilder) buildRemoteInboundPodCluster(wl ambient.Workload, port
 	tunnelPort := 15008
 	// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
 	// and add some detunnel metadata that had the original port.
-	llb := buildInternalEndpoint("inbound_CONNECT_originate", util.BuildTunnelMetadata(map[string]interface{}{
-		"target":           "inbound_CONNECT_originate",
-		"tunnel_address":   net.JoinHostPort(address, strconv.Itoa(tunnelPort)),
-		"detunnel_address": net.JoinHostPort(address, strconv.Itoa(port.Port)),
-		"detunnel_ip":      address,
-		"detunnel_port":    strconv.Itoa(port.Port),
-	}))
+	tunnelOrigLis := "inbound_CONNECT_originate"
+	llb := util.BuildInternalEndpoint(tunnelOrigLis, util.BuildTunnelMetadata(address, port.Port, tunnelPort))
 	if wl.Spec.NodeName == cb.proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
 		// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
 		// Instead, just go direct
@@ -128,7 +121,7 @@ func (cb *ClusterBuilder) buildRemoteInboundPodCluster(wl ambient.Workload, port
 
 func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
 	clusterType := cluster.Cluster_STATIC
-	llb := buildInternalEndpoint(listenerName, nil)
+	llb := util.BuildInternalEndpoint(listenerName, nil)
 	port := &model.Port{}
 	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
 		model.TrafficDirectionInbound, port, nil, nil)
@@ -144,7 +137,7 @@ func (cb *ClusterBuilder) buildRemoteInboundVIPInternalCluster(svc *model.Servic
 	destinationName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
 
 	clusterType := cluster.Cluster_STATIC
-	llb := buildInternalEndpoint(destinationName, nil)
+	llb := util.BuildInternalEndpoint(destinationName, nil)
 	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
 		model.TrafficDirectionInbound, &port, nil, nil)
 	// no TLS
@@ -359,26 +352,6 @@ func h2connectUpgrade() map[string]*anypb.Any {
 			}},
 		}),
 	}
-}
-
-func buildInternalEndpoint(dest string, meta *core.Metadata) []*endpoint.LocalityLbEndpoints {
-	lbEndpoints := []*endpoint.LbEndpoint{}
-	address := util.BuildInternalAddress(dest)
-
-	lb := &endpoint.LbEndpoint{
-		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-			Endpoint: &endpoint.Endpoint{
-				Address: address,
-			},
-		},
-		Metadata: meta,
-	}
-
-	lbEndpoints = append(lbEndpoints, lb)
-	llb := []*endpoint.LocalityLbEndpoints{{
-		LbEndpoints: lbEndpoints,
-	}}
-	return llb
 }
 
 func buildEndpoint(dest string, port int) []*endpoint.LocalityLbEndpoints {

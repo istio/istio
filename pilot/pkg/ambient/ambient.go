@@ -37,6 +37,8 @@ func (w Workload) Identity() string {
 type NodeType = string
 
 const (
+	LabelStatus = "istio.io/ambient-status"
+	TypeEnabled = "enabled"
 	// LabelType == "workload" -> intercept into uProxy
 	// TODO this could be an annotation – eventually move it into api repo
 	LabelType = "ambient-type"

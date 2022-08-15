@@ -34,7 +34,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -126,7 +125,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		passThroughBindIP: getPassthroughBindIP(proxy),
 		supportsIPv4:      proxy.SupportsIPv4(),
 		supportsIPv6:      proxy.SupportsIPv6(),
-		hbone:             proxy.EnableHBONE(),
+		hbone:             proxy.EnableHBONE() || proxy.IsPEP(),
 		locality:          proxy.Locality,
 		proxyLabels:       proxy.Metadata.Labels,
 		proxyView:         proxy.GetView(),
@@ -735,11 +734,6 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 		}
-		if !opts.meshExternal && cb.proxy.Metadata.SidecarlessType == ambient.TypePEP {
-			// TODO use envoy filter? or move this somewhere else for "PEP only"
-			opts.mutable.cluster.TransportSocketMatches = InternalUpstreamSocketMatch
-			opts.mutable.cluster.TransportSocket = nil
-		}
 	}
 
 	if opts.mutable.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
@@ -915,6 +909,13 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 
 func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSSettings, mtlsCtxType mtlsContextType) {
 	if tls == nil {
+		// We still allow HBONE
+		if cb.hbone {
+			opts.mutable.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+				InternalUpstreamSocketMatch[0],
+				defaultTransportSocketMatch(),
+			}
+		}
 		return
 	}
 
@@ -935,32 +936,43 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 
 	// For headless service, discover type will be `Cluster_ORIGINAL_DST`
 	// Apply auto mtls to clusters excluding these kind of headless service
-	if c.cluster.GetType() != cluster.Cluster_ORIGINAL_DST {
+	if cb.hbone {
+		transportSocket := c.cluster.TransportSocket
+		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
+			c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+				InternalUpstreamSocketMatch[0],
+				{
+					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+					Match:           istioMtlsTransportSocketMatch,
+					TransportSocket: transportSocket,
+				},
+				defaultTransportSocketMatch(),
+			}
+		} else {
+			c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+				// If HBONE exists, use it
+				InternalUpstreamSocketMatch[0],
+				// Otherwise default to mTLS
+				{
+					Name:            "tls",
+					Match:           &structpb.Struct{},
+					TransportSocket: transportSocket,
+				},
+			}
+		}
+	} else if c.cluster.GetType() != cluster.Cluster_ORIGINAL_DST {
 		// convert to transport socket matcher if the mode was auto detected
 		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
 			transportSocket := c.cluster.TransportSocket
 			c.cluster.TransportSocket = nil
-			if cb.hbone {
-				c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-					InternalUpstreamSocketMatch[0],
-					{
-						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
-						Match:           istioMtlsTransportSocketMatch,
-						TransportSocket: transportSocket,
-					},
-					defaultTransportSocketMatch(),
-				}
-			} else {
-				c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-					{
-						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
-						Match:           istioMtlsTransportSocketMatch,
-						TransportSocket: transportSocket,
-					},
-					defaultTransportSocketMatch(),
-				}
+			c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+					Match:           istioMtlsTransportSocketMatch,
+					TransportSocket: transportSocket,
+				},
+				defaultTransportSocketMatch(),
 			}
-
 		}
 	}
 }
@@ -1160,7 +1172,12 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster) {
 }
 
 func http2ProtocolOptions() *core.Http2ProtocolOptions {
-	return &core.Http2ProtocolOptions{}
+	return &core.Http2ProtocolOptions{
+		// Large values lead to internal listener crashes
+		// TODO: find a way to scope this to internal listeners or not crash
+		MaxConcurrentStreams:    wrappers.UInt32(1073741824),
+		InitialStreamWindowSize: wrappers.UInt32(16777216),
+	}
 }
 
 // nolint

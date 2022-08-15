@@ -32,10 +32,10 @@ import (
 	"istio.io/pkg/env"
 )
 
-var autoLabel = env.RegisterBoolVar("AMBIENT_AUTO_LABEL", true, "").Get()
+var autoLabel = env.RegisterBoolVar("AMBIENT_AUTO_LABEL", false, "").Get()
 
 func initAutolabel(opts *Options) {
-	if !autoLabel {
+	if !autoLabel && !opts.forceAutoLabel {
 		return
 	}
 	log.Infof("Starting ambient mesh auto-labeler")

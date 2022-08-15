@@ -352,12 +352,15 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	// Do not remove pilot/pkg/xds/fake.go
 	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
 
-	address, port := e.Address, e.EndpointPort
-	tunnelAddress, tunnelPort := address, 15008
+	address, port, tunnelPort := e.Address, e.EndpointPort, 15008
 
 	supportsTunnel := false
-	// Other side has a PEP or uProxy
-	if al := e.Labels[ambient.LabelType]; al == ambient.TypePEP || al == ambient.TypeWorkload {
+	// Other side is a PEP. TODO: can this really happen?
+	if al := e.Labels[ambient.LabelType]; al == ambient.TypePEP {
+		supportsTunnel = true
+	}
+	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
+	if al := e.Labels[ambient.LabelStatus]; al == ambient.TypeEnabled {
 		supportsTunnel = true
 	}
 	// Otherwise supports tunnel directly
@@ -367,13 +370,10 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 
 	// For outbound case, we selectively add tunnel info if the other side supports the tunnel
 	if dir != model.TrafficDirectionInboundVIP && supportsTunnel {
-		ambientTunnelMeta, _ := structpb.NewStruct(map[string]interface{}{
-			"target":           "tunnel",
-			"tunnel_address":   net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
-			"detunnel_address": net.JoinHostPort(address, strconv.Itoa(int(port))),
-			"detunnel_ip":      address,
-			"detunnel_port":    strconv.Itoa(int(port)),
-		})
+		ambientTunnelMeta := util.BuildTunnelMetadataStruct(address, int(port), tunnelPort)
+		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
+			Address: util.BuildInternalAddressWithIdentifier("tunnel", net.JoinHostPort(address, strconv.Itoa(int(port)))),
+		}}
 		ep.Metadata.FilterMetadata["tunnel"] = ambientTunnelMeta
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{

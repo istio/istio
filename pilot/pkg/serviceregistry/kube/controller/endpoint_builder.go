@@ -18,6 +18,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -82,6 +83,11 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 	}
 	networkID := out.endpointNetwork(ip)
 	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, networkID)
+	if c.AmbientEnabled(pod) {
+		out.labels[ambient.LabelStatus] = ambient.TypeEnabled
+	} else {
+		delete(out.labels, ambient.LabelStatus)
+	}
 	return out
 }
 

@@ -1270,13 +1270,9 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	// TODO(ambient) probably shouldn't do this conversion here...
 	socketAddr := res.GetAddress().GetSocketAddress()
 	if socketAddr != nil && opts.proxy.IsPEP() {
-		internalAddress := fmt.Sprintf("%s_%d", socketAddr.Address, socketAddr.GetPortValue())
-		res.Address = &core.Address{Address: &core.Address_EnvoyInternalAddress{
-			EnvoyInternalAddress: &core.EnvoyInternalAddress{AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
-				ServerListenerName: internalAddress,
-			}},
-		}}
+		res.Address = nil
 		res.ListenerSpecifier = &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}}
+		res.ListenerFilters = append(res.ListenerFilters, util.InternalListenerSetAddressFilter())
 	}
 
 	return res

@@ -314,7 +314,11 @@ func (c Config) HasSidecar() bool {
 }
 
 func (c Config) IsUncaptured() bool {
-	return len(c.Subsets) == 0 || c.Subsets[0].Labels == nil || c.Subsets[0].Labels["asm-type"] != "workload"
+	return len(c.Subsets) == 0 || c.Subsets[0].Labels == nil || c.Subsets[0].Labels["ambient-type"] == "none"
+}
+
+func (c Config) HasProxyCapabilities() bool {
+	return !c.IsUncaptured() || c.HasSidecar() || c.IsProxylessGRPC()
 }
 
 func (c Config) IsVM() bool {

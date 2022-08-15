@@ -180,14 +180,14 @@ func ShouldPodBeInIpset(namespace *corev1.Namespace, pod *corev1.Pod, meshMode s
 		meshMode != AmbientMeshOff.String() &&
 		!HasLegacyLabel(pod.GetLabels()) &&
 		!PodHasOptOut(pod) &&
-		isNamespaceActive(namespace, meshMode) {
+		IsNamespaceActive(namespace, meshMode) {
 		return true
 	}
 
 	return false
 }
 
-func isNamespaceActive(namespace *corev1.Namespace, meshMode string) bool {
+func IsNamespaceActive(namespace *corev1.Namespace, meshMode string) bool {
 	// Must:
 	// - MeshConfig be in an "ON" mode
 	// - MeshConfig must be in a "DEFAULT" mode, plus:
@@ -195,6 +195,7 @@ func isNamespaceActive(namespace *corev1.Namespace, meshMode string) bool {
 	//   - Namespace must have label istio.io/dataplane-mode=ambient
 	if meshMode == AmbientMeshOn.String() ||
 		(meshMode == AmbientMeshNamespace.String() &&
+			namespace != nil &&
 			!HasLegacyLabel(namespace.GetLabels()) &&
 			namespace.GetLabels()["istio.io/dataplane-mode"] == "ambient") {
 		return true

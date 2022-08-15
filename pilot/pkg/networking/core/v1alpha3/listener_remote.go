@@ -202,7 +202,7 @@ func (lb *ListenerBuilder) buildRemoteInboundOriginateConnect() *listener.Listen
 		Name:              name,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		Address:           util.BuildInternalAddress("inbound_CONNECT_originate"),
+		ListenerFilters:   []*listener.ListenerFilter{util.InternalListenerSetAddressFilter()},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
@@ -211,9 +211,9 @@ func (lb *ListenerBuilder) buildRemoteInboundOriginateConnect() *listener.Listen
 						StatPrefix:       name,
 						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
 						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-							Hostname: "%DYNAMIC_METADATA(tunnel:detunnel_address)%",
+							Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
 							HeadersToAdd: []*core.HeaderValueOption{
-								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_address\"])%"}},
+								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"destination\"])%"}},
 								// TODO the following are unused at this point
 								//{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_ip\"])%"}},
 								//{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_port\"])%"}},
@@ -262,15 +262,9 @@ func (lb *ListenerBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Servi
 				Name:              name,
 				ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 				TrafficDirection:  core.TrafficDirection_INBOUND,
-				Address: &core.Address{Address: &core.Address_EnvoyInternalAddress{
-					EnvoyInternalAddress: &core.EnvoyInternalAddress{
-						AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
-							ServerListenerName: name,
-						},
-					},
-				}},
-				FilterChains: []*listener.FilterChain{},
+				FilterChains:      []*listener.FilterChain{},
 				ListenerFilters: []*listener.ListenerFilter{
+					util.InternalListenerSetAddressFilter(),
 					{
 						Name: "envoy.filters.listener.metadata_to_peer_node",
 						ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: &any.Any{
@@ -353,15 +347,9 @@ func (lb *ListenerBuilder) buildRemoteInboundPod(wls []WorkloadAndServices) []*l
 			l := &listener.Listener{
 				Name:              name,
 				ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+				ListenerFilters:   []*listener.ListenerFilter{util.InternalListenerSetAddressFilter()},
 				TrafficDirection:  core.TrafficDirection_INBOUND,
-				Address: &core.Address{Address: &core.Address_EnvoyInternalAddress{
-					EnvoyInternalAddress: &core.EnvoyInternalAddress{
-						AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
-							ServerListenerName: name,
-						},
-					},
-				}},
-				FilterChains: []*listener.FilterChain{},
+				FilterChains:      []*listener.FilterChain{},
 			}
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector
@@ -737,9 +725,9 @@ func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listen
 		// AccessLog:        accessLogString("outbound tunnel"),
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%DYNAMIC_METADATA(tunnel:detunnel_address)%",
+			Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
 			HeadersToAdd: []*core.HeaderValueOption{
-				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_address\"])%"}},
+				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"destination\"])%"}},
 			},
 		},
 	}
@@ -748,7 +736,7 @@ func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listen
 		Name:              name,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		Address:           util.BuildInternalAddress(name),
+		ListenerFilters:   []*listener.ListenerFilter{util.InternalListenerSetAddressFilter()},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
 		}},

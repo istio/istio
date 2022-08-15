@@ -229,10 +229,10 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		}
 		name := fmt.Sprintf("inbound-hbone|%d", cc.port.TargetPort)
 		l := &listener.Listener{
-			Name:             name,
-			Address:          util.BuildInternalAddress(name),
-			TrafficDirection: core.TrafficDirection_INBOUND,
-			FilterChains:     chains,
+			Name:              name,
+			ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+			TrafficDirection:  core.TrafficDirection_INBOUND,
+			FilterChains:      chains,
 		}
 		accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 		l.ListenerFilters = populateListenerFilters(lb.node, l, true)
